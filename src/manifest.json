@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "${EXTENSION_NAME}",
+  "version": "0.1.0",
+  "description": "Chrome Extension with distributed messaging and reactive state",
+  "permissions": ["scripting", "tabs", "activeTab", "storage", "contextMenus", "offscreen"],
+  "host_permissions": ["${SUPPORTED_DOMAINS}"],
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["${SUPPORTED_DOMAINS}"],
+      "js": ["content/index.js"],
+      "css": ["content/styles.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "devtools_page": "devtools/devtools.html",
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["page/index.js"],
+      "matches": ["${SUPPORTED_DOMAINS}"],
+      "extension_ids": []
+    }
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

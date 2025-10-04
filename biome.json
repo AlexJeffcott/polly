@@ -1,0 +1,68 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+  "files": {
+    "ignore": ["dist/**", "node_modules/**", ".next/**", "build/**", "coverage/**"]
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "error",
+        "noUselessFragments": "error",
+        "noUselessUndefinedInitialization": "error",
+        "useLiteralKeys": "off"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedPrivateClassMembers": "error",
+        "noUnusedVariables": "error",
+        "useHookAtTopLevel": "error"
+      },
+      "performance": {
+        "noAccumulatingSpread": "error",
+        "noDelete": "error"
+      },
+      "style": {
+        "noDefaultExport": "error",
+        "noNegationElse": "error",
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "useCollapsedElseIf": "error",
+        "useConsistentArrayType": "off",
+        "useForOf": "error",
+        "useFragmentSyntax": "off",
+        "useShorthandArrayType": "off",
+        "useShorthandAssign": "error"
+      },
+      "suspicious": {
+        "noConsoleLog": "error",
+        "noEmptyBlockStatements": "error",
+        "noExplicitAny": "error",
+        "noSkippedTests": "error"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "trailingCommas": "es5",
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "bracketSpacing": true,
+      "bracketSameLine": false
+    }
+  }
+}

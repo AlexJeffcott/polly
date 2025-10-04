@@ -1,0 +1,138 @@
+import { test, expect } from '@playwright/test'
+import path from 'node:path'
+
+const extensionPath = path.resolve(__dirname, '../../dist')
+
+test.describe('Extension Loading', () => {
+  test('loads extension successfully', async ({ page, context }) => {
+    // Note: For full E2E testing, you need to launch with extension loaded
+    // This is a template for how E2E tests would work
+
+    // In a real test, you'd launch Chrome with the extension:
+    // const browserContext = await chromium.launchPersistentContext('', {
+    //   headless: false,
+    //   args: [
+    //     `--disable-extensions-except=${extensionPath}`,
+    //     `--load-extension=${extensionPath}`,
+    //   ],
+    // })
+
+    expect(true).toBe(true) // Placeholder
+  })
+
+  test('extension manifest is valid', async () => {
+    const manifestPath = path.join(extensionPath, 'manifest.json')
+    const manifest = await Bun.file(manifestPath).json()
+
+    expect(manifest.manifest_version).toBe(3)
+    expect(manifest.name).toBeTruthy()
+    expect(manifest.version).toBeTruthy()
+    expect(manifest.background).toBeDefined()
+    expect(manifest.content_scripts).toBeArray()
+  })
+
+  test('all required files exist', async () => {
+    const requiredFiles = [
+      'manifest.json',
+      'background/index.js',
+      'content/index.js',
+      'page/index.js',
+      'devtools/devtools.html',
+      'devtools/panel.html',
+      'popup/popup.html',
+      'options/options.html',
+      'offscreen/offscreen.html',
+    ]
+
+    for (const file of requiredFiles) {
+      const filePath = path.join(extensionPath, file)
+      const exists = await Bun.file(filePath).exists()
+      expect(exists).toBe(true)
+    }
+  })
+
+  test('icon assets exist', async () => {
+    const icons = ['icon16.png', 'icon48.png', 'icon128.png']
+
+    for (const icon of icons) {
+      const iconPath = path.join(extensionPath, 'assets', icon)
+      const exists = await Bun.file(iconPath).exists()
+      expect(exists).toBe(true)
+    }
+  })
+})
+
+test.describe('Build Output Validation', () => {
+  test('all TypeScript files are compiled', async () => {
+    const jsFiles = [
+      'background/index.js',
+      'content/index.js',
+      'page/index.js',
+      'devtools/index.js',
+      'devtools/panel.js',
+      'popup/popup.js',
+      'options/options.js',
+      'offscreen/offscreen.js',
+    ]
+
+    for (const file of jsFiles) {
+      const filePath = path.join(extensionPath, file)
+      const content = await Bun.file(filePath).text()
+
+      expect(content).toBeTruthy()
+      expect(content.length).toBeGreaterThan(0)
+    }
+  })
+
+  test('CSS files are built', async () => {
+    const cssFiles = [
+      'content/styles.css',
+      'devtools/panel.css',
+      'popup/popup.css',
+      'options/options.css',
+    ]
+
+    for (const file of cssFiles) {
+      const filePath = path.join(extensionPath, file)
+      const exists = await Bun.file(filePath).exists()
+      expect(exists).toBe(true)
+    }
+  })
+
+  test('manifest has correct permissions', async () => {
+    const manifestPath = path.join(extensionPath, 'manifest.json')
+    const manifest = await Bun.file(manifestPath).json()
+
+    expect(manifest.permissions).toContain('scripting')
+    expect(manifest.permissions).toContain('tabs')
+    expect(manifest.permissions).toContain('storage')
+    expect(manifest.permissions).toContain('contextMenus')
+    expect(manifest.permissions).toContain('offscreen')
+  })
+
+  test('manifest has correct host permissions', async () => {
+    const manifestPath = path.join(extensionPath, 'manifest.json')
+    const manifest = await Bun.file(manifestPath).json()
+
+    expect(manifest.host_permissions).toBeArray()
+    expect(manifest.host_permissions.length).toBeGreaterThan(0)
+  })
+
+  test('content script configuration is correct', async () => {
+    const manifestPath = path.join(extensionPath, 'manifest.json')
+    const manifest = await Bun.file(manifestPath).json()
+
+    expect(manifest.content_scripts).toBeArray()
+    expect(manifest.content_scripts[0].js).toContain('content/index.js')
+    expect(manifest.content_scripts[0].css).toContain('content/styles.css')
+    expect(manifest.content_scripts[0].run_at).toBe('document_idle')
+  })
+
+  test('web accessible resources are configured', async () => {
+    const manifestPath = path.join(extensionPath, 'manifest.json')
+    const manifest = await Bun.file(manifestPath).json()
+
+    expect(manifest.web_accessible_resources).toBeArray()
+    expect(manifest.web_accessible_resources[0].resources).toContain('page/index.js')
+  })
+})

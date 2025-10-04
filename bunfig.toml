@@ -1,0 +1,7 @@
+[serve.static]
+env = "BUN_PUBLIC_*"
+
+[test]
+exclude = [
+  "tests/e2e/**/*.spec.ts"
+]
