@@ -1,0 +1,27 @@
+{
+  "name": "@fairfox/web-ext-verify",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TLA+ verification for web extension message routing",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ts-morph": "^21.0.1",
+    "chokidar": "^3.5.3",
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "@fairfox/web-ext": "workspace:*"
+  }
+}
