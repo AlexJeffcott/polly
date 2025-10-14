@@ -1,17 +1,63 @@
+// ═══════════════════════════════════════════════════════════════
 // Public API for @fairfox/web-ext-verify
+// ═══════════════════════════════════════════════════════════════
 
-// Types
-export type { VerificationConfig, ValidationResult, CodebaseAnalysis } from "./types"
+// ─────────────────────────────────────────────────────────────────
+// Core Types (Domain-Agnostic)
+// ─────────────────────────────────────────────────────────────────
+export type {
+  CoreVerificationModel,
+  NodeDefinition,
+  MessageType,
+  RoutingPattern,
+  RoutingRule,
+  StateSchema,
+  FieldConfig,
+  StateAssignment,
+  VerificationCondition,
+  MessageHandler,
+  TypeKind,
+  TypeInfo,
+  Confidence,
+  FieldAnalysis,
+  CodebaseAnalysis,
+} from "./core/model"
 
-// Extraction
+// ─────────────────────────────────────────────────────────────────
+// Verification Primitives (Domain-Agnostic)
+// ─────────────────────────────────────────────────────────────────
+export {
+  requires,
+  ensures,
+  invariant,
+  inRange,
+  oneOf,
+  hasLength,
+  verify,
+} from "./core/primitives"
+
+// Also re-export from old location for backward compatibility
+export * from "./primitives/index"
+
+// ─────────────────────────────────────────────────────────────────
+// Adapters
+// ─────────────────────────────────────────────────────────────────
+export type { RoutingAdapter, AdapterConfig } from "./adapters/base"
+export { BaseRoutingAdapter } from "./adapters/base"
+export {
+  WebExtensionAdapter,
+  type WebExtensionAdapterConfig,
+  type ExtensionContext,
+} from "./adapters/web-extension"
+
+// ─────────────────────────────────────────────────────────────────
+// Legacy API (Backward Compatibility)
+// ─────────────────────────────────────────────────────────────────
+export type { VerificationConfig, ValidationResult } from "./types"
 export { HandlerExtractor, extractHandlers } from "./extract/handlers"
 export { analyzeCodebase } from "./extract/types"
-
-// Code generation
 export { TLAGenerator, generateTLA } from "./codegen/tla"
 export { generateConfig } from "./codegen/config"
-
-// Configuration
 export { validateConfig } from "./config/parser"
 
 /**
@@ -21,6 +67,3 @@ export { validateConfig } from "./config/parser"
 export function defineVerification(config: any): any {
   return config
 }
-
-// Verification primitives (requires, ensures, invariant)
-export * from "./primitives/index"

@@ -29,7 +29,9 @@ export class TypeExtractor {
     const fields = stateType ? this.analyzeFields(stateType) : []
 
     // Extract message handlers
-    const handlerExtractor = new HandlerExtractor(this.project.getCompilerOptions().configFilePath || "tsconfig.json")
+    const configFilePath = this.project.getCompilerOptions().configFilePath
+    const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json"
+    const handlerExtractor = new HandlerExtractor(tsConfigPath)
     const handlerAnalysis = handlerExtractor.extractHandlers()
 
     return {
@@ -296,7 +298,7 @@ export class TypeExtractor {
     if (type.kind === "enum" && type.enumValues) {
       analysis.confidence = "high"
       analysis.evidence.push(`Enum with ${type.enumValues.length} values`)
-      analysis.bounds.values = type.enumValues
+      analysis.bounds!.values = type.enumValues
       return analysis
     }
 
@@ -306,14 +308,14 @@ export class TypeExtractor {
       analysis.suggestions.push(
         "Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)"
       )
-      analysis.bounds.maxLength = null
+      analysis.bounds!.maxLength = undefined
 
       // Try to find bounds in code
       const foundBound = this.findArrayBound(path)
       if (foundBound) {
         analysis.confidence = "medium"
         analysis.evidence.push(`Found array check: ${foundBound.evidence}`)
-        analysis.bounds.maxLength = foundBound.value
+        analysis.bounds!.maxLength = foundBound.value
       }
 
       return analysis
@@ -323,15 +325,15 @@ export class TypeExtractor {
     if (type.kind === "number") {
       analysis.confidence = "low"
       analysis.suggestions.push("Provide min and max values based on your application logic")
-      analysis.bounds.min = null
-      analysis.bounds.max = null
+      analysis.bounds!.min = undefined
+      analysis.bounds!.max = undefined
 
       // Try to find bounds in code
       const foundBound = this.findNumberBound(path)
       if (foundBound) {
         analysis.confidence = "high"
         analysis.evidence.push(`Found comparison: ${foundBound.evidence}`)
-        analysis.bounds = { ...analysis.bounds, ...foundBound.bounds }
+        analysis.bounds = { ...analysis.bounds!, ...foundBound.bounds }
       }
 
       return analysis
@@ -344,7 +346,7 @@ export class TypeExtractor {
         'Provide 2-3 example values: ["value1", "value2", "value3"]',
         "Or use { abstract: true } for symbolic verification"
       )
-      analysis.bounds.values = null
+      analysis.bounds!.values = undefined
       return analysis
     }
 
@@ -352,7 +354,7 @@ export class TypeExtractor {
     if (type.kind === "map" || type.kind === "set") {
       analysis.confidence = "low"
       analysis.suggestions.push("Provide maxSize (recommended: 3-5)")
-      analysis.bounds.maxSize = null
+      analysis.bounds!.maxSize = undefined
       return analysis
     }
 

@@ -9,9 +9,8 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "./dist",
-    "rootDir": "./src",
-    "types": ["bun-types", "node"]
+    "types": ["node"]
   },
-  "include": ["src/**/*", "specs/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "specs"]
 }

@@ -50,39 +50,13 @@ export type FieldAnalysis = {
   }
 }
 
-export type CodebaseAnalysis = {
-  stateType: TypeInfo | null
-  messageTypes: string[]
-  fields: FieldAnalysis[]
-  handlers: MessageHandler[]
-}
-
-export type StateAssignment = {
-  field: string  // e.g., "user.loggedIn"
-  value: string | boolean | number | null  // The assigned value
-  conditional?: string  // Optional condition guard
-}
-
-export type VerificationCondition = {
-  expression: string  // The condition expression as a string
-  message?: string    // Optional error message
-  location: {
-    line: number
-    column: number
-  }
-}
-
-export type MessageHandler = {
-  messageType: string
-  context: string  // background, content, popup, etc.
-  assignments: StateAssignment[]
-  preconditions: VerificationCondition[]   // requires() calls
-  postconditions: VerificationCondition[]  // ensures() calls
-  location: {
-    file: string
-    line: number
-  }
-}
+// Re-export core types for backward compatibility
+export type {
+  MessageHandler,
+  StateAssignment,
+  VerificationCondition,
+  CodebaseAnalysis,
+} from "./core/model"
 
 export type VerificationConfig = {
   preset?: "quick" | "balanced" | "thorough"

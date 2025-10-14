@@ -1,6 +1,7 @@
 // TLA+ specification generator
 
 import type { VerificationConfig, CodebaseAnalysis } from "../types"
+import type { MessageHandler } from "../core/model"
 
 export class TLAGenerator {
   private lines: string[] = []
@@ -312,7 +313,7 @@ export class TLAGenerator {
     this.line("")
   }
 
-  private generateHandlerAction(messageType: string, handlers: typeof import("../types").MessageHandler[], config: VerificationConfig): void {
+  private generateHandlerAction(messageType: string, handlers: MessageHandler[], config: VerificationConfig): void {
     const actionName = this.messageTypeToActionName(messageType)
 
     this.line(`\\* Handler for ${messageType}`)

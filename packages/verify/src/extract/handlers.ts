@@ -2,33 +2,7 @@
 // Extracts message handlers and their state mutations
 
 import { Project, type SourceFile, SyntaxKind, Node } from "ts-morph"
-
-export interface StateAssignment {
-  field: string  // e.g., "user.loggedIn"
-  value: string | boolean | number | null  // The assigned value
-  conditional?: string  // Optional condition guard
-}
-
-export interface VerificationCondition {
-  expression: string  // The condition expression as a string
-  message?: string    // Optional error message
-  location: {
-    line: number
-    column: number
-  }
-}
-
-export interface MessageHandler {
-  messageType: string
-  context: string  // background, content, popup, etc.
-  assignments: StateAssignment[]
-  preconditions: VerificationCondition[]   // requires() calls
-  postconditions: VerificationCondition[]  // ensures() calls
-  location: {
-    file: string
-    line: number
-  }
-}
+import type { MessageHandler, StateAssignment, VerificationCondition } from "../core/model"
 
 export interface HandlerAnalysis {
   handlers: MessageHandler[]
@@ -146,7 +120,7 @@ export class HandlerExtractor {
 
     return {
       messageType,
-      context,
+      node: context,  // Renamed from 'context' to 'node' for generalization
       assignments,
       preconditions,
       postconditions,
