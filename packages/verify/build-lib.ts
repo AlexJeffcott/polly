@@ -51,8 +51,6 @@ const buildResult = await Bun.build({
   external: [
     // Mark dependencies as external (they'll be installed by users)
     "ts-morph",
-    "chokidar",
-    "chalk",
   ],
 });
 
