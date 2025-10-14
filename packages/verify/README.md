@@ -60,10 +60,46 @@ See [`examples/`](./examples/) for complete usage examples.
 ## Installation
 
 ```bash
-bun add @fairfox/web-ext-verify
+# Using Bun (recommended)
+bun add -D @fairfox/web-ext-verify
+
+# Using npm
+npm install --save-dev @fairfox/web-ext-verify
+
+# Using pnpm
+pnpm add -D @fairfox/web-ext-verify
+
+# Using yarn
+yarn add -D @fairfox/web-ext-verify
 ```
 
+> **Note:** This is a development tool. Install as a dev dependency (`-D` flag).
+
 ## Quick Start
+
+### Using the CLI
+
+The easiest way to get started is with the interactive CLI:
+
+```bash
+# 1. Generate configuration by analyzing your codebase
+bunx web-ext-verify --setup
+
+# 2. Review and edit the generated config
+# Edit: specs/verification.config.ts
+
+# 3. Validate your configuration
+bunx web-ext-verify --validate
+
+# 4. Run verification
+bunx web-ext-verify
+```
+
+The CLI will:
+- ✅ Analyze your TypeScript code automatically
+- ✅ Generate TLA+ specifications
+- ✅ Run the TLC model checker
+- ✅ Report any violations with counterexamples
 
 ### Example 1: Web Extension
 

@@ -1,0 +1,37 @@
+# Source files (only dist/ should be published)
+src/
+
+# Build and config files
+build-lib.ts
+tsconfig.json
+tsconfig.lib.json
+
+# Development files
+node_modules/
+.cache/
+.DS_Store
+*.log
+*.tmp
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+
+# Examples (included in dist via files field in package.json if needed)
+# examples/
+
+# Misc
+test-results/

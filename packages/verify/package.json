@@ -2,15 +2,35 @@
   "name": "@fairfox/web-ext-verify",
   "version": "0.1.0",
   "type": "module",
-  "description": "TLA+ verification for web extension message routing",
-  "main": "./src/index.ts",
-  "exports": {
-    ".": "./src/index.ts",
-    "./cli": "./src/cli.ts"
+  "description": "Formal verification for message-passing systems using TLA+. Automatically generates TLA+ specifications from TypeScript code.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "web-ext-verify": "./dist/cli.js"
   },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli.js",
+      "types": "./dist/cli.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "specs"
+  ],
   "scripts": {
     "dev": "bun run src/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "build:lib": "bun run build-lib.ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run typecheck && bun run build:lib",
+    "publish:public": "npm publish --access public"
   },
   "dependencies": {
     "ts-morph": "^21.0.1",
@@ -22,6 +42,35 @@
     "typescript": "^5.3.3"
   },
   "peerDependencies": {
-    "@fairfox/web-ext": "workspace:*"
-  }
+    "@fairfox/web-ext": "^0.1.0"
+  },
+  "keywords": [
+    "formal-verification",
+    "tla-plus",
+    "tla+",
+    "model-checking",
+    "verification",
+    "chrome-extension",
+    "web-extension",
+    "message-passing",
+    "event-bus",
+    "websocket",
+    "concurrent-systems",
+    "distributed-systems",
+    "correctness",
+    "testing",
+    "typescript",
+    "cli"
+  ],
+  "author": "Alex Jeffcott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexjeffcott/web-ext",
+    "directory": "packages/verify"
+  },
+  "bugs": {
+    "url": "https://github.com/alexjeffcott/web-ext/issues"
+  },
+  "homepage": "https://github.com/alexjeffcott/web-ext/tree/main/packages/verify#readme"
 }

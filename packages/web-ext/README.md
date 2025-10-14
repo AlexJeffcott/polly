@@ -35,7 +35,17 @@ This framework fixes all of that:
 ### Install
 
 ```bash
+# Using Bun (recommended)
 bun add @fairfox/web-ext
+
+# Using npm
+npm install @fairfox/web-ext
+
+# Using pnpm
+pnpm add @fairfox/web-ext
+
+# Using yarn
+yarn add @fairfox/web-ext
 ```
 
 ### Create Extension

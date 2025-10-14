@@ -3,29 +3,64 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Chrome Extension framework with reactive state and cross-context messaging",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "web-ext": "./cli/web-ext.ts"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./state": "./src/shared/lib/state.ts",
-    "./message-bus": "./src/shared/lib/message-bus.ts",
-    "./background": "./src/background/index.ts",
-    "./message-router": "./src/background/message-router.ts",
-    "./adapters": "./src/shared/adapters/index.ts",
-    "./errors": "./src/shared/lib/errors.ts",
-    "./types": "./src/shared/types/messages.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./state": {
+      "import": "./dist/shared/lib/state.js",
+      "types": "./dist/shared/lib/state.d.ts"
+    },
+    "./message-bus": {
+      "import": "./dist/shared/lib/message-bus.js",
+      "types": "./dist/shared/lib/message-bus.d.ts"
+    },
+    "./background": {
+      "import": "./dist/background/index.js",
+      "types": "./dist/background/index.d.ts"
+    },
+    "./message-router": {
+      "import": "./dist/background/message-router.js",
+      "types": "./dist/background/message-router.d.ts"
+    },
+    "./adapters": {
+      "import": "./dist/shared/adapters/index.js",
+      "types": "./dist/shared/adapters/index.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/shared/lib/errors.js",
+      "types": "./dist/shared/lib/errors.d.ts"
+    },
+    "./types": {
+      "import": "./dist/shared/types/messages.js",
+      "types": "./dist/shared/types/messages.d.ts"
+    }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "bun run build.ts --watch",
     "build": "bun run build.ts",
     "build:prod": "bun run build.ts --prod",
+    "build:lib": "bun run build-lib.ts",
     "build:full-featured": "bun run scripts/build-user-extension.ts examples/full-featured",
     "build:full-featured:prod": "bun run scripts/build-user-extension.ts examples/full-featured --prod",
     "typecheck": "bunx tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "prepublishOnly": "bun run typecheck && bun run lint && bun test && bun run build:lib",
+    "publish:public": "npm publish --access public"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
@@ -41,5 +76,38 @@
     "@preact/signals": "^2.3.1",
     "preact": "^10.27.2"
   },
+  "peerDependencies": {
+    "typescript": "^5",
+    "preact": "^10",
+    "@preact/signals": "^2"
+  },
+  "keywords": [
+    "chrome-extension",
+    "browser-extension",
+    "web-extension",
+    "framework",
+    "reactive",
+    "state-management",
+    "messaging",
+    "cross-context",
+    "preact",
+    "signals",
+    "typescript",
+    "devtools",
+    "content-script",
+    "background-script",
+    "popup",
+    "options"
+  ],
+  "author": "Alex Jeffcott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexjeffcott/web-ext"
+  },
+  "bugs": {
+    "url": "https://github.com/alexjeffcott/web-ext/issues"
+  },
+  "homepage": "https://github.com/alexjeffcott/web-ext#readme",
   "workspaces": ["examples/*"]
 }
