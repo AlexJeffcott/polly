@@ -49,6 +49,10 @@ export {
   type WebExtensionAdapterConfig,
   type ExtensionContext,
 } from "./adapters/web-extension"
+export {
+  EventBusAdapter,
+  type EventBusAdapterConfig,
+} from "./adapters/event-bus"
 
 // ─────────────────────────────────────────────────────────────────
 // Legacy API (Backward Compatibility)

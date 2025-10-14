@@ -1,18 +1,61 @@
 # @fairfox/web-ext-verify
 
-Formal verification for web extension message routing using TLA+.
+Formal verification for **any message-passing system** using TLA+.
 
 ## Overview
 
-This package automatically generates TLA+ specifications from your TypeScript types and verifies correctness properties about your extension's message routing and state management.
+This package automatically generates TLA+ specifications from your TypeScript types and verifies correctness properties about your application's message routing and state management.
+
+**Works with:**
+- ✅ Chrome Extensions (background, content, popup contexts)
+- ✅ Event-driven systems (EventEmitter, mitt, eventemitter3)
+- 📋 Web Workers / Service Workers _(coming soon)_
+- 📋 Actor systems (XState actors, etc.) _(coming soon)_
+- ✨ Custom message-passing systems (write your own adapter!)
 
 ## Features
 
+- **Universal adapters** - Works with web extensions, event buses, workers, and custom systems
 - **Type-driven verification** - Extracts types from TypeScript, generates TLA+ automatically
 - **Comment-driven configuration** - Smart config generation with inline guidance
-- **High-level primitives** - Express common patterns easily (before, requires, ensures, etc.)
+- **High-level primitives** - Express common patterns easily (requires, ensures, invariant, etc.)
 - **Progressive enhancement** - Start simple, add detail as needed
 - **Escape hatch** - Drop to raw TLA+ for complex properties
+
+## Adapter Architecture
+
+The verify package uses a **pluggable adapter system** to support different messaging paradigms:
+
+```
+┌─────────────────────────────────────────────────────┐
+│           User Configuration Layer                  │
+│  (defines domain-specific messaging patterns)       │
+└─────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────┐
+│        Routing Model Adapters (Pluggable)           │
+│  • WebExtension  • EventBus  • Worker  • Custom     │
+└─────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────┐
+│         Core Verification Engine                    │
+│  (domain-agnostic TLA+ generation & checking)       │
+└─────────────────────────────────────────────────────┘
+```
+
+### Available Adapters
+
+**WebExtensionAdapter** - Verifies Chrome extensions
+- Recognizes extension contexts (background, content, popup, etc.)
+- Understands `bus.on(type, handler)` pattern
+- Models tab-based routing
+
+**EventBusAdapter** - Verifies event-driven systems
+- Recognizes `emitter.on(event, handler)` pattern
+- Works with Node.js EventEmitter, mitt, eventemitter3
+- Models broadcast (one-to-many) routing
+
+See [`examples/`](./examples/) for complete usage examples.
 
 ## Installation
 
@@ -22,28 +65,72 @@ bun add @fairfox/web-ext-verify
 
 ## Quick Start
 
-### 1. Generate Configuration
-
-```bash
-bun verify --setup
-```
-
-This analyzes your codebase and generates `specs/verification.config.ts` with smart comments guiding you through configuration.
-
-### 2. Review and Complete Configuration
-
-Open `specs/verification.config.ts` and fill in values marked with `/* CONFIGURE */`:
+### Example 1: Web Extension
 
 ```typescript
-export default defineVerification({
-  state: {
-    // Auto-configured (high confidence)
-    "user.role": { type: "enum", values: ["admin", "user", "guest"] },
+// specs/verification.config.ts
+import { WebExtensionAdapter } from '@fairfox/web-ext-verify'
 
-    // Needs your input (low confidence)
-    todos: { maxLength: /* CONFIGURE */ null },
-    "user.id": { values: /* CONFIGURE */ null },
-  }
+const adapter = new WebExtensionAdapter({
+  tsConfigPath: "./tsconfig.json",
+  contexts: ["background", "content", "popup"],
+  maxTabs: 2,
+  maxInFlight: 6,
+})
+
+export default {
+  adapter,
+  state: {
+    "user.role": { type: "enum", values: ["admin", "user", "guest"] },
+    "todos": { maxLength: 10 },
+  },
+  onBuild: "warn",
+  onRelease: "error",
+}
+```
+
+### Example 2: Event Bus
+
+```typescript
+// specs/verification.config.ts
+import { EventBusAdapter } from '@fairfox/web-ext-verify'
+
+const adapter = new EventBusAdapter({
+  tsConfigPath: "./tsconfig.json",
+  emitterLibrary: "events",
+  maxInFlight: 5,
+})
+
+export default {
+  adapter,
+  state: {
+    "user.loggedIn": { type: "boolean" },
+    "notifications.count": { min: 0, max: 10 },
+  },
+  onBuild: "warn",
+  onRelease: "error",
+}
+```
+
+### Setup Steps
+
+#### 1. Choose Your Adapter
+
+Pick the adapter that matches your messaging system (see Available Adapters above).
+
+#### 2. Configure State Bounds
+
+Define bounds for your state fields (see Configuration Guide below).
+
+#### 3. Add Verification Primitives
+
+Add `requires()` and `ensures()` to your message handlers:
+
+```typescript
+bus.on("USER_LOGIN", (payload) => {
+  requires(state.user.loggedIn === false, "Must not be logged in")
+  state.user.loggedIn = true
+  ensures(state.user.loggedIn === true, "Must be logged in")
 })
 ```
 
