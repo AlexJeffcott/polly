@@ -5,6 +5,7 @@
 import { beforeEach, expect, test } from "bun:test";
 import { MessageRouter } from "@/background/message-router";
 import { MessageBus } from "@/shared/lib/message-bus";
+import { ALL_CONTEXTS, type ExtensionMessage } from "@/shared/types/messages";
 import {
   type MockExtensionAdapters,
   createMockAdapters,
@@ -12,10 +13,13 @@ import {
 } from "../helpers/adapters";
 
 let adapters: MockExtensionAdapters;
-let bus: MessageBus;
-let router: MessageRouter;
+let bus: MessageBus<ExtensionMessage>;
+let router: MessageRouter<ExtensionMessage>;
 
 beforeEach(() => {
+  // Reset MessageRouter singleton before each test
+  MessageRouter.resetInstance();
+
   adapters = createMockAdapters();
   bus = new MessageBus("background", adapters);
   router = new MessageRouter(bus);
@@ -151,7 +155,7 @@ test("MessageRouter logs when routing messages", () => {
   router.routeMessage({
     id: "test-msg-id",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -172,7 +176,7 @@ test("MessageRouter logs warning when port not found", () => {
   router.routeMessage({
     id: "test-msg-id",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 999, // Non-existent
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -201,7 +205,7 @@ test("MessageRouter includes message type in routing logs", () => {
   router.routeMessage({
     id: "test-msg-id",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "CUSTOM_MESSAGE", data: "test" },
@@ -266,7 +270,7 @@ test("MessageRouter logs broadcast messages", () => {
   router.routeMessage({
     id: "broadcast-msg",
     source: "background",
-    target: "broadcast",
+    targets: ALL_CONTEXTS, // Broadcast to all contexts
     timestamp: Date.now(),
     payload: {
       type: "SIGNAL_UPDATE",
@@ -353,7 +357,7 @@ test("MessageRouter does not log message payloads (potential sensitive data)", (
   router.routeMessage({
     id: "sensitive-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: {
@@ -448,7 +452,7 @@ test("MessageRouter uses appropriate log levels", () => {
   router.routeMessage({
     id: "test-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 999,
     timestamp: Date.now(),
     payload: { type: "TEST" },

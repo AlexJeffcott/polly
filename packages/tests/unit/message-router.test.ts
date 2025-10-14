@@ -1,8 +1,8 @@
-import { beforeEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { MessageRouter } from "@/background/message-router";
 import type { ExtensionAdapters } from "@/shared/adapters";
 import { MessageBus } from "@/shared/lib/message-bus";
-import type { RoutedMessage } from "@/shared/types/messages";
+import { ALL_CONTEXTS, type ExtensionMessage, type RoutedMessage } from "@/shared/types/messages";
 import {
   type MockRuntime,
   createMockContextMenus,
@@ -18,10 +18,13 @@ import {
 
 let mockRuntime: MockRuntime;
 let adapters: ExtensionAdapters;
-let bus: MessageBus;
-let router: MessageRouter;
+let bus: MessageBus<ExtensionMessage>;
+let router: MessageRouter<ExtensionMessage>;
 
 beforeEach(() => {
+  // Reset MessageRouter singleton before each test
+  MessageRouter.resetInstance();
+
   // Create runtime mock separately so we can access its internals
   mockRuntime = createMockRuntime();
 
@@ -119,7 +122,7 @@ test("MessageRouter - routes message to content script", () => {
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -142,7 +145,7 @@ test("MessageRouter - routes message to devtools", () => {
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "devtools",
+    targets: ["devtools"],
     tabId: 456,
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -153,7 +156,7 @@ test("MessageRouter - routes message to devtools", () => {
   expect(postMessageSpy).toHaveBeenCalledWith(message);
 });
 
-test("MessageRouter - broadcasts to all content scripts", () => {
+test("MessageRouter - broadcasts to all content scripts", async () => {
   const port1 = createMockPort("content-123");
   const port2 = createMockPort("content-456");
   const spy1 = mock();
@@ -166,10 +169,12 @@ test("MessageRouter - broadcasts to all content scripts", () => {
     listener(port2);
   }
 
-  const message: RoutedMessage = {
-    id: "test-id",
+  // Send to content context (which will broadcast to all content ports)
+  const message1: RoutedMessage = {
+    id: "test-id-1",
     source: "background",
-    target: "broadcast",
+    targets: ["content"], // Target content context
+    tabId: 123,
     timestamp: Date.now(),
     payload: {
       type: "STATE_SYNC",
@@ -179,9 +184,25 @@ test("MessageRouter - broadcasts to all content scripts", () => {
     },
   };
 
-  router.routeMessage(message);
-
+  await router.routeMessage(message1);
   expect(spy1).toHaveBeenCalled();
+
+  // Send to another content script
+  const message2: RoutedMessage = {
+    id: "test-id-2",
+    source: "background",
+    targets: ["content"],
+    tabId: 456,
+    timestamp: Date.now(),
+    payload: {
+      type: "STATE_SYNC",
+      key: "test2",
+      value: {},
+      clock: 2,
+    },
+  };
+
+  await router.routeMessage(message2);
   expect(spy2).toHaveBeenCalled();
 });
 
@@ -189,7 +210,7 @@ test("MessageRouter - handles missing port gracefully", () => {
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 999, // non-existent tab
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -226,7 +247,7 @@ test("MessageRouter - routes to popup", async () => {
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "popup",
+    targets: ["popup"],
     timestamp: Date.now(),
     payload: { type: "TAB_QUERY", queryInfo: {} },
   };
@@ -248,7 +269,7 @@ test("MessageRouter - routes to options", async () => {
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "options",
+    targets: ["options"],
     timestamp: Date.now(),
     payload: { type: "TAB_QUERY", queryInfo: {} },
   };
@@ -270,7 +291,7 @@ test("MessageRouter - routes to offscreen", async () => {
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "offscreen",
+    targets: ["offscreen"],
     timestamp: Date.now(),
     payload: { type: "CLIPBOARD_WRITE", text: "test" },
   };
@@ -330,7 +351,7 @@ test("MessageRouter - routes page script messages through content script", () =>
   const message: RoutedMessage = {
     id: "test-id",
     source: "background",
-    target: "page",
+    targets: ["page"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "PAGE_EVAL", code: 'console.log("test")' },

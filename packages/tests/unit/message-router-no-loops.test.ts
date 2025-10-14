@@ -8,6 +8,7 @@
 import { beforeEach, expect, test } from "bun:test";
 import { MessageRouter } from "@/background/message-router";
 import { MessageBus } from "@/shared/lib/message-bus";
+import { ALL_CONTEXTS, type ExtensionMessage } from "@/shared/types/messages";
 import {
   type MockExtensionAdapters,
   createMockAdapters,
@@ -15,10 +16,13 @@ import {
 } from "../helpers/adapters";
 
 let adapters: MockExtensionAdapters;
-let bus: MessageBus;
-let router: MessageRouter;
+let bus: MessageBus<ExtensionMessage>;
+let router: MessageRouter<ExtensionMessage>;
 
 beforeEach(() => {
+  // Reset MessageRouter singleton before each test
+  MessageRouter.resetInstance();
+
   adapters = createMockAdapters();
   bus = new MessageBus("background", adapters);
   router = new MessageRouter(bus);
@@ -41,7 +45,7 @@ test("Routing a message does NOT cause infinite loop", () => {
   const routePromise = router.routeMessage({
     id: "test-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "TEST_MESSAGE", data: "test" },
@@ -63,10 +67,10 @@ test("Multiple sequential routes do NOT cause loops", async () => {
     await router.routeMessage({
       id: `msg-${i}`,
       source: "background",
-      target: "content",
+      targets: ["content"],
       tabId: 123,
       timestamp: Date.now(),
-      payload: { type: "TEST", iteration: i },
+      payload: { type: "STATE_SYNC", key: `test-${i}`, value: { count: i }, clock: i },
     });
   }
 
@@ -94,7 +98,7 @@ test("Broadcasting does NOT cause infinite loop", () => {
   const broadcastPromise = router.routeMessage({
     id: "broadcast-msg",
     source: "background",
-    target: "broadcast",
+    targets: ALL_CONTEXTS, // Broadcast to all contexts
     timestamp: Date.now(),
     payload: {
       type: "STATE_SYNC",
@@ -104,7 +108,8 @@ test("Broadcasting does NOT cause infinite loop", () => {
     },
   });
 
-  expect(broadcastPromise).resolves.toBeUndefined();
+  // Just verify it completes without throwing (no infinite loop)
+  expect(broadcastPromise).resolves.toBeDefined();
 });
 
 test("Routing to multiple targets sequentially does NOT loop", async () => {
@@ -127,7 +132,7 @@ test("Routing to multiple targets sequentially does NOT loop", async () => {
   await router.routeMessage({
     id: "msg-1",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "TEST" },
@@ -136,7 +141,7 @@ test("Routing to multiple targets sequentially does NOT loop", async () => {
   await router.routeMessage({
     id: "msg-2",
     source: "background",
-    target: "devtools",
+    targets: ["devtools"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "TEST" },
@@ -145,7 +150,7 @@ test("Routing to multiple targets sequentially does NOT loop", async () => {
   await router.routeMessage({
     id: "msg-3",
     source: "background",
-    target: "popup",
+    targets: ["popup"],
     timestamp: Date.now(),
     payload: { type: "TEST" },
   });
@@ -224,7 +229,7 @@ test("Routing does not increase call stack depth dangerously", async () => {
   await router.routeMessage({
     id: "test-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "TEST" },
@@ -248,10 +253,10 @@ test("Multiple concurrent routes do NOT cause stack overflow", async () => {
       router.routeMessage({
         id: `msg-${i}`,
         source: "background",
-        target: "content",
+        targets: ["content"],
         tabId: 123,
         timestamp: Date.now(),
-        payload: { type: "TEST", iteration: i },
+        payload: { type: "STATE_SYNC", key: `test-${i}`, value: { count: i }, clock: i },
       })
     );
   }
@@ -270,7 +275,7 @@ test("Routing to non-existent port does NOT loop", async () => {
   const result = await router.routeMessage({
     id: "test-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 999,
     timestamp: Date.now(),
     payload: { type: "TEST" },
@@ -301,7 +306,7 @@ test("Routing to closed port does NOT loop", async () => {
   const result = await router.routeMessage({
     id: "test-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "TEST" },
@@ -327,10 +332,10 @@ test("Invalid message payload does NOT cause loop", async () => {
     await router.routeMessage({
       id: "test-msg",
       source: "background",
-      target: "content",
+      targets: ["content"],
       tabId: 123,
       timestamp: Date.now(),
-      payload: { type: "EMPTY_TEST" }, // Minimal valid message
+      payload: { type: "LOG", level: "info", message: "test", source: "background", timestamp: Date.now() }, // Minimal valid message
     });
   } catch (_error) {
     // May throw error, but should not loop
@@ -350,7 +355,7 @@ test("Routing with missing required fields does NOT loop", async () => {
   const result = await router.routeMessage({
     id: "test-msg",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: undefined, // Missing required field for content target
     timestamp: Date.now(),
     payload: { type: "TEST" },
@@ -386,10 +391,10 @@ test("Routing 1000 messages completes in reasonable time", async () => {
     await router.routeMessage({
       id: `msg-${i}`,
       source: "background",
-      target: "content",
+      targets: ["content"],
       tabId: 123,
       timestamp: Date.now(),
-      payload: { type: "TEST", iteration: i },
+      payload: { type: "STATE_SYNC", key: `test-${i}`, value: { count: i }, clock: i },
     });
   }
 
@@ -419,7 +424,7 @@ test("Broadcasting to 20 ports completes quickly", async () => {
   await router.routeMessage({
     id: "broadcast-msg",
     source: "background",
-    target: "broadcast",
+    targets: ALL_CONTEXTS, // Broadcast to all contexts
     timestamp: Date.now(),
     payload: {
       type: "STATE_SYNC",

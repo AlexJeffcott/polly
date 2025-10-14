@@ -173,18 +173,38 @@ test("StorageAdapter interface - clear all", async () => {
 
 test("TabsAdapter interface - query tabs", async () => {
   const mockChrome = createMockChrome();
-  const partialTab1: Partial<chrome.tabs.Tab> = {
+  const tab1: chrome.tabs.Tab = {
     id: 1,
+    index: 0,
+    pinned: false,
+    highlighted: false,
+    windowId: 1,
+    active: true,
+    incognito: false,
+    selected: true,
+    discarded: false,
+    autoDiscardable: true,
+    groupId: -1,
     url: "https://example.com",
     title: "Test",
   };
-  const partialTab2: Partial<chrome.tabs.Tab> = {
+  const tab2: chrome.tabs.Tab = {
     id: 2,
+    index: 1,
+    pinned: false,
+    highlighted: false,
+    windowId: 1,
+    active: false,
+    incognito: false,
+    selected: false,
+    discarded: false,
+    autoDiscardable: true,
+    groupId: -1,
     url: "https://test.com",
     title: "Test 2",
   };
-  mockChrome.tabs._tabs.set(1, partialTab1);
-  mockChrome.tabs._tabs.set(2, partialTab2);
+  mockChrome.tabs._tabs.set(1, tab1);
+  mockChrome.tabs._tabs.set(2, tab2);
 
   const adapter = mockChrome.tabs;
   const tabs = await adapter.query({});

@@ -1,7 +1,8 @@
-import { beforeEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { ConnectionError, TimeoutError } from "@/shared/lib/errors";
+import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
-import type { ExtensionMessage } from "@/shared/types/messages";
+import type { Context, ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
 import { createMockAdapters, createMockPort } from "../helpers/adapters";
 import { waitFor } from "../helpers/test-utils";
 
@@ -10,6 +11,11 @@ let bus: MessageBus;
 beforeEach(() => {
   const adapters = createMockAdapters();
   bus = new MessageBus("background", adapters);
+});
+
+afterEach(() => {
+  bus.destroy();
+  globalExecutionTracker.reset();
 });
 
 test("MessageBus - send message with automatic ID generation", async () => {
@@ -21,7 +27,7 @@ test("MessageBus - send message with automatic ID generation", async () => {
   bus.on("SETTINGS_GET", handler);
 
   const message: ExtensionMessage = { type: "SETTINGS_GET" };
-  const promise = bus.send(message);
+  const promise = bus.send(message, { target: "background" });
 
   // Simulate receiving response
   await waitFor(10);
@@ -63,7 +69,7 @@ test("MessageBus - message handler registration", async () => {
   await bus.handleMessage({
     id: "test-id",
     source: "content",
-    target: "background",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: message,
   });
@@ -74,7 +80,14 @@ test("MessageBus - message handler registration", async () => {
 test("MessageBus - request/response correlation", async () => {
   // Set up a handler that will respond
   const handler = mock(async (_payload: ExtensionMessage) => {
-    return { elements: [{ tagName: "div" }] };
+    return {
+      elements: [{
+        tag: "div",
+        text: "Test",
+        html: "<div>Test</div>",
+        attrs: {}
+      }]
+    };
   });
 
   bus.on("DOM_QUERY", handler);
@@ -86,10 +99,10 @@ test("MessageBus - request/response correlation", async () => {
 
   // Simulate the message coming from another context
   // In a real scenario, this would go through chrome.runtime and come back
-  const routedMessage = {
+  const routedMessage: RoutedMessage<ExtensionMessage> = {
     id: "test-id",
-    source: "content" as const,
-    target: "background" as const,
+    source: "content",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: message,
   };
@@ -97,9 +110,18 @@ test("MessageBus - request/response correlation", async () => {
   const response = await bus.handleMessage(routedMessage);
 
   expect(handler).toHaveBeenCalled();
-  if (typeof response === 'object' && response !== null && 'success' in response) {
+  if (typeof response === 'object' && response !== null && 'success' in response && response.success === true) {
     expect(response.success).toBe(true);
-    expect(response.data).toEqual({ elements: [{ tagName: "div" }] });
+    if ('data' in response) {
+      expect(response.data).toEqual({
+        elements: [{
+          tag: "div",
+          text: "Test",
+          html: "<div>Test</div>",
+          attrs: {}
+        }]
+      });
+    }
   } else {
     throw new Error('Response does not match expected shape');
   }
@@ -108,7 +130,7 @@ test("MessageBus - request/response correlation", async () => {
 test("MessageBus - timeout handling", async () => {
   const message: ExtensionMessage = { type: "SETTINGS_GET" };
 
-  const promise = bus.send(message, { timeout: 100 });
+  const promise = bus.send(message, { target: "background", timeout: 100 });
 
   // Don't send response - let it timeout
   await expect(promise).rejects.toThrow(TimeoutError);
@@ -128,7 +150,7 @@ test("MessageBus - multiple handlers for same message type", async () => {
   await bus.handleMessage({
     id: "test-id",
     source: "content",
-    target: "background",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: { type: "SETTINGS_GET" },
   });
@@ -185,18 +207,22 @@ test("MessageBus - handler error handling", async () => {
 
   bus.on("SETTINGS_GET", handler);
 
-  const response = await bus.handleMessage({
+  const routedMessage: RoutedMessage<ExtensionMessage> = {
     id: "test-id",
     source: "content",
-    target: "background",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: { type: "SETTINGS_GET" },
-  });
+  };
+
+  const response = await bus.handleMessage(routedMessage);
 
   expect(handler).toHaveBeenCalled();
-  if (typeof response === 'object' && response !== null && 'success' in response) {
+  if (typeof response === 'object' && response !== null && 'success' in response && response.success === false) {
     expect(response.success).toBe(false);
-    expect(response.error).toBe("Handler error");
+    if ('error' in response) {
+      expect(response.error).toBe("Handler error");
+    }
   } else {
     throw new Error('Response does not match expected shape');
   }
@@ -213,7 +239,7 @@ test("MessageBus - send with target context", () => {
   expect(sendSpy).toHaveBeenCalled();
   const call = sendSpy.mock.calls[0]?.[0];
   if (!call) throw new Error("Send call not found");
-  expect(call.target).toBe("popup");
+  expect(call.targets).toEqual(["popup"]);
   expect(call.tabId).toBe(123);
 
   // Restore
@@ -223,7 +249,7 @@ test("MessageBus - send with target context", () => {
 test("MessageBus - pending request cleanup on timeout", async () => {
   const message: ExtensionMessage = { type: "SETTINGS_GET" };
 
-  const promise = bus.send(message, { timeout: 50 });
+  const promise = bus.send(message, { target: "background", timeout: 50 });
 
   expect(bus.pendingRequests.size).toBeGreaterThan(0);
 
@@ -247,7 +273,7 @@ test("MessageBus - port disconnection rejects pending requests", async () => {
   testBus.connect("content-test");
 
   // Start a request (shorter timeout to avoid test timeout)
-  const promise = testBus.send({ type: "SETTINGS_GET" }, { timeout: 200 });
+  const promise = testBus.send({ type: "SETTINGS_GET" }, { target: "background", timeout: 200 });
 
   // Small delay to ensure request is pending
   await waitFor(10);

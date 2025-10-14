@@ -54,24 +54,33 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
         return undefined;
       }
 
-      // This is a request, call listeners and wait for response
+      // This is a request, call ALL listeners (Chrome calls all, but only first response is used)
       if (messageListeners.size === 0) {
         return undefined;
       }
 
       return new Promise((resolve) => {
-        // Call the first listener (Chrome only uses first response)
-        const listener = messageListeners.values().next().value;
-        if (listener) {
-          const result = listener(message, { url: "" }, (res) => {
+        let resolved = false;
+        const sharedSendResponse = (res: unknown) => {
+          if (!resolved) {
+            resolved = true;
             resolve(res);
-          });
-          // If listener returns true, it will send response asynchronously
-          // If it doesn't return true or returns undefined, resolve immediately
-          if (result === undefined || result === false) {
-            resolve(undefined);
           }
-        } else {
+        };
+
+        // Call all listeners (Chrome behavior)
+        for (const listener of messageListeners) {
+          const result = listener(message, { url: "" }, sharedSendResponse);
+          // If listener returns true, it will send response asynchronously
+          // If it returns false/undefined/void and we haven't resolved yet, continue to next listener
+          if (typeof result === 'boolean' && result === true) {
+            // Listener will send response asynchronously, wait for it
+            continue;
+          }
+        }
+
+        // If no listener handled it, resolve with undefined
+        if (!resolved) {
           resolve(undefined);
         }
       });
@@ -81,9 +90,18 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
         message: unknown,
         sender: MessageSender,
         sendResponse: (response: unknown) => void
-      ) => void
+      ) => void | boolean
     ) => {
       messageListeners.add(callback);
+    },
+    removeMessageListener: (
+      callback: (
+        message: unknown,
+        sender: MessageSender,
+        sendResponse: (response: unknown) => void
+      ) => void | boolean
+    ) => {
+      messageListeners.delete(callback);
     },
     connect: (name: string): PortAdapter => {
       const port = createMockPort(name);
