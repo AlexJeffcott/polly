@@ -80,14 +80,14 @@ export function createContentScriptHelpers(): ContentScriptHelpers {
       const metadata: Record<string, string> = {};
       const metaTags = document.querySelectorAll("meta");
 
-      metaTags.forEach((tag) => {
+      for (const tag of Array.from(metaTags)) {
         const name = tag.getAttribute("name") || tag.getAttribute("property");
         const content = tag.getAttribute("content");
 
         if (name && content) {
           metadata[name] = content;
         }
-      });
+      }
 
       return metadata;
     },

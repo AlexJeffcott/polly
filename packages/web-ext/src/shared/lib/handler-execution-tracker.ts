@@ -23,25 +23,18 @@ export class HandlerExecutionTracker {
   track(messageId: string, handlerType: string): void {
     if (!this.isDevelopment) return;
 
-    if (!this.executions.has(messageId)) {
-      this.executions.set(messageId, new Map());
+    let handlerCounts = this.executions.get(messageId);
+    if (!handlerCounts) {
+      handlerCounts = new Map();
+      this.executions.set(messageId, handlerCounts);
     }
 
-    const handlerCounts = this.executions.get(messageId)!;
     const count = (handlerCounts.get(handlerType) || 0) + 1;
     handlerCounts.set(handlerType, count);
 
     if (count > 1) {
       const error = new Error(
-        `🔴 DOUBLE EXECUTION DETECTED\n\n` +
-          `Handler "${handlerType}" executed ${count} times for message ${messageId}.\n\n` +
-          `This indicates multiple chrome.runtime.onMessage listeners are registered.\n` +
-          `Common causes:\n` +
-          `  1. Both MessageBus and MessageRouter registered listeners\n` +
-          `  2. createBackground() called multiple times\n` +
-          `  3. Handler registered in multiple places\n\n` +
-          `Fix: Ensure only ONE listener is registered. In background scripts,\n` +
-          `use createBackground() instead of getMessageBus().\n`
+        `🔴 DOUBLE EXECUTION DETECTED\n\nHandler "${handlerType}" executed ${count} times for message ${messageId}.\n\nThis indicates multiple chrome.runtime.onMessage listeners are registered.\nCommon causes:\n  1. Both MessageBus and MessageRouter registered listeners\n  2. createBackground() called multiple times\n  3. Handler registered in multiple places\n\nFix: Ensure only ONE listener is registered. In background scripts,\nuse createBackground() instead of getMessageBus().\n`
       );
 
       console.error(error);

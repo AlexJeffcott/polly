@@ -206,6 +206,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Core state management logic requires coordination of multiple concerns
 function createState<T>(key: string, initialValue: T, options: InternalStateOptions<T>): Signal<T> {
   // Return existing signal if already registered
   if (stateRegistry.has(key)) {
@@ -258,6 +259,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
     let previousValue = sig.value;
     let isFirstRun = true;
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Sync effect requires coordination of multiple state change scenarios
     effect(() => {
       // Skip if update in progress (from incoming message)
       if (entry.updating) return;

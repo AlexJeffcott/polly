@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { MessageRouter } from "@/background/message-router";
 import type { ExtensionAdapters } from "@/shared/adapters";
 import { MessageBus } from "@/shared/lib/message-bus";
@@ -24,6 +24,11 @@ function simulatePortConnection(mockRuntime: MockRuntime, port: ReturnType<typeo
     listener(port);
   }
 }
+
+// Reset MessageRouter singleton after each test
+afterEach(() => {
+  MessageRouter.resetInstance();
+});
 
 test("Integration - Background to Content communication", async () => {
   const mockRuntime = createMockRuntime();
@@ -62,7 +67,7 @@ test("Integration - Background to Content communication", async () => {
   router.routeMessage({
     id: "test-id",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 123,
     timestamp: Date.now(),
     payload: message,
@@ -81,9 +86,9 @@ test("Integration - Content to Background communication", async () => {
   const handler = mock(async (_payload: ExtensionMessage) => ({ settings: { debugMode: true } }));
   backgroundBus.on("SETTINGS_GET", handler);
 
-  // Send from content
+  // Send from content to background
   const message: ExtensionMessage = { type: "SETTINGS_GET" };
-  await contentBus.send(message);
+  await contentBus.send(message, { target: "background" });
 
   // Handler should be called
   expect(handler).toHaveBeenCalled();
@@ -111,6 +116,10 @@ test("Integration - Signal synchronization across contexts", async () => {
 
   // Content should receive the update
   expect(updateHandler).toHaveBeenCalled();
+
+  // Cleanup
+  backgroundBus.destroy();
+  contentBus.destroy();
 });
 
 test("Integration - Multiple tabs with separate contexts", () => {
@@ -172,7 +181,7 @@ test("Integration - DevTools connection per tab", () => {
   router.routeMessage({
     id: "test-id",
     source: "background",
-    target: "devtools",
+    targets: ["devtools"],
     tabId: 123,
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -181,7 +190,7 @@ test("Integration - DevTools connection per tab", () => {
   expect(spy).toHaveBeenCalled();
 });
 
-test("Integration - Broadcast to all connected contexts", () => {
+test("Integration - Broadcast to all connected contexts", async () => {
   const mockRuntime = createMockRuntime();
   const adapters: ExtensionAdapters = {
     runtime: mockRuntime,
@@ -215,11 +224,12 @@ test("Integration - Broadcast to all connected contexts", () => {
   simulatePortConnection(mockRuntime, content2);
   simulatePortConnection(mockRuntime, devtools1);
 
-  // Broadcast message
-  router.routeMessage({
-    id: "test-id",
+  // Send to content port 123
+  await router.routeMessage({
+    id: "test-id-1",
     source: "background",
-    target: "broadcast",
+    targets: ["content"],
+    tabId: 123,
     timestamp: Date.now(),
     payload: {
       type: "SIGNAL_UPDATE",
@@ -229,10 +239,43 @@ test("Integration - Broadcast to all connected contexts", () => {
     },
   });
 
-  // All contexts should receive the broadcast
+  // Send to content port 456
+  await router.routeMessage({
+    id: "test-id-2",
+    source: "background",
+    targets: ["content"],
+    tabId: 456,
+    timestamp: Date.now(),
+    payload: {
+      type: "SIGNAL_UPDATE",
+      signalId: "test2",
+      value: {},
+      source: "background",
+    },
+  });
+
+  // Send to devtools port 123
+  await router.routeMessage({
+    id: "test-id-3",
+    source: "background",
+    targets: ["devtools"],
+    tabId: 123,
+    timestamp: Date.now(),
+    payload: {
+      type: "SIGNAL_UPDATE",
+      signalId: "test3",
+      value: {},
+      source: "background",
+    },
+  });
+
+  // All contexts should have received their messages
   expect(spy1).toHaveBeenCalled();
   expect(spy2).toHaveBeenCalled();
   expect(spy3).toHaveBeenCalled();
+
+  // Cleanup
+  backgroundBus.destroy();
 });
 
 test("Integration - Port cleanup on disconnect", () => {
@@ -290,8 +333,8 @@ test("Integration - Settings synchronization across contexts", async () => {
     return { settings: result["app-settings"] };
   });
 
-  // Popup requests settings
-  const response = await popupBus.send({ type: "SETTINGS_GET" });
+  // Popup requests settings from background
+  const response = await popupBus.send({ type: "SETTINGS_GET" }, { target: "background" });
   if (!response || !("settings" in response)) throw new Error("Invalid response");
 
   expect(response.settings).toEqual({ debugMode: true, theme: "dark" });

@@ -23,9 +23,6 @@ const isProd = args.includes("--prod");
 const srcDir = `${extensionPath}/src`;
 const distDir = `${extensionPath}/dist`;
 
-console.log(`Building extension: ${extensionPath}`);
-console.log(`Mode: ${isProd ? "production" : "development"}`);
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -44,8 +41,6 @@ async function copyManifest() {
 
   const manifest = await Bun.file(manifestPath).json();
   await Bun.write(`${distDir}/manifest.json`, JSON.stringify(manifest, null, 2));
-
-  console.log("✓ Copied manifest.json");
 }
 
 async function copyHTML() {
@@ -69,7 +64,6 @@ async function copyHTML() {
       }
 
       await Bun.write(outPath, content);
-      console.log(`✓ Copied ${file}`);
     }
   }
 }
@@ -93,8 +87,6 @@ async function copyAssets() {
     const content = await Bun.file(srcPath).arrayBuffer();
     await Bun.write(outPath, content);
   }
-
-  console.log(`✓ Copied ${files.length} assets`);
 }
 
 async function buildTypeScript() {
@@ -123,13 +115,7 @@ async function buildTypeScript() {
   }
 
   if (entryPoints.length === 0) {
-    console.log("⚠ No TypeScript entry points found");
     return;
-  }
-
-  console.log(`Found ${entryPoints.length} entry points:`);
-  for (const entry of entryPoints) {
-    console.log(`  - ${entry.replace(srcDir + "/", "")}`);
   }
 
   // Build with Bun
@@ -156,8 +142,6 @@ async function buildTypeScript() {
     }
     throw new Error("TypeScript build failed");
   }
-
-  console.log(`✓ Built ${result.outputs.length} JavaScript files`);
 }
 
 async function buildCSS() {
@@ -186,8 +170,6 @@ async function buildCSS() {
       await Bun.write(outPath, result.outputs[0]);
     }
   }
-
-  console.log(`✓ Built ${cssFiles.length} CSS files`);
 }
 
 // ============================================================================
@@ -196,17 +178,12 @@ async function buildCSS() {
 
 async function build() {
   try {
-    console.log("\n📦 Starting build...\n");
-
     await cleanDist();
     await copyManifest();
     await copyHTML();
     await copyAssets();
     await buildCSS();
     await buildTypeScript();
-
-    console.log("\n✅ Build complete!\n");
-    console.log(`Output: ${distDir}`);
   } catch (error) {
     console.error("\n❌ Build failed:", error);
     process.exit(1);

@@ -5,10 +5,11 @@
  * services, errors, and logging across the extension.
  */
 
-import { beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { LogStore } from "@/background/log-store";
 import { MessageRouter } from "@/background/message-router";
 import type { ExtensionAdapters } from "@/shared/adapters";
+import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import { settings } from "@/shared/state/app-state";
 import type { LogEntry } from "@/shared/types/messages";
@@ -25,11 +26,19 @@ let mockRuntime: MockRuntime;
 let bus: MessageBus;
 
 beforeEach(() => {
+  // Reset MessageRouter singleton before each test
+  MessageRouter.resetInstance();
+
   adapters = createMockAdapters();
   mockLogger = adapters.logger as MockLogger;
   mockRuntime = adapters.runtime as MockRuntime;
   bus = new MessageBus("background", adapters);
   new LogStore(bus);
+});
+
+afterEach(() => {
+  bus.destroy();
+  globalExecutionTracker.reset();
 });
 
 // ============================================================================
@@ -187,7 +196,7 @@ test("Scenario: Attempt to message closed tab - warning logged", () => {
   router.routeMessage({
     id: "msg-123",
     source: "background",
-    target: "content",
+    targets: ["content"],
     tabId: 999, // Doesn't exist
     timestamp: Date.now(),
     payload: { type: "DOM_QUERY", selector: ".test" },
@@ -522,9 +531,9 @@ test("Scenario: Developer reviews only errors and warnings", async () => {
 
 test("Scenario: Trace message flow across contexts", async () => {
   const messageId = `msg-${Date.now()}`;
-  new MessageRouter(bus);
+  // Note: Not creating MessageRouter here to avoid duplicate LOGS_GET handlers
 
-  // Connect content script
+  // Connect content script (not used in this test, but simulates real scenario)
   const contentPort = createMockPort("content-123");
   for (const listener of mockRuntime._connectListeners) {
     listener(contentPort);
@@ -534,7 +543,7 @@ test("Scenario: Trace message flow across contexts", async () => {
   await bus.handleMessage({
     id: crypto.randomUUID(),
     source: "popup",
-    target: "background",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: {
       type: "LOG",
@@ -549,7 +558,7 @@ test("Scenario: Trace message flow across contexts", async () => {
   await bus.handleMessage({
     id: crypto.randomUUID(),
     source: "background",
-    target: "background",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: {
       type: "LOG",
@@ -564,7 +573,7 @@ test("Scenario: Trace message flow across contexts", async () => {
   await bus.handleMessage({
     id: crypto.randomUUID(),
     source: "content",
-    target: "background",
+    targets: ["background"],
     timestamp: Date.now(),
     payload: {
       type: "LOG",

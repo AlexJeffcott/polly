@@ -221,18 +221,11 @@ export class TestRunner<TMessage extends BaseMessage = ExtensionMessage> {
    * Print test results to console.
    */
   printResults(): void {
-    const summary = this.getSummary();
-
     console.group(`[${this.suite.context}] Test Results`);
-    console.log(`Passed: ${summary.passed}/${summary.total}`);
-    console.log(`Failed: ${summary.failed}/${summary.total}`);
-    console.log(`Duration: ${summary.duration}ms`);
 
     for (const test of this.suite.tests.values()) {
       if (test.error) {
         console.error(`❌ ${test.name}: ${test.error} (${test.duration}ms)`);
-      } else {
-        console.log(`✅ ${test.name} (${test.duration}ms)`);
       }
     }
 
@@ -285,9 +278,7 @@ export async function quickTest(name: string, fn: () => Promise<unknown>): Promi
   const startTime = Date.now();
 
   try {
-    const result = await fn();
-    const duration = Date.now() - startTime;
-    console.log(`✅ ${name}: ${JSON.stringify(result)} (${duration}ms)`);
+    await fn();
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(

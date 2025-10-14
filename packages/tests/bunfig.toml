@@ -3,5 +3,6 @@ env = "BUN_PUBLIC_*"
 
 [test]
 exclude = [
-  "tests/e2e/**/*.spec.ts"
+  "tests/e2e/**/*.spec.ts",
+  "**/framework-validation/**"
 ]

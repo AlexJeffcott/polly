@@ -345,7 +345,7 @@ test("Integration - High volume logging maintains circular buffer", async () => 
     await backgroundBus.handleMessage({
       id: crypto.randomUUID(),
       source: "background",
-      target: "background",
+      targets: ["background"],
       timestamp: now + i,
       payload: {
         type: "LOG",
@@ -361,7 +361,7 @@ test("Integration - High volume logging maintains circular buffer", async () => 
     await backgroundBus.handleMessage({
       id: crypto.randomUUID(),
       source: "content",
-      target: "background",
+      targets: ["background"],
       timestamp: now + 8 + i,
       payload: {
         type: "LOG",
@@ -377,7 +377,7 @@ test("Integration - High volume logging maintains circular buffer", async () => 
     await backgroundBus.handleMessage({
       id: crypto.randomUUID(),
       source: "popup",
-      target: "background",
+      targets: ["background"],
       timestamp: now + 15 + i,
       payload: {
         type: "LOG",
@@ -482,7 +482,7 @@ test("Integration - Context metadata is preserved in logs", async () => {
     context: {
       userId: "12345",
       action: "click",
-      target: "button",
+      targets: ["button"],
       metadata: {
         page: "settings",
         timestamp: Date.now(),

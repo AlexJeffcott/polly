@@ -12,10 +12,6 @@ const distDir = process.env["WEB_EXT_DIST"] || "dist";
 const manifestPath = process.env["WEB_EXT_MANIFEST"] || "manifest.json";
 const isProd = process.env["WEB_EXT_PROD"] === "true";
 
-console.log(`Source: ${srcDir}`);
-console.log(`Output: ${distDir}`);
-console.log(`Manifest: ${manifestPath}`);
-
 // ============================================================================
 // Build Functions
 // ============================================================================
@@ -24,7 +20,6 @@ async function cleanDist() {
   // Use Bun shell for directory operations
   await Bun.$`rm -rf ${distDir}`.quiet();
   await Bun.$`mkdir -p ${distDir}`.quiet();
-  console.log("✓ Cleaned dist directory");
 }
 
 async function copyManifest() {
@@ -34,7 +29,6 @@ async function copyManifest() {
 
   const manifest = await Bun.file(manifestPath).json();
   await Bun.write(`${distDir}/manifest.json`, JSON.stringify(manifest, null, 2));
-  console.log("✓ Copied manifest.json");
 }
 
 async function copyHTML() {
@@ -52,10 +46,6 @@ async function copyHTML() {
 
     const content = await Bun.file(srcPath).text();
     await Bun.write(outPath, content);
-  }
-
-  if (htmlFiles.length > 0) {
-    console.log(`✓ Copied ${htmlFiles.length} HTML files`);
   }
 }
 
@@ -82,10 +72,6 @@ async function copyAssets() {
 
     const content = await Bun.file(srcPath).arrayBuffer();
     await Bun.write(outPath, content);
-  }
-
-  if (files.length > 0) {
-    console.log(`✓ Copied ${files.length} assets`);
   }
 }
 
@@ -121,11 +107,8 @@ async function buildTypeScript() {
   }
 
   if (entryPoints.length === 0) {
-    console.log("⚠️  No TypeScript entry points found");
     return;
   }
-
-  console.log(`Found ${entryPoints.length} entry points`);
 
   // Build with Bun
   const result = await Bun.build({
@@ -151,8 +134,6 @@ async function buildTypeScript() {
     }
     throw new Error("TypeScript build failed");
   }
-
-  console.log(`✓ Built ${result.outputs.length} JavaScript files`);
 }
 
 async function buildCSS() {
@@ -181,8 +162,6 @@ async function buildCSS() {
       await Bun.write(outPath, result.outputs[0]);
     }
   }
-
-  console.log(`✓ Built ${cssFiles.length} CSS files`);
 }
 
 // ============================================================================

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ExtensionMessage, MessageResponse } from "@/shared/types/messages";
+import { ALL_CONTEXTS, type ExtensionMessage, type MessageResponse } from "@/shared/types/messages";
 import { createMockRoutedMessage, expectType } from "../helpers/test-utils";
 
 test("ExtensionMessage - DOM_QUERY type safety", () => {
@@ -80,13 +80,13 @@ test("RoutedMessage - wraps ExtensionMessage with metadata", () => {
 
   const routed = createMockRoutedMessage(payload, {
     source: "content",
-    target: "background",
+    targets: ["background"],
     tabId: 123,
   });
 
   expect(routed.id).toBeString();
   expect(routed.source).toBe("content");
-  expect(routed.target).toBe("background");
+  expect(routed.targets).toEqual(["background"]);
   expect(routed.tabId).toBe(123);
   expect(routed.timestamp).toBeNumber();
   expect(routed.payload).toEqual(payload);
@@ -101,10 +101,10 @@ test("RoutedMessage - broadcast target", () => {
   };
 
   const routed = createMockRoutedMessage(payload, {
-    target: "broadcast",
+    targets: ALL_CONTEXTS,
   });
 
-  expect(routed.target).toBe("broadcast");
+  expect(routed.targets).toEqual(ALL_CONTEXTS);
 });
 
 test("ExtensionMessage - discriminated union exhaustiveness", () => {

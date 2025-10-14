@@ -2,8 +2,20 @@
 
 import type { MessageSender, PortAdapter, RuntimeAdapter } from "../runtime.adapter";
 
+type MessageListener = (
+  message: unknown,
+  sender: MessageSender,
+  sendResponse: (response: unknown) => void
+) => undefined | boolean;
+
+type ChromeMessageListener = (
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: unknown) => void
+) => undefined | boolean;
+
 export class ChromeRuntimeAdapter implements RuntimeAdapter {
-  private messageListeners = new Map<Function, Function>();
+  private messageListeners = new Map<MessageListener, ChromeMessageListener>();
   private static listenerCount = 0;
 
   sendMessage<T>(message: T): Promise<unknown> {
@@ -44,7 +56,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
         message: unknown,
         sender: chrome.runtime.MessageSender,
         sendResponse: (response?: unknown) => void
-      ) => void | boolean
+      ) => undefined | boolean
     );
 
     // Track listener count and warn if multiple listeners registered
@@ -52,14 +64,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
 
     if (ChromeRuntimeAdapter.listenerCount > 1) {
       console.warn(
-        `⚠️  WARNING: ${ChromeRuntimeAdapter.listenerCount} chrome.runtime.onMessage listeners registered!\n\n` +
-          `Multiple listeners will cause message handlers to execute multiple times.\n` +
-          `This is usually caused by:\n` +
-          `  1. Creating both MessageBus and MessageRouter with separate listeners\n` +
-          `  2. Calling createBackground() multiple times\n` +
-          `  3. Calling getMessageBus('background') after createBackground()\n\n` +
-          `Fix: In background scripts, use createBackground() ONCE at startup.\n` +
-          `Do not call getMessageBus('background') separately.`
+        `⚠️  WARNING: ${ChromeRuntimeAdapter.listenerCount} chrome.runtime.onMessage listeners registered!\n\nMultiple listeners will cause message handlers to execute multiple times.\nThis is usually caused by:\n  1. Creating both MessageBus and MessageRouter with separate listeners\n  2. Calling createBackground() multiple times\n  3. Calling getMessageBus('background') after createBackground()\n\nFix: In background scripts, use createBackground() ONCE at startup.\nDo not call getMessageBus('background') separately.`
       );
     }
   }
@@ -79,7 +84,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
           message: unknown,
           sender: chrome.runtime.MessageSender,
           sendResponse: (response?: unknown) => void
-        ) => void | boolean
+        ) => undefined | boolean
       );
       this.messageListeners.delete(callback);
 

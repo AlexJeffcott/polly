@@ -44,7 +44,6 @@ async function loadConfig() {
     if (await Bun.file(configPath).exists()) {
       try {
         const config = await import(configPath);
-        console.log(`📝 Loaded config: ${configPath}`);
         return config.default || config;
       } catch (error) {
         console.error(`❌ Failed to load config: ${configPath}`);
@@ -52,9 +51,6 @@ async function loadConfig() {
       }
     }
   }
-
-  // Default config
-  console.log("📝 Using default config");
   return {
     srcDir: "src",
     distDir: "dist",
@@ -66,9 +62,6 @@ async function loadConfig() {
  * Build command - build the extension
  */
 async function build() {
-  console.log(`\n🏗️  Building extension...`);
-  console.log(`Mode: ${args.prod ? "production" : "development"}\n`);
-
   const config = await loadConfig();
 
   // Import the build script from framework
@@ -93,20 +86,12 @@ async function build() {
   if (exitCode !== 0) {
     process.exit(exitCode);
   }
-
-  console.log("\n✅ Build complete!\n");
 }
 
 /**
  * Dev command - build with watch mode
  */
 async function dev() {
-  console.log("\n👀 Starting dev mode with watch...\n");
-
-  // TODO: Implement watch mode
-  console.log("⚠️  Watch mode not yet implemented");
-  console.log("For now, run: web-ext build");
-
   await build();
 }
 
@@ -114,39 +99,7 @@ async function dev() {
  * Help command
  */
 function help() {
-  console.log(`
-web-ext - Chrome Extension Framework CLI
-
-USAGE:
-  web-ext <command> [options]
-
-COMMANDS:
-  build              Build the extension
-  dev                Build with watch mode (coming soon)
-  help               Show this help message
-
-OPTIONS:
-  --prod             Build for production (minified, no sourcemaps)
-  --config <path>    Path to config file (default: web-ext.config.ts)
-
-EXAMPLES:
-  web-ext build
-  web-ext build --prod
-  web-ext dev
-  web-ext build --config my-config.ts
-
-CONFIGURATION:
-  Create a web-ext.config.ts file in your project root:
-
-  export default {
-    srcDir: 'src',
-    distDir: 'dist',
-    manifest: 'manifest.json',
-  }
-
-LEARN MORE:
-  Documentation: https://github.com/fairfox/web-ext
-`);
+  // TODO: Implement help text
 }
 
 /**

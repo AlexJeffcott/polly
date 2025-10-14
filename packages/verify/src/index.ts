@@ -53,6 +53,10 @@ export {
   EventBusAdapter,
   type EventBusAdapterConfig,
 } from "./adapters/event-bus"
+export {
+  WebSocketAdapter,
+  type WebSocketAdapterConfig,
+} from "./adapters/websocket"
 
 // Adapter Detection
 export {

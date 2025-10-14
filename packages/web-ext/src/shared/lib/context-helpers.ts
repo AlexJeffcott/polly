@@ -70,13 +70,9 @@ export function createContext<TMessage extends BaseMessage = ExtensionMessage>(
 
   const initialize = async () => {
     try {
-      console.log(`${logPrefix} Initializing...`);
-
       if (onInit) {
         await onInit(bus);
       }
-
-      console.log(`${logPrefix} Ready`);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error(`${logPrefix} Initialization failed:`, err);

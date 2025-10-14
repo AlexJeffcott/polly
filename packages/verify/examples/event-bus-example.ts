@@ -3,10 +3,37 @@
 // ═══════════════════════════════════════════════════════════════
 //
 // This example demonstrates using the EventBusAdapter to verify
-// an event-driven application using Node.js EventEmitter.
+// an event-driven application using a simple EventBus implementation.
 
-import { EventEmitter } from "events"
 import { requires, ensures } from "../src/core/primitives"
+
+// Simple EventBus implementation (Bun-native, no Node.js imports needed)
+class EventBus extends EventTarget {
+  private listeners = new Map<string, Set<Function>>()
+
+  on(event: string, handler: Function): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set())
+    }
+    this.listeners.get(event)!.add(handler)
+  }
+
+  emit(event: string, payload?: any): void {
+    const handlers = this.listeners.get(event)
+    if (handlers) {
+      for (const handler of handlers) {
+        handler(payload)
+      }
+    }
+  }
+
+  off(event: string, handler: Function): void {
+    const handlers = this.listeners.get(event)
+    if (handlers) {
+      handlers.delete(handler)
+    }
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Application State
@@ -40,7 +67,7 @@ const state: AppState = {
 // Event Bus Setup
 // ─────────────────────────────────────────────────────────────────
 
-const appBus = new EventEmitter()
+const appBus = new EventBus()
 
 // ─────────────────────────────────────────────────────────────────
 // Event Handlers

@@ -469,6 +469,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       clearTimeout(pending.timeout);
     }
     this.pendingRequests.clear();
+
+    // Remove message listener to prevent leaks
+    if (this.messageListener) {
+      this.adapters.runtime.removeMessageListener(this.messageListener);
+    }
   }
 
   private setupListeners(): void {

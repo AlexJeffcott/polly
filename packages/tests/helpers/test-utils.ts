@@ -1,4 +1,4 @@
-import type { ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
+import type { ExtensionMessage, RoutedMessage } from "@fairfox/web-ext/types";
 
 /**
  * Test utilities for extension testing
@@ -11,7 +11,7 @@ export function createMockRoutedMessage<T extends ExtensionMessage>(
   return {
     id: overrides?.id || `msg-${Date.now()}-${Math.random()}`,
     source: overrides?.source || "background",
-    target: overrides?.target || "content",
+    targets: overrides?.targets || ["content"],
     tabId: overrides?.tabId,
     timestamp: overrides?.timestamp || Date.now(),
     payload,

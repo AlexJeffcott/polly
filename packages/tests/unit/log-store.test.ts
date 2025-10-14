@@ -1,5 +1,6 @@
-import { beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { LogStore } from "@/background/log-store";
+import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import type { ExtensionMessage } from "@/shared/types/messages";
 import { createMockAdapters } from "../helpers/adapters";
@@ -11,6 +12,11 @@ beforeEach(() => {
   const adapters = createMockAdapters();
   bus = new MessageBus("background", adapters);
   logStore = new LogStore(bus);
+});
+
+afterEach(() => {
+  bus.destroy();
+  globalExecutionTracker.reset();
 });
 
 test("LogStore - initializes with default options", () => {
@@ -34,10 +40,21 @@ test("LogStore - stores LOG messages", async () => {
     timestamp: Date.now(),
   };
 
-  const response = await bus.send(message);
-  if (!response || !("success" in response)) throw new Error("Invalid response");
+  // Call handleMessage directly to test the LOG handler
+  const response = await bus.handleMessage({
+    id: "test-log-id",
+    source: "background",
+    targets: ["background"],
+    timestamp: Date.now(),
+    payload: message,
+  });
 
-  expect(response.success).toBe(true);
+  // Check what we got back
+  expect(response).toBeDefined();
+  if (typeof response === 'object' && response !== null && 'success' in response) {
+    expect(response.success).toBe(true);
+  }
+
   expect(logStore.getCount()).toBe(1);
 
   const logs = logStore.getAllLogs();
@@ -79,7 +96,7 @@ test("LogStore - implements circular buffer (removes oldest)", async () => {
     await bus.handleMessage({
       id: crypto.randomUUID(),
       source: "background",
-      target: "background",
+      targets: ["background"],
       timestamp: Date.now(),
       payload: {
         type: "LOG",

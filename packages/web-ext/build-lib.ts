@@ -9,27 +9,21 @@
  * 3. Preserves the module structure for proper exports
  */
 
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { cpSync, existsSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { $ } from "bun";
 
 const DIST_DIR = "dist";
 const TEMP_DIR = "dist-temp";
 
-console.log("🏗️  Building @fairfox/web-ext library...\n");
-
 // Clean dist directory
 if (existsSync(DIST_DIR)) {
-  console.log("🧹 Cleaning dist directory...");
   rmSync(DIST_DIR, { recursive: true, force: true });
 }
 
 if (existsSync(TEMP_DIR)) {
   rmSync(TEMP_DIR, { recursive: true, force: true });
 }
-
-// Build JavaScript with Bun to temp directory
-console.log("📦 Building JavaScript...");
 const buildResult = await Bun.build({
   entrypoints: [
     // Main entry point
@@ -71,11 +65,6 @@ if (!buildResult.success) {
   }
   process.exit(1);
 }
-
-console.log(`✅ Built ${buildResult.outputs.length} files`);
-
-// Move files from dist-temp/src/ to dist/
-console.log("\n📦 Restructuring output...");
 const tempSrcDir = join(TEMP_DIR, "src");
 if (existsSync(tempSrcDir)) {
   cpSync(tempSrcDir, DIST_DIR, { recursive: true });
@@ -83,10 +72,6 @@ if (existsSync(tempSrcDir)) {
   cpSync(TEMP_DIR, DIST_DIR, { recursive: true });
 }
 rmSync(TEMP_DIR, { recursive: true, force: true });
-console.log("✅ Output restructured");
-
-// Generate TypeScript declarations
-console.log("\n📝 Generating TypeScript declarations...");
 try {
   // Use a custom tsconfig for declaration generation
   const tsconfigPath = "tsconfig.lib.json";
@@ -118,11 +103,8 @@ try {
   await Bun.write(tsconfigPath, JSON.stringify(tsconfigContent, null, 2));
   await $`bunx tsc --project ${tsconfigPath}`;
   rmSync(tsconfigPath);
-  console.log("✅ TypeScript declarations generated");
 } catch (error) {
   console.error("❌ Failed to generate TypeScript declarations");
   console.error(error);
   process.exit(1);
 }
-
-console.log("\n✨ Build complete! Library ready for publishing.\n");
