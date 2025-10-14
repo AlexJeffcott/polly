@@ -6,6 +6,10 @@ out
 dist
 *.tgz
 
+# verification output
+packages/web-ext/verification/output
+packages/todo-list/verification/output
+
 # code coverage
 coverage
 *.lcov

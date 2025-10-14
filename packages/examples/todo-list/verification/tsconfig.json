@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "allowJs": false,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@fairfox/web-ext": ["web-ext/src/index.ts"],
+      "@fairfox/web-ext/*": ["web-ext/src/*"]
+    }
+  },
+  "include": [
+    "./**/*",
+    "../src/**/*",
+    "../../web-ext/src/**/*"
+  ]
+}

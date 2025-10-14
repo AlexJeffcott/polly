@@ -5,7 +5,7 @@
  * This allows users to define custom messages alongside framework messages.
  */
 export interface BaseMessage {
-  type: string
+  type: string;
 }
 
 export type Context =
@@ -45,7 +45,7 @@ export const defaultSettings: Settings = {
   autoSync: true,
   debugMode: false,
   notifications: true,
-  apiEndpoint: process.env["RELEASE_SPACE_URL"] || "https://api.example.com",
+  apiEndpoint: "https://api.example.com",
   refreshInterval: 60000,
 };
 
@@ -179,128 +179,138 @@ export type ExtensionMessage =
       [key: string]: unknown;
     };
 
-// Response types for each message
+// Helper: Look up the full message type from a union based on the 'type' discriminator
+type LookupMessage<TUnion, TType extends string> = TUnion extends { type: TType } ? TUnion : never;
+
+// Extract response type from message using phantom type
+// If message has __response field (phantom type), use it; otherwise infer from framework messages
 export type MessageResponse<T extends BaseMessage> =
-  T extends ExtensionMessage ?
-  // DOM Operations
-  T extends { type: "DOM_QUERY" }
-    ? {
-        elements: Array<{
-          tag: string;
-          text: string;
-          html: string;
-          attrs: Record<string, string>;
-          rect?: DOMRect;
-        }>;
-      }
-    : T extends { type: "DOM_UPDATE" }
-      ? { success: boolean }
-      : T extends { type: "DOM_INSERT" }
-        ? { success: boolean }
-        : T extends { type: "DOM_REMOVE" }
-          ? { success: boolean; count: number }
-          : // Page Script Operations
-            T extends { type: "PAGE_EVAL" }
-            ? { result: unknown; error?: string }
-            : T extends { type: "PAGE_GET_VAR" }
-              ? { value: unknown; exists: boolean }
-              : T extends { type: "PAGE_CALL_FN" }
-                ? { result: unknown; error?: string }
-                : T extends { type: "PAGE_SET_VAR" }
-                  ? { success: boolean }
-                  : // API Operations
-                    T extends { type: "API_REQUEST" }
-                    ? {
-                        data: unknown;
-                        status: number;
-                        statusText: string;
-                        headers: Record<string, string>;
-                        error?: string;
-                      }
-                    : T extends { type: "API_BATCH" }
-                      ? {
-                          results: Array<{
-                            data: unknown;
-                            status: number;
-                            error?: string;
-                          }>;
-                        }
-                      : // Clipboard Operations
-                        T extends { type: "CLIPBOARD_WRITE" }
+  // First, try to find the matching message in the union by type discriminator
+  T extends { type: infer TType extends string }
+    ? LookupMessage<T, TType> extends { readonly __response?: infer R }
+      ? R // Found phantom type, use it
+      : T extends ExtensionMessage
+        ? // Framework message - infer from type
+          // DOM Operations
+          T extends { type: "DOM_QUERY" }
+          ? {
+              elements: Array<{
+                tag: string;
+                text: string;
+                html: string;
+                attrs: Record<string, string>;
+                rect?: DOMRect;
+              }>;
+            }
+          : T extends { type: "DOM_UPDATE" }
+            ? { success: boolean }
+            : T extends { type: "DOM_INSERT" }
+              ? { success: boolean }
+              : T extends { type: "DOM_REMOVE" }
+                ? { success: boolean; count: number }
+                : // Page Script Operations
+                  T extends { type: "PAGE_EVAL" }
+                  ? { result: unknown; error?: string }
+                  : T extends { type: "PAGE_GET_VAR" }
+                    ? { value: unknown; exists: boolean }
+                    : T extends { type: "PAGE_CALL_FN" }
+                      ? { result: unknown; error?: string }
+                      : T extends { type: "PAGE_SET_VAR" }
                         ? { success: boolean }
-                        : T extends { type: "CLIPBOARD_WRITE_HTML" }
-                          ? { success: boolean }
-                          : T extends { type: "CLIPBOARD_WRITE_RICH" }
-                            ? { success: boolean }
-                            : T extends { type: "CLIPBOARD_READ" }
-                              ? { text: string }
-                              : // Context Menu
-                                T extends { type: "CONTEXT_MENU_CLICKED" }
-                                ? undefined
-                                : T extends { type: "CONTEXT_MENU_CREATE" }
+                        : // API Operations
+                          T extends { type: "API_REQUEST" }
+                          ? {
+                              data: unknown;
+                              status: number;
+                              statusText: string;
+                              headers: Record<string, string>;
+                              error?: string;
+                            }
+                          : T extends { type: "API_BATCH" }
+                            ? {
+                                results: Array<{
+                                  data: unknown;
+                                  status: number;
+                                  error?: string;
+                                }>;
+                              }
+                            : // Clipboard Operations
+                              T extends { type: "CLIPBOARD_WRITE" }
+                              ? { success: boolean }
+                              : T extends { type: "CLIPBOARD_WRITE_HTML" }
+                                ? { success: boolean }
+                                : T extends { type: "CLIPBOARD_WRITE_RICH" }
                                   ? { success: boolean }
-                                  : T extends { type: "CONTEXT_MENU_REMOVE" }
-                                    ? { success: boolean }
-                                    : // State Sync
-                                      T extends { type: "STATE_SYNC" }
+                                  : T extends { type: "CLIPBOARD_READ" }
+                                    ? { text: string }
+                                    : // Context Menu
+                                      T extends { type: "CONTEXT_MENU_CLICKED" }
                                       ? undefined
-                                      : // Tab Operations
-                                        T extends { type: "TAB_QUERY" }
-                                        ? { tabs: chrome.tabs.Tab[] }
-                                        : T extends {
-                                              type: "TAB_GET_CURRENT";
-                                            }
-                                          ? { tab: chrome.tabs.Tab }
-                                          : T extends {
-                                                type: "TAB_RELOAD";
-                                              }
-                                            ? { success: boolean }
-                                            : // DevTools Operations
-                                              T extends {
-                                                  type: "DEVTOOLS_INSPECT_ELEMENT";
-                                                }
-                                              ? {
-                                                  success: boolean;
-                                                }
+                                      : T extends { type: "CONTEXT_MENU_CREATE" }
+                                        ? { success: boolean }
+                                        : T extends { type: "CONTEXT_MENU_REMOVE" }
+                                          ? { success: boolean }
+                                          : // State Sync
+                                            T extends { type: "STATE_SYNC" }
+                                            ? undefined
+                                            : // Tab Operations
+                                              T extends { type: "TAB_QUERY" }
+                                              ? { tabs: chrome.tabs.Tab[] }
                                               : T extends {
-                                                    type: "DEVTOOLS_LOG";
+                                                    type: "TAB_GET_CURRENT";
                                                   }
-                                                ? undefined
-                                                : // Logging Operations
-                                                  T extends {
-                                                      type: "LOG";
+                                                ? { tab: chrome.tabs.Tab }
+                                                : T extends {
+                                                      type: "TAB_RELOAD";
                                                     }
-                                                  ? {
-                                                      success: boolean;
-                                                    }
-                                                  : T extends {
-                                                        type: "LOGS_GET";
+                                                  ? { success: boolean }
+                                                  : // DevTools Operations
+                                                    T extends {
+                                                        type: "DEVTOOLS_INSPECT_ELEMENT";
                                                       }
                                                     ? {
-                                                        logs: LogEntry[];
+                                                        success: boolean;
                                                       }
                                                     : T extends {
-                                                          type: "LOGS_CLEAR";
+                                                          type: "DEVTOOLS_LOG";
                                                         }
-                                                      ? {
-                                                          success: boolean;
-                                                          count: number;
-                                                        }
-                                                      : T extends {
-                                                            type: "LOGS_EXPORT";
+                                                      ? undefined
+                                                      : // Logging Operations
+                                                        T extends {
+                                                            type: "LOG";
                                                           }
                                                         ? {
-                                                            json: string;
-                                                            count: number;
+                                                            success: boolean;
                                                           }
                                                         : T extends {
-                                                              type: "SETTINGS_GET";
+                                                              type: "LOGS_GET";
                                                             }
                                                           ? {
-                                                              settings: unknown;
+                                                              logs: LogEntry[];
                                                             }
-                                                          : undefined
-  : unknown; // For custom messages outside ExtensionMessage
+                                                          : T extends {
+                                                                type: "LOGS_CLEAR";
+                                                              }
+                                                            ? {
+                                                                success: boolean;
+                                                                count: number;
+                                                              }
+                                                            : T extends {
+                                                                  type: "LOGS_EXPORT";
+                                                                }
+                                                              ? {
+                                                                  json: string;
+                                                                  count: number;
+                                                                }
+                                                              : T extends {
+                                                                    type: "SETTINGS_GET";
+                                                                  }
+                                                                ? {
+                                                                    settings: unknown;
+                                                                  }
+                                                                : undefined
+        : unknown // For custom messages outside ExtensionMessage, require phantom type
+    : unknown; // Fallback for messages without type field
 
 // Message handler mapping (which context handles which message)
 // Can be a single context or an array for multi-target routing
@@ -327,7 +337,7 @@ export type MessageHandler = {
   CONTEXT_MENU_CREATE: "background";
   CONTEXT_MENU_REMOVE: "background";
 
-  STATE_SYNC: Context[];  // Broadcast to all contexts
+  STATE_SYNC: Context[]; // Broadcast to all contexts
 
   TAB_QUERY: "background";
   TAB_GET_CURRENT: "background";

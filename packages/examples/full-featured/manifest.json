@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Framework Test Extension",
+  "version": "0.1.0",
+  "description": "Test extension for web-ext framework validation",
+  "permissions": ["storage", "tabs", "activeTab"],
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html"
+}

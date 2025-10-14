@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    // Environment setup & latest features
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "allowJs": false,
+
+    // Bundler mode
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    // Best practices - SUPER STRICT
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noUncheckedSideEffectImports": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "forceConsistentCasingInFileNames": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@atoms": ["src/ui/atoms/index"],
+      "@atoms/*": ["src/ui/atoms/*"],
+      "@molecules": ["src/ui/molecules/index"],
+      "@molecules/*": ["src/ui/molecules/*"],
+      "@pages": ["src/ui/pages/index"],
+      "@pages/*": ["src/ui/pages/*"]
+    }
+  },
+
+  "include": ["src/**/*", "cli/**/*", "scripts/**/*", "build.ts", "bun-env.d.ts"],
+  "exclude": ["dist", "node_modules", "releases"]
+}

@@ -1,0 +1,29 @@
+{
+  "extends": "../web-ext/tsconfig.json",
+  "compilerOptions": {
+    "noPropertyAccessFromIndexSignature": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../web-ext/src/*"],
+      "@atoms": ["../web-ext/src/ui/atoms/index"],
+      "@atoms/*": ["../web-ext/src/ui/atoms/*"],
+      "@molecules": ["../web-ext/src/ui/molecules/index"],
+      "@molecules/*": ["../web-ext/src/ui/molecules/*"],
+      "@pages": ["../web-ext/src/ui/pages/index"],
+      "@pages/*": ["../web-ext/src/ui/pages/*"],
+      "@fairfox/web-ext": ["../web-ext/src/index.ts"],
+      "@fairfox/web-ext/state": ["../web-ext/src/shared/lib/state.ts"],
+      "@fairfox/web-ext/message-bus": ["../web-ext/src/shared/lib/message-bus.ts"],
+      "@fairfox/web-ext/background": ["../web-ext/src/background/index.ts"],
+      "@fairfox/web-ext/message-router": ["../web-ext/src/background/message-router.ts"],
+      "@fairfox/web-ext/adapters": ["../web-ext/src/shared/adapters/index.ts"],
+      "@fairfox/web-ext/errors": ["../web-ext/src/shared/lib/errors.ts"],
+      "@fairfox/web-ext/types": ["../web-ext/src/shared/types/messages.ts"]
+    }
+  },
+  "include": ["./**/*"],
+  "exclude": ["node_modules"]
+}

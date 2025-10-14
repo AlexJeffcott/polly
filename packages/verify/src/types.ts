@@ -63,10 +63,21 @@ export type StateAssignment = {
   conditional?: string  // Optional condition guard
 }
 
+export type VerificationCondition = {
+  expression: string  // The condition expression as a string
+  message?: string    // Optional error message
+  location: {
+    line: number
+    column: number
+  }
+}
+
 export type MessageHandler = {
   messageType: string
   context: string  // background, content, popup, etc.
   assignments: StateAssignment[]
+  preconditions: VerificationCondition[]   // requires() calls
+  postconditions: VerificationCondition[]  // ensures() calls
   location: {
     file: string
     line: number

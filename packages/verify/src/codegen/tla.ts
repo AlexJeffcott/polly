@@ -319,8 +319,23 @@ export class TLAGenerator {
     this.line(`${actionName}(ctx) ==`)
     this.indent++
 
+    // Collect all preconditions from all handlers
+    const allPreconditions = handlers.flatMap(h => h.preconditions)
+
     // Collect all assignments from all handlers for this message type
     const allAssignments = handlers.flatMap(h => h.assignments)
+
+    // Collect all postconditions from all handlers
+    const allPostconditions = handlers.flatMap(h => h.postconditions)
+
+    // Emit preconditions first
+    if (allPreconditions.length > 0) {
+      for (const precondition of allPreconditions) {
+        const tlaExpr = this.tsExpressionToTLA(precondition.expression)
+        const comment = precondition.message ? ` \\* ${precondition.message}` : ""
+        this.line(`/\\ ${tlaExpr}${comment}`)
+      }
+    }
 
     // Filter out null assignments and map them to valid values
     const validAssignments = allAssignments.filter(a => {
@@ -349,11 +364,13 @@ export class TLAGenerator {
 
     if (validAssignments.length === 0) {
       // Handler exists but makes no state changes
-      this.line("\\* No state changes in handler")
-      this.line("UNCHANGED contextStates")
+      if (allPreconditions.length === 0) {
+        this.line("\\* No state changes in handler")
+      }
+      this.line("/\\ UNCHANGED contextStates")
     } else {
       // Generate state updates
-      this.line("contextStates' = [contextStates EXCEPT")
+      this.line("/\\ contextStates' = [contextStates EXCEPT")
       this.indent++
 
       for (let i = 0; i < validAssignments.length; i++) {
@@ -369,8 +386,69 @@ export class TLAGenerator {
       this.line("]")
     }
 
+    // Emit postconditions last
+    if (allPostconditions.length > 0) {
+      for (const postcondition of allPostconditions) {
+        const tlaExpr = this.tsExpressionToTLA(postcondition.expression, true)
+        const comment = postcondition.message ? ` \\* ${postcondition.message}` : ""
+        this.line(`/\\ ${tlaExpr}${comment}`)
+      }
+    }
+
     this.indent--
     this.line("")
+  }
+
+  /**
+   * Translate TypeScript expression to TLA+ syntax
+   * @param expr - TypeScript expression from requires() or ensures()
+   * @param isPrimed - If true, use contextStates' (for postconditions)
+   */
+  private tsExpressionToTLA(expr: string, isPrimed: boolean = false): string {
+    let tla = expr
+
+    // Replace state references with contextStates[ctx] or contextStates'[ctx]
+    const statePrefix = isPrimed ? "contextStates'[ctx]" : "contextStates[ctx]"
+
+    // Replace state.field.subfield with contextStates[ctx].field_subfield
+    tla = tla.replace(/state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (match, path) => {
+      return `${statePrefix}.${this.sanitizeFieldName(path)}`
+    })
+
+    // Replace payload.field with payload.field (no change needed, but sanitize)
+    tla = tla.replace(/payload\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (match, path) => {
+      return `payload.${this.sanitizeFieldName(path)}`
+    })
+
+    // Replace comparison operators
+    tla = tla.replace(/===/g, "=")
+    tla = tla.replace(/!==/g, "#")
+    tla = tla.replace(/!=/g, "#")
+    tla = tla.replace(/==/g, "=")
+
+    // Replace logical operators
+    tla = tla.replace(/&&/g, "/\\")
+    tla = tla.replace(/\|\|/g, "\\/")
+
+    // Replace negation operator (careful with !== already handled)
+    // Match ! that's not part of !== or !=
+    tla = tla.replace(/!([^=])/g, "~$1")
+    tla = tla.replace(/!$/g, "~")  // Handle ! at end of string
+
+    // Replace boolean literals
+    tla = tla.replace(/\btrue\b/g, "TRUE")
+    tla = tla.replace(/\bfalse\b/g, "FALSE")
+
+    // Replace null
+    tla = tla.replace(/\bnull\b/g, "NULL")
+
+    // Replace less than / greater than comparisons
+    tla = tla.replace(/</g, "<")
+    tla = tla.replace(/>/g, ">")
+    tla = tla.replace(/<=/g, "<=")
+    tla = tla.replace(/>=/g, ">=")
+
+    return tla
   }
 
   private messageTypeToActionName(messageType: string): string {

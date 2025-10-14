@@ -2,11 +2,20 @@
 
 import type { PortAdapter } from "@/shared/adapters";
 import { ErrorHandler, MessageRouterError } from "@/shared/lib/errors";
-import { type MessageBus, getMessageBus } from "@/shared/lib/message-bus";
-import type { Context, RoutedMessage, RoutedResponse } from "@/shared/types/messages";
+import {
+  type MessageBus,
+  getMessageBus,
+  isRoutedMessage,
+  isRoutedResponse,
+} from "@/shared/lib/message-bus";
+import type { BaseMessage, Context, RoutedMessage, RoutedResponse } from "@/shared/types/messages";
 
-export class MessageRouter {
-  private bus: MessageBus;
+export class MessageRouter<TMessage extends BaseMessage = BaseMessage> {
+  // Singleton enforcement - use boolean to avoid type issues with generic class
+  private static instanceExists = false;
+
+  // MessageRouter works with any message type - it just routes them
+  private bus: MessageBus<TMessage>;
   private errorHandler: ErrorHandler;
 
   // Track connections by context and tab
@@ -17,8 +26,23 @@ export class MessageRouter {
   private offscreenPort: PortAdapter | null = null;
   private sidePanelPort: PortAdapter | null = null;
 
-  constructor(bus?: MessageBus) {
-    this.bus = bus || getMessageBus("background");
+  constructor(bus?: MessageBus<TMessage>) {
+    // Enforce singleton pattern to prevent double message handling
+    if (MessageRouter.instanceExists) {
+      throw new Error(
+        "🔴 MessageRouter already exists!\n\n" +
+          "Only ONE MessageRouter can exist in the background context.\n" +
+          "Multiple MessageRouter instances will cause handlers to execute multiple times.\n\n" +
+          "Fix: Ensure createBackground() is only called once at application startup.\n" +
+          'Do not call getMessageBus("background") separately - use the bus returned by createBackground().'
+      );
+    }
+
+    // Mark instance as existing - no cast needed with boolean
+    MessageRouter.instanceExists = true;
+
+    // No cast needed - types match now
+    this.bus = bus || getMessageBus<TMessage>("background");
     this.errorHandler = new ErrorHandler(this.bus.adapters.logger);
     this.setupPortConnections();
     this.setupTabListeners();
@@ -96,13 +120,12 @@ export class MessageRouter {
 
       // Handle messages from this port
       port.onMessage((message: unknown) => {
-        const msg = message as RoutedMessage | RoutedResponse;
-        if ("success" in msg) {
+        if (isRoutedResponse<TMessage>(message)) {
           // This is a response, route back to original sender
-          this.routeResponse(msg);
-        } else {
+          this.routeResponse(message);
+        } else if (isRoutedMessage<TMessage>(message)) {
           // This is a request, route to target
-          this.routeMessage(msg);
+          this.routeMessage(message);
         }
       });
     });
@@ -129,17 +152,16 @@ export class MessageRouter {
   private setupMessageHandlers(): void {
     // Handle messages that need routing
     this.bus.adapters.runtime.onMessage((message: unknown, _sender, sendResponse) => {
-      const msg = message as RoutedMessage | RoutedResponse;
-      if ("success" in msg) {
-        this.routeResponse(msg);
-      } else {
-        this.routeMessage(msg).then(sendResponse);
+      if (isRoutedResponse<TMessage>(message)) {
+        this.routeResponse(message);
+      } else if (isRoutedMessage<TMessage>(message)) {
+        this.routeMessage(message).then(sendResponse);
       }
       return true;
     });
   }
 
-  public async routeMessage(message: RoutedMessage): Promise<unknown> {
+  public async routeMessage(message: RoutedMessage<TMessage>): Promise<unknown> {
     this.bus.adapters.logger.debug("Routing message", {
       type: message.payload.type,
       source: message.source,
@@ -159,7 +181,10 @@ export class MessageRouter {
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message routing requires conditional logic for different targets
-  private async routeToSingleTarget(message: RoutedMessage, target: Context): Promise<unknown> {
+  private async routeToSingleTarget(
+    message: RoutedMessage<TMessage>,
+    target: Context
+  ): Promise<unknown> {
     // Route to specific context
     switch (target) {
       case "background":
@@ -277,7 +302,7 @@ export class MessageRouter {
     }
   }
 
-  private routeResponse(response: RoutedResponse): void {
+  private routeResponse(response: RoutedResponse<TMessage>): void {
     // Responses are handled by MessageBus automatically via pending requests
     this.bus.adapters.logger.debug("Routing response", {
       messageId: response.id,
@@ -285,7 +310,7 @@ export class MessageRouter {
   }
 
   // Public API
-  async sendToTab(tabId: number, message: RoutedMessage): Promise<void> {
+  async sendToTab(tabId: number, message: RoutedMessage<TMessage>): Promise<void> {
     const port = this.contentPorts.get(tabId);
     if (port) {
       port.postMessage(message);
@@ -300,7 +325,7 @@ export class MessageRouter {
   }
 
   // Broadcast is now just routing with targets array containing all contexts
-  broadcastToAll(message: RoutedMessage): void {
+  broadcastToAll(message: RoutedMessage<TMessage>): void {
     // Message already has targets array, just route it
     this.routeMessage(message);
   }
@@ -311,5 +336,13 @@ export class MessageRouter {
 
   getConnectedTabs(): number[] {
     return Array.from(this.contentPorts.keys());
+  }
+
+  /**
+   * Reset singleton instance. Only for testing purposes.
+   * @internal
+   */
+  static resetInstance(): void {
+    MessageRouter.instanceExists = false;
   }
 }

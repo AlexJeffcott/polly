@@ -1,0 +1,45 @@
+{
+  "name": "@fairfox/web-ext",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Chrome Extension framework with reactive state and cross-context messaging",
+  "bin": {
+    "web-ext": "./cli/web-ext.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./state": "./src/shared/lib/state.ts",
+    "./message-bus": "./src/shared/lib/message-bus.ts",
+    "./background": "./src/background/index.ts",
+    "./message-router": "./src/background/message-router.ts",
+    "./adapters": "./src/shared/adapters/index.ts",
+    "./errors": "./src/shared/lib/errors.ts",
+    "./types": "./src/shared/types/messages.ts"
+  },
+  "scripts": {
+    "dev": "bun run build.ts --watch",
+    "build": "bun run build.ts",
+    "build:prod": "bun run build.ts --prod",
+    "build:full-featured": "bun run scripts/build-user-extension.ts examples/full-featured",
+    "build:full-featured:prod": "bun run scripts/build-user-extension.ts examples/full-featured --prod",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@fairfox/web-ext-verify": "workspace:*",
+    "@types/bun": "^1.2.19",
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.3.1",
+    "preact": "^10.27.2"
+  },
+  "workspaces": ["examples/*"]
+}

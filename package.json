@@ -1,35 +1,35 @@
 {
-  "name": "web-ext",
+  "name": "@fairfox/web-ext-monorepo",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
-  "description": "Chrome Extension starter",
+  "description": "Chrome Extension framework with reactive state and cross-context messaging",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bun run build.ts --watch",
-    "build": "bun run build.ts",
-    "build:prod": "bun run build.ts --prod",
-    "typecheck": "bunx tsc --noEmit && bunx tsc --noEmit -p tsconfig.test.json",
-    "typecheck:src": "bunx tsc --noEmit",
-    "typecheck:tests": "bunx tsc --noEmit -p tsconfig.test.json",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
-    "test": "bun test",
-    "test:watch": "bun test --watch"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^1.8.3",
-    "@playwright/test": "^1.55.0",
-    "@types/bun": "^1.2.19",
-    "@types/chrome": "^0.0.268",
-    "@types/node": "^24.2.0",
-    "puppeteer": "^24.16.1",
-    "typescript": "^5.5.4"
+    "dev": "bun run --cwd packages/web-ext dev",
+    "build": "bun run --cwd packages/web-ext build",
+    "build:prod": "bun run --cwd packages/web-ext build:prod",
+    "typecheck": "bun run --cwd packages/web-ext typecheck && bun run --cwd packages/tests typecheck",
+    "typecheck:src": "bun run --cwd packages/web-ext typecheck",
+    "typecheck:tests": "bun run --cwd packages/tests typecheck",
+    "lint": "bun run --cwd packages/web-ext lint",
+    "lint:fix": "bun run --cwd packages/web-ext lint:fix",
+    "format": "bun run --cwd packages/web-ext format",
+    "test": "bun run --cwd packages/tests test",
+    "test:watch": "bun run --cwd packages/tests test:watch",
+    "test:framework": "bun run --cwd packages/tests test:framework",
+    "test:framework:ui": "bun run --cwd packages/tests test:framework:ui",
+    "test:framework:debug": "bun run --cwd packages/tests test:framework:debug",
+    "test:framework:headed": "bun run --cwd packages/tests test:framework:headed",
+    "test:all": "bun run --cwd packages/tests test:all",
+    "tla:up": "docker-compose -f specs/docker-compose.yml up -d",
+    "tla:down": "docker-compose -f specs/docker-compose.yml down",
+    "tla:check": "docker-compose -f specs/docker-compose.yml exec tla tlc MessageRouter.tla",
+    "tla:shell": "docker-compose -f specs/docker-compose.yml exec tla sh"
   },
   "engines": {
     "bun": ">=1.0.0"
-  },
-  "dependencies": {
-    "@preact/signals": "^2.3.1",
-    "preact": "^10.27.2"
   }
 }

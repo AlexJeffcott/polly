@@ -9,10 +9,21 @@ export interface StateAssignment {
   conditional?: string  // Optional condition guard
 }
 
+export interface VerificationCondition {
+  expression: string  // The condition expression as a string
+  message?: string    // Optional error message
+  location: {
+    line: number
+    column: number
+  }
+}
+
 export interface MessageHandler {
   messageType: string
   context: string  // background, content, popup, etc.
   assignments: StateAssignment[]
+  preconditions: VerificationCondition[]   // requires() calls
+  postconditions: VerificationCondition[]  // ensures() calls
   location: {
     file: string
     line: number
@@ -122,10 +133,13 @@ export class HandlerExtractor {
     // Second argument is the handler function
     const handlerArg = args[1]
     const assignments: StateAssignment[] = []
+    const preconditions: VerificationCondition[] = []
+    const postconditions: VerificationCondition[] = []
 
-    // Parse the handler function for state assignments
+    // Parse the handler function for state assignments and verification conditions
     if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
       this.extractAssignments(handlerArg, assignments)
+      this.extractVerificationConditions(handlerArg, preconditions, postconditions)
     }
 
     const line = callExpr.getStartLineNumber()
@@ -134,6 +148,8 @@ export class HandlerExtractor {
       messageType,
       context,
       assignments,
+      preconditions,
+      postconditions,
       location: {
         file: filePath,
         line,
@@ -174,6 +190,82 @@ export class HandlerExtractor {
         }
       }
     })
+  }
+
+  /**
+   * Extract verification conditions (requires/ensures) from a handler function
+   */
+  private extractVerificationConditions(
+    funcNode: any,
+    preconditions: VerificationCondition[],
+    postconditions: VerificationCondition[]
+  ): void {
+    const body = funcNode.getBody()
+
+    // Get all statements in the function body
+    const statements = Node.isBlock(body) ? body.getStatements() : [body]
+
+    statements.forEach((statement: any, index: number) => {
+      // Look for expression statements that are function calls
+      if (Node.isExpressionStatement(statement)) {
+        const expr = statement.getExpression()
+
+        if (Node.isCallExpression(expr)) {
+          const callee = expr.getExpression()
+
+          if (Node.isIdentifier(callee)) {
+            const functionName = callee.getText()
+
+            if (functionName === "requires") {
+              // Extract precondition
+              const condition = this.extractCondition(expr)
+              if (condition) {
+                preconditions.push(condition)
+              }
+            } else if (functionName === "ensures") {
+              // Extract postcondition
+              const condition = this.extractCondition(expr)
+              if (condition) {
+                postconditions.push(condition)
+              }
+            }
+          }
+        }
+      }
+    })
+  }
+
+  /**
+   * Extract condition from a requires() or ensures() call
+   */
+  private extractCondition(callExpr: any): VerificationCondition | null {
+    const args = callExpr.getArguments()
+
+    if (args.length === 0) {
+      return null
+    }
+
+    // First argument is the condition expression
+    const conditionArg = args[0]
+    const expression = conditionArg.getText()
+
+    // Second argument (optional) is the message
+    let message: string | undefined
+    if (args.length >= 2 && Node.isStringLiteral(args[1])) {
+      message = args[1].getLiteralValue()
+    }
+
+    const line = callExpr.getStartLineNumber()
+    const column = callExpr.getStartLinePos()
+
+    return {
+      expression,
+      message,
+      location: {
+        line,
+        column,
+      },
+    }
   }
 
   /**

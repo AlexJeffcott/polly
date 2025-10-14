@@ -6,13 +6,11 @@ import type {
   BaseMessage,
   Context,
   ExtensionMessage,
-  MessageHandler,
   MessageResponse,
   RoutedMessage,
   RoutedResponse,
 } from "../types/messages";
 import { ALL_CONTEXTS } from "../types/messages";
-import { ConnectionError, ErrorHandler, HandlerError, TimeoutError } from "./errors";
 import type {
   BackgroundHelpers,
   ContentScriptHelpers,
@@ -29,6 +27,40 @@ import {
   createPopupHelpers,
   createSidePanelHelpers,
 } from "./context-specific-helpers";
+import { ConnectionError, ErrorHandler, HandlerError, TimeoutError } from "./errors";
+import { globalExecutionTracker } from "./handler-execution-tracker";
+
+// Type guards for runtime message validation
+// Note: These validate structure but can't validate TMessage type at runtime
+export function isRoutedMessage<TMessage extends BaseMessage = BaseMessage>(
+  value: unknown
+): value is RoutedMessage<TMessage> {
+  if (typeof value !== "object" || value === null) return false;
+  // Use 'in' operator for type narrowing - no cast needed
+  if (!("id" in value) || !("source" in value) || !("targets" in value) || !("payload" in value)) {
+    return false;
+  }
+  // TypeScript now knows these properties exist
+  return (
+    typeof value.id === "string" &&
+    typeof value.source === "string" &&
+    Array.isArray(value.targets) &&
+    typeof value.payload === "object" &&
+    value.payload !== null
+  );
+}
+
+export function isRoutedResponse<TMessage extends BaseMessage = BaseMessage>(
+  value: unknown
+): value is RoutedResponse<TMessage> {
+  if (typeof value !== "object" || value === null) return false;
+  // Use 'in' operator for type narrowing - no cast needed
+  if (!("id" in value) || !("success" in value)) {
+    return false;
+  }
+  // TypeScript now knows these properties exist
+  return typeof value.id === "string" && typeof value.success === "boolean";
+}
 
 type PendingRequest<TMessage extends BaseMessage = ExtensionMessage> = {
   // Accepts the union of all possible response types
@@ -58,7 +90,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   private port: ReturnType<ExtensionAdapters["runtime"]["connect"]> | null = null;
   private errorHandler: ErrorHandler;
   private userErrorHandlers: Array<(error: Error, bus: MessageBus<TMessage>) => void> = [];
-  private messageListener:
+  public messageListener:
     | ((
         message: unknown,
         sender: MessageSender,
@@ -66,12 +98,20 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       ) => boolean)
     | null = null;
 
-  constructor(context: Context, adapters?: ExtensionAdapters) {
+  constructor(
+    context: Context,
+    adapters?: ExtensionAdapters,
+    options?: { skipListenerSetup?: boolean }
+  ) {
     this.context = context;
     this.adapters = adapters || createChromeAdapters(context);
     this.errorHandler = new ErrorHandler(this.adapters.logger);
     this.helpers = this.createContextHelpers();
-    this.setupListeners();
+
+    // Skip listener setup if MessageRouter will handle it
+    if (!options?.skipListenerSetup) {
+      this.setupListeners();
+    }
   }
 
   /**
@@ -87,7 +127,10 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       tabId?: number;
       timeout?: number;
     }
-  ): Promise<MessageResponse<TMessage> | undefined> {
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
     const id = crypto.randomUUID();
 
     // For custom messages (not ExtensionMessage), targets must be explicitly provided
@@ -119,7 +162,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       payload,
     };
 
-    return new Promise<MessageResponse<TMessage> | undefined>((resolve, reject) => {
+    return new Promise<MessageResponse<T> | undefined>((resolve, reject) => {
       const timeoutMs = options?.timeout || 5000;
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);
@@ -238,8 +281,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   async sendToBackground<T extends TMessage>(
     payload: T,
     options?: { timeout?: number }
-  ): Promise<MessageResponse<TMessage> | undefined> {
-    return this.send(payload, { ...options, target: 'background' });
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
+    return this.send(payload, { ...options, target: "background" });
   }
 
   /**
@@ -254,8 +300,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
     tabId: number,
     payload: T,
     options?: { timeout?: number }
-  ): Promise<MessageResponse<TMessage> | undefined> {
-    return this.send(payload, { ...options, target: 'content', tabId });
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
+    return this.send(payload, { ...options, target: "content", tabId });
   }
 
   /**
@@ -270,10 +319,17 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   async sendToAllTabs<T extends TMessage>(
     payload: T,
     options?: { timeout?: number }
-  ): Promise<Array<MessageResponse<TMessage> | undefined>> {
+  ): Promise<
+    Array<
+      | MessageResponse<
+          Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>
+        >
+      | undefined
+    >
+  > {
     const tabs = await this.adapters.tabs.query({});
     return Promise.all(
-      tabs.map(tab =>
+      tabs.map((tab) =>
         tab.id ? this.sendToContentScript(tab.id, payload, options) : Promise.resolve(undefined)
       )
     );
@@ -290,8 +346,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   async sendToPopup<T extends TMessage>(
     payload: T,
     options?: { timeout?: number }
-  ): Promise<MessageResponse<TMessage> | undefined> {
-    return this.send(payload, { ...options, target: 'popup' });
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
+    return this.send(payload, { ...options, target: "popup" });
   }
 
   /**
@@ -305,8 +364,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   async sendToOptions<T extends TMessage>(
     payload: T,
     options?: { timeout?: number }
-  ): Promise<MessageResponse<TMessage> | undefined> {
-    return this.send(payload, { ...options, target: 'options' });
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
+    return this.send(payload, { ...options, target: "options" });
   }
 
   /**
@@ -320,8 +382,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   async sendToDevTools<T extends TMessage>(
     payload: T,
     options?: { timeout?: number }
-  ): Promise<MessageResponse<TMessage> | undefined> {
-    return this.send(payload, { ...options, target: 'devtools' });
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
+    return this.send(payload, { ...options, target: "devtools" });
   }
 
   /**
@@ -335,8 +400,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   async sendToSidePanel<T extends TMessage>(
     payload: T,
     options?: { timeout?: number }
-  ): Promise<MessageResponse<TMessage> | undefined> {
-    return this.send(payload, { ...options, target: 'sidepanel' });
+  ): Promise<
+    | MessageResponse<Extract<TMessage, { type: T extends { type: infer TType } ? TType : never }>>
+    | undefined
+  > {
+    return this.send(payload, { ...options, target: "sidepanel" });
   }
 
   /**
@@ -352,7 +420,9 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
     this.port = this.adapters.runtime.connect(name);
 
     this.port.onMessage((message: unknown) => {
-      this.handleMessage(message as RoutedMessage | RoutedResponse);
+      if (isRoutedMessage<TMessage>(message) || isRoutedResponse<TMessage>(message)) {
+        this.handleMessage(message);
+      }
     });
 
     this.port.onDisconnect(() => {
@@ -408,11 +478,13 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       sender: unknown,
       sendResponse: (response: unknown) => void
     ) => {
-      this.handleMessage(message as RoutedMessage | RoutedResponse, sender)
-        .then((response) => sendResponse(response))
-        .catch((error) => {
-          sendResponse({ success: false, error: error.message });
-        });
+      if (isRoutedMessage<TMessage>(message) || isRoutedResponse<TMessage>(message)) {
+        this.handleMessage(message, sender)
+          .then((response) => sendResponse(response))
+          .catch((error) => {
+            sendResponse({ success: false, error: error.message });
+          });
+      }
       return true; // Indicates async response
     };
     this.adapters.runtime.onMessage(this.messageListener);
@@ -430,7 +502,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message handling requires routing logic for different message types
   public async handleMessage(
-    message: RoutedMessage | RoutedResponse,
+    message: RoutedMessage<TMessage> | RoutedResponse<TMessage>,
     _sender?: unknown
   ): Promise<unknown> {
     // Handle response to our request
@@ -441,8 +513,8 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
         clearTimeout(pending.timeout);
 
         if (message.success) {
-          // Message data could be for any TMessage type, cast to match pending request type
-          pending.resolve((message.data ?? undefined) as MessageResponse<TMessage>);
+          // Message data is typed as MessageResponse<TMessage> from RoutedResponse
+          pending.resolve(message.data ?? undefined);
         } else {
           const error = new HandlerError(message.error || "Unknown error", "unknown", {
             messageId: message.id,
@@ -476,7 +548,10 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
     // For multi-target messages (including broadcasts), call all handlers (don't send responses)
     if (message.targets.length > 1) {
       try {
-        await Promise.all(handlers.map(handler => handler(message.payload, message)));
+        // Track execution to detect double-handler invocation
+        globalExecutionTracker.track(message.id, message.payload.type);
+
+        await Promise.all(handlers.map((handler) => handler(message.payload, message)));
         return { success: true, data: undefined, timestamp: Date.now() };
       } catch (error) {
         return {
@@ -490,17 +565,19 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
     // For LOG messages, call all handlers but still send response (for backwards compat)
     if (message.payload.type === "LOG") {
       try {
-        await Promise.all(handlers.map(handler => handler(message.payload, message)));
-        const response: RoutedResponse = {
+        // Track execution to detect double-handler invocation
+        globalExecutionTracker.track(message.id, message.payload.type);
+
+        await Promise.all(handlers.map((handler) => handler(message.payload, message)));
+        const response: RoutedResponse<TMessage> = {
           id: message.id,
           success: true,
-          data: undefined,
           timestamp: Date.now(),
         };
         this.sendResponse(message, response);
         return response;
       } catch (error) {
-        const response: RoutedResponse = {
+        const response: RoutedResponse<TMessage> = {
           id: message.id,
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
@@ -513,6 +590,9 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
 
     // For other targeted messages, call first handler and send response
     try {
+      // Track execution to detect double-handler invocation
+      globalExecutionTracker.track(message.id, message.payload.type);
+
       // We've already checked handlers.length > 0 above, so handlers[0] exists
       const handler = handlers[0];
       if (!handler) {
@@ -520,7 +600,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       }
       const data = await handler(message.payload, message);
 
-      const response: RoutedResponse = {
+      const response: RoutedResponse<TMessage> = {
         id: message.id,
         success: true,
         data,
@@ -530,7 +610,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       this.sendResponse(message, response);
       return response;
     } catch (error) {
-      const response: RoutedResponse = {
+      const response: RoutedResponse<TMessage> = {
         id: message.id,
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -558,7 +638,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
     }
   }
 
-  private sendResponse(request: RoutedMessage, response: RoutedResponse): void {
+  private sendResponse(request: RoutedMessage<TMessage>, response: RoutedResponse<TMessage>): void {
     if (this.context === "content" && request.source === "page") {
       // Content → Page response
       this.adapters.window.postMessage({ __extensionMessage: true, message: response }, "*");
@@ -575,7 +655,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   }
 
   private inferTarget(type: string): Context | Context[] | undefined {
-    const handlers: Partial<MessageHandler> = {
+    const handlers = {
       DOM_QUERY: "content",
       DOM_UPDATE: "content",
       DOM_INSERT: "content",
@@ -600,10 +680,21 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       LOGS_GET: "background",
       LOGS_CLEAR: "background",
       LOGS_EXPORT: "background",
-    };
+    } as const;
 
-    // Return undefined for unknown types - requires explicit target
-    return handlers[type as keyof MessageHandler];
+    // Helper type guard: narrows string to a key of the object
+    function isHandlerKey(key: string): key is keyof typeof handlers {
+      return key in handlers;
+    }
+
+    // Type guard narrows string to known keys
+    if (isHandlerKey(type)) {
+      // TypeScript now knows type is keyof typeof handlers - no cast needed!
+      return handlers[type];
+    }
+
+    // Unknown message type - caller must provide explicit target
+    return undefined;
   }
 
   /**
@@ -619,17 +710,17 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
     | BackgroundHelpers
     | Record<string, never> {
     switch (this.context) {
-      case 'content':
+      case "content":
         return createContentScriptHelpers();
-      case 'devtools':
+      case "devtools":
         return createDevToolsHelpers();
-      case 'popup':
+      case "popup":
         return createPopupHelpers(this.adapters);
-      case 'options':
+      case "options":
         return createOptionsHelpers(this.adapters);
-      case 'sidepanel':
+      case "sidepanel":
         return createSidePanelHelpers(this.adapters);
-      case 'background':
+      case "background":
         return createBackgroundHelpers(this.adapters);
       default:
         return {};
@@ -651,27 +742,19 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   }
 }
 
-// Singleton instances per context
-const messageBusInstances = new Map<Context, MessageBus<any>>();
-
+/**
+ * Create a MessageBus for the given context.
+ *
+ * IMPORTANT: Only call this ONCE per context in your application.
+ * Calling it multiple times will create multiple message listeners, causing
+ * handlers to execute multiple times. Store the returned bus and reuse it.
+ *
+ * For background scripts, use createBackground() instead.
+ */
 export function getMessageBus<TMessage extends BaseMessage = ExtensionMessage>(
   context: Context,
-  adapters?: ExtensionAdapters
+  adapters?: ExtensionAdapters,
+  options?: { skipListenerSetup?: boolean }
 ): MessageBus<TMessage> {
-  if (!messageBusInstances.has(context)) {
-    messageBusInstances.set(context, new MessageBus<TMessage>(context, adapters));
-  }
-  const bus = messageBusInstances.get(context);
-  if (!bus) {
-    throw new Error(`Failed to get or create MessageBus for context: ${context}`);
-  }
-  return bus as MessageBus<TMessage>;
-}
-
-export function destroyMessageBus(context: Context): void {
-  const bus = messageBusInstances.get(context);
-  if (bus) {
-    bus.destroy();
-    messageBusInstances.delete(context);
-  }
+  return new MessageBus<TMessage>(context, adapters, options);
 }

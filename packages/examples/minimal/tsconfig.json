@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["chrome"],
+    "paths": {
+      "@fairfox/web-ext": ["../../src/index.ts"],
+      "@fairfox/web-ext/state": ["../../src/shared/lib/state.ts"],
+      "@fairfox/web-ext/message-bus": ["../../src/shared/lib/message-bus.ts"],
+      "@fairfox/web-ext/message-router": ["../../src/background/message-router.ts"],
+      "@fairfox/web-ext/background": ["../../src/background/index.ts"],
+      "@fairfox/web-ext/types": ["../../src/shared/types/messages.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}

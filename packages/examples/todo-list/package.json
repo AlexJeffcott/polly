@@ -1,0 +1,22 @@
+{
+  "name": "@fairfox/todo-list",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun ../web-ext/scripts/build-user-extension.ts . --watch",
+    "build": "bun ../web-ext/scripts/build-user-extension.ts .",
+    "build:prod": "bun ../web-ext/scripts/build-user-extension.ts . --prod",
+    "test": "bun test",
+    "verify": "cd verification && bun verify.ts"
+  },
+  "dependencies": {
+    "@fairfox/web-ext": "workspace:*",
+    "preact": "^10.27.2"
+  },
+  "devDependencies": {
+    "@fairfox/web-ext-verify": "workspace:*",
+    "@types/chrome": "^0.1.24",
+    "bun-types": "latest"
+  }
+}

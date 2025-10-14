@@ -1,0 +1,37 @@
+{
+  "name": "test-extension",
+  "version": "1.0.0",
+  "description": "Test extension for validating web-ext framework across all contexts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run build.ts --watch",
+    "build": "bun run build.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "bun test",
+    "test:e2e": "bun run build && bunx playwright test",
+    "test:e2e:ui": "bun run build && bunx playwright test --ui",
+    "test:e2e:debug": "bun run build && bunx playwright test --debug",
+    "test:e2e:headed": "bun run build && bunx playwright test --headed"
+  },
+  "dependencies": {
+    "@preact/signals-core": "^1.5.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@playwright/test": "^1.55.0",
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^24.2.0",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "chrome-extension",
+    "web-extension",
+    "framework",
+    "test",
+    "validation"
+  ],
+  "private": true
+}

@@ -1,0 +1,12 @@
+{
+  "name": "minimal-example",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "web-ext build",
+    "build:prod": "web-ext build --prod"
+  },
+  "dependencies": {
+    "@fairfox/web-ext": "link:@fairfox/web-ext"
+  }
+}

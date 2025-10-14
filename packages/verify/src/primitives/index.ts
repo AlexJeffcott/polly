@@ -1,106 +1,102 @@
-// High-level verification primitives API
-// TODO: Implement full API
+// Verification primitives for formal verification
+// These are runtime no-ops but extracted during verification
 
 /**
- * Specify that msg1 must be sent before msg2
+ * Assert a precondition that must be true when the handler executes.
+ *
+ * In production: No-op (compiled away)
+ * In verification: Translated to TLA+ assertion
+ *
+ * @example
+ * messageBus.on("USER_LOGIN", (payload) => {
+ *   requires(state.user.loggedIn === false, "User must not be logged in")
+ *   state.user.loggedIn = true
+ * })
  */
-export function before(msg1: string, msg2: string | string[]): any {
-  return {
-    type: "before",
-    msg1,
-    msg2: Array.isArray(msg2) ? msg2 : [msg2]
+export function requires(condition: boolean, message?: string): void {
+  // Runtime no-op - only used during verification
+  if (!condition && message && process.env.NODE_ENV === 'development') {
+    console.warn(`Precondition failed: ${message}`)
   }
 }
 
 /**
- * Specify that msg1 must be sent after msg2
+ * Assert a postcondition that must be true after the handler completes.
+ *
+ * In production: No-op (compiled away)
+ * In verification: Translated to TLA+ assertion
+ *
+ * @example
+ * messageBus.on("USER_LOGIN", (payload) => {
+ *   state.user.loggedIn = true
+ *   ensures(state.user.loggedIn === true, "User must be logged in")
+ * })
  */
-export function after(msg1: string, msg2: string | string[]): any {
-  return {
-    type: "after",
-    msg1,
-    msg2: Array.isArray(msg2) ? msg2 : [msg2]
+export function ensures(condition: boolean, message?: string): void {
+  // Runtime no-op - only used during verification
+  if (!condition && message && process.env.NODE_ENV === 'development') {
+    console.warn(`Postcondition failed: ${message}`)
   }
 }
 
 /**
- * Specify that messages must be sent in sequence
+ * Define a global invariant that must always hold.
+ *
+ * In production: No-op (compiled away)
+ * In verification: Translated to TLA+ invariant
+ *
+ * @example
+ * invariant("UserIdConsistent", () =>
+ *   state.user.loggedIn === false || state.user.id !== null
+ * )
  */
-export function sequence(messages: string[]): any {
-  return {
-    type: "sequence",
-    messages
+export function invariant(name: string, condition: () => boolean): void {
+  // Runtime no-op - only used during verification
+  if (!condition() && process.env.NODE_ENV === 'development') {
+    console.warn(`Invariant ${name} violated`)
   }
 }
 
 /**
- * Specify that messages cannot be in flight simultaneously
+ * Assert that a value is within a valid range.
+ *
+ * @example
+ * requires(inRange(todoCount, 0, 100), "Todo count must be 0-100")
  */
-export const never = {
-  concurrent(messages: string[]): any {
-    return {
-      type: "never.concurrent",
-      messages
-    }
-  }
+export function inRange(value: number, min: number, max: number): boolean {
+  return value >= min && value <= max
 }
 
 /**
- * Specify that condition eventually becomes true
+ * Assert that a value is one of the allowed values.
+ *
+ * @example
+ * requires(oneOf(state.user.role, ["admin", "user"]), "Role must be admin or user")
  */
-export const eventually = {
-  delivers(message: string, options?: { timeout?: number }): any {
-    return {
-      type: "eventually.delivers",
-      message,
-      options
-    }
-  }
+export function oneOf<T>(value: T, allowed: T[]): boolean {
+  return allowed.includes(value)
 }
 
 /**
- * Specify a message precondition (state must satisfy predicate)
+ * Assert that an array has a specific length constraint.
+ *
+ * @example
+ * requires(hasLength(state.todos, { max: 10 }), "Too many todos")
  */
-export function requires(message: string, predicate: Function | { raw: string }): any {
-  return {
-    type: "requires",
-    message,
-    predicate: typeof predicate === "function" ? predicate.toString() : predicate.raw
-  }
+export function hasLength(array: unknown[], constraint: { min?: number; max?: number }): boolean {
+  if (constraint.min !== undefined && array.length < constraint.min) return false
+  if (constraint.max !== undefined && array.length > constraint.max) return false
+  return true
 }
 
-/**
- * Specify a message postcondition (state must satisfy predicate after message)
- */
-export function ensures(message: string, predicate: Function | { raw: string }): any {
-  return {
-    type: "ensures",
-    message,
-    predicate: typeof predicate === "function" ? predicate.toString() : predicate.raw
-  }
+// Re-export for convenience
+export const verify = {
+  requires,
+  ensures,
+  invariant,
+  inRange,
+  oneOf,
+  hasLength,
 }
 
-/**
- * Specify a state invariant (predicate always holds)
- */
-export function maintains(predicate: Function | { raw: string }): any {
-  return {
-    type: "maintains",
-    predicate: typeof predicate === "function" ? predicate.toString() : predicate.raw
-  }
-}
-
-/**
- * Define a custom invariant with raw TLA+ code (escape hatch)
- */
-export function defineInvariant(name: string, options: {
-  description?: string
-  raw: string
-}): any {
-  return {
-    type: "custom",
-    name,
-    description: options.description,
-    raw: options.raw
-  }
-}
+export default verify

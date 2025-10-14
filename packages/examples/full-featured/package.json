@@ -1,0 +1,14 @@
+{
+  "name": "full-featured-example",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Full-featured example extension demonstrating @fairfox/web-ext framework",
+  "scripts": {
+    "build": "web-ext build",
+    "build:prod": "web-ext build --prod",
+    "dev": "web-ext dev"
+  },
+  "dependencies": {
+    "@fairfox/web-ext": "link:@fairfox/web-ext"
+  }
+}

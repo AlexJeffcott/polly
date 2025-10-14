@@ -1,0 +1,30 @@
+{
+  "name": "@fairfox/web-ext-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Test suite for @fairfox/web-ext",
+  "scripts": {
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:framework": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts",
+    "test:framework:ui": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts --ui",
+    "test:framework:debug": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts --debug",
+    "test:framework:headed": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts --headed",
+    "test:all": "bun test && bun run test:framework",
+    "build:full-featured": "bun run ../web-ext/scripts/build-user-extension.ts ../web-ext/examples/full-featured",
+    "build:full-featured:prod": "bun run ../web-ext/scripts/build-user-extension.ts ../web-ext/examples/full-featured --prod"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/bun": "^1.2.19",
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^24.2.0",
+    "puppeteer": "^24.16.1",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "@fairfox/web-ext": "workspace:*"
+  }
+}
