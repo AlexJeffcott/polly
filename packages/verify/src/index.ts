@@ -54,6 +54,89 @@ export {
   type EventBusAdapterConfig,
 } from "./adapters/event-bus"
 
+// Adapter Detection
+export {
+  AdapterDetector,
+  detectAdapter,
+  type AdapterDetectionResult,
+} from "./adapters/detection"
+
+// ─────────────────────────────────────────────────────────────────
+// Configuration
+// ─────────────────────────────────────────────────────────────────
+export type {
+  AdapterVerificationConfig,
+  LegacyVerificationConfig,
+  UnifiedVerificationConfig,
+  ConfigIssue,
+  ValidationResult as ConfigValidationResult,
+} from "./config/types"
+export { isAdapterConfig, isLegacyConfig } from "./config/types"
+
+import type { UnifiedVerificationConfig } from "./config/types"
+
+/**
+ * Define verification configuration with type checking
+ *
+ * Supports both new adapter-based and legacy configurations.
+ *
+ * @example New adapter-based format:
+ * ```typescript
+ * import { WebExtensionAdapter, defineVerification } from '@fairfox/web-ext-verify'
+ *
+ * export default defineVerification({
+ *   adapter: new WebExtensionAdapter({
+ *     tsConfigPath: "./tsconfig.json",
+ *     maxInFlight: 6,
+ *   }),
+ *   state: {
+ *     "user.role": { type: "enum", values: ["admin", "user", "guest"] },
+ *   },
+ * })
+ * ```
+ *
+ * @example Legacy format (backward compatible):
+ * ```typescript
+ * export default defineVerification({
+ *   state: {
+ *     "user.role": { type: "enum", values: ["admin", "user", "guest"] },
+ *   },
+ *   messages: {
+ *     maxInFlight: 6,
+ *     maxTabs: 2,
+ *   },
+ * })
+ * ```
+ */
+export function defineVerification<
+  T extends UnifiedVerificationConfig
+>(config: T): T {
+  // Validate configuration structure
+  if ("adapter" in config) {
+    // New adapter-based format
+    if (!config.adapter) {
+      throw new Error("Configuration must include an adapter")
+    }
+    if (!config.state) {
+      throw new Error("Configuration must include state bounds")
+    }
+  } else if ("messages" in config) {
+    // Legacy format
+    if (!config.state) {
+      throw new Error("Configuration must include state bounds")
+    }
+    if (!config.messages) {
+      throw new Error("Legacy configuration must include messages bounds")
+    }
+  } else {
+    throw new Error(
+      "Invalid configuration format. Must include either 'adapter' (new format) or 'messages' (legacy format)"
+    )
+  }
+
+  return config
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Legacy API (Backward Compatibility)
 // ─────────────────────────────────────────────────────────────────
@@ -63,11 +146,3 @@ export { analyzeCodebase } from "./extract/types"
 export { TLAGenerator, generateTLA } from "./codegen/tla"
 export { generateConfig } from "./codegen/config"
 export { validateConfig } from "./config/parser"
-
-/**
- * Define verification configuration
- * This is a helper function that provides type checking for the config
- */
-export function defineVerification(config: any): any {
-  return config
-}
