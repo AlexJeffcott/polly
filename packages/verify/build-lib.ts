@@ -113,9 +113,15 @@ try {
 console.log("\n🔧 Making CLI executable...");
 const cliPath = join(DIST_DIR, "cli.js");
 if (existsSync(cliPath)) {
-  // Add shebang to CLI file
-  const cliContent = await Bun.file(cliPath).text();
-  const cliWithShebang = `#!/usr/bin/env node\n${cliContent}`;
+  // Read CLI file and remove any existing shebangs, then add Node shebang
+  let cliContent = await Bun.file(cliPath).text();
+
+  // Remove all shebang lines (lines starting with #!)
+  const lines = cliContent.split('\n');
+  const filteredLines = lines.filter(line => !line.startsWith('#!'));
+
+  // Add proper Node.js shebang at the top
+  const cliWithShebang = `#!/usr/bin/env node\n${filteredLines.join('\n')}`;
   await Bun.write(cliPath, cliWithShebang);
 
   // Make executable on Unix systems
