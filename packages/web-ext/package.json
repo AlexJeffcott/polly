@@ -100,11 +100,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexjeffcott/polly"
+    "url": "https://github.com/AlexJeffcott/polly"
   },
   "bugs": {
-    "url": "https://github.com/alexjeffcott/polly/issues"
+    "url": "https://github.com/AlexJeffcott/polly/issues"
   },
-  "homepage": "https://github.com/alexjeffcott/polly#readme",
+  "homepage": "https://github.com/AlexJeffcott/polly#readme",
   "workspaces": ["examples/*"]
 }

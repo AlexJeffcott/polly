@@ -416,8 +416,8 @@ This publishes the framework with:
 
 ## Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/alexjeffcott/polly/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/alexjeffcott/polly/discussions)
+- **Issues**: [GitHub Issues](https://github.com/AlexJeffcott/polly/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/AlexJeffcott/polly/discussions)
 - **Email**: [maintainer email]
 
 ## Code of Conduct

@@ -50,11 +50,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexjeffcott/polly",
+    "url": "https://github.com/AlexJeffcott/polly",
     "directory": "packages/visualize"
   },
   "bugs": {
-    "url": "https://github.com/alexjeffcott/polly/issues"
+    "url": "https://github.com/AlexJeffcott/polly/issues"
   },
-  "homepage": "https://github.com/alexjeffcott/polly/tree/main/packages/visualize#readme"
+  "homepage": "https://github.com/AlexJeffcott/polly/tree/main/packages/visualize#readme"
 }
