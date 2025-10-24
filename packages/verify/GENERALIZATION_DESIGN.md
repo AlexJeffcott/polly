@@ -191,8 +191,8 @@ export class EventBusAdapter implements RoutingAdapter {
 
 ```typescript
 // verify.config.ts
-import { defineVerification } from '@fairfox/web-ext-verify'
-import { WebExtensionAdapter } from '@fairfox/web-ext-verify/adapters/web-extension'
+import { defineVerification } from '@fairfox/polly-verify'
+import { WebExtensionAdapter } from '@fairfox/polly-verify/adapters/web-extension'
 
 export default defineVerification({
   // 1. Specify the routing model
@@ -225,8 +225,8 @@ export default defineVerification({
 
 ```typescript
 // verify.config.ts
-import { defineVerification } from '@fairfox/web-ext-verify'
-import { ActorSystemAdapter } from '@fairfox/web-ext-verify/adapters/actor-system'
+import { defineVerification } from '@fairfox/polly-verify'
+import { ActorSystemAdapter } from '@fairfox/polly-verify/adapters/actor-system'
 
 export default defineVerification({
   adapter: new ActorSystemAdapter({

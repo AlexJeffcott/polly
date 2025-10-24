@@ -2,7 +2,7 @@
  * Custom message types for full-featured example
  */
 
-import type { ExtensionMessage } from "@fairfox/web-ext/types";
+import type { ExtensionMessage } from "@fairfox/polly/types";
 
 export interface Bookmark {
   id: string;

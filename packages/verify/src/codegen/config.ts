@@ -41,7 +41,7 @@ export class ConfigGenerator {
   }
 
   private addImports(): void {
-    this.line("import { defineVerification } from '@fairfox/web-ext/verify'")
+    this.line("import { defineVerification } from '@fairfox/polly/verify'")
     this.line("")
   }
 

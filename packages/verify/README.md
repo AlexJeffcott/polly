@@ -1,4 +1,4 @@
-# @fairfox/web-ext-verify
+# @fairfox/polly-verify
 
 Formal verification for **any message-passing system** using TLA+.
 
@@ -61,16 +61,16 @@ See [`examples/`](./examples/) for complete usage examples.
 
 ```bash
 # Using Bun (recommended)
-bun add -D @fairfox/web-ext-verify
+bun add -D @fairfox/polly-verify
 
 # Using npm
-npm install --save-dev @fairfox/web-ext-verify
+npm install --save-dev @fairfox/polly-verify
 
 # Using pnpm
-pnpm add -D @fairfox/web-ext-verify
+pnpm add -D @fairfox/polly-verify
 
 # Using yarn
-yarn add -D @fairfox/web-ext-verify
+yarn add -D @fairfox/polly-verify
 ```
 
 > **Note:** This is a development tool. Install as a dev dependency (`-D` flag).
@@ -105,7 +105,7 @@ The CLI will:
 
 ```typescript
 // specs/verification.config.ts
-import { WebExtensionAdapter } from '@fairfox/web-ext-verify'
+import { WebExtensionAdapter } from '@fairfox/polly-verify'
 
 const adapter = new WebExtensionAdapter({
   tsConfigPath: "./tsconfig.json",
@@ -129,7 +129,7 @@ export default {
 
 ```typescript
 // specs/verification.config.ts
-import { EventBusAdapter } from '@fairfox/web-ext-verify'
+import { EventBusAdapter } from '@fairfox/polly-verify'
 
 const adapter = new EventBusAdapter({
   tsConfigPath: "./tsconfig.json",
@@ -242,7 +242,7 @@ Generated config uses special markers:
 
 ```typescript
 // specs/verification.config.ts
-import { defineVerification } from '@fairfox/web-ext/verify'
+import { defineVerification } from '@fairfox/polly/verify'
 
 export default defineVerification({
   state: {
@@ -285,7 +285,7 @@ Define correctness properties using high-level primitives:
 
 ```typescript
 // specs/invariants.ts
-import { before, requires, ensures, never, eventually } from '@fairfox/web-ext/verify'
+import { before, requires, ensures, never, eventually } from '@fairfox/polly/verify'
 
 export const invariants = [
   // Temporal ordering
@@ -413,7 +413,7 @@ verification.config.ts  ← User fills in
 
 ## Contributing
 
-This is part of the @fairfox/web-ext monorepo. See the main README for contribution guidelines.
+This is part of the @fairfox/polly monorepo. See the main README for contribution guidelines.
 
 ## License
 

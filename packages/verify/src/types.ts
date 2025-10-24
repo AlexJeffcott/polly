@@ -11,7 +11,7 @@ export type {
   StateAssignment,
   VerificationCondition,
   CodebaseAnalysis,
-} from "@fairfox/web-ext-analysis"
+} from "@fairfox/polly-analysis"
 
 export type VerificationConfig = {
   preset?: "quick" | "balanced" | "thorough"

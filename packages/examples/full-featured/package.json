@@ -2,7 +2,7 @@
   "name": "full-featured-example",
   "version": "0.1.0",
   "type": "module",
-  "description": "Full-featured example extension demonstrating @fairfox/web-ext framework",
+  "description": "Full-featured example extension demonstrating @fairfox/polly framework",
   "scripts": {
     "check": "web-ext check",
     "build": "web-ext build",
@@ -20,7 +20,7 @@
     "visualize:serve": "web-ext visualize --serve"
   },
   "dependencies": {
-    "@fairfox/web-ext": "workspace:*",
+    "@fairfox/polly": "workspace:*",
     "preact": "^10.27.2",
     "@preact/signals": "^2.3.1"
   },

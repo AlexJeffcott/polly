@@ -1,5 +1,5 @@
 // Background script - runs when extension loads
-import { createBackground } from "@fairfox/web-ext/background";
+import { createBackground } from "@fairfox/polly/background";
 
 const bus = createBackground();
 

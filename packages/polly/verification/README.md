@@ -75,7 +75,7 @@ export const verificationConfig: VerificationConfig = {
 From the verification directory:
 
 ```bash
-cd packages/web-ext/verification
+cd packages/polly/verification
 bun verify.ts
 ```
 

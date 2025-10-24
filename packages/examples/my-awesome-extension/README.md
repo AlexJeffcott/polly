@@ -1,6 +1,6 @@
 # my-awesome-extension
 
-A Chrome extension built with [@fairfox/web-ext](https://github.com/fairfox/web-ext).
+A Chrome extension built with [@fairfox/polly](https://github.com/fairfox/web-ext).
 
 ## Getting Started
 

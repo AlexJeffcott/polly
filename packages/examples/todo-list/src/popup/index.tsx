@@ -1,7 +1,7 @@
 // Popup UI for todo list
 import { render } from 'preact'
 import { useState, useEffect } from 'preact/hooks'
-import { getMessageBus } from '@fairfox/web-ext/message-bus'
+import { getMessageBus } from '@fairfox/polly/message-bus'
 import type { Todo, AppState } from '../shared/types'
 import type { TodoMessages } from '../shared/messages'
 import './styles.css'

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "my-awesome-extension",
   "version": "0.1.0",
-  "description": "A Chrome extension built with @fairfox/web-ext",
+  "description": "A Chrome extension built with @fairfox/polly",
   "background": {
     "service_worker": "background/index.js",
     "type": "module"

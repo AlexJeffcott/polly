@@ -1,4 +1,4 @@
-workspace "Minimal Example" "Dead simple @fairfox/web-ext example" {
+workspace "Minimal Example" "Dead simple @fairfox/polly example" {
 
   !identifiers hierarchical
 

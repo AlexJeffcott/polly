@@ -9,8 +9,8 @@
  * - Reactive state with signals
  */
 
-import { getMessageBus } from "@fairfox/web-ext/message-bus";
-import { $sharedState } from "@fairfox/web-ext/state";
+import { getMessageBus } from "@fairfox/polly/message-bus";
+import { $sharedState } from "@fairfox/polly/state";
 import { signal } from "@preact/signals";
 import { render } from "preact";
 import type { AllMessages, Bookmark } from "../shared/types/messages";

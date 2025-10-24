@@ -14,7 +14,7 @@
 // Run 'bun verify --setup' for interactive help.
 //
 
-import { defineVerification } from '@fairfox/web-ext/verify'
+import { defineVerification } from '@fairfox/polly/verify'
 
 export default defineVerification({
   state: {

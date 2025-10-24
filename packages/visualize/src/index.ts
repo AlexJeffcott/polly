@@ -1,4 +1,4 @@
-// Main entry point for @fairfox/web-ext-visualize
+// Main entry point for @fairfox/polly-visualize
 
 // Export DSL generator
 export * from "./codegen/structurizr"
@@ -10,4 +10,4 @@ export * from "./runner/export"
 export * from "./viewer/server"
 
 // Re-export analysis functionality for convenience
-export { analyzeArchitecture, type ArchitectureAnalysis } from "@fairfox/web-ext-analysis"
+export { analyzeArchitecture, type ArchitectureAnalysis } from "@fairfox/polly-analysis"

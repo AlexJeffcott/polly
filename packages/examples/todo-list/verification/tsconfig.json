@@ -13,13 +13,13 @@
     "skipLibCheck": true,
     "baseUrl": "../..",
     "paths": {
-      "@fairfox/web-ext": ["web-ext/src/index.ts"],
-      "@fairfox/web-ext/*": ["web-ext/src/*"]
+      "@fairfox/polly": ["web-ext/src/index.ts"],
+      "@fairfox/polly/*": ["web-ext/src/*"]
     }
   },
   "include": [
     "./**/*",
     "../src/**/*",
-    "../../web-ext/src/**/*"
+    "../../polly/src/**/*"
   ]
 }

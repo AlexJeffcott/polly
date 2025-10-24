@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// Public API for @fairfox/web-ext-verify
+// Public API for @fairfox/polly-verify
 // ═══════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ import type { UnifiedVerificationConfig } from "./config/types"
  *
  * @example New adapter-based format:
  * ```typescript
- * import { WebExtensionAdapter, defineVerification } from '@fairfox/web-ext-verify'
+ * import { WebExtensionAdapter, defineVerification } from '@fairfox/polly-verify'
  *
  * export default defineVerification({
  *   adapter: new WebExtensionAdapter({

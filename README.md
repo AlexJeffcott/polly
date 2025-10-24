@@ -269,7 +269,7 @@ Polly (πολύς - "many") is designed for applications with **multiple executi
 
 ## Documentation
 
-- [Framework API Reference](./packages/web-ext/README.md)
+- [Framework API Reference](./packages/polly/README.md)
 - [Contributing Guide](./CONTRIBUTING.md)
 - [Examples](./packages/examples/)
 

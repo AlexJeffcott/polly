@@ -149,8 +149,6 @@ async function visualize() {
  * Typecheck command - run TypeScript type checking
  */
 async function typecheck() {
-  console.log("\x1b[34m🔍 Type checking...\x1b[0m\n");
-
   const proc = Bun.spawn(["bunx", "tsc", "--noEmit"], {
     cwd,
     stdout: "inherit",
@@ -158,9 +156,7 @@ async function typecheck() {
   });
 
   const exitCode = await proc.exited;
-  if (exitCode === 0) {
-    console.log("\n\x1b[32m✓ Type checking passed\x1b[0m\n");
-  } else {
+  if (exitCode !== 0) {
     throw new Error(`Type checking failed with exit code ${exitCode}`);
   }
 }
@@ -172,8 +168,6 @@ async function lint() {
   const fix = commandArgs.includes("--fix");
   const lintArgs = fix ? ["check", "--write", "."] : ["check", "."];
 
-  console.log(`\x1b[34m🔍 Linting${fix ? " (with auto-fix)" : ""}...\x1b[0m\n`);
-
   const proc = Bun.spawn(["bunx", "@biomejs/biome", ...lintArgs], {
     cwd,
     stdout: "inherit",
@@ -181,9 +175,7 @@ async function lint() {
   });
 
   const exitCode = await proc.exited;
-  if (exitCode === 0) {
-    console.log(`\n\x1b[32m✓ Linting ${fix ? "and fixes " : ""}completed\x1b[0m\n`);
-  } else {
+  if (exitCode !== 0) {
     throw new Error(`Linting failed with exit code ${exitCode}`);
   }
 }
@@ -192,8 +184,6 @@ async function lint() {
  * Format command - run Biome formatter
  */
 async function format() {
-  console.log("\x1b[34m✨ Formatting code...\x1b[0m\n");
-
   const proc = Bun.spawn(["bunx", "@biomejs/biome", "format", "--write", "."], {
     cwd,
     stdout: "inherit",
@@ -201,9 +191,7 @@ async function format() {
   });
 
   const exitCode = await proc.exited;
-  if (exitCode === 0) {
-    console.log("\n\x1b[32m✓ Code formatted\x1b[0m\n");
-  } else {
+  if (exitCode !== 0) {
     throw new Error(`Formatting failed with exit code ${exitCode}`);
   }
 }
@@ -212,8 +200,6 @@ async function format() {
  * Test command - run Bun tests
  */
 async function test() {
-  console.log("\x1b[34m🧪 Running tests...\x1b[0m\n");
-
   const proc = Bun.spawn(["bun", "test", ...commandArgs], {
     cwd,
     stdout: "pipe",
@@ -232,22 +218,18 @@ async function test() {
 
   // Check if no tests were found (not a failure)
   if (stderr.includes("0 test files matching")) {
-    console.log("\x1b[33m⚠ No tests found\x1b[0m\n");
     return;
   }
 
   if (exitCode !== 0) {
     throw new Error(`Tests failed with exit code ${exitCode}`);
   }
-  console.log("\n\x1b[32m✓ All tests passed\x1b[0m\n");
 }
 
 /**
  * Check command - run all quality checks in sequence
  */
 async function check() {
-  console.log("\x1b[34m\n🔍 Running all checks...\x1b[0m\n");
-
   const checks = [
     { name: "Type checking", fn: typecheck },
     { name: "Linting", fn: lint },
@@ -258,23 +240,16 @@ async function check() {
   ];
 
   for (const { name, fn, optional } of checks) {
-    console.log(`\x1b[34m▶ ${name}...\x1b[0m\n`);
     try {
       await fn();
-    } catch (error) {
+    } catch (_error) {
       if (optional) {
-        console.log(`\x1b[33m⚠ ${name} skipped (optional)\x1b[0m\n`);
         continue;
       }
       console.error(`\n\x1b[31m✗ ${name} failed\x1b[0m\n`);
       process.exit(1);
     }
   }
-
-  console.log("\n\x1b[32m✅ All checks passed!\x1b[0m\n");
-  console.log("\x1b[34m📦 Your extension is ready!\x1b[0m");
-  console.log("\x1b[90m   Build output: dist/\x1b[0m");
-  console.log("\x1b[90m   Architecture docs: docs/\x1b[0m\n");
 }
 
 /**
@@ -283,8 +258,6 @@ async function check() {
 async function init() {
   const projectName = commandArgs[0] || "my-extension";
   const projectPath = `${cwd}/${projectName}`;
-
-  console.log(`\x1b[34m\n🚀 Creating new extension: ${projectName}\x1b[0m\n`);
 
   // Check if directory already exists
   const { existsSync, mkdirSync, writeFileSync } = await import("node:fs");
@@ -331,10 +304,7 @@ async function init() {
     },
   };
 
-  writeFileSync(
-    `${projectPath}/package.json`,
-    JSON.stringify(packageJson, null, 2)
-  );
+  writeFileSync(`${projectPath}/package.json`, JSON.stringify(packageJson, null, 2));
 
   // Create manifest.json at root
   const manifest = {
@@ -352,10 +322,7 @@ async function init() {
     permissions: ["storage"],
   };
 
-  writeFileSync(
-    `${projectPath}/manifest.json`,
-    JSON.stringify(manifest, null, 2)
-  );
+  writeFileSync(`${projectPath}/manifest.json`, JSON.stringify(manifest, null, 2));
 
   // Create background script
   const backgroundScript = `/**
@@ -448,10 +415,7 @@ if (root) {
     include: ["src/**/*"],
   };
 
-  writeFileSync(
-    `${projectPath}/tsconfig.json`,
-    JSON.stringify(tsconfig, null, 2)
-  );
+  writeFileSync(`${projectPath}/tsconfig.json`, JSON.stringify(tsconfig, null, 2));
 
   // Create biome.json
   const biomeConfig = {
@@ -472,10 +436,7 @@ if (root) {
     },
   };
 
-  writeFileSync(
-    `${projectPath}/biome.json`,
-    JSON.stringify(biomeConfig, null, 2)
-  );
+  writeFileSync(`${projectPath}/biome.json`, JSON.stringify(biomeConfig, null, 2));
 
   // Create README
   const readme = `# ${projectName}
@@ -538,96 +499,13 @@ docs
 `;
 
   writeFileSync(`${projectPath}/.gitignore`, gitignore);
-
-  console.log(`\x1b[32m✓ Created project structure\x1b[0m`);
-  console.log(`\x1b[32m✓ Created package.json\x1b[0m`);
-  console.log(`\x1b[32m✓ Created manifest.json\x1b[0m`);
-  console.log(`\x1b[32m✓ Created source files\x1b[0m`);
-  console.log(`\x1b[32m✓ Created configuration files\x1b[0m\n`);
-
-  console.log(`\x1b[34m📦 Next steps:\x1b[0m\n`);
-  console.log(`  cd ${projectName}`);
-  console.log(`  bun install`);
-  console.log(`  bun run build\n`);
-
-  console.log(`\x1b[34m🚀 Load your extension:\x1b[0m\n`);
-  console.log(`  1. Open chrome://extensions`);
-  console.log(`  2. Enable "Developer mode"`);
-  console.log(`  3. Click "Load unpacked"`);
-  console.log(`  4. Select the dist/ folder\n`);
 }
 
 /**
  * Help command
  */
 function help() {
-  console.log(`
-\x1b[34mweb-ext\x1b[0m - Chrome Extension framework CLI
-
-\x1b[34mGetting Started:\x1b[0m
-
-  \x1b[32mweb-ext init\x1b[0m [project-name]
-    Create a new extension project
-    Example: web-ext init my-extension
-
-  \x1b[32mweb-ext check\x1b[0m
-    Run all checks (typecheck → lint → test → build → verify → visualize)
-    Perfect for CI/CD or pre-commit validation
-    (verify & visualize are optional and won't fail the build)
-
-\x1b[34mDevelopment Commands:\x1b[0m
-
-  \x1b[32mweb-ext build\x1b[0m [--prod] [--config <path>]
-    Build your extension for development or production
-
-  \x1b[32mweb-ext dev\x1b[0m
-    Build with watch mode (not yet implemented)
-
-  \x1b[32mweb-ext typecheck\x1b[0m
-    Run TypeScript type checking on your code
-
-  \x1b[32mweb-ext lint\x1b[0m [--fix]
-    Lint your code with Biome (use --fix to auto-fix issues)
-
-  \x1b[32mweb-ext format\x1b[0m
-    Format your code with Biome
-
-  \x1b[32mweb-ext test\x1b[0m [args]
-    Run tests with Bun (passes args to bun test)
-
-\x1b[34mAnalysis Commands:\x1b[0m
-
-  \x1b[32mweb-ext verify\x1b[0m [args]
-    Run formal verification on your extension
-    Examples:
-      web-ext verify              # Run verification
-      web-ext verify --setup      # Generate config
-      web-ext verify --help       # Show verify help
-
-  \x1b[32mweb-ext visualize\x1b[0m [args]
-    Generate architecture diagrams
-    Examples:
-      web-ext visualize           # Generate DSL
-      web-ext visualize --export  # Export static site
-      web-ext visualize --serve   # Serve in browser
-      web-ext visualize --help    # Show visualize help
-
-\x1b[34mOther:\x1b[0m
-
-  \x1b[32mweb-ext help\x1b[0m
-    Show this help message
-
-\x1b[34mOptions:\x1b[0m
-
-  --prod              Build for production (minified)
-  --config <path>     Path to config file (default: web-ext.config.ts)
-  --fix               Auto-fix lint/format issues
-
-\x1b[34mLearn More:\x1b[0m
-
-  Documentation: https://github.com/fairfox/web-ext
-  Examples: https://github.com/fairfox/web-ext/tree/main/packages/examples
-`);
+  // Help is shown automatically via commander
 }
 
 /**
@@ -650,27 +528,21 @@ async function main() {
         break;
       case "typecheck":
         await typecheck();
-        process.exit(0);
         break;
       case "lint":
         await lint();
-        process.exit(0);
         break;
       case "format":
         await format();
-        process.exit(0);
         break;
       case "test":
         await test();
-        process.exit(0);
         break;
       case "verify":
         await verify();
-        process.exit(0);
         break;
       case "visualize":
         await visualize();
-        process.exit(0);
         break;
       case "help":
       case "--help":

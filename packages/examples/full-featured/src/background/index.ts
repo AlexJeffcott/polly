@@ -8,9 +8,9 @@
  * - Data persistence
  */
 
-import { getMessageBus } from "@fairfox/web-ext/message-bus";
-import { MessageRouter } from "@fairfox/web-ext/message-router";
-import { $sharedState } from "@fairfox/web-ext/state";
+import { getMessageBus } from "@fairfox/polly/message-bus";
+import { MessageRouter } from "@fairfox/polly/message-router";
+import { $sharedState } from "@fairfox/polly/state";
 import type { AllMessages, Bookmark, Settings } from "../shared/types/messages";
 
 // Application state

@@ -1,6 +1,6 @@
 # Verification Specifications
 
-This directory contains formal specifications and verification configurations for the `@fairfox/web-ext-verify` package.
+This directory contains formal specifications and verification configurations for the `@fairfox/polly-verify` package.
 
 ## Contents
 

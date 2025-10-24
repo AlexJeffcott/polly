@@ -3,7 +3,7 @@
 
 import { $ } from "bun"
 
-console.log("Building @fairfox/web-ext-analysis...")
+console.log("Building @fairfox/polly-analysis...")
 
 // Clean dist
 await $`rm -rf dist`

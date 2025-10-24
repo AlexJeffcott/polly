@@ -38,7 +38,7 @@ Demonstrates verification of an **event-driven application** using Node.js Event
 **Configuration:** `event-bus-verify.config.ts`
 
 ```typescript
-import { EventBusAdapter } from '@fairfox/web-ext-verify'
+import { EventBusAdapter } from '@fairfox/polly-verify'
 
 const adapter = new EventBusAdapter({
   tsConfigPath: "./tsconfig.json",
@@ -72,7 +72,7 @@ See the `packages/examples/todo-list/` directory for a complete Chrome extension
 Verifies Chrome extensions with multiple contexts (background, content, popup, etc.).
 
 ```typescript
-import { WebExtensionAdapter } from '@fairfox/web-ext-verify'
+import { WebExtensionAdapter } from '@fairfox/polly-verify'
 
 const adapter = new WebExtensionAdapter({
   tsConfigPath: "./tsconfig.json",
@@ -93,7 +93,7 @@ const adapter = new WebExtensionAdapter({
 Verifies event-driven systems using EventEmitter patterns.
 
 ```typescript
-import { EventBusAdapter } from '@fairfox/web-ext-verify'
+import { EventBusAdapter } from '@fairfox/polly-verify'
 
 const adapter = new EventBusAdapter({
   tsConfigPath: "./tsconfig.json",
@@ -114,7 +114,7 @@ const adapter = new EventBusAdapter({
 You can create custom adapters for your own messaging systems:
 
 ```typescript
-import { RoutingAdapter, AdapterConfig } from '@fairfox/web-ext-verify'
+import { RoutingAdapter, AdapterConfig } from '@fairfox/polly-verify'
 
 export class MyCustomAdapter implements RoutingAdapter {
   readonly name = "my-custom-adapter"

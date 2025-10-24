@@ -11,13 +11,13 @@
     "skipLibCheck": true,
     "types": ["chrome"],
     "paths": {
-      "@fairfox/web-ext": ["../web-ext/src/index.ts"],
-      "@fairfox/web-ext/state": ["../web-ext/src/shared/lib/state.ts"],
-      "@fairfox/web-ext/message-bus": ["../web-ext/src/shared/lib/message-bus.ts"],
-      "@fairfox/web-ext/message-router": ["../web-ext/src/background/message-router.ts"],
-      "@fairfox/web-ext/background": ["../web-ext/src/background/index.ts"],
-      "@fairfox/web-ext/types": ["../web-ext/src/shared/types/messages.ts"],
-      "@fairfox/web-ext-verify": ["../verify/src/index.ts"]
+      "@fairfox/polly": ["../polly/src/index.ts"],
+      "@fairfox/polly/state": ["../polly/src/shared/lib/state.ts"],
+      "@fairfox/polly/message-bus": ["../polly/src/shared/lib/message-bus.ts"],
+      "@fairfox/polly/message-router": ["../polly/src/background/message-router.ts"],
+      "@fairfox/polly/background": ["../polly/src/background/index.ts"],
+      "@fairfox/polly/types": ["../polly/src/shared/types/messages.ts"],
+      "@fairfox/polly-verify": ["../verify/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

@@ -1,20 +1,16 @@
 {
-  "name": "@fairfox/web-ext-tests",
+  "name": "@fairfox/polly-tests",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Test suite for @fairfox/web-ext",
+  "description": "Test suite for @fairfox/polly",
   "scripts": {
     "typecheck": "bunx tsc --noEmit",
-    "test": "bun test './unit/**/*.test.ts' './integration/**/*.test.ts' './helpers/**/*.test.ts'",
-    "test:watch": "bun test --watch './unit/**/*.test.ts' './integration/**/*.test.ts' './helpers/**/*.test.ts'",
-    "test:framework": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts",
-    "test:framework:ui": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts --ui",
-    "test:framework:debug": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts --debug",
-    "test:framework:headed": "bun run build:full-featured && bunx playwright test framework-validation/dom-based.spec.ts --headed",
-    "test:all": "bun test && bun run test:framework",
-    "build:full-featured": "bun run ../web-ext/scripts/build-user-extension.ts ../web-ext/examples/full-featured",
-    "build:full-featured:prod": "bun run ../web-ext/scripts/build-user-extension.ts ../web-ext/examples/full-featured --prod"
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:all": "bun test",
+    "build:full-featured": "bun run ../polly/scripts/build-user-extension.ts ../examples/full-featured",
+    "build:full-featured:prod": "bun run ../polly/scripts/build-user-extension.ts ../examples/full-featured --prod"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -25,6 +21,6 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@fairfox/web-ext": "workspace:*"
+    "@fairfox/polly": "workspace:*"
   }
 }

@@ -7,7 +7,7 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
-CLI_PATH="$PROJECT_ROOT/packages/web-ext/cli/polly.ts"
+CLI_PATH="$PROJECT_ROOT/packages/polly/cli/polly.ts"
 
 # Ensure ~/.bun/bin exists
 mkdir -p ~/.bun/bin

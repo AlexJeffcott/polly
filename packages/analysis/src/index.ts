@@ -1,4 +1,4 @@
-// Main entry point for @fairfox/web-ext-analysis
+// Main entry point for @fairfox/polly-analysis
 
 // Export types
 export * from "./types"

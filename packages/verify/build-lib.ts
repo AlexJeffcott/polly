@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Build script for @fairfox/web-ext-verify npm publishing
+ * Build script for @fairfox/polly-verify npm publishing
  *
  * This script:
  * 1. Compiles TypeScript source to JavaScript ESM in dist/
@@ -16,7 +16,7 @@ import { $ } from "bun";
 const DIST_DIR = "dist";
 const TEMP_DIR = "dist-temp";
 
-console.log("🏗️  Building @fairfox/web-ext-verify library...\n");
+console.log("🏗️  Building @fairfox/polly-verify library...\n");
 
 // Clean dist directory
 if (existsSync(DIST_DIR)) {
@@ -52,7 +52,7 @@ const buildResult = await Bun.build({
     // Mark dependencies as external (they'll be installed by users)
     "ts-morph",
     "typescript",
-    "@fairfox/web-ext-analysis",
+    "@fairfox/polly-analysis",
   ],
 });
 

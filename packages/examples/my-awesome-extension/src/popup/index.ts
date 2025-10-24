@@ -2,7 +2,7 @@
  * Popup UI
  */
 
-import { getMessageBus } from "@fairfox/web-ext/message-bus";
+import { getMessageBus } from "@fairfox/polly/message-bus";
 
 const bus = getMessageBus("popup");
 

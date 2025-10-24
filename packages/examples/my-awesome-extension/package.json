@@ -18,6 +18,6 @@
     "visualize:serve": "web-ext visualize --serve"
   },
   "dependencies": {
-    "@fairfox/web-ext": "*"
+    "@fairfox/polly": "*"
   }
 }

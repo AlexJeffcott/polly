@@ -1,6 +1,7 @@
 {
   "name": "@fairfox/polly",
   "version": "0.1.0",
+  "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
   "main": "dist/index.js",
@@ -105,6 +106,5 @@
   "bugs": {
     "url": "https://github.com/AlexJeffcott/polly/issues"
   },
-  "homepage": "https://github.com/AlexJeffcott/polly#readme",
-  "workspaces": ["examples/*"]
+  "homepage": "https://github.com/AlexJeffcott/polly#readme"
 }

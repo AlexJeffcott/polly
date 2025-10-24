@@ -1,4 +1,4 @@
-# @fairfox/web-ext-visualize - Architecture
+# @fairfox/polly-visualize - Architecture
 
 ## System Overview
 
@@ -7,7 +7,7 @@ This package automatically generates architecture documentation (Structurizr DSL
 ## Package Structure
 
 ```
-@fairfox/web-ext-visualize
+@fairfox/polly-visualize
 ├── src/
 │   ├── codegen/
 │   │   └── structurizr.ts      # DSL generator
@@ -19,7 +19,7 @@ This package automatically generates architecture documentation (Structurizr DSL
 
 ## Dependencies
 
-- **@fairfox/web-ext-analysis** - Provides all analysis capabilities
+- **@fairfox/polly-analysis** - Provides all analysis capabilities
   - Type extraction
   - Manifest parsing
   - Context analysis
@@ -30,7 +30,7 @@ This package automatically generates architecture documentation (Structurizr DSL
 
 ### 1. Analysis Phase
 
-Uses `@fairfox/web-ext-analysis` to extract:
+Uses `@fairfox/polly-analysis` to extract:
 
 ```typescript
 const analysis = await analyzeArchitecture({
@@ -153,7 +153,7 @@ bunx web-ext-visualize
 import {
   analyzeArchitecture,
   generateStructurizrDSL
-} from '@fairfox/web-ext-visualize'
+} from '@fairfox/polly-visualize'
 
 const analysis = await analyzeArchitecture({
   tsConfigPath: "./tsconfig.json",

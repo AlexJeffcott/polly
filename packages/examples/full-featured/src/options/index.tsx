@@ -4,7 +4,7 @@
  * Demonstrates settings management with persistent state
  */
 
-import { $sharedState } from "@fairfox/web-ext/state";
+import { $sharedState } from "@fairfox/polly/state";
 import { render } from "preact";
 import type { Settings } from "../shared/types/messages";
 

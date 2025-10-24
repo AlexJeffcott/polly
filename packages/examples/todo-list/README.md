@@ -159,7 +159,7 @@ The background script uses `createBackground()` instead of `getMessageBus('backg
 
 ```typescript
 // src/background/handlers.ts
-import { createBackground } from '@fairfox/web-ext/background'
+import { createBackground } from '@fairfox/polly/background'
 
 const bus = createBackground()  // ✅ Correct!
 ```
@@ -223,7 +223,7 @@ These tests document:
 
 ### Learn More
 
-See the [Background Setup Guide](../../web-ext/docs/BACKGROUND_SETUP.md) for complete documentation.
+See the [Background Setup Guide](../../polly/docs/BACKGROUND_SETUP.md) for complete documentation.
 
 ---
 

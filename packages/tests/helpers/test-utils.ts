@@ -1,4 +1,4 @@
-import type { ExtensionMessage, RoutedMessage } from "@fairfox/web-ext/types";
+import type { ExtensionMessage, RoutedMessage } from "@fairfox/polly/types";
 
 /**
  * Test utilities for extension testing

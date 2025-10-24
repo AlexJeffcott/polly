@@ -1,5 +1,5 @@
 // Custom message types for todo-list extension
-import type { BaseMessage } from '@fairfox/web-ext/types'
+import type { BaseMessage } from '@fairfox/polly/types'
 import type { Todo, AppState, User } from './types'
 
 // Phantom type that embeds response type into message type

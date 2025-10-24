@@ -1,10 +1,10 @@
-# @fairfox/web-ext-analysis
+# @fairfox/polly-analysis
 
 Shared TypeScript analysis tools for static code analysis of message-passing systems.
 
 ## Overview
 
-This package provides low-level utilities for analyzing TypeScript codebases, extracting types, message handlers, and other structural information. It's used as a foundation for both `@fairfox/web-ext-verify` and `@fairfox/web-ext-visualize`.
+This package provides low-level utilities for analyzing TypeScript codebases, extracting types, message handlers, and other structural information. It's used as a foundation for both `@fairfox/polly-verify` and `@fairfox/polly-visualize`.
 
 ## Features
 
@@ -17,7 +17,7 @@ This package provides low-level utilities for analyzing TypeScript codebases, ex
 ## Usage
 
 ```typescript
-import { TypeExtractor, HandlerExtractor, analyzeCodebase } from '@fairfox/web-ext-analysis'
+import { TypeExtractor, HandlerExtractor, analyzeCodebase } from '@fairfox/polly-analysis'
 
 // Analyze entire codebase
 const analysis = await analyzeCodebase({

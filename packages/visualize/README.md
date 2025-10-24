@@ -1,4 +1,4 @@
-# @fairfox/web-ext-visualize
+# @fairfox/polly-visualize
 
 Automatic architecture documentation for web extensions using Structurizr and the C4 model.
 
@@ -16,13 +16,13 @@ All from your TypeScript code with zero manual effort.
 
 ```bash
 # Using Bun (recommended)
-bun add -D @fairfox/web-ext-visualize
+bun add -D @fairfox/polly-visualize
 
 # Using npm
-npm install --save-dev @fairfox/web-ext-visualize
+npm install --save-dev @fairfox/polly-visualize
 
 # Using pnpm
-pnpm add -D @fairfox/web-ext-visualize
+pnpm add -D @fairfox/polly-visualize
 ```
 
 ## Quick Start
@@ -100,7 +100,7 @@ bunx web-ext-visualize --help
 ## Programmatic Usage
 
 ```typescript
-import { analyzeArchitecture, generateStructurizrDSL } from '@fairfox/web-ext-visualize'
+import { analyzeArchitecture, generateStructurizrDSL } from '@fairfox/polly-visualize'
 
 // Analyze architecture
 const analysis = await analyzeArchitecture({
@@ -211,11 +211,11 @@ workspace "My Extension" {
 
 - TypeScript project with `tsconfig.json`
 - Chrome extension with `manifest.json`
-- Built with `@fairfox/web-ext` (or compatible message-passing patterns)
+- Built with `@fairfox/polly` (or compatible message-passing patterns)
 
 ## Architecture
 
-Uses `@fairfox/web-ext-analysis` to:
+Uses `@fairfox/polly-analysis` to:
 1. Parse `manifest.json`
 2. Extract TypeScript types
 3. Trace message handlers

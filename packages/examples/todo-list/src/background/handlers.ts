@@ -1,6 +1,6 @@
 // Message handlers with verification primitives
-import { createBackground } from '@fairfox/web-ext/background'
-import { requires, ensures } from '@fairfox/web-ext-verify'
+import { createBackground } from '@fairfox/polly/background'
+import { requires, ensures } from '@fairfox/polly-verify'
 import { state, generateId } from './state'
 import type { Todo } from '../shared/types'
 import type { TodoMessages } from '../shared/messages'

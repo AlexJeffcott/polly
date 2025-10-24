@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "check": "web-ext check",
-    "dev": "bun ../web-ext/scripts/build-user-extension.ts . --watch",
-    "build": "bun ../web-ext/scripts/build-user-extension.ts .",
-    "build:prod": "bun ../web-ext/scripts/build-user-extension.ts . --prod",
+    "dev": "bun ../polly/scripts/build-user-extension.ts . --watch",
+    "build": "bun ../polly/scripts/build-user-extension.ts .",
+    "build:prod": "bun ../polly/scripts/build-user-extension.ts . --prod",
     "typecheck": "web-ext typecheck",
     "lint": "web-ext lint",
     "lint:fix": "web-ext lint --fix",
@@ -20,7 +20,7 @@
     "visualize:serve": "web-ext visualize --serve"
   },
   "dependencies": {
-    "@fairfox/web-ext": "workspace:*",
+    "@fairfox/polly": "workspace:*",
     "preact": "^10.27.2"
   },
   "devDependencies": {

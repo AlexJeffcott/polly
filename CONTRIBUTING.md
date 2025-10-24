@@ -390,7 +390,7 @@ The project uses a **single-package publishing model**:
 
 ### Release Steps
 
-1. **Update version** in `packages/web-ext/package.json`
+1. **Update version** in `packages/polly/package.json`
 2. **Update CHANGELOG.md**
 3. **Run full test suite**:
    ```bash
@@ -399,7 +399,7 @@ The project uses a **single-package publishing model**:
    ```
 4. **Build for production**:
    ```bash
-   cd packages/web-ext
+   cd packages/polly
    bun run build:lib
    ```
 5. **Publish to npm**:

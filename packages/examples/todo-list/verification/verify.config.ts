@@ -1,5 +1,5 @@
 // Verification configuration for todo-list example
-import type { VerificationConfig } from '@fairfox/web-ext-verify'
+import type { VerificationConfig } from '@fairfox/polly-verify'
 
 export const verificationConfig: VerificationConfig = {
   preset: 'balanced',

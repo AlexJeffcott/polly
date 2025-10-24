@@ -1,6 +1,6 @@
 # Full-Featured Example
 
-This extension demonstrates how to build a production-ready extension with the @fairfox/web-ext framework.
+This extension demonstrates how to build a production-ready extension with the @fairfox/polly framework.
 
 ## Structure
 
@@ -23,14 +23,14 @@ full-featured/
 ### 1. Install Framework
 
 ```bash
-bun add @fairfox/web-ext
+bun add @fairfox/polly
 ```
 
 ### 2. Import Framework Primitives
 
 ```typescript
 // src/shared/state/my-state.ts
-import { $sharedState, $syncedState } from '@fairfox/web-ext/state'
+import { $sharedState, $syncedState } from '@fairfox/polly/state'
 
 export const counter = $sharedState('counter', 0)
 export const message = $syncedState('message', '')
@@ -40,7 +40,7 @@ export const message = $syncedState('message', '')
 
 ```typescript
 // src/popup/index.tsx
-import { getMessageBus } from '@fairfox/web-ext/message-bus'
+import { getMessageBus } from '@fairfox/polly/message-bus'
 import { counter } from '../shared/state/my-state'
 
 const bus = getMessageBus('popup')
@@ -61,7 +61,7 @@ function Popup() {
 
 ```typescript
 // src/background/index.ts
-import { getMessageBus } from '@fairfox/web-ext/message-bus'
+import { getMessageBus } from '@fairfox/polly/message-bus'
 
 const bus = getMessageBus('background')
 

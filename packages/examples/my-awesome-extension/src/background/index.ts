@@ -2,8 +2,8 @@
  * Background Service Worker
  */
 
-import { getMessageBus } from "@fairfox/web-ext/message-bus";
-import { MessageRouter } from "@fairfox/web-ext/message-router";
+import { getMessageBus } from "@fairfox/polly/message-bus";
+import { MessageRouter } from "@fairfox/polly/message-router";
 
 const bus = getMessageBus("background");
 new MessageRouter(bus);

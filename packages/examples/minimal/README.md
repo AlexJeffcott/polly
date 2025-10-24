@@ -1,6 +1,6 @@
 # Minimal Example
 
-The simplest possible @fairfox/web-ext extension. Perfect for getting started!
+The simplest possible @fairfox/polly extension. Perfect for getting started!
 
 ## What It Does
 
@@ -45,7 +45,7 @@ src/
 
 ```typescript
 // src/shared/state.ts
-import { $sharedState } from '@fairfox/web-ext/state'
+import { $sharedState } from '@fairfox/polly/state'
 
 export const counter = $sharedState('counter', 0)
 ```

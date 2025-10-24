@@ -1,5 +1,5 @@
 // Verification script for todo-list example
-import { HandlerExtractor, TLAGenerator, type CodebaseAnalysis } from '@fairfox/web-ext-verify'
+import { HandlerExtractor, TLAGenerator, type CodebaseAnalysis } from '@fairfox/polly-verify'
 import * as path from 'node:path'
 import { writeFileSync, mkdirSync } from 'node:fs'
 
