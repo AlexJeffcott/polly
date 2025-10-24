@@ -1,62 +1,17 @@
 // Core types for verification system
 
-export type Context =
-  | "background"
-  | "content"
-  | "popup"
-  | "devtools"
-  | "options"
-  | "offscreen"
-  | "sidepanel"
-
-export type Confidence = "high" | "medium" | "low"
-
-export type TypeKind =
-  | "boolean"
-  | "string"
-  | "number"
-  | "enum"
-  | "array"
-  | "object"
-  | "map"
-  | "set"
-  | "union"
-  | "null"
-  | "unknown"
-
-export type TypeInfo = {
-  name: string
-  kind: TypeKind
-  nullable: boolean
-  elementType?: TypeInfo  // For arrays, sets
-  valueType?: TypeInfo    // For maps
-  properties?: Record<string, TypeInfo>  // For objects
-  enumValues?: string[]   // For enums
-  unionTypes?: TypeInfo[] // For unions
-}
-
-export type FieldAnalysis = {
-  path: string
-  type: TypeInfo
-  confidence: Confidence
-  evidence: string[]
-  suggestions: string[]
-  bounds?: {
-    min?: number
-    max?: number
-    maxLength?: number
-    maxSize?: number
-    values?: string[]
-  }
-}
-
-// Re-export core types for backward compatibility
+// Re-export shared types from analysis package
 export type {
+  Context,
+  TypeKind,
+  TypeInfo,
+  FieldAnalysis,
+  Confidence,
   MessageHandler,
   StateAssignment,
   VerificationCondition,
   CodebaseAnalysis,
-} from "./core/model"
+} from "@fairfox/web-ext-analysis"
 
 export type VerificationConfig = {
   preset?: "quick" | "balanced" | "thorough"

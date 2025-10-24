@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "my-awesome-extension",
+  "version": "0.1.0",
+  "description": "A Chrome extension built with @fairfox/web-ext",
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "permissions": [
+    "storage"
+  ]
+}

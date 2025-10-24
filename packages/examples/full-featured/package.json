@@ -4,11 +4,28 @@
   "type": "module",
   "description": "Full-featured example extension demonstrating @fairfox/web-ext framework",
   "scripts": {
+    "check": "web-ext check",
     "build": "web-ext build",
     "build:prod": "web-ext build --prod",
-    "dev": "web-ext dev"
+    "dev": "web-ext dev",
+    "typecheck": "web-ext typecheck",
+    "lint": "web-ext lint",
+    "lint:fix": "web-ext lint --fix",
+    "format": "web-ext format",
+    "test": "web-ext test",
+    "verify": "web-ext verify",
+    "verify:setup": "web-ext verify --setup",
+    "visualize": "web-ext visualize",
+    "visualize:export": "web-ext visualize --export",
+    "visualize:serve": "web-ext visualize --serve"
   },
   "dependencies": {
-    "@fairfox/web-ext": "link:@fairfox/web-ext"
+    "@fairfox/web-ext": "workspace:*",
+    "preact": "^10.27.2",
+    "@preact/signals": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.24",
+    "bun-types": "latest"
   }
 }

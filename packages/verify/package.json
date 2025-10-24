@@ -1,22 +1,19 @@
 {
-  "name": "@fairfox/web-ext-verify",
+  "name": "@fairfox/polly-verify",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
-  "description": "Formal verification for message-passing systems using TLA+. Automatically generates TLA+ specifications from TypeScript code.",
+  "description": "Formal verification for multi-context message-passing systems using TLA+. Automatically generates TLA+ specifications from TypeScript code.",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "web-ext-verify": "./dist/cli.js"
-  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./cli": {
-      "import": "./dist/cli.js",
-      "types": "./dist/cli.d.ts"
+      "import": "./src/cli.ts"
     }
   },
   "files": [
@@ -28,19 +25,17 @@
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build:lib": "bun run build-lib.ts",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run typecheck && bun run build:lib",
-    "publish:public": "npm publish --access public"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "ts-morph": "^21.0.1"
+    "@fairfox/polly-analysis": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
     "typescript": "^5.3.3"
   },
   "peerDependencies": {
-    "@fairfox/web-ext": "^0.1.0"
+    "@fairfox/polly": "^0.1.0"
   },
   "keywords": [
     "formal-verification",
@@ -64,11 +59,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexjeffcott/web-ext",
+    "url": "https://github.com/alexjeffcott/polly",
     "directory": "packages/verify"
   },
   "bugs": {
-    "url": "https://github.com/alexjeffcott/web-ext/issues"
+    "url": "https://github.com/alexjeffcott/polly/issues"
   },
-  "homepage": "https://github.com/alexjeffcott/web-ext/tree/main/packages/verify#readme"
+  "homepage": "https://github.com/alexjeffcott/polly/tree/main/packages/verify#readme"
 }

@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { MessageRouter } from "@/background/message-router";
 import type { ExtensionAdapters } from "@/shared/adapters";
 import { MessageBus } from "@/shared/lib/message-bus";
@@ -25,7 +25,12 @@ function simulatePortConnection(mockRuntime: MockRuntime, port: ReturnType<typeo
   }
 }
 
-// Reset MessageRouter singleton after each test
+// Reset MessageRouter singleton before and after each test
+// beforeEach ensures clean state when tests run in parallel
+beforeEach(() => {
+  MessageRouter.resetInstance();
+});
+
 afterEach(() => {
   MessageRouter.resetInstance();
 });

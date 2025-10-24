@@ -1,16 +1,19 @@
 {
-  "name": "@fairfox/web-ext-monorepo",
+  "name": "@fairfox/polly-monorepo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Chrome Extension framework with reactive state and cross-context messaging",
+  "description": "Multi-execution-context framework with reactive state and cross-context messaging",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/examples/*"
   ],
   "scripts": {
+    "setup": "bun install && cd packages/web-ext && bun run build:lib && bash ../../scripts/install-cli.sh",
     "dev": "bun run --cwd packages/web-ext dev",
     "build": "bun run --cwd packages/web-ext build",
     "build:prod": "bun run --cwd packages/web-ext build:prod",
+    "build:lib": "bun run --cwd packages/web-ext build:lib",
     "typecheck": "bun run --cwd packages/web-ext typecheck && bun run --cwd packages/tests typecheck",
     "typecheck:src": "bun run --cwd packages/web-ext typecheck",
     "typecheck:tests": "bun run --cwd packages/tests typecheck",
@@ -30,6 +33,6 @@
     "tla:shell": "docker-compose -f specs/docker-compose.yml exec tla sh"
   },
   "engines": {
-    "bun": ">=1.0.0"
+    "bun": ">=1.3.0"
   }
 }

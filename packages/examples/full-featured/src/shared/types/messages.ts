@@ -1,16 +1,47 @@
 /**
- * Custom message types for test extension
+ * Custom message types for full-featured example
  */
 
 import type { ExtensionMessage } from "@fairfox/web-ext/types";
 
-export type TestMessages =
-  | { type: "TEST_STORAGE"; testValue?: string }
-  | { type: "TEST_TABS" }
-  | { type: "TEST_MESSAGE_ROUNDTRIP"; data?: unknown }
-  | { type: "TEST_SIGNAL_STATE" }
-  | { type: "TEST_RUNTIME" }
-  | { type: "GET_ALL_TEST_RESULTS" };
+export interface Bookmark {
+  id: string;
+  url: string;
+  title: string;
+  timestamp: number;
+}
+
+export interface Settings {
+  theme: "auto" | "light" | "dark";
+  autoSync: boolean;
+  debugMode: boolean;
+  notifications: boolean;
+  apiEndpoint: string;
+  refreshInterval: number;
+}
+
+export type CustomMessages =
+  // Authentication
+  | { type: "USER_LOGIN"; username: string; token: string }
+  | { type: "USER_LOGOUT" }
+  // Bookmarks
+  | { type: "BOOKMARK_ADD"; url: string; title: string }
+  | { type: "BOOKMARK_REMOVE"; id: string }
+  | { type: "GET_BOOKMARKS" }
+  // Tabs
+  | { type: "TAB_GET_CURRENT" }
+  | { type: "TAB_OPEN"; url: string }
+  // Settings
+  | {
+      type: "SETTINGS_UPDATE";
+      theme?: "auto" | "light" | "dark";
+      autoSync?: boolean;
+      debugMode?: boolean;
+      notifications?: boolean;
+      apiEndpoint?: string;
+      refreshInterval?: number;
+    }
+  | { type: "GET_SETTINGS" };
 
 // Combined message type - includes both framework and custom messages
-export type AllMessages = ExtensionMessage | TestMessages;
+export type AllMessages = ExtensionMessage | CustomMessages;

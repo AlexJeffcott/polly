@@ -87,7 +87,6 @@ try {
     },
     include: ["src/**/*"],
     exclude: [
-      "src/background/**/*",
       "src/content/**/*",
       "src/devtools/**/*",
       "src/options/**/*",

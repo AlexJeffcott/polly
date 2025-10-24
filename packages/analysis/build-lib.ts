@@ -1,0 +1,14 @@
+#!/usr/bin/env bun
+// Build script for the analysis library
+
+import { $ } from "bun"
+
+console.log("Building @fairfox/web-ext-analysis...")
+
+// Clean dist
+await $`rm -rf dist`
+
+// Build with TypeScript compiler
+await $`bunx tsc --project tsconfig.json`
+
+console.log("✓ Build complete")

@@ -4,18 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "web-ext check",
     "dev": "bun ../web-ext/scripts/build-user-extension.ts . --watch",
     "build": "bun ../web-ext/scripts/build-user-extension.ts .",
     "build:prod": "bun ../web-ext/scripts/build-user-extension.ts . --prod",
-    "test": "bun test",
-    "verify": "cd verification && bun verify.ts"
+    "typecheck": "web-ext typecheck",
+    "lint": "web-ext lint",
+    "lint:fix": "web-ext lint --fix",
+    "format": "web-ext format",
+    "test": "web-ext test",
+    "verify": "web-ext verify",
+    "verify:setup": "web-ext verify --setup",
+    "visualize": "web-ext visualize",
+    "visualize:export": "web-ext visualize --export",
+    "visualize:serve": "web-ext visualize --serve"
   },
   "dependencies": {
     "@fairfox/web-ext": "workspace:*",
     "preact": "^10.27.2"
   },
   "devDependencies": {
-    "@fairfox/web-ext-verify": "workspace:*",
     "@types/chrome": "^0.1.24",
     "bun-types": "latest"
   }

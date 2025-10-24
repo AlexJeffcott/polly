@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Framework Test Extension",
+  "name": "Full-Featured Example",
   "version": "0.1.0",
-  "description": "Test extension for web-ext framework validation",
+  "description": "Demonstrates real-world extension patterns: authentication, bookmarks, tab management, and settings",
   "permissions": ["storage", "tabs", "activeTab"],
   "background": {
     "service_worker": "background/index.js",

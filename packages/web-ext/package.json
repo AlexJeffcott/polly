@@ -1,13 +1,13 @@
 {
-  "name": "@fairfox/web-ext",
+  "name": "@fairfox/polly",
   "version": "0.1.0",
   "type": "module",
-  "description": "Chrome Extension framework with reactive state and cross-context messaging",
+  "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "web-ext": "./cli/web-ext.ts"
+    "polly": "./cli/polly.ts"
   },
   "exports": {
     ".": {
@@ -60,7 +60,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
-    "@fairfox/web-ext-verify": "workspace:*",
     "@types/bun": "^1.2.19",
     "@types/chrome": "^0.0.268",
     "typescript": "^5.5.4"
@@ -70,7 +69,8 @@
   },
   "dependencies": {
     "@preact/signals": "^2.3.1",
-    "preact": "^10.27.2"
+    "preact": "^10.27.2",
+    "ts-morph": "^21.0.1"
   },
   "peerDependencies": {
     "typescript": "^5",
@@ -78,9 +78,13 @@
     "@preact/signals": "^2"
   },
   "keywords": [
+    "multi-context",
     "chrome-extension",
     "browser-extension",
     "web-extension",
+    "pwa",
+    "web-workers",
+    "service-workers",
     "framework",
     "reactive",
     "state-management",
@@ -89,21 +93,18 @@
     "preact",
     "signals",
     "typescript",
-    "devtools",
-    "content-script",
-    "background-script",
-    "popup",
-    "options"
+    "distributed",
+    "concurrent"
   ],
   "author": "Alex Jeffcott",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexjeffcott/web-ext"
+    "url": "https://github.com/alexjeffcott/polly"
   },
   "bugs": {
-    "url": "https://github.com/alexjeffcott/web-ext/issues"
+    "url": "https://github.com/alexjeffcott/polly/issues"
   },
-  "homepage": "https://github.com/alexjeffcott/web-ext#readme",
+  "homepage": "https://github.com/alexjeffcott/polly#readme",
   "workspaces": ["examples/*"]
 }

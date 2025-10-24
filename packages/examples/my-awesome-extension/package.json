@@ -1,0 +1,23 @@
+{
+  "name": "my-awesome-extension",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "web-ext check",
+    "build": "web-ext build",
+    "build:prod": "web-ext build --prod",
+    "typecheck": "web-ext typecheck",
+    "lint": "web-ext lint",
+    "lint:fix": "web-ext lint --fix",
+    "format": "web-ext format",
+    "test": "web-ext test",
+    "verify": "web-ext verify",
+    "verify:setup": "web-ext verify --setup",
+    "visualize": "web-ext visualize",
+    "visualize:export": "web-ext visualize --export",
+    "visualize:serve": "web-ext visualize --serve"
+  },
+  "dependencies": {
+    "@fairfox/web-ext": "*"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "@fairfox/polly-visualize",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automatic architecture documentation for multi-context applications using Structurizr. Generates C4 diagrams from TypeScript code.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./cli": {
+      "import": "./src/cli.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build:lib": "bun run build-lib.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fairfox/polly-analysis": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "architecture",
+    "documentation",
+    "structurizr",
+    "c4-model",
+    "diagrams",
+    "visualization",
+    "chrome-extension",
+    "web-extension",
+    "message-passing",
+    "typescript",
+    "cli"
+  ],
+  "author": "Alex Jeffcott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexjeffcott/polly",
+    "directory": "packages/visualize"
+  },
+  "bugs": {
+    "url": "https://github.com/alexjeffcott/polly/issues"
+  },
+  "homepage": "https://github.com/alexjeffcott/polly/tree/main/packages/visualize#readme"
+}

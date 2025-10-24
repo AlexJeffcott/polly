@@ -1,228 +1,415 @@
 /**
- * Test Extension - Popup
+ * Full-Featured Example - Popup
  *
- * Renders framework state to DOM for Playwright validation.
- * Demonstrates real framework usage with reactive UI.
+ * Demonstrates real-world extension patterns:
+ * - User authentication
+ * - Bookmark management
+ * - Tab operations
+ * - Settings management
+ * - Reactive state with signals
  */
 
 import { getMessageBus } from "@fairfox/web-ext/message-bus";
 import { $sharedState } from "@fairfox/web-ext/state";
-import type { BaseMessage, Settings } from "@fairfox/web-ext/types";
 import { signal } from "@preact/signals";
 import { render } from "preact";
-import {
-  simpleSharedCounter,
-  simpleSyncedCounter,
-  testCounter,
-  testLocalCounter,
-  testMessage,
-  testPreferences,
-  testResults,
-  testStatus,
-} from "../shared/state/test-state";
+import type { AllMessages, Bookmark } from "../shared/types/messages";
 
-// Custom message types for testing
-type SimplePingMessage = BaseMessage & { type: "SIMPLE_PING"; timestamp: number };
-type SimplePongMessage = BaseMessage & { type: "SIMPLE_PONG"; timestamp: number };
-type TestMessage = SimplePingMessage | SimplePongMessage;
+const bus = getMessageBus<AllMessages>("popup");
 
-// Settings from framework
-const settings = $sharedState<Settings>("app-settings", {
-  theme: "auto",
-  autoSync: true,
-  debugMode: false,
-  notifications: true,
-  apiEndpoint: "",
-  refreshInterval: 60000,
-});
+// Shared state
+const bookmarks = $sharedState<Bookmark[]>("bookmarks", []);
 
-const bus = getMessageBus("popup");
+// Local UI state
+const username = signal("");
+const token = signal("");
+const isLoggedIn = signal(false);
+const currentUser = signal("");
+const newBookmarkUrl = signal("");
+const newBookmarkTitle = signal("");
+const currentTab = signal<{ id?: number; url?: string; title?: string } | null>(
+  null,
+);
+const statusMessage = signal("");
 
-// Super simple cross-context test state
-const lastPing = signal("");
+// Type guards
+function hasUserData(value: unknown): value is { username: string } {
+  return value !== null && typeof value === "object" && "username" in value;
+}
 
-// Listen for pong responses
-bus.on("SIMPLE_PONG", async (payload: SimplePongMessage) => {
-  lastPing.value = `Received pong at ${Date.now()}`;
-  return undefined;
-});
+function isSuccessResponse(value: unknown): value is { success: true } {
+  return value !== null && typeof value === "object" && "success" in value;
+}
+
+// Check if user is logged in on mount
+(async () => {
+  const result = await bus.adapters.storage.get("user");
+  if (hasUserData(result.user)) {
+    isLoggedIn.value = true;
+    currentUser.value = result.user.username;
+  }
+})();
 
 function Popup() {
-  const sendSimplePing = () => {
-    console.log("[POPUP] Sending SIMPLE_PING");
-    const pingMessage: SimplePingMessage = { type: "SIMPLE_PING", timestamp: Date.now() };
-    bus.broadcast(pingMessage);
-    lastPing.value = `Sent ping at ${Date.now()}`;
-  };
+  const handleLogin = async () => {
+    if (!username.value || !token.value) {
+      statusMessage.value = "Please enter username and token";
+      return;
+    }
 
-  const runTest = async (testType: string) => {
-    testStatus.value = "running";
     try {
-      const testMessage: BaseMessage = { type: `TEST_${testType.toUpperCase()}` };
-      const result = await bus.send(testMessage);
-      testResults.value = { ...testResults.value, [testType]: result };
-      testStatus.value = "success";
+      const result = await bus.send({
+        type: "USER_LOGIN",
+        username: username.value,
+        token: token.value,
+      });
+
+      if (isSuccessResponse(result)) {
+        isLoggedIn.value = true;
+        currentUser.value = username.value;
+        statusMessage.value = "Login successful!";
+        username.value = "";
+        token.value = "";
+      }
     } catch (error) {
-      testStatus.value = "error";
-      testResults.value = {
-        ...testResults.value,
-        [testType]: { success: false, error: String(error) },
-      };
+      statusMessage.value = `Login failed: ${error}`;
     }
   };
 
-  const runAllTests = async () => {
-    testStatus.value = "running";
+  const handleLogout = async () => {
     try {
-      const testMessage: BaseMessage = { type: "GET_ALL_TEST_RESULTS" };
-      const result = await bus.send(testMessage);
-      if (result && typeof result === "object" && "results" in result) {
-        const resultsObj = result.results;
-        if (resultsObj && typeof resultsObj === "object" && "tests" in resultsObj) {
-          testResults.value = resultsObj.tests || {};
-        }
-      }
-      testStatus.value = "success";
+      await bus.send({ type: "USER_LOGOUT" });
+      isLoggedIn.value = false;
+      currentUser.value = "";
+      statusMessage.value = "Logged out";
     } catch (error) {
-      console.error("[POPUP] Error running tests:", error);
-      testStatus.value = "error";
+      statusMessage.value = `Logout failed: ${error}`;
+    }
+  };
+
+  const handleAddBookmark = async () => {
+    if (!newBookmarkUrl.value || !newBookmarkTitle.value) {
+      statusMessage.value = "Please enter URL and title";
+      return;
+    }
+
+    try {
+      const result = await bus.send({
+        type: "BOOKMARK_ADD",
+        url: newBookmarkUrl.value,
+        title: newBookmarkTitle.value,
+      });
+
+      if (isSuccessResponse(result)) {
+        statusMessage.value = "Bookmark added!";
+        newBookmarkUrl.value = "";
+        newBookmarkTitle.value = "";
+      }
+    } catch (error) {
+      statusMessage.value = `Failed to add bookmark: ${error}`;
+    }
+  };
+
+  const handleRemoveBookmark = async (id: string) => {
+    try {
+      await bus.send({ type: "BOOKMARK_REMOVE", id });
+      statusMessage.value = "Bookmark removed";
+    } catch (error) {
+      statusMessage.value = `Failed to remove bookmark: ${error}`;
+    }
+  };
+
+  const handleGetCurrentTab = async () => {
+    try {
+      const result = await bus.send({ type: "TAB_GET_CURRENT" });
+
+      if (result && "tab" in result) {
+        const tab = result.tab;
+        currentTab.value = {
+          id: tab.id,
+          url: tab.url,
+          title: tab.title,
+        };
+        statusMessage.value = "Current tab retrieved";
+      }
+    } catch (error) {
+      statusMessage.value = `Failed to get tab: ${error}`;
+    }
+  };
+
+  const handleBookmarkCurrentTab = async () => {
+    if (!currentTab.value?.url || !currentTab.value?.title) {
+      statusMessage.value = "No current tab info";
+      return;
+    }
+
+    try {
+      await bus.send({
+        type: "BOOKMARK_ADD",
+        url: currentTab.value.url,
+        title: currentTab.value.title,
+      });
+      statusMessage.value = "Current tab bookmarked!";
+    } catch (error) {
+      statusMessage.value = `Failed to bookmark tab: ${error}`;
+    }
+  };
+
+  const handleUpdateSettings = async (updates: Record<string, unknown>) => {
+    try {
+      await bus.send({ type: "SETTINGS_UPDATE", ...updates });
+      statusMessage.value = "Settings updated";
+    } catch (error) {
+      statusMessage.value = `Failed to update settings: ${error}`;
     }
   };
 
   return (
-    <div className="test-popup" data-testid="test-popup">
-      <header>
-        <h1>Framework Test Extension</h1>
-        <div data-testid="context">popup</div>
+    <div class="popup" style={{ padding: "16px", minWidth: "300px" }}>
+      <header style={{ marginBottom: "16px" }}>
+        <h1 style={{ margin: "0 0 8px 0", fontSize: "20px" }}>
+          Full-Featured Example
+        </h1>
+        {statusMessage.value && (
+          <div
+            style={{
+              padding: "8px",
+              background: "#f0f0f0",
+              borderRadius: "4px",
+              fontSize: "12px",
+            }}
+          >
+            {statusMessage.value}
+          </div>
+        )}
       </header>
 
       <main>
-        {/* Simple $sharedState test */}
-        <section>
-          <h2>Simple $sharedState</h2>
-          <div data-testid="simple-shared-value">{simpleSharedCounter.value}</div>
-          <button data-testid="simple-shared-increment" onClick={() => simpleSharedCounter.value++}>
-            +1
-          </button>
+        {/* Authentication Section */}
+        <section
+          style={{
+            marginBottom: "16px",
+            paddingBottom: "16px",
+            borderBottom: "1px solid #e0e0e0",
+          }}
+        >
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>
+            Authentication
+          </h2>
+          {!isLoggedIn.value ? (
+            <div>
+              <input
+                type="text"
+                placeholder="Username"
+                value={username.value}
+                onInput={(e) =>
+                  (username.value = (e.target as HTMLInputElement).value)
+                }
+                style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
+              />
+              <input
+                type="password"
+                placeholder="Token"
+                value={token.value}
+                onInput={(e) =>
+                  (token.value = (e.target as HTMLInputElement).value)
+                }
+                style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
+              />
+              <button
+                onClick={handleLogin}
+                style={{ width: "100%", padding: "8px" }}
+              >
+                Login
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p>
+                Logged in as: <strong>{currentUser.value}</strong>
+              </p>
+              <button
+                onClick={handleLogout}
+                style={{ width: "100%", padding: "8px" }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </section>
 
-        {/* Simple $syncedState test */}
-        <section>
-          <h2>Simple $syncedState</h2>
-          <div data-testid="simple-synced-value">{simpleSyncedCounter.value}</div>
-          <button data-testid="simple-synced-increment" onClick={() => simpleSyncedCounter.value++}>
-            +1
-          </button>
-        </section>
-
-        {/* Simple cross-context test */}
-        <section>
-          <h2>Simple Broadcast Test</h2>
-          <button data-testid="send-ping" onClick={sendSimplePing}>
-            Send Ping
-          </button>
-          <div data-testid="ping-status">{lastPing.value || "No pings sent"}</div>
-        </section>
-
-        {/* Test 1: $sharedState (syncs + persists) */}
-        <section>
-          <h2>$sharedState Test</h2>
-          <p>Counter syncs across all contexts and persists</p>
-          <div data-testid="test-counter">{testCounter.value}</div>
-          <button data-testid="increment-counter" onClick={() => testCounter.value++}>
-            +1
-          </button>
-          <button data-testid="decrement-counter" onClick={() => testCounter.value--}>
-            -1
-          </button>
-          <button data-testid="reset-counter" onClick={() => (testCounter.value = 0)}>
-            Reset
-          </button>
-
-          <div data-testid="test-color">{testPreferences.value.color}</div>
-          <select
-            data-testid="select-color"
-            value={testPreferences.value.color}
-            onChange={(e) => {
-              const target = e.target as HTMLSelectElement;
-              const value = target.value;
-              if (value === "blue" || value === "red" || value === "green") {
-                testPreferences.value = {
-                  ...testPreferences.value,
-                  color: value,
-                };
+        {/* Bookmarks Section */}
+        <section
+          style={{
+            marginBottom: "16px",
+            paddingBottom: "16px",
+            borderBottom: "1px solid #e0e0e0",
+          }}
+        >
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Bookmarks</h2>
+          <div style={{ marginBottom: "8px" }}>
+            <input
+              type="text"
+              placeholder="URL"
+              value={newBookmarkUrl.value}
+              onInput={(e) =>
+                (newBookmarkUrl.value = (e.target as HTMLInputElement).value)
               }
-            }}
-          >
-            <option value="blue">Blue</option>
-            <option value="red">Red</option>
-            <option value="green">Green</option>
-          </select>
-        </section>
-
-        {/* Test 2: $syncedState (syncs, no persist) */}
-        <section>
-          <h2>$syncedState Test</h2>
-          <p>Message syncs across contexts but doesn't persist</p>
-          <div data-testid="test-message">{testMessage.value}</div>
-          <input
-            data-testid="input-message"
-            type="text"
-            value={testMessage.value}
-            onInput={(e) => (testMessage.value = (e.target as HTMLInputElement).value)}
-            placeholder="Type here..."
-          />
-        </section>
-
-        {/* Test 3: Local signal (no sync) */}
-        <section>
-          <h2>Local Signal Test</h2>
-          <p>Counter is local to popup context only</p>
-          <div data-testid="local-counter">{testLocalCounter.value}</div>
-          <button data-testid="increment-local" onClick={() => testLocalCounter.value++}>
-            +1 Local
-          </button>
-        </section>
-
-        {/* Test 4: Framework settings (from framework) */}
-        <section>
-          <h2>Framework Settings</h2>
-          <div data-testid="settings-theme">{settings.value.theme}</div>
-          <div data-testid="settings-debug">
-            {settings.value.debugMode ? "enabled" : "disabled"}
+              style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
+            />
+            <input
+              type="text"
+              placeholder="Title"
+              value={newBookmarkTitle.value}
+              onInput={(e) =>
+                (newBookmarkTitle.value = (e.target as HTMLInputElement).value)
+              }
+              style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
+            />
+            <button
+              onClick={handleAddBookmark}
+              style={{ width: "100%", padding: "8px" }}
+            >
+              Add Bookmark
+            </button>
+          </div>
+          <div style={{ maxHeight: "150px", overflowY: "auto" }}>
+            {bookmarks.value.length === 0 ? (
+              <p style={{ fontSize: "12px", color: "#666" }}>
+                No bookmarks yet
+              </p>
+            ) : (
+              bookmarks.value.map((bookmark) => (
+                <div
+                  key={bookmark.id}
+                  style={{
+                    padding: "8px",
+                    marginBottom: "4px",
+                    background: "#f9f9f9",
+                    borderRadius: "4px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        fontSize: "12px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {bookmark.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#666",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {bookmark.url}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveBookmark(bookmark.id)}
+                    style={{
+                      marginLeft: "8px",
+                      padding: "4px 8px",
+                      fontSize: "11px",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
-        {/* Test 5: Framework tests */}
-        <section>
-          <h2>Framework Tests</h2>
-          <div data-testid="test-status">{testStatus.value}</div>
-          <button data-testid="run-storage-test" onClick={() => runTest("storage")}>
-            Test Storage
+        {/* Tab Operations Section */}
+        <section
+          style={{
+            marginBottom: "16px",
+            paddingBottom: "16px",
+            borderBottom: "1px solid #e0e0e0",
+          }}
+        >
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Current Tab</h2>
+          <button
+            onClick={handleGetCurrentTab}
+            style={{ width: "100%", padding: "8px", marginBottom: "8px" }}
+          >
+            Get Current Tab Info
           </button>
-          <button data-testid="run-tabs-test" onClick={() => runTest("tabs")}>
-            Test Tabs
-          </button>
-          <button data-testid="run-roundtrip-test" onClick={() => runTest("message_roundtrip")}>
-            Test Roundtrip
-          </button>
-          <button data-testid="run-all-tests" onClick={runAllTests}>
-            Run All Tests
-          </button>
-        </section>
-
-        {/* Test results */}
-        <section>
-          <h2>Test Results</h2>
-          <div data-testid="test-results-json">{JSON.stringify(testResults.value)}</div>
-          {testResults.value.storage && (
-            <div data-testid="result-storage-success">
-              {testResults.value.storage.success ? "pass" : "fail"}
+          {currentTab.value && (
+            <div
+              style={{
+                padding: "8px",
+                background: "#f9f9f9",
+                borderRadius: "4px",
+                fontSize: "12px",
+              }}
+            >
+              <div>
+                <strong>Title:</strong> {currentTab.value.title}
+              </div>
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                <strong>URL:</strong> {currentTab.value.url}
+              </div>
+              <button
+                onClick={handleBookmarkCurrentTab}
+                style={{ width: "100%", padding: "6px", marginTop: "8px" }}
+              >
+                Bookmark This Tab
+              </button>
             </div>
           )}
-          {testResults.value.tabs && (
-            <div data-testid="result-tabs-count">{testResults.value.tabs.tabCount}</div>
-          )}
+        </section>
+
+        {/* Quick Settings */}
+        <section>
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>
+            Quick Settings
+          </h2>
+          <div style={{ fontSize: "12px" }}>
+            <label style={{ display: "block", marginBottom: "4px" }}>
+              <input
+                type="checkbox"
+                onChange={(e) =>
+                  handleUpdateSettings({
+                    autoSync: (e.target as HTMLInputElement).checked,
+                  })
+                }
+              />{" "}
+              Auto Sync
+            </label>
+            <label style={{ display: "block", marginBottom: "4px" }}>
+              <input
+                type="checkbox"
+                onChange={(e) =>
+                  handleUpdateSettings({
+                    debugMode: (e.target as HTMLInputElement).checked,
+                  })
+                }
+              />{" "}
+              Debug Mode
+            </label>
+            <label style={{ display: "block", marginBottom: "4px" }}>
+              <input
+                type="checkbox"
+                onChange={(e) =>
+                  handleUpdateSettings({
+                    notifications: (e.target as HTMLInputElement).checked,
+                  })
+                }
+              />{" "}
+              Notifications
+            </label>
+          </div>
         </section>
       </main>
     </div>

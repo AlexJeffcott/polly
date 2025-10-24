@@ -1,0 +1,61 @@
+{
+  "name": "@fairfox/polly-analysis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared TypeScript analysis tools for Polly verification and documentation",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./extract": {
+      "import": "./src/extract/index.ts",
+      "types": "./src/extract/index.ts"
+    },
+    "./types": {
+      "import": "./src/types/index.ts",
+      "types": "./src/types/index.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build:lib": "bun run build-lib.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ts-morph": "^21.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "typescript",
+    "analysis",
+    "ast",
+    "code-analysis",
+    "static-analysis",
+    "web-extension",
+    "verification",
+    "documentation"
+  ],
+  "author": "Alex Jeffcott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexjeffcott/polly",
+    "directory": "packages/analysis"
+  },
+  "bugs": {
+    "url": "https://github.com/alexjeffcott/polly/issues"
+  },
+  "homepage": "https://github.com/alexjeffcott/polly/tree/main/packages/analysis#readme"
+}
