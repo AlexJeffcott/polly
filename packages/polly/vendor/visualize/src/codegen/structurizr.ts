@@ -1,6 +1,6 @@
 // Structurizr DSL generator
 
-import type { ArchitectureAnalysis } from "@fairfox/polly-analysis";
+import type { ArchitectureAnalysis } from "../../analysis/src";
 
 export interface StructurizrDSLOptions {
   /** Include dynamic diagrams for message flows */

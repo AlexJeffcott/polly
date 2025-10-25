@@ -1,4 +1,4 @@
-// Main entry point for @fairfox/polly-analysis
+// Main entry point for ../../analysis/src
 
 // Export types
 export * from "./types";

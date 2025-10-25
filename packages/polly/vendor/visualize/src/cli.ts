@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { analyzeArchitecture } from "@fairfox/polly-analysis";
+import { analyzeArchitecture } from "../../analysis/src";
 import { generateStructurizrDSL } from "./codegen/structurizr";
 import { exportDiagrams } from "./runner/export";
 
