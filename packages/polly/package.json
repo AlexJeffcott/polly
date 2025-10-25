@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -44,7 +44,13 @@
       "types": "./dist/shared/types/messages.d.ts"
     }
   },
-  "files": ["dist", "cli", "vendor", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "cli",
+    "vendor",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "bun run build.ts --watch",
     "build": "bun run build.ts",
