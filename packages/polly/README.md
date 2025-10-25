@@ -1,4 +1,4 @@
-# @fairfox/web-ext
+# @fairfox/polly
 
 **Build Chrome extensions with reactive state and zero boilerplate.**
 
@@ -36,16 +36,16 @@ This framework fixes all of that:
 
 ```bash
 # Using Bun (recommended)
-bun add @fairfox/web-ext
+bun add @fairfox/polly
 
 # Using npm
-npm install @fairfox/web-ext
+npm install @fairfox/polly
 
 # Using pnpm
-pnpm add @fairfox/web-ext
+pnpm add @fairfox/polly
 
 # Using yarn
-yarn add @fairfox/web-ext
+yarn add @fairfox/polly
 ```
 
 ### Create Extension
@@ -54,7 +54,7 @@ yarn add @fairfox/web-ext
 
 ```typescript
 // src/shared/state.ts
-import { $sharedState } from '@fairfox/web-ext/state'
+import { $sharedState } from '@fairfox/polly/state'
 
 export const counter = $sharedState('counter', 0)
 export const settings = $sharedState('settings', { theme: 'dark' })
@@ -83,7 +83,7 @@ render(<Popup />, document.getElementById('root')!)
 
 ```typescript
 // src/background/index.ts
-import { createBackground } from '@fairfox/web-ext/background'
+import { createBackground } from '@fairfox/polly/background'
 
 const bus = createBackground()
 ```
@@ -95,7 +95,7 @@ const bus = createBackground()
 **4. Build and load**:
 
 ```bash
-bunx web-ext build
+polly build
 ```
 
 Load `dist/` folder in Chrome → **Done!** 🎉
@@ -319,4 +319,4 @@ MIT © 2024
 
 ---
 
-**[View Examples](./examples/)** · **[Read Docs](./docs/)** · **[Report Issue](https://github.com/fairfox/web-ext/issues)**
+**[View Examples](https://github.com/AlexJeffcott/polly/tree/main/packages/examples)** · **[Read Docs](https://github.com/AlexJeffcott/polly/tree/main/packages/polly/docs)** · **[Report Issue](https://github.com/AlexJeffcott/polly/issues)**
