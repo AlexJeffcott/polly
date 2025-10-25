@@ -111,7 +111,10 @@ async function dev() {
  * Verify command - delegate to @fairfox/web-ext-verify
  */
 async function verify() {
-  const verifyCli = `${__dirname}/../../verify/src/cli.ts`;
+  // Try vendor directory first (published package), then monorepo
+  const vendorCli = `${__dirname}/../vendor/verify/src/cli.ts`;
+  const monorepoCli = `${__dirname}/../../verify/src/cli.ts`;
+  const verifyCli = (await Bun.file(vendorCli).exists()) ? vendorCli : monorepoCli;
 
   const proc = Bun.spawn(["bun", verifyCli, ...commandArgs], {
     cwd,
@@ -127,10 +130,13 @@ async function verify() {
 }
 
 /**
- * Visualize command - delegate to @fairfox/web-ext-visualize
+ * Visualize command - delegate to @fairfox/polly-visualize
  */
 async function visualize() {
-  const visualizeCli = `${__dirname}/../../visualize/src/cli.ts`;
+  // Try vendor directory first (published package), then monorepo
+  const vendorCli = `${__dirname}/../vendor/visualize/src/cli.ts`;
+  const monorepoCli = `${__dirname}/../../visualize/src/cli.ts`;
+  const visualizeCli = (await Bun.file(vendorCli).exists()) ? vendorCli : monorepoCli;
 
   const proc = Bun.spawn(["bun", visualizeCli, ...commandArgs], {
     cwd,
