@@ -44,11 +44,7 @@
       "types": "./dist/shared/types/messages.d.ts"
     }
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "dev": "bun run build.ts --watch",
     "build": "bun run build.ts",
