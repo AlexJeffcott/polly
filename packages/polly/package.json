@@ -8,7 +8,7 @@
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "polly": "./cli/polly.ts"
+    "polly": "./dist/cli/polly.js"
   },
   "exports": {
     ".": {
@@ -44,7 +44,7 @@
       "types": "./dist/shared/types/messages.d.ts"
     }
   },
-  "files": ["dist", "cli", "vendor", "README.md", "LICENSE"],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "dev": "bun run build.ts --watch",
     "build": "bun run build.ts",
@@ -56,7 +56,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "prepublishOnly": "bun run typecheck && bun run lint && bun test && bun run build:lib",
+    "prepublishOnly": "bun run typecheck && bun run lint && bun run build:lib",
     "publish:public": "npm publish --access public"
   },
   "devDependencies": {

@@ -111,10 +111,10 @@ async function dev() {
  * Verify command - delegate to @fairfox/web-ext-verify
  */
 async function verify() {
-  // Try vendor directory first (published package), then monorepo
-  const vendorCli = `${__dirname}/../vendor/verify/src/cli.ts`;
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../vendor/verify/src/cli.js`;
   const monorepoCli = `${__dirname}/../../verify/src/cli.ts`;
-  const verifyCli = (await Bun.file(vendorCli).exists()) ? vendorCli : monorepoCli;
+  const verifyCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
   const proc = Bun.spawn(["bun", verifyCli, ...commandArgs], {
     cwd,
@@ -133,10 +133,10 @@ async function verify() {
  * Visualize command - delegate to @fairfox/polly-visualize
  */
 async function visualize() {
-  // Try vendor directory first (published package), then monorepo
-  const vendorCli = `${__dirname}/../vendor/visualize/src/cli.ts`;
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../vendor/visualize/src/cli.js`;
   const monorepoCli = `${__dirname}/../../visualize/src/cli.ts`;
-  const visualizeCli = (await Bun.file(vendorCli).exists()) ? vendorCli : monorepoCli;
+  const visualizeCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
   const proc = Bun.spawn(["bun", visualizeCli, ...commandArgs], {
     cwd,

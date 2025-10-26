@@ -11,7 +11,7 @@ export type {
   StateAssignment,
   VerificationCondition,
   CodebaseAnalysis,
-} from "../../analysis/src";
+} from "../../analysis/src/index";
 
 export type VerificationConfig = {
   preset?: "quick" | "balanced" | "thorough";

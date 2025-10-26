@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { analyzeCodebase } from "./extract/types";
+import { analyzeCodebase } from "../../analysis/src/extract/types";
 import { generateConfig } from "./codegen/config";
 import { validateConfig } from "./config/parser";
 

@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { analyzeArchitecture } from "../../analysis/src";
+import { analyzeArchitecture } from "../../analysis/src/extract/architecture.ts";
 import { generateStructurizrDSL } from "./codegen/structurizr";
 import { exportDiagrams } from "./runner/export";
 
