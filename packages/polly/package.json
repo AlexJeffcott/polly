@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -12,35 +12,35 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
+      "import": "./dist/src/index.js",
       "types": "./dist/index.d.ts"
     },
     "./state": {
-      "import": "./dist/shared/lib/state.js",
+      "import": "./dist/src/shared/lib/state.js",
       "types": "./dist/shared/lib/state.d.ts"
     },
     "./message-bus": {
-      "import": "./dist/shared/lib/message-bus.js",
+      "import": "./dist/src/shared/lib/message-bus.js",
       "types": "./dist/shared/lib/message-bus.d.ts"
     },
     "./background": {
-      "import": "./dist/background/index.js",
+      "import": "./dist/src/background/index.js",
       "types": "./dist/background/index.d.ts"
     },
     "./message-router": {
-      "import": "./dist/background/message-router.js",
+      "import": "./dist/src/background/message-router.js",
       "types": "./dist/background/message-router.d.ts"
     },
     "./adapters": {
-      "import": "./dist/shared/adapters/index.js",
+      "import": "./dist/src/shared/adapters/index.js",
       "types": "./dist/shared/adapters/index.d.ts"
     },
     "./errors": {
-      "import": "./dist/shared/lib/errors.js",
+      "import": "./dist/src/shared/lib/errors.js",
       "types": "./dist/shared/lib/errors.d.ts"
     },
     "./types": {
-      "import": "./dist/shared/types/messages.js",
+      "import": "./dist/src/shared/types/messages.js",
       "types": "./dist/shared/types/messages.d.ts"
     }
   },

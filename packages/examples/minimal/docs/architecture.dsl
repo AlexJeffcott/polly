@@ -11,7 +11,11 @@ workspace "Minimal Example" "Dead simple @fairfox/polly example" {
     extension = softwareSystem "Minimal Example" {
 
       background = container "Background" "// Background script - runs when extension loads" "Service Worker / Background Script" {
-        ping_handler = component "Ping Handler" "Handles PING messages"
+        ping_handler = component "Ping Handler" "Processes PING messages and coordinates business logic" {
+          tags "Message Handler"
+        }
+
+
       }
 
 
@@ -38,8 +42,6 @@ workspace "Minimal Example" "Dead simple @fairfox/polly example" {
     }
 
 
-
-    theme https://static.structurizr.com/themes/default
 
     styles {
       element "extension.background" {

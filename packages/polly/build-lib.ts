@@ -65,7 +65,12 @@ console.log("🔨 Building CLI and tools (node target, fully bundled)...");
 
 // Build CLI and tools (node target) - bundle EVERYTHING
 const toolsResult = await Bun.build({
-  entrypoints: ["cli/polly.ts", "vendor/verify/src/cli.ts", "vendor/visualize/src/cli.ts"],
+  entrypoints: [
+    "cli/polly.ts",
+    "vendor/verify/src/cli.ts",
+    "vendor/visualize/src/cli.ts",
+    "scripts/build-extension.ts",
+  ],
   outdir: DIST_DIR,
   target: "node",
   format: "esm",

@@ -77,8 +77,10 @@ async function loadConfig() {
 async function build() {
   const config = await loadConfig();
 
-  // Import the build script from framework
-  const buildScriptPath = `${__dirname}/../scripts/build-extension.ts`;
+  // Check if bundled (published) or in monorepo
+  const bundledScript = `${__dirname}/../scripts/build-extension.js`;
+  const monorepoScript = `${__dirname}/../scripts/build-extension.ts`;
+  const buildScriptPath = (await Bun.file(bundledScript).exists()) ? bundledScript : monorepoScript;
 
   // Pass config via environment
   process.env["WEB_EXT_SRC"] = `${cwd}/${config.srcDir || "src"}`;

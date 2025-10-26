@@ -5,8 +5,7 @@
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging",
   "workspaces": [
-    "packages/*",
-    "packages/examples/*"
+    "packages/*"
   ],
   "scripts": {
     "setup": "bun install && cd packages/polly && bun run build:lib && bash ../../scripts/install-cli.sh",

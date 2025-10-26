@@ -3,8 +3,13 @@
  */
 
 import { getMessageBus } from "@fairfox/polly/message-bus";
+import type { ExtensionMessage } from "@fairfox/polly/types";
 
-const bus = getMessageBus("popup");
+// Define custom message types
+type CustomMessages = { type: "PING" };
+type AllMessages = ExtensionMessage | CustomMessages;
+
+const bus = getMessageBus<AllMessages>("popup");
 
 // Simple example without UI framework
 const root = document.getElementById("root");
