@@ -1,0 +1,161 @@
+/**
+ * Service Worker Context
+ * Handles background tasks, caching, and push notifications
+ */
+
+/// <reference lib="WebWorker" />
+declare const self: ServiceWorkerGlobalScope
+
+console.log('[SW] Service Worker loading...')
+
+// Cache configuration
+const CACHE_NAME = '{{PROJECT_NAME}}-v1'
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/src/main.ts'
+]
+
+// Install event - cache resources
+self.addEventListener('install', (event) => {
+  console.log('[SW] Installing...')
+
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[SW] Caching resources')
+      return cache.addAll(urlsToCache)
+    })
+  )
+
+  // Activate immediately
+  self.skipWaiting()
+})
+
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating...')
+
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      )
+    })
+  )
+
+  // Take control immediately
+  return self.clients.claim()
+})
+
+// Fetch event - serve from cache, fallback to network
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      // Cache hit - return response
+      if (response) {
+        return response
+      }
+
+      // Clone the request
+      const fetchRequest = event.request.clone()
+
+      return fetch(fetchRequest).then((response) => {
+        // Check if valid response
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response
+        }
+
+        // Clone the response
+        const responseToCache = response.clone()
+
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache)
+        })
+
+        return response
+      })
+    })
+  )
+})
+
+// Message handling
+self.addEventListener('message', (event) => {
+  console.log('[SW] Received message:', event.data)
+
+  switch (event.data.type) {
+    case 'PING':
+      // Respond to ping
+      event.ports[0]?.postMessage({
+        type: 'PONG',
+        timestamp: Date.now(),
+        originalTimestamp: event.data.timestamp
+      })
+
+      // Also broadcast to all clients
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'PONG',
+            from: 'service-worker',
+            timestamp: Date.now()
+          })
+        })
+      })
+      break
+
+    case 'BROADCAST':
+      // Broadcast to all clients
+      self.clients.matchAll().then((clients) => {
+        console.log(`[SW] Broadcasting to ${clients.length} clients`)
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'BROADCAST',
+            data: event.data.data,
+            from: 'service-worker',
+            timestamp: Date.now()
+          })
+        })
+      })
+      break
+
+    case 'SKIP_WAITING':
+      self.skipWaiting()
+      break
+
+    default:
+      console.log('[SW] Unknown message type:', event.data.type)
+  }
+})
+
+// Push notification event (example)
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push received')
+
+  const data = event.data?.json() ?? {}
+  const title = data.title || '{{PROJECT_NAME}}'
+  const options = {
+    body: data.body || 'New notification',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: data
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  )
+})
+
+// Notification click event
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked')
+
+  event.notification.close()
+
+  event.waitUntil(
+    self.clients.openWindow('/')
+  )
+})
+
+console.log('[SW] Service Worker loaded')

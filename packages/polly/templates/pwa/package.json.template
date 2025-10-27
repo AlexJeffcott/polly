@@ -1,0 +1,19 @@
+{
+  "name": "{{PROJECT_NAME}}",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/main.ts",
+    "build": "bun build.ts",
+    "serve": "bun --hot server.ts",
+    "typecheck": "bun tsc --noEmit",
+    "visualize": "bun ../../visualize/src/cli.ts"
+  },
+  "dependencies": {
+    "@fairfox/polly": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/bun": "latest"
+  }
+}

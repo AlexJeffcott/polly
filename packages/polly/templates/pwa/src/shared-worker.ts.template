@@ -1,0 +1,135 @@
+/**
+ * Shared Worker Context
+ * Shared state and coordination across multiple tabs/windows
+ */
+
+/// <reference lib="WebWorker" />
+declare const self: SharedWorkerGlobalScope
+
+console.log('[Shared Worker] Starting...')
+
+// Track connected ports (tabs/windows)
+const ports: MessagePort[] = []
+let messageCount = 0
+
+// Shared state across all tabs
+interface SharedState {
+  connectedTabs: number
+  totalMessages: number
+  lastActivity: number
+}
+
+const state: SharedState = {
+  connectedTabs: 0,
+  totalMessages: 0,
+  lastActivity: Date.now()
+}
+
+// Connection event - when a new tab connects
+self.addEventListener('connect', (event) => {
+  const port = event.ports[0]
+  ports.push(port)
+  state.connectedTabs = ports.length
+
+  console.log(`[Shared Worker] New connection. Total ports: ${ports.length}`)
+
+  // Send welcome message
+  port.postMessage({
+    type: 'CONNECTED',
+    state: state,
+    timestamp: Date.now()
+  })
+
+  // Listen for messages from this port
+  port.addEventListener('message', (messageEvent) => {
+    handleMessage(messageEvent.data, port)
+  })
+
+  // Start listening
+  port.start()
+
+  // Notify all tabs about new connection
+  broadcast({
+    type: 'TAB_CONNECTED',
+    connectedTabs: state.connectedTabs
+  })
+})
+
+function handleMessage(data: any, sourcePort: MessagePort) {
+  console.log('[Shared Worker] Received:', data)
+
+  state.totalMessages++
+  state.lastActivity = Date.now()
+
+  switch (data.type) {
+    case 'PING':
+      // Respond to ping
+      sourcePort.postMessage({
+        type: 'PONG',
+        timestamp: Date.now(),
+        originalTimestamp: data.timestamp,
+        state: state
+      })
+      break
+
+    case 'BROADCAST':
+      // Broadcast to all connected tabs
+      broadcast({
+        type: 'BROADCAST',
+        data: data.data,
+        from: 'shared-worker',
+        timestamp: Date.now()
+      })
+      break
+
+    case 'GET_STATE':
+      // Send current state
+      sourcePort.postMessage({
+        type: 'STATE',
+        state: state,
+        timestamp: Date.now()
+      })
+      break
+
+    case 'INCREMENT_COUNTER':
+      // Example of shared state manipulation
+      messageCount++
+      broadcast({
+        type: 'COUNTER_UPDATED',
+        count: messageCount,
+        timestamp: Date.now()
+      })
+      break
+
+    default:
+      console.log('[Shared Worker] Unknown message type:', data.type)
+      sourcePort.postMessage({
+        type: 'ERROR',
+        message: `Unknown message type: ${data.type}`
+      })
+  }
+}
+
+// Broadcast message to all connected tabs
+function broadcast(message: any) {
+  console.log(`[Shared Worker] Broadcasting to ${ports.length} ports:`, message)
+
+  ports.forEach((port) => {
+    try {
+      port.postMessage(message)
+    } catch (error) {
+      console.error('[Shared Worker] Failed to send message to port:', error)
+    }
+  })
+}
+
+// Periodic heartbeat to all tabs
+setInterval(() => {
+  broadcast({
+    type: 'HEARTBEAT',
+    state: state,
+    timestamp: Date.now()
+  })
+}, 30000) // Every 30 seconds
+
+console.log('[Shared Worker] Ready')

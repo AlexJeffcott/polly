@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly-visualize",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Automatic architecture documentation for multi-context applications using Structurizr. Generates C4 diagrams from TypeScript code.",

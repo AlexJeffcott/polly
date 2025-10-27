@@ -67,6 +67,7 @@ console.log("🔨 Building CLI and tools (node target, fully bundled)...");
 const toolsResult = await Bun.build({
   entrypoints: [
     "cli/polly.ts",
+    "cli/template-utils.ts",
     "vendor/verify/src/cli.ts",
     "vendor/visualize/src/cli.ts",
     "scripts/build-extension.ts",

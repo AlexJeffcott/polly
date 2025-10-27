@@ -8,23 +8,38 @@
  * Supports: Chrome extensions, PWAs, Node/Bun/Deno apps with workers
  *
  * Usage:
- *   polly init [name]            Create a new project
- *   polly check                  Run all checks (typecheck, lint, test, build)
- *   polly build [options]        Build the project
- *   polly dev                    Build with watch mode
- *   polly typecheck              Type check your code
- *   polly lint [--fix]           Lint your code
- *   polly format                 Format your code
- *   polly test [args]            Run tests (requires bun test)
- *   polly verify [args]          Run formal verification
- *   polly visualize [args]       Generate architecture diagrams
- *   polly help                   Show help
+ *   polly init [name] [--type=TYPE]  Create a new project
+ *   polly check                      Run all checks (typecheck, lint, test, build)
+ *   polly build [options]            Build the project
+ *   polly dev                        Build with watch mode
+ *   polly typecheck                  Type check your code
+ *   polly lint [--fix]               Lint your code
+ *   polly format                     Format your code
+ *   polly test [args]                Run tests (requires bun test)
+ *   polly verify [args]              Run formal verification
+ *   polly visualize [args]           Generate architecture diagrams
+ *   polly help                       Show help
+ *
+ * Project Types (init --type):
+ *   extension           Chrome/Firefox extension (default)
+ *   pwa                 Progressive Web App with workers
+ *   websocket           WebSocket server application
+ *   generic             Generic TypeScript project
  *
  * Options:
  *   --prod              Build for production (minified)
  *   --config <path>     Path to config file (default: polly.config.ts)
  *   --fix               Auto-fix lint/format issues
+ *   --type=TYPE         Project type for init command
  */
+
+import { existsSync } from "node:fs";
+import {
+  type ProjectType,
+  getTemplateDir,
+  scaffoldFromTemplate,
+  validateProjectName,
+} from "./template-utils";
 
 // Use Bun built-ins instead of Node.js APIs
 const __dirname = import.meta.dir;
@@ -261,252 +276,40 @@ async function check() {
 }
 
 /**
- * Init command - scaffold a new extension
+ * Init command - scaffold a new project
  */
 async function init() {
-  const projectName = commandArgs[0] || "my-extension";
+  // Parse arguments
+  const projectName = commandArgs[0] || "my-project";
+  const typeArg =
+    commandArgs.find((arg) => arg.startsWith("--type="))?.split("=")[1] || "extension";
+  const projectType = typeArg as ProjectType;
+
+  // Validate project name
+  const validation = validateProjectName(projectName);
+  if (!validation.valid) {
+    console.error(`\x1b[31m✗ ${validation.error}\x1b[0m\n`);
+    process.exit(1);
+  }
+
   const projectPath = `${cwd}/${projectName}`;
 
   // Check if directory already exists
-  const { existsSync, mkdirSync, writeFileSync } = await import("node:fs");
-
   if (existsSync(projectPath)) {
     console.error(`\x1b[31m✗ Directory '${projectName}' already exists\x1b[0m\n`);
     process.exit(1);
   }
 
-  // Create project structure
-  const dirs = [
+  // Get template directory
+  const templateDir = getTemplateDir(projectType, __dirname);
+
+  // Scaffold project
+  await scaffoldFromTemplate({
+    projectName,
     projectPath,
-    `${projectPath}/src`,
-    `${projectPath}/src/background`,
-    `${projectPath}/src/popup`,
-  ];
-
-  for (const dir of dirs) {
-    mkdirSync(dir, { recursive: true });
-  }
-
-  // Create package.json
-  const packageJson = {
-    name: projectName,
-    version: "0.1.0",
-    type: "module",
-    scripts: {
-      check: "web-ext check",
-      build: "web-ext build",
-      "build:prod": "web-ext build --prod",
-      typecheck: "web-ext typecheck",
-      lint: "web-ext lint",
-      "lint:fix": "web-ext lint --fix",
-      format: "web-ext format",
-      test: "web-ext test",
-      verify: "web-ext verify",
-      "verify:setup": "web-ext verify --setup",
-      visualize: "web-ext visualize",
-      "visualize:export": "web-ext visualize --export",
-      "visualize:serve": "web-ext visualize --serve",
-    },
-    dependencies: {
-      "@fairfox/web-ext": "*",
-    },
-  };
-
-  writeFileSync(`${projectPath}/package.json`, JSON.stringify(packageJson, null, 2));
-
-  // Create manifest.json at root
-  const manifest = {
-    manifest_version: 3,
-    name: projectName,
-    version: "0.1.0",
-    description: "A Chrome extension built with @fairfox/web-ext",
-    background: {
-      service_worker: "background/index.js",
-      type: "module",
-    },
-    action: {
-      default_popup: "popup/popup.html",
-    },
-    permissions: ["storage"],
-  };
-
-  writeFileSync(`${projectPath}/manifest.json`, JSON.stringify(manifest, null, 2));
-
-  // Create background script
-  const backgroundScript = `/**
- * Background Service Worker
- */
-
-import { getMessageBus } from "@fairfox/web-ext/message-bus";
-import { MessageRouter } from "@fairfox/web-ext/message-router";
-
-const bus = getMessageBus("background");
-new MessageRouter(bus);
-
-// Add your message handlers here
-bus.on("PING", async () => {
-  return { success: true, message: "pong" };
-});
-
-console.log("Background service worker initialized");
-`;
-
-  writeFileSync(`${projectPath}/src/background/index.ts`, backgroundScript);
-
-  // Create popup HTML in src/popup
-  const popupHtml = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>${projectName}</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./index.js"></script>
-  </body>
-</html>
-`;
-
-  writeFileSync(`${projectPath}/src/popup/popup.html`, popupHtml);
-
-  // Create popup script
-  const popupScript = `/**
- * Popup UI
- */
-
-import { getMessageBus } from "@fairfox/web-ext/message-bus";
-
-const bus = getMessageBus("popup");
-
-// Simple example without UI framework
-const root = document.getElementById("root");
-
-if (root) {
-  root.innerHTML = \`
-    <div style="padding: 16px; min-width: 200px;">
-      <h1 style="margin: 0 0 8px 0; font-size: 18px;">${projectName}</h1>
-      <button id="ping-btn" style="padding: 8px 16px;">Ping Background</button>
-      <p id="response" style="margin-top: 8px; font-size: 14px;"></p>
-    </div>
-  \`;
-
-  const btn = document.getElementById("ping-btn");
-  const response = document.getElementById("response");
-
-  btn?.addEventListener("click", async () => {
-    const result = await bus.send({ type: "PING" });
-    if (response) {
-      response.textContent = JSON.stringify(result);
-    }
+    projectType,
+    templateDir,
   });
-}
-`;
-
-  writeFileSync(`${projectPath}/src/popup/index.ts`, popupScript);
-
-  // Create tsconfig.json
-  const tsconfig = {
-    compilerOptions: {
-      target: "ES2022",
-      module: "ESNext",
-      lib: ["ES2022", "DOM"],
-      moduleResolution: "bundler",
-      strict: true,
-      esModuleInterop: true,
-      skipLibCheck: true,
-      forceConsistentCasingInFileNames: true,
-      resolveJsonModule: true,
-      allowSyntheticDefaultImports: true,
-      jsx: "react-jsx",
-      jsxImportSource: "preact",
-    },
-    include: ["src/**/*"],
-  };
-
-  writeFileSync(`${projectPath}/tsconfig.json`, JSON.stringify(tsconfig, null, 2));
-
-  // Create biome.json
-  const biomeConfig = {
-    files: {
-      includes: ["src/**/*.ts", "src/**/*.tsx"],
-      ignoreUnknown: true,
-    },
-    linter: {
-      enabled: true,
-      rules: {
-        recommended: true,
-      },
-    },
-    formatter: {
-      enabled: true,
-      indentStyle: "space",
-      indentWidth: 2,
-    },
-  };
-
-  writeFileSync(`${projectPath}/biome.json`, JSON.stringify(biomeConfig, null, 2));
-
-  // Create README
-  const readme = `# ${projectName}
-
-A Chrome extension built with [@fairfox/web-ext](https://github.com/fairfox/web-ext).
-
-## Getting Started
-
-1. Install dependencies:
-   \`\`\`bash
-   bun install
-   \`\`\`
-
-2. Build the extension:
-   \`\`\`bash
-   bun run build
-   \`\`\`
-
-3. Load the extension in Chrome:
-   - Open \`chrome://extensions\`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the \`dist/\` folder
-
-## Development
-
-- \`bun run build\` - Build the extension
-- \`bun run check\` - Run all checks (typecheck, lint, test, build)
-- \`bun run typecheck\` - Type check your code
-- \`bun run lint\` - Lint your code
-- \`bun run format\` - Format your code
-- \`bun run verify\` - Run formal verification
-- \`bun run visualize\` - Generate architecture diagrams
-
-## Project Structure
-
-\`\`\`
-${projectName}/
-├── src/
-│   ├── background/
-│   │   └── index.ts    # Background service worker
-│   └── popup/
-│       ├── popup.html  # Popup HTML
-│       └── index.ts    # Popup script
-├── manifest.json       # Extension manifest
-├── dist/               # Build output (load this in Chrome)
-├── package.json
-├── tsconfig.json
-└── biome.json
-\`\`\`
-`;
-
-  writeFileSync(`${projectPath}/README.md`, readme);
-
-  // Create .gitignore
-  const gitignore = `node_modules
-dist
-docs
-.DS_Store
-`;
-
-  writeFileSync(`${projectPath}/.gitignore`, gitignore);
 }
 
 /**

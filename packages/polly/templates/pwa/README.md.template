@@ -1,0 +1,144 @@
+# {{PROJECT_NAME}}
+
+A Progressive Web App (PWA) built with Polly framework, demonstrating multi-context architecture with:
+
+- **Main Context** - UI application
+- **Service Worker** - Background tasks, caching, push notifications
+- **Shared Worker** - Shared state across tabs/windows
+
+## Architecture
+
+```
+┌─────────────────┐
+│  Main Context   │  ← User Interface
+│   (main.ts)     │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌─────────┐ ┌──────────────┐
+│ Service │ │    Shared    │
+│ Worker  │ │    Worker    │
+│         │ │              │
+│ Caching │ │ Shared State │
+│ Offline │ │ Multi-tab    │
+└─────────┘ └──────────────┘
+```
+
+## Getting Started
+
+1. **Install dependencies:**
+   ```bash
+   bun install
+   ```
+
+2. **Start development server:**
+   ```bash
+   bun run serve
+   ```
+
+3. **Open in browser:**
+   ```
+   http://localhost:3000
+   ```
+
+4. **Try the features:**
+   - Click "Ping Service Worker" - tests communication with SW
+   - Click "Ping Shared Worker" - tests communication with shared worker
+   - Click "Broadcast" - sends message to all workers
+   - Open multiple tabs to see shared worker coordination
+
+## Development
+
+- `bun run serve` - Start development server with hot reload
+- `bun run build` - Build for production
+- `bun run typecheck` - Type check TypeScript
+- `bun run visualize` - Generate architecture diagrams
+
+## Project Structure
+
+```
+{{PROJECT_NAME}}/
+├── src/
+│   ├── main.ts            # Main application context
+│   ├── service-worker.ts  # Service Worker (caching, offline)
+│   └── shared-worker.ts   # Shared Worker (cross-tab state)
+├── public/
+│   └── manifest.json      # PWA manifest
+├── index.html             # Entry point
+├── server.ts              # Dev server
+├── build.ts               # Build script
+├── package.json
+└── tsconfig.json
+```
+
+## Features Demonstrated
+
+### Service Worker
+- Asset caching for offline support
+- Background fetch and sync
+- Push notifications (requires HTTPS)
+- Message passing with main context
+
+### Shared Worker
+- State shared across multiple tabs
+- Broadcast messages to all connected tabs
+- Connection tracking
+- Periodic heartbeat
+
+### Main Context
+- Service Worker registration
+- Shared Worker connection
+- Bidirectional communication
+- UI updates from worker messages
+
+## Visualization
+
+Generate architecture diagrams:
+
+```bash
+bun run visualize
+```
+
+This will create:
+- System context diagram
+- Container diagram showing all 3 contexts
+- Message flow diagrams
+
+View diagrams:
+```bash
+bun run visualize --serve
+```
+
+## Testing
+
+Open multiple browser tabs to test:
+1. Shared worker coordination across tabs
+2. Service worker message broadcasting
+3. State synchronization
+
+## Production Build
+
+```bash
+bun run build
+```
+
+Output in `dist/` directory. Serve with any static file server or deploy to:
+- Netlify
+- Vercel
+- GitHub Pages
+- Cloudflare Pages
+
+## Notes
+
+- Service Worker requires HTTPS in production (or localhost for dev)
+- Shared Worker support varies by browser (Chrome, Firefox, Edge)
+- Check browser DevTools → Application tab to debug workers
+
+## Learn More
+
+- [Polly Documentation](https://github.com/fairfox/polly)
+- [Service Worker API](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)
+- [Shared Worker API](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker)
+- [PWA Documentation](https://web.dev/progressive-web-apps/)
