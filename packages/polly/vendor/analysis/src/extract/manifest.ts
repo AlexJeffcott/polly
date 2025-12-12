@@ -1,38 +1,53 @@
 // Manifest.json parser for Chrome extensions
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import type { ManifestInfo, ContextInfo } from "../types/architecture";
+import * as fs from "node:fs"
+import * as path from "node:path"
+import type { ManifestInfo, ContextInfo } from "../types/architecture"
 
 /**
  * Parse manifest.json and extract context information
  */
 export class ManifestParser {
-  private manifestPath: string;
-  private manifestData: any;
-  private baseDir: string;
+  private manifestPath: string
+  private manifestData: any | null
+  private baseDir: string
 
-  constructor(projectRoot: string) {
-    this.baseDir = projectRoot;
-    this.manifestPath = path.join(projectRoot, "manifest.json");
+  constructor(projectRoot: string, optional = false) {
+    this.baseDir = projectRoot
+    this.manifestPath = path.join(projectRoot, "manifest.json")
 
     if (!fs.existsSync(this.manifestPath)) {
-      throw new Error(`manifest.json not found at ${this.manifestPath}`);
+      if (optional) {
+        this.manifestData = null
+        return
+      }
+      throw new Error(`manifest.json not found at ${this.manifestPath}`)
     }
 
     try {
-      const content = fs.readFileSync(this.manifestPath, "utf-8");
-      this.manifestData = JSON.parse(content);
+      const content = fs.readFileSync(this.manifestPath, "utf-8")
+      this.manifestData = JSON.parse(content)
     } catch (error) {
-      throw new Error(`Failed to parse manifest.json: ${error}`);
+      throw new Error(`Failed to parse manifest.json: ${error}`)
     }
+  }
+
+  /**
+   * Check if manifest.json exists and was loaded
+   */
+  hasManifest(): boolean {
+    return this.manifestData !== null
   }
 
   /**
    * Parse manifest and extract all information
    */
   parse(): ManifestInfo {
-    const manifest = this.manifestData;
+    if (!this.manifestData) {
+      throw new Error("Cannot parse manifest: manifest.json not loaded. Use hasManifest() to check availability.")
+    }
+
+    const manifest = this.manifestData
 
     return {
       name: manifest.name || "Unknown Extension",
@@ -46,81 +61,87 @@ export class ManifestParser {
       devtools: this.parseDevtools(),
       permissions: manifest.permissions || [],
       hostPermissions: manifest.host_permissions || [],
-    };
+    }
   }
 
   /**
    * Get context entry points from manifest
    */
   getContextEntryPoints(): Record<string, string> {
-    const entryPoints: Record<string, string> = {};
+    if (!this.manifestData) {
+      return {}
+    }
+
+    const entryPoints: Record<string, string> = {}
 
     // Background
-    const background = this.parseBackground();
+    const background = this.parseBackground()
     if (background) {
       // Take first file as entry point
-      const entryFile = background.files[0];
+      const entryFile = background.files[0]
       if (entryFile) {
-        entryPoints.background = this.findSourceFile(entryFile);
+        entryPoints.background = this.findSourceFile(entryFile)
       }
     }
 
     // Content scripts
-    const contentScripts = this.parseContentScripts();
+    const contentScripts = this.parseContentScripts()
     if (contentScripts && contentScripts.length > 0) {
-      const firstScript = contentScripts[0].js[0];
+      const firstScript = contentScripts[0].js[0]
       if (firstScript) {
-        entryPoints.content = this.findSourceFile(firstScript);
+        entryPoints.content = this.findSourceFile(firstScript)
       }
     }
 
     // Popup
-    const popup = this.parsePopup();
+    const popup = this.parsePopup()
     if (popup) {
       // For HTML, we need to find the associated JS/TS file
-      const htmlPath = path.join(this.baseDir, popup.html);
-      const jsPath = this.findAssociatedJS(htmlPath);
+      const htmlPath = path.join(this.baseDir, popup.html)
+      const jsPath = this.findAssociatedJS(htmlPath)
       if (jsPath) {
-        entryPoints.popup = jsPath;
+        entryPoints.popup = jsPath
       }
     }
 
     // Options
-    const options = this.parseOptions();
+    const options = this.parseOptions()
     if (options) {
-      const htmlPath = path.join(this.baseDir, options.page);
-      const jsPath = this.findAssociatedJS(htmlPath);
+      const htmlPath = path.join(this.baseDir, options.page)
+      const jsPath = this.findAssociatedJS(htmlPath)
       if (jsPath) {
-        entryPoints.options = jsPath;
+        entryPoints.options = jsPath
       }
     }
 
     // DevTools
-    const devtools = this.parseDevtools();
+    const devtools = this.parseDevtools()
     if (devtools) {
-      const htmlPath = path.join(this.baseDir, devtools.page);
-      const jsPath = this.findAssociatedJS(htmlPath);
+      const htmlPath = path.join(this.baseDir, devtools.page)
+      const jsPath = this.findAssociatedJS(htmlPath)
       if (jsPath) {
-        entryPoints.devtools = jsPath;
+        entryPoints.devtools = jsPath
       }
     }
 
-    return entryPoints;
+    return entryPoints
   }
 
   /**
    * Parse background configuration
    */
   private parseBackground(): ManifestInfo["background"] {
-    const bg = this.manifestData.background;
-    if (!bg) return undefined;
+    if (!this.manifestData) return undefined
+
+    const bg = this.manifestData.background
+    if (!bg) return undefined
 
     // Manifest V3 - service worker
     if (bg.service_worker) {
       return {
         type: "service_worker",
         files: [bg.service_worker],
-      };
+      }
     }
 
     // Manifest V2 - scripts
@@ -128,7 +149,7 @@ export class ManifestParser {
       return {
         type: "script",
         files: bg.scripts,
-      };
+      }
     }
 
     // Manifest V2 - page
@@ -136,73 +157,81 @@ export class ManifestParser {
       return {
         type: "script",
         files: [bg.page],
-      };
+      }
     }
 
-    return undefined;
+    return undefined
   }
 
   /**
    * Parse content scripts configuration
    */
   private parseContentScripts(): ManifestInfo["contentScripts"] {
-    const cs = this.manifestData.content_scripts;
-    if (!cs || !Array.isArray(cs)) return undefined;
+    if (!this.manifestData) return undefined
+
+    const cs = this.manifestData.content_scripts
+    if (!cs || !Array.isArray(cs)) return undefined
 
     return cs.map((script) => ({
       matches: script.matches || [],
       js: script.js || [],
       css: script.css,
-    }));
+    }))
   }
 
   /**
    * Parse popup configuration
    */
   private parsePopup(): ManifestInfo["popup"] {
-    const action = this.manifestData.action || this.manifestData.browser_action;
-    if (!action) return undefined;
+    if (!this.manifestData) return undefined
+
+    const action = this.manifestData.action || this.manifestData.browser_action
+    if (!action) return undefined
 
     if (action.default_popup) {
       return {
         html: action.default_popup,
         default: true,
-      };
+      }
     }
 
-    return undefined;
+    return undefined
   }
 
   /**
    * Parse options configuration
    */
   private parseOptions(): ManifestInfo["options"] {
-    const options = this.manifestData.options_ui || this.manifestData.options_page;
-    if (!options) return undefined;
+    if (!this.manifestData) return undefined
+
+    const options = this.manifestData.options_ui || this.manifestData.options_page
+    if (!options) return undefined
 
     if (typeof options === "string") {
       return {
         page: options,
         openInTab: false,
-      };
+      }
     }
 
     return {
       page: options.page,
       openInTab: options.open_in_tab,
-    };
+    }
   }
 
   /**
    * Parse devtools configuration
    */
   private parseDevtools(): ManifestInfo["devtools"] {
-    const devtools = this.manifestData.devtools_page;
-    if (!devtools) return undefined;
+    if (!this.manifestData) return undefined
+
+    const devtools = this.manifestData.devtools_page
+    if (!devtools) return undefined
 
     return {
       page: devtools,
-    };
+    }
   }
 
   /**
@@ -220,16 +249,16 @@ export class ManifestParser {
       path.join(this.baseDir, "src", manifestPath.replace(/\.js$/, ".ts")),
       // In src/ with .tsx extension
       path.join(this.baseDir, "src", manifestPath.replace(/\.js$/, ".tsx")),
-    ];
+    ]
 
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
-        return candidate;
+        return candidate
       }
     }
 
     // Fallback to manifest path (will error later if not found)
-    return path.join(this.baseDir, manifestPath);
+    return path.join(this.baseDir, manifestPath)
   }
 
   /**
@@ -237,30 +266,30 @@ export class ManifestParser {
    */
   private findAssociatedJS(htmlPath: string): string | null {
     if (!fs.existsSync(htmlPath)) {
-      return null;
+      return null
     }
 
     // Read HTML and look for script tags
-    const html = fs.readFileSync(htmlPath, "utf-8");
-    const scriptMatch = html.match(/<script[^>]+src=["']([^"']+)["']/i);
+    const html = fs.readFileSync(htmlPath, "utf-8")
+    const scriptMatch = html.match(/<script[^>]+src=["']([^"']+)["']/i)
 
     if (scriptMatch && scriptMatch[1]) {
-      const scriptPath = scriptMatch[1];
-      const fullPath = path.resolve(path.dirname(htmlPath), scriptPath);
+      const scriptPath = scriptMatch[1]
+      const fullPath = path.resolve(path.dirname(htmlPath), scriptPath)
 
       // Try with and without .js/.ts extension
-      if (fs.existsSync(fullPath)) return fullPath;
+      if (fs.existsSync(fullPath)) return fullPath
       if (fs.existsSync(fullPath.replace(/\.js$/, ".ts"))) {
-        return fullPath.replace(/\.js$/, ".ts");
+        return fullPath.replace(/\.js$/, ".ts")
       }
       if (fs.existsSync(fullPath.replace(/\.js$/, ".tsx"))) {
-        return fullPath.replace(/\.js$/, ".tsx");
+        return fullPath.replace(/\.js$/, ".tsx")
       }
     }
 
     // Fallback: look for convention-based files
-    const baseName = path.basename(htmlPath, ".html");
-    const dir = path.dirname(htmlPath);
+    const baseName = path.basename(htmlPath, ".html")
+    const dir = path.dirname(htmlPath)
 
     const candidates = [
       path.join(dir, `${baseName}.ts`),
@@ -269,15 +298,15 @@ export class ManifestParser {
       path.join(dir, "index.ts"),
       path.join(dir, "index.tsx"),
       path.join(dir, "index.js"),
-    ];
+    ]
 
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
-        return candidate;
+        return candidate
       }
     }
 
-    return null;
+    return null
   }
 }
 
@@ -285,14 +314,14 @@ export class ManifestParser {
  * Parse manifest.json and extract information
  */
 export function parseManifest(projectRoot: string): ManifestInfo {
-  const parser = new ManifestParser(projectRoot);
-  return parser.parse();
+  const parser = new ManifestParser(projectRoot)
+  return parser.parse()
 }
 
 /**
  * Get context entry points from manifest.json
  */
 export function getContextEntryPoints(projectRoot: string): Record<string, string> {
-  const parser = new ManifestParser(projectRoot);
-  return parser.getContextEntryPoints();
+  const parser = new ManifestParser(projectRoot)
+  return parser.getContextEntryPoints()
 }

@@ -66,15 +66,23 @@ async function generateCommand() {
 
     console.log(color(`   Using: ${tsConfigPath}`, COLORS.gray));
 
-    // Find project root (where manifest.json is)
+    // Find project root
     const projectRoot = findProjectRoot();
     if (!projectRoot) {
-      console.error(color("❌ Could not find manifest.json", COLORS.red));
-      console.error("   Run this command from your extension project root");
+      console.error(color("❌ Could not find project root", COLORS.red));
+      console.error("   Run this command from a directory with manifest.json, package.json, or tsconfig.json");
       process.exit(1);
     }
 
     console.log(color(`   Project: ${projectRoot}`, COLORS.gray));
+
+    // Detect and display project type
+    const hasManifest = fs.existsSync(path.join(projectRoot, "manifest.json"));
+    if (hasManifest) {
+      console.log(color(`   Type: Chrome Extension`, COLORS.gray));
+    } else {
+      console.log(color(`   Type: Detecting from project structure...`, COLORS.gray));
+    }
 
     // Analyze architecture
     const analysis = await analyzeArchitecture({
@@ -287,7 +295,15 @@ async function serveCommand(args: string[]) {
 
 function showHelp() {
   console.log(`
-${color("bun visualize", COLORS.blue)} - Architecture visualization for web extensions
+${color("bun visualize", COLORS.blue)} - Architecture visualization tool
+
+${color("Supports:", COLORS.blue)}
+
+  • Chrome Extensions (manifest.json)
+  • PWAs (public/manifest.json)
+  • WebSocket/Server Apps (ws, socket.io, elysia)
+  • Electron Apps
+  • Generic TypeScript Projects
 
 ${color("Commands:", COLORS.blue)}
 
@@ -307,14 +323,14 @@ ${color("Commands:", COLORS.blue)}
 
 ${color("Getting Started:", COLORS.blue)}
 
-  1. Run ${color("bun visualize", COLORS.green)} from your extension project root
+  1. Run ${color("bun visualize", COLORS.green)} from your project root
   2. Find generated ${color("docs/architecture.dsl", COLORS.blue)}
   3. View with Structurizr Lite (see instructions after generation)
 
 ${color("What gets generated:", COLORS.blue)}
 
-  • System Context diagram - Extension + external systems
-  • Container diagram - Extension contexts (background, content, popup, etc.)
+  • System Context diagram - Your app + external systems
+  • Container diagram - App contexts (background, content, server, client, etc.)
   • Component diagrams - Internal components within contexts
   • Dynamic diagrams - Message flows between contexts
 
@@ -345,8 +361,12 @@ function findProjectRoot(): string | null {
   const locations = [process.cwd(), path.join(process.cwd(), "..")];
 
   for (const loc of locations) {
-    const manifestPath = path.join(loc, "manifest.json");
-    if (fs.existsSync(manifestPath)) {
+    // Check for any project marker file
+    if (
+      fs.existsSync(path.join(loc, "manifest.json")) ||
+      fs.existsSync(path.join(loc, "package.json")) ||
+      fs.existsSync(path.join(loc, "tsconfig.json"))
+    ) {
       return loc;
     }
   }
