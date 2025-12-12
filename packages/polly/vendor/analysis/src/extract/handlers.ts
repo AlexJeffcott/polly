@@ -53,22 +53,34 @@ export class HandlerExtractor {
     // Determine context from file path
     const context = this.inferContext(filePath)
 
-    // Find all .on() call expressions
+    // Find all handler patterns
     sourceFile.forEachDescendant((node) => {
       if (Node.isCallExpression(node)) {
         const expression = node.getExpression()
 
-        // Check if this is a .on() call
+        // Pattern 1: .on() calls (bus.on, ws.on, socket.on, etc.)
         if (Node.isPropertyAccessExpression(expression)) {
           const methodName = expression.getName()
 
-          if (methodName === "on") {
+          if (methodName === "on" || methodName === "addEventListener") {
             const handler = this.extractHandler(node, context, filePath)
             if (handler) {
               handlers.push(handler)
             }
           }
         }
+      }
+
+      // Pattern 2: Switch/case message routers
+      if (Node.isSwitchStatement(node)) {
+        const switchHandlers = this.extractSwitchCaseHandlers(node, context, filePath)
+        handlers.push(...switchHandlers)
+      }
+
+      // Pattern 3: Handler map patterns (const handlers = { 'EVENT': fn })
+      if (Node.isVariableDeclaration(node)) {
+        const mapHandlers = this.extractHandlerMapPattern(node, context, filePath)
+        handlers.push(...mapHandlers)
       }
     })
 
@@ -288,6 +300,117 @@ export class HandlerExtractor {
 
     // For complex expressions, return undefined (can't extract)
     return undefined
+  }
+
+  /**
+   * Extract handlers from switch/case message router patterns
+   * Detects: switch(message.type) { case 'EVENT': handler(); }
+   */
+  private extractSwitchCaseHandlers(
+    switchNode: any,
+    context: string,
+    filePath: string
+  ): MessageHandler[] {
+    const handlers: MessageHandler[] = []
+
+    try {
+      // Check if switching on message.type or similar
+      const expression = switchNode.getExpression()
+      const expressionText = expression.getText()
+
+      // Look for patterns like: message.type, data.type, msg.type, event.type
+      if (!/\.(type|kind|event|action)/.test(expressionText)) {
+        return handlers
+      }
+
+      // Extract handlers from each case clause
+      const caseClauses = switchNode.getClauses()
+      for (const clause of caseClauses) {
+        if (Node.isCaseClause(clause)) {
+          const caseExpr = clause.getExpression()
+
+          // Extract message type from case expression
+          let messageType: string | null = null
+          if (Node.isStringLiteral(caseExpr)) {
+            messageType = caseExpr.getLiteralValue()
+          }
+
+          if (messageType) {
+            const line = clause.getStartLineNumber()
+
+            handlers.push({
+              messageType,
+              node: context,
+              assignments: [],
+              preconditions: [],
+              postconditions: [],
+              location: { file: filePath, line },
+            })
+          }
+        }
+      }
+    } catch (error) {
+      // Skip malformed switch statements
+    }
+
+    return handlers
+  }
+
+  /**
+   * Extract handlers from handler map patterns
+   * Detects: const handlers = { 'EVENT': handlerFn, ... }
+   */
+  private extractHandlerMapPattern(
+    varDecl: any,
+    context: string,
+    filePath: string
+  ): MessageHandler[] {
+    const handlers: MessageHandler[] = []
+
+    try {
+      const initializer = varDecl.getInitializer()
+      if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
+        return handlers
+      }
+
+      // Check if variable name suggests it's a handler map
+      const varName = varDecl.getName().toLowerCase()
+      if (!/(handler|listener|callback|event)s?/.test(varName)) {
+        return handlers
+      }
+
+      // Extract handlers from object properties
+      const properties = initializer.getProperties()
+      for (const prop of properties) {
+        if (Node.isPropertyAssignment(prop)) {
+          const nameNode = prop.getNameNode()
+          let messageType: string | null = null
+
+          if (Node.isStringLiteral(nameNode)) {
+            messageType = nameNode.getLiteralValue()
+          } else if (Node.isIdentifier(nameNode)) {
+            messageType = nameNode.getText()
+          }
+
+          if (messageType) {
+            const line = prop.getStartLineNumber()
+
+            handlers.push({
+              messageType,
+              node: context,
+              assignments: [],
+              preconditions: [],
+              postconditions: [],
+              location: { file: filePath, line },
+            })
+          }
+        }
+      }
+    } catch (error) {
+      // Skip malformed object literals
+    }
+
+    return handlers
   }
 
   /**

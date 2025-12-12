@@ -62,6 +62,7 @@ export class FlowAnalyzer {
 
   /**
    * Find all places where a message is sent
+   * Supports: .send(), .emit(), postMessage(), ws.send(), broadcast(), etc.
    */
   private findMessageSenders(messageType: string): Array<{
     context: string
@@ -78,11 +79,11 @@ export class FlowAnalyzer {
         if (Node.isCallExpression(node)) {
           const expression = node.getExpression()
 
-          // Check for .send() or .emit() calls
+          // Pattern 1: .send() or .emit() calls (ws.send, socket.emit, bus.send, etc.)
           if (Node.isPropertyAccessExpression(expression)) {
             const methodName = expression.getName()
 
-            if (methodName === "send" || methodName === "emit") {
+            if (methodName === "send" || methodName === "emit" || methodName === "postMessage" || methodName === "broadcast") {
               const args = node.getArguments()
               if (args.length > 0) {
                 const firstArg = args[0]
@@ -95,6 +96,37 @@ export class FlowAnalyzer {
                 }
                 // Check if first argument is an object literal: send({ type: "MESSAGE" })
                 else if (Node.isObjectLiteralExpression(firstArg)) {
+                  const typeProperty = firstArg.getProperty("type")
+                  if (typeProperty && Node.isPropertyAssignment(typeProperty)) {
+                    const initializer = typeProperty.getInitializer()
+                    if (initializer && Node.isStringLiteral(initializer)) {
+                      msgType = initializer.getLiteralValue()
+                    }
+                  }
+                }
+
+                if (msgType === messageType) {
+                  senders.push({
+                    context,
+                    file: filePath,
+                    line: node.getStartLineNumber(),
+                  })
+                }
+              }
+            }
+          }
+
+          // Pattern 2: Standalone postMessage() calls (Web Workers, Window.postMessage)
+          if (Node.isIdentifier(expression)) {
+            if (expression.getText() === "postMessage") {
+              const args = node.getArguments()
+              if (args.length > 0) {
+                const firstArg = args[0]
+                let msgType: string | undefined
+
+                if (Node.isStringLiteral(firstArg)) {
+                  msgType = firstArg.getLiteralValue()
+                } else if (Node.isObjectLiteralExpression(firstArg)) {
                   const typeProperty = firstArg.getProperty("type")
                   if (typeProperty && Node.isPropertyAssignment(typeProperty)) {
                     const initializer = typeProperty.getInitializer()
