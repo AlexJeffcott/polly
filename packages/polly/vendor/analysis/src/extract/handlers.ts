@@ -11,11 +11,13 @@ export interface HandlerAnalysis {
 
 export class HandlerExtractor {
   private project: Project
+  private typeGuardCache: WeakMap<SourceFile, Map<string, string>>
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
     })
+    this.typeGuardCache = new WeakMap()
   }
 
   /**
@@ -424,7 +426,7 @@ export class HandlerExtractor {
    * Detects: if (isQueryMessage(msg)) { handleQuery(msg); }
    */
   private extractTypeGuardHandlers(
-    ifNode: any,
+    ifNode: Node,
     context: string,
     filePath: string
   ): MessageHandler[] {
@@ -433,14 +435,20 @@ export class HandlerExtractor {
     try {
       // Get the source file to find type predicates
       const sourceFile = ifNode.getSourceFile()
-      const typeGuards = this.findTypePredicateFunctions(sourceFile)
+
+      // Use cached type guards or compute if not cached
+      let typeGuards = this.typeGuardCache.get(sourceFile)
+      if (!typeGuards) {
+        typeGuards = this.findTypePredicateFunctions(sourceFile)
+        this.typeGuardCache.set(sourceFile, typeGuards)
+      }
 
       if (typeGuards.size === 0) {
         return handlers
       }
 
       // Process the if statement and all else-if chains
-      let currentIf: any = ifNode
+      let currentIf: Node = ifNode
 
       while (currentIf) {
         const handler = this.extractHandlerFromIfClause(currentIf, typeGuards, context, filePath)
@@ -467,7 +475,7 @@ export class HandlerExtractor {
    * Extract handler from a single if clause
    */
   private extractHandlerFromIfClause(
-    ifNode: any,
+    ifNode: Node,
     typeGuards: Map<string, string>,
     context: string,
     filePath: string
@@ -587,17 +595,14 @@ export class HandlerExtractor {
    *   SubscribeMessage → subscribe
    */
   private extractMessageTypeFromTypeName(typeName: string): string {
-    // Remove common suffixes
-    let messageType = typeName
+    // Remove common suffixes and convert to lowercase
+    const messageType = typeName
       .replace(/Message$/, '')
       .replace(/Event$/, '')
       .replace(/Request$/, '')
       .replace(/Command$/, '')
       .replace(/Query$/, '')
-
-    // Convert PascalCase to lowercase
-    messageType = messageType
-      .replace(/([A-Z])/g, (match, char) => char.toLowerCase())
+      .toLowerCase()
 
     return messageType
   }
