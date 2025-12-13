@@ -11,11 +11,13 @@ export interface HandlerAnalysis {
 
 export class HandlerExtractor {
   private project: Project
+  private typeGuardCache: WeakMap<SourceFile, Map<string, string>>
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
     })
+    this.typeGuardCache = new WeakMap()
   }
 
   /**
@@ -81,6 +83,12 @@ export class HandlerExtractor {
       if (Node.isVariableDeclaration(node)) {
         const mapHandlers = this.extractHandlerMapPattern(node, context, filePath)
         handlers.push(...mapHandlers)
+      }
+
+      // Pattern 4: Type guard if/else-if chains
+      if (Node.isIfStatement(node)) {
+        const typeGuardHandlers = this.extractTypeGuardHandlers(node, context, filePath)
+        handlers.push(...typeGuardHandlers)
       }
     })
 
@@ -411,6 +419,192 @@ export class HandlerExtractor {
     }
 
     return handlers
+  }
+
+  /**
+   * Extract handlers from type guard if/else-if patterns
+   * Detects: if (isQueryMessage(msg)) { handleQuery(msg); }
+   */
+  private extractTypeGuardHandlers(
+    ifNode: Node,
+    context: string,
+    filePath: string
+  ): MessageHandler[] {
+    const handlers: MessageHandler[] = []
+
+    try {
+      // Get the source file to find type predicates
+      const sourceFile = ifNode.getSourceFile()
+
+      // Use cached type guards or compute if not cached
+      let typeGuards = this.typeGuardCache.get(sourceFile)
+      if (!typeGuards) {
+        typeGuards = this.findTypePredicateFunctions(sourceFile)
+        this.typeGuardCache.set(sourceFile, typeGuards)
+      }
+
+      if (typeGuards.size === 0) {
+        return handlers
+      }
+
+      // Process the if statement and all else-if chains
+      let currentIf: Node = ifNode
+
+      while (currentIf) {
+        const handler = this.extractHandlerFromIfClause(currentIf, typeGuards, context, filePath)
+        if (handler) {
+          handlers.push(handler)
+        }
+
+        // Check for else-if
+        const elseStatement = currentIf.getElseStatement()
+        if (elseStatement && Node.isIfStatement(elseStatement)) {
+          currentIf = elseStatement
+        } else {
+          break
+        }
+      }
+    } catch (error) {
+      // Skip malformed if statements
+    }
+
+    return handlers
+  }
+
+  /**
+   * Extract handler from a single if clause
+   */
+  private extractHandlerFromIfClause(
+    ifNode: Node,
+    typeGuards: Map<string, string>,
+    context: string,
+    filePath: string
+  ): MessageHandler | null {
+    try {
+      // Get condition expression
+      const condition = ifNode.getExpression()
+
+      // Check if condition is a call expression (function call)
+      if (!Node.isCallExpression(condition)) {
+        return null
+      }
+
+      // Get the function being called
+      const funcExpr = condition.getExpression()
+      let funcName: string | undefined
+
+      if (Node.isIdentifier(funcExpr)) {
+        funcName = funcExpr.getText()
+      }
+
+      if (!funcName || !typeGuards.has(funcName)) {
+        return null
+      }
+
+      // Found a type guard call! Extract message type
+      const messageType = typeGuards.get(funcName)!
+      const line = ifNode.getStartLineNumber()
+
+      return {
+        messageType,
+        node: context,
+        assignments: [],
+        preconditions: [],
+        postconditions: [],
+        location: { file: filePath, line },
+      }
+    } catch (error) {
+      return null
+    }
+  }
+
+  /**
+   * Find all type predicate functions in a source file
+   * Returns a map of function name → message type
+   */
+  private findTypePredicateFunctions(sourceFile: SourceFile): Map<string, string> {
+    const typeGuards = new Map<string, string>()
+
+    sourceFile.forEachDescendant((node) => {
+      if (Node.isFunctionDeclaration(node) || Node.isFunctionExpression(node) || Node.isArrowFunction(node)) {
+        const returnType = node.getReturnType()
+        const returnTypeText = returnType.getText()
+
+        // Check if return type is a type predicate: "arg is Type"
+        if (/is\s+\w+/.test(returnTypeText)) {
+          // Extract function name
+          let functionName: string | undefined
+          if (Node.isFunctionDeclaration(node)) {
+            functionName = node.getName()
+          } else if (Node.isFunctionExpression(node)) {
+            const parent = node.getParent()
+            if (Node.isVariableDeclaration(parent)) {
+              functionName = parent.getName()
+            }
+          } else if (Node.isArrowFunction(node)) {
+            const parent = node.getParent()
+            if (Node.isVariableDeclaration(parent)) {
+              functionName = parent.getName()
+            }
+          }
+
+          if (functionName) {
+            // Extract message type from:
+            // 1. Type predicate: "msg is QueryMessage" → "query" or "QueryMessage"
+            // 2. Function body: return msg.type === 'query'
+
+            let messageType: string | null = null
+
+            // Strategy 1: Parse from type predicate name
+            // "msg is QueryMessage" → extract "QueryMessage"
+            const typeMatch = returnTypeText.match(/is\s+(\w+)/)
+            if (typeMatch) {
+              const typeName = typeMatch[1]
+              // Convert "QueryMessage" → "query"
+              messageType = this.extractMessageTypeFromTypeName(typeName)
+            }
+
+            // Strategy 2: Analyze function body for msg.type === 'value'
+            if (!messageType) {
+              const body = node.getBody()
+              if (body) {
+                const bodyText = body.getText()
+                const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/)
+                if (typeValueMatch) {
+                  messageType = typeValueMatch[1]
+                }
+              }
+            }
+
+            if (messageType) {
+              typeGuards.set(functionName, messageType)
+            }
+          }
+        }
+      }
+    })
+
+    return typeGuards
+  }
+
+  /**
+   * Extract message type from TypeScript type name
+   * Examples:
+   *   QueryMessage → query
+   *   CommandMessage → command
+   *   SubscribeMessage → subscribe
+   */
+  private extractMessageTypeFromTypeName(typeName: string): string {
+    // Remove common suffixes and convert to lowercase
+    const messageType = typeName
+      .replace(/Message$/, '')
+      .replace(/Event$/, '')
+      .replace(/Request$/, '')
+      .replace(/Command$/, '')
+      .replace(/Query$/, '')
+      .toLowerCase()
+
+    return messageType
   }
 
   /**
