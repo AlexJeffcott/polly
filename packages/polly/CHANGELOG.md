@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2025-12-13
+
+### Added
+
+#### Imported Type Guard Detection
+- **Cross-file resolution** - Automatically follows imports using ts-morph symbol resolution
+- **Path alias support** - Works with tsconfig path aliases (@ws/, @/, etc.)
+- **Named imports** - Detects type guards from `import { isQuery } from './messages'`
+- **Relative imports** - Handles `./` and `../` imports correctly
+- **Performance optimized** - Local lookup first, import resolution as fallback
+- **Graceful error handling** - Skips resolution failures silently
+
+### Example Enhancement
+```typescript
+// Type guard defined in: packages/api/src/ws/messages.ts
+export function isQueryMessage(msg: RequestMessage): msg is QueryMessage {
+  return msg.type === 'query'
+}
+
+// Used in: packages/api/src/server.ts
+import { isQueryMessage } from '@ws/messages'
+
+if (isQueryMessage(message)) {
+  handleQuery(message)  // ✅ NOW DETECTED!
+}
+```
+
+### Benefits
+- No manual import parsing required - ts-morph handles complexity
+- Works with all import patterns automatically
+- Backward compatible - existing code works identically
+- Enables full handler detection for projects like Lingua CMS
+
+Addresses #4
+
 ## [0.3.1] - 2025-12-13
 
 ### Added
