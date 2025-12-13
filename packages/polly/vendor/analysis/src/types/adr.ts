@@ -6,48 +6,48 @@
  */
 export type ADR = {
   /** ADR number/ID */
-  id: string;
+  id: string
 
   /** Decision title */
-  title: string;
+  title: string
 
   /** Status: proposed, accepted, deprecated, superseded */
-  status: ADRStatus;
+  status: ADRStatus
 
   /** Date of decision */
-  date: string;
+  date: string
 
   /** Context - what is the issue motivating this decision */
-  context: string;
+  context: string
 
   /** Decision - what is the change we're proposing */
-  decision: string;
+  decision: string
 
   /** Consequences - what becomes easier or more difficult */
-  consequences: string;
+  consequences: string
 
   /** Optional: Alternatives considered */
-  alternatives?: string[];
+  alternatives?: string[]
 
   /** Optional: Links to superseding/superseded ADRs */
-  links?: ADRLink[];
+  links?: ADRLink[]
 
   /** Source file path */
-  source: string;
-};
+  source: string
+}
 
-export type ADRStatus = "proposed" | "accepted" | "deprecated" | "superseded";
+export type ADRStatus = "proposed" | "accepted" | "deprecated" | "superseded"
 
 export type ADRLink = {
-  type: "supersedes" | "superseded-by" | "related-to";
-  adrId: string;
-  title?: string;
-};
+  type: "supersedes" | "superseded-by" | "related-to"
+  adrId: string
+  title?: string
+}
 
 /**
  * Collection of ADRs
  */
 export type ADRCollection = {
-  adrs: ADR[];
-  directory: string;
-};
+  adrs: ADR[]
+  directory: string
+}

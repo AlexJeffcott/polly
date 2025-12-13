@@ -10,41 +10,41 @@ import type { MessageHandler } from "./core";
  * Information about an execution context (background, content, popup, etc.)
  */
 export type ContextInfo = {
-  /** Type of context */
-  type: string;
+	/** Type of context */
+	type: string;
 
-  /** Entry point file path */
-  entryPoint: string;
+	/** Entry point file path */
+	entryPoint: string;
 
-  /** Message handlers defined in this context */
-  handlers: MessageHandler[];
+	/** Message handlers defined in this context */
+	handlers: MessageHandler[];
 
-  /** Chrome APIs used in this context */
-  chromeAPIs: string[];
+	/** Chrome APIs used in this context */
+	chromeAPIs: string[];
 
-  /** External APIs called from this context */
-  externalAPIs: ExternalAPICall[];
+	/** External APIs called from this context */
+	externalAPIs: ExternalAPICall[];
 
-  /** UI components rendered (for popup/options/devtools) */
-  components?: ComponentInfo[];
+	/** UI components rendered (for popup/options/devtools) */
+	components?: ComponentInfo[];
 
-  /** Dependencies/imports */
-  dependencies: string[];
+	/** Dependencies/imports */
+	dependencies: string[];
 
-  /** JSDoc description if available */
-  description?: string;
+	/** JSDoc description if available */
+	description?: string;
 };
 
 /**
  * Component information (for UI contexts)
  */
 export type ComponentInfo = {
-  name: string;
-  type: "function" | "class";
-  filePath: string;
-  line: number;
-  props?: string[];
-  description?: string;
+	name: string;
+	type: "function" | "class";
+	filePath: string;
+	line: number;
+	props?: string[];
+	description?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -55,46 +55,46 @@ export type ComponentInfo = {
  * Represents a message flow between contexts
  */
 export type MessageFlow = {
-  /** Message type identifier */
-  messageType: string;
+	/** Message type identifier */
+	messageType: string;
 
-  /** Source context */
-  from: string;
+	/** Source context */
+	from: string;
 
-  /** Destination context(s) */
-  to: string[];
+	/** Destination context(s) */
+	to: string[];
 
-  /** What triggers this flow (user action, event, etc.) */
-  trigger?: string;
+	/** What triggers this flow (user action, event, etc.) */
+	trigger?: string;
 
-  /** Sequence of steps in this flow */
-  sequence: MessageStep[];
+	/** Sequence of steps in this flow */
+	sequence: MessageStep[];
 
-  /** Flow name (from @flow annotation or inferred) */
-  flowName?: string;
+	/** Flow name (from @flow annotation or inferred) */
+	flowName?: string;
 
-  /** Description (from JSDoc) */
-  description?: string;
+	/** Description (from JSDoc) */
+	description?: string;
 };
 
 /**
  * A step in a message flow sequence
  */
 export type MessageStep = {
-  /** Step number in sequence */
-  step: number;
+	/** Step number in sequence */
+	step: number;
 
-  /** Action description */
-  action: string;
+	/** Action description */
+	action: string;
 
-  /** Context where this step occurs */
-  context: string;
+	/** Context where this step occurs */
+	context: string;
 
-  /** Source location */
-  location?: {
-    file: string;
-    line: number;
-  };
+	/** Source location */
+	location?: {
+		file: string;
+		line: number;
+	};
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -105,46 +105,46 @@ export type MessageStep = {
  * External system integration
  */
 export type ExternalIntegration = {
-  /** Type of integration */
-  type: "api" | "storage" | "browser-api" | "external-script" | "websocket";
+	/** Type of integration */
+	type: "api" | "storage" | "browser-api" | "external-script" | "websocket";
 
-  /** Name/identifier */
-  name: string;
+	/** Name/identifier */
+	name: string;
 
-  /** Technology/protocol */
-  technology?: string;
+	/** Technology/protocol */
+	technology?: string;
 
-  /** Base URL or endpoint */
-  url?: string;
+	/** Base URL or endpoint */
+	url?: string;
 
-  /** Where it's used (file paths) */
-  usedIn: string[];
+	/** Where it's used (file paths) */
+	usedIn: string[];
 
-  /** Description (from JSDoc or inferred) */
-  description?: string;
+	/** Description (from JSDoc or inferred) */
+	description?: string;
 
-  /** Specific API calls made */
-  calls?: ExternalAPICall[];
+	/** Specific API calls made */
+	calls?: ExternalAPICall[];
 };
 
 /**
  * A specific API call
  */
 export type ExternalAPICall = {
-  /** HTTP method or API method name */
-  method: string;
+	/** HTTP method or API method name */
+	method: string;
 
-  /** Endpoint or resource */
-  endpoint: string;
+	/** Endpoint or resource */
+	endpoint: string;
 
-  /** Where this call is made */
-  location: {
-    file: string;
-    line: number;
-  };
+	/** Where this call is made */
+	location: {
+		file: string;
+		line: number;
+	};
 
-  /** Description */
-  description?: string;
+	/** Description */
+	description?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -155,53 +155,89 @@ export type ExternalAPICall = {
  * Parsed manifest.json information
  */
 export type ManifestInfo = {
-  /** Extension name */
-  name: string;
+	/** Extension name */
+	name: string;
 
-  /** Version */
-  version: string;
+	/** Version */
+	version: string;
 
-  /** Description */
-  description?: string;
+	/** Description */
+	description?: string;
 
-  /** Manifest version (2 or 3) */
-  manifestVersion: number;
+	/** Manifest version (2 or 3) */
+	manifestVersion: number;
 
-  /** Background script/service worker */
-  background?: {
-    type: "script" | "service_worker";
-    files: string[];
-  };
+	/** Background script/service worker */
+	background?: {
+		type: "script" | "service_worker";
+		files: string[];
+	};
 
-  /** Content scripts */
-  contentScripts?: Array<{
-    matches: string[];
-    js: string[];
-    css?: string[];
-  }>;
+	/** Content scripts */
+	contentScripts?: Array<{
+		matches: string[];
+		js: string[];
+		css?: string[];
+	}>;
 
-  /** Popup */
-  popup?: {
-    html: string;
-    default?: boolean;
-  };
+	/** Popup */
+	popup?: {
+		html: string;
+		default?: boolean;
+	};
 
-  /** Options page */
-  options?: {
-    page: string;
-    openInTab?: boolean;
-  };
+	/** Options page */
+	options?: {
+		page: string;
+		openInTab?: boolean;
+	};
 
-  /** DevTools page */
-  devtools?: {
-    page: string;
-  };
+	/** DevTools page */
+	devtools?: {
+		page: string;
+	};
 
-  /** Permissions */
-  permissions?: string[];
+	/** Permissions */
+	permissions?: string[];
 
-  /** Host permissions */
-  hostPermissions?: string[];
+	/** Host permissions */
+	hostPermissions?: string[];
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Project Configuration (Multi-Project Support)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Project type identifier
+ */
+export type ProjectType =
+	| "chrome-extension"
+	| "pwa"
+	| "websocket-app"
+	| "electron"
+	| "generic";
+
+/**
+ * Project configuration with context mappings
+ * Allows visualization to work with any project type
+ */
+export type ProjectConfig = {
+	/** Type of project */
+	type: ProjectType;
+
+	/** Entry points for each context */
+	entryPoints: Record<string, string>;
+
+	/** Context type mapping (e.g., background → server, content → client) */
+	contextMapping?: Record<string, string>;
+
+	/** Project metadata */
+	metadata?: {
+		name?: string;
+		version?: string;
+		description?: string;
+	};
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -212,33 +248,36 @@ export type ManifestInfo = {
  * Complete architecture analysis result
  */
 export type ArchitectureAnalysis = {
-  /** Basic system information */
-  system: {
-    name: string;
-    version: string;
-    description?: string;
-  };
+	/** Basic system information */
+	system: {
+		name: string;
+		version: string;
+		description?: string;
+	};
 
-  /** Manifest information */
-  manifest?: ManifestInfo;
+	/** Project configuration (for non-extension projects) */
+	projectConfig?: ProjectConfig;
 
-  /** All contexts found in the system */
-  contexts: Record<string, ContextInfo>;
+	/** Manifest information (for Chrome extensions) */
+	manifest?: ManifestInfo;
 
-  /** Message flows between contexts */
-  messageFlows: MessageFlow[];
+	/** All contexts found in the system */
+	contexts: Record<string, ContextInfo>;
 
-  /** External integrations */
-  integrations: ExternalIntegration[];
+	/** Message flows between contexts */
+	messageFlows: MessageFlow[];
 
-  /** Architecture Decision Records */
-  adrs?: ADRCollection;
+	/** External integrations */
+	integrations: ExternalIntegration[];
 
-  /** Repository information */
-  repository?: {
-    url: string;
-    type: string;
-  };
+	/** Architecture Decision Records */
+	adrs?: ADRCollection;
+
+	/** Repository information */
+	repository?: {
+		url: string;
+		type: string;
+	};
 };
 
 // Import ADR types

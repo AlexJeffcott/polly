@@ -272,12 +272,46 @@ async function runFullVerification(configPath: string) {
   fs.writeFileSync(cfgPath, cfg)
 
   // Copy base MessageRouter spec to generated directory so TLC can find it
-  const baseSpecPath = path.join(process.cwd(), "specs", "tla", "MessageRouter.tla")
-  if (fs.existsSync(baseSpecPath)) {
+  // Try multiple locations to find MessageRouter.tla:
+  // 1. User's specs/tla/MessageRouter.tla (if they've customized it)
+  // 2. Package's bundled specs/tla/MessageRouter.tla (when installed via npm)
+  // 3. External polly directory (when using git submodule or manual clone)
+  const possiblePaths = [
+    // User's custom version
+    path.join(process.cwd(), "specs", "tla", "MessageRouter.tla"),
+
+    // Package's bundled version (when installed as npm package)
+    // CLI runs from dist/cli.js, so specs/ is at ../specs/
+    path.join(__dirname, "..", "specs", "tla", "MessageRouter.tla"),
+
+    // When running from source in development
+    path.join(__dirname, "..", "..", "specs", "tla", "MessageRouter.tla"),
+
+    // External polly directory (common in monorepos or git submodules)
+    path.join(process.cwd(), "external", "polly", "packages", "verify", "specs", "tla", "MessageRouter.tla"),
+
+    // Node modules (scoped package)
+    path.join(process.cwd(), "node_modules", "@fairfox", "polly-verify", "specs", "tla", "MessageRouter.tla"),
+  ]
+
+  let baseSpecPath: string | null = null
+  for (const candidatePath of possiblePaths) {
+    if (fs.existsSync(candidatePath)) {
+      baseSpecPath = candidatePath
+      break
+    }
+  }
+
+  if (baseSpecPath) {
     const destSpecPath = path.join(specDir, "MessageRouter.tla")
     fs.copyFileSync(baseSpecPath, destSpecPath)
+    console.log(color("✓ Copied MessageRouter.tla", COLORS.green))
   } else {
     console.log(color("⚠️  Warning: MessageRouter.tla not found, verification may fail", COLORS.yellow))
+    console.log(color(`   Searched in:`, COLORS.gray))
+    for (const searchPath of possiblePaths) {
+      console.log(color(`   - ${searchPath}`, COLORS.gray))
+    }
   }
 
   console.log(color("✓ Specification generated", COLORS.green))

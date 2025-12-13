@@ -1,11 +1,11 @@
 // Export all core types
-export * from "./core";
+export * from "./core"
 
 // Export architecture types
-export * from "./architecture";
+export * from "./architecture"
 
 // Export ADR types
-export * from "./adr";
+export * from "./adr"
 
 // Extension-specific context types
 export type Context =
@@ -15,4 +15,4 @@ export type Context =
   | "devtools"
   | "options"
   | "offscreen"
-  | "sidepanel";
+  | "sidepanel"

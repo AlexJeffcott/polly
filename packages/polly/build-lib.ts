@@ -10,7 +10,8 @@
  * 3. Bundles vendor tools with all dependencies inline
  */
 
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, cpSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { $ } from "bun";
 
 const DIST_DIR = "dist";
@@ -93,6 +94,16 @@ if (!toolsResult.success) {
 }
 
 console.log("✅ Tools built");
+console.log("🔨 Copying specs for verification tool...");
+
+// Copy MessageRouter.tla specs to dist so verify CLI can find them
+const specsSourceDir = join("vendor", "verify", "specs");
+const specsDestDir = join(DIST_DIR, "vendor", "verify", "specs");
+
+mkdirSync(specsDestDir, { recursive: true });
+cpSync(specsSourceDir, specsDestDir, { recursive: true });
+
+console.log("✅ Specs copied");
 console.log("🔨 Generating TypeScript declarations...");
 
 try {
