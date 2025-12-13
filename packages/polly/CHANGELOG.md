@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-12-13
+
+### Added
+
+#### TypeScript Type Guard Pattern Detection
+- **Type predicate detection** - Automatically detects TypeScript type guard functions (`msg is QueryMessage`)
+- **If/else-if chain support** - Handles message routing with if/else-if chains using type guards
+- **Message type extraction** - Extracts message types from type names (e.g., `QueryMessage` → `query`)
+- **Fallback analysis** - Analyzes function body when type name doesn't match pattern (`return msg.type === 'query'`)
+- **Performance optimized** - WeakMap caching prevents redundant file scanning (O(n) instead of O(n²))
+- **Works alongside existing patterns** - Compatible with switch/case, handler maps, and `.on()` detection
+
+### Example Pattern Detected
+```typescript
+function isQueryMessage(msg: RequestMessage): msg is QueryMessage {
+  return msg.type === 'query'
+}
+
+if (isQueryMessage(message)) {
+  response = await handleQuery(message)
+} else if (isCommandMessage(message)) {
+  response = await handleCommand(message)
+}
+```
+
+### Benefits
+- Detects handlers in TypeScript projects using type guard patterns
+- Common in well-typed codebases for type narrowing and IDE support
+- Enables full handler detection for projects like Lingua CMS
+
+### Limitations
+- Only detects type guards defined in the same file (imported type guards require enhancement)
+- Future versions may add cross-file type guard resolution
+
+Addresses #2
+
 ## [0.3.0] - 2025-12-12
 
 ### Added
