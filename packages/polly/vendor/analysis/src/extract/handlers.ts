@@ -497,12 +497,22 @@ export class HandlerExtractor {
         funcName = funcExpr.getText()
       }
 
-      if (!funcName || !typeGuards.has(funcName)) {
+      // Try to find message type from local type guards first
+      let messageType: string | undefined = undefined
+
+      if (funcName && typeGuards.has(funcName)) {
+        // Found in local file
+        messageType = typeGuards.get(funcName)!
+      } else if (Node.isIdentifier(funcExpr)) {
+        // Not found locally - try to resolve from imports
+        messageType = this.resolveImportedTypeGuard(funcExpr)
+      }
+
+      if (!messageType) {
         return null
       }
 
-      // Found a type guard call! Extract message type
-      const messageType = typeGuards.get(funcName)!
+      // Found a type guard call! Use the message type
       const line = ifNode.getStartLineNumber()
 
       return {
@@ -585,6 +595,54 @@ export class HandlerExtractor {
     })
 
     return typeGuards
+  }
+
+  /**
+   * Resolve type guard from imported function
+   * Uses ts-morph symbol resolution to find definition across files
+   */
+  private resolveImportedTypeGuard(identifier: any): string | null {
+    try {
+      // Get the definition nodes (where the function is defined)
+      const definitions = identifier.getDefinitionNodes()
+
+      for (const def of definitions) {
+        // Check if it's a function with type predicate return type
+        if (Node.isFunctionDeclaration(def) ||
+            Node.isFunctionExpression(def) ||
+            Node.isArrowFunction(def)) {
+
+          const returnType = def.getReturnType()
+          const returnTypeText = returnType.getText()
+
+          // Check for type predicate: "arg is Type"
+          if (/is\s+\w+/.test(returnTypeText)) {
+            // Strategy 1: Parse from type predicate name
+            // "msg is QueryMessage" → extract "QueryMessage"
+            const typeMatch = returnTypeText.match(/is\s+(\w+)/)
+            if (typeMatch) {
+              const typeName = typeMatch[1]
+              // Convert "QueryMessage" → "query"
+              return this.extractMessageTypeFromTypeName(typeName)
+            }
+
+            // Strategy 2: Analyze function body for msg.type === 'value'
+            const body = def.getBody()
+            if (body) {
+              const bodyText = body.getText()
+              const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/)
+              if (typeValueMatch) {
+                return typeValueMatch[1]
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Skip resolution errors (e.g., external dependencies, malformed code)
+    }
+
+    return null
   }
 
   /**
