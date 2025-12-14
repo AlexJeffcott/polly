@@ -30,6 +30,16 @@ export class HandlerExtractor {
     // Find all source files
     const sourceFiles = this.project.getSourceFiles()
 
+    if (process.env.POLLY_DEBUG) {
+      console.log(`[DEBUG] Loaded ${sourceFiles.length} source files`)
+      if (sourceFiles.length <= 20) {
+        // Only log file names if there aren't too many
+        for (const sf of sourceFiles) {
+          console.log(`[DEBUG]   - ${sf.getFilePath()}`)
+        }
+      }
+    }
+
     for (const sourceFile of sourceFiles) {
       const fileHandlers = this.extractFromFile(sourceFile)
       handlers.push(...fileHandlers)
@@ -37,6 +47,10 @@ export class HandlerExtractor {
       for (const handler of fileHandlers) {
         messageTypes.add(handler.messageType)
       }
+    }
+
+    if (process.env.POLLY_DEBUG) {
+      console.log(`[DEBUG] Total handlers extracted: ${handlers.length}`)
     }
 
     return {
@@ -443,9 +457,19 @@ export class HandlerExtractor {
         this.typeGuardCache.set(sourceFile, typeGuards)
       }
 
-      if (typeGuards.size === 0) {
-        return handlers
+      // DEBUG: Log local type guards found
+      if (process.env.POLLY_DEBUG) {
+        console.log(`[DEBUG] File: ${sourceFile.getBaseName()}`)
+        console.log(`[DEBUG] Local type guards found: ${typeGuards.size}`)
+        if (typeGuards.size > 0) {
+          for (const [name, type] of typeGuards.entries()) {
+            console.log(`[DEBUG]   - ${name} → ${type}`)
+          }
+        }
       }
+
+      // Don't return early - we still want to try imported type guards
+      // even if no local type guards exist
 
       // Process the if statement and all else-if chains
       let currentIf: Node = ifNode
@@ -454,6 +478,10 @@ export class HandlerExtractor {
         const handler = this.extractHandlerFromIfClause(currentIf, typeGuards, context, filePath)
         if (handler) {
           handlers.push(handler)
+
+          if (process.env.POLLY_DEBUG) {
+            console.log(`[DEBUG] Found handler: ${handler.messageType} at line ${handler.location.line}`)
+          }
         }
 
         // Check for else-if
@@ -465,7 +493,10 @@ export class HandlerExtractor {
         }
       }
     } catch (error) {
-      // Skip malformed if statements
+      // DEBUG: Log errors
+      if (process.env.POLLY_DEBUG) {
+        console.log(`[DEBUG] Error in extractTypeGuardHandlers: ${error}`)
+      }
     }
 
     return handlers
@@ -497,18 +528,33 @@ export class HandlerExtractor {
         funcName = funcExpr.getText()
       }
 
+      if (process.env.POLLY_DEBUG && funcName) {
+        console.log(`[DEBUG] Processing if condition with function: ${funcName}`)
+      }
+
       // Try to find message type from local type guards first
       let messageType: string | undefined = undefined
 
       if (funcName && typeGuards.has(funcName)) {
         // Found in local file
         messageType = typeGuards.get(funcName)!
+
+        if (process.env.POLLY_DEBUG) {
+          console.log(`[DEBUG] Found in local type guards: ${funcName} → ${messageType}`)
+        }
       } else if (Node.isIdentifier(funcExpr)) {
         // Not found locally - try to resolve from imports
+        if (process.env.POLLY_DEBUG) {
+          console.log(`[DEBUG] Not found locally, trying import resolution for: ${funcName}`)
+        }
+
         messageType = this.resolveImportedTypeGuard(funcExpr)
       }
 
       if (!messageType) {
+        if (process.env.POLLY_DEBUG && funcName) {
+          console.log(`[DEBUG] Could not resolve message type for: ${funcName}`)
+        }
         return null
       }
 
@@ -603,8 +649,18 @@ export class HandlerExtractor {
    */
   private resolveImportedTypeGuard(identifier: any): string | null {
     try {
+      const funcName = identifier.getText()
+
       // Get the definition nodes (where the function is defined)
       const definitions = identifier.getDefinitionNodes()
+
+      if (definitions.length === 0) {
+        // DEBUG: Log when no definitions found
+        if (process.env.POLLY_DEBUG) {
+          console.log(`[DEBUG] No definitions found for imported function: ${funcName}`)
+        }
+        return null
+      }
 
       for (const def of definitions) {
         // Check if it's a function with type predicate return type
@@ -615,6 +671,11 @@ export class HandlerExtractor {
           const returnType = def.getReturnType()
           const returnTypeText = returnType.getText()
 
+          // DEBUG: Log return type
+          if (process.env.POLLY_DEBUG) {
+            console.log(`[DEBUG] Function ${funcName} return type: ${returnTypeText}`)
+          }
+
           // Check for type predicate: "arg is Type"
           if (/is\s+\w+/.test(returnTypeText)) {
             // Strategy 1: Parse from type predicate name
@@ -623,7 +684,13 @@ export class HandlerExtractor {
             if (typeMatch) {
               const typeName = typeMatch[1]
               // Convert "QueryMessage" → "query"
-              return this.extractMessageTypeFromTypeName(typeName)
+              const messageType = this.extractMessageTypeFromTypeName(typeName)
+
+              if (process.env.POLLY_DEBUG) {
+                console.log(`[DEBUG] Resolved ${funcName} → ${messageType}`)
+              }
+
+              return messageType
             }
 
             // Strategy 2: Analyze function body for msg.type === 'value'
@@ -632,14 +699,23 @@ export class HandlerExtractor {
               const bodyText = body.getText()
               const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/)
               if (typeValueMatch) {
-                return typeValueMatch[1]
+                const messageType = typeValueMatch[1]
+
+                if (process.env.POLLY_DEBUG) {
+                  console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from body)`)
+                }
+
+                return messageType
               }
             }
           }
         }
       }
     } catch (error) {
-      // Skip resolution errors (e.g., external dependencies, malformed code)
+      // DEBUG: Log errors
+      if (process.env.POLLY_DEBUG) {
+        console.log(`[DEBUG] Error resolving imported type guard: ${error}`)
+      }
     }
 
     return null
