@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2025-12-14
+
+### Added
+
+#### Comprehensive Test Coverage (44 Tests)
+- **DSL generation tests** - 11 tests covering component diagram generation for all project types
+- **Project detection tests** - 15 tests for WebSocket servers, PWAs, and generic TypeScript projects
+- **Prevents regressions** - Tests explicitly check for bugs like Issue #7 before they reach users
+- **Automated validation** - Tests run as part of `prepublishOnly` script
+
+#### Critical Test Coverage
+The DSL generation test suite includes a test that explicitly checks for the Issue #7 bug:
+```typescript
+test("should NOT generate components when context not in componentDiagramContexts")
+```
+
+This test would have caught Issue #7 immediately, preventing it from reaching production.
+
+#### Implementation Gaps Documented
+Tests revealed non-critical limitations (documented for future enhancement):
+1. Generic projects default to "websocket-app" type
+2. Only `server.ts` detected as entry point (not `index.ts`, `app.ts`, `main.ts`)
+3. Client context detection not implemented
+4. Context mapping naming inconsistent
+
+**Impact**: Before these tests, Issue #7 reached users. After these tests, similar bugs will be caught automatically before release.
+
+See `TEST_COVERAGE_REPORT.md` for full details.
+
 ## [0.3.7] - 2025-12-14
 
 ### Fixed
