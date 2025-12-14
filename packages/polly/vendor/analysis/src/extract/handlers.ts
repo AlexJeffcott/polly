@@ -100,9 +100,15 @@ export class HandlerExtractor {
       }
 
       // Pattern 4: Type guard if/else-if chains
+      // Only process root if statements, not else-if statements (they're handled by the chain walker)
       if (Node.isIfStatement(node)) {
-        const typeGuardHandlers = this.extractTypeGuardHandlers(node, context, filePath)
-        handlers.push(...typeGuardHandlers)
+        const parent = node.getParent()
+        const isElseIf = parent && Node.isIfStatement(parent)
+
+        if (!isElseIf) {
+          const typeGuardHandlers = this.extractTypeGuardHandlers(node, context, filePath)
+          handlers.push(...typeGuardHandlers)
+        }
       }
     })
 
@@ -587,7 +593,7 @@ export class HandlerExtractor {
         // Check the return type NODE (AST structure) for type predicate
         const returnTypeNode = node.getReturnTypeNode()
 
-        if (returnTypeNode && Node.isTypePredicateNode(returnTypeNode)) {
+        if (returnTypeNode && Node.isTypePredicate(returnTypeNode)) {
           // Extract function name
           let functionName: string | undefined
           if (Node.isFunctionDeclaration(node)) {
@@ -671,11 +677,11 @@ export class HandlerExtractor {
             const returnType = def.getReturnType().getText()
             console.log(`[DEBUG] Function ${funcName} return type (resolved): ${returnType}`)
             console.log(`[DEBUG] Has return type node: ${!!returnTypeNode}`)
-            console.log(`[DEBUG] Is type predicate node: ${returnTypeNode && Node.isTypePredicateNode(returnTypeNode)}`)
+            console.log(`[DEBUG] Is type predicate node: ${returnTypeNode && Node.isTypePredicate(returnTypeNode)}`)
           }
 
           // Check if the return type node is a type predicate
-          if (returnTypeNode && Node.isTypePredicateNode(returnTypeNode)) {
+          if (returnTypeNode && Node.isTypePredicate(returnTypeNode)) {
             // Extract the type from the type predicate node
             const typeNode = returnTypeNode.getTypeNode()
 
