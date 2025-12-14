@@ -5,43 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.3] - 2025-12-14
+## [0.3.4] - 2025-12-14
 
 ### Fixed
 
-#### Import Resolution for .ts/.tsx Extensions
-- **Manual import resolution fallback** - Handles imports with `.ts`/`.tsx` extensions (common in Bun/Deno projects)
-- **Path alias support enhanced** - Manually resolves path aliases when ts-morph's automatic resolution fails
-- **Relative imports with extensions** - Supports `./messages.ts`, `../shared/guards.tsx`, etc.
-- **Debug logging** - Added `POLLY_DEBUG` environment variable for detailed resolution diagnostics
+#### Proper ts-morph Configuration for .ts/.tsx Extensions
+- **Configured ts-morph with correct compiler options** - Set `allowImportingTsExtensions: true` and `moduleResolution: Bundler`
+- **No more fallback hacks** - ts-morph now resolves imports with `.ts`/`.tsx` extensions natively
+- **Debug logging** - Added `POLLY_DEBUG` environment variable for diagnostics
 
-### Technical Details
+### What Changed
 
-When ts-morph's `getDefinitionNodes()` cannot resolve an import (e.g., due to `.ts` extensions), Polly now:
-1. Finds the import declaration manually
-2. Extracts the module specifier (e.g., `'@ws/messages.ts'`)
-3. Strips `.ts`/`.tsx` extensions
-4. Searches loaded source files for matches
-5. Returns the exported function declaration for analysis
-
-### Example Fix
+Removed manual import resolution fallback and fixed the root cause by configuring ts-morph's Project with:
 ```typescript
-// This now works in Bun/Deno projects:
-import { isQueryMessage } from '@ws/messages.ts'  // ✅ Detected!
-
-if (isQueryMessage(message)) {
-  handleQuery(message)
-}
+new Project({
+  tsConfigFilePath: tsConfigPath,
+  compilerOptions: {
+    allowImportingTsExtensions: true,
+    moduleResolution: 99, // Bundler
+  },
+})
 ```
 
-### Debug Mode
-
-Run with `POLLY_DEBUG=1` to see detailed resolution logs:
-```bash
-POLLY_DEBUG=1 bunx polly visualize
+This allows ts-morph to resolve imports like:
+```typescript
+import { isQueryMessage } from '@ws/messages.ts'  // ✅ Works!
 ```
 
 Fixes #6
+
+## [0.3.3] - 2025-12-14
+
+### Deprecated
+
+This version implemented a manual fallback for import resolution. Use v0.3.4 instead, which fixes the root cause properly.
 
 ## [0.3.2] - 2025-12-13
 
