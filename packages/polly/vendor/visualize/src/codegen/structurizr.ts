@@ -516,12 +516,9 @@ export class StructurizrDSLGenerator {
         const fromId = this.toId(rel.from);
         const toId = this.toId(rel.to);
         const description = this.escape(rel.description);
+        const technology = rel.technology ? ` "${this.escape(rel.technology)}"` : "";
 
-        parts.push(`        ${fromId} -> ${toId} "${description}" {`);
-
-        if (rel.technology) {
-          parts.push(`          technology "${this.escape(rel.technology)}"`);
-        }
+        parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
 
         if (rel.tags && rel.tags.length > 0) {
           parts.push(`          tags "${rel.tags.join('" "')}"`);
@@ -538,13 +535,9 @@ export class StructurizrDSLGenerator {
           const fromId = this.toId(rel.from);
           const toId = this.toId(rel.to);
           const description = this.escape(rel.description);
+          const technology = rel.technology ? ` "${this.escape(rel.technology)}"` : "";
 
-          parts.push(`        ${fromId} -> ${toId} "${description}" {`);
-
-          if (rel.technology) {
-            parts.push(`          technology "${this.escape(rel.technology)}"`);
-          }
-
+          parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
           parts.push(`          tags "Auto-detected"`);
           parts.push(`        }`);
         }

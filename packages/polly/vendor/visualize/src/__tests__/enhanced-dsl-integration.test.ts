@@ -178,18 +178,17 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				componentDiagramContexts: Object.keys(analysis.contexts),
 			});
 
-			// Should include query handler -> user_service relationship
-			expect(dsl).toContain("query_handler -> user_service");
-			expect(dsl).toContain('Calls listUsers()');
-			expect(dsl).toContain('technology "Function Call"');
+			// Should include query handler -> user_service relationship with correct syntax
+			expect(dsl).toMatch(/query_handler\s*->\s*user_service\s+"Calls listUsers\(\)"\s+"Function Call"/);
 
 			// Should include command handler -> user_service relationship
-			expect(dsl).toContain("command_handler -> user_service");
-			expect(dsl).toContain('Calls executeUserCommand()');
+			expect(dsl).toMatch(/command_handler\s*->\s*user_service\s+"Calls executeUserCommand\(\)"\s+"Function Call"/);
 
 			// Should include auth handler -> auth_service relationship
-			expect(dsl).toContain("auth_handler -> auth_service");
-			expect(dsl).toContain('Calls authenticate()');
+			expect(dsl).toMatch(/auth_handler\s*->\s*auth_service\s+"Calls authenticate\(\)"\s+"Function Call"/);
+
+			// Verify technology is NOT inside the block (old incorrect syntax)
+			expect(dsl).not.toMatch(/\{\s*technology\s+"/);
 		});
 
 		test("should tag auto-detected relationships", () => {
@@ -619,13 +618,15 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				],
 			});
 
-			// Verify relationships are in DSL
-			expect(dsl).toMatch(/query_handler\s*->\s*user_service\s+"Calls listUsers\(\)"/);
-			expect(dsl).toMatch(/command_handler\s*->\s*user_service\s+"Calls executeUserCommand\(\)"/);
+			// Verify relationships are in DSL with correct syntax (technology before opening brace)
+			expect(dsl).toMatch(/query_handler\s*->\s*user_service\s+"Calls listUsers\(\)"\s+"TypeScript"/);
+			expect(dsl).toMatch(/command_handler\s*->\s*user_service\s+"Calls executeUserCommand\(\)"\s+"TypeScript"/);
 
-			// Verify technology and tags
-			expect(dsl).toContain('technology "TypeScript"');
+			// Verify tags are inside the block
 			expect(dsl).toMatch(/tags\s+"Sync"/);
+
+			// Verify technology is NOT inside the block (old incorrect syntax)
+			expect(dsl).not.toMatch(/\{\s*technology\s+"/);
 		});
 
 		test("should generate relationships without technology or tags", () => {

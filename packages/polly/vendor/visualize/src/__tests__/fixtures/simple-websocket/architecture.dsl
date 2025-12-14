@@ -69,32 +69,25 @@ workspace "test-websocket-server" "" {
           tags "Service" "Auto-detected"
         }
 
-        connection_handler -> user_service "Calls listUsers()" {
-          technology "Function Call"
+        connection_handler -> user_service "Calls listUsers()" "Function Call" {
           tags "Auto-detected"
         }
-        connection_handler -> auth_service "Calls authenticate()" {
-          technology "Function Call"
+        connection_handler -> auth_service "Calls authenticate()" "Function Call" {
           tags "Auto-detected"
         }
-        message_handler -> user_service "Calls listUsers()" {
-          technology "Function Call"
+        message_handler -> user_service "Calls listUsers()" "Function Call" {
           tags "Auto-detected"
         }
-        message_handler -> auth_service "Calls authenticate()" {
-          technology "Function Call"
+        message_handler -> auth_service "Calls authenticate()" "Function Call" {
           tags "Auto-detected"
         }
-        query_handler -> user_service "Calls listUsers()" {
-          technology "Function Call"
+        query_handler -> user_service "Calls listUsers()" "Function Call" {
           tags "Auto-detected"
         }
-        command_handler -> user_service "Calls executeUserCommand()" {
-          technology "Function Call"
+        command_handler -> user_service "Calls executeUserCommand()" "Function Call" {
           tags "Auto-detected"
         }
-        auth_handler -> auth_service "Calls authenticate()" {
-          technology "Function Call"
+        auth_handler -> auth_service "Calls authenticate()" "Function Call" {
           tags "Auto-detected"
         }
       }

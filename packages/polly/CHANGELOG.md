@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2025-12-14
+
+### Fixed
+
+#### Structurizr DSL Syntax Error in Relationships
+Fixes critical DSL syntax error that prevented visualization in Structurizr Lite (reported by Lingua CMS team in Issue #8).
+
+**Problem:**
+The `technology` parameter was incorrectly placed as a keyword inside the relationship block, causing Structurizr to fail with: `Unexpected tokens (expected: tags, url, properties, perspectives) at line X: technology "Function Call"`
+
+**Before (Invalid):**
+```dsl
+handler -> service "Calls method()" {
+  technology "Function Call"  # ❌ Invalid
+  tags "Auto-detected"
+}
+```
+
+**After (Valid):**
+```dsl
+handler -> service "Calls method()" "Function Call" {  # ✅ Correct
+  tags "Auto-detected"
+}
+```
+
+**Fixed Files:**
+- `vendor/visualize/src/codegen/structurizr.ts` - Corrected relationship syntax for both user-provided and auto-detected relationships
+- `vendor/visualize/src/__tests__/enhanced-dsl-integration.test.ts` - Updated tests to validate correct DSL syntax and prevent regression
+
+**Impact:**
+All DSL files now generate valid Structurizr syntax and can be visualized without errors. This affects both explicit relationships and auto-detected relationships from cross-file analysis.
+
 ## [0.5.1] - 2025-12-14
 
 ### Enhanced

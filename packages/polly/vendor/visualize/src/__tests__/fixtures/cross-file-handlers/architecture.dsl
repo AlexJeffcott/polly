@@ -50,36 +50,28 @@ workspace "Unknown Project" "" {
           tags "Service" "Auto-detected"
         }
 
-        message_handler -> user_service "Calls listUsers()" {
-          technology "Function Call"
+        message_handler -> user_service "Calls listUsers()" "Function Call" {
           tags "Auto-detected"
         }
-        message_handler -> database "Reads from database" {
-          technology "SQL"
+        message_handler -> database "Reads from database" "SQL" {
           tags "Auto-detected"
         }
-        message_handler -> db_client "Calls query()" {
-          technology "Function Call"
+        message_handler -> db_client "Calls query()" "Function Call" {
           tags "Auto-detected"
         }
-        message_handler -> repositories "Calls create()" {
-          technology "Function Call"
+        message_handler -> repositories "Calls create()" "Function Call" {
           tags "Auto-detected"
         }
-        query_handler -> user_service "Calls listUsers()" {
-          technology "Function Call"
+        query_handler -> user_service "Calls listUsers()" "Function Call" {
           tags "Auto-detected"
         }
-        query_handler -> database "Reads from database" {
-          technology "SQL"
+        query_handler -> database "Reads from database" "SQL" {
           tags "Auto-detected"
         }
-        query_handler -> db_client "Calls query()" {
-          technology "Function Call"
+        query_handler -> db_client "Calls query()" "Function Call" {
           tags "Auto-detected"
         }
-        command_handler -> repositories "Calls create()" {
-          technology "Function Call"
+        command_handler -> repositories "Calls create()" "Function Call" {
           tags "Auto-detected"
         }
       }
