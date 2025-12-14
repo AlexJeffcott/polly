@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2025-12-14
+
+### Fixed
+
+#### Visualization: Component Diagrams for All Context Types
+- **Auto-detect contexts for component diagrams** - Component diagrams now generated for all detected contexts, not just "background"
+- **Fixes WebSocket server visualization** - Handler components now appear in DSL for "server" contexts
+- **Fixes PWA/Worker visualization** - Works for "worker", "serviceworker", and all context types
+- **Backward compatible** - Chrome extensions with "background" context work identically
+
+**Impact**: Before this fix, component diagrams were only generated for Chrome extension "background" contexts, making the visualization feature broken for all non-extension projects (WebSocket servers, PWAs, workers) despite v0.3.0 adding manifest-optional support.
+
+**Example**: Lingua CMS WebSocket server now generates full component diagrams:
+```dsl
+server = container "Server" {
+  query_handler = component "Query Handler" { ... }
+  command_handler = component "Command Handler" { ... }
+  subscribe_handler = component "Subscribe Handler" { ... }
+  unsubscribe_handler = component "Unsubscribe Handler" { ... }
+}
+
+component extension.server "Components_Server" {
+  include *
+  autoLayout tb
+}
+```
+
+Fixes #7
+
 ## [0.3.6] - 2025-12-14
 
 ### Fixed

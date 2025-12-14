@@ -119,10 +119,13 @@ async function generateCommand() {
     // Generate Structurizr DSL
     console.log(color("\n📝 Generating Structurizr DSL...\n", COLORS.blue));
 
+    // Auto-include all detected contexts for component diagrams
+    const contextTypes = Object.keys(analysis.contexts);
+
     const dsl = generateStructurizrDSL(analysis, {
       includeDynamicDiagrams: true,
       includeComponentDiagrams: true,
-      componentDiagramContexts: ["background"],
+      componentDiagramContexts: contextTypes.length > 0 ? contextTypes : ["background"],
     });
 
     // Write to file
