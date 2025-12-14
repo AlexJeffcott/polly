@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-12-14
+
+### Enhanced
+
+#### Cross-File Relationship Detection
+Fixes the architecture pattern mismatch reported in Issue #8 for projects with router-handler separation (like Lingua CMS).
+
+**Problem Solved:**
+v0.5.0 automatic detection only worked when handler routing and business logic were in the same function. It failed for production codebases with proper separation of concerns where handlers are in separate files.
+
+**What's New:**
+- **Cross-file AST traversal** - When detecting a handler call, Polly now resolves the import and analyzes the function body in the separate file
+- **Nested property access detection** - Correctly detects patterns like `repositories.users.create()`, `db.connection.query()`
+- **Function name inference** - Detects service calls from function names like `getDatabase()`, `createRepositories()`
+- **Enhanced component mappings** - Added "repositories" and improved pattern matching
+- **Graceful failure handling** - Silently handles missing files or parse errors without breaking analysis
+
+**Example:**
+```typescript
+// server.ts (router):
+if (isQueryMessage(message)) {
+  response = await handleQuery(message);  // ← Polly detects handler
+}
+
+// handlers/query.ts (separate file):
+export async function handleQuery(message: QueryMessage) {
+  const db = getDatabase();              // ← NOW DETECTED ✅
+  const repos = createRepositories(db);  // ← NOW DETECTED ✅
+  return repos.users.findById(id);       // ← NOW DETECTED ✅
+}
+
+// Generated DSL (automatic):
+query_handler -> db_client "Calls getDatabase()"
+query_handler -> repositories "Calls createRepositories()"
+query_handler -> repositories "Calls findById()"
+```
+
+**Test Coverage:**
+- Added cross-file-handlers test fixture mimicking router-handler separation
+- 7 new integration tests for cross-file relationship detection
+- All 57 tests passing with 221 assertions
+
+**Technical Implementation:**
+- New `resolveImportedFunction()` method using ts-morph's `getModuleSpecifierSourceFile()`
+- Recursive analysis preserves handler context across file boundaries
+- Supports regular functions, arrow functions, and const function declarations
+- Enhanced `extractFromPropertyAccess()` to handle nested property chains
+
+**Impact:**
+This enhancement makes automatic relationship detection work for real-world production codebases with proper architectural patterns. No more isolated gray boxes for projects with separated handler files!
+
 ## [0.5.0] - 2025-12-14
 
 ### Added
