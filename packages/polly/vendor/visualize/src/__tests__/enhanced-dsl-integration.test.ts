@@ -350,6 +350,89 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Automatic Dynamic Diagram Generation", () => {
+		test("should generate dynamic diagram from handler relationships", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: ["server"],
+				includeDynamicDiagrams: true,
+			});
+
+			// Should include dynamic keyword
+			expect(dsl).toContain("dynamic");
+
+			// Should have Message Processing Flow diagram
+			expect(dsl).toContain("Message Processing Flow");
+			expect(dsl).toContain("Shows message processing flow through handlers and services");
+		});
+
+		test("should include handler-to-service flows in diagram", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: ["server"],
+				includeDynamicDiagrams: true,
+			});
+
+			// Should show flows from handlers to services
+			expect(dsl).toContain("query_handler -> user_service");
+			expect(dsl).toContain('Calls listUsers()');
+
+			expect(dsl).toContain("command_handler -> user_service");
+			expect(dsl).toContain('Calls executeUserCommand()');
+
+			expect(dsl).toContain("auth_handler -> auth_service");
+			expect(dsl).toContain('Calls authenticate()');
+		});
+
+		test("should use correct scope for dynamic diagrams", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: ["server"],
+				includeDynamicDiagrams: true,
+			});
+
+			// Should scope to the server container
+			expect(dsl).toContain("dynamic extension.server");
+		});
+
+		test("should generate category-specific diagrams for larger projects", () => {
+			// Create mock analysis with many handlers across categories
+			const mockAnalysis: ArchitectureAnalysis = {
+				...analysis,
+				contexts: {
+					server: {
+						...analysis.contexts.server,
+						handlers: [
+							{ messageType: "login", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 }, relationships: [{ from: "login_handler", to: "auth_service", description: "Authenticates", technology: "Function Call", confidence: "high", evidence: [] }] },
+							{ messageType: "logout", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 }, relationships: [{ from: "logout_handler", to: "auth_service", description: "Logs out", technology: "Function Call", confidence: "high", evidence: [] }] },
+							{ messageType: "verify", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 3 }, relationships: [{ from: "verify_handler", to: "auth_service", description: "Verifies", technology: "Function Call", confidence: "high", evidence: [] }] },
+							{ messageType: "get_user", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 4 }, relationships: [{ from: "get_user_handler", to: "user_service", description: "Gets user", technology: "Function Call", confidence: "high", evidence: [] }] },
+							{ messageType: "create_user", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 5 }, relationships: [{ from: "create_user_handler", to: "user_service", description: "Creates user", technology: "Function Call", confidence: "high", evidence: [] }] },
+							{ messageType: "update_user", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 6 }, relationships: [{ from: "update_user_handler", to: "user_service", description: "Updates user", technology: "Function Call", confidence: "high", evidence: [] }] },
+						],
+					},
+				},
+			};
+
+			const dsl = generateStructurizrDSL(mockAnalysis, {
+				componentDiagramContexts: ["server"],
+				includeDynamicDiagrams: true,
+			});
+
+			// Should generate separate diagrams for authentication and user management
+			expect(dsl).toContain("Authentication Flow");
+			expect(dsl).toContain("User Management Flow");
+		});
+
+		test("should skip dynamic diagrams when option is disabled", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: ["server"],
+				includeDynamicDiagrams: false,
+			});
+
+			// Should NOT include dynamic diagrams
+			expect(dsl).not.toContain("dynamic extension.server");
+			expect(dsl).not.toContain("Message Processing Flow");
+		});
+	});
+
 	describe("Default Styling", () => {
 		test("should generate DSL with default styles", () => {
 			const dsl = generateStructurizrDSL(analysis, {

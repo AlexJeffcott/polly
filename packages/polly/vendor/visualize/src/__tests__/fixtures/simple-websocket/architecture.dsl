@@ -106,7 +106,12 @@ workspace "test-websocket-server" "" {
       autoLayout tb
     }
 
-
+    dynamic extension.server "Message Processing Flow" "Shows message processing flow through handlers and services" {
+      query_handler -> user_service "Calls listUsers()"
+      command_handler -> user_service "Calls executeUserCommand()"
+      auth_handler -> auth_service "Calls authenticate()"
+      autoLayout lr
+    }
 
     styles {
       element "Message Handler" {

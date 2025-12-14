@@ -744,7 +744,13 @@ export class StructurizrDSLGenerator {
       }
     }
 
-    // Group flows by domain/feature for auto-generated diagrams
+    // Auto-generate diagrams from handler relationships (Priority 5)
+    const autoDiagrams = this.generateAutomaticDynamicDiagrams();
+    if (autoDiagrams.length > 0) {
+      parts.push(...autoDiagrams);
+    }
+
+    // Group flows by domain/feature for inter-context flow diagrams
     const flowsByDomain = new Map<string, any[]>();
 
     for (const flow of this.analysis.messageFlows) {
@@ -782,6 +788,194 @@ export class StructurizrDSLGenerator {
     }
 
     return parts.join("\n\n");
+  }
+
+  /**
+   * Automatically generate dynamic diagrams from handler relationships
+   */
+  private generateAutomaticDynamicDiagrams(): string[] {
+    const diagrams: string[] = [];
+    const processedHandlers = new Set<string>();
+
+    // Collect all handlers with relationships from all contexts
+    type HandlerWithContext = {
+      handler: any;
+      contextType: string;
+      contextName: string;
+    };
+
+    const handlersWithRelationships: HandlerWithContext[] = [];
+
+    for (const [contextType, contextInfo] of Object.entries(this.analysis.contexts)) {
+      for (const handler of contextInfo.handlers) {
+        if (handler.relationships && handler.relationships.length > 0) {
+          handlersWithRelationships.push({
+            handler,
+            contextType,
+            contextName: this.toId(contextType),
+          });
+        }
+      }
+    }
+
+    // Group handlers by category for focused diagrams
+    const handlerGroups = new Map<string, HandlerWithContext[]>();
+
+    for (const hwc of handlersWithRelationships) {
+      const messageType = hwc.handler.messageType.toLowerCase();
+      let category = "general";
+
+      // Category 1: Authentication
+      if (
+        messageType.includes("auth") ||
+        messageType.includes("login") ||
+        messageType.includes("logout") ||
+        messageType.includes("verify") ||
+        messageType.includes("register")
+      ) {
+        category = "authentication";
+      }
+      // Category 2: CRUD operations by entity
+      else if (messageType.includes("user")) {
+        category = "user";
+      } else if (messageType.includes("todo")) {
+        category = "todo";
+      }
+      // Category 3: Query vs Command
+      else if (
+        messageType.includes("query") ||
+        messageType.includes("get") ||
+        messageType.includes("fetch") ||
+        messageType.includes("list")
+      ) {
+        category = "query";
+      } else if (
+        messageType.includes("command") ||
+        messageType.includes("create") ||
+        messageType.includes("update") ||
+        messageType.includes("delete") ||
+        messageType.includes("add") ||
+        messageType.includes("remove")
+      ) {
+        category = "command";
+      }
+
+      if (!handlerGroups.has(category)) {
+        handlerGroups.set(category, []);
+      }
+      handlerGroups.get(category)!.push(hwc);
+    }
+
+    // Generate a diagram for each category (limit to avoid clutter)
+    let diagramCount = 0;
+    const maxDiagrams = 5;
+
+    // If we have multiple small categories, combine into a single overview diagram
+    const totalHandlers = handlersWithRelationships.length;
+    const categoriesWithHandlers = handlerGroups.size;
+
+    if (totalHandlers <= 5 && categoriesWithHandlers <= 3) {
+      // Generate a single "Message Processing Flow" diagram with all handlers
+      const allHandlers = Array.from(handlerGroups.values()).flat();
+      const diagram = this.generateHandlerFlowDiagram("general", allHandlers);
+      if (diagram) {
+        diagrams.push(diagram);
+      }
+    } else {
+      // Generate separate diagrams per category
+      for (const [category, handlers] of handlerGroups) {
+        if (diagramCount >= maxDiagrams) break;
+        if (handlers.length === 0) continue;
+
+        // Generate diagram if we have at least 1 handler with relationships
+        const diagram = this.generateHandlerFlowDiagram(category, handlers);
+        if (diagram) {
+          diagrams.push(diagram);
+          diagramCount++;
+        }
+      }
+    }
+
+    return diagrams;
+  }
+
+  /**
+   * Generate a single dynamic diagram for a handler category
+   */
+  private generateHandlerFlowDiagram(
+    category: string,
+    handlers: Array<{ handler: any; contextType: string; contextName: string }>
+  ): string | null {
+    const parts: string[] = [];
+
+    // Create title and description
+    const title = this.getCategoryTitle(category);
+    const description = this.getCategoryDescription(category);
+
+    // Use container scope (most common for component flows)
+    const scope = handlers[0]?.contextName
+      ? `extension.${handlers[0].contextName}`
+      : "extension";
+
+    parts.push(
+      `    dynamic ${scope} "${title}" "${description}" {`
+    );
+
+    let stepCount = 0;
+
+    // For each handler, show its flow through services
+    for (const { handler, contextName } of handlers) {
+      const handlerComponentId = this.toId(`${handler.messageType}_handler`);
+
+      // Show flow for each relationship
+      for (const rel of handler.relationships) {
+        const toComponent = this.toId(rel.to);
+
+        // Add flow step
+        parts.push(`      ${handlerComponentId} -> ${toComponent} "${rel.description}"`);
+        stepCount++;
+      }
+    }
+
+    // Only generate diagram if there are actual flows
+    if (stepCount === 0) {
+      return null;
+    }
+
+    parts.push("      autoLayout lr");
+    parts.push("    }");
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Get display title for category
+   */
+  private getCategoryTitle(category: string): string {
+    const titles: Record<string, string> = {
+      authentication: "Authentication Flow",
+      user: "User Management Flow",
+      todo: "Todo Management Flow",
+      query: "Query Processing Flow",
+      command: "Command Processing Flow",
+      general: "Message Processing Flow",
+    };
+    return titles[category] || `${this.capitalize(category)} Flow`;
+  }
+
+  /**
+   * Get description for category
+   */
+  private getCategoryDescription(category: string): string {
+    const descriptions: Record<string, string> = {
+      authentication: "Shows authentication request processing and service interactions",
+      user: "Shows user management operations and service dependencies",
+      todo: "Shows todo item operations and service dependencies",
+      query: "Shows read operations flow through query handlers and services",
+      command: "Shows write operations flow through command handlers and services",
+      general: "Shows message processing flow through handlers and services",
+    };
+    return descriptions[category] || "Shows message flow through system components";
   }
 
   /**
