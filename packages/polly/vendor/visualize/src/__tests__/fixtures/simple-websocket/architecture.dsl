@@ -62,8 +62,25 @@ workspace "test-websocket-server" "" {
             "Pattern" "Authentication Handler"
           }
         }
+        user_service = component "User Service" "Business logic service" {
+          tags "Service" "Auto-detected"
+        }
+        auth_service = component "Auth Service" "Business logic service" {
+          tags "Service" "Auto-detected"
+        }
 
-
+        query_handler -> user_service "Calls listUsers()" {
+          technology "Function Call"
+          tags "Auto-detected"
+        }
+        command_handler -> user_service "Calls executeUserCommand()" {
+          technology "Function Call"
+          tags "Auto-detected"
+        }
+        auth_handler -> auth_service "Calls authenticate()" {
+          technology "Function Call"
+          tags "Auto-detected"
+        }
       }
 
 

@@ -152,6 +152,24 @@ export type VerificationCondition = {
 // ─────────────────────────────────────────────────────────────────
 
 /**
+ * Component relationship detected from code analysis
+ */
+export type ComponentRelationship = {
+  /** Source component */
+  from: string
+  /** Target component */
+  to: string
+  /** Description of the relationship */
+  description: string
+  /** Technology/method used */
+  technology?: string
+  /** Confidence level */
+  confidence: "high" | "medium" | "low"
+  /** Evidence supporting this detection */
+  evidence: string[]
+}
+
+/**
  * Represents a message handler extracted from code
  */
 export type MessageHandler = {
@@ -175,6 +193,9 @@ export type MessageHandler = {
     file: string
     line: number
   }
+
+  /** Component relationships detected from this handler's code */
+  relationships?: ComponentRelationship[]
 }
 
 // ─────────────────────────────────────────────────────────────────

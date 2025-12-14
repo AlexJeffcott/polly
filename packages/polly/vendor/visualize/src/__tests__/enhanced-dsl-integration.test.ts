@@ -65,6 +65,145 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Automatic Relationship Detection", () => {
+		test("should detect function call relationships from handler code", () => {
+			const serverContext = analysis.contexts.server;
+			expect(serverContext).toBeDefined();
+
+			// Find the query handler
+			const queryHandler = serverContext.handlers.find(
+				(h) => h.messageType === "query",
+			);
+			expect(queryHandler).toBeDefined();
+			expect(queryHandler?.relationships).toBeDefined();
+			expect(queryHandler?.relationships?.length).toBeGreaterThan(0);
+
+			// Should detect call to userService.listUsers()
+			const userServiceRelationship = queryHandler?.relationships?.find(
+				(r) => r.to === "user_service",
+			);
+			expect(userServiceRelationship).toBeDefined();
+			expect(userServiceRelationship?.from).toBe("query_handler");
+			expect(userServiceRelationship?.description).toContain("listUsers");
+			expect(userServiceRelationship?.technology).toBe("Function Call");
+			expect(userServiceRelationship?.confidence).toBe("high");
+			expect(userServiceRelationship?.evidence.length).toBeGreaterThan(0);
+		});
+
+		test("should detect multiple relationships from command handler", () => {
+			const serverContext = analysis.contexts.server;
+			const commandHandler = serverContext.handlers.find(
+				(h) => h.messageType === "command",
+			);
+
+			expect(commandHandler).toBeDefined();
+			expect(commandHandler?.relationships).toBeDefined();
+			expect(commandHandler?.relationships?.length).toBeGreaterThan(0);
+
+			// Should detect call to userService.executeUserCommand()
+			const userServiceRelationship = commandHandler?.relationships?.find(
+				(r) => r.to === "user_service",
+			);
+			expect(userServiceRelationship).toBeDefined();
+			expect(userServiceRelationship?.description).toContain(
+				"executeUserCommand",
+			);
+		});
+
+		test("should detect relationships from auth handler", () => {
+			const serverContext = analysis.contexts.server;
+			const authHandler = serverContext.handlers.find(
+				(h) => h.messageType === "auth",
+			);
+
+			expect(authHandler).toBeDefined();
+			expect(authHandler?.relationships).toBeDefined();
+
+			// Should detect call to authService.authenticate()
+			const authServiceRelationship = authHandler?.relationships?.find(
+				(r) => r.to === "auth_service",
+			);
+			expect(authServiceRelationship).toBeDefined();
+			expect(authServiceRelationship?.from).toBe("auth_handler");
+			expect(authServiceRelationship?.description).toContain("authenticate");
+			expect(authServiceRelationship?.confidence).toBe("high");
+		});
+
+		test("should include evidence for detected relationships", () => {
+			const serverContext = analysis.contexts.server;
+			const queryHandler = serverContext.handlers.find(
+				(h) => h.messageType === "query",
+			);
+
+			expect(queryHandler?.relationships).toBeDefined();
+			const relationship = queryHandler?.relationships?.[0];
+
+			expect(relationship?.evidence).toBeDefined();
+			expect(relationship?.evidence.length).toBeGreaterThan(0);
+			expect(relationship?.evidence[0]).toContain("userService");
+		});
+
+		test("should deduplicate relationships within a handler", () => {
+			const serverContext = analysis.contexts.server;
+
+			// Check that each handler has unique relationships (no duplicates)
+			for (const handler of serverContext.handlers) {
+				if (handler.relationships) {
+					const relationshipKeys = handler.relationships.map(
+						(r) => `${r.from}->${r.to}`,
+					);
+					const uniqueKeys = new Set(relationshipKeys);
+					expect(relationshipKeys.length).toBe(uniqueKeys.size);
+				}
+			}
+		});
+	});
+
+	describe("DSL Output with Automatic Relationships", () => {
+		test("should include service components in DSL", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+			});
+
+			// Should include user_service component
+			expect(dsl).toContain('user_service = component "User Service"');
+			expect(dsl).toContain('tags "Service" "Auto-detected"');
+
+			// Should include auth_service component
+			expect(dsl).toContain('auth_service = component "Auth Service"');
+		});
+
+		test("should include auto-detected relationships in DSL", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+			});
+
+			// Should include query handler -> user_service relationship
+			expect(dsl).toContain("query_handler -> user_service");
+			expect(dsl).toContain('Calls listUsers()');
+			expect(dsl).toContain('technology "Function Call"');
+
+			// Should include command handler -> user_service relationship
+			expect(dsl).toContain("command_handler -> user_service");
+			expect(dsl).toContain('Calls executeUserCommand()');
+
+			// Should include auth handler -> auth_service relationship
+			expect(dsl).toContain("auth_handler -> auth_service");
+			expect(dsl).toContain('Calls authenticate()');
+		});
+
+		test("should tag auto-detected relationships", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+			});
+
+			// Count how many auto-detected tags exist
+			const autoDetectedMatches = dsl.match(/tags "Auto-detected"/g);
+			expect(autoDetectedMatches).toBeDefined();
+			expect(autoDetectedMatches!.length).toBeGreaterThanOrEqual(3); // 3 relationships
+		});
+	});
+
 	describe("Default Styling", () => {
 		test("should generate DSL with default styles", () => {
 			const dsl = generateStructurizrDSL(analysis, {

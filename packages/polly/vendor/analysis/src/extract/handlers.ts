@@ -3,6 +3,7 @@
 
 import { Project, type SourceFile, SyntaxKind, Node } from "ts-morph"
 import type { MessageHandler, StateAssignment, VerificationCondition } from "../types"
+import { RelationshipExtractor } from "./relationships"
 
 export interface HandlerAnalysis {
   handlers: MessageHandler[]
@@ -12,12 +13,14 @@ export interface HandlerAnalysis {
 export class HandlerExtractor {
   private project: Project
   private typeGuardCache: WeakMap<SourceFile, Map<string, string>>
+  private relationshipExtractor: RelationshipExtractor
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
     })
     this.typeGuardCache = new WeakMap()
+    this.relationshipExtractor = new RelationshipExtractor()
   }
 
   /**
@@ -158,6 +161,22 @@ export class HandlerExtractor {
 
     const line = callExpr.getStartLineNumber()
 
+    // Extract relationships from handler code
+    const sourceFile = callExpr.getSourceFile()
+    const handlerName = `${messageType}_handler`
+    let relationships = undefined
+
+    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+      const detectedRelationships = this.relationshipExtractor.extractFromHandler(
+        handlerArg,
+        sourceFile,
+        handlerName
+      )
+      if (detectedRelationships.length > 0) {
+        relationships = detectedRelationships
+      }
+    }
+
     return {
       messageType,
       node: context,  // Renamed from 'context' to 'node' for generalization
@@ -168,6 +187,7 @@ export class HandlerExtractor {
         file: filePath,
         line,
       },
+      relationships,
     }
   }
 
@@ -567,6 +587,23 @@ export class HandlerExtractor {
       // Found a type guard call! Use the message type
       const line = ifNode.getStartLineNumber()
 
+      // Extract relationships from the if block
+      const sourceFile = ifNode.getSourceFile()
+      const handlerName = `${messageType}_handler`
+      let relationships = undefined
+
+      const thenStatement = ifNode.getThenStatement()
+      if (thenStatement) {
+        const detectedRelationships = this.relationshipExtractor.extractFromHandler(
+          thenStatement,
+          sourceFile,
+          handlerName
+        )
+        if (detectedRelationships.length > 0) {
+          relationships = detectedRelationships
+        }
+      }
+
       return {
         messageType,
         node: context,
@@ -574,6 +611,7 @@ export class HandlerExtractor {
         preconditions: [],
         postconditions: [],
         location: { file: filePath, line },
+        relationships,
       }
     } catch (error) {
       return null

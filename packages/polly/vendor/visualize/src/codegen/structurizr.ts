@@ -257,6 +257,35 @@ export class StructurizrDSLGenerator {
       }
     }
 
+    // Collect and generate service components from detected relationships
+    const serviceComponents = new Set<string>();
+    for (const handler of contextInfo.handlers) {
+      if (handler.relationships) {
+        for (const rel of handler.relationships) {
+          // Add the target component if it's not already a handler
+          const targetId = this.toId(rel.to);
+          const isHandler = componentDefs.some((c) => c.id === targetId);
+          if (!isHandler) {
+            serviceComponents.add(rel.to);
+          }
+        }
+      }
+    }
+
+    // Generate service component definitions
+    for (const serviceId of serviceComponents) {
+      const serviceName = serviceId
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+      parts.push(
+        `        ${this.toId(serviceId)} = component "${serviceName}" "Business logic service" {`
+      );
+      parts.push(`          tags "Service" "Auto-detected"`);
+      parts.push(`        }`);
+    }
+
     // Generate components from UI components
     if (contextInfo.components) {
       for (const comp of contextInfo.components) {
@@ -493,6 +522,26 @@ export class StructurizrDSLGenerator {
         }
 
         parts.push(`        }`);
+      }
+    }
+
+    // Add automatically detected relationships from handler code
+    for (const handler of contextInfo.handlers) {
+      if (handler.relationships && handler.relationships.length > 0) {
+        for (const rel of handler.relationships) {
+          const fromId = this.toId(rel.from);
+          const toId = this.toId(rel.to);
+          const description = this.escape(rel.description);
+
+          parts.push(`        ${fromId} -> ${toId} "${description}" {`);
+
+          if (rel.technology) {
+            parts.push(`          technology "${this.escape(rel.technology)}"`);
+          }
+
+          parts.push(`          tags "Auto-detected"`);
+          parts.push(`        }`);
+        }
       }
     }
 
