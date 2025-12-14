@@ -16,12 +16,6 @@ export class HandlerExtractor {
   constructor(tsConfigPath: string) {
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
-      compilerOptions: {
-        // Allow .ts/.tsx extensions in imports (Bun/Deno style)
-        allowImportingTsExtensions: true,
-        // Use bundler module resolution (supports .ts extensions)
-        moduleResolution: 99, // ModuleResolutionKind.Bundler
-      },
     })
     this.typeGuardCache = new WeakMap()
   }
@@ -583,17 +577,17 @@ export class HandlerExtractor {
   /**
    * Find all type predicate functions in a source file
    * Returns a map of function name → message type
+   * Uses AST-based detection for consistency with imported type guard resolution
    */
   private findTypePredicateFunctions(sourceFile: SourceFile): Map<string, string> {
     const typeGuards = new Map<string, string>()
 
     sourceFile.forEachDescendant((node) => {
       if (Node.isFunctionDeclaration(node) || Node.isFunctionExpression(node) || Node.isArrowFunction(node)) {
-        const returnType = node.getReturnType()
-        const returnTypeText = returnType.getText()
+        // Check the return type NODE (AST structure) for type predicate
+        const returnTypeNode = node.getReturnTypeNode()
 
-        // Check if return type is a type predicate: "arg is Type"
-        if (/is\s+\w+/.test(returnTypeText)) {
+        if (returnTypeNode && Node.isTypePredicateNode(returnTypeNode)) {
           // Extract function name
           let functionName: string | undefined
           if (Node.isFunctionDeclaration(node)) {
@@ -611,22 +605,16 @@ export class HandlerExtractor {
           }
 
           if (functionName) {
-            // Extract message type from:
-            // 1. Type predicate: "msg is QueryMessage" → "query" or "QueryMessage"
-            // 2. Function body: return msg.type === 'query'
-
+            // Extract the type from the type predicate node
+            const typeNode = returnTypeNode.getTypeNode()
             let messageType: string | null = null
 
-            // Strategy 1: Parse from type predicate name
-            // "msg is QueryMessage" → extract "QueryMessage"
-            const typeMatch = returnTypeText.match(/is\s+(\w+)/)
-            if (typeMatch) {
-              const typeName = typeMatch[1]
-              // Convert "QueryMessage" → "query"
+            if (typeNode) {
+              const typeName = typeNode.getText()  // e.g., "QueryMessage"
               messageType = this.extractMessageTypeFromTypeName(typeName)
             }
 
-            // Strategy 2: Analyze function body for msg.type === 'value'
+            // Fallback: Analyze function body for msg.type === 'value'
             if (!messageType) {
               const body = node.getBody()
               if (body) {
@@ -652,6 +640,7 @@ export class HandlerExtractor {
   /**
    * Resolve type guard from imported function
    * Uses ts-morph symbol resolution to find definition across files
+   * Checks AST structure, not resolved types (which can lose type predicate info)
    */
   private resolveImportedTypeGuard(identifier: any): string | null {
     try {
@@ -673,45 +662,49 @@ export class HandlerExtractor {
             Node.isFunctionExpression(def) ||
             Node.isArrowFunction(def)) {
 
-          const returnType = def.getReturnType()
-          const returnTypeText = returnType.getText()
+          // Check the return type NODE (AST structure), not the resolved TYPE
+          // This is critical: ts-morph returns "boolean" for type predicates when checking .getReturnType()
+          // but the AST node structure preserves the actual type predicate
+          const returnTypeNode = def.getReturnTypeNode()
 
-          // DEBUG: Log return type
           if (process.env.POLLY_DEBUG) {
-            console.log(`[DEBUG] Function ${funcName} return type: ${returnTypeText}`)
+            const returnType = def.getReturnType().getText()
+            console.log(`[DEBUG] Function ${funcName} return type (resolved): ${returnType}`)
+            console.log(`[DEBUG] Has return type node: ${!!returnTypeNode}`)
+            console.log(`[DEBUG] Is type predicate node: ${returnTypeNode && Node.isTypePredicateNode(returnTypeNode)}`)
           }
 
-          // Check for type predicate: "arg is Type"
-          if (/is\s+\w+/.test(returnTypeText)) {
-            // Strategy 1: Parse from type predicate name
-            // "msg is QueryMessage" → extract "QueryMessage"
-            const typeMatch = returnTypeText.match(/is\s+(\w+)/)
-            if (typeMatch) {
-              const typeName = typeMatch[1]
-              // Convert "QueryMessage" → "query"
+          // Check if the return type node is a type predicate
+          if (returnTypeNode && Node.isTypePredicateNode(returnTypeNode)) {
+            // Extract the type from the type predicate node
+            const typeNode = returnTypeNode.getTypeNode()
+
+            if (typeNode) {
+              const typeName = typeNode.getText()  // e.g., "QueryMessage"
               const messageType = this.extractMessageTypeFromTypeName(typeName)
 
+              if (messageType) {
+                if (process.env.POLLY_DEBUG) {
+                  console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from AST type predicate)`)
+                }
+                return messageType
+              }
+            }
+          }
+
+          // Fallback: Analyze function body for msg.type === 'value'
+          const body = def.getBody()
+          if (body) {
+            const bodyText = body.getText()
+            const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/)
+            if (typeValueMatch) {
+              const messageType = typeValueMatch[1]
+
               if (process.env.POLLY_DEBUG) {
-                console.log(`[DEBUG] Resolved ${funcName} → ${messageType}`)
+                console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from body)`)
               }
 
               return messageType
-            }
-
-            // Strategy 2: Analyze function body for msg.type === 'value'
-            const body = def.getBody()
-            if (body) {
-              const bodyText = body.getText()
-              const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/)
-              if (typeValueMatch) {
-                const messageType = typeValueMatch[1]
-
-                if (process.env.POLLY_DEBUG) {
-                  console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from body)`)
-                }
-
-                return messageType
-              }
             }
           }
         }

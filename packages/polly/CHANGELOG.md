@@ -5,40 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.4] - 2025-12-14
+## [0.3.5] - 2025-12-14
 
 ### Fixed
 
-#### Proper ts-morph Configuration for .ts/.tsx Extensions
-- **Configured ts-morph with correct compiler options** - Set `allowImportingTsExtensions: true` and `moduleResolution: Bundler`
-- **No more fallback hacks** - ts-morph now resolves imports with `.ts`/`.tsx` extensions natively
-- **Debug logging** - Added `POLLY_DEBUG` environment variable for diagnostics
+#### Use AST-Based Type Predicate Detection (The Actual Fix)
+- **Check AST structure, not resolved types** - Use `getReturnTypeNode()` and `Node.isTypePredicateNode()` instead of `getReturnType().getText()`
+- **Fixes imported type guard detection** - ts-morph returns `"boolean"` for type predicates when checking resolved types across files, but AST structure preserves the actual type predicate
+- **Works for all import patterns** - Path aliases, relative imports, with or without `.ts` extensions
+
+### The Real Problem
+
+When resolving imported functions, ts-morph's type system simplifies type predicates to their structural equivalent:
+```typescript
+// Function signature:
+function isQuery(msg: Request): msg is Query { ... }
+
+// What we were checking (WRONG):
+def.getReturnType().getText()  // Returns "boolean" ❌
+
+// What we now check (CORRECT):
+def.getReturnTypeNode()  // Returns TypePredicateNode ✅
+Node.isTypePredicateNode(returnTypeNode)  // true ✅
+```
 
 ### What Changed
 
-Removed manual import resolution fallback and fixed the root cause by configuring ts-morph's Project with:
+Both `findTypePredicateFunctions()` (local) and `resolveImportedTypeGuard()` (imported) now use AST-based detection:
+
 ```typescript
-new Project({
-  tsConfigFilePath: tsConfigPath,
-  compilerOptions: {
-    allowImportingTsExtensions: true,
-    moduleResolution: 99, // Bundler
-  },
-})
+const returnTypeNode = node.getReturnTypeNode()
+
+if (returnTypeNode && Node.isTypePredicateNode(returnTypeNode)) {
+  const typeNode = returnTypeNode.getTypeNode()
+  const typeName = typeNode.getText()  // "QueryMessage" ✅
+  const messageType = extractMessageTypeFromTypeName(typeName)  // "query"
+}
 ```
 
-This allows ts-morph to resolve imports like:
-```typescript
-import { isQueryMessage } from '@ws/messages.ts'  // ✅ Works!
-```
+This works because AST nodes preserve the actual syntax structure, while resolved types represent semantic equivalence.
 
 Fixes #6
+
+## [0.3.4] - 2025-12-14
+
+### Deprecated
+
+Attempted to fix with compiler options. The actual issue was checking resolved types instead of AST structure. Use v0.3.5 instead.
 
 ## [0.3.3] - 2025-12-14
 
 ### Deprecated
 
-This version implemented a manual fallback for import resolution. Use v0.3.4 instead, which fixes the root cause properly.
+This version implemented a manual fallback for import resolution. Use v0.3.5 instead.
 
 ## [0.3.2] - 2025-12-13
 
