@@ -204,6 +204,152 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Automatic Component Grouping", () => {
+		test("should group authentication handlers automatically", () => {
+			// Create mock analysis with auth handlers
+			const mockAnalysis: ArchitectureAnalysis = {
+				...analysis,
+				contexts: {
+					server: {
+						...analysis.contexts.server,
+						handlers: [
+							{ messageType: "login", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
+							{ messageType: "logout", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
+							{ messageType: "verify", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 3 } },
+							{ messageType: "register", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 4 } },
+						],
+					},
+				},
+			};
+
+			const dsl = generateStructurizrDSL(mockAnalysis, {
+				componentDiagramContexts: ["server"],
+			});
+
+			// Should create "Authentication" group
+			expect(dsl).toContain('group "Authentication"');
+			expect(dsl).toContain("login_handler");
+			expect(dsl).toContain("logout_handler");
+			expect(dsl).toContain("verify_handler");
+			expect(dsl).toContain("register_handler");
+		});
+
+		test("should group entity-based handlers automatically", () => {
+			// Create mock analysis with entity-based handlers
+			const mockAnalysis: ArchitectureAnalysis = {
+				...analysis,
+				contexts: {
+					server: {
+						...analysis.contexts.server,
+						handlers: [
+							{ messageType: "user_add", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
+							{ messageType: "user_update", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
+							{ messageType: "user_remove", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 3 } },
+							{ messageType: "todo_add", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 4 } },
+							{ messageType: "todo_remove", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 5 } },
+						],
+					},
+				},
+			};
+
+			const dsl = generateStructurizrDSL(mockAnalysis, {
+				componentDiagramContexts: ["server"],
+			});
+
+			// Should create entity groups
+			expect(dsl).toContain('group "User Management"');
+			expect(dsl).toContain('group "Todo Management"');
+		});
+
+		test("should group query and command handlers automatically", () => {
+			// Create mock analysis with query/command handlers
+			const mockAnalysis: ArchitectureAnalysis = {
+				...analysis,
+				contexts: {
+					server: {
+						...analysis.contexts.server,
+						handlers: [
+							{ messageType: "get_users", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
+							{ messageType: "fetch_data", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
+							{ messageType: "query_records", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 3 } },
+							{ messageType: "create_item", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 4 } },
+							{ messageType: "update_record", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 5 } },
+							{ messageType: "delete_entry", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 6 } },
+						],
+					},
+				},
+			};
+
+			const dsl = generateStructurizrDSL(mockAnalysis, {
+				componentDiagramContexts: ["server"],
+			});
+
+			// Should create Query and Command groups
+			expect(dsl).toContain('group "Query Handlers"');
+			expect(dsl).toContain('group "Command Handlers"');
+		});
+
+		test("should not group when too few components", () => {
+			// Current test fixture has only 3 handlers, not enough for meaningful grouping
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: ["server"],
+			});
+
+			// Should NOT contain group markers (grouping skipped)
+			const groupCount = (dsl.match(/group "/g) || []).length;
+			expect(groupCount).toBe(0);
+		});
+
+		test("should skip lifecycle handlers in entity grouping", () => {
+			// Create mock analysis with lifecycle handlers mixed with entity handlers
+			// Need enough entity handlers to meet the grouping threshold
+			const mockAnalysis: ArchitectureAnalysis = {
+				...analysis,
+				contexts: {
+					server: {
+						...analysis.contexts.server,
+						handlers: [
+							{ messageType: "connection", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
+							{ messageType: "message", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
+							{ messageType: "close", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 3 } },
+							{ messageType: "user_add", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 4 } },
+							{ messageType: "user_remove", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 5 } },
+							{ messageType: "user_update", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 6 } },
+							{ messageType: "todo_add", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 7 } },
+							{ messageType: "todo_remove", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 8 } },
+						],
+					},
+				},
+			};
+
+			const dsl = generateStructurizrDSL(mockAnalysis, {
+				componentDiagramContexts: ["server"],
+			});
+
+			// Should create entity groups, but not group lifecycle handlers
+			expect(dsl).toContain('group "User Management"');
+			expect(dsl).toContain('group "Todo Management"');
+
+			// Verify entity handlers are in User Management group
+			expect(dsl).toContain("user_add_handler");
+			expect(dsl).toContain("user_remove_handler");
+			expect(dsl).toContain("user_update_handler");
+
+			// Verify todo handlers are in Todo Management group
+			expect(dsl).toContain("todo_add_handler");
+			expect(dsl).toContain("todo_remove_handler");
+
+			// Verify lifecycle handlers exist but are not in groups
+			expect(dsl).toContain("connection_handler");
+			expect(dsl).toContain("message_handler");
+			expect(dsl).toContain("close_handler");
+
+			// Count groups - should be exactly 2
+			const groupCount = (dsl.match(/group "/g) || []).length;
+			expect(groupCount).toBe(2);
+		});
+	});
+
 	describe("Default Styling", () => {
 		test("should generate DSL with default styles", () => {
 			const dsl = generateStructurizrDSL(analysis, {

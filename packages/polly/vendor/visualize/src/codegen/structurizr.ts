@@ -246,14 +246,20 @@ export class StructurizrDSLGenerator {
       });
     }
 
-    // Apply grouping if configured
+    // Apply grouping if configured, otherwise use automatic grouping
     if (this.options.groups && this.options.groups.length > 0) {
       // User-provided groups
       parts.push(...this.generateGroupedComponents(componentDefs, this.options.groups));
     } else {
-      // No grouping, render components directly
-      for (const comp of componentDefs) {
-        parts.push(this.generateComponentDefinition(comp, "        "));
+      // Automatic grouping based on message type patterns
+      const autoGroups = this.generateAutomaticGroups(componentDefs);
+      if (autoGroups.length > 0) {
+        parts.push(...this.generateGroupedComponents(componentDefs, autoGroups));
+      } else {
+        // No groups detected, render components directly
+        for (const comp of componentDefs) {
+          parts.push(this.generateComponentDefinition(comp, "        "));
+        }
       }
     }
 
@@ -1226,6 +1232,175 @@ export class StructurizrDSLGenerator {
     parts.push(`${indent}}`);
 
     return parts.join("\n");
+  }
+
+  /**
+   * Automatically generate groups based on message type patterns
+   */
+  private generateAutomaticGroups(
+    componentDefs: Array<{
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+      properties: ComponentProperties;
+      messageType: string;
+    }>
+  ): ComponentGroup[] {
+    const groups: ComponentGroup[] = [];
+    const assigned = new Set<string>();
+
+    // Group 1: Authentication handlers
+    const authHandlers = componentDefs.filter((comp) => {
+      const type = comp.messageType.toLowerCase();
+      return (
+        type.includes("login") ||
+        type.includes("logout") ||
+        type.includes("auth") ||
+        type.includes("verify") ||
+        type.includes("register") ||
+        type.includes("signup")
+      );
+    });
+
+    if (authHandlers.length > 0) {
+      groups.push({
+        name: "Authentication",
+        components: authHandlers.map((c) => c.id),
+      });
+      authHandlers.forEach((h) => assigned.add(h.id));
+    }
+
+    // Group 2: Subscription handlers
+    const subscriptionHandlers = componentDefs.filter((comp) => {
+      const type = comp.messageType.toLowerCase();
+      return type.includes("subscribe") || type.includes("unsubscribe");
+    });
+
+    if (subscriptionHandlers.length > 0) {
+      groups.push({
+        name: "Subscriptions",
+        components: subscriptionHandlers.map((c) => c.id),
+      });
+      subscriptionHandlers.forEach((h) => assigned.add(h.id));
+    }
+
+    // Group 3: Entity-based grouping
+    // Extract entities from message types (e.g., "user_add", "todo_remove" → "user", "todo")
+    const entityGroups = new Map<string, string[]>();
+
+    for (const comp of componentDefs) {
+      if (assigned.has(comp.id)) continue;
+
+      const type = comp.messageType.toLowerCase();
+
+      // Skip WebSocket lifecycle handlers
+      if (type === "connection" || type === "message" || type === "close" || type === "error") {
+        continue;
+      }
+
+      // Extract entity name (first part before underscore or action verb)
+      let entity: string | null = null;
+
+      // Pattern 1: entity_action (e.g., "user_add", "todo_remove")
+      const underscoreMatch = type.match(/^([a-z]+)_(add|create|update|delete|remove|get|fetch|load|list|query)/);
+      if (underscoreMatch) {
+        entity = underscoreMatch[1];
+      }
+
+      // Pattern 2: actionEntity (e.g., "addUser", "removeTask")
+      if (!entity) {
+        const camelMatch = type.match(/(add|create|update|delete|remove|get|fetch|load|list|query)([a-z]+)/i);
+        if (camelMatch) {
+          entity = camelMatch[2].toLowerCase();
+        }
+      }
+
+      // Pattern 3: plain entity name (e.g., "user", "todo")
+      if (!entity && type.match(/^[a-z]+$/)) {
+        entity = type;
+      }
+
+      if (entity) {
+        if (!entityGroups.has(entity)) {
+          entityGroups.set(entity, []);
+        }
+        entityGroups.get(entity)!.push(comp.id);
+        assigned.add(comp.id);
+      }
+    }
+
+    // Add entity groups (capitalize entity name for group title)
+    for (const [entity, componentIds] of entityGroups) {
+      if (componentIds.length >= 2) {
+        // Only create group if there are at least 2 components
+        const entityName = entity.charAt(0).toUpperCase() + entity.slice(1);
+        groups.push({
+          name: `${entityName} Management`,
+          components: componentIds,
+        });
+      } else {
+        // Remove from assigned if not enough for a group
+        componentIds.forEach((id) => assigned.delete(id));
+      }
+    }
+
+    // Group 4: Query/Command pattern for remaining handlers
+    const queryHandlers = componentDefs.filter((comp) => {
+      if (assigned.has(comp.id)) return false;
+      const type = comp.messageType.toLowerCase();
+      return (
+        type.includes("query") ||
+        type.includes("get") ||
+        type.includes("fetch") ||
+        type.includes("load") ||
+        type.includes("list") ||
+        type.includes("read")
+      );
+    });
+
+    const commandHandlers = componentDefs.filter((comp) => {
+      if (assigned.has(comp.id)) return false;
+      const type = comp.messageType.toLowerCase();
+      return (
+        type.includes("command") ||
+        type.includes("add") ||
+        type.includes("create") ||
+        type.includes("update") ||
+        type.includes("delete") ||
+        type.includes("remove") ||
+        type.includes("set") ||
+        type.includes("clear")
+      );
+    });
+
+    if (queryHandlers.length >= 2) {
+      groups.push({
+        name: "Query Handlers",
+        components: queryHandlers.map((c) => c.id),
+      });
+      queryHandlers.forEach((h) => assigned.add(h.id));
+    }
+
+    if (commandHandlers.length >= 2) {
+      groups.push({
+        name: "Command Handlers",
+        components: commandHandlers.map((c) => c.id),
+      });
+      commandHandlers.forEach((h) => assigned.add(h.id));
+    }
+
+    // Only return groups if we successfully grouped most components
+    const groupedCount = assigned.size;
+    const totalCount = componentDefs.length;
+
+    // Return groups if at least 50% are grouped OR we have at least 2 groups
+    if (groupedCount >= totalCount * 0.5 || groups.length >= 2) {
+      return groups;
+    }
+
+    // Not enough components grouped, return empty to skip grouping
+    return [];
   }
 
   /**
