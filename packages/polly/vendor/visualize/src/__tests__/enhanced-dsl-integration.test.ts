@@ -412,6 +412,72 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Perspectives", () => {
+		test("should add architectural perspectives to components", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				perspectives: {
+					query_handler: [
+						{ name: "Security", description: "Read-only operations, low security risk" },
+						{ name: "Performance", description: "Cached for 5 minutes" },
+					],
+					auth_handler: [
+						{ name: "Security", description: "Critical security component, uses bcrypt" },
+					],
+				},
+			});
+
+			// Verify query handler perspectives
+			const querySection = dsl.substring(
+				dsl.indexOf("query_handler = component"),
+				dsl.indexOf("command_handler = component")
+			);
+			expect(querySection).toContain("perspectives {");
+			expect(querySection).toContain('"Security" "Read-only operations, low security risk"');
+			expect(querySection).toContain('"Performance" "Cached for 5 minutes"');
+
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+			// Verify auth handler perspectives exist
+			expect(dsl).toContain("\"Security\" \"Critical security component, uses bcrypt\"");
+		});
+
+		test("should handle components without perspectives", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				perspectives: {
+					query_handler: [
+						{ name: "Security", description: "Low risk" },
+					],
+				},
+			});
+
+			// Query handler should have perspectives
+			const querySection2 = dsl.substring(
+				dsl.indexOf("query_handler = component"),
+				dsl.indexOf("command_handler = component")
+			);
+			expect(querySection2).toContain("perspectives {");
+
+			// Command handler should NOT have perspectives
+			const commandSection = dsl.substring(
+				dsl.indexOf("command_handler = component"),
+				dsl.indexOf("auth_handler = component")
+			);
+			expect(commandSection).not.toContain("perspectives {");
+		});
+	});
+
 	describe("DSL Structure", () => {
 		test("should generate valid Structurizr DSL structure", () => {
 			const dsl = generateStructurizrDSL(analysis, {

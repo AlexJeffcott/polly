@@ -1028,6 +1028,16 @@ export class StructurizrDSLGenerator {
       parts.push(`${indent}  }`);
     }
 
+    // Add perspectives if configured for this component
+    if (this.options.perspectives && this.options.perspectives[comp.id]) {
+      const perspectives = this.options.perspectives[comp.id];
+      parts.push(`${indent}  perspectives {`);
+      for (const perspective of perspectives) {
+        parts.push(`${indent}    "${this.escape(perspective.name)}" "${this.escape(perspective.description)}"`);
+      }
+      parts.push(`${indent}  }`);
+    }
+
     parts.push(`${indent}}`);
 
     return parts.join("\n");
