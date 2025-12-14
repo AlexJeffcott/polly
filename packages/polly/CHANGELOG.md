@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Enhanced Structurizr DSL Generation (Issue #8)
-Complete implementation of 6 out of 7 priorities with comprehensive real integration testing:
+Complete implementation of ALL 7 priorities with comprehensive real integration testing:
 
 ##### Priority 2: Styling System ✅
 - **Default element styles** with hexagons and semantic colors
@@ -61,8 +61,18 @@ Complete implementation of 6 out of 7 priorities with comprehensive real integra
 - **Optional perspectives** (only added when configured)
 - **2 integration tests** covering perspective scenarios
 
+##### Priority 6: Deployment Diagrams ✅
+- **Deployment environments** with multi-environment support (Production, Staging, Dev)
+- **Nested deployment nodes** for hierarchical infrastructure (Cloud → Region → Instance)
+- **Container instance mapping** with explicit deployment targets
+- **Instance scaling** - specify replica counts per container
+- **Deployment properties** for operational metadata (region, auto-scaling, etc.)
+- **Automatic container deployment** as fallback when not explicitly configured
+- **Deployment views** auto-generated for each environment
+- **5 integration tests** covering all deployment scenarios
+
 #### Test Infrastructure
-- **27 integration tests** with **95 assertions** - all passing
+- **32 integration tests** with **112 assertions** - all passing
 - **Real code analysis** (not mocked) - uses actual TypeScript parsing
 - **Real test project** - complete WebSocket server with 6 handlers
 - **Validates entire pipeline** from TypeScript files → Analysis → DSL output
@@ -73,7 +83,7 @@ Complete implementation of 6 out of 7 priorities with comprehensive real integra
 - **Strict TypeScript typing** throughout - no `any` types
 - **Comprehensive type definitions** in `vendor/visualize/src/types/structurizr.ts`
 - 14 element shapes, line styles, routing options
-- `ComponentProperties`, `ComponentRelationship`, `ComponentGroup`, `DynamicDiagram`, `Perspective` interfaces
+- `ComponentProperties`, `ComponentRelationship`, `ComponentGroup`, `DynamicDiagram`, `Perspective`, `DeploymentNode`, `ContainerInstance` interfaces
 - Default color palette and styles with full customization
 
 #### Architecture Enhancements
@@ -110,6 +120,18 @@ workspace "example" {
         }
       }
     }
+
+    deploymentEnvironment "Production" {
+      deploymentNode "AWS" "Cloud infrastructure" "Amazon Web Services" {
+        properties {
+          "Region" "us-east-1"
+          "Auto-scaling" "Enabled"
+        }
+        deploymentNode "EC2 Instance" "Application server" "t3.medium" {
+          containerInstance extension.server 2
+        }
+      }
+    }
   }
   views {
     dynamic extension "Message Flow" "..." {
@@ -117,6 +139,12 @@ workspace "example" {
       extension.server -> extension.server.query_handler "Routes"
       autoLayout lr
     }
+
+    deployment extension "Production" "Production environment deployment architecture" {
+      include *
+      autoLayout lr
+    }
+
     styles {
       element "Message Handler" {
         shape Hexagon
@@ -140,7 +168,7 @@ workspace "example" {
 - Full integration from TypeScript files → DSL output
 - Backward compatible - no breaking changes
 
-Implements #8
+**COMPLETES #8** - All 7 priorities delivered (100%)
 
 ## [0.3.8] - 2025-12-14
 
