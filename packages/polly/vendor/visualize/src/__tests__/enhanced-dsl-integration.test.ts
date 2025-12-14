@@ -478,6 +478,136 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Deployment Diagrams", () => {
+		test("should generate deployment environment with single node", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				deploymentNodes: [
+					{
+						name: "AWS EC2",
+						description: "Production server",
+						technology: "Amazon EC2 t3.medium",
+						tags: ["environment:Production", "Cloud"],
+						containerInstances: [
+							{ container: "server", instances: 2 },
+						],
+					},
+				],
+			});
+
+			// Should have deployment environment in model
+			expect(dsl).toContain('deploymentEnvironment "Production"');
+			expect(dsl).toContain('deploymentNode "AWS EC2" "Production server" "Amazon EC2 t3.medium"');
+			expect(dsl).toContain('containerInstance extension.server 2');
+			expect(dsl).toContain('tags "Cloud"');
+
+			// Should have deployment view
+			expect(dsl).toContain('deployment extension "Production"');
+		});
+
+		test("should generate nested deployment nodes", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				deploymentNodes: [
+					{
+						name: "AWS",
+						description: "Cloud provider",
+						technology: "Amazon Web Services",
+						tags: ["environment:Production"],
+						children: [
+							{
+								name: "EC2 Instance",
+								description: "Application server",
+								technology: "t3.medium",
+								containerInstances: [
+									{ container: "server", instances: 2 },
+								],
+							},
+						],
+					},
+				],
+			});
+
+			// Should have nested structure
+			expect(dsl).toContain('deploymentNode "AWS"');
+			expect(dsl).toContain('deploymentNode "EC2 Instance"');
+			expect(dsl).toContain('containerInstance extension.server 2');
+		});
+
+		test("should handle multiple deployment environments", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				deploymentNodes: [
+					{
+						name: "Production Server",
+						description: "Production deployment",
+						technology: "AWS EC2",
+						tags: ["environment:Production"],
+						containerInstances: [{ container: "server" }],
+					},
+					{
+						name: "Staging Server",
+						description: "Staging deployment",
+						technology: "AWS EC2",
+						tags: ["environment:Staging"],
+						containerInstances: [{ container: "server" }],
+					},
+				],
+			});
+
+			// Should have both environments
+			expect(dsl).toContain('deploymentEnvironment "Production"');
+			expect(dsl).toContain('deploymentEnvironment "Staging"');
+
+			// Should have both deployment views
+			expect(dsl).toContain('deployment extension "Production"');
+			expect(dsl).toContain('deployment extension "Staging"');
+		});
+
+		test("should include deployment node properties", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				deploymentNodes: [
+					{
+						name: "Kubernetes Cluster",
+						description: "Production K8s",
+						technology: "Kubernetes 1.28",
+						tags: ["environment:Production"],
+						properties: {
+							Region: "us-east-1",
+							"Node Count": "3",
+							"Auto-scaling": "Enabled",
+						},
+						containerInstances: [{ container: "server", instances: 3 }],
+					},
+				],
+			});
+
+			// Should have properties block
+			expect(dsl).toContain("properties {");
+			expect(dsl).toContain('"Region" "us-east-1"');
+			expect(dsl).toContain('"Node Count" "3"');
+			expect(dsl).toContain('"Auto-scaling" "Enabled"');
+		});
+
+		test("should fallback to deploying all containers when none specified", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				deploymentNodes: [
+					{
+						name: "Simple Server",
+						description: "Basic deployment",
+						tags: ["environment:Production"],
+						// No containerInstances specified
+					},
+				],
+			});
+
+			// Should deploy all contexts as fallback
+			expect(dsl).toContain("containerInstance extension.server");
+		});
+	});
+
 	describe("DSL Structure", () => {
 		test("should generate valid Structurizr DSL structure", () => {
 			const dsl = generateStructurizrDSL(analysis, {

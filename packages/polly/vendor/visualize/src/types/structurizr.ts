@@ -176,6 +176,16 @@ export interface Perspective {
 }
 
 /**
+ * Container instance in a deployment node
+ */
+export interface ContainerInstance {
+	/** Container context name (e.g., "server", "client", "background") */
+	container: string;
+	/** Number of instances */
+	instances?: number;
+}
+
+/**
  * Deployment node in infrastructure
  */
 export interface DeploymentNode {
@@ -185,12 +195,14 @@ export interface DeploymentNode {
 	description?: string;
 	/** Technology */
 	technology?: string;
-	/** Instances count */
-	instances?: number;
-	/** Tags */
+	/** Tags (use "environment:Production" to specify environment) */
 	tags?: string[];
 	/** Properties */
 	properties?: Record<string, string>;
+	/** Container instances deployed to this node */
+	containerInstances?: ContainerInstance[];
+	/** Child deployment nodes (nested infrastructure) */
+	children?: DeploymentNode[];
 }
 
 /**

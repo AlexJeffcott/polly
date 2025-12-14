@@ -9,6 +9,8 @@ import type {
 	ComponentRelationship,
 	ComponentGroup,
 	DynamicDiagram,
+	DeploymentNode,
+	ContainerInstance,
 } from "../types/structurizr";
 import {
 	DEFAULT_ELEMENT_STYLES,
@@ -101,6 +103,12 @@ export class StructurizrDSLGenerator {
     parts.push(this.generatePeople());
     parts.push(this.generateExternalSystems());
     parts.push(this.generateMainSystem());
+
+    // Add deployment environments if configured
+    if (this.options.deploymentNodes && this.options.deploymentNodes.length > 0) {
+      parts.push(this.generateDeploymentEnvironments());
+    }
+
     parts.push("  }");
 
     return parts.join("\n\n");
@@ -596,6 +604,11 @@ export class StructurizrDSLGenerator {
       parts.push(this.generateDynamicViews());
     }
 
+    // Add deployment views if configured
+    if (this.options.deploymentNodes && this.options.deploymentNodes.length > 0) {
+      parts.push(this.generateDeploymentViews());
+    }
+
     parts.push(this.generateStyles());
     parts.push("  }");
 
@@ -817,6 +830,129 @@ export class StructurizrDSLGenerator {
     if (type.includes("clear")) return "Clear items";
 
     return messageType;
+  }
+
+  /**
+   * Generate deployment environments (for model section)
+   */
+  private generateDeploymentEnvironments(): string {
+    const parts: string[] = [];
+
+    // Group deployment nodes by environment
+    const nodesByEnvironment = new Map<string, DeploymentNode[]>();
+
+    for (const node of this.options.deploymentNodes || []) {
+      const env = node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))
+        ?.split(":")[1] || "Production";
+
+      if (!nodesByEnvironment.has(env)) {
+        nodesByEnvironment.set(env, []);
+      }
+      nodesByEnvironment.get(env)!.push(node);
+    }
+
+    // Generate deployment environment for each environment
+    for (const [envName, nodes] of nodesByEnvironment) {
+      parts.push(`    deploymentEnvironment "${envName}" {`);
+
+      for (const node of nodes) {
+        parts.push(this.generateDeploymentNode(node, "      "));
+      }
+
+      parts.push("    }");
+    }
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Generate a single deployment node
+   */
+  private generateDeploymentNode(node: DeploymentNode, indent: string): string {
+    const parts: string[] = [];
+
+    const description = node.description ? ` "${this.escape(node.description)}"` : "";
+    const technology = node.technology ? ` "${this.escape(node.technology)}"` : "";
+
+    parts.push(`${indent}deploymentNode "${this.escape(node.name)}"${description}${technology} {`);
+
+    // Add tags if present
+    if (node.tags && node.tags.length > 0) {
+      const filteredTags = node.tags.filter((tag) => !tag.toLowerCase().includes("environment:"));
+      if (filteredTags.length > 0) {
+        parts.push(`${indent}  tags "${filteredTags.join('" "')}"`);
+      }
+    }
+
+    // Add properties if present
+    if (node.properties && Object.keys(node.properties).length > 0) {
+      parts.push(`${indent}  properties {`);
+      for (const [key, value] of Object.entries(node.properties)) {
+        parts.push(`${indent}    "${this.escape(key)}" "${this.escape(value)}"`);
+      }
+      parts.push(`${indent}  }`);
+    }
+
+    // Add child deployment nodes (nested infrastructure)
+    if (node.children && node.children.length > 0) {
+      for (const child of node.children) {
+        parts.push(this.generateDeploymentNode(child, indent + "  "));
+      }
+    }
+
+    // Add container instances if specified
+    if (node.containerInstances && node.containerInstances.length > 0) {
+      for (const containerInstance of node.containerInstances) {
+        const instancesStr = containerInstance.instances && containerInstance.instances > 1
+          ? ` ${containerInstance.instances}`
+          : "";
+        parts.push(`${indent}  containerInstance extension.${containerInstance.container}${instancesStr}`);
+      }
+    } else if (!node.children || node.children.length === 0) {
+      // If no container instances specified and no children, deploy all containers as fallback
+      const contexts = Object.keys(this.analysis.contexts);
+      if (contexts.length > 0) {
+        for (const contextType of contexts) {
+          parts.push(`${indent}  containerInstance extension.${contextType}`);
+        }
+      }
+    }
+
+    parts.push(`${indent}}`);
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Generate deployment views
+   */
+  private generateDeploymentViews(): string {
+    const parts: string[] = [];
+
+    // Group deployment nodes by environment
+    const nodesByEnvironment = new Map<string, DeploymentNode[]>();
+
+    for (const node of this.options.deploymentNodes || []) {
+      const env = node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))
+        ?.split(":")[1] || "Production";
+
+      if (!nodesByEnvironment.has(env)) {
+        nodesByEnvironment.set(env, []);
+      }
+      nodesByEnvironment.get(env)!.push(node);
+    }
+
+    // Generate deployment view for each environment
+    for (const [envName] of nodesByEnvironment) {
+      const description = `${envName} environment deployment architecture`;
+
+      parts.push(`    deployment extension "${envName}" "${description}" {`);
+      parts.push("      include *");
+      parts.push("      autoLayout lr");
+      parts.push("    }");
+    }
+
+    return parts.join("\n\n");
   }
 
   /**
