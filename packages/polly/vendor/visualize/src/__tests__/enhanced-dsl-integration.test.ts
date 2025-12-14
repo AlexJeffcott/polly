@@ -277,6 +277,81 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Component Groups", () => {
+		test("should organize components into user-defined groups", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				groups: [
+					{
+						name: "Business Logic Handlers",
+						components: ["query_handler", "command_handler", "auth_handler"],
+					},
+				],
+			});
+
+			// Verify group exists
+			expect(dsl).toContain('group "Business Logic Handlers" {');
+
+			// Verify components are inside the group (with extra indentation)
+
+			// Verify components are inside the group
+			const groupStartIndex = dsl.indexOf('group "Business Logic Handlers"');
+			const groupEndIndex = dsl.indexOf("\n        connection_handler", groupStartIndex);
+			const groupSection = dsl.substring(groupStartIndex, groupEndIndex);
+
+			expect(groupSection).toContain("query_handler = component");
+			expect(groupSection).toContain("command_handler = component");
+			expect(groupSection).toContain("auth_handler = component");
+		});
+
+		test("should support multiple groups", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				groups: [
+					{
+						name: "Query Handlers",
+						components: ["query_handler"],
+					},
+					{
+						name: "Command Handlers",
+						components: ["command_handler"],
+					},
+				],
+			});
+
+			// Verify both groups exist
+			expect(dsl).toContain('group "Query Handlers" {');
+			expect(dsl).toContain('group "Command Handlers" {');
+
+			// Verify components are in correct groups
+			expect(dsl).toMatch(/group "Query Handlers"[^}]*query_handler = component/s);
+			expect(dsl).toMatch(/group "Command Handlers"[^}]*command_handler = component/s);
+		});
+
+		test("should render ungrouped components outside groups", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				groups: [
+					{
+						name: "Business Logic",
+						components: ["query_handler", "command_handler"],
+					},
+				],
+			});
+
+			// Auth handler should be outside the group (ungrouped)
+			const groupMatch = dsl.match(/group "Business Logic"[^}]*\}/s);
+			expect(groupMatch).toBeTruthy();
+
+			// Auth handler should appear after the group closes
+			const groupEndIndex = dsl.indexOf('group "Business Logic"');
+			const authHandlerIndex = dsl.indexOf("auth_handler = component");
+			const groupCloseIndex = dsl.indexOf("}", groupEndIndex);
+
+			expect(authHandlerIndex).toBeGreaterThan(groupCloseIndex);
+		});
+	});
+
 	describe("DSL Structure", () => {
 		test("should generate valid Structurizr DSL structure", () => {
 			const dsl = generateStructurizrDSL(analysis, {

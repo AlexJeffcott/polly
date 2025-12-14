@@ -203,6 +203,16 @@ export class StructurizrDSLGenerator {
   private generateComponents(contextType: string, contextInfo: any): string {
     const parts: string[] = [];
 
+    // Build component definitions
+    const componentDefs: Array<{
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+      properties: ComponentProperties;
+      messageType: string;
+    }> = [];
+
     // Generate components from handlers
     const handlersByType = new Map<string, any[]>();
     for (const handler of contextInfo.handlers) {
@@ -216,27 +226,27 @@ export class StructurizrDSLGenerator {
       const componentName = this.toComponentName(messageType);
       const description = this.generateComponentDescription(messageType, handlers[0]);
       const tags = this.getComponentTags(messageType, handlers[0]);
-
-      parts.push(
-        `        ${this.toId(componentName)} = component "${componentName}" "${description}" {`
-      );
-      if (tags.length > 0) {
-        parts.push(`          tags "${tags.join('" "')}"`);
-      }
-
-      // Add properties (source file, technology, pattern)
       const properties = this.getComponentProperties(messageType, handlers[0], contextType);
-      if (properties && Object.keys(properties).length > 0) {
-        parts.push(`          properties {`);
-        for (const [key, value] of Object.entries(properties)) {
-          if (value) {
-            parts.push(`            "${key}" "${this.escape(value)}"`);
-          }
-        }
-        parts.push(`          }`);
-      }
 
-      parts.push(`        }`);
+      componentDefs.push({
+        id: this.toId(componentName),
+        name: componentName,
+        description,
+        tags,
+        properties,
+        messageType,
+      });
+    }
+
+    // Apply grouping if configured
+    if (this.options.groups && this.options.groups.length > 0) {
+      // User-provided groups
+      parts.push(...this.generateGroupedComponents(componentDefs, this.options.groups));
+    } else {
+      // No grouping, render components directly
+      for (const comp of componentDefs) {
+        parts.push(this.generateComponentDefinition(comp, "        "));
+      }
     }
 
     // Generate components from UI components
@@ -958,6 +968,89 @@ export class StructurizrDSLGenerator {
   /**
    * Escape string for DSL
    */
+  /**
+   * Generate a single component definition
+   */
+  private generateComponentDefinition(
+    comp: {
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+      properties: ComponentProperties;
+    },
+    indent: string
+  ): string {
+    const parts: string[] = [];
+
+    parts.push(`${indent}${comp.id} = component "${comp.name}" "${this.escape(comp.description)}" {`);
+
+    if (comp.tags.length > 0) {
+      parts.push(`${indent}  tags "${comp.tags.join('" "')}"`);
+    }
+
+    if (comp.properties && Object.keys(comp.properties).length > 0) {
+      parts.push(`${indent}  properties {`);
+      for (const [key, value] of Object.entries(comp.properties)) {
+        if (value) {
+          parts.push(`${indent}    "${key}" "${this.escape(value)}"`);
+        }
+      }
+      parts.push(`${indent}  }`);
+    }
+
+    parts.push(`${indent}}`);
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Generate components organized into groups
+   */
+  private generateGroupedComponents(
+    componentDefs: Array<{
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+      properties: ComponentProperties;
+      messageType: string;
+    }>,
+    groups: ComponentGroup[]
+  ): string[] {
+    const parts: string[] = [];
+    const assignedComponents = new Set<string>();
+
+    for (const group of groups) {
+      const groupComponents = componentDefs.filter((comp) =>
+        group.components.includes(comp.id)
+      );
+
+      if (groupComponents.length === 0) continue;
+
+      parts.push(`        group "${this.escape(group.name)}" {`);
+
+      for (const comp of groupComponents) {
+        parts.push(this.generateComponentDefinition(comp, "          "));
+        assignedComponents.add(comp.id);
+      }
+
+      parts.push(`        }`);
+      parts.push("");
+    }
+
+    // Add ungrouped components
+    const ungroupedComponents = componentDefs.filter(
+      (comp) => !assignedComponents.has(comp.id)
+    );
+
+    for (const comp of ungroupedComponents) {
+      parts.push(this.generateComponentDefinition(comp, "        "));
+    }
+
+    return parts;
+  }
+
   private escape(str: string): string {
     return str.replace(/"/g, '\\"');
   }
