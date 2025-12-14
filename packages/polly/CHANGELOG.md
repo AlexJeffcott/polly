@@ -5,14 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.1] - 2025-12-14
+## [0.4.2] - 2025-12-14
 
 ### Added
 
 #### Priority 6: Deployment Diagrams - FINAL PIECE
-This release adds the final missing piece from v0.4.0, completing ALL 7 priorities from Issue #8.
+This release adds the final missing piece, completing ALL 7 API infrastructure priorities from Issue #8 Phase 1.
 
-**v0.4.0 Note:** The initial v0.4.0 release contained 6 out of 7 priorities. This v0.4.1 release adds Priority 6: Deployment Diagrams to achieve 100% completion.
+**Note:** v0.4.1 was published without deployment diagrams. This v0.4.2 release adds Priority 6: Deployment Diagrams.
 
 - **Deployment environments** with multi-environment support (Production, Staging, Dev)
 - **Nested deployment nodes** for hierarchical infrastructure (Cloud → Region → Instance)
@@ -24,7 +24,12 @@ This release adds the final missing piece from v0.4.0, completing ALL 7 prioriti
 - **5 integration tests** covering all deployment scenarios
 - Test suite increased from 27 to 32 tests, assertions from 95 to 112
 
-**COMPLETES #8** - All 7 priorities delivered (100%)
+**COMPLETES #8 Phase 1** - All 7 API infrastructure priorities delivered (100%)
+
+## [0.4.1] - 2025-12-14
+
+### Note
+This version was published without deployment diagrams. Use v0.4.2 for complete Phase 1 functionality.
 
 ## [0.4.0] - 2025-12-14
 
