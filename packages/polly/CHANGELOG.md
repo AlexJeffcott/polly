@@ -5,6 +5,150 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-12-14
+
+### Added
+
+#### Auto-Generated, Always Up-to-Date Architecture Docs (Issue #8 Phase 2)
+This release completes Phase 2 of Issue #8, implementing automatic detection features that eliminate manual configuration and ensure architecture diagrams stay in sync with code changes.
+
+**Philosophy:** Architecture diagrams should be auto-generated from code analysis, not manually configured. When code changes, diagrams update automatically on re-run.
+
+##### Priority 1: Automatic Relationship Detection ✅
+- **Code analysis-based relationship detection** - Analyzes handler function bodies to detect component dependencies
+- **Recursive function following** - Traces execution through local function calls to find actual service invocations
+- **Property access detection** - Identifies patterns like `userService.listUsers()`, `authService.authenticate()`
+- **Multiple relationship patterns** - Supports function calls, database queries, HTTP requests
+- **Service name inference** - Maps object names to component IDs (user → user_service, auth → auth_service, db → db_client)
+- **Automatic service component generation** - Creates service component definitions when relationships detected
+- **Confidence scoring** - Relationships include confidence level (high/medium/low) and evidence
+- **AST traversal** - Uses ts-morph to analyze TypeScript syntax trees
+- **Deduplication** - Prevents duplicate relationships within a handler
+- **Zero configuration** - Works automatically, no manual relationship definitions needed
+
+**Example:**
+```typescript
+// Handler code:
+async function handleQuery(message: QueryMessage) {
+  const result = await userService.listUsers();
+  return { type: 'result', data: result };
+}
+
+// Generated DSL (automatic):
+user_service = component "User Service" {
+  tags "Service" "Auto-detected"
+}
+
+query_handler -> user_service "Calls listUsers()" {
+  technology "Function Call"
+  tags "Auto-detected"
+}
+```
+
+##### Priority 4: Automatic Component Grouping ✅
+- **4-tier grouping strategy** for intelligent component organization:
+  1. **Authentication handlers** - login, logout, auth, verify, register, signup
+  2. **Subscription handlers** - subscribe, unsubscribe
+  3. **Entity-based grouping** - Extracts entities from message types (user_add, todo_remove → User Management, Todo Management)
+  4. **Query/Command pattern** - Groups remaining handlers by read vs write operations
+- **Smart thresholds** - Only creates groups when >= 50% of components can be grouped OR >= 2 groups exist
+- **Minimum group size** - Requires >= 2 components per entity group
+- **Lifecycle handler exclusion** - Skips connection, message, close, error handlers
+- **Fallback to flat rendering** - Returns empty array when grouping doesn't add value
+- **Backward compatible** - Manual groups take precedence over automatic grouping
+- **Pattern matching** - Supports both snake_case (user_add) and camelCase (addUser) naming
+
+**Example:**
+```dsl
+group "User Management" {
+  user_add_handler = component "User Add Handler" { ... }
+  user_update_handler = component "User Update Handler" { ... }
+  user_remove_handler = component "User Remove Handler" { ... }
+}
+
+group "Todo Management" {
+  todo_add_handler = component "Todo Add Handler" { ... }
+  todo_update_handler = component "Todo Update Handler" { ... }
+}
+
+group "Query Handlers" {
+  list_users_handler = component "List Users Handler" { ... }
+  get_todos_handler = component "Get Todos Handler" { ... }
+}
+```
+
+##### Priority 5: Auto-Generate Dynamic Diagrams ✅
+- **Automatic sequence diagram generation** from detected relationships
+- **Category-based organization** - Groups handlers by authentication, entity (user, todo), query/command
+- **Smart diagram count** - Single overview diagram for small projects (<= 5 handlers, <= 3 categories)
+- **Category-specific diagrams** - Separate diagrams per category for larger projects (max 5)
+- **Handler-to-service flows** - Shows execution path from message handler through business services
+- **Descriptive titles** - "Authentication Flow", "User Management Flow", "Query Processing Flow"
+- **Contextual descriptions** - Explains what each diagram shows
+- **Proper scope** - Uses correct container context (extension.server)
+- **Auto-layout** - Left-to-right flow visualization
+- **Configuration option** - Can disable via `includeDynamicDiagrams: false`
+- **Backward compatible** - User-provided diagrams generated first, then automatic diagrams
+
+**Example (small project - single overview):**
+```dsl
+dynamic extension.server "Message Processing Flow" "Shows message processing flow through handlers and services" {
+  query_handler -> user_service "Calls listUsers()"
+  command_handler -> user_service "Calls executeUserCommand()"
+  auth_handler -> auth_service "Calls authenticate()"
+  autoLayout lr
+}
+```
+
+**Example (larger project - category-specific):**
+```dsl
+dynamic extension.server "Authentication Flow" "Shows authentication message processing" {
+  auth_handler -> auth_service "Calls authenticate()"
+  login_handler -> auth_service "Calls login()"
+  logout_handler -> auth_service "Calls logout()"
+  autoLayout lr
+}
+
+dynamic extension.server "User Management Flow" "Shows user management operations" {
+  user_add_handler -> user_service "Calls addUser()"
+  user_update_handler -> user_service "Calls updateUser()"
+  user_remove_handler -> user_service "Calls removeUser()"
+  autoLayout lr
+}
+```
+
+#### Test Infrastructure
+- **50 integration tests** with **187 assertions** - all passing
+- **8 tests for Priority 1** - Relationship detection and DSL output
+- **5 tests for Priority 4** - Component grouping logic
+- **5 tests for Priority 5** - Dynamic diagram generation
+- **Real code analysis** (not mocked) - uses actual TypeScript parsing
+- **Real test project** - complete WebSocket server with service calls
+- **Validates entire pipeline** from TypeScript files → Analysis → DSL output
+
+#### Architecture Enhancements
+- Added `relationships?: ComponentRelationship[]` to `MessageHandler` type
+- Created `RelationshipExtractor` class with recursive AST traversal
+- Enhanced `StructurizrDSLGenerator` with automatic grouping and diagram generation
+- Proper deduplication and evidence tracking for detected relationships
+- Smart threshold logic to prevent over-grouping and over-diagramming
+
+### Technical Details
+- **New file:** `vendor/analysis/src/extract/relationships.ts` (~415 lines) - Core relationship detection
+- **Modified:** `vendor/analysis/src/types/core.ts` - Added ComponentRelationship type
+- **Modified:** `vendor/analysis/src/extract/handlers.ts` - Integrated relationship extraction
+- **Modified:** `vendor/visualize/src/codegen/structurizr.ts` - Added automatic features
+- **Modified:** `vendor/visualize/src/__tests__/enhanced-dsl-integration.test.ts` - Comprehensive test coverage
+
+### Value Proposition
+**Before Phase 2:** Architecture diagrams required manual configuration of relationships, groups, and flows. When code changed, diagrams became stale unless manually updated.
+
+**After Phase 2:** Architecture diagrams are auto-generated from code analysis. Re-running `polly visualize` automatically updates diagrams to reflect current code structure. Zero configuration needed.
+
+**Impact:** This delivers on the core promise of Issue #8 - "auto-generated, always up-to-date architecture docs that require zero manual configuration."
+
+**COMPLETES #8 Phase 2** - All 3 automatic detection priorities delivered (100%)
+
 ## [0.4.2] - 2025-12-14
 
 ### Added
