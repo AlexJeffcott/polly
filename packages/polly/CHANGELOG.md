@@ -5,6 +5,143 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-14
+
+### Added
+
+#### Enhanced Structurizr DSL Generation (Issue #8)
+Complete implementation of 6 out of 7 priorities with comprehensive real integration testing:
+
+##### Priority 2: Styling System ✅
+- **Default element styles** with hexagons and semantic colors
+  - Query handlers: Green (#51cf66)
+  - Command handlers: Orange (#ff922b)
+  - Authentication: Red (#ff6b6b)
+  - Subscription: Purple (#845ef7)
+- **Default relationship styles** with orthogonal routing, proper colors
+- **Theme URL support** (Structurizr default theme)
+- **Full customization** - override any style or disable defaults entirely
+- **4 integration tests** covering all styling features
+
+##### Priority 3: Properties & Metadata ✅
+- **Source file paths** with line numbers (e.g., `src/server/handlers.ts:55`)
+- **Technology stack detection** (TypeScript, WebSocket, Socket.IO, Elysia)
+- **Message type classification** (Query, Command, Authentication, Subscription)
+- **Pattern identification** (Query Handler, Command Handler, etc.)
+- **Custom properties** for user-defined metadata
+- **4 integration tests** covering all property features
+
+##### Priority 1: Component Relationships ✅
+- **Explicit relationship definition** between components
+- **Technology metadata** on relationships
+- **Relationship tagging** (Sync, Async, Database, etc.)
+- **Optional fields** for minimal syntax
+- **2 integration tests** covering relationship scenarios
+
+##### Priority 4: Groups ✅
+- **User-defined groups** for organizing related components
+- **Proper DSL nesting** with indentation
+- **Ungrouped components** rendered outside groups
+- **Multiple groups** support
+- **3 integration tests** covering all grouping scenarios
+
+##### Priority 5: Dynamic Diagrams ✅
+- **User-provided dynamic diagrams** with custom steps (sequence/flow diagrams)
+- **Sequence flow specification** (from → to → description)
+- **Diagram title and description**
+- **Configurable scope** (container, system)
+- **Multiple diagrams** support
+- **Auto-layout** with left-to-right flow
+- **2 integration tests** covering diagram scenarios
+
+##### Priority 7: Perspectives ✅
+- **Component-level perspectives** (Security, Performance, etc.)
+- **Multiple perspectives per component**
+- **Name-description pairs** for architectural reasoning
+- **Optional perspectives** (only added when configured)
+- **2 integration tests** covering perspective scenarios
+
+#### Test Infrastructure
+- **27 integration tests** with **95 assertions** - all passing
+- **Real code analysis** (not mocked) - uses actual TypeScript parsing
+- **Real test project** - complete WebSocket server with 6 handlers
+- **Validates entire pipeline** from TypeScript files → Analysis → DSL output
+- **File system validation** - writes DSL to disk and verifies
+- **Manual verification support** - provides Structurizr Lite instructions
+
+#### Type System
+- **Strict TypeScript typing** throughout - no `any` types
+- **Comprehensive type definitions** in `vendor/visualize/src/types/structurizr.ts`
+- 14 element shapes, line styles, routing options
+- `ComponentProperties`, `ComponentRelationship`, `ComponentGroup`, `DynamicDiagram`, `Perspective` interfaces
+- Default color palette and styles with full customization
+
+#### Architecture Enhancements
+- Added `projectRoot` field to `ArchitectureAnalysis` type for relative path computation
+- Enhanced `StructurizrDSLGenerator` with reusable component generation
+- Proper DSL escaping and formatting throughout
+- Clean separation of concerns (properties, perspectives, groups)
+
+### Changed
+- Component generation refactored to collect definitions before rendering
+- DSL generator now supports grouping and perspectives
+- All features are backward compatible - additive changes only
+
+### Example Output
+```dsl
+workspace "example" {
+  model {
+    extension = softwareSystem "example" {
+      server = container "Server" {
+        group "Business Logic Handlers" {
+          query_handler = component "Query Handler" "..." {
+            tags "Message Handler"
+            properties {
+              "Source" "src/server/handlers.ts:55"
+              "Technology" "TypeScript, WebSocket"
+              "Message Type" "Query"
+              "Pattern" "Query Handler"
+            }
+            perspectives {
+              "Security" "Read-only, low risk"
+              "Performance" "Cached for 5 minutes"
+            }
+          }
+        }
+      }
+    }
+  }
+  views {
+    dynamic extension "Message Flow" "..." {
+      user -> extension.server "Sends message"
+      extension.server -> extension.server.query_handler "Routes"
+      autoLayout lr
+    }
+    styles {
+      element "Message Handler" {
+        shape Hexagon
+        background #1168bd
+      }
+      element "Query" {
+        background #51cf66
+      }
+      relationship "Relationship" {
+        routing Orthogonal
+      }
+      theme https://static.structurizr.com/themes/default/theme.json
+    }
+  }
+}
+```
+
+### Technical Details
+- Implementation follows strict typing requirements (no `any`)
+- Tests validate real code analysis (not mocked)
+- Full integration from TypeScript files → DSL output
+- Backward compatible - no breaking changes
+
+Implements #8
+
 ## [0.3.8] - 2025-12-14
 
 ### Added
