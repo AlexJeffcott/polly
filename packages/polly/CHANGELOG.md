@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2025-12-14
+
+### Fixed
+
+#### Bug Fixes Found by Test Suite
+- **Correct ts-morph API usage** - Fixed `Node.isTypePredicate()` call (was incorrectly using `Node.isTypePredicateNode()`)
+- **Prevent duplicate handler detection** - Skip else-if statements when processing if statements (they're already handled by the chain walker)
+
+### Added
+
+#### Comprehensive Test Suite
+- **7 automated tests** covering all type guard detection patterns
+- Tests for local type guards, imported guards, .ts extensions, path aliases, else-if chains
+- Prevents regressions like the v0.3.2-v0.3.5 cycle
+
+This version actually works correctly. v0.3.5 had the right approach (AST-based detection) but had implementation bugs that were caught and fixed by the new test suite.
+
 ## [0.3.5] - 2025-12-14
+
+### Deprecated
+
+Had bugs in implementation (wrong API method, duplicate detection). Use v0.3.6 instead.
 
 ### Fixed
 

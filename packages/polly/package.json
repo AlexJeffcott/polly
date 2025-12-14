@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
