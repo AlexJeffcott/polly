@@ -352,6 +352,66 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 
+	describe("Dynamic Diagrams", () => {
+		test("should generate user-provided dynamic diagrams", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				dynamicDiagrams: [
+					{
+						key: "message_flow",
+						scope: "extension",
+						title: "Message Processing Flow",
+						description: "How messages are routed and handled",
+						steps: [
+							{ order: 1, from: "user", to: "extension.server", description: "Sends WebSocket message" },
+							{ order: 2, from: "extension.server", to: "extension.server.query_handler", description: "Routes to query handler" },
+							{ order: 3, from: "extension.server.query_handler", to: "extension.server", description: "Returns query result" },
+						],
+					},
+				],
+			});
+
+			// Verify dynamic diagram exists
+			expect(dsl).toContain('dynamic extension "Message Processing Flow"');
+			expect(dsl).toContain("How messages are routed and handled");
+
+			// Verify steps are in correct order
+			expect(dsl).toContain('user -> extension.server "Sends WebSocket message"');
+			expect(dsl).toContain('extension.server -> extension.server.query_handler "Routes to query handler"');
+			expect(dsl).toContain('extension.server.query_handler -> extension.server "Returns query result"');
+		});
+
+		test("should support multiple dynamic diagrams", () => {
+			const dsl = generateStructurizrDSL(analysis, {
+				componentDiagramContexts: Object.keys(analysis.contexts),
+				dynamicDiagrams: [
+					{
+						key: "query_flow",
+						scope: "extension",
+						title: "Query Flow",
+						description: "Query handling",
+						steps: [
+							{ order: 1, from: "user", to: "extension.server.query_handler", description: "Query request" },
+						],
+					},
+					{
+						key: "command_flow",
+						scope: "extension",
+						title: "Command Flow",
+						description: "Command handling",
+						steps: [
+							{ order: 1, from: "user", to: "extension.server.command_handler", description: "Command request" },
+						],
+					},
+				],
+			});
+
+			// Verify both diagrams exist
+			expect(dsl).toContain('dynamic extension "Query Flow"');
+			expect(dsl).toContain('dynamic extension "Command Flow"');
+		});
+	});
+
 	describe("DSL Structure", () => {
 		test("should generate valid Structurizr DSL structure", () => {
 			const dsl = generateStructurizrDSL(analysis, {

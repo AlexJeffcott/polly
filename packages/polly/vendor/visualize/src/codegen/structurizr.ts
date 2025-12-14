@@ -669,7 +669,14 @@ export class StructurizrDSLGenerator {
   private generateDynamicViews(): string {
     const parts: string[] = [];
 
-    // Group flows by domain/feature
+    // Generate user-provided dynamic diagrams first
+    if (this.options.dynamicDiagrams && this.options.dynamicDiagrams.length > 0) {
+      for (const diagram of this.options.dynamicDiagrams) {
+        parts.push(this.generateUserDynamicDiagram(diagram));
+      }
+    }
+
+    // Group flows by domain/feature for auto-generated diagrams
     const flowsByDomain = new Map<string, any[]>();
 
     for (const flow of this.analysis.messageFlows) {
@@ -707,6 +714,28 @@ export class StructurizrDSLGenerator {
     }
 
     return parts.join("\n\n");
+  }
+
+  /**
+   * Generate a user-provided dynamic diagram
+   */
+  private generateUserDynamicDiagram(diagram: DynamicDiagram): string {
+    const parts: string[] = [];
+
+    parts.push(`    dynamic ${diagram.scope || "extension"} "${this.escape(diagram.title)}" "${this.escape(diagram.description || "")}" {`);
+
+    for (const step of diagram.steps) {
+      const from = step.from;
+      const to = step.to;
+      const description = this.escape(step.description);
+
+      parts.push(`      ${from} -> ${to} "${description}"`);
+    }
+
+    parts.push("      autoLayout lr");
+    parts.push("    }");
+
+    return parts.join("\n");
   }
 
   /**
