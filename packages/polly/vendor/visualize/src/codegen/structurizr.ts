@@ -1,23 +1,24 @@
 // Structurizr DSL generator
 
 import type { ArchitectureAnalysis } from "../../analysis/src";
+import type {
+	StructurizrDSLOptions as EnhancedDSLOptions,
+	ElementStyle,
+	RelationshipStyle,
+	ComponentProperties,
+	ComponentRelationship,
+	ComponentGroup,
+	DynamicDiagram,
+} from "../types/structurizr";
+import {
+	DEFAULT_ELEMENT_STYLES,
+	DEFAULT_RELATIONSHIP_STYLES,
+	DEFAULT_THEME,
+} from "../types/structurizr";
 
-export interface StructurizrDSLOptions {
-  /** Include dynamic diagrams for message flows */
-  includeDynamicDiagrams?: boolean;
-
-  /** Include component diagrams for contexts */
-  includeComponentDiagrams?: boolean;
-
-  /** Which contexts to generate component diagrams for */
-  componentDiagramContexts?: string[];
-
-  /** Custom theme URL */
-  theme?: string;
-
-  /** Custom styles */
-  styles?: Record<string, string>;
-}
+// Re-export the enhanced type
+export type { EnhancedDSLOptions as StructurizrDSLOptions };
+export type StructurizrDSLOptions = EnhancedDSLOptions;
 
 export class StructurizrDSLGenerator {
   private analysis: ArchitectureAnalysis;
@@ -29,8 +30,25 @@ export class StructurizrDSLGenerator {
       includeDynamicDiagrams: true,
       includeComponentDiagrams: true,
       componentDiagramContexts: ["background"],
-      theme: "https://static.structurizr.com/themes/default",
+      includeDefaultStyles: true,
+      relationships: [],
+      properties: {},
+      groups: [],
+      dynamicDiagrams: [],
+      perspectives: {},
+      deploymentNodes: [],
       ...options,
+      styles: {
+        theme: options.styles?.theme || DEFAULT_THEME,
+        elements: {
+          ...DEFAULT_ELEMENT_STYLES,
+          ...options.styles?.elements,
+        },
+        relationships: {
+          ...DEFAULT_RELATIONSHIP_STYLES,
+          ...options.styles?.relationships,
+        },
+      },
     };
   }
 
@@ -205,6 +223,19 @@ export class StructurizrDSLGenerator {
       if (tags.length > 0) {
         parts.push(`          tags "${tags.join('" "')}"`);
       }
+
+      // Add properties (source file, technology, pattern)
+      const properties = this.getComponentProperties(messageType, handlers[0], contextType);
+      if (properties && Object.keys(properties).length > 0) {
+        parts.push(`          properties {`);
+        for (const [key, value] of Object.entries(properties)) {
+          if (value) {
+            parts.push(`            "${key}" "${this.escape(value)}"`);
+          }
+        }
+        parts.push(`          }`);
+      }
+
       parts.push(`        }`);
     }
 
@@ -314,6 +345,73 @@ export class StructurizrDSLGenerator {
   }
 
   /**
+   * Get component properties for traceability
+   */
+  private getComponentProperties(
+    messageType: string,
+    handler: any,
+    contextType: string
+  ): ComponentProperties {
+    const properties: ComponentProperties = {};
+
+    // Add source file and line number
+    if (handler.location) {
+      const relativePath = handler.location.file.replace(this.analysis.projectRoot + "/", "");
+      properties["Source"] = `${relativePath}:${handler.location.line}`;
+    }
+
+    // Add technology stack
+    const technologies: string[] = ["TypeScript"];
+
+    // Detect framework/library from file path or context
+    if (handler.location?.file.includes("ws") || contextType === "server") {
+      technologies.push("WebSocket");
+    }
+    if (handler.location?.file.includes("socket.io")) {
+      technologies.push("Socket.IO");
+    }
+    if (handler.location?.file.includes("elysia")) {
+      technologies.push("Elysia");
+    }
+
+    properties["Technology"] = technologies.join(", ");
+
+    // Add pattern/type
+    const type = messageType.toLowerCase();
+    let pattern = "Message Handler";
+
+    if (type.includes("query") || type.includes("get") || type.includes("fetch") || type.includes("load")) {
+      pattern = "Query Handler";
+      properties["Message Type"] = "Query";
+    } else if (
+      type.includes("command") ||
+      type.includes("add") ||
+      type.includes("create") ||
+      type.includes("update") ||
+      type.includes("delete") ||
+      type.includes("remove")
+    ) {
+      pattern = "Command Handler";
+      properties["Message Type"] = "Command";
+    } else if (type.includes("auth") || type.includes("login") || type.includes("logout")) {
+      pattern = "Authentication Handler";
+      properties["Message Type"] = "Authentication";
+    } else if (type.includes("subscribe") || type.includes("watch") || type.includes("listen")) {
+      pattern = "Subscription Handler";
+      properties["Message Type"] = "Subscription";
+    }
+
+    properties["Pattern"] = pattern;
+
+    // Merge with user-provided properties
+    if (this.options.properties && this.options.properties[messageType]) {
+      Object.assign(properties, this.options.properties[messageType]);
+    }
+
+    return properties;
+  }
+
+  /**
    * Generate relationships between components within a container
    */
   private generateComponentRelationships(contextType: string, contextInfo: any): string {
@@ -356,6 +454,27 @@ export class StructurizrDSLGenerator {
 
           parts.push(`        ${componentId} -> ${apiId} "${description}"`);
         }
+      }
+    }
+
+    // Add user-provided explicit relationships
+    if (this.options.relationships && this.options.relationships.length > 0) {
+      for (const rel of this.options.relationships) {
+        const fromId = this.toId(rel.from);
+        const toId = this.toId(rel.to);
+        const description = this.escape(rel.description);
+
+        parts.push(`        ${fromId} -> ${toId} "${description}" {`);
+
+        if (rel.technology) {
+          parts.push(`          technology "${this.escape(rel.technology)}"`);
+        }
+
+        if (rel.tags && rel.tags.length > 0) {
+          parts.push(`          tags "${rel.tags.join('" "')}"`);
+        }
+
+        parts.push(`        }`);
       }
     }
 
@@ -664,33 +783,119 @@ export class StructurizrDSLGenerator {
   /**
    * Generate styles
    */
+  /**
+   * Generate styles section with element and relationship styles
+   */
   private generateStyles(): string {
     const parts: string[] = [];
 
-    // Skip theme directive - causes issues with Structurizr CLI export
-    // The inline styles are sufficient for diagram generation
     parts.push("    styles {");
 
-    // Default styles for containers (contexts)
-    const contextStyles: Record<string, string> = {
-      background: "#2E7D32",
-      content: "#F57C00",
-      popup: "#1976D2",
-      devtools: "#7B1FA2",
-      options: "#0288D1",
-      ...this.options.styles,
-    };
-
-    for (const [context, color] of Object.entries(contextStyles)) {
-      if (this.analysis.contexts[context]) {
-        parts.push(`      element "extension.${context}" {`);
-        parts.push(`        background ${color}`);
-        parts.push(`        color #ffffff`);
-        parts.push("      }");
+    // Generate element styles
+    if (this.options.includeDefaultStyles && this.options.styles?.elements) {
+      for (const [tag, style] of Object.entries(this.options.styles.elements)) {
+        parts.push(this.generateElementStyle(tag, style));
       }
     }
 
+    // Generate relationship styles
+    if (this.options.includeDefaultStyles && this.options.styles?.relationships) {
+      for (const [tag, style] of Object.entries(this.options.styles.relationships)) {
+        parts.push(this.generateRelationshipStyle(tag, style));
+      }
+    }
+
+    // Add theme if specified
+    if (this.options.styles?.theme) {
+      parts.push(`      theme ${this.options.styles.theme}`);
+    }
+
     parts.push("    }");
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Generate style block for an element tag
+   */
+  private generateElementStyle(tag: string, style: ElementStyle): string {
+    const parts: string[] = [];
+
+    parts.push(`      element "${tag}" {`);
+
+    if (style.shape) {
+      parts.push(`        shape ${style.shape}`);
+    }
+    if (style.icon) {
+      parts.push(`        icon ${style.icon}`);
+    }
+    if (style.width) {
+      parts.push(`        width ${style.width}`);
+    }
+    if (style.height) {
+      parts.push(`        height ${style.height}`);
+    }
+    if (style.background) {
+      parts.push(`        background ${style.background}`);
+    }
+    if (style.color) {
+      parts.push(`        color ${style.color}`);
+    }
+    if (style.fontSize) {
+      parts.push(`        fontSize ${style.fontSize}`);
+    }
+    if (style.border) {
+      parts.push(`        border ${style.border}`);
+    }
+    if (style.opacity !== undefined) {
+      parts.push(`        opacity ${style.opacity}`);
+    }
+    if (style.metadata !== undefined) {
+      parts.push(`        metadata ${style.metadata}`);
+    }
+    if (style.description !== undefined) {
+      parts.push(`        description ${style.description}`);
+    }
+
+    parts.push("      }");
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Generate style block for a relationship tag
+   */
+  private generateRelationshipStyle(tag: string, style: RelationshipStyle): string {
+    const parts: string[] = [];
+
+    parts.push(`      relationship "${tag}" {`);
+
+    if (style.thickness) {
+      parts.push(`        thickness ${style.thickness}`);
+    }
+    if (style.color) {
+      parts.push(`        color ${style.color}`);
+    }
+    if (style.style) {
+      parts.push(`        style ${style.style}`);
+    }
+    if (style.routing) {
+      parts.push(`        routing ${style.routing}`);
+    }
+    if (style.fontSize) {
+      parts.push(`        fontSize ${style.fontSize}`);
+    }
+    if (style.width) {
+      parts.push(`        width ${style.width}`);
+    }
+    if (style.position) {
+      parts.push(`        position ${style.position}`);
+    }
+    if (style.opacity !== undefined) {
+      parts.push(`        opacity ${style.opacity}`);
+    }
+
+    parts.push("      }");
 
     return parts.join("\n");
   }

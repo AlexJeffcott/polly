@@ -115,6 +115,7 @@ export class ArchitectureAnalyzer {
 		const repository = this.extractRepositoryInfo();
 
 		return {
+			projectRoot: this.options.projectRoot,
 			system: systemInfo,
 			manifest,
 			projectConfig,

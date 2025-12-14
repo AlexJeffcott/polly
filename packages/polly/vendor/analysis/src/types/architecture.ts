@@ -248,6 +248,9 @@ export type ProjectConfig = {
  * Complete architecture analysis result
  */
 export type ArchitectureAnalysis = {
+	/** Project root directory (for relative paths) */
+	projectRoot: string;
+
 	/** Basic system information */
 	system: {
 		name: string;
