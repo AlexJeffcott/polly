@@ -1,4 +1,4 @@
-workspace "test-websocket-server" "" {
+workspace "Unknown Project" "" {
 
   !identifiers hierarchical
 
@@ -8,29 +8,13 @@ workspace "test-websocket-server" "" {
 
 
 
-    extension = softwareSystem "test-websocket-server" {
+    extension = softwareSystem "Unknown Project" {
 
-      server = container "Server" "// WebSocket server entry point" "Extension Context" {
-        connection_handler = component "Connection Handler" "Processes connection messages and coordinates business logic" {
-          tags "Message Handler"
-          properties {
-            "Source" "src/server.ts:9"
-            "Technology" "TypeScript, WebSocket"
-            "Pattern" "Message Handler"
-          }
-        }
+      server = container "Server" "// Router/Server file - this is where Polly detects handlers" "Extension Context" {
         message_handler = component "Message Handler" "Processes message messages and coordinates business logic" {
           tags "Message Handler"
           properties {
-            "Source" "src/server.ts:12"
-            "Technology" "TypeScript, WebSocket"
-            "Pattern" "Message Handler"
-          }
-        }
-        close_handler = component "Close Handler" "Processes close messages and coordinates business logic" {
-          tags "Message Handler"
-          properties {
-            "Source" "src/server.ts:22"
+            "Source" "server.ts:18"
             "Technology" "TypeScript, WebSocket"
             "Pattern" "Message Handler"
           }
@@ -38,7 +22,7 @@ workspace "test-websocket-server" "" {
         query_handler = component "Query Handler" "Processes query messages and coordinates business logic" {
           tags "Message Handler"
           properties {
-            "Source" "src/server/handlers.ts:55"
+            "Source" "server.ts:23"
             "Technology" "TypeScript, WebSocket"
             "Message Type" "Query"
             "Pattern" "Query Handler"
@@ -47,41 +31,38 @@ workspace "test-websocket-server" "" {
         command_handler = component "Command Handler" "Processes command messages and coordinates business logic" {
           tags "Message Handler"
           properties {
-            "Source" "src/server/handlers.ts:57"
+            "Source" "server.ts:27"
             "Technology" "TypeScript, WebSocket"
             "Message Type" "Command"
             "Pattern" "Command Handler"
           }
         }
-        auth_handler = component "Auth Handler" "Processes auth messages and coordinates business logic" {
-          tags "Message Handler" "Authentication"
-          properties {
-            "Source" "src/server/handlers.ts:59"
-            "Technology" "TypeScript, WebSocket"
-            "Message Type" "Authentication"
-            "Pattern" "Authentication Handler"
-          }
-        }
         user_service = component "User Service" "Business logic service" {
           tags "Service" "Auto-detected"
         }
-        auth_service = component "Auth Service" "Business logic service" {
+        database = component "Database" "Business logic service" {
+          tags "Service" "Auto-detected"
+        }
+        db_client = component "Db Client" "Business logic service" {
+          tags "Service" "Auto-detected"
+        }
+        repositories = component "Repositories" "Business logic service" {
           tags "Service" "Auto-detected"
         }
 
-        connection_handler -> user_service "Calls listUsers()" {
-          technology "Function Call"
-          tags "Auto-detected"
-        }
-        connection_handler -> auth_service "Calls authenticate()" {
-          technology "Function Call"
-          tags "Auto-detected"
-        }
         message_handler -> user_service "Calls listUsers()" {
           technology "Function Call"
           tags "Auto-detected"
         }
-        message_handler -> auth_service "Calls authenticate()" {
+        message_handler -> database "Reads from database" {
+          technology "SQL"
+          tags "Auto-detected"
+        }
+        message_handler -> db_client "Calls query()" {
+          technology "Function Call"
+          tags "Auto-detected"
+        }
+        message_handler -> repositories "Calls create()" {
           technology "Function Call"
           tags "Auto-detected"
         }
@@ -89,11 +70,15 @@ workspace "test-websocket-server" "" {
           technology "Function Call"
           tags "Auto-detected"
         }
-        command_handler -> user_service "Calls executeUserCommand()" {
+        query_handler -> database "Reads from database" {
+          technology "SQL"
+          tags "Auto-detected"
+        }
+        query_handler -> db_client "Calls query()" {
           technology "Function Call"
           tags "Auto-detected"
         }
-        auth_handler -> auth_service "Calls authenticate()" {
+        command_handler -> repositories "Calls create()" {
           technology "Function Call"
           tags "Auto-detected"
         }
@@ -123,25 +108,14 @@ workspace "test-websocket-server" "" {
     }
 
     dynamic extension.server "Message Processing Flow" "Shows message processing flow through handlers and services" {
-      connection_handler -> user_service "Calls listUsers()"
-      connection_handler -> auth_service "Calls authenticate()"
       message_handler -> user_service "Calls listUsers()"
-      message_handler -> auth_service "Calls authenticate()"
-      autoLayout lr
-    }
-
-    dynamic extension.server "Query Processing Flow" "Shows read operations flow through query handlers and services" {
+      message_handler -> database "Reads from database"
+      message_handler -> db_client "Calls query()"
+      message_handler -> repositories "Calls create()"
       query_handler -> user_service "Calls listUsers()"
-      autoLayout lr
-    }
-
-    dynamic extension.server "Command Processing Flow" "Shows write operations flow through command handlers and services" {
-      command_handler -> user_service "Calls executeUserCommand()"
-      autoLayout lr
-    }
-
-    dynamic extension.server "Authentication Flow" "Shows authentication request processing and service interactions" {
-      auth_handler -> auth_service "Calls authenticate()"
+      query_handler -> database "Reads from database"
+      query_handler -> db_client "Calls query()"
+      command_handler -> repositories "Calls create()"
       autoLayout lr
     }
 

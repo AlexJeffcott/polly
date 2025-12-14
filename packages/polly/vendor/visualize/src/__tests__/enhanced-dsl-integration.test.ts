@@ -1062,3 +1062,179 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 	});
 });
+
+describe("Cross-File Relationship Detection (Lingua Architecture)", () => {
+	const fixturesDir = path.join(__dirname, "fixtures");
+	const crossFileDir = path.join(fixturesDir, "cross-file-handlers");
+	const tsConfigPath = path.join(crossFileDir, "tsconfig.json");
+
+	let analysis: ArchitectureAnalysis;
+
+	beforeAll(async () => {
+		// Verify test project exists
+		if (!fs.existsSync(tsConfigPath)) {
+			throw new Error(
+				`Test fixture not found: ${tsConfigPath}. Run setup first.`,
+			);
+		}
+
+		// Run analysis on cross-file architecture
+		const analyzer = new ArchitectureAnalyzer({
+			tsConfigPath,
+			projectRoot: crossFileDir,
+		});
+
+		analysis = await analyzer.analyze();
+
+		// Debug output
+		console.log("\n📊 Cross-File Analysis Results:");
+		console.log(`  Contexts: ${Object.keys(analysis.contexts).join(", ")}`);
+		console.log(
+			`  Handlers: ${Object.values(analysis.contexts).reduce((sum, ctx) => sum + ctx.handlers.length, 0)}`,
+		);
+		const totalRelationships = Object.values(analysis.contexts).reduce(
+			(sum, ctx) =>
+				sum +
+				ctx.handlers.reduce(
+					(handlerSum, h) => handlerSum + (h.relationships?.length || 0),
+					0,
+				),
+			0,
+		);
+		console.log(`  Total relationships detected: ${totalRelationships}`);
+	});
+
+	test("should detect handlers from router file", () => {
+		const serverContext = analysis.contexts.server;
+		expect(serverContext).toBeDefined();
+		expect(serverContext.handlers.length).toBeGreaterThanOrEqual(2);
+
+		const messageTypes = serverContext.handlers.map((h) => h.messageType);
+		expect(messageTypes).toContain("query");
+		expect(messageTypes).toContain("command");
+	});
+
+	test("should follow handler calls into separate files", () => {
+		const serverContext = analysis.contexts.server;
+
+		// Find the query handler
+		const queryHandler = serverContext.handlers.find(
+			(h) => h.messageType === "query",
+		);
+
+		expect(queryHandler).toBeDefined();
+		expect(queryHandler?.relationships).toBeDefined();
+		expect(queryHandler?.relationships?.length).toBeGreaterThan(0);
+
+		console.log(
+			`\n🔍 Query Handler Relationships: ${queryHandler?.relationships?.length || 0}`,
+		);
+		queryHandler?.relationships?.forEach((rel) => {
+			console.log(`   ${rel.from} -> ${rel.to}: ${rel.description}`);
+		});
+	});
+
+	test("should detect userService.listUsers() relationship", () => {
+		const serverContext = analysis.contexts.server;
+		const queryHandler = serverContext.handlers.find(
+			(h) => h.messageType === "query",
+		);
+
+		// Should detect call to userService.listUsers() in handlers/query.ts
+		const userServiceRel = queryHandler?.relationships?.find(
+			(r) => r.to === "user_service",
+		);
+
+		expect(userServiceRel).toBeDefined();
+		expect(userServiceRel?.from).toBe("query_handler");
+		expect(userServiceRel?.description).toContain("listUsers");
+		expect(userServiceRel?.technology).toBe("Function Call");
+	});
+
+	test("should detect db.query() relationship", () => {
+		const serverContext = analysis.contexts.server;
+		const queryHandler = serverContext.handlers.find(
+			(h) => h.messageType === "query",
+		);
+
+		// Should detect call to db.query() in handlers/query.ts
+		const dbRel = queryHandler?.relationships?.find((r) => r.to === "database");
+
+		expect(dbRel).toBeDefined();
+		expect(dbRel?.from).toBe("query_handler");
+		expect(dbRel?.technology).toBe("SQL");
+	});
+
+	test("should detect repositories relationship in command handler", () => {
+		const serverContext = analysis.contexts.server;
+		const commandHandler = serverContext.handlers.find(
+			(h) => h.messageType === "command",
+		);
+
+		console.log(
+			`\n🔍 Command Handler Relationships: ${commandHandler?.relationships?.length || 0}`,
+		);
+		commandHandler?.relationships?.forEach((rel) => {
+			console.log(`   ${rel.from} -> ${rel.to}: ${rel.description}`);
+		});
+
+		// Should detect calls to repositories.users.create/update() in handlers/command.ts
+		const repositoriesRel = commandHandler?.relationships?.find(
+			(r) => r.to === "repositories",
+		);
+
+		expect(repositoriesRel).toBeDefined();
+		expect(repositoriesRel?.from).toBe("command_handler");
+		expect(repositoriesRel?.technology).toBe("Function Call");
+	});
+
+	test("should auto-generate service components in DSL", () => {
+		const dsl = generateStructurizrDSL(analysis, {
+			componentDiagramContexts: Object.keys(analysis.contexts),
+		});
+
+		// Should auto-generate service components
+		expect(dsl).toContain('user_service = component "User Service"');
+		expect(dsl).toContain('tags "Service" "Auto-detected"');
+
+		// Should include relationships
+		expect(dsl).toContain("query_handler -> user_service");
+		expect(dsl).toContain("query_handler -> database");
+		expect(dsl).toContain("command_handler -> repositories");
+	});
+
+	test("should generate complete DSL with cross-file relationships", () => {
+		const dsl = generateStructurizrDSL(analysis, {
+			componentDiagramContexts: Object.keys(analysis.contexts),
+		});
+
+		// Write for manual inspection
+		const outputPath = path.join(crossFileDir, "architecture.dsl");
+		fs.writeFileSync(outputPath, dsl);
+
+		console.log(`\n✅ Cross-file DSL written to: ${outputPath}`);
+
+		// Verify structure
+		expect(dsl).toContain("workspace");
+		expect(dsl).toContain("model");
+		expect(dsl).toContain("views");
+		expect(dsl).toContain("component extension.server");
+
+		// Verify handlers present
+		expect(dsl).toContain("query_handler");
+		expect(dsl).toContain("command_handler");
+
+		// Verify auto-detected services
+		expect(dsl).toContain("user_service");
+		expect(dsl).toContain("repositories");
+
+		// Verify relationships with auto-detected tag
+		const autoDetectedMatches = dsl.match(/tags "Auto-detected"/g);
+		expect(autoDetectedMatches).toBeDefined();
+		expect(autoDetectedMatches!.length).toBeGreaterThan(0);
+
+		console.log(
+			`   Found ${autoDetectedMatches!.length} auto-detected relationships`,
+		);
+	});
+});

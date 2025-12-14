@@ -56,12 +56,22 @@ export class RelationshipExtractor {
 			if (Node.isCallExpression(descendant)) {
 				const expr = descendant.getExpression();
 
-				// Check if this is a local function call that we should follow
+				// Check if this is a local or imported function call that we should follow
 				if (Node.isIdentifier(expr)) {
 					const functionName = expr.getText();
 
-					// Try to find the function definition in the same file
-					const functionDecl = sourceFile.getFunction(functionName);
+					// Try to find the function definition in the same file first
+					let functionDecl = sourceFile.getFunction(functionName);
+					let targetSourceFile = sourceFile;
+
+					// If not in same file, try to resolve from imports (cross-file analysis)
+					if (!functionDecl) {
+						const resolved = this.resolveImportedFunction(functionName, sourceFile);
+						if (resolved) {
+							functionDecl = resolved.functionDecl;
+							targetSourceFile = resolved.sourceFile;
+						}
+					}
 
 					if (functionDecl && !visited.has(functionName)) {
 						// Mark as visited to prevent infinite recursion
@@ -70,11 +80,28 @@ export class RelationshipExtractor {
 						// Recursively extract relationships from the called function
 						const body = functionDecl.getBody();
 						if (body) {
-							this.extractFromNode(body, sourceFile, handlerName, relationships, visited);
+							this.extractFromNode(body, targetSourceFile, handlerName, relationships, visited);
 						}
 
 						// Don't add this as a relationship itself - we're following the call
 						return;
+					}
+
+					// If we couldn't resolve the function, check if it looks like a service call
+					// This catches patterns like getDatabase(), createRepositories()
+					if (!functionDecl) {
+						const componentFromName = this.inferComponentFromFunctionName(functionName);
+						if (componentFromName) {
+							relationships.push({
+								from: this.toComponentId(handlerName),
+								to: componentFromName,
+								description: `Calls ${functionName}()`,
+								technology: "Function Call",
+								confidence: "medium",
+								evidence: [`Function call: ${functionName}`],
+							});
+							return;
+						}
 					}
 				}
 
@@ -190,6 +217,7 @@ export class RelationshipExtractor {
 
 	/**
 	 * Extract relationship from property access chain
+	 * Handles both simple (obj.method) and nested (obj.prop.method) patterns
 	 */
 	private extractFromPropertyAccess(
 		propAccess: Node,
@@ -200,9 +228,16 @@ export class RelationshipExtractor {
 		}
 
 		const fullChain = propAccess.getText();
-		const objectExpr = propAccess.getExpression();
-		const objectName = objectExpr.getText();
 		const methodName = propAccess.getName();
+
+		// Extract the root object from potentially nested property access
+		// e.g., repositories.users.create -> repositories
+		let rootObject = propAccess.getExpression();
+		while (Node.isPropertyAccessExpression(rootObject)) {
+			rootObject = rootObject.getExpression();
+		}
+
+		const objectName = rootObject.getText();
 
 		// Map object name to component name
 		const targetComponent = this.inferComponentFromCall(objectName, methodName);
@@ -307,6 +342,7 @@ export class RelationshipExtractor {
 			database: "database",
 			repos: "repositories",
 			repository: "repositories",
+			repositories: "repositories",
 			cache: "cache",
 			storage: "storage",
 			ai: "ai_service",
@@ -320,6 +356,85 @@ export class RelationshipExtractor {
 
 		const normalized = objectName.toLowerCase();
 		return mappings[normalized] || null;
+	}
+
+	/**
+	 * Infer component name from function name patterns
+	 * Detects patterns like getDatabase(), createRepositories(), etc.
+	 */
+	private inferComponentFromFunctionName(functionName: string): string | null {
+		const normalized = functionName.toLowerCase();
+
+		// Pattern 1: getXxx() or createXxx()
+		if (normalized.startsWith("get") || normalized.startsWith("create")) {
+			const suffix = functionName.substring(normalized.startsWith("get") ? 3 : 6);
+			const suffixLower = suffix.toLowerCase();
+
+			// Database patterns
+			if (
+				suffixLower.includes("database") ||
+				suffixLower === "db" ||
+				suffixLower.includes("dbconnection") ||
+				suffixLower.includes("connection")
+			) {
+				return "db_client";
+			}
+
+			// Repository patterns
+			if (
+				suffixLower.includes("repositories") ||
+				suffixLower.includes("repos") ||
+				suffixLower.includes("repository")
+			) {
+				return "repositories";
+			}
+
+			// Service patterns
+			if (suffixLower.includes("service")) {
+				// Extract service type (e.g., createAuthService -> auth_service)
+				const serviceMatch = suffix.match(/^(.+?)Service/i);
+				if (serviceMatch) {
+					return this.toComponentId(`${serviceMatch[1]}_service`);
+				}
+				return "service";
+			}
+
+			// Cache patterns
+			if (suffixLower.includes("cache")) {
+				return "cache";
+			}
+
+			// Storage patterns
+			if (suffixLower.includes("storage")) {
+				return "storage";
+			}
+
+			// AI/LLM patterns
+			if (suffixLower.includes("ai") || suffixLower.includes("llm")) {
+				return "ai_service";
+			}
+
+			// Logger patterns
+			if (suffixLower.includes("logger")) {
+				return "logger";
+			}
+		}
+
+		// Pattern 2: initXxx() or setupXxx()
+		if (normalized.startsWith("init") || normalized.startsWith("setup")) {
+			// These often initialize services, treat similarly to get/create
+			const suffix = functionName.substring(normalized.startsWith("init") ? 4 : 5);
+			const suffixLower = suffix.toLowerCase();
+
+			if (suffixLower.includes("database") || suffixLower === "db") {
+				return "db_client";
+			}
+			if (suffixLower.includes("cache")) {
+				return "cache";
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -359,6 +474,63 @@ export class RelationshipExtractor {
 					}
 				}
 			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Resolve imported function to its declaration in another file
+	 * This enables cross-file relationship detection for architectures where
+	 * handlers are separated from routing logic
+	 */
+	private resolveImportedFunction(
+		functionName: string,
+		sourceFile: SourceFile
+	): { functionDecl: any; sourceFile: SourceFile } | null {
+		try {
+			// Look through imports to find where this function comes from
+			for (const importDecl of sourceFile.getImportDeclarations()) {
+				const namedImports = importDecl.getNamedImports();
+
+				for (const namedImport of namedImports) {
+					if (namedImport.getName() === functionName) {
+						// Resolve the import to the actual source file
+						const moduleSpecifier = importDecl.getModuleSpecifierSourceFile();
+						if (!moduleSpecifier) continue;
+
+						// Find the function in the imported file
+						const functionDecl = moduleSpecifier.getFunction(functionName);
+						if (functionDecl) {
+							return {
+								functionDecl,
+								sourceFile: moduleSpecifier,
+							};
+						}
+
+						// Also check for exported arrow functions or const declarations
+						const variableDecl = moduleSpecifier
+							.getVariableDeclaration(functionName);
+						if (variableDecl) {
+							const initializer = variableDecl.getInitializer();
+							if (
+								initializer &&
+								(Node.isArrowFunction(initializer) ||
+									Node.isFunctionExpression(initializer))
+							) {
+								return {
+									functionDecl: initializer,
+									sourceFile: moduleSpecifier,
+								};
+							}
+						}
+					}
+				}
+			}
+		} catch (error) {
+			// Silently fail on resolution errors (e.g., missing files, parse errors)
+			// This ensures the extractor is resilient to incomplete projects
+			return null;
 		}
 
 		return null;
