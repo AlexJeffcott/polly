@@ -652,10 +652,24 @@ export class HandlerExtractor {
       const funcName = identifier.getText()
 
       // Get the definition nodes (where the function is defined)
-      const definitions = identifier.getDefinitionNodes()
+      let definitions = identifier.getDefinitionNodes()
+
+      // Fallback: If no definitions found, try manual import resolution
+      // This handles cases like imports with .ts extensions that ts-morph can't resolve automatically
+      if (definitions.length === 0) {
+        if (process.env.POLLY_DEBUG) {
+          console.log(`[DEBUG] No definitions found via getDefinitionNodes() for: ${funcName}`)
+          console.log(`[DEBUG] Attempting manual import resolution...`)
+        }
+
+        const resolved = this.manuallyResolveImport(identifier)
+        if (resolved) {
+          definitions = [resolved]
+        }
+      }
 
       if (definitions.length === 0) {
-        // DEBUG: Log when no definitions found
+        // DEBUG: Log when no definitions found after fallback
         if (process.env.POLLY_DEBUG) {
           console.log(`[DEBUG] No definitions found for imported function: ${funcName}`)
         }
@@ -719,6 +733,136 @@ export class HandlerExtractor {
     }
 
     return null
+  }
+
+  /**
+   * Manually resolve an import when ts-morph's automatic resolution fails
+   * Handles cases like imports with .ts/.tsx extensions (e.g., from '@ws/messages.ts')
+   */
+  private manuallyResolveImport(identifier: any): any | null {
+    try {
+      const funcName = identifier.getText()
+      const sourceFile = identifier.getSourceFile()
+
+      // Find the import declaration that imports this identifier
+      const importDecls = sourceFile.getImportDeclarations()
+
+      for (const importDecl of importDecls) {
+        const namedImports = importDecl.getNamedImports()
+
+        // Check if this import includes our function
+        const matchingImport = namedImports.find((ni) => ni.getName() === funcName)
+        if (!matchingImport) {
+          continue
+        }
+
+        // Get the module specifier (e.g., '@ws/messages.ts')
+        let moduleSpecifier = importDecl.getModuleSpecifierValue()
+
+        if (process.env.POLLY_DEBUG) {
+          console.log(`[DEBUG] Found import: ${funcName} from '${moduleSpecifier}'`)
+        }
+
+        // Try to resolve the module
+        let targetFile = importDecl.getModuleSpecifierSourceFile()
+
+        // If resolution failed and module has .ts/.tsx extension, try without it
+        if (!targetFile && (moduleSpecifier.endsWith('.ts') || moduleSpecifier.endsWith('.tsx'))) {
+          const withoutExtension = moduleSpecifier.replace(/\.tsx?$/, '')
+
+          if (process.env.POLLY_DEBUG) {
+            console.log(`[DEBUG] Trying without extension: '${withoutExtension}'`)
+          }
+
+          // Manually find the file by trying different combinations
+          // This is a workaround for ts-morph not resolving .ts extensions
+          const possiblePaths = this.resolvePossiblePaths(sourceFile, withoutExtension)
+
+          for (const path of possiblePaths) {
+            targetFile = this.project.getSourceFile(path)
+            if (targetFile) {
+              if (process.env.POLLY_DEBUG) {
+                console.log(`[DEBUG] Resolved to: ${path}`)
+              }
+              break
+            }
+          }
+        }
+
+        if (!targetFile) {
+          if (process.env.POLLY_DEBUG) {
+            console.log(`[DEBUG] Could not resolve module: ${moduleSpecifier}`)
+          }
+          continue
+        }
+
+        // Find the exported function in the target file
+        const exportedDecls = targetFile.getExportedDeclarations()
+        const funcDecls = exportedDecls.get(funcName)
+
+        if (funcDecls && funcDecls.length > 0) {
+          const funcDecl = funcDecls[0]
+          if (Node.isFunctionDeclaration(funcDecl) ||
+              Node.isFunctionExpression(funcDecl) ||
+              Node.isArrowFunction(funcDecl)) {
+
+            if (process.env.POLLY_DEBUG) {
+              console.log(`[DEBUG] Successfully resolved ${funcName} manually`)
+            }
+
+            return funcDecl
+          }
+        }
+      }
+    } catch (error) {
+      if (process.env.POLLY_DEBUG) {
+        console.log(`[DEBUG] Error in manuallyResolveImport: ${error}`)
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Resolve possible file paths for a module specifier
+   * Handles path aliases and relative imports
+   */
+  private resolvePossiblePaths(sourceFile: SourceFile, moduleSpecifier: string): string[] {
+    const paths: string[] = []
+    const sourceDir = sourceFile.getDirectory().getPath()
+
+    // Handle relative imports (./foo, ../foo)
+    if (moduleSpecifier.startsWith('.')) {
+      const path = require('path')
+      const basePath = path.resolve(sourceDir, moduleSpecifier)
+
+      // Try with .ts, .tsx, .d.ts extensions and with /index
+      paths.push(basePath + '.ts')
+      paths.push(basePath + '.tsx')
+      paths.push(basePath + '.d.ts')
+      paths.push(path.join(basePath, 'index.ts'))
+      paths.push(path.join(basePath, 'index.tsx'))
+    }
+
+    // Handle path aliases (@ws/foo, @/foo, etc.)
+    // Note: ts-morph should have loaded tsconfig paths, so we can search all source files
+    if (moduleSpecifier.startsWith('@')) {
+      // Get all source files and find ones that match the module name pattern
+      const allFiles = this.project.getSourceFiles()
+      const moduleName = moduleSpecifier.split('/').pop() || ''
+
+      for (const file of allFiles) {
+        const filePath = file.getFilePath()
+        if (filePath.includes(`/${moduleName}.ts`) ||
+            filePath.includes(`/${moduleName}.tsx`) ||
+            filePath.endsWith(`/${moduleName}/index.ts`) ||
+            filePath.endsWith(`/${moduleName}/index.tsx`)) {
+          paths.push(filePath)
+        }
+      }
+    }
+
+    return paths
   }
 
   /**
