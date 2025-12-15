@@ -152,19 +152,30 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
   }
 
   /**
-   * Recognize message handler: handle* functions
+   * Recognize message handler: both handle* functions and .on() calls
    */
   recognizeMessageHandler(node: Node): MessageHandler | null {
-    if (!Node.isFunctionDeclaration(node)) {
-      return null
+    // Pattern 1: handle* function declarations
+    if (Node.isFunctionDeclaration(node)) {
+      const name = node.getName()
+      if (name && this.config.handlerPattern!.test(name)) {
+        return this.extractHandlerFromFunction(node)
+      }
     }
 
-    const name = node.getName()
-    if (!name || !this.config.handlerPattern!.test(name)) {
-      return null
+    // Pattern 2: .on() method calls (ws.on, socket.on, wss.on)
+    if (Node.isCallExpression(node)) {
+      const expression = node.getExpression()
+
+      if (Node.isPropertyAccessExpression(expression)) {
+        const methodName = expression.getName()
+        if (methodName === "on") {
+          return this.extractHandlerFromOnCall(node)
+        }
+      }
     }
 
-    return this.extractHandlerFromFunction(node)
+    return null
   }
 
   /**
@@ -287,6 +298,60 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
 
     const sourceFile = funcNode.getSourceFile()
     const line = funcNode.getStartLineNumber()
+
+    return {
+      messageType,
+      node: "server", // All handlers run on server
+      assignments,
+      preconditions,
+      postconditions,
+      location: {
+        file: sourceFile.getFilePath(),
+        line,
+      },
+    }
+  }
+
+  /**
+   * Extract handler details from a .on() call expression
+   * Handles: ws.on('event', handler), socket.on('event', handler)
+   */
+  private extractHandlerFromOnCall(callExpr: Node): MessageHandler | null {
+    if (!Node.isCallExpression(callExpr)) {
+      return null
+    }
+
+    const args = callExpr.getArguments()
+    if (args.length < 2) {
+      return null
+    }
+
+    // First argument is the event name (message type)
+    const eventArg = args[0]
+    let messageType: string | undefined
+
+    if (Node.isStringLiteral(eventArg)) {
+      messageType = eventArg.getLiteralValue()
+    }
+
+    if (!messageType) {
+      return null
+    }
+
+    // Second argument is the handler function
+    const handlerArg = args[1]
+    const assignments: StateAssignment[] = []
+    const preconditions: VerificationCondition[] = []
+    const postconditions: VerificationCondition[] = []
+
+    // Parse the handler function for state assignments and verification conditions
+    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+      this.extractAssignmentsFromFunction(handlerArg, assignments)
+      this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions)
+    }
+
+    const sourceFile = callExpr.getSourceFile()
+    const line = callExpr.getStartLineNumber()
 
     return {
       messageType,

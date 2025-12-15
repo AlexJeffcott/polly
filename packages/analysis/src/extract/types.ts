@@ -1,7 +1,7 @@
 // Type extraction from TypeScript using ts-morph
 
 import { Project, SourceFile, Type, TypeFormatFlags } from "ts-morph"
-import type { TypeInfo, TypeKind, FieldAnalysis, Confidence, CodebaseAnalysis } from "../types"
+import type { TypeInfo, TypeKind, FieldAnalysis, Confidence, CodebaseAnalysis, ProjectConfig } from "../types"
 import { HandlerExtractor } from "./handlers"
 
 export class TypeExtractor {
@@ -16,7 +16,7 @@ export class TypeExtractor {
   /**
    * Analyze the codebase and extract state types and message types
    */
-  async analyzeCodebase(stateFilePath?: string): Promise<CodebaseAnalysis> {
+  async analyzeCodebase(stateFilePath?: string, projectConfig?: ProjectConfig): Promise<CodebaseAnalysis> {
     // Find state type
     const stateType = stateFilePath
       ? this.extractStateType(stateFilePath)
@@ -31,7 +31,7 @@ export class TypeExtractor {
     // Extract message handlers
     const configFilePath = this.project.getCompilerOptions().configFilePath
     const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json"
-    const handlerExtractor = new HandlerExtractor(tsConfigPath)
+    const handlerExtractor = new HandlerExtractor(tsConfigPath, projectConfig)
     const handlerAnalysis = handlerExtractor.extractHandlers()
 
     return {
@@ -387,7 +387,8 @@ export class TypeExtractor {
 export async function analyzeCodebase(options: {
   tsConfigPath: string
   stateFilePath?: string
+  projectConfig?: ProjectConfig
 }): Promise<CodebaseAnalysis> {
   const extractor = new TypeExtractor(options.tsConfigPath)
-  return extractor.analyzeCodebase(options.stateFilePath)
+  return extractor.analyzeCodebase(options.stateFilePath, options.projectConfig)
 }

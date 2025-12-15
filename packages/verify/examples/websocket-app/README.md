@@ -1,6 +1,6 @@
 # WebSocket Chat + Todo App with Verification
 
-This example demonstrates formal verification for a Bun WebSocket application using **Eden types** for end-to-end type safety and **SQLite** for shared state management.
+This example demonstrates formal verification for a Bun WebSocket application with **automatic project detection** and **TLA+ template-based verification**.
 
 ## Architecture
 
@@ -25,6 +25,7 @@ This example demonstrates formal verification for a Bun WebSocket application us
 - Clients send messages to the server only
 - Server broadcasts updates to all connected clients
 - Enables model checking of concurrent access patterns
+- WebSocketServer.tla template enforces hub-and-spoke invariants
 
 ## Features
 
@@ -44,41 +45,12 @@ This example demonstrates formal verification for a Bun WebSocket application us
 - Shared state across all clients
 - Todo limits (max 50)
 
-### 4. **Verification**
-- State invariants (counts never negative, limits enforced)
-- Preconditions/postconditions on handlers
-- Temporal properties (eventual consistency)
+### 4. **Formal Verification**
+- Automatic WebSocket project detection
+- Architecture-specific invariants (ServerAlwaysAvailable, ClientsRouteToServer, etc.)
+- State bounds enforcement (counts never negative, limits enforced)
 - Race condition detection
-
-## Type Safety with Eden
-
-This example uses [Elysia](https://elysiajs.com/) Eden types for compile-time type safety:
-
-```typescript
-// Define message schema
-export const ClientMessageSchema = t.Union([
-  t.Object({
-    type: t.Literal("USER_JOIN"),
-    payload: t.Object({ username: t.String() }),
-  }),
-  t.Object({
-    type: t.Literal("CHAT_SEND"),
-    payload: t.Object({ text: t.String() }),
-  }),
-  // ... more message types
-])
-
-export type ClientMessage = Static<typeof ClientMessageSchema>
-```
-
-**Benefits:**
-- Full type inference from schema to handlers
-- Runtime validation (optional)
-- Compile-time errors for invalid message shapes
-- Documentation via types
-
-**Does Eden change verification?**
-No. The verification system extracts types from your TypeScript code statically. Eden provides runtime type checking and compile-time safety, but doesn't fundamentally change how verification works. The adapter still recognizes handlers by pattern (`handle*` functions) and extracts verification primitives (`requires()`, `ensures()`).
+- Temporal properties (eventual consistency)
 
 ## Running the Example
 
@@ -106,7 +78,7 @@ In another terminal:
 bun run test-harness.ts
 ```
 
-This will simulate:
+This simulates:
 - 5 concurrent users joining
 - Multiple clients creating todos simultaneously
 - Chat message flooding
@@ -130,17 +102,109 @@ Response:
 }
 ```
 
-### 4. View State
+## Verification
+
+### Running Verification
 
 ```bash
-curl http://localhost:3000/stats
+# From the websocket-app directory
+bunx polly verify
 ```
 
-## Verification
+Polly will:
+1. 🔍 Detect project type: `websocket-app`
+2. 📊 Analyze handlers and state types
+3. 📝 Generate TLA+ specification with WebSocketServer template
+4. ⚙️  Run TLC model checker via Docker
+5. ✅ Report verification results
+
+### Verification Configuration
+
+See `specs/verification.config.ts`:
+
+```typescript
+import { defineVerification } from "@fairfox/polly-verify"
+
+export default defineVerification({
+  messages: {
+    maxInFlight: 2,              // Start small for fast verification
+    maxClients: 2,               // WebSocket-specific: concurrent clients
+    maxMessagesPerClient: 2,
+  },
+
+  state: {
+    // Connection bounds
+    "connections.count": { min: 0, max: 100 },
+    "connections.maxConcurrent": { min: 100, max: 100 }, // Constant
+
+    // User bounds
+    "users.online": { min: 0, max: 100 },
+    "users.total": { min: 0, max: 1000 },
+
+    // Chat bounds
+    "chat.messageCount": { min: 0, max: 100 },
+    "chat.maxMessages": { min: 100, max: 100 }, // Constant
+
+    // Todo bounds
+    "todos.count": { min: 0, max: 50 },
+    "todos.completed": { min: 0, max: 50 },
+    "todos.maxTodos": { min: 50, max: 50 }, // Constant
+
+    // System state (booleans)
+    "system.initialized": { type: "enum", values: ["false", "true"] },
+    "system.dbConnected": { type: "enum", values: ["false", "true"] },
+  },
+
+  onBuild: "warn",
+  onRelease: "error",
+
+  // Custom application invariants
+  invariants: [
+    {
+      name: "ConnectionsWithinLimit",
+      expression: "state.connections.count <= state.connections.maxConcurrent",
+      description: "Connection count must not exceed maximum",
+    },
+    {
+      name: "OnlineUsersLessOrEqualToConnections",
+      expression: "state.users.online <= state.connections.count",
+      description: "Online users cannot exceed active connections",
+    },
+    {
+      name: "TodosWithinLimit",
+      expression: "state.todos.count <= state.todos.maxTodos",
+      description: "Todo count must not exceed maximum",
+    },
+    {
+      name: "CompletedLessOrEqualToTotal",
+      expression: "state.todos.completed <= state.todos.count",
+      description: "Completed todos cannot exceed total todos",
+    },
+  ],
+})
+```
+
+### Architecture-Specific Invariants
+
+The WebSocketServer.tla template automatically enforces:
+
+1. **ServerAlwaysAvailable**
+   - Server must never disconnect
+   - Catches server crashes or invalid state transitions
+
+2. **ClientsRouteToServer**
+   - All client messages must target the server
+   - Prevents forbidden direct client-to-client communication
+
+3. **NoClientToClientMessages**
+   - Enforces hub-and-spoke topology
+   - Clients cannot bypass the server hub
+
+These invariants are automatically included when Polly detects a WebSocket project.
 
 ### State Tracking
 
-The application maintains an in-memory state object that mirrors database state for verification:
+The application maintains an in-memory state object:
 
 ```typescript
 export const state: AppState = {
@@ -152,98 +216,54 @@ export const state: AppState = {
 }
 ```
 
-### Verification Primitives
+This state is:
+- Updated atomically by message handlers
+- Tracked for verification purposes
+- Mirrors database state for consistency checking
 
-All handlers use `requires()` and `ensures()` to verify state consistency:
+### Message Handlers
+
+Handlers follow the `handle*` naming pattern:
 
 ```typescript
-export function handleUserJoin(ctx: HandlerContext, message: ClientMessage): void {
-  requires(state.system.initialized === true, "System must be initialized")
-  requires(message.payload.username.length > 0, "Username cannot be empty")
-  requires(message.payload.username.length <= 20, "Username too long")
+export function handleUserJoin(username: string): void {
+  // Preconditions: System must be initialized
+  if (!state.system.initialized) {
+    throw new Error("System not initialized")
+  }
 
-  // ... handler logic ...
+  if (!username || username.length === 0) {
+    throw new Error("Username cannot be empty")
+  }
 
-  ensures(state.users.online > 0, "Must have online users")
-  ensures(state.users.total >= state.users.online, "Total >= online")
+  // Update state
+  state.users.online += 1
+  state.users.total += 1
+  state.connections.count += 1
+
+  // Postconditions: Counts must be consistent
+  if (state.users.total < state.users.online) {
+    throw new Error("Invariant violation: total < online")
+  }
 }
 ```
 
-### Custom Invariants
+Polly automatically:
+- Detects handlers by pattern matching (`handle*`)
+- Extracts message types (handleUserJoin → "USER_JOIN")
+- Infers contexts (server-side handlers tagged as "server" context)
 
-The WebSocketAdapter defines WebSocket-specific invariants:
+## Project Detection
 
-```typescript
-customInvariants(): Array<[name: string, tlaExpression: string]> {
-  return [
-    [
-      "ServerAlwaysAvailable",
-      'ports["server"] = "connected"'
-    ],
-    [
-      "ClientsConnectToServer",
-      "\\A msg \\in Range(messages) : " +
-      '(msg.source # "server") => ("server" \\in msg.targets)'
-    ],
-    [
-      "BroadcastConsistency",
-      "\\A c1, c2 \\in Contexts : " +
-      '(c1 # "server" /\\ c2 # "server") => ' +
-      "\\* All connected clients eventually receive broadcasts"
-    ],
-  ]
-}
-```
+Polly automatically detects this as a WebSocket project by:
+1. Finding `package.json` with `bun` as dependency
+2. Detecting WebSocket usage patterns in code
+3. Identifying hub-and-spoke architecture
 
-### Verification Config
-
-See `verification.config.ts` for the complete configuration:
-
-```typescript
-export default defineVerification({
-  adapter: new WebSocketAdapter({
-    tsConfigPath: "./tsconfig.json",
-    useEdenTypes: true,
-    handlerPattern: /^handle[A-Z]/,
-    maxConnections: 10, // Model check with 10 clients
-    maxInFlight: 5,
-  }),
-
-  state: {
-    "connections.count": { type: "range", min: 0, max: 100 },
-    "users.online": { type: "range", min: 0, max: 100 },
-    // ... more state bounds
-  },
-
-  invariants: {
-    TodosWithinLimit: "state.todos.count <= state.todos.maxTodos",
-    CompletedLessOrEqualToTotal: "state.todos.completed <= state.todos.count",
-    // ... more invariants
-  },
-})
-```
-
-## Adapter Implementation
-
-The `WebSocketAdapter` recognizes:
-
-1. **Handler Functions**: Functions matching `/^handle[A-Z]/`
-   - `handleUserJoin` → `USER_JOIN` message type
-   - Converts PascalCase to SCREAMING_SNAKE_CASE
-
-2. **State Mutations**: Assignments to `state.*` properties
-   ```typescript
-   state.users.online += 1  // Recognized
-   ```
-
-3. **Verification Conditions**: `requires()` and `ensures()` calls
-   ```typescript
-   requires(state.todos.count < state.todos.maxTodos, "Too many todos")
-   ```
-
-4. **Hub-and-Spoke Topology**:
-   - 1 server node (can send/receive from all)
-   - N client nodes (can only send/receive from server)
+This triggers:
+- Use of WebSocketServer.tla template
+- Generation of `maxClients` configuration
+- Context inference for server vs. client handlers
 
 ## Testing Race Conditions
 
@@ -260,10 +280,10 @@ await Promise.all(
 )
 ```
 
-This tests:
+Verification tests:
 - Database transaction isolation
 - State consistency under concurrent writes
-- Verification constraint enforcement
+- Invariant enforcement (completed ≤ count)
 
 ### Connection Limit Enforcement
 
@@ -277,67 +297,112 @@ const clients = Array.from({ length: MAX_CONNECTIONS + 5 }, ...)
 await Promise.all(clients.map(client => client.join()))
 ```
 
-Verification ensures:
-```typescript
-ensures(
-  state.connections.count <= state.connections.maxConcurrent,
-  "Must not exceed max connections"
-)
+The `ConnectionsWithinLimit` invariant detects violations:
 ```
-
-## Comparison with Other Adapters
-
-### WebExtension Adapter
-- **Topology**: Multiple contexts (background, content, popup, devtools)
-- **Routing**: Chrome message passing API
-- **Recognition**: `chrome.runtime.onMessage` listeners
-
-### EventBus Adapter
-- **Topology**: Single process, multiple handlers
-- **Routing**: Event emitter pattern
-- **Recognition**: `.on()` / `.addEventListener()` registrations
-
-### WebSocket Adapter
-- **Topology**: Hub-and-spoke (server + clients)
-- **Routing**: WebSocket broadcast pattern
-- **Recognition**: `handle*` function pattern
-- **Unique**: Eden type integration, SQLite state management
+state.connections.count <= state.connections.maxConcurrent
+```
 
 ## Files
 
 ```
 websocket-app/
 ├── src/
-│   ├── types.ts         # Eden type schemas
-│   ├── db.ts            # SQLite operations
-│   ├── handlers.ts      # Message handlers with verification
-│   └── server.ts        # Bun WebSocket server
-├── test-harness.ts      # Concurrent client simulator
-├── verification.config.ts # Verification configuration
-├── tsconfig.json        # TypeScript config
-└── README.md            # This file
+│   ├── types/
+│   │   └── state.ts           # AppState type definition
+│   ├── handlers.ts            # Message handlers (handle*)
+│   └── server.ts              # Bun WebSocket server
+├── specs/
+│   └── verification.config.ts # Verification configuration
+├── test-harness.ts            # Concurrent client simulator
+├── tsconfig.json              # TypeScript config
+└── README.md                  # This file
 ```
 
-## Next Steps
+## Verification Process
 
-1. **Generate TLA+ Spec**: Run the verification tool to generate TLA+ specification
-2. **Model Check**: Use TLC to verify properties
-3. **Add More Handlers**: Extend with additional message types
-4. **Stress Test**: Increase client count in test harness
-5. **Custom Invariants**: Add domain-specific verification conditions
+1. **Setup** (first time only):
+   ```bash
+   bunx polly verify --setup
+   ```
+
+   Generates `specs/verification.config.ts` with detected state fields and message types.
+
+2. **Configure Bounds**:
+
+   Edit `specs/verification.config.ts` to set appropriate bounds for model checking.
+
+3. **Validate**:
+   ```bash
+   bunx polly verify --validate
+   ```
+
+   Checks configuration for common issues.
+
+4. **Verify**:
+   ```bash
+   bunx polly verify
+   ```
+
+   Generates TLA+ specs and runs model checker.
+
+### What Gets Verified
+
+- ✅ State bounds are never violated (counts stay within min/max)
+- ✅ Invariants hold in all reachable states
+- ✅ Hub-and-spoke topology is maintained (no client-to-client messages)
+- ✅ Server availability (server never disconnects)
+- ✅ Message delivery consistency
+- ✅ Race conditions are detected (concurrent state mutations)
+
+### Verification Output
+
+Success:
+```
+✅ Verification passed!
+Statistics:
+   States explored: 378273
+   Distinct states: 184514
+```
+
+Failure (shows counterexample):
+```
+❌ Verification failed!
+
+Invariant violation: TodosWithinLimit
+
+Counterexample trace:
+  1. Initial state
+  2. handleTodoCreate (state.todos.count = 49)
+  3. handleTodoCreate (state.todos.count = 50)
+  4. handleTodoCreate (state.todos.count = 51) ← Violation!
+
+Expression: state.todos.count <= state.todos.maxTodos
+```
+
+## Performance Tips
+
+For faster verification:
+- Start with small bounds (maxClients: 2, maxInFlight: 2)
+- Increase bounds incrementally
+- Use state constraints to limit state space
+- Add custom invariants to detect issues early
+
+Typical verification times:
+- Small bounds (2 clients, 2 in-flight): ~5 seconds
+- Medium bounds (3 clients, 3 in-flight): ~30 seconds
+- Large bounds (5 clients, 5 in-flight): ~5 minutes
 
 ## Key Takeaways
 
-1. **Eden types provide compile-time safety** but don't change verification
-2. **Hub-and-spoke pattern** enables bounded model checking of concurrent access
-3. **Verification primitives** ensure state consistency across database operations
-4. **Test harness** demonstrates race conditions and limit enforcement
-5. **Adapter system** generalizes to any message-passing paradigm
+1. **Automatic detection** - No manual adapter configuration required
+2. **Architecture-specific templates** - WebSocket hub-and-spoke invariants included automatically
+3. **Type-driven** - Extracts state and message types from TypeScript
+4. **Bounded model checking** - Explores all reachable states within configured bounds
+5. **Docker-based** - No TLA+ toolchain installation needed
 
 ---
 
 **See also:**
 - [Verification Package Documentation](../../README.md)
-- [WebSocketAdapter Implementation](../../src/adapters/websocket/index.ts)
-- [Elysia Eden Types](https://elysiajs.com/eden/overview.html)
+- [TLA+ Templates](../../specs/tla/templates/)
 - [Bun WebSocket API](https://bun.sh/docs/api/websockets)

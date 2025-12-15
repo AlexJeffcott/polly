@@ -59,10 +59,44 @@ async function setupCommand() {
 
     console.log(color(`   Using: ${tsConfigPath}`, COLORS.gray))
 
+    // Detect project type
+    const { detectProjectConfig } = await import("@fairfox/polly-analysis")
+    const projectConfig = detectProjectConfig(process.cwd())
+
+    // Validate detection result
+    if (projectConfig.type === "generic" && Object.keys(projectConfig.entryPoints).length === 0) {
+      console.log(color("\n⚠️  Could not detect project structure", COLORS.yellow))
+      console.log()
+      console.log(color("   Supported project types:", COLORS.blue))
+      console.log("   • Chrome Extension (manifest.json)")
+      console.log("   • PWA (public/manifest.json)")
+      console.log("   • WebSocket Server (ws, socket.io, elysia dependency)")
+      console.log("   • Electron (electron dependency)")
+      console.log("   • Generic TypeScript (tsconfig.json)")
+      console.log()
+      console.log(color("   What to check:", COLORS.blue))
+      console.log("   1. Do you have a manifest.json or package.json?")
+      console.log("   2. Is your tsconfig.json in the project root?")
+      console.log("   3. Do you have src/index.ts or src/main.ts?")
+      console.log()
+      console.log("   Continuing with generic configuration...")
+      console.log()
+    }
+
+    console.log(color(`🔎 Detected project type: ${projectConfig.type}`, COLORS.blue))
+    if (projectConfig.metadata?.name) {
+      console.log(color(`   Project: ${projectConfig.metadata.name}`, COLORS.gray))
+    }
+
+    // Show architecture-specific tips
+    showArchitectureGuidance(projectConfig.type)
+    console.log()
+
     // Analyze codebase
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      stateFilePath: findStateFile()
+      stateFilePath: findStateFile(),
+      projectConfig,
     })
 
     if (!analysis.stateType) {
@@ -104,7 +138,7 @@ async function setupCommand() {
     }
 
     // Generate config
-    const configContent = generateConfig(analysis)
+    const configContent = generateConfig(analysis, projectConfig)
     const configPath = path.join(process.cwd(), "specs", "verification.config.ts")
 
     // Ensure directory exists
@@ -240,16 +274,28 @@ async function runFullVerification(configPath: string) {
   const configModule = require(path.resolve(configPath))
   const config = configModule.default || configModule
 
+  // Detect project type
+  const { detectProjectConfig } = await import("@fairfox/polly-analysis")
+  const projectConfig = detectProjectConfig(process.cwd())
+
+  console.log(color(`📦 Project type: ${projectConfig.type}`, COLORS.blue))
+  console.log()
+
   // Analyze codebase
   console.log(color("📊 Analyzing codebase...", COLORS.blue))
   const tsConfigPath = findTsConfig()
   if (!tsConfigPath) {
-    throw new Error("Could not find tsconfig.json")
+    throw new Error(
+      "Could not find tsconfig.json in project root.\n\n" +
+      "   Polly requires a TypeScript project configuration file.\n" +
+      "   Please ensure tsconfig.json exists in your project root."
+    )
   }
 
   const analysis = await analyzeCodebase({
     tsConfigPath,
-    stateFilePath: findStateFile()
+    stateFilePath: findStateFile(),
+    projectConfig,
   })
 
   console.log(color("✓ Analysis complete", COLORS.green))
@@ -257,7 +303,7 @@ async function runFullVerification(configPath: string) {
 
   // Generate TLA+ specs
   console.log(color("📝 Generating TLA+ specification...", COLORS.blue))
-  const { spec, cfg } = generateTLA(config, analysis)
+  const { spec, cfg } = generateTLA(config, analysis, projectConfig)
 
   // Write specs to temp directory
   const specDir = path.join(process.cwd(), "specs", "tla", "generated")
@@ -311,6 +357,32 @@ async function runFullVerification(configPath: string) {
     console.log(color(`   Searched in:`, COLORS.gray))
     for (const searchPath of possiblePaths) {
       console.log(color(`   - ${searchPath}`, COLORS.gray))
+    }
+  }
+
+  // Copy architecture-specific template if applicable
+  const templateInfo = getTemplateNameForProject(projectConfig.type)
+  if (templateInfo) {
+    const templatePaths = [
+      path.join(process.cwd(), "specs", "tla", "templates", templateInfo.source),
+      path.join(__dirname, "..", "specs", "tla", "templates", templateInfo.source),
+      path.join(__dirname, "..", "..", "specs", "tla", "templates", templateInfo.source),
+      path.join(process.cwd(), "external", "polly", "packages", "verify", "specs", "tla", "templates", templateInfo.source),
+      path.join(process.cwd(), "node_modules", "@fairfox", "polly-verify", "specs", "tla", "templates", templateInfo.source),
+    ]
+
+    let templatePath: string | null = null
+    for (const candidatePath of templatePaths) {
+      if (fs.existsSync(candidatePath)) {
+        templatePath = candidatePath
+        break
+      }
+    }
+
+    if (templatePath) {
+      const destTemplatePath = path.join(specDir, templateInfo.dest)
+      fs.copyFileSync(templatePath, destTemplatePath)
+      console.log(color(`✓ Copied ${templateInfo.dest}`, COLORS.green))
     }
   }
 
@@ -378,6 +450,50 @@ async function runFullVerification(configPath: string) {
   }
 }
 
+function showArchitectureGuidance(projectType: string): void {
+  console.log(color("\n💡 Architecture-specific tips:", COLORS.blue))
+
+  switch (projectType) {
+    case "websocket-app":
+      console.log("   • Handlers should follow handle* pattern (handleUserJoin)")
+      console.log("   • State mutations: state.field = value")
+      console.log("   • Config uses maxClients instead of maxTabs")
+      console.log("   • Use requires()/ensures() for verification conditions")
+      break
+
+    case "chrome-extension":
+      console.log("   • Contexts: background, content, popup, options")
+      console.log("   • Handlers: bus.on('MESSAGE_TYPE', handler)")
+      console.log("   • Multi-tab: set maxTabs > 1 for tab coordination")
+      console.log("   • Background is singleton (tabId = 0)")
+      break
+
+    case "pwa":
+      console.log("   • Service worker and client contexts")
+      console.log("   • Use postMessage or MessageChannel patterns")
+      console.log("   • Config models worker lifecycle transitions")
+      console.log("   • Consider offline/online state handling")
+      break
+
+    case "electron":
+      console.log("   • Main process and renderer contexts")
+      console.log("   • IPC communication: ipcMain/ipcRenderer")
+      console.log("   • Model process isolation carefully")
+      console.log("   • Config uses maxRenderers for window count")
+      break
+
+    case "generic":
+      console.log("   • Polly will try to detect message patterns")
+      console.log("   • Consider adding explicit architecture markers")
+      console.log("   • Config uses generic maxContexts setting")
+      break
+
+    default:
+      // No specific guidance for unknown types
+      break
+  }
+}
+
 function showHelp() {
   console.log(`
 ${color("bun verify", COLORS.blue)} - Formal verification for web extensions
@@ -416,6 +532,23 @@ ${color("Learn More:", COLORS.blue)}
   Documentation: https://github.com/fairfox/web-ext
   TLA+ Resources: https://learntla.com
 `)
+}
+
+function getTemplateNameForProject(projectType: string): { source: string; dest: string } | null {
+  switch (projectType) {
+    case "websocket-app":
+      return { source: "websocket-server.tla", dest: "WebSocketServer.tla" }
+    case "chrome-extension":
+      return { source: "chrome-extension.tla", dest: "ChromeExtension.tla" }
+    case "pwa":
+      return { source: "chrome-extension.tla", dest: "ChromeExtension.tla" }
+    case "electron":
+      return { source: "generic.tla", dest: "GenericMessagePassing.tla" }
+    case "generic":
+      return { source: "generic.tla", dest: "GenericMessagePassing.tla" }
+    default:
+      return null
+  }
 }
 
 function findTsConfig(): string | null {

@@ -2,17 +2,14 @@
 // Verification Configuration for WebSocket Chat + Todo App
 // ═══════════════════════════════════════════════════════════════
 
-import { defineVerification, WebSocketAdapter } from "../../src/index"
-import { resolve } from "node:path"
+import { defineVerification } from "../../../src/index"
 
 export default defineVerification({
-  adapter: new WebSocketAdapter({
-    tsConfigPath: resolve(__dirname, "./tsconfig.json"),
-    useEdenTypes: true,
-    handlerPattern: /^handle[A-Z]/, // Match handle* functions
-    maxConnections: 10, // Model check with 10 concurrent clients
-    maxInFlight: 5, // Max 5 concurrent messages in flight
-  }),
+  messages: {
+    maxInFlight: 2,  // Start small for fast verification
+    maxClients: 2,    // 2 clients sufficient to test multi-client scenarios
+    maxMessagesPerClient: 2,
+  },
 
   state: {
     // Connection bounds
@@ -36,6 +33,9 @@ export default defineVerification({
     "system.initialized": { type: "enum", values: ["false", "true"] },
     "system.dbConnected": { type: "enum", values: ["false", "true"] },
   },
+
+  onBuild: "warn",
+  onRelease: "error",
 
   // Custom invariants to verify
   invariants: [

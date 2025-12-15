@@ -1,14 +1,17 @@
 // Configuration file generator with smart comments
 
 import type { FieldAnalysis, CodebaseAnalysis, TypeInfo } from "../types"
+import type { ProjectConfig } from "@fairfox/polly-analysis"
 
 export class ConfigGenerator {
   private lines: string[] = []
   private indent = 0
+  private projectConfig?: ProjectConfig
 
-  generate(analysis: CodebaseAnalysis): string {
+  generate(analysis: CodebaseAnalysis, projectConfig?: ProjectConfig): string {
     this.lines = []
     this.indent = 0
+    this.projectConfig = projectConfig
 
     this.addHeader()
     this.addImports()
@@ -48,6 +51,16 @@ export class ConfigGenerator {
   private addExport(): void {
     this.line("export default defineVerification({")
     this.indent++
+
+    // Add project type info if available
+    if (this.projectConfig) {
+      this.line(`// Detected project type: ${this.projectConfig.type}`)
+      const entryPointKeys = Object.keys(this.projectConfig.entryPoints)
+      if (entryPointKeys.length > 0) {
+        this.line(`// Entry points: ${entryPointKeys.join(", ")}`)
+      }
+      this.line("")
+    }
   }
 
   private closeExport(): void {
@@ -254,6 +267,30 @@ export class ConfigGenerator {
     this.line("// WARNING: State space grows exponentially! Start small.")
     this.line("maxInFlight: 3,")
     this.line("")
+
+    // Project-type-specific configuration
+    const projectType = this.projectConfig?.type
+
+    if (projectType === "websocket-app") {
+      this.addWebSocketConfig()
+    } else if (projectType === "pwa") {
+      this.addPWAConfig()
+    } else if (projectType === "electron") {
+      this.addElectronConfig()
+    } else if (projectType === "generic") {
+      this.addGenericProjectConfig()
+    } else {
+      // Default to Chrome extension for backward compatibility
+      // (when no projectConfig provided or type is "chrome-extension")
+      this.addChromeExtensionConfig()
+    }
+
+    this.indent--
+    this.line("},")
+    this.line("")
+  }
+
+  private addChromeExtensionConfig(): void {
     this.line("// Maximum tab IDs to model (content scripts are per-tab).")
     this.line("//")
     this.line("// Recommended:")
@@ -262,10 +299,51 @@ export class ConfigGenerator {
     this.line("//")
     this.line("// Start with 0 or 1 for faster verification.")
     this.line("maxTabs: 1,")
+  }
 
-    this.indent--
-    this.line("},")
+  private addWebSocketConfig(): void {
+    this.line("// Maximum concurrent WebSocket clients to model.")
+    this.line("//")
+    this.line("// Recommended:")
+    this.line("//   • 2-3: Simple client-server interactions")
+    this.line("//   • 4-5: Multi-client scenarios")
+    this.line("//   • 6+: Complex multi-user coordination (slower)")
+    this.line("//")
+    this.line("// Note: State space grows with client count.")
+    this.line("maxClients: 3,")
     this.line("")
+    this.line("// Maximum messages per client in flight.")
+    this.line("// Lower values = faster verification.")
+    this.line("maxMessagesPerClient: 2,")
+  }
+
+  private addPWAConfig(): void {
+    this.line("// Maximum service worker instances to model.")
+    this.line("//")
+    this.line("// Recommended:")
+    this.line("//   • 1: Single service worker (most common)")
+    this.line("//   • 2: Worker lifecycle transitions")
+    this.line("//")
+    this.line("maxWorkers: 1,")
+    this.line("")
+    this.line("// Maximum client pages connected to service worker.")
+    this.line("maxClients: 3,")
+  }
+
+  private addElectronConfig(): void {
+    this.line("// Maximum renderer processes to model.")
+    this.line("//")
+    this.line("// Recommended:")
+    this.line("//   • 1: Single window apps")
+    this.line("//   • 2-3: Multi-window coordination")
+    this.line("//")
+    this.line("maxRenderers: 2,")
+  }
+
+  private addGenericProjectConfig(): void {
+    this.line("// Maximum concurrent execution contexts to model.")
+    this.line("// Adjust based on your application architecture.")
+    this.line("maxContexts: 3,")
   }
 
   private addBehaviorConfig(): void {
@@ -348,7 +426,7 @@ export class ConfigGenerator {
   }
 }
 
-export function generateConfig(analysis: CodebaseAnalysis): string {
+export function generateConfig(analysis: CodebaseAnalysis, projectConfig?: ProjectConfig): string {
   const generator = new ConfigGenerator()
-  return generator.generate(analysis)
+  return generator.generate(analysis, projectConfig)
 }

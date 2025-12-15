@@ -1,8 +1,9 @@
 // Handler extraction from TypeScript code
 // Extracts message handlers and their state mutations
 
+import * as path from "node:path"
 import { Project, type SourceFile, SyntaxKind, Node } from "ts-morph"
-import type { MessageHandler, StateAssignment, VerificationCondition } from "../types"
+import type { MessageHandler, StateAssignment, VerificationCondition, ProjectConfig } from "../types"
 
 export interface HandlerAnalysis {
   handlers: MessageHandler[]
@@ -11,11 +12,13 @@ export interface HandlerAnalysis {
 
 export class HandlerExtractor {
   private project: Project
+  private projectConfig?: ProjectConfig
 
-  constructor(tsConfigPath: string) {
+  constructor(tsConfigPath: string, projectConfig?: ProjectConfig) {
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
     })
+    this.projectConfig = projectConfig
   }
 
   /**
@@ -291,28 +294,77 @@ export class HandlerExtractor {
   }
 
   /**
-   * Infer the context (background, content, popup, etc.) from file path
+   * Infer the context from file path using ProjectConfig if available
    */
   private inferContext(filePath: string): string {
-    const path = filePath.toLowerCase()
+    if (!this.projectConfig) {
+      // Backward compatible: use legacy hardcoded patterns
+      return this.inferContextLegacy(filePath)
+    }
+    return this.inferContextFromProjectConfig(filePath)
+  }
 
-    if (path.includes("/background/") || path.includes("\\background\\")) {
+  /**
+   * Legacy context inference using hardcoded Chrome extension patterns
+   * @deprecated Use inferContextFromProjectConfig when ProjectConfig available
+   */
+  private inferContextLegacy(filePath: string): string {
+    const pathLower = filePath.toLowerCase()
+
+    if (pathLower.includes("/background/") || pathLower.includes("\\background\\")) {
       return "background"
     }
-    if (path.includes("/content/") || path.includes("\\content\\")) {
+    if (pathLower.includes("/content/") || pathLower.includes("\\content\\")) {
       return "content"
     }
-    if (path.includes("/popup/") || path.includes("\\popup\\")) {
+    if (pathLower.includes("/popup/") || pathLower.includes("\\popup\\")) {
       return "popup"
     }
-    if (path.includes("/devtools/") || path.includes("\\devtools\\")) {
+    if (pathLower.includes("/devtools/") || pathLower.includes("\\devtools\\")) {
       return "devtools"
     }
-    if (path.includes("/options/") || path.includes("\\options\\")) {
+    if (pathLower.includes("/options/") || pathLower.includes("\\options\\")) {
       return "options"
     }
-    if (path.includes("/offscreen/") || path.includes("\\offscreen\\")) {
+    if (pathLower.includes("/offscreen/") || pathLower.includes("\\offscreen\\")) {
       return "offscreen"
+    }
+
+    return "unknown"
+  }
+
+  /**
+   * Infer context using ProjectConfig entry points and context mapping
+   */
+  private inferContextFromProjectConfig(filePath: string): string {
+    if (!this.projectConfig) {
+      return "unknown"
+    }
+
+    const normalizedPath = path.normalize(filePath)
+
+    // Check each entry point to see if this file belongs to that context
+    for (const [contextKey, entryPoint] of Object.entries(this.projectConfig.entryPoints)) {
+      const entryDir = path.dirname(entryPoint)
+
+      // If file is in same directory tree as entry point
+      if (normalizedPath.startsWith(entryDir)) {
+        // Use contextMapping if available, otherwise use contextKey directly
+        return this.projectConfig.contextMapping?.[contextKey] || contextKey
+      }
+    }
+
+    // Fallback: try to match by directory name
+    const pathParts = normalizedPath.split(path.sep)
+    for (const part of pathParts) {
+      const lowerPart = part.toLowerCase()
+
+      // Check if any context key matches this directory
+      for (const contextKey of Object.keys(this.projectConfig.entryPoints)) {
+        if (lowerPart === contextKey.toLowerCase()) {
+          return this.projectConfig.contextMapping?.[contextKey] || contextKey
+        }
+      }
     }
 
     return "unknown"

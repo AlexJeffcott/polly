@@ -2,17 +2,20 @@
 
 import type { VerificationConfig, CodebaseAnalysis } from "../types"
 import type { MessageHandler } from "../core/model"
+import type { ProjectConfig } from "@fairfox/polly-analysis"
 
 export class TLAGenerator {
   private lines: string[] = []
   private indent = 0
+  private projectConfig?: ProjectConfig
 
-  generate(config: VerificationConfig, analysis: CodebaseAnalysis): {
+  generate(config: VerificationConfig, analysis: CodebaseAnalysis, projectConfig?: ProjectConfig): {
     spec: string
     cfg: string
   } {
     this.lines = []
     this.indent = 0
+    this.projectConfig = projectConfig
 
     const spec = this.generateSpec(config, analysis)
     const cfg = this.generateConfig(config, analysis)
@@ -48,12 +51,46 @@ export class TLAGenerator {
     lines.push("\\* Constants")
     lines.push("CONSTANTS")
 
-    // Generate context set (reduced for faster verification)
-    lines.push("  Contexts = {background, content, popup}")
+    // Generate context set based on project type
+    const contexts = this.generateContexts()
+    const quotedContexts = contexts.map(c => `"${c}"`)
+    lines.push(`  Contexts = {${quotedContexts.join(", ")}}`)
 
-    // Message bounds (defaults chosen for reasonable verification time)
-    lines.push(`  MaxMessages = ${config.messages.maxInFlight || 3}`)
-    lines.push(`  MaxTabId = ${config.messages.maxTabs || 1}`)
+    // MaxInFlight is universal
+    lines.push(`  MaxInFlight = ${config.messages.maxInFlight || 3}`)
+
+    // MaxTabId (required by MessageRouter, but not used by all project types)
+    const projectType = this.projectConfig?.type
+
+    if (projectType === "chrome-extension") {
+      lines.push(`  MaxTabId = ${(config.messages as any).maxTabs || 1}`)
+    } else if (projectType === "websocket-app") {
+      lines.push(`  MaxTabId = 0  \\* Not used by WebSocket apps`)
+
+      lines.push(`  MaxClients = ${(config.messages as any).maxClients || 3}`)
+      if ((config.messages as any).maxMessagesPerClient) {
+        lines.push(`  MaxMessagesPerClient = ${(config.messages as any).maxMessagesPerClient}`)
+      }
+    } else if (projectType === "pwa") {
+      lines.push(`  MaxTabId = 0  \\* Not used by PWAs`)
+      lines.push(`  MaxWorkers = ${(config.messages as any).maxWorkers || 1}`)
+      lines.push(`  MaxClients = ${(config.messages as any).maxClients || 3}`)
+    } else if (projectType === "electron") {
+      lines.push(`  MaxTabId = 0  \\* Not used by Electron apps`)
+      lines.push(`  MaxRenderers = ${(config.messages as any).maxRenderers || 2}`)
+    } else {
+      // Generic project type - use maxContexts if provided
+      lines.push(`  MaxTabId = 0  \\* Not used by generic projects`)
+      const maxContexts = (config.messages as any).maxContexts
+      if (maxContexts === undefined) {
+        throw new Error(
+          "Generic project type requires 'maxContexts' in config.messages. " +
+          "Set maxContexts to the number of concurrent contexts to model."
+        )
+      }
+      lines.push(`  MaxContexts = ${maxContexts}`)
+    }
+
     lines.push("  TimeoutLimit = 3")
 
     // State bounds from config
@@ -88,6 +125,37 @@ export class TLAGenerator {
     return lines.join("\n")
   }
 
+  private generateContexts(): string[] {
+    // Generate context identifiers based on project type
+    const projectType = this.projectConfig?.type
+    const entryPoints = this.projectConfig?.entryPoints || {}
+
+    if (projectType === "websocket-app") {
+      // WebSocket: server + client contexts
+      return ["server", "client1", "client2", "client3"]
+    } else if (projectType === "chrome-extension") {
+      // Chrome extension: background, content, popup, etc.
+      return ["background", "content", "popup"]
+    } else if (projectType === "pwa") {
+      // PWA: service worker + clients
+      return ["worker", "client1", "client2"]
+    } else if (projectType === "electron") {
+      // Electron: main + renderer processes
+      return ["main", "renderer1", "renderer2"]
+    } else {
+      // Generic: use entry point keys from project detection
+      const contexts = Object.keys(entryPoints)
+      if (contexts.length === 0) {
+        throw new Error(
+          "Generic project type has no detected entry points. " +
+          "Cannot generate context list. Please ensure your project has recognizable entry points, " +
+          "or configure your project type explicitly (websocket-app, pwa, electron, chrome-extension)."
+        )
+      }
+      return contexts
+    }
+  }
+
   private addHeader(): void {
     this.line("------------------------- MODULE UserApp -------------------------")
     this.line("(*")
@@ -107,12 +175,42 @@ export class TLAGenerator {
 
   private addExtends(): void {
     this.line("EXTENDS MessageRouter")
+
+    // Include architecture-specific template if project type is known
+    if (this.projectConfig?.type) {
+      const projectType = this.projectConfig.type
+
+      if (projectType === "websocket-app") {
+        this.line("")
+        this.line("\\* Constants for WebSocket template")
+        this.line("CONSTANTS MaxClients, MaxMessagesPerClient")
+        this.line("")
+        this.line("\\* Import WebSocket server invariants")
+        this.line("INSTANCE WebSocketServer")
+      } else if (projectType === "chrome-extension") {
+        this.line("")
+        this.line("\\* Import Chrome extension invariants")
+        this.line("INSTANCE ChromeExtension")
+      } else if (projectType === "pwa") {
+        this.line("")
+        this.line("\\* Import service worker invariants (uses extension template)")
+        this.line("INSTANCE ChromeExtension")
+      } else if (projectType === "electron" || projectType === "generic") {
+        this.line("")
+        this.line("\\* Constants for generic template")
+        this.line("CONSTANTS MaxContexts")
+        this.line("")
+        this.line("\\* Import generic message-passing invariants")
+        this.line("INSTANCE GenericMessagePassing")
+      }
+    }
+
     this.line("")
   }
 
   private addConstants(config: VerificationConfig, analysis: CodebaseAnalysis): void {
-    // MessageRouter already defines: Contexts, MaxMessages, MaxTabId, TimeoutLimit
-    // We only add application-specific constants
+    // MessageRouter constants are defined in .cfg file
+    // We only add application-specific constants here
 
     const hasCustomConstants = Object.entries(config.state).some(([field, fieldConfig]) => {
       if (typeof fieldConfig !== "object" || fieldConfig === null) return false
@@ -295,17 +393,27 @@ export class TLAGenerator {
     this.indent++
 
     const messageTypes = Array.from(handlersByType.keys())
-    for (let i = 0; i < messageTypes.length; i++) {
-      const msgType = messageTypes[i]
-      const actionName = this.messageTypeToActionName(msgType)
 
-      if (i === 0) {
-        this.line(`IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
-      } else if (i === messageTypes.length - 1) {
-        this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
-        this.line("ELSE UNCHANGED contextStates  \\* Unknown message type")
-      } else {
-        this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
+    if (messageTypes.length === 1) {
+      // Special case: only one message type
+      const msgType = messageTypes[0]
+      const actionName = this.messageTypeToActionName(msgType)
+      this.line(`IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
+      this.line("ELSE UNCHANGED contextStates  \\* Unknown message type")
+    } else {
+      // Multiple message types
+      for (let i = 0; i < messageTypes.length; i++) {
+        const msgType = messageTypes[i]
+        const actionName = this.messageTypeToActionName(msgType)
+
+        if (i === 0) {
+          this.line(`IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
+        } else if (i === messageTypes.length - 1) {
+          this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
+          this.line("ELSE UNCHANGED contextStates  \\* Unknown message type")
+        } else {
+          this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`)
+        }
       }
     }
 
@@ -568,7 +676,7 @@ export class TLAGenerator {
     this.line("\\* State constraint to bound state space")
     this.line("StateConstraint ==")
     this.indent++
-    this.line("Len(messages) <= MaxMessages")
+    this.line("Len(messages) <= MaxInFlight")
     this.indent--
     this.line("")
 
@@ -649,7 +757,11 @@ export class TLAGenerator {
       return "[k \\in Keys |-> \"v1\"]"
     }
 
-    return "0"  // Default fallback
+    // No type information available - cannot determine initial value
+    throw new Error(
+      `Cannot determine initial value for field config: ${JSON.stringify(fieldConfig)}. ` +
+      "Please specify 'type', 'min'/'max', 'maxLength', 'values', or 'maxSize' in your state configuration."
+    )
   }
 
   private fieldToConstName(fieldPath: string): string {
@@ -672,8 +784,9 @@ export class TLAGenerator {
 
 export function generateTLA(
   config: VerificationConfig,
-  analysis: CodebaseAnalysis
+  analysis: CodebaseAnalysis,
+  projectConfig?: ProjectConfig
 ): { spec: string; cfg: string } {
   const generator = new TLAGenerator()
-  return generator.generate(config, analysis)
+  return generator.generate(config, analysis, projectConfig)
 }

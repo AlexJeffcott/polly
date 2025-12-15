@@ -165,17 +165,27 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
 
     const expression = node.getExpression()
 
-    // Check if this is a .on() call
+    // Check if this is a .addListener() call
     if (!Node.isPropertyAccessExpression(expression)) {
       return null
     }
 
     const methodName = expression.getName()
-    if (methodName !== "on") {
+    if (methodName !== "addListener") {
       return null
     }
 
-    return this.extractHandlerFromOnCall(node)
+    // Check if this is a chrome/browser API event listener
+    // chrome.runtime.onMessage.addListener, chrome.tabs.onUpdated.addListener, etc.
+    const fullExpression = expression.getExpression()
+    const fullText = fullExpression.getText()
+
+    // Must be a chrome.* or browser.* API call
+    if (!fullText.startsWith("chrome.") && !fullText.startsWith("browser.")) {
+      return null
+    }
+
+    return this.extractHandlerFromAddListenerCall(node)
   }
 
   /**
@@ -272,35 +282,45 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
   }
 
   /**
-   * Extract handler details from a .on() call expression
+   * Extract handler details from a .addListener() call expression
+   * Chrome/browser extension API: chrome.runtime.onMessage.addListener(handler)
    */
-  private extractHandlerFromOnCall(callExpr: Node): MessageHandler | null {
+  private extractHandlerFromAddListenerCall(callExpr: Node): MessageHandler | null {
     if (!Node.isCallExpression(callExpr)) {
       return null
     }
 
     const args = callExpr.getArguments()
 
-    if (args.length < 2) {
+    if (args.length < 1) {
       return null
     }
 
-    // First argument should be the message type (string literal)
-    const messageTypeArg = args[0]
-    let messageType: string | null = null
-
-    if (Node.isStringLiteral(messageTypeArg)) {
-      messageType = messageTypeArg.getLiteralValue()
-    } else if (Node.isTemplateExpression(messageTypeArg)) {
-      messageType = messageTypeArg.getText().replace(/[`'"]/g, "")
-    }
-
-    if (!messageType) {
+    // Extract the event type from the API call
+    // chrome.runtime.onMessage.addListener -> "onMessage"
+    // chrome.tabs.onUpdated.addListener -> "onUpdated"
+    const expression = callExpr.getExpression()
+    if (!Node.isPropertyAccessExpression(expression)) {
       return null
     }
 
-    // Second argument is the handler function
-    const handlerArg = args[1]
+    const eventExpression = expression.getExpression()
+    const fullText = eventExpression.getText()
+
+    // Extract event name from the API call
+    // "chrome.runtime.onMessage" -> "onMessage"
+    const parts = fullText.split(".")
+    const eventName = parts[parts.length - 1] // Last part is the event name
+
+    if (!eventName || !eventName.startsWith("on")) {
+      return null
+    }
+
+    // Convert onMessage -> "message", onUpdated -> "updated"
+    const messageType = eventName.substring(2).toLowerCase()
+
+    // First argument is the handler function
+    const handlerArg = args[0]
     const assignments: StateAssignment[] = []
     const preconditions: VerificationCondition[] = []
     const postconditions: VerificationCondition[] = []

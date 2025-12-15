@@ -169,6 +169,16 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
       return null
     }
 
+    // If emitterPattern is specified, check if the receiver matches
+    if (this.config.emitterPattern) {
+      const receiver = expression.getExpression()
+      const receiverText = receiver.getText()
+
+      if (!this.config.emitterPattern.test(receiverText)) {
+        return null
+      }
+    }
+
     return this.extractHandlerFromOnCall(node)
   }
 

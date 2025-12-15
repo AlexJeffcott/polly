@@ -1,7 +1,6 @@
 {
   "name": "@fairfox/polly-verify",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "type": "module",
   "description": "Formal verification for multi-context message-passing systems using TLA+. Automatically generates TLA+ specifications from TypeScript code.",
   "main": "dist/index.js",

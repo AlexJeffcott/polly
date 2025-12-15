@@ -1,0 +1,12 @@
+{
+  "name": "test-electron-app",
+  "version": "1.0.0",
+  "main": "src/main.ts",
+  "dependencies": {
+    "electron": "^27.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
