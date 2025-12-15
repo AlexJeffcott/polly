@@ -9,8 +9,8 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:all": "bun test",
-    "build:full-featured": "bun run ../polly/scripts/build-user-extension.ts ../examples/full-featured",
-    "build:full-featured:prod": "bun run ../polly/scripts/build-user-extension.ts ../examples/full-featured --prod"
+    "build:full-featured": "bun run ../scripts/build-user-extension.ts ../examples/full-featured",
+    "build:full-featured:prod": "bun run ../scripts/build-user-extension.ts ../examples/full-featured --prod"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -21,6 +21,6 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@fairfox/polly": "workspace:*"
+    "@fairfox/polly": "workspace:.."
   }
 }

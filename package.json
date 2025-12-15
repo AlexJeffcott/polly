@@ -1,24 +1,65 @@
 {
-  "name": "@fairfox/polly-monorepo",
-  "version": "0.2.0",
-  "private": true,
+  "name": "@fairfox/polly",
+  "version": "0.5.2",
+  "private": false,
   "type": "module",
-  "description": "Multi-execution-context framework with reactive state and cross-context messaging",
+  "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
   "workspaces": [
     "tests"
   ],
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "polly": "./dist/cli/polly.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./state": {
+      "import": "./dist/src/shared/lib/state.js",
+      "types": "./dist/shared/lib/state.d.ts"
+    },
+    "./message-bus": {
+      "import": "./dist/src/shared/lib/message-bus.js",
+      "types": "./dist/shared/lib/message-bus.d.ts"
+    },
+    "./background": {
+      "import": "./dist/src/background/index.js",
+      "types": "./dist/background/index.d.ts"
+    },
+    "./message-router": {
+      "import": "./dist/src/background/message-router.js",
+      "types": "./dist/background/message-router.d.ts"
+    },
+    "./adapters": {
+      "import": "./dist/src/shared/adapters/index.js",
+      "types": "./dist/shared/adapters/index.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/src/shared/lib/errors.js",
+      "types": "./dist/shared/lib/errors.d.ts"
+    },
+    "./types": {
+      "import": "./dist/src/shared/types/messages.js",
+      "types": "./dist/shared/types/messages.d.ts"
+    }
+  },
+  "files": ["dist", "templates", "README.md", "LICENSE"],
   "scripts": {
-    "setup": "bun install && cd packages/polly && bun run build:lib && bash ../../scripts/install-cli.sh",
-    "dev": "bun run --cwd packages/polly dev",
-    "build": "bun run --cwd packages/polly build",
-    "build:prod": "bun run --cwd packages/polly build:prod",
-    "build:lib": "bun run --cwd packages/polly build:lib",
-    "typecheck": "bun run --cwd packages/polly typecheck && bun run --cwd tests typecheck",
-    "typecheck:src": "bun run --cwd packages/polly typecheck",
+    "dev": "bun run build.ts --watch",
+    "build": "bun run build.ts",
+    "build:prod": "bun run build.ts --prod",
+    "build:lib": "bun run build-lib.ts",
+    "build:full-featured": "bun run scripts/build-user-extension.ts examples/full-featured",
+    "build:full-featured:prod": "bun run scripts/build-user-extension.ts examples/full-featured --prod",
+    "typecheck": "bunx tsc --noEmit && bun run --cwd tests typecheck",
     "typecheck:tests": "bun run --cwd tests typecheck",
-    "lint": "bun run --cwd packages/polly lint",
-    "lint:fix": "bun run --cwd packages/polly lint:fix",
-    "format": "bun run --cwd packages/polly format",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
     "test": "bun run --cwd tests test",
     "test:watch": "bun run --cwd tests test:watch",
     "test:framework": "bun run --cwd tests test:framework",
@@ -26,12 +67,55 @@
     "test:framework:debug": "bun run --cwd tests test:framework:debug",
     "test:framework:headed": "bun run --cwd tests test:framework:headed",
     "test:all": "bun run --cwd tests test:all",
-    "tla:up": "docker-compose -f specs/docker-compose.yml up -d",
-    "tla:down": "docker-compose -f specs/docker-compose.yml down",
-    "tla:check": "docker-compose -f specs/docker-compose.yml exec tla tlc MessageRouter.tla",
-    "tla:shell": "docker-compose -f specs/docker-compose.yml exec tla sh"
+    "prepublishOnly": "bun run typecheck && bun run lint && bun run build:lib",
+    "publish:public": "npm publish --access public"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@types/bun": "^1.2.19",
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.5.4"
   },
   "engines": {
-    "bun": ">=1.3.0"
-  }
+    "bun": ">=1.0.0"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.3.1",
+    "preact": "^10.27.2",
+    "ts-morph": "^21.0.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5",
+    "preact": "^10",
+    "@preact/signals": "^2"
+  },
+  "keywords": [
+    "multi-context",
+    "chrome-extension",
+    "browser-extension",
+    "web-extension",
+    "pwa",
+    "web-workers",
+    "service-workers",
+    "framework",
+    "reactive",
+    "state-management",
+    "messaging",
+    "cross-context",
+    "preact",
+    "signals",
+    "typescript",
+    "distributed",
+    "concurrent"
+  ],
+  "author": "Alex Jeffcott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlexJeffcott/polly"
+  },
+  "bugs": {
+    "url": "https://github.com/AlexJeffcott/polly/issues"
+  },
+  "homepage": "https://github.com/AlexJeffcott/polly#readme"
 }
