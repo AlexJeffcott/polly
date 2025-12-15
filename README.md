@@ -1,282 +1,698 @@
-# Polly
+# @fairfox/polly
 
-> πολύς (polys) - "many" in Greek
+**Multi-execution-context framework with reactive state and cross-context messaging.**
 
-A modern, type-safe framework for building **multi-execution-context applications** with reactive state management and cross-context messaging.
+Build Chrome extensions, PWAs, and worker-based applications with automatic state synchronization, reactive UI updates, and type-safe messaging.
 
-Perfect for: Chrome extensions, PWAs, Node/Bun/Deno apps with workers, and any application with multiple execution contexts.
+## Why Polly?
 
-## Features
+Modern applications run code in multiple isolated execution contexts:
 
-- 🎯 **Type-Safe Messaging** - End-to-end type safety across all execution contexts
-- ⚡️ **Reactive State** - Preact signals-based state management with automatic persistence
-- 🔄 **Cross-Context Communication** - Unified message bus for seamless communication
-- 🌐 **Multi-Platform** - Chrome extensions, PWAs, web workers, service workers, Node.js workers
-- 🛠️ **Developer Tools** - Built-in CLI with build, test, lint, verify, and visualize commands
-- 📊 **Architecture Visualization** - Automatic C4 architecture diagrams using Structurizr
-- ✅ **Formal Verification** - TLA+ specifications for critical components
-- 🚀 **Fast Builds** - Powered by Bun for lightning-fast development
+- **Chrome extensions**: Background service workers, popups, content scripts, options pages
+- **PWAs**: Main thread, service workers, web workers
+- **Node/Bun/Deno apps**: Main process, worker threads
 
-## Quick Start
+Managing state and communication between these contexts is painful:
 
-### Install
+- ❌ State scattered across contexts with manual synchronization
+- ❌ Complex message passing with serialization concerns
+- ❌ No reactivity - manually update UI when state changes
+- ❌ Difficult to test - must mock platform APIs
+- ❌ Hard to reason about concurrent state updates
 
-```bash
-npm install -g @fairfox/polly
-```
+**Polly solves this:**
 
-Or use with npx:
+- ✅ **Reactive state** - UI updates automatically with Preact Signals
+- ✅ **Auto-syncing** - State syncs across all contexts instantly with conflict resolution
+- ✅ **Persistence** - Optional automatic persistence to chrome.storage or localStorage
+- ✅ **Type-safe messaging** - Request/response pattern with full TypeScript support
+- ✅ **Built for testing** - DOM-based E2E tests without mocking
+- ✅ **Distributed consistency** - Lamport clocks prevent race conditions
 
-```bash
-npx @fairfox/polly init my-app
-```
-
-### Create a New Project
+## Installation
 
 ```bash
-polly init my-app
-cd my-app
-bun install
-bun run build
+bun add @fairfox/polly preact @preact/signals
 ```
 
-### For Chrome Extensions
+## Getting Started
 
-1. Open `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `dist/` folder
+### Example: PWA with Backend API
 
-### For PWAs with Workers
+Let's build a PWA that connects to a backend API, with a service worker handling requests and the main thread rendering UI. Polly makes this trivial.
 
-```bash
-polly init my-pwa --template=pwa
-# Coming soon: Additional templates for different architectures
-```
+#### Step 1: Define Your Message Types
 
-## CLI Commands
-
-### Project Setup
-- `polly init [name]` - Create a new project
-- `polly build` - Build for development
-- `polly build --prod` - Build for production (minified)
-
-### Development
-- `polly check` - Run all checks (typecheck, lint, test, build, verify, visualize)
-- `polly typecheck` - Type check your code
-- `polly lint` - Lint with Biome
-- `polly lint --fix` - Auto-fix lint issues
-- `polly format` - Format code with Biome
-- `polly test` - Run tests with Bun
-
-### Analysis & Documentation
-- `polly verify` - Run formal verification
-- `polly verify --setup` - Generate verification config
-- `polly visualize` - Generate architecture DSL
-- `polly visualize --export` - Export static site with diagrams
-- `polly visualize --serve` - Serve diagrams in browser
-
-## Project Structure
-
-```
-polly/
-├── packages/
-│   ├── web-ext/           # Main framework package (to be renamed)
-│   ├── verify/            # Formal verification tool
-│   ├── visualize/         # Architecture visualization
-│   ├── analysis/          # Static analysis tools
-│   ├── tests/             # Integration tests
-│   └── examples/          # Example applications
-│       ├── minimal/       # Minimal Chrome extension
-│       ├── todo-list/     # Todo list with storage
-│       └── full-featured/ # Full-featured Chrome extension
-├── scripts/               # Build and setup scripts
-└── specs/                 # TLA+ specifications
-```
-
-## Architecture
-
-The framework is built around three core concepts:
-
-### 1. Message Bus
-
-Unified messaging system for communication between execution contexts:
+Create typed messages for communication between your UI and service worker:
 
 ```typescript
-import { getMessageBus } from "@fairfox/polly/message-bus";
+// src/shared/messages.ts
+import type { ExtensionMessage } from '@fairfox/polly/types'
 
-const bus = getMessageBus<MyMessages>("main");
+// Define your custom messages
+type CustomMessages =
+  | { type: 'API_FETCH_USER'; userId: string }
+  | { type: 'API_UPDATE_USER'; userId: string; data: UserData }
+  | { type: 'API_DELETE_USER'; userId: string }
+  | { type: 'CACHE_CLEAR' }
 
-// Send messages
-const result = await bus.send({ type: "GET_DATA" });
+// Combine with framework messages
+export type AppMessages = ExtensionMessage | CustomMessages
 
-// Handle messages (in coordinator context)
-bus.on("GET_DATA", async () => {
-  return { data: [...] };
-});
+export interface UserData {
+  name: string
+  email: string
+  avatar: string
+}
 ```
 
-### 2. Reactive State
+#### Step 2: Define Shared State
 
-Preact signals-based state management with automatic persistence:
+Create reactive state that automatically syncs across all contexts:
 
 ```typescript
-import { $sharedState } from "@fairfox/polly/state";
+// src/shared/state.ts
+import { $sharedState, $syncedState, $state } from '@fairfox/polly/state'
 
-const settings = $sharedState("settings", {
-  theme: "dark",
-  notifications: true,
-});
+// Synced + persisted (survives reload)
+export const currentUser = $sharedState<UserData | null>('user', null)
+export const settings = $sharedState('settings', {
+  theme: 'dark' as 'light' | 'dark',
+  notifications: true
+})
 
-// State is automatically persisted and synced across contexts
-settings.value = { ...settings.value, theme: "light" };
+// Synced but not persisted (temporary)
+export const onlineStatus = $syncedState('online', true)
+export const activeRequests = $syncedState('requests', 0)
+
+// Local only (component state)
+export const isLoading = $state(false)
 ```
 
-### 3. Message Router
+**Why three types of state?**
 
-Automatic message routing between contexts in the coordinator:
+- `$sharedState` - Use for user data, settings - anything that should persist
+- `$syncedState` - Use for ephemeral shared state like connection status
+- `$state` - Use for local UI state like loading spinners
+
+#### Step 3: Create Backend Service (Service Worker)
+
+Handle API requests and manage data in your service worker:
 
 ```typescript
-import { MessageRouter } from "@fairfox/polly/message-router";
+// src/background/index.ts
+import { createBackground } from '@fairfox/polly/background'
+import type { AppMessages } from '../shared/messages'
+import { currentUser } from '../shared/state'
 
-const bus = getMessageBus("coordinator");
-new MessageRouter(bus); // Handles all routing automatically
+const bus = createBackground<AppMessages>()
+
+// API base URL (configurable)
+const API_URL = 'https://api.example.com'
+
+// Handle user fetch requests
+bus.on('API_FETCH_USER', async (payload) => {
+  try {
+    const response = await fetch(`${API_URL}/users/${payload.userId}`)
+    const data = await response.json()
+
+    // Update shared state - automatically syncs to UI!
+    currentUser.value = data
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+// Handle user updates
+bus.on('API_UPDATE_USER', async (payload) => {
+  try {
+    const response = await fetch(`${API_URL}/users/${payload.userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload.data)
+    })
+    const data = await response.json()
+
+    currentUser.value = data
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+// Handle cache clearing
+bus.on('CACHE_CLEAR', async () => {
+  currentUser.value = null
+  return { success: true }
+})
+
+console.log('Service worker ready!')
 ```
 
-## Use Cases
+**Key insight:** You update state directly in the service worker (`currentUser.value = data`), and it automatically appears in your UI. No manual message sending required!
 
-- **Chrome Extensions**: popup ↔ background ↔ content scripts
-- **PWAs**: main thread ↔ service worker ↔ web workers
-- **Node.js Apps**: main process ↔ worker threads
-- **Bun/Deno Apps**: main runtime ↔ workers
-- **Any multi-context application** with isolated execution environments
+#### Step 4: Build Your UI
+
+Create a reactive UI that updates automatically when state changes:
+
+```typescript
+// src/ui/App.tsx
+import { render } from 'preact'
+import { getMessageBus } from '@fairfox/polly/message-bus'
+import { currentUser, settings } from '../shared/state'
+import type { AppMessages } from '../shared/messages'
+
+const bus = getMessageBus<AppMessages>('popup')
+
+function App() {
+  const handleFetchUser = async () => {
+    const result = await bus.send({
+      type: 'API_FETCH_USER',
+      userId: '123'
+    })
+
+    if (!result.success) {
+      alert(`Error: ${result.error}`)
+    }
+  }
+
+  const handleUpdateUser = async () => {
+    await bus.send({
+      type: 'API_UPDATE_USER',
+      userId: '123',
+      data: {
+        name: 'Jane Doe',
+        email: 'jane@example.com',
+        avatar: 'https://...'
+      }
+    })
+  }
+
+  return (
+    <div className={`app theme-${settings.value.theme}`}>
+      <h1>User Profile</h1>
+
+      {/* Reactive - updates automatically! */}
+      {currentUser.value ? (
+        <div>
+          <img src={currentUser.value.avatar} alt="Avatar" />
+          <h2>{currentUser.value.name}</h2>
+          <p>{currentUser.value.email}</p>
+          <button onClick={handleUpdateUser}>Update Profile</button>
+        </div>
+      ) : (
+        <button onClick={handleFetchUser}>Load User</button>
+      )}
+
+      <label>
+        <input
+          type="checkbox"
+          checked={settings.value.notifications}
+          onChange={(e) => {
+            // Direct state update - syncs everywhere!
+            settings.value = {
+              ...settings.value,
+              notifications: e.currentTarget.checked
+            }
+          }}
+        />
+        Enable Notifications
+      </label>
+    </div>
+  )
+}
+
+render(<App />, document.getElementById('root')!)
+```
+
+**Key insight:** The UI automatically re-renders when `currentUser` or `settings` change, even if those changes come from the service worker or another tab!
+
+#### Step 5: Build Your Application
+
+```bash
+# Create a polly.config.ts (optional)
+export default {
+  srcDir: 'src',
+  distDir: 'dist',
+  manifest: 'manifest.json'
+}
+
+# Build
+polly build
+
+# Build for production (minified)
+polly build --prod
+
+# Watch mode
+polly dev
+```
+
+### The Polly Development Flow
+
+Here's how to get the most out of Polly:
+
+#### 1. Start with State Design
+
+Think about what data needs to be:
+- **Shared across contexts** → Use `$sharedState` or `$syncedState`
+- **Persisted** → Use `$sharedState` or `$persistedState`
+- **Local to a component** → Use `$state`
+
+```typescript
+// Good state design
+export const userSession = $sharedState('session', null) // Persist login
+export const wsConnection = $syncedState('ws', null)     // Don't persist socket
+export const formData = $state({})                       // Local form state
+```
+
+#### 2. Define Messages as a Contract
+
+Your message types are the contract between contexts. Define them explicitly:
+
+```typescript
+type CustomMessages =
+  | { type: 'ACTION_NAME'; /* inputs */ }
+  | { type: 'QUERY_NAME'; /* params */ }
+```
+
+Think of messages like API endpoints - they define the interface between your service worker and UI.
+
+#### 3. Handle Business Logic in Background
+
+The background/service worker is your "backend". Handle:
+- API calls
+- Data processing
+- Chrome API interactions (tabs, storage, etc.)
+- State updates
+
+```typescript
+bus.on('SOME_ACTION', async (payload) => {
+  // 1. Do work
+  const result = await doSomething(payload)
+
+  // 2. Update state (auto-syncs to UI)
+  myState.value = result
+
+  // 3. Return response
+  return { success: true, result }
+})
+```
+
+#### 4. Keep UI Simple
+
+Your UI just:
+- Displays state
+- Sends messages
+- Updates local UI state
+
+The UI should be "dumb" - all business logic lives in the background.
+
+```typescript
+function Component() {
+  // Just render state and send messages!
+  return (
+    <div>
+      <p>{myState.value}</p>
+      <button onClick={() => bus.send({ type: 'DO_THING' })}>
+        Click Me
+      </button>
+    </div>
+  )
+}
+```
+
+#### 5. Test with Real Browser APIs
+
+Polly works with real Chrome/browser APIs, so you can test without mocks:
+
+```typescript
+// tests/app.test.ts
+import { test, expect } from '@playwright/test'
+
+test('user profile updates', async ({ page, extensionId }) => {
+  await page.goto(`chrome-extension://${extensionId}/popup.html`)
+
+  await page.click('[data-testid="fetch-user"]')
+
+  // State automatically synced - just check the DOM!
+  await expect(page.locator('[data-testid="user-name"]'))
+    .toHaveText('Jane Doe')
+})
+```
+
+## Core Concepts
+
+### State Primitives
+
+Polly provides four state primitives, each for different use cases:
+
+```typescript
+// Syncs across contexts + persists to storage (most common)
+const settings = $sharedState('settings', { theme: 'dark' })
+
+// Syncs across contexts, no persistence (temporary shared state)
+const activeTab = $syncedState('activeTab', null)
+
+// Persists to storage, no sync (local persistent state)
+const lastOpened = $persistedState('lastOpened', Date.now())
+
+// Local only, no sync, no persistence (like regular Preact signals)
+const loading = $state(false)
+```
+
+**When to use each:**
+
+- **$sharedState**: User preferences, authentication state, application data
+- **$syncedState**: WebSocket connections, temporary flags, live collaboration state
+- **$persistedState**: Component-specific settings, form drafts
+- **$state**: Loading indicators, modal visibility, form validation errors
+
+### Message Patterns
+
+#### Request/Response Pattern
+
+```typescript
+// Background: Handle requests
+bus.on('GET_DATA', async (payload) => {
+  const data = await fetchData(payload.id)
+  return { success: true, data }
+})
+
+// UI: Send requests
+const result = await bus.send({ type: 'GET_DATA', id: 123 })
+if (result.success) {
+  console.log(result.data)
+}
+```
+
+#### Broadcast Pattern
+
+```typescript
+// Send to all contexts
+bus.broadcast({ type: 'NOTIFICATION', message: 'Hello everyone!' })
+
+// All contexts receive it
+bus.on('NOTIFICATION', (payload) => {
+  showToast(payload.message)
+})
+```
+
+#### Fire and Forget
+
+```typescript
+// Don't await the response
+bus.send({ type: 'LOG_EVENT', event: 'click' })
+```
+
+### Chrome Extension Specific
+
+If you're building a Chrome extension:
+
+```typescript
+// Background script must use createBackground()
+import { createBackground } from '@fairfox/polly/background'
+const bus = createBackground<YourMessages>()
+
+// Other contexts use getMessageBus()
+import { getMessageBus } from '@fairfox/polly/message-bus'
+const bus = getMessageBus<YourMessages>('popup')
+```
+
+**Important:** The background script creates a `MessageRouter` automatically. This routes messages between all contexts. Always use `createBackground()` in background scripts to ensure proper setup.
+
+## CLI Tools
+
+Polly includes CLI tools for development:
+
+```bash
+# Build your application
+polly build [--prod]
+
+# Type checking
+polly typecheck
+
+# Linting
+polly lint [--fix]
+
+# Formatting
+polly format
+
+# Run all checks
+polly check
+
+# Generate architecture diagrams
+polly visualize [--export] [--serve]
+
+# Formal verification (if configured)
+polly verify [--setup]
+```
+
+## Architecture Visualization
+
+Polly can analyze your codebase and generate architecture diagrams:
+
+```bash
+polly visualize
+```
+
+This creates a Structurizr DSL file documenting:
+- Execution contexts (background, popup, etc.)
+- Message flows between contexts
+- External integrations (APIs, libraries)
+- Chrome API usage
+
+View the diagrams using Structurizr Lite:
+
+```bash
+docker run -it --rm -p 8080:8080 \
+  -v $(pwd)/docs:/usr/local/structurizr \
+  structurizr/lite
+```
+
+## Real-World Patterns
+
+### API Client Pattern
+
+```typescript
+// src/background/api-client.ts
+export class APIClient {
+  constructor(private baseURL: string) {}
+
+  async get<T>(path: string): Promise<T> {
+    const response = await fetch(`${this.baseURL}${path}`)
+    return response.json()
+  }
+
+  async post<T>(path: string, data: unknown): Promise<T> {
+    const response = await fetch(`${this.baseURL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return response.json()
+  }
+}
+
+// src/background/index.ts
+const api = new APIClient('https://api.example.com')
+
+bus.on('API_REQUEST', async (payload) => {
+  const data = await api.get(payload.endpoint)
+  return { success: true, data }
+})
+```
+
+### Offline Support Pattern
+
+```typescript
+// Cache API responses
+const cache = $sharedState<Record<string, unknown>>('cache', {})
+
+bus.on('API_FETCH', async (payload) => {
+  // Check cache first
+  if (cache.value[payload.url]) {
+    return { success: true, data: cache.value[payload.url], cached: true }
+  }
+
+  try {
+    const response = await fetch(payload.url)
+    const data = await response.json()
+
+    // Update cache
+    cache.value = { ...cache.value, [payload.url]: data }
+
+    return { success: true, data, cached: false }
+  } catch (error) {
+    // Fallback to cache if offline
+    if (cache.value[payload.url]) {
+      return { success: true, data: cache.value[payload.url], cached: true }
+    }
+    return { success: false, error: error.message }
+  }
+})
+```
+
+### Authentication Pattern
+
+```typescript
+// State
+const authToken = $sharedState<string | null>('authToken', null)
+const currentUser = $sharedState<User | null>('currentUser', null)
+
+// Background
+bus.on('AUTH_LOGIN', async (payload) => {
+  const response = await fetch('https://api.example.com/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+  const { token, user } = await response.json()
+
+  // Update state - syncs to all contexts
+  authToken.value = token
+  currentUser.value = user
+
+  return { success: true }
+})
+
+bus.on('AUTH_LOGOUT', async () => {
+  authToken.value = null
+  currentUser.value = null
+  return { success: true }
+})
+
+// UI
+function LoginButton() {
+  const handleLogin = async () => {
+    await bus.send({
+      type: 'AUTH_LOGIN',
+      username: 'user',
+      password: 'pass'
+    })
+  }
+
+  return currentUser.value ? (
+    <div>Welcome, {currentUser.value.name}</div>
+  ) : (
+    <button onClick={handleLogin}>Login</button>
+  )
+}
+```
 
 ## Examples
 
-### Chrome Extensions
+Check out the [examples](https://github.com/AlexJeffcott/polly/tree/main/packages/examples) directory:
 
-**Minimal Example** - Basic extension with background and popup:
-```bash
-cd packages/examples/minimal
-bun run build
+- **minimal** - Dead simple counter (best starting point)
+- **full-featured** - Complete example with all features
+- **todo-list** - Real-world CRUD application
+
+## API Reference
+
+### State
+
+```typescript
+import { $sharedState, $syncedState, $persistedState, $state } from '@fairfox/polly/state'
+
+// Syncs + persists
+const signal = $sharedState<T>(key: string, initialValue: T)
+
+// Syncs, no persist
+const signal = $syncedState<T>(key: string, initialValue: T)
+
+// Persists, no sync
+const signal = $persistedState<T>(key: string, initialValue: T)
+
+// Local only
+const signal = $state<T>(initialValue: T)
+
+// All return Preact Signal<T>
+signal.value        // Get value
+signal.value = 42   // Set value
 ```
 
-**Todo List Example** - Persistent storage and reactive state:
-```bash
-cd packages/examples/todo-list
-bun run build
+### Message Bus
+
+```typescript
+import { getMessageBus } from '@fairfox/polly/message-bus'
+import { createBackground } from '@fairfox/polly/background'
+
+// In background script
+const bus = createBackground<YourMessages>()
+
+// In other contexts
+const bus = getMessageBus<YourMessages>('popup')
+
+// Send message
+const response = await bus.send({ type: 'MY_MESSAGE', data: 'foo' })
+
+// Broadcast to all contexts
+bus.broadcast({ type: 'NOTIFICATION', text: 'Hi!' })
+
+// Handle messages
+bus.on('MY_MESSAGE', async (payload) => {
+  return { success: true }
+})
 ```
 
-**Full-Featured Example** - Complete extension with authentication, bookmarks, and settings:
-```bash
-cd packages/examples/full-featured
-bun run build
+### Types
+
+```typescript
+import type { ExtensionMessage } from '@fairfox/polly/types'
+
+// Define custom messages
+type CustomMessages =
+  | { type: 'ACTION_ONE'; data: string }
+  | { type: 'ACTION_TWO'; id: number }
+
+// Combine with framework messages
+type AllMessages = ExtensionMessage | CustomMessages
 ```
 
-### Other Platforms (Coming Soon)
+## How It Works
 
-- **PWA with Service Worker** - Offline-first progressive web app
-- **Node.js Worker App** - CPU-intensive task processing
-- **Real-time Collaboration** - Multi-worker concurrent editing
+### State Synchronization
 
-## Development
+Polly uses **Lamport clocks** for distributed state consistency:
 
-### Setup Development Environment
+1. Each state update gets a logical timestamp
+2. Updates are broadcast to all contexts
+3. Contexts apply updates in causal order
+4. Conflicts are resolved deterministically
 
-```bash
-bun install
-bun run setup
-```
+This prevents race conditions when multiple contexts update state concurrently.
 
-### Run Tests
+### Message Routing
 
-```bash
-bun run test              # Run all tests
-bun run test:watch        # Watch mode
-bun run test:framework    # Framework tests only
-```
+The background context acts as a message hub:
 
-### Build
+1. Background starts a `MessageRouter`
+2. Other contexts connect via `chrome.runtime.Port`
+3. Messages are routed through the background
+4. Responses are returned to the sender
 
-```bash
-bun run build             # Build framework
-bun run build:lib         # Build library for publishing
-bun run build:prod        # Production build
-```
+This enables request/response patterns and broadcast messaging.
 
-### Quality Checks
+### Reactivity
 
-```bash
-bun run typecheck         # Type check
-bun run lint              # Lint
-bun run format            # Format
-bun run check             # Run all checks
-```
+Built on [Preact Signals](https://preactjs.com/guide/v10/signals/):
 
-### Verification & Visualization
+- Automatic UI updates when state changes
+- Fine-grained reactivity (only affected components re-render)
+- Works with Preact, React, Vue, Solid, etc.
 
-```bash
-cd packages/examples/full-featured
-bun run verify            # Run formal verification
-bun run visualize         # Generate architecture diagrams
-bun run visualize:serve   # View diagrams in browser
-```
+## Requirements
 
-## Framework Design Principles
-
-1. **Type Safety First** - Leverage TypeScript for compile-time guarantees
-2. **Zero Magic** - Explicit, predictable behavior without hidden abstractions
-3. **Developer Experience** - Fast builds, great error messages, comprehensive tooling
-4. **Framework Over Library** - Opinionated patterns that work well together
-5. **Formal Correctness** - Critical components verified with TLA+
-
-## Publishing
-
-The framework is published as a single package `@fairfox/polly` that includes:
-- Core framework (state management, message bus, adapters)
-- CLI with all commands (build, test, verify, visualize)
-- Development tools and analysis
-- Multi-platform support
-
-Internal packages (verify, visualize, analysis) are private workspace packages bundled into the main CLI.
-
-## Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
-
-Quick checks:
-
-1. All tests pass: `bun run test`
-2. Code is formatted: `bun run format`
-3. No lint errors: `bun run lint`
-4. Types are correct: `bun run typecheck`
-
-Or run everything at once:
-
-```bash
-bun run check
-```
-
-## Philosophy
-
-Polly (πολύς - "many") is designed for applications with **multiple execution contexts**:
-
-1. **Multi-Context First** - Built from the ground up for distributed execution
-2. **Type Safety** - End-to-end type guarantees across context boundaries
-3. **Zero Magic** - Explicit, predictable behavior without hidden abstractions
-4. **Framework Over Library** - Opinionated patterns that work well together
-5. **Formal Correctness** - Critical components verified with TLA+
-
-## Documentation
-
-- [Framework API Reference](./packages/polly/README.md)
-- [Contributing Guide](./CONTRIBUTING.md)
-- [Examples](./packages/examples/)
+- **Bun** 1.3+ (for building)
+- **TypeScript** 5.0+ (recommended)
+- **Chrome** 88+ (for Chrome extensions)
 
 ## License
 
-MIT
+MIT © 2024
 
-## Author
+---
 
-Alex Jeffcott
+**[Examples](https://github.com/AlexJeffcott/polly/tree/main/packages/examples)** · **[GitHub](https://github.com/AlexJeffcott/polly)** · **[Issues](https://github.com/AlexJeffcott/polly/issues)**

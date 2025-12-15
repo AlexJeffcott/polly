@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Internal restructuring**: Consolidated monorepo into single package at repository root
+- Moved tests from `packages/tests/` to `tests/`
+- Moved examples from `packages/examples/` to `examples/`
+- Flattened `packages/polly/` to repository root
+- Integrated analysis, verify, and visualize tools as vendored code
+- Updated all internal imports to use relative paths
+- Unified build and development workflow
+
+**Note:** This is an internal restructuring only - no API changes. All public exports remain the same.
+
 ## [0.5.2] - 2025-12-14
 
 ### Fixed
