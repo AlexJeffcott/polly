@@ -43,6 +43,6 @@
     }
   },
 
-  "include": ["src/**/*", "cli/**/*", "scripts/**/*", "build.ts", "bun-env.d.ts"],
-  "exclude": ["dist", "node_modules", "releases"]
+  "include": ["src/**/*", "cli/**/*", "scripts/**/*", "build.ts", "build-lib.ts", "bun-env.d.ts", "vendor/**/*"],
+  "exclude": ["dist", "node_modules", "releases", "tests", "examples"]
 }

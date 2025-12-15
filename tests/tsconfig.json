@@ -1,5 +1,5 @@
 {
-  "extends": "../packages/polly/tsconfig.json",
+  "extends": "../tsconfig.json",
   "compilerOptions": {
     "noPropertyAccessFromIndexSignature": false,
     "noUnusedLocals": false,
@@ -7,21 +7,21 @@
     "exactOptionalPropertyTypes": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../packages/polly/src/*"],
-      "@atoms": ["../packages/polly/src/ui/atoms/index"],
-      "@atoms/*": ["../packages/polly/src/ui/atoms/*"],
-      "@molecules": ["../packages/polly/src/ui/molecules/index"],
-      "@molecules/*": ["../packages/polly/src/ui/molecules/*"],
-      "@pages": ["../packages/polly/src/ui/pages/index"],
-      "@pages/*": ["../packages/polly/src/ui/pages/*"],
-      "@fairfox/polly": ["../packages/polly/src/index.ts"],
-      "@fairfox/polly/state": ["../packages/polly/src/shared/lib/state.ts"],
-      "@fairfox/polly/message-bus": ["../packages/polly/src/shared/lib/message-bus.ts"],
-      "@fairfox/polly/background": ["../packages/polly/src/background/index.ts"],
-      "@fairfox/polly/message-router": ["../packages/polly/src/background/message-router.ts"],
-      "@fairfox/polly/adapters": ["../packages/polly/src/shared/adapters/index.ts"],
-      "@fairfox/polly/errors": ["../packages/polly/src/shared/lib/errors.ts"],
-      "@fairfox/polly/types": ["../packages/polly/src/shared/types/messages.ts"]
+      "@/*": ["../src/*"],
+      "@atoms": ["../src/ui/atoms/index"],
+      "@atoms/*": ["../src/ui/atoms/*"],
+      "@molecules": ["../src/ui/molecules/index"],
+      "@molecules/*": ["../src/ui/molecules/*"],
+      "@pages": ["../src/ui/pages/index"],
+      "@pages/*": ["../src/ui/pages/*"],
+      "@fairfox/polly": ["../src/index.ts"],
+      "@fairfox/polly/state": ["../src/shared/lib/state.ts"],
+      "@fairfox/polly/message-bus": ["../src/shared/lib/message-bus.ts"],
+      "@fairfox/polly/background": ["../src/background/index.ts"],
+      "@fairfox/polly/message-router": ["../src/background/message-router.ts"],
+      "@fairfox/polly/adapters": ["../src/shared/adapters/index.ts"],
+      "@fairfox/polly/errors": ["../src/shared/lib/errors.ts"],
+      "@fairfox/polly/types": ["../src/shared/types/messages.ts"]
     }
   },
   "include": ["./**/*"],
