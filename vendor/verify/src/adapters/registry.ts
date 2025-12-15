@@ -5,7 +5,7 @@
 // Maps ProjectType to appropriate adapter with sensible defaults.
 // Automatically selects the correct adapter based on detected project type.
 
-import type { ProjectType } from "@fairfox/polly-analysis"
+import type { ProjectType } from "../../analysis/src"
 import type { RoutingAdapter } from "./base"
 import { WebExtensionAdapter, type WebExtensionAdapterConfig } from "./web-extension"
 import { WebSocketAdapter, type WebSocketAdapterConfig } from "./websocket"

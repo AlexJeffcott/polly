@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "noEmit": false,
+    "rootDir": "src"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/content/**/*",
+    "src/devtools/**/*",
+    "src/options/**/*",
+    "src/popup/**/*",
+    "src/offscreen/**/*",
+    "src/page/**/*",
+    "src/ui/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

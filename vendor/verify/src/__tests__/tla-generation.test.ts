@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test"
 import { generateTLA } from "../codegen/tla"
-import { analyzeCodebase, detectProjectConfig } from "@fairfox/polly-analysis"
+import { analyzeCodebase, detectProjectConfig } from "../../analysis/src"
 import { generateConfig } from "../codegen/config"
 import path from "node:path"
 

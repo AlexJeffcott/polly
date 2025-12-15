@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test"
 import { generateConfig } from "../codegen/config"
-import { detectProjectConfig } from "@fairfox/polly-analysis"
+import { detectProjectConfig } from "../../analysis/src"
 import path from "node:path"
 
 describe("Config Generation for Different Project Types", () => {

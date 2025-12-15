@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { detectProjectConfig } from "@fairfox/polly-analysis"
+import { detectProjectConfig } from "../../analysis/src"
 import path from "node:path"
 
 describe("Project Detection for Verify Command", () => {

@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test"
 import { selectAdapter, ADAPTER_REGISTRY } from "../adapters/registry"
-import { detectProjectConfig } from "@fairfox/polly-analysis"
-import type { ProjectType } from "@fairfox/polly-analysis"
+import { detectProjectConfig } from "../../analysis/src"
+import type { ProjectType } from "../../analysis/src"
 import path from "node:path"
 
 describe("Adapter Selection", () => {
