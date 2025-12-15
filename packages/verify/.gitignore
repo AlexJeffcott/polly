@@ -1,6 +1,0 @@
-node_modules/
-*.log
-examples/specs/tla/generated/
-examples/generated/
-**/states/
-examples/specs/verification.config.ts
