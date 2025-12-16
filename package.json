@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -45,6 +45,10 @@
     "./types": {
       "import": "./dist/src/shared/types/messages.js",
       "types": "./dist/shared/types/messages.d.ts"
+    },
+    "./verify": {
+      "import": "./dist/vendor/verify/src/public-api.js",
+      "types": "./dist/vendor/verify/src/public-api.d.ts"
     }
   },
   "files": ["dist", "templates", "README.md", "LICENSE"],

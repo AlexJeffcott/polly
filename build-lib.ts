@@ -40,6 +40,9 @@ const libResult = await Bun.build({
     "src/shared/state/app-state.ts",
     "src/background/index.ts",
     "src/background/message-router.ts",
+
+    // Verify tool public API (lightweight, no heavy deps)
+    "vendor/verify/src/public-api.ts",
   ],
   outdir: DIST_DIR,
   target: "browser",
@@ -117,9 +120,8 @@ try {
       outDir: "dist",
       skipLibCheck: true,
       noEmit: false,
-      rootDir: "src",
     },
-    include: ["src/**/*"],
+    include: ["src/**/*", "vendor/verify/src/public-api.ts"],
     exclude: [
       "src/content/**/*",
       "src/devtools/**/*",

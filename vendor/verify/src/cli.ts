@@ -235,10 +235,10 @@ async function runFullVerification(configPath: string) {
   const { generateTLA } = await import("./codegen/tla")
   const { DockerRunner } = await import("./runner/docker")
 
-  // Load config
-  delete require.cache[require.resolve(path.resolve(configPath))]
-  const configModule = require(path.resolve(configPath))
-  const config = configModule.default || configModule
+  // Load config (using dynamic import with cache busting)
+  const resolvedPath = path.resolve(configPath)
+  const configModule = await import(`file://${resolvedPath}?t=${Date.now()}`)
+  const config = configModule.default
 
   // Analyze codebase
   console.log(color("📊 Analyzing codebase...", COLORS.blue))

@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2025-12-16
+
+### Fixed
+
+#### Critical: Verify Feature Now Works (Issue #10)
+Fixes the verify command which was completely broken in v0.5.3 due to missing package export.
+
+**Bug 1: Missing ./verify export**
+- Added `./verify` export to package.json pointing to lightweight public API
+- Users can now import `defineVerification` from `@fairfox/polly/verify`
+- Created new `public-api.ts` entry point (780 bytes, zero dependencies)
+- Full verify API (adapters, analysis) remains in bundled CLI only
+
+**Bug 2: CommonJS require() in ESM codebase**
+- Replaced `require()` with ESM dynamic `import()` in verify CLI
+- Added cache busting with timestamp query parameter
+- Properly handles ESM default exports
+
+**Impact:** The verify feature is now fully functional. Before this fix:
+- `polly verify --setup` ✅ worked (generated config)
+- `polly verify --validate` ❌ failed (couldn't load config)
+
+After this fix, both commands work correctly.
+
+**Technical Details:**
+- Public API exports only `defineVerification` function and config types
+- Heavy dependencies (ts-morph, analysis tools) only bundled in CLI
+- User config files have zero runtime dependencies beyond polly itself
+
+Fixes #10
+
 ## [0.5.3] - 2025-12-15
 
 ### Changed
