@@ -81,11 +81,11 @@ export class ADRExtractor {
 
     // Extract ID from filename (e.g., "0001-use-preact.md" → "0001")
     const idMatch = fileName.match(/^(\d+)/)
-    const id = idMatch ? idMatch[1] : fileName
+    const id = idMatch?.[1] ?? fileName
 
     // Extract title from first heading
     const titleMatch = content.match(/^#\s+(.+)$/m)
-    const title = titleMatch ? titleMatch[1].trim() : fileName
+    const title = titleMatch?.[1]?.trim() ?? fileName
 
     // Extract status
     const status = this.extractStatus(content)
@@ -123,8 +123,8 @@ export class ADRExtractor {
       context,
       decision,
       consequences,
-      alternatives,
-      links,
+      ...(alternatives && alternatives.length > 0 ? { alternatives } : {}),
+      ...(links.length > 0 ? { links } : {}),
       source: filePath,
     }
   }
@@ -136,8 +136,8 @@ export class ADRExtractor {
     const statusMatch = content.match(/Status:\s*(\w+)/i)
     if (!statusMatch) return "accepted"
 
-    const status = statusMatch[1].toLowerCase()
-    if (["proposed", "accepted", "deprecated", "superseded"].includes(status)) {
+    const status = statusMatch[1]?.toLowerCase()
+    if (status && ["proposed", "accepted", "deprecated", "superseded"].includes(status)) {
       return status as ADRStatus
     }
 
@@ -153,7 +153,7 @@ export class ADRExtractor {
       content.match(/Date:\s*(\d{4}-\d{2}-\d{2})/i) ||
       content.match(/(\d{4}-\d{2}-\d{2})/i)
 
-    return dateMatch ? dateMatch[1] : new Date().toISOString().split("T")[0]
+    return dateMatch?.[1] ?? new Date().toISOString().split("T")[0]!
   }
 
   /**
@@ -167,7 +167,7 @@ export class ADRExtractor {
     )
     const match = content.match(regex)
 
-    return match ? match[1].trim() : ""
+    return match?.[1]?.trim() ?? ""
   }
 
   /**
@@ -181,10 +181,11 @@ export class ADRExtractor {
     if (supersedesMatch) {
       for (const match of supersedesMatch) {
         const idMatch = match.match(/ADR-(\d+)/)
-        if (idMatch) {
+        const id = idMatch?.[1]
+        if (id) {
           links.push({
             type: "supersedes",
-            adrId: idMatch[1],
+            adrId: id,
           })
         }
       }
@@ -194,10 +195,11 @@ export class ADRExtractor {
     if (supersededByMatch) {
       for (const match of supersededByMatch) {
         const idMatch = match.match(/ADR-(\d+)/)
-        if (idMatch) {
+        const id = idMatch?.[1]
+        if (id) {
           links.push({
             type: "superseded-by",
-            adrId: idMatch[1],
+            adrId: id,
           })
         }
       }

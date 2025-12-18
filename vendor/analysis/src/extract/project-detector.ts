@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { ProjectConfig, ProjectType } from "../types/architecture";
+import type { ProjectConfig } from "../types/architecture";
 
 /**
  * Detect project type and generate configuration
@@ -97,7 +97,7 @@ export class ProjectDetector {
 			const file =
 				background.service_worker || background.scripts?.[0] || background.page;
 			if (file) {
-				entryPoints.background = this.findSourceFile(file);
+				entryPoints['background'] = this.findSourceFile(file);
 			}
 		}
 
@@ -106,7 +106,7 @@ export class ProjectDetector {
 		if (contentScripts && contentScripts.length > 0) {
 			const firstScript = contentScripts[0].js?.[0];
 			if (firstScript) {
-				entryPoints.content = this.findSourceFile(firstScript);
+				entryPoints['content'] = this.findSourceFile(firstScript);
 			}
 		}
 
@@ -115,7 +115,7 @@ export class ProjectDetector {
 			manifest.action?.default_popup || manifest.browser_action?.default_popup;
 		if (popup) {
 			const jsFile = this.findAssociatedJS(path.join(this.projectRoot, popup));
-			if (jsFile) entryPoints.popup = jsFile;
+			if (jsFile) entryPoints['popup'] = jsFile;
 		}
 
 		// Options
@@ -124,7 +124,7 @@ export class ProjectDetector {
 			const jsFile = this.findAssociatedJS(
 				path.join(this.projectRoot, options),
 			);
-			if (jsFile) entryPoints.options = jsFile;
+			if (jsFile) entryPoints['options'] = jsFile;
 		}
 
 		return {
@@ -156,7 +156,7 @@ export class ProjectDetector {
 		for (const candidate of swCandidates) {
 			const fullPath = path.join(this.projectRoot, candidate);
 			if (fs.existsSync(fullPath)) {
-				entryPoints.worker = fullPath;
+				entryPoints['worker'] = fullPath;
 				break;
 			}
 		}
@@ -173,7 +173,7 @@ export class ProjectDetector {
 		for (const candidate of clientCandidates) {
 			const fullPath = path.join(this.projectRoot, candidate);
 			if (fs.existsSync(fullPath)) {
-				entryPoints.client = fullPath;
+				entryPoints['client'] = fullPath;
 				break;
 			}
 		}
@@ -214,7 +214,7 @@ export class ProjectDetector {
 				fs.existsSync(fullPath) ||
 				fs.existsSync(fullPath.replace(/\.js$/, ".ts"))
 			) {
-				entryPoints.main = fs.existsSync(fullPath)
+				entryPoints['main'] = fs.existsSync(fullPath)
 					? fullPath
 					: fullPath.replace(/\.js$/, ".ts");
 				break;
@@ -232,7 +232,7 @@ export class ProjectDetector {
 		for (const candidate of rendererCandidates) {
 			const fullPath = path.join(this.projectRoot, candidate);
 			if (fs.existsSync(fullPath)) {
-				entryPoints.renderer = fullPath;
+				entryPoints['renderer'] = fullPath;
 				break;
 			}
 		}
@@ -277,16 +277,16 @@ export class ProjectDetector {
 
 		const scoredServers = this.scoreServerCandidates(serverCandidates);
 		if (scoredServers.length > 0) {
-			const best = scoredServers[0];
-			entryPoints.server = best.path;
+			const best = scoredServers[0]!;
+			entryPoints['server'] = best.path;
 
 			// Add context based on detected frameworks
 			if (best.hasWebSocket) {
-				contextMapping.server = "WebSocket Server";
+				contextMapping['server'] = "WebSocket Server";
 			} else if (best.hasHTTP) {
-				contextMapping.server = "HTTP Server";
+				contextMapping['server'] = "HTTP Server";
 			} else {
-				contextMapping.server = "Server";
+				contextMapping['server'] = "Server";
 			}
 		}
 
@@ -303,8 +303,8 @@ export class ProjectDetector {
 		for (const candidate of clientCandidates) {
 			const fullPath = path.join(this.projectRoot, candidate);
 			if (fs.existsSync(fullPath)) {
-				entryPoints.client = fullPath;
-				contextMapping.client = "Client";
+				entryPoints['client'] = fullPath;
+				contextMapping['client'] = "Client";
 				break;
 			}
 		}
@@ -510,7 +510,7 @@ export class ProjectDetector {
 			for (const candidate of commonEntries) {
 				const fullPath = path.join(this.projectRoot, candidate);
 				if (fs.existsSync(fullPath)) {
-					entryPoints.main = fullPath;
+					entryPoints['main'] = fullPath;
 					break;
 				}
 			}

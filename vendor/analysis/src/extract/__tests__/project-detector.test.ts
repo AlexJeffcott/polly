@@ -61,10 +61,10 @@ wss.on('connection', (ws) => {
 			const config = detectProjectConfig(tempDir);
 
 			expect(config.type).toBe("websocket-app");
-			expect(config.entryPoints.server).toBeDefined();
-			expect(config.entryPoints.server).toContain("server.ts"); // Path string should contain filename
+			expect(config.entryPoints['server']).toBeDefined();
+			expect(config.entryPoints['server']).toContain("server.ts"); // Path string should contain filename
 			// Note: contextMapping currently returns "WebSocket Server", not "Server"
-			expect(config.contextMapping?.server).toBe("WebSocket Server");
+			expect(config.contextMapping?.['server']).toBe("WebSocket Server");
 		});
 
 		test("should detect Socket.io server", () => {
@@ -104,7 +104,7 @@ io.on('connection', (socket) => {
 			const config = detectProjectConfig(tempDir);
 
 			expect(config.type).toBe("websocket-app");
-			expect(config.entryPoints.server).toBeDefined();
+			expect(config.entryPoints['server']).toBeDefined();
 		});
 
 		test("should detect Elysia WebSocket server", () => {
@@ -144,7 +144,7 @@ const app = new Elysia()
 			const config = detectProjectConfig(tempDir);
 
 			expect(config.type).toBe("websocket-app");
-			expect(config.entryPoints.server).toBeDefined();
+			expect(config.entryPoints['server']).toBeDefined();
 		});
 
 		test("should use server context key (not websocket-server)", () => {
@@ -170,10 +170,10 @@ const wss = new WebSocketServer({ port: 8080 });`,
 			const config = detectProjectConfig(tempDir);
 
 			// Should use "server" as the key, NOT "websocket-server"
-			expect(config.contextMapping?.server).toBeDefined();
+			expect(config.contextMapping?.['server']).toBeDefined();
 			expect(config.contextMapping).not.toHaveProperty("websocket-server");
 			// Note: The value is "WebSocket Server", not "Server"
-			expect(config.contextMapping?.server).toBe("WebSocket Server");
+			expect(config.contextMapping?.['server']).toBe("WebSocket Server");
 		});
 	});
 
@@ -249,9 +249,9 @@ const wss = new WebSocketServer({ port: 8080 });`,
 
 			// Note: contextMapping value varies - sometimes "WebSocket Server", sometimes "Server"
 			// depending on whether WebSocket framework is detected
-			expect(config.contextMapping?.server).toBeDefined();
+			expect(config.contextMapping?.['server']).toBeDefined();
 			expect(["Server", "WebSocket Server"]).toContain(
-				config.contextMapping?.server,
+				config.contextMapping?.['server']!,
 			);
 		});
 
@@ -272,8 +272,8 @@ const wss = new WebSocketServer({ port: 8080 });`,
 			const config = detectProjectConfig(tempDir);
 
 			// Client detection may not be implemented yet - skip if not present
-			if (config.contextMapping?.client) {
-				expect(config.contextMapping.client).toBe("Client");
+			if (config.contextMapping?.['client']) {
+				expect(config.contextMapping['client']).toBe("Client");
 			} else {
 				console.log("⚠️  Client context detection not yet implemented");
 			}
@@ -308,8 +308,8 @@ const wss = new WebSocketServer({ port: 8080 });`,
 			const config = detectProjectConfig(testDir);
 
 			// entryPoints.server is a string, not an array
-			expect(config.entryPoints.server).toBeDefined();
-			expect(config.entryPoints.server).toContain(filename);
+			expect(config.entryPoints['server']).toBeDefined();
+			expect(config.entryPoints['server']).toContain(filename);
 
 			fs.rmSync(testDir, { recursive: true });
 		});
@@ -342,8 +342,8 @@ const wss = new WebSocketServer({ port: 8080 });`,
 
 			// Currently this will be undefined because only server.ts is detected
 			// TODO: Implement fallback to index.ts, app.ts, main.ts
-			if (config.entryPoints.server) {
-				expect(config.entryPoints.server).toContain("index.ts");
+			if (config.entryPoints['server']) {
+				expect(config.entryPoints['server']).toContain("index.ts");
 			} else {
 				console.log(
 					"⚠️  Only server.ts is detected as entry point - index.ts, app.ts, main.ts not supported yet",
@@ -372,10 +372,10 @@ const wss = new WebSocketServer({ port: 8080 });`,
 
 			const config = detectProjectConfig(tempDir);
 
-			expect(config.entryPoints.server).toBeDefined();
+			expect(config.entryPoints['server']).toBeDefined();
 			// entryPoints.server is a string path that should contain "src"
-			if (config.entryPoints.server) {
-				expect(config.entryPoints.server).toContain("src");
+			if (config.entryPoints['server']) {
+				expect(config.entryPoints['server']).toContain("src");
 			}
 		});
 	});
@@ -411,7 +411,7 @@ const wss = new WebSocketServer({ port: 8080 });`,
 				const config = detectProjectConfig(testDir);
 
 				expect(config.type).toBe("websocket-app");
-				expect(config.entryPoints.server).toBeDefined();
+				expect(config.entryPoints['server']).toBeDefined();
 
 				fs.rmSync(testDir, { recursive: true });
 			}

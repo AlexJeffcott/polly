@@ -12,7 +12,6 @@ import type {
   MessageHandler,
   StateAssignment,
   VerificationCondition,
-  CodebaseAnalysis,
 } from "../core/model";
 
 // ─────────────────────────────────────────────────────────────────
@@ -146,8 +145,6 @@ export abstract class BaseRoutingAdapter<TConfig extends AdapterConfig = Adapter
    * Subclasses can use this helper to avoid duplicating condition extraction logic.
    */
   protected extractConditionFromCall(
-    callNode: Node,
-    expectedFunctionName: string
   ): VerificationCondition | null {
     // Shared implementation for requires()/ensures() extraction
     // This will be implemented when we refactor the existing handler extraction
@@ -157,7 +154,7 @@ export abstract class BaseRoutingAdapter<TConfig extends AdapterConfig = Adapter
   /**
    * Common pattern: Extract state assignments from binary expressions
    */
-  protected extractAssignmentFromBinaryExpr(binaryNode: Node): StateAssignment | null {
+  protected extractAssignmentFromBinaryExpr(): StateAssignment | null {
     // Shared implementation for state.field = value extraction
     return null;
   }

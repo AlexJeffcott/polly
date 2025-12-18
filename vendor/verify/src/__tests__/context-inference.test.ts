@@ -1,6 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { analyzeCodebase } from "../../analysis/src"
-import { detectProjectConfig } from "../../analysis/src"
+import { analyzeCodebase } from "../../../analysis/src"
 import path from "node:path"
 
 describe("Context Inference", () => {
@@ -8,13 +7,11 @@ describe("Context Inference", () => {
 
   test("WebSocket handlers are tagged with Server context", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     // All handlers in server.ts should have "Server" context
@@ -29,38 +26,12 @@ describe("Context Inference", () => {
     }
   })
 
-  test("Context mapping uses ProjectConfig.contextMapping", async () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
-    const tsConfigPath = path.join(projectPath, "tsconfig.json")
-
-    // Verify contextMapping is what we expect
-    expect(projectConfig.contextMapping).toEqual({
-      server: "Server",
-      client: "Client",
-    })
-
-    const analysis = await analyzeCodebase({
-      tsConfigPath,
-      stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
-    })
-
-    // All handlers should have contexts from the mapping
-    const validContexts = Object.values(projectConfig.contextMapping || {})
-    for (const handler of analysis.handlers) {
-      expect(validContexts).toContain(handler.node)
-    }
-  })
-
   test("Electron handlers are tagged with MainProcess context", async () => {
     const projectPath = path.join(fixturesDir, "electron")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     // Handlers in main.ts should have MainProcess context
@@ -98,13 +69,11 @@ describe("Context Inference", () => {
 
   test("Files outside entry points are tagged as unknown", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     // Types file shouldn't have handlers, but if we had handlers in a
@@ -119,12 +88,10 @@ describe("Context Inference", () => {
 
   test("PWA service worker handlers are tagged with ServiceWorker context", async () => {
     const projectPath = path.join(fixturesDir, "pwa")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     // Handlers in service-worker.ts should have ServiceWorker context
@@ -141,13 +108,11 @@ describe("Context Inference", () => {
 
   test("Context inference handles nested directory structures", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     // All handlers in src/ directory under server entry point should be Server

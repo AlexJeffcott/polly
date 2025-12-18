@@ -14,7 +14,7 @@ declare const db: {
 };
 
 // Handler implementation - this is where the relationships should be detected
-export async function handleQuery(message: QueryMessage) {
+export async function handleQuery(_message: QueryMessage) {
 	// This should be detected as: query_handler -> user_service
 	const users = await userService.listUsers();
 

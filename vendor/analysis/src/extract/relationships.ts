@@ -1,7 +1,7 @@
 // Component relationship extraction from TypeScript code
 // Detects function calls, imports, and dependencies between components
 
-import { Node, type SourceFile, SyntaxKind, type CallExpression } from "ts-morph";
+import { Node, type SourceFile, type CallExpression } from "ts-morph";
 
 /**
  * Represents a relationship between components detected from code analysis
@@ -186,7 +186,7 @@ export class RelationshipExtractor {
 			const methodName = expr.getName();
 
 			// Map common patterns to component names
-			targetComponent = this.inferComponentFromCall(objectName, methodName);
+			targetComponent = this.inferComponentFromCall(objectName);
 
 			if (!targetComponent) {
 				return null;
@@ -240,7 +240,7 @@ export class RelationshipExtractor {
 		const objectName = rootObject.getText();
 
 		// Map object name to component name
-		const targetComponent = this.inferComponentFromCall(objectName, methodName);
+		const targetComponent = this.inferComponentFromCall(objectName);
 
 		if (!targetComponent) {
 			return null;
@@ -306,7 +306,7 @@ export class RelationshipExtractor {
 		handlerName: string
 	): DetectedRelationship | null {
 		const args = callExpr.getArguments();
-		if (args.length === 0) {
+		if (args.length === 0 || !args[0]) {
 			return null;
 		}
 
@@ -334,8 +334,7 @@ export class RelationshipExtractor {
 	 * Infer component name from object.method pattern
 	 */
 	private inferComponentFromCall(
-		objectName: string,
-		methodName: string
+		objectName: string
 	): string | null {
 		const mappings: Record<string, string> = {
 			db: "db_client",
@@ -468,7 +467,7 @@ export class RelationshipExtractor {
 					) {
 						// Extract service name from path
 						const match = modulePath.match(/\/([^/]+)\.ts$/);
-						if (match) {
+						if (match && match[1]) {
 							return this.toComponentId(match[1]);
 						}
 					}

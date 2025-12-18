@@ -1,7 +1,6 @@
 import { describe, test, expect } from "bun:test"
 import { generateTLA } from "../codegen/tla"
-import { analyzeCodebase, detectProjectConfig } from "../../analysis/src"
-import { generateConfig } from "../codegen/config"
+import { analyzeCodebase } from "../../../analysis/src"
 import path from "node:path"
 
 describe("TLA+ Spec Generation", () => {
@@ -9,13 +8,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("WebSocket spec includes WebSocketServer template", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     // Generate a minimal config for testing
@@ -26,7 +23,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should include WebSocketServer template
     expect(tla.spec).toContain("INSTANCE WebSocketServer")
@@ -37,17 +34,10 @@ describe("TLA+ Spec Generation", () => {
 
   test("Chrome extension spec includes ChromeExtension template", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = {
-      type: "chrome-extension" as const,
-      entryPoints: {},
-      contextMapping: {},
-      metadata: {},
-    }
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     const config = {
@@ -57,7 +47,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should include ChromeExtension template
     expect(tla.spec).toContain("INSTANCE ChromeExtension")
@@ -68,13 +58,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("WebSocket spec declares MaxClients constant", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     const config = {
@@ -84,7 +72,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should declare MaxClients constant in .cfg file
     expect(tla.cfg).toContain("MaxClients")
@@ -93,17 +81,10 @@ describe("TLA+ Spec Generation", () => {
 
   test("Chrome extension spec declares MaxTabId constant", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = {
-      type: "chrome-extension" as const,
-      entryPoints: {},
-      contextMapping: {},
-      metadata: {},
-    }
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     const config = {
@@ -113,7 +94,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should declare MaxTabId constant in .cfg file
     expect(tla.cfg).toContain("MaxTabId")
@@ -122,13 +103,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("Generated spec includes all message types", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     const config = {
@@ -138,7 +117,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should declare MessageTypes set
     expect(tla.spec).toMatch(/MessageTypes\s*==/)
@@ -152,13 +131,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("Generated spec includes state variables", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     const config = {
@@ -168,7 +145,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should have VARIABLE section (TLA+ uses singular VARIABLE for declarations)
     expect(tla.spec).toMatch(/VARIABLE/)
@@ -180,13 +157,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("Generated spec has valid TLA+ structure", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     const config = {
@@ -196,7 +171,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should have MODULE declaration
     expect(tla.spec).toMatch(/----+ MODULE \w+ ----+/)
@@ -216,20 +191,10 @@ describe("TLA+ Spec Generation", () => {
 
   test("Generic project spec uses generic constants", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = {
-      type: "generic" as const,
-      entryPoints: {
-        main: "src/index.ts",
-        worker: "src/worker.ts",
-      },
-      contextMapping: {},
-      metadata: {},
-    }
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     const config = {
@@ -239,7 +204,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Generic projects now use MaxContexts (no more fallback to Chrome extension)
     expect(tla.cfg).toContain("MaxContexts")
@@ -257,12 +222,10 @@ describe("TLA+ Spec Generation", () => {
 
   test("Electron spec includes appropriate constants", async () => {
     const projectPath = path.join(fixturesDir, "electron")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     const config = {
@@ -272,7 +235,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should reference renderers or main process concepts
     expect(tla.spec).toBeDefined()
@@ -283,13 +246,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("Generated spec includes handler operators", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
-      projectConfig,
     })
 
     const config = {
@@ -299,7 +260,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should have action definitions for handlers
     // Look for pattern like "HandleConnection(ctx) =="
@@ -308,12 +269,10 @@ describe("TLA+ Spec Generation", () => {
 
   test("PWA spec uses appropriate template", async () => {
     const projectPath = path.join(fixturesDir, "pwa")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
-      projectConfig,
     })
 
     const config = {
@@ -323,7 +282,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // PWA should use similar concepts to web extensions
     expect(tla.spec).toBeDefined()
@@ -334,13 +293,11 @@ describe("TLA+ Spec Generation", () => {
 
   test("Spec generation handles empty state gracefully", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
     const analysis = await analyzeCodebase({
       tsConfigPath,
       // No stateFilePath provided
-      projectConfig,
     })
 
     const config = {
@@ -350,7 +307,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis, projectConfig)
+    const tla = generateTLA(config, analysis)
 
     // Should still generate valid spec
     expect(tla.spec).toMatch(/----+ MODULE \w+ ----+/)
@@ -371,17 +328,9 @@ describe("TLA+ Spec Generation", () => {
     const projectPath = path.join(fixturesDir, "websocket-server")
     const tsConfigPath = path.join(projectPath, "tsconfig.json")
 
-    for (const { type, messages } of projectTypes) {
-      const projectConfig = {
-        type,
-        entryPoints: type === "generic" ? { main: "src/index.ts", worker: "src/worker.ts" } : {},
-        contextMapping: {},
-        metadata: {},
-      }
-
+    for (const { type: _type, messages } of projectTypes) {
       const analysis = await analyzeCodebase({
         tsConfigPath,
-        projectConfig,
       })
 
       const config = {
@@ -391,7 +340,7 @@ describe("TLA+ Spec Generation", () => {
         onRelease: "error" as const,
       }
 
-      const tla = generateTLA(config, analysis, projectConfig)
+      const tla = generateTLA(config, analysis)
 
       // Every project type should have MaxInFlight in .cfg file
       expect(tla.cfg).toMatch(/MaxInFlight\s*=\s*5/)

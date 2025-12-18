@@ -61,6 +61,7 @@ export class ConfigGenerator {
 
     for (let i = 0; i < fields.length; i++) {
       const field = fields[i];
+      if (!field) continue;
 
       // Add blank line between fields
       if (i > 0) {

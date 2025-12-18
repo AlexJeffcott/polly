@@ -1,16 +1,14 @@
 // Structurizr DSL generator
 
-import type { ArchitectureAnalysis } from "../../analysis/src";
+import type { ArchitectureAnalysis } from "../../../analysis/src";
 import type {
 	StructurizrDSLOptions as EnhancedDSLOptions,
 	ElementStyle,
 	RelationshipStyle,
 	ComponentProperties,
-	ComponentRelationship,
 	ComponentGroup,
 	DynamicDiagram,
 	DeploymentNode,
-	ContainerInstance,
 } from "../types/structurizr";
 import {
 	DEFAULT_ELEMENT_STYLES,
@@ -19,7 +17,6 @@ import {
 } from "../types/structurizr";
 
 // Re-export the enhanced type
-export type { EnhancedDSLOptions as StructurizrDSLOptions };
 export type StructurizrDSLOptions = EnhancedDSLOptions;
 
 export class StructurizrDSLGenerator {
@@ -129,8 +126,6 @@ export class StructurizrDSLGenerator {
 
     for (const integration of this.analysis.integrations) {
       if (integration.type === "api" || integration.type === "websocket") {
-        const tech =
-          integration.technology || (integration.type === "websocket" ? "WebSocket" : "REST API");
         let desc = integration.description || "";
 
         // Generate better description from API calls if available
@@ -321,7 +316,7 @@ export class StructurizrDSLGenerator {
   /**
    * Generate better component descriptions based on message type
    */
-  private generateComponentDescription(messageType: string, handler: any): string {
+  private generateComponentDescription(messageType: string, _handler: any): string {
     const type = messageType.toLowerCase();
 
     // Authentication related
@@ -363,7 +358,7 @@ export class StructurizrDSLGenerator {
   /**
    * Determine appropriate tags for a component
    */
-  private getComponentTags(messageType: string, handler: any): string[] {
+  private getComponentTags(messageType: string, _handler: any): string[] {
     const tags: string[] = ["Message Handler"];
     const type = messageType.toLowerCase();
 
@@ -467,7 +462,7 @@ export class StructurizrDSLGenerator {
   /**
    * Generate relationships between components within a container
    */
-  private generateComponentRelationships(contextType: string, contextInfo: any): string {
+  private generateComponentRelationships(_contextType: string, contextInfo: any): string {
     const parts: string[] = [];
 
     // Build a map of handler components
@@ -485,7 +480,7 @@ export class StructurizrDSLGenerator {
         const apiId = this.toId(`chrome_${api}`);
 
         // Find handlers that use this API
-        for (const [messageType, handlers] of handlersByType) {
+        for (const [messageType, _handlers] of handlersByType) {
           const componentId = this.toId(this.toComponentName(messageType));
 
           // Infer relationship based on API
@@ -548,7 +543,7 @@ export class StructurizrDSLGenerator {
     const stateHandlers: string[] = [];
     const queryHandlers: string[] = [];
 
-    for (const [messageType, handlers] of handlersByType) {
+    for (const [messageType, _handlers] of handlersByType) {
       const type = messageType.toLowerCase();
       const componentId = this.toId(this.toComponentName(messageType));
 
@@ -788,8 +783,6 @@ export class StructurizrDSLGenerator {
    */
   private generateAutomaticDynamicDiagrams(): string[] {
     const diagrams: string[] = [];
-    const processedHandlers = new Set<string>();
-
     // Collect all handlers with relationships from all contexts
     type HandlerWithContext = {
       handler: any;
@@ -917,7 +910,7 @@ export class StructurizrDSLGenerator {
     let stepCount = 0;
 
     // For each handler, show its flow through services
-    for (const { handler, contextName } of handlers) {
+    for (const { handler, contextName: _contextName } of handlers) {
       const handlerComponentId = this.toId(`${handler.messageType}_handler`);
 
       // Show flow for each relationship
@@ -1041,7 +1034,7 @@ export class StructurizrDSLGenerator {
       state: "Application state synchronization",
       general: "Message flow through the system",
     };
-    return descriptions[domain] || descriptions.general;
+    return descriptions[domain] || descriptions['general']!;
   }
 
   /**
@@ -1054,7 +1047,7 @@ export class StructurizrDSLGenerator {
       state: "Requests state",
       general: "Interacts",
     };
-    return actions[domain] || actions.general;
+    return actions[domain] || actions['general']!;
   }
 
   /**
@@ -1356,16 +1349,6 @@ export class StructurizrDSLGenerator {
   }
 
   /**
-   * Convert flow name to view name
-   */
-  private toViewName(flowName: string): string {
-    return flowName
-      .split(/[_-]/)
-      .map((part) => this.capitalize(part))
-      .join(" ");
-  }
-
-  /**
    * Capitalize first letter
    */
   private capitalize(str: string): string {
@@ -1408,7 +1391,7 @@ export class StructurizrDSLGenerator {
 
     // Add perspectives if configured for this component
     if (this.options.perspectives && this.options.perspectives[comp.id]) {
-      const perspectives = this.options.perspectives[comp.id];
+      const perspectives = this.options.perspectives[comp.id]!;
       parts.push(`${indent}  perspectives {`);
       for (const perspective of perspectives) {
         parts.push(`${indent}    "${this.escape(perspective.name)}" "${this.escape(perspective.description)}"`);
@@ -1492,14 +1475,14 @@ export class StructurizrDSLGenerator {
       // Pattern 1: entity_action (e.g., "user_add", "todo_remove")
       const underscoreMatch = type.match(/^([a-z]+)_(add|create|update|delete|remove|get|fetch|load|list|query)/);
       if (underscoreMatch) {
-        entity = underscoreMatch[1];
+        entity = underscoreMatch[1] ?? null;
       }
 
       // Pattern 2: actionEntity (e.g., "addUser", "removeTask")
       if (!entity) {
         const camelMatch = type.match(/(add|create|update|delete|remove|get|fetch|load|list|query)([a-z]+)/i);
         if (camelMatch) {
-          entity = camelMatch[2].toLowerCase();
+          entity = camelMatch[2]?.toLowerCase() ?? null;
         }
       }
 

@@ -1,15 +1,13 @@
 import { describe, test, expect } from "bun:test"
 import { generateConfig } from "../codegen/config"
-import { detectProjectConfig } from "../../analysis/src"
-import path from "node:path"
 
 describe("Config Generation for Different Project Types", () => {
-  const fixturesDir = path.join(__dirname, "../../test-projects")
-
   // Mock analysis result
   const mockAnalysis = {
     stateType: {
+      name: "MockState",
       kind: "object" as const,
+      nullable: false,
       properties: {},
     },
     messageTypes: ["message1", "message2"],
@@ -18,10 +16,7 @@ describe("Config Generation for Different Project Types", () => {
   }
 
   test("generates WebSocket-specific config", () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
-
-    const configContent = generateConfig(mockAnalysis, projectConfig)
+    const configContent = generateConfig(mockAnalysis)
 
     // Should include WebSocket-specific fields
     expect(configContent).toContain("maxClients")
@@ -42,10 +37,7 @@ describe("Config Generation for Different Project Types", () => {
   })
 
   test("generates PWA-specific config", () => {
-    const projectPath = path.join(fixturesDir, "pwa")
-    const projectConfig = detectProjectConfig(projectPath)
-
-    const configContent = generateConfig(mockAnalysis, projectConfig)
+    const configContent = generateConfig(mockAnalysis)
 
     // Should include PWA-specific fields
     expect(configContent).toContain("maxWorkers")
@@ -55,10 +47,7 @@ describe("Config Generation for Different Project Types", () => {
   })
 
   test("generates Electron-specific config", () => {
-    const projectPath = path.join(fixturesDir, "electron")
-    const projectConfig = detectProjectConfig(projectPath)
-
-    const configContent = generateConfig(mockAnalysis, projectConfig)
+    const configContent = generateConfig(mockAnalysis)
 
     // Should include Electron-specific fields
     expect(configContent).toContain("maxRenderers")
@@ -67,10 +56,7 @@ describe("Config Generation for Different Project Types", () => {
   })
 
   test("includes entry points in config comment", () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
-
-    const configContent = generateConfig(mockAnalysis, projectConfig)
+    const configContent = generateConfig(mockAnalysis)
 
     // Should document entry points
     expect(configContent).toContain("Entry points:")
@@ -78,10 +64,7 @@ describe("Config Generation for Different Project Types", () => {
   })
 
   test("generates valid TypeScript code", () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const projectConfig = detectProjectConfig(projectPath)
-
-    const configContent = generateConfig(mockAnalysis, projectConfig)
+    const configContent = generateConfig(mockAnalysis)
 
     // Should have proper imports
     expect(configContent).toContain("import { defineVerification }")

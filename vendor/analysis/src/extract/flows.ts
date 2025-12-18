@@ -49,9 +49,9 @@ export class FlowAnalyzer {
           messageType,
           from: sender.context,
           to: recipients,
-          trigger: flowMetadata.trigger,
-          flowName: flowMetadata.flowName,
-          description: flowMetadata.description,
+          ...(flowMetadata.trigger ? { trigger: flowMetadata.trigger } : {}),
+          ...(flowMetadata.flowName ? { flowName: flowMetadata.flowName } : {}),
+          ...(flowMetadata.description ? { description: flowMetadata.description } : {}),
           sequence,
         })
       }

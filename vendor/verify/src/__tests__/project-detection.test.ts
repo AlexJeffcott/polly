@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { detectProjectConfig } from "../../analysis/src"
+import { detectProjectConfig } from "../../../analysis/src"
 import path from "node:path"
 
 describe("Project Detection for Verify Command", () => {
@@ -40,8 +40,8 @@ describe("Project Detection for Verify Command", () => {
     const config = detectProjectConfig(projectPath)
 
     expect(config.contextMapping).toBeDefined()
-    expect(config.contextMapping?.server).toBe("Server")
-    expect(config.contextMapping?.client).toBe("Client")
+    expect(config.contextMapping?.['server']).toBe("Server")
+    expect(config.contextMapping?.['client']).toBe("Client")
   })
 
   test("extracts metadata from package.json", () => {

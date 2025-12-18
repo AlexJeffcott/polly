@@ -99,7 +99,7 @@ async function setupCommand() {
       }
 
       for (const row of table) {
-        console.log(`   ${row[0].padEnd(32)} ${row[1].padEnd(22)} ${row[2]}`)
+        console.log(`   ${row[0]?.padEnd(32) ?? ''} ${row[1]?.padEnd(22) ?? ''} ${row[2] ?? ''}`)
       }
     }
 

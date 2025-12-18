@@ -21,6 +21,7 @@ describe("DSL Generation", () => {
 	describe("Component Diagrams", () => {
 		test("should generate component diagrams for 'background' context (Chrome extensions)", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test Extension",
 					version: "1.0.0",
@@ -32,19 +33,23 @@ describe("DSL Generation", () => {
 						entryPoint: "background.ts",
 						handlers: [
 							{
+							node: "background",
+							assignments: [],
+							preconditions: [],
+							postconditions: [],
+							location: { file: "background.ts", line: 1 },
 								messageType: "query",
-								location: { file: "background.ts", line: 10, column: 0 },
-								pattern: "type-guard",
 							},
 							{
+							node: "background",
+							assignments: [],
+							preconditions: [],
+							postconditions: [],
+							location: { file: "background.ts", line: 1 },
 								messageType: "command",
-								location: { file: "background.ts", line: 15, column: 0 },
-								pattern: "type-guard",
 							},
 						],
 						chromeAPIs: [],
-						externalAPIs: [],
-						dependencies: [],
 						externalAPIs: [],
 						dependencies: [],
 					},
@@ -75,6 +80,7 @@ describe("DSL Generation", () => {
 
 		test("should generate component diagrams for 'server' context (WebSocket servers)", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test Server",
 					version: "1.0.0",
@@ -85,15 +91,21 @@ describe("DSL Generation", () => {
 						type: "server.ts",
 						handlers: [
 							{
-								messageType: "authenticate",
-								location: { file: "server.ts", line: 20, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "authenticate",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 							{
-								messageType: "query",
-								location: { file: "server.ts", line: 25, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "query",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -126,6 +138,7 @@ describe("DSL Generation", () => {
 
 		test("should NOT generate components when context not in componentDiagramContexts", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test Server",
 					version: "1.0.0",
@@ -136,10 +149,13 @@ describe("DSL Generation", () => {
 						type: "server.ts",
 						handlers: [
 							{
-								messageType: "query",
-								location: { file: "server.ts", line: 10, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "query",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -169,6 +185,7 @@ describe("DSL Generation", () => {
 
 		test("should generate components for multiple contexts", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test App",
 					version: "1.0.0",
@@ -179,10 +196,13 @@ describe("DSL Generation", () => {
 						type: "background.ts",
 						handlers: [
 							{
-								messageType: "sync",
-								location: { file: "background.ts", line: 10, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "sync",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -193,10 +213,13 @@ describe("DSL Generation", () => {
 						type: "worker.ts",
 						handlers: [
 							{
-								messageType: "process",
-								location: { file: "worker.ts", line: 15, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "process",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -228,6 +251,7 @@ describe("DSL Generation", () => {
 
 		test("should handle empty componentDiagramContexts array", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test",
 					version: "1.0.0",
@@ -238,10 +262,13 @@ describe("DSL Generation", () => {
 						type: "server.ts",
 						handlers: [
 							{
-								messageType: "query",
-								location: { file: "server.ts", line: 10, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "query",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -270,6 +297,7 @@ describe("DSL Generation", () => {
 
 		test("should handle context with no handlers", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test",
 					version: "1.0.0",
@@ -305,6 +333,7 @@ describe("DSL Generation", () => {
 	describe("Auto-detect contexts (Issue #7 fix)", () => {
 		test("should auto-detect all contexts when using Object.keys()", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Test Server",
 					version: "1.0.0",
@@ -315,10 +344,13 @@ describe("DSL Generation", () => {
 						type: "server.ts",
 						handlers: [
 							{
-								messageType: "query",
-								location: { file: "server.ts", line: 10, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "query",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -329,10 +361,13 @@ describe("DSL Generation", () => {
 						type: "worker.ts",
 						handlers: [
 							{
-								messageType: "process",
-								location: { file: "worker.ts", line: 15, column: 0 },
-								pattern: "type-guard",
-							},
+						messageType: "process",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "test.ts", line: 1 },
+					},
 						],
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -363,6 +398,7 @@ describe("DSL Generation", () => {
 	describe("Integration with different project types", () => {
 		test("Chrome extension with background context", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Chrome Extension",
 					version: "1.0.0",
@@ -371,7 +407,7 @@ describe("DSL Generation", () => {
 					background: {
 						entryPoint: "background.ts",
 						type: "background.ts",
-						handlers: [{ messageType: "test", location: { file: "bg.ts", line: 1, column: 0 }, pattern: "type-guard" }],
+				handlers: [],
 						chromeAPIs: [],
 						externalAPIs: [],
 						dependencies: [],
@@ -394,6 +430,7 @@ describe("DSL Generation", () => {
 
 		test("WebSocket server with server context", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "WebSocket Server",
 					version: "1.0.0",
@@ -402,7 +439,7 @@ describe("DSL Generation", () => {
 					server: {
 						entryPoint: "server.ts",
 						type: "server.ts",
-						handlers: [{ messageType: "message", location: { file: "server.ts", line: 1, column: 0 }, pattern: "type-guard" }],
+					handlers: [],
 						chromeAPIs: [],
 						externalAPIs: [],
 						dependencies: [],
@@ -425,6 +462,7 @@ describe("DSL Generation", () => {
 
 		test("PWA with serviceworker context", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "PWA",
 					version: "1.0.0",
@@ -432,8 +470,8 @@ describe("DSL Generation", () => {
 				contexts: {
 					serviceworker: {
 						entryPoint: "sw.ts",
+					handlers: [],
 						type: "sw.ts",
-						handlers: [{ messageType: "fetch", location: { file: "sw.ts", line: 1, column: 0 }, pattern: "type-guard" }],
 						chromeAPIs: [],
 						externalAPIs: [],
 						dependencies: [],
@@ -456,15 +494,16 @@ describe("DSL Generation", () => {
 
 		test("Web Worker with worker context", () => {
 			const analysis: ArchitectureAnalysis = {
+		projectRoot: "/test",
 				system: {
 					name: "Web Worker",
 					version: "1.0.0",
 				},
 				contexts: {
 					worker: {
+					handlers: [],
 						entryPoint: "worker.ts",
 						type: "worker.ts",
-						handlers: [{ messageType: "compute", location: { file: "worker.ts", line: 1, column: 0 }, pattern: "type-guard" }],
 						chromeAPIs: [],
 						externalAPIs: [],
 						dependencies: [],

@@ -1,9 +1,8 @@
 // Docker container management for TLA+ verification
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 
 export type DockerRunResult = {
   exitCode: number;
@@ -12,8 +11,6 @@ export type DockerRunResult = {
 };
 
 export class DockerRunner {
-  private containerName = "web-ext-tla-verify";
-
   /**
    * Check if Docker is available
    */
@@ -125,8 +122,8 @@ export class DockerRunner {
     return {
       success: true,
       stats: {
-        statesGenerated: statesMatch ? Number.parseInt(statesMatch[1]) : 0,
-        distinctStates: distinctMatch ? Number.parseInt(distinctMatch[1]) : 0,
+        statesGenerated: statesMatch?.[1] ? Number.parseInt(statesMatch[1]) : 0,
+        distinctStates: distinctMatch?.[1] ? Number.parseInt(distinctMatch[1]) : 0,
       },
       output,
     };
@@ -160,7 +157,7 @@ export class DockerRunner {
    */
   private extractError(output: string): string {
     const errorMatch = output.match(/Error: (.*?)(?:\n|$)/);
-    if (errorMatch) {
+    if (errorMatch?.[1]) {
       return errorMatch[1];
     }
 

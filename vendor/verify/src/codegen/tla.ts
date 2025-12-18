@@ -18,7 +18,7 @@ export class TLAGenerator {
     this.indent = 0;
 
     const spec = this.generateSpec(config, analysis);
-    const cfg = this.generateConfig(config, analysis);
+    const cfg = this.generateConfig(config);
 
     return { spec, cfg };
   }
@@ -29,7 +29,7 @@ export class TLAGenerator {
 
     this.addHeader();
     this.addExtends();
-    this.addConstants(config, analysis);
+    this.addConstants(config);
     this.addMessageTypes(config, analysis);
     this.addStateType(config, analysis);
     this.addVariables();
@@ -43,7 +43,7 @@ export class TLAGenerator {
     return this.lines.join("\n");
   }
 
-  private generateConfig(config: VerificationConfig, analysis: CodebaseAnalysis): string {
+  private generateConfig(config: VerificationConfig): string {
     const lines: string[] = [];
 
     lines.push("SPECIFICATION UserSpec");
@@ -113,11 +113,11 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addConstants(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addConstants(config: VerificationConfig): void {
     // MessageRouter already defines: Contexts, MaxMessages, MaxTabId, TimeoutLimit
     // We only add application-specific constants
 
-    const hasCustomConstants = Object.entries(config.state).some(([field, fieldConfig]) => {
+    const hasCustomConstants = Object.entries(config.state).some(([_, fieldConfig]) => {
       if (typeof fieldConfig !== "object" || fieldConfig === null) return false;
       return (
         ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) ||
@@ -159,7 +159,7 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addStateType(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addStateType(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
     // Define Value type for generic sequences and maps
     // Use a finite set for model checking
     this.line("\\* Generic value type for sequences and maps");
@@ -199,7 +199,7 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addMessageTypes(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addMessageTypes(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
     if (analysis.messageTypes.length === 0) {
       // No message types found, skip
       return;
@@ -225,7 +225,7 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addInit(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addInit(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
     // Generate InitialState first
     this.line("\\* Initial application state");
     this.line("InitialState == [");
@@ -304,6 +304,7 @@ export class TLAGenerator {
     const messageTypes = Array.from(handlersByType.keys());
     for (let i = 0; i < messageTypes.length; i++) {
       const msgType = messageTypes[i];
+      if (!msgType) continue;
       const actionName = this.messageTypeToActionName(msgType);
 
       if (i === 0) {
@@ -399,6 +400,7 @@ export class TLAGenerator {
 
       for (let i = 0; i < validAssignments.length; i++) {
         const assignment = validAssignments[i];
+        if (!assignment || assignment.value === undefined) continue;
         const fieldName = this.sanitizeFieldName(assignment.field);
         const value = this.assignmentValueToTLA(assignment.value);
         const suffix = i < validAssignments.length - 1 ? "," : "";
@@ -435,12 +437,12 @@ export class TLAGenerator {
     const statePrefix = isPrimed ? "contextStates'[ctx]" : "contextStates[ctx]";
 
     // Replace state.field.subfield with contextStates[ctx].field_subfield
-    tla = tla.replace(/state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (match, path) => {
+    tla = tla.replace(/state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (_match, path) => {
       return `${statePrefix}.${this.sanitizeFieldName(path)}`;
     });
 
     // Replace payload.field with payload.field (no change needed, but sanitize)
-    tla = tla.replace(/payload\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (match, path) => {
+    tla = tla.replace(/payload\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (_match, path) => {
       return `payload.${this.sanitizeFieldName(path)}`;
     });
 
@@ -502,7 +504,7 @@ export class TLAGenerator {
     return "NULL";
   }
 
-  private addRouteWithHandlers(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addRouteWithHandlers(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
     this.line("\\* =============================================================================");
     this.line("\\* Message Routing with State Transitions");
     this.line("\\* =============================================================================");
@@ -549,7 +551,7 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addNext(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addNext(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
     this.line("\\* Next state relation (extends MessageRouter)");
     this.line("UserNext ==");
     this.indent++;
@@ -582,7 +584,7 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addInvariants(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addInvariants(_config: VerificationConfig, _analysis: CodebaseAnalysis): void {
     this.line("\\* =============================================================================");
     this.line("\\* Application Invariants");
     this.line("\\* =============================================================================");
@@ -612,9 +614,9 @@ export class TLAGenerator {
   }
 
   private fieldConfigToTLAType(
-    fieldPath: string,
+    _fieldPath: string,
     fieldConfig: any,
-    config: VerificationConfig
+    _config: VerificationConfig
   ): string {
     if ("type" in fieldConfig) {
       if (fieldConfig.type === "boolean") {
@@ -628,13 +630,11 @@ export class TLAGenerator {
 
     if ("maxLength" in fieldConfig) {
       // Array type - represented as sequence with bounded length
-      const constName = this.fieldToConstName(fieldPath);
       return `Seq(Value)`; // Simplified - would need element type
     }
 
     if ("min" in fieldConfig && "max" in fieldConfig) {
       // Number type
-      const constName = this.fieldToConstName(fieldPath);
       const min = fieldConfig.min || 0;
       const max = fieldConfig.max || 100;
       return `${min}..${max}`;

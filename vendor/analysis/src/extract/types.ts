@@ -1,7 +1,7 @@
 // Type extraction from TypeScript using ts-morph
 
-import { Project, SourceFile, Type, TypeFormatFlags } from "ts-morph"
-import type { TypeInfo, TypeKind, FieldAnalysis, Confidence, CodebaseAnalysis } from "../types"
+import { Project, Type } from "ts-morph"
+import type { TypeInfo, FieldAnalysis, CodebaseAnalysis } from "../types"
 import { HandlerExtractor } from "./handlers"
 
 export class TypeExtractor {
@@ -29,7 +29,7 @@ export class TypeExtractor {
     const fields = stateType ? this.analyzeFields(stateType) : []
 
     // Extract message handlers
-    const configFilePath = this.project.getCompilerOptions().configFilePath
+    const configFilePath = this.project.getCompilerOptions()['configFilePath']
     const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json"
     const handlerExtractor = new HandlerExtractor(tsConfigPath)
     const handlerAnalysis = handlerExtractor.extractHandlers()
@@ -150,7 +150,7 @@ export class TypeExtractor {
 
       if (nonNullTypes.length === 1) {
         // This is a nullable type: T | null or T | undefined
-        const baseType = this.convertType(nonNullTypes[0], name)
+        const baseType = this.convertType(nonNullTypes[0]!, name)
         return {
           ...baseType,
           nullable: true
@@ -225,11 +225,14 @@ export class TypeExtractor {
     // Object
     if (type.isObject()) {
       const properties: Record<string, TypeInfo> = {}
+      const sourceFile = this.project.getSourceFiles()[0]
 
-      for (const prop of type.getProperties()) {
-        const propName = prop.getName()
-        const propType = prop.getTypeAtLocation(this.project.getSourceFiles()[0])
-        properties[propName] = this.convertType(propType, propName)
+      if (sourceFile) {
+        for (const prop of type.getProperties()) {
+          const propName = prop.getName()
+          const propType = prop.getTypeAtLocation(sourceFile)
+          properties[propName] = this.convertType(propType, propName)
+        }
       }
 
       return {
@@ -311,7 +314,7 @@ export class TypeExtractor {
       analysis.bounds!.maxLength = undefined
 
       // Try to find bounds in code
-      const foundBound = this.findArrayBound(path)
+      const foundBound = this.findArrayBound()
       if (foundBound) {
         analysis.confidence = "medium"
         analysis.evidence.push(`Found array check: ${foundBound.evidence}`)
@@ -329,7 +332,7 @@ export class TypeExtractor {
       analysis.bounds!.max = undefined
 
       // Try to find bounds in code
-      const foundBound = this.findNumberBound(path)
+      const foundBound = this.findNumberBound()
       if (foundBound) {
         analysis.confidence = "high"
         analysis.evidence.push(`Found comparison: ${foundBound.evidence}`)
@@ -364,7 +367,7 @@ export class TypeExtractor {
   /**
    * Try to find array bounds by searching for length checks
    */
-  private findArrayBound(path: string): { value: number; evidence: string } | null {
+  private findArrayBound(): { value: number; evidence: string } | null {
     // TODO: Search source code for patterns like:
     // - if (array.length < N)
     // - array.slice(0, N)
@@ -375,7 +378,7 @@ export class TypeExtractor {
   /**
    * Try to find number bounds by searching for comparisons
    */
-  private findNumberBound(path: string): { bounds: { min?: number; max?: number }; evidence: string } | null {
+  private findNumberBound(): { bounds: { min?: number; max?: number }; evidence: string } | null {
     // TODO: Search source code for patterns like:
     // - if (counter < 100)
     // - if (value >= 0 && value <= 100)

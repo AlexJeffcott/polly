@@ -5,11 +5,11 @@
 // Maps ProjectType to appropriate adapter with sensible defaults.
 // Automatically selects the correct adapter based on detected project type.
 
-import type { ProjectType } from "../../analysis/src"
+import type { ProjectType } from "../../../analysis/src"
 import type { RoutingAdapter } from "./base"
-import { WebExtensionAdapter, type WebExtensionAdapterConfig } from "./web-extension"
-import { WebSocketAdapter, type WebSocketAdapterConfig } from "./websocket"
-import { EventBusAdapter, type EventBusAdapterConfig } from "./event-bus"
+import { WebExtensionAdapter } from "./web-extension"
+import { WebSocketAdapter } from "./websocket"
+import { EventBusAdapter } from "./event-bus"
 
 /**
  * Adapter factory function type

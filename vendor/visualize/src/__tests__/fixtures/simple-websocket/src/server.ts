@@ -1,4 +1,5 @@
 // WebSocket server entry point
+// @ts-nocheck
 
 import { WebSocketServer } from 'ws';
 import type { RequestMessage } from './server/types';

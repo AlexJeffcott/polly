@@ -392,6 +392,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
 
     // First argument is the condition expression
     const conditionArg = args[0];
+    if (!conditionArg) return null;
     const expression = conditionArg.getText();
 
     // Second argument (optional) is the message

@@ -10,4 +10,4 @@ export * from "./runner/export";
 export * from "./viewer/server";
 
 // Re-export analysis functionality for convenience
-export { analyzeArchitecture, type ArchitectureAnalysis } from "../../analysis/src";
+export { analyzeArchitecture, type ArchitectureAnalysis } from "../../analysis/src/index.ts";

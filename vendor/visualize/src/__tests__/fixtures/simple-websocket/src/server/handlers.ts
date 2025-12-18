@@ -27,7 +27,7 @@ export function isAuthMessage(msg: RequestMessage): msg is AuthMessage {
 /**
  * Handle query message
  */
-export async function handleQuery(message: QueryMessage): Promise<string> {
+export async function handleQuery(_message: QueryMessage): Promise<string> {
   const result = await userService.listUsers();
   return JSON.stringify({ type: 'query-result', data: result });
 }

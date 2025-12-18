@@ -1,7 +1,7 @@
 // External integration detection - find external APIs, services, etc.
 
 import { Project, Node } from "ts-morph"
-import type { ExternalIntegration, ExternalAPICall } from "../types/architecture"
+import type { ExternalIntegration } from "../types/architecture"
 
 export class IntegrationAnalyzer {
   private project: Project
@@ -175,7 +175,7 @@ export class IntegrationAnalyzer {
             ? moduleSpecifier.split("/").slice(0, 2).join("/")
             : moduleSpecifier.split("/")[0]
 
-          if (!seen.has(packageName)) {
+          if (packageName && !seen.has(packageName)) {
             seen.add(packageName)
 
             scripts.push({
@@ -282,7 +282,7 @@ export class IntegrationAnalyzer {
 
       // Take first part of domain
       const parts = cleanHost.split(".")
-      if (parts.length > 0) {
+      if (parts.length > 0 && parts[0]) {
         // Capitalize first letter
         return parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + " API"
       }

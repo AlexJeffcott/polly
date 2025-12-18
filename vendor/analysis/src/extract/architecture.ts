@@ -59,7 +59,7 @@ export class ArchitectureAnalyzer {
 			systemInfo = {
 				name: manifest.name,
 				version: manifest.version,
-				description: manifest.description,
+				...(manifest.description ? { description: manifest.description } : {}),
 			};
 		} else {
 			// 1b. Use project detector for generic projects
@@ -70,7 +70,7 @@ export class ArchitectureAnalyzer {
 			systemInfo = {
 				name: projectConfig.metadata?.name || "Unknown Project",
 				version: projectConfig.metadata?.version || "0.0.0",
-				description: projectConfig.metadata?.description,
+				...(projectConfig.metadata?.description ? { description: projectConfig.metadata.description } : {}),
 			};
 		}
 
@@ -117,13 +117,13 @@ export class ArchitectureAnalyzer {
 		return {
 			projectRoot: this.options.projectRoot,
 			system: systemInfo,
-			manifest,
-			projectConfig,
+			...(manifest ? { manifest } : {}),
+			...(projectConfig ? { projectConfig } : {}),
 			contexts,
 			messageFlows,
 			integrations,
-			adrs: adrs.adrs.length > 0 ? adrs : undefined,
-			repository,
+			...(adrs.adrs.length > 0 ? { adrs } : {}),
+			...(repository ? { repository } : {}),
 		};
 	}
 

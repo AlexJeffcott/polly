@@ -11,7 +11,7 @@ export type {
   StateAssignment,
   VerificationCondition,
   CodebaseAnalysis,
-} from "../../analysis/src/index";
+} from "../../analysis/src/index.ts";
 
 export type VerificationConfig = {
   preset?: "quick" | "balanced" | "thorough";
@@ -33,7 +33,11 @@ export type FieldConfig =
 
 export type MessageConfig = {
   maxInFlight: number | null;
-  maxTabs: number | null;
+  maxTabs?: number | null;
+  maxClients?: number | null;
+  maxRenderers?: number | null;
+  maxWorkers?: number | null;
+  maxContexts?: number | null;
 };
 
 export type ConfigIssue = {

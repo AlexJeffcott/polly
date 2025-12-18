@@ -69,13 +69,13 @@ export class ConfigValidator {
         const line = lines[lineNumber - 1];
 
         // Extract field name from context
-        const fieldMatch = line.match(/"([^"]+)":\s*{/);
+        const fieldMatch = line?.match(/"([^"]+)":\s*{/);
         const fieldName = fieldMatch ? fieldMatch[1] : "unknown";
 
         locations.push({
           line: lineNumber,
           column: match.index! - source.lastIndexOf("\n", position),
-          context: fieldName,
+          context: fieldName ?? "unknown",
         });
       }
 
@@ -188,7 +188,7 @@ export class ConfigValidator {
       }
     }
 
-    if (config.messages.maxTabs !== null) {
+    if (config.messages.maxTabs !== null && config.messages.maxTabs !== undefined) {
       if (config.messages.maxTabs < 1) {
         this.issues.push({
           type: "invalid_value",

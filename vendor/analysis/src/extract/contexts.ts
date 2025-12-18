@@ -1,6 +1,6 @@
 // Context analysis - analyze individual execution contexts
 
-import { Project, Node, SyntaxKind } from "ts-morph"
+import { Project, Node } from "ts-morph"
 import type { ContextInfo, ComponentInfo } from "../types/architecture"
 import type { MessageHandler } from "../types/core"
 
@@ -50,9 +50,9 @@ export class ContextAnalyzer {
       handlers: contextHandlers,
       chromeAPIs,
       externalAPIs: [], // Will be filled by integration analyzer
-      components,
+      ...(components ? { components } : {}),
       dependencies,
-      description,
+      ...(description ? { description } : {}),
     }
   }
 
@@ -70,16 +70,18 @@ export class ContextAnalyzer {
         if (text.startsWith("chrome.")) {
           // Extract API namespace (e.g., "chrome.tabs", "chrome.storage.local")
           const match = text.match(/^chrome\.([^.(]+(?:\.[^.(]+)?)/)
-          if (match) {
-            apis.add(match[1])
+          const api = match?.[1]
+          if (api) {
+            apis.add(api)
           }
         }
 
         // Also match browser.* for Firefox compatibility
         if (text.startsWith("browser.")) {
           const match = text.match(/^browser\.([^.(]+(?:\.[^.(]+)?)/)
-          if (match) {
-            apis.add(match[1])
+          const api = match?.[1]
+          if (api) {
+            apis.add(api)
           }
         }
 
@@ -88,8 +90,9 @@ export class ContextAnalyzer {
         //       bus.adapters.tabs.query() -> tabs
         if (text.includes("bus.adapters.")) {
           const match = text.match(/bus\.adapters\.([^.(]+)/)
-          if (match) {
-            apis.add(match[1])
+          const api = match?.[1]
+          if (api) {
+            apis.add(api)
           }
         }
       }
@@ -151,13 +154,14 @@ export class ContextAnalyzer {
       if (Node.isFunctionDeclaration(node)) {
         const name = node.getName()
         if (name && this.looksLikeComponent(name, node)) {
+          const description = this.extractJSDocDescription(node)
           components.push({
             name,
             type: "function",
             filePath: sourceFile.getFilePath(),
             line: node.getStartLineNumber(),
             props: this.extractProps(node),
-            description: this.extractJSDocDescription(node),
+            ...(description ? { description } : {}),
           })
         }
       }
@@ -173,13 +177,14 @@ export class ContextAnalyzer {
           (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
         ) {
           if (this.looksLikeComponent(name, initializer)) {
+            const description = this.extractJSDocDescription(node)
             components.push({
               name,
               type: "function",
               filePath: sourceFile.getFilePath(),
               line: node.getStartLineNumber(),
               props: this.extractProps(initializer),
-              description: this.extractJSDocDescription(node),
+              ...(description ? { description } : {}),
             })
           }
         }
@@ -189,13 +194,14 @@ export class ContextAnalyzer {
       if (Node.isClassDeclaration(node)) {
         const name = node.getName()
         if (name && this.looksLikeClassComponent(node)) {
+          const description = this.extractJSDocDescription(node)
           components.push({
             name,
             type: "class",
             filePath: sourceFile.getFilePath(),
             line: node.getStartLineNumber(),
             props: this.extractPropsFromClass(node),
-            description: this.extractJSDocDescription(node),
+            ...(description ? { description } : {}),
           })
         }
       }

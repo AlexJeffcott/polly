@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { analyzeArchitecture } from "../../analysis/src/extract/architecture.ts";
+import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
 import { generateStructurizrDSL } from "./codegen/structurizr";
 import { exportDiagrams } from "./runner/export";
 
@@ -175,7 +175,7 @@ async function generateCommand() {
   }
 }
 
-async function exportCommand(args: string[]) {
+async function exportCommand(_args: string[]) {
   console.log(color("\n📤 Generating static site...\n", COLORS.blue));
 
   try {
@@ -257,7 +257,7 @@ async function serveCommand(args: string[]) {
       throw new Error("Bun runtime is required to run the server");
     }
 
-    const server = BunGlobal.serve({
+    void BunGlobal.serve({
       port,
       fetch(req: Request) {
         const url = new URL(req.url);

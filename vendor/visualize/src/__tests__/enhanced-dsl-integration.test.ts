@@ -44,13 +44,13 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 
 		test("should detect business logic message handlers", () => {
-			const serverContext = analysis.contexts.server;
+			const serverContext = analysis.contexts['server']!;
 			expect(serverContext).toBeDefined();
 				// Should detect both WebSocket lifecycle handlers (connection, message, close)
 			// and business logic handlers (query, command, auth)
-			expect(serverContext.handlers.length).toBeGreaterThanOrEqual(3);
+			expect(serverContext!.handlers.length).toBeGreaterThanOrEqual(3);
 
-			const messageTypes = serverContext.handlers.map((h) => h.messageType);
+			const messageTypes = serverContext!.handlers.map((h) => h.messageType);
 			expect(messageTypes).toContain("query");
 			expect(messageTypes).toContain("command");
 			expect(messageTypes).toContain("auth");
@@ -67,11 +67,11 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 
 	describe("Automatic Relationship Detection", () => {
 		test("should detect function call relationships from handler code", () => {
-			const serverContext = analysis.contexts.server;
+			const serverContext = analysis.contexts['server']!;
 			expect(serverContext).toBeDefined();
 
 			// Find the query handler
-			const queryHandler = serverContext.handlers.find(
+			const queryHandler = serverContext!.handlers.find(
 				(h) => h.messageType === "query",
 			);
 			expect(queryHandler).toBeDefined();
@@ -91,8 +91,8 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 
 		test("should detect multiple relationships from command handler", () => {
-			const serverContext = analysis.contexts.server;
-			const commandHandler = serverContext.handlers.find(
+			const serverContext = analysis.contexts['server']!;
+			const commandHandler = serverContext!.handlers.find(
 				(h) => h.messageType === "command",
 			);
 
@@ -111,8 +111,8 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 
 		test("should detect relationships from auth handler", () => {
-			const serverContext = analysis.contexts.server;
-			const authHandler = serverContext.handlers.find(
+			const serverContext = analysis.contexts['server']!;
+			const authHandler = serverContext!.handlers.find(
 				(h) => h.messageType === "auth",
 			);
 
@@ -130,8 +130,8 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 
 		test("should include evidence for detected relationships", () => {
-			const serverContext = analysis.contexts.server;
-			const queryHandler = serverContext.handlers.find(
+			const serverContext = analysis.contexts['server']!;
+			const queryHandler = serverContext!.handlers.find(
 				(h) => h.messageType === "query",
 			);
 
@@ -144,10 +144,10 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 		});
 
 		test("should deduplicate relationships within a handler", () => {
-			const serverContext = analysis.contexts.server;
+			const serverContext = analysis.contexts['server']!;
 
 			// Check that each handler has unique relationships (no duplicates)
-			for (const handler of serverContext.handlers) {
+			for (const handler of serverContext!.handlers) {
 				if (handler.relationships) {
 					const relationshipKeys = handler.relationships.map(
 						(r) => `${r.from}->${r.to}`,
@@ -210,7 +210,7 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				...analysis,
 				contexts: {
 					server: {
-						...analysis.contexts.server,
+						...analysis.contexts['server']!,
 						handlers: [
 							{ messageType: "login", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
 							{ messageType: "logout", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
@@ -239,7 +239,7 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				...analysis,
 				contexts: {
 					server: {
-						...analysis.contexts.server,
+						...analysis.contexts['server']!,
 						handlers: [
 							{ messageType: "user_add", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
 							{ messageType: "user_update", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
@@ -266,7 +266,7 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				...analysis,
 				contexts: {
 					server: {
-						...analysis.contexts.server,
+						...analysis.contexts['server']!,
 						handlers: [
 							{ messageType: "get_users", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
 							{ messageType: "fetch_data", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
@@ -306,7 +306,7 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				...analysis,
 				contexts: {
 					server: {
-						...analysis.contexts.server,
+						...analysis.contexts['server']!,
 						handlers: [
 							{ messageType: "connection", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 } },
 							{ messageType: "message", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 } },
@@ -397,7 +397,7 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 				...analysis,
 				contexts: {
 					server: {
-						...analysis.contexts.server,
+						...analysis.contexts['server']!,
 						handlers: [
 							{ messageType: "login", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 1 }, relationships: [{ from: "login_handler", to: "auth_service", description: "Authenticates", technology: "Function Call", confidence: "high", evidence: [] }] },
 							{ messageType: "logout", node: "server", assignments: [], preconditions: [], postconditions: [], location: { file: "test.ts", line: 2 }, relationships: [{ from: "logout_handler", to: "auth_service", description: "Logs out", technology: "Function Call", confidence: "high", evidence: [] }] },
@@ -1042,8 +1042,6 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 
 	describe("Visual Verification Instructions", () => {
 		test("should provide instructions for manual verification", () => {
-			const outputPath = path.join(simpleWebSocketDir, "architecture.dsl");
-
 			console.log("\n📋 Manual Verification Steps:");
 			console.log("1. Run Structurizr Lite:");
 			console.log(
@@ -1106,20 +1104,20 @@ describe("Cross-File Relationship Detection (Lingua Architecture)", () => {
 	});
 
 	test("should detect handlers from router file", () => {
-		const serverContext = analysis.contexts.server;
+		const serverContext = analysis.contexts['server']!;
 		expect(serverContext).toBeDefined();
-		expect(serverContext.handlers.length).toBeGreaterThanOrEqual(2);
+		expect(serverContext!.handlers.length).toBeGreaterThanOrEqual(2);
 
-		const messageTypes = serverContext.handlers.map((h) => h.messageType);
+		const messageTypes = serverContext!.handlers.map((h) => h.messageType);
 		expect(messageTypes).toContain("query");
 		expect(messageTypes).toContain("command");
 	});
 
 	test("should follow handler calls into separate files", () => {
-		const serverContext = analysis.contexts.server;
+		const serverContext = analysis.contexts['server']!;
 
 		// Find the query handler
-		const queryHandler = serverContext.handlers.find(
+		const queryHandler = serverContext!.handlers.find(
 			(h) => h.messageType === "query",
 		);
 
@@ -1136,8 +1134,8 @@ describe("Cross-File Relationship Detection (Lingua Architecture)", () => {
 	});
 
 	test("should detect userService.listUsers() relationship", () => {
-		const serverContext = analysis.contexts.server;
-		const queryHandler = serverContext.handlers.find(
+		const serverContext = analysis.contexts['server']!;
+		const queryHandler = serverContext!.handlers.find(
 			(h) => h.messageType === "query",
 		);
 
@@ -1153,8 +1151,8 @@ describe("Cross-File Relationship Detection (Lingua Architecture)", () => {
 	});
 
 	test("should detect db.query() relationship", () => {
-		const serverContext = analysis.contexts.server;
-		const queryHandler = serverContext.handlers.find(
+		const serverContext = analysis.contexts['server']!;
+		const queryHandler = serverContext!.handlers.find(
 			(h) => h.messageType === "query",
 		);
 
@@ -1167,8 +1165,8 @@ describe("Cross-File Relationship Detection (Lingua Architecture)", () => {
 	});
 
 	test("should detect repositories relationship in command handler", () => {
-		const serverContext = analysis.contexts.server;
-		const commandHandler = serverContext.handlers.find(
+		const serverContext = analysis.contexts['server']!;
+		const commandHandler = serverContext!.handlers.find(
 			(h) => h.messageType === "command",
 		);
 

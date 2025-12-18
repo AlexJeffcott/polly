@@ -113,8 +113,8 @@ describe("ManifestParser", () => {
 
 			expect(manifest.contentScripts).toBeDefined();
 			expect(manifest.contentScripts?.length).toBe(1);
-			expect(manifest.contentScripts?.[0].matches).toEqual(["<all_urls>"]);
-			expect(manifest.contentScripts?.[0].js).toEqual(["content.js"]);
+			expect(manifest.contentScripts?.[0]?.matches).toEqual(["<all_urls>"]);
+			expect(manifest.contentScripts?.[0]?.js).toEqual(["content.js"]);
 		});
 
 		test("parse() should extract popup configuration", () => {

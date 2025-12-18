@@ -2,7 +2,7 @@
 
 import * as fs from "node:fs"
 import * as path from "node:path"
-import type { ManifestInfo, ContextInfo } from "../types/architecture"
+import type { ManifestInfo } from "../types/architecture"
 
 /**
  * Parse manifest.json and extract context information
@@ -80,16 +80,16 @@ export class ManifestParser {
       // Take first file as entry point
       const entryFile = background.files[0]
       if (entryFile) {
-        entryPoints.background = this.findSourceFile(entryFile)
+        entryPoints['background'] = this.findSourceFile(entryFile)
       }
     }
 
     // Content scripts
     const contentScripts = this.parseContentScripts()
     if (contentScripts && contentScripts.length > 0) {
-      const firstScript = contentScripts[0].js[0]
+      const firstScript = contentScripts[0]?.js[0]
       if (firstScript) {
-        entryPoints.content = this.findSourceFile(firstScript)
+        entryPoints['content'] = this.findSourceFile(firstScript)
       }
     }
 
@@ -100,7 +100,7 @@ export class ManifestParser {
       const htmlPath = path.join(this.baseDir, popup.html)
       const jsPath = this.findAssociatedJS(htmlPath)
       if (jsPath) {
-        entryPoints.popup = jsPath
+        entryPoints['popup'] = jsPath
       }
     }
 
@@ -110,7 +110,7 @@ export class ManifestParser {
       const htmlPath = path.join(this.baseDir, options.page)
       const jsPath = this.findAssociatedJS(htmlPath)
       if (jsPath) {
-        entryPoints.options = jsPath
+        entryPoints['options'] = jsPath
       }
     }
 
@@ -120,7 +120,7 @@ export class ManifestParser {
       const htmlPath = path.join(this.baseDir, devtools.page)
       const jsPath = this.findAssociatedJS(htmlPath)
       if (jsPath) {
-        entryPoints.devtools = jsPath
+        entryPoints['devtools'] = jsPath
       }
     }
 

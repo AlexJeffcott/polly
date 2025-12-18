@@ -289,9 +289,6 @@ describe("Adapter Pattern Matching", () => {
 
         const model = adapter.extractModel()
 
-        // Should have handlers from both contexts
-        const contexts = new Set(model.handlers.map((h) => h.node))
-
         // Context detection happens in HandlerExtractor, not adapter
         // So we just verify handlers were found
         expect(model.handlers.length).toBeGreaterThanOrEqual(2)
@@ -464,8 +461,6 @@ describe("Adapter Pattern Matching", () => {
       const model = adapter.extractModel()
 
       // Our test project has ipcMain.on handlers
-      const messageTypes = model.handlers.map((h) => h.messageType)
-
       // Should find the handlers we defined
       expect(model.handlers.length).toBeGreaterThan(0)
     })
