@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { ConnectionError, TimeoutError } from "@/shared/lib/errors";
 import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
-import type { Context, ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
+import type { ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
 import { createMockAdapters, createMockPort } from "../helpers/adapters";
 import { waitFor } from "../helpers/test-utils";
 
@@ -81,12 +81,14 @@ test("MessageBus - request/response correlation", async () => {
   // Set up a handler that will respond
   const handler = mock(async (_payload: ExtensionMessage) => {
     return {
-      elements: [{
-        tag: "div",
-        text: "Test",
-        html: "<div>Test</div>",
-        attrs: {}
-      }]
+      elements: [
+        {
+          tag: "div",
+          text: "Test",
+          html: "<div>Test</div>",
+          attrs: {},
+        },
+      ],
     };
   });
 
@@ -110,20 +112,27 @@ test("MessageBus - request/response correlation", async () => {
   const response = await bus.handleMessage(routedMessage);
 
   expect(handler).toHaveBeenCalled();
-  if (typeof response === 'object' && response !== null && 'success' in response && response.success === true) {
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "success" in response &&
+    response.success === true
+  ) {
     expect(response.success).toBe(true);
-    if ('data' in response) {
+    if ("data" in response) {
       expect(response.data).toEqual({
-        elements: [{
-          tag: "div",
-          text: "Test",
-          html: "<div>Test</div>",
-          attrs: {}
-        }]
+        elements: [
+          {
+            tag: "div",
+            text: "Test",
+            html: "<div>Test</div>",
+            attrs: {},
+          },
+        ],
       });
     }
   } else {
-    throw new Error('Response does not match expected shape');
+    throw new Error("Response does not match expected shape");
   }
 });
 
@@ -218,13 +227,18 @@ test("MessageBus - handler error handling", async () => {
   const response = await bus.handleMessage(routedMessage);
 
   expect(handler).toHaveBeenCalled();
-  if (typeof response === 'object' && response !== null && 'success' in response && response.success === false) {
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "success" in response &&
+    response.success === false
+  ) {
     expect(response.success).toBe(false);
-    if ('error' in response) {
+    if ("error" in response) {
       expect(response.error).toBe("Handler error");
     }
   } else {
-    throw new Error('Response does not match expected shape');
+    throw new Error("Response does not match expected shape");
   }
 });
 

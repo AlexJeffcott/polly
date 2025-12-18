@@ -27,9 +27,7 @@ const isLoggedIn = signal(false);
 const currentUser = signal("");
 const newBookmarkUrl = signal("");
 const newBookmarkTitle = signal("");
-const currentTab = signal<{ id?: number; url?: string; title?: string } | null>(
-  null,
-);
+const currentTab = signal<{ id?: number; url?: string; title?: string } | null>(null);
 const statusMessage = signal("");
 
 // Type guards
@@ -167,9 +165,7 @@ function Popup() {
   return (
     <div class="popup" style={{ padding: "16px", minWidth: "300px" }}>
       <header style={{ marginBottom: "16px" }}>
-        <h1 style={{ margin: "0 0 8px 0", fontSize: "20px" }}>
-          Full-Featured Example
-        </h1>
+        <h1 style={{ margin: "0 0 8px 0", fontSize: "20px" }}>Full-Featured Example</h1>
         {statusMessage.value && (
           <div
             style={{
@@ -193,46 +189,34 @@ function Popup() {
             borderBottom: "1px solid #e0e0e0",
           }}
         >
-          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>
-            Authentication
-          </h2>
-          {!isLoggedIn.value ? (
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Authentication</h2>
+          {isLoggedIn.value ? (
+            <div>
+              <p>
+                Logged in as: <strong>{currentUser.value}</strong>
+              </p>
+              <button onClick={handleLogout} style={{ width: "100%", padding: "8px" }}>
+                Logout
+              </button>
+            </div>
+          ) : (
             <div>
               <input
                 type="text"
                 placeholder="Username"
                 value={username.value}
-                onInput={(e) =>
-                  (username.value = (e.target as HTMLInputElement).value)
-                }
+                onInput={(e) => (username.value = (e.target as HTMLInputElement).value)}
                 style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
               />
               <input
                 type="password"
                 placeholder="Token"
                 value={token.value}
-                onInput={(e) =>
-                  (token.value = (e.target as HTMLInputElement).value)
-                }
+                onInput={(e) => (token.value = (e.target as HTMLInputElement).value)}
                 style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
               />
-              <button
-                onClick={handleLogin}
-                style={{ width: "100%", padding: "8px" }}
-              >
+              <button onClick={handleLogin} style={{ width: "100%", padding: "8px" }}>
                 Login
-              </button>
-            </div>
-          ) : (
-            <div>
-              <p>
-                Logged in as: <strong>{currentUser.value}</strong>
-              </p>
-              <button
-                onClick={handleLogout}
-                style={{ width: "100%", padding: "8px" }}
-              >
-                Logout
               </button>
             </div>
           )}
@@ -252,32 +236,23 @@ function Popup() {
               type="text"
               placeholder="URL"
               value={newBookmarkUrl.value}
-              onInput={(e) =>
-                (newBookmarkUrl.value = (e.target as HTMLInputElement).value)
-              }
+              onInput={(e) => (newBookmarkUrl.value = (e.target as HTMLInputElement).value)}
               style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
             />
             <input
               type="text"
               placeholder="Title"
               value={newBookmarkTitle.value}
-              onInput={(e) =>
-                (newBookmarkTitle.value = (e.target as HTMLInputElement).value)
-              }
+              onInput={(e) => (newBookmarkTitle.value = (e.target as HTMLInputElement).value)}
               style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
             />
-            <button
-              onClick={handleAddBookmark}
-              style={{ width: "100%", padding: "8px" }}
-            >
+            <button onClick={handleAddBookmark} style={{ width: "100%", padding: "8px" }}>
               Add Bookmark
             </button>
           </div>
           <div style={{ maxHeight: "150px", overflowY: "auto" }}>
             {bookmarks.value.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "#666" }}>
-                No bookmarks yet
-              </p>
+              <p style={{ fontSize: "12px", color: "#666" }}>No bookmarks yet</p>
             ) : (
               bookmarks.value.map((bookmark) => (
                 <div
@@ -372,9 +347,7 @@ function Popup() {
 
         {/* Quick Settings */}
         <section>
-          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>
-            Quick Settings
-          </h2>
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Quick Settings</h2>
           <div style={{ fontSize: "12px" }}>
             <label style={{ display: "block", marginBottom: "4px" }}>
               <input

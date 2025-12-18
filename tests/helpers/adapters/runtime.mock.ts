@@ -73,7 +73,7 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
           const result = listener(message, { url: "" }, sharedSendResponse);
           // If listener returns true, it will send response asynchronously
           // If it returns false/undefined/void and we haven't resolved yet, continue to next listener
-          if (typeof result === 'boolean' && result === true) {
+          if (typeof result === "boolean" && result === true) {
             // Listener will send response asynchronously, wait for it
             continue;
           }

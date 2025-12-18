@@ -1,10 +1,10 @@
 // Tests demonstrating framework double-execution prevention
 // These are documentation tests that explain the framework's protection mechanisms
 
-import { test, expect, describe } from 'bun:test'
+import { describe, expect, test } from "bun:test";
 
-describe('Framework Double-Execution Prevention (Documentation)', () => {
-  test('documents the singleton pattern', () => {
+describe("Framework Double-Execution Prevention (Documentation)", () => {
+  test("documents the singleton pattern", () => {
     // The framework enforces that only ONE MessageRouter can exist
     //
     // If you tried to do this:
@@ -18,10 +18,10 @@ describe('Framework Double-Execution Prevention (Documentation)', () => {
     //
     // This prevents accidentally calling createBackground() twice
 
-    expect(true).toBe(true)  // This is a documentation test
-  })
+    expect(true).toBe(true); // This is a documentation test
+  });
 
-  test('documents why createBackground() is needed', () => {
+  test("documents why createBackground() is needed", () => {
     // ✅ CORRECT: Use createBackground() in background scripts
     // const bus = createBackground()
     //
@@ -39,10 +39,10 @@ describe('Framework Double-Execution Prevention (Documentation)', () => {
     // 2. MessageRouter WITH chrome.runtime.onMessage listener
     // 3. Result: TWO listeners = double execution bug!
 
-    expect(true).toBe(true)  // This is a documentation test
-  })
+    expect(true).toBe(true); // This is a documentation test
+  });
 
-  test('documents what NOT to do', () => {
+  test("documents what NOT to do", () => {
     // ❌ WRONG: Don't do this in background scripts!
     // const bus = getMessageBus('background')
     // new MessageRouter(bus)
@@ -57,11 +57,11 @@ describe('Framework Double-Execution Prevention (Documentation)', () => {
     // - Singleton MessageRouter (throws if created twice)
     // - Listener count warning (warns if multiple listeners)
     // - Execution tracker (throws on double execution in dev mode)
-  })
-})
+  });
+});
 
-describe('Example: Handler Execution in Development', () => {
-  test('execution tracker would catch double execution', () => {
+describe("Example: Handler Execution in Development", () => {
+  test("execution tracker would catch double execution", () => {
     // In development mode, if a handler somehow executed twice
     // for the same message, you'd see:
     //
@@ -77,7 +77,6 @@ describe('Example: Handler Execution in Development', () => {
     //
     // Fix: Ensure only ONE listener is registered. In background scripts,
     // use createBackground() instead of getMessageBus().
-
     // This is automatically enabled in development mode, no setup needed!
-  })
-})
+  });
+});

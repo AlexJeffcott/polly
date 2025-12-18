@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { beforeEach, expect, mock, test } from "bun:test";
 import { MessageRouter } from "@/background/message-router";
 import type { ExtensionAdapters } from "@/shared/adapters";
 import { MessageBus } from "@/shared/lib/message-bus";
-import { ALL_CONTEXTS, type ExtensionMessage, type RoutedMessage } from "@/shared/types/messages";
+import type { ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
 import {
   type MockRuntime,
   createMockContextMenus,

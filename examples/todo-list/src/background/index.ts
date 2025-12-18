@@ -1,4 +1,4 @@
 // Background script entry point
-import './handlers'
+import "./handlers";
 
-console.log('Todo List Extension: Background script initialized')
+console.log("Todo List Extension: Background script initialized");

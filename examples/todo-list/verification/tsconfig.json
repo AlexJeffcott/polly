@@ -17,9 +17,5 @@
       "@fairfox/polly/*": ["web-ext/src/*"]
     }
   },
-  "include": [
-    "./**/*",
-    "../src/**/*",
-    "../../polly/src/**/*"
-  ]
+  "include": ["./**/*", "../src/**/*", "../../polly/src/**/*"]
 }

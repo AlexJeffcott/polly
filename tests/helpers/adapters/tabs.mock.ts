@@ -70,8 +70,8 @@ export function createMockTabs(): MockTabs {
         discarded: false,
         autoDiscardable: true,
         groupId: -1,
-        url: createProperties.url || 'about:blank',
-        title: createProperties.url || 'New Tab',
+        url: createProperties.url || "about:blank",
+        title: createProperties.url || "New Tab",
       };
       tabs.set(newTab.id!, newTab);
       return newTab;

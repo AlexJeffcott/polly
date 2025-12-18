@@ -72,13 +72,15 @@ test("Scenario: User changes settings - full log trail", async () => {
   });
   if (!logsResponse || !("logs" in logsResponse)) throw new Error("Invalid response");
 
-  const settingsLogs = logsResponse.logs.filter(
-    (log: unknown): log is LogEntry => {
-      return typeof log === 'object' && log !== null && 'message' in log &&
-        typeof log.message === 'string' &&
-        (log.message.includes("settings") || log.message.includes("Settings"));
-    }
-  );
+  const settingsLogs = logsResponse.logs.filter((log: unknown): log is LogEntry => {
+    return (
+      typeof log === "object" &&
+      log !== null &&
+      "message" in log &&
+      typeof log.message === "string" &&
+      (log.message.includes("settings") || log.message.includes("Settings"))
+    );
+  });
 
   expect(settingsLogs.length).toBeGreaterThan(0);
 });
@@ -263,13 +265,17 @@ test("Scenario: Debug production issue using logs", async () => {
   // Now debug: Query all logs for this session
   const allLogsResponse = await bus.send({ type: "LOGS_GET" });
   if (!allLogsResponse || !("logs" in allLogsResponse)) throw new Error("Invalid response");
-  const sessionLogs = allLogsResponse.logs.filter(
-    (log: unknown): log is LogEntry => {
-      return typeof log === 'object' && log !== null && 'context' in log &&
-        typeof log.context === 'object' && log.context !== null &&
-        'sessionId' in log.context && log.context.sessionId === sessionId;
-    }
-  );
+  const sessionLogs = allLogsResponse.logs.filter((log: unknown): log is LogEntry => {
+    return (
+      typeof log === "object" &&
+      log !== null &&
+      "context" in log &&
+      typeof log.context === "object" &&
+      log.context !== null &&
+      "sessionId" in log.context &&
+      log.context.sessionId === sessionId
+    );
+  });
 
   // Can see the entire flow
   expect(sessionLogs).toHaveLength(4);
@@ -285,7 +291,7 @@ test("Scenario: Debug production issue using logs", async () => {
 
   // Can see where it failed
   const errorLog = sessionLogs.find((log): log is LogEntry => {
-    return typeof log === 'object' && log !== null && 'level' in log && log.level === "error";
+    return typeof log === "object" && log !== null && "level" in log && log.level === "error";
   });
   expect(errorLog).toBeDefined();
   expect(errorLog?.context?.error).toBe("QUOTA_EXCEEDED");
@@ -333,21 +339,31 @@ test("Scenario: Investigate slow operation with logs", async () => {
   // Query logs to analyze performance
   const logsResponse = await bus.send({ type: "LOGS_GET" });
   if (!logsResponse || !("logs" in logsResponse)) throw new Error("Invalid response");
-  const opLogs = logsResponse.logs.filter(
-    (log: unknown): log is LogEntry => {
-      return typeof log === 'object' && log !== null && 'context' in log &&
-        typeof log.context === 'object' && log.context !== null &&
-        'operationId' in log.context && log.context.operationId === operationId;
-    }
-  );
+  const opLogs = logsResponse.logs.filter((log: unknown): log is LogEntry => {
+    return (
+      typeof log === "object" &&
+      log !== null &&
+      "context" in log &&
+      typeof log.context === "object" &&
+      log.context !== null &&
+      "operationId" in log.context &&
+      log.context.operationId === operationId
+    );
+  });
 
   // Can see which step was slow
   expect(opLogs).toHaveLength(3);
 
   const slowStep = opLogs.find((log): log is LogEntry => {
-    return typeof log === 'object' && log !== null && 'context' in log &&
-      typeof log.context === 'object' && log.context !== null &&
-      'step' in log.context && log.context.step === "slow-step";
+    return (
+      typeof log === "object" &&
+      log !== null &&
+      "context" in log &&
+      typeof log.context === "object" &&
+      log.context !== null &&
+      "step" in log.context &&
+      log.context.step === "slow-step"
+    );
   });
   expect(slowStep).toBeDefined();
   expect(slowStep?.context?.duration).toBeGreaterThan(40);
@@ -386,13 +402,17 @@ test("Scenario: Operation fails and recovers with retry", async () => {
   // Query logs to see retry pattern
   const logsResponse = await bus.send({ type: "LOGS_GET" });
   if (!logsResponse || !("logs" in logsResponse)) throw new Error("Invalid response");
-  const requestLogs = logsResponse.logs.filter(
-    (log: unknown): log is LogEntry => {
-      return typeof log === 'object' && log !== null && 'context' in log &&
-        typeof log.context === 'object' && log.context !== null &&
-        'requestId' in log.context && log.context.requestId === requestId;
-    }
-  );
+  const requestLogs = logsResponse.logs.filter((log: unknown): log is LogEntry => {
+    return (
+      typeof log === "object" &&
+      log !== null &&
+      "context" in log &&
+      typeof log.context === "object" &&
+      log.context !== null &&
+      "requestId" in log.context &&
+      log.context.requestId === requestId
+    );
+  });
 
   expect(requestLogs).toHaveLength(2);
   const reqLog0 = requestLogs[0];
@@ -449,11 +469,11 @@ test("Scenario: User exports logs for bug report", async () => {
 
   // Verify structure
   if (!Array.isArray(logs)) {
-    throw new Error('Logs is not an array');
+    throw new Error("Logs is not an array");
   }
   for (const log of logs) {
-    if (typeof log !== 'object' || log === null) {
-      throw new Error('Log entry is not an object');
+    if (typeof log !== "object" || log === null) {
+      throw new Error("Log entry is not an object");
     }
     expect(log.id).toBeDefined();
     expect(log.level).toBeDefined();
@@ -588,13 +608,17 @@ test("Scenario: Trace message flow across contexts", async () => {
   // Query logs to trace the message
   const logsResponse = await bus.send({ type: "LOGS_GET" });
   if (!logsResponse || !("logs" in logsResponse)) throw new Error("Invalid response");
-  const messageLogs = logsResponse.logs.filter(
-    (log: unknown): log is LogEntry => {
-      return typeof log === 'object' && log !== null && 'context' in log &&
-        typeof log.context === 'object' && log.context !== null &&
-        'messageId' in log.context && log.context.messageId === messageId;
-    }
-  );
+  const messageLogs = logsResponse.logs.filter((log: unknown): log is LogEntry => {
+    return (
+      typeof log === "object" &&
+      log !== null &&
+      "context" in log &&
+      typeof log.context === "object" &&
+      log.context !== null &&
+      "messageId" in log.context &&
+      log.context.messageId === messageId
+    );
+  });
 
   // Can see the complete journey
   expect(messageLogs).toHaveLength(3);

@@ -1,86 +1,89 @@
+import { getMessageBus } from "@fairfox/polly/message-bus";
 // Popup UI for todo list
-import { render } from 'preact'
-import { useState, useEffect } from 'preact/hooks'
-import { getMessageBus } from '@fairfox/polly/message-bus'
-import type { Todo, AppState } from '../shared/types'
-import type { TodoMessages } from '../shared/messages'
-import './styles.css'
+import { render } from "preact";
+import { useEffect, useState } from "preact/hooks";
+import type { TodoMessages } from "../shared/messages";
+import type { AppState, Todo } from "../shared/types";
+import "./styles.css";
 
-const bus = getMessageBus<TodoMessages>('popup')
+const bus = getMessageBus<TodoMessages>("popup");
 
 function App() {
-  const [state, setState] = useState<AppState | null>(null)
-  const [newTodoText, setNewTodoText] = useState('')
+  const [state, setState] = useState<AppState | null>(null);
+  const [newTodoText, setNewTodoText] = useState("");
 
   useEffect(() => {
     // Load initial state
-    bus.send({ type: 'GET_STATE' }, { target: 'background' }).then((state) => {
-      if (state) setState(state)
-    })
-  }, [])
+    bus.send({ type: "GET_STATE" }, { target: "background" }).then((state) => {
+      if (state) setState(state);
+    });
+  }, []);
 
   const handleLogin = async () => {
-    const result = await bus.send({
-      type: 'USER_LOGIN',
-      userId: 'user-123',
-      name: 'Demo User',
-      role: 'user',
-    }, { target: 'background' })
+    const result = await bus.send(
+      {
+        type: "USER_LOGIN",
+        userId: "user-123",
+        name: "Demo User",
+        role: "user",
+      },
+      { target: "background" }
+    );
     if (result?.success) {
-      setState(prev => prev ? { ...prev, user: result.user } : null)
+      setState((prev) => (prev ? { ...prev, user: result.user } : null));
     }
-  }
+  };
 
   const handleLogout = async () => {
-    await bus.send({ type: 'USER_LOGOUT' }, { target: 'background' })
-    const newState = await bus.send({ type: 'GET_STATE' }, { target: 'background' })
-    if (newState) setState(newState)
-  }
+    await bus.send({ type: "USER_LOGOUT" }, { target: "background" });
+    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
+    if (newState) setState(newState);
+  };
 
   const handleAddTodo = async (e: Event) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
 
-    const text = newTodoText.trim()
-    if (!text) return
+    const text = newTodoText.trim();
+    if (!text) return;
 
     // Clear input immediately to prevent double submission
-    setNewTodoText('')
+    setNewTodoText("");
 
-    const result = await bus.send({ type: 'TODO_ADD', text }, { target: 'background' })
+    const result = await bus.send({ type: "TODO_ADD", text }, { target: "background" });
     if (result?.success) {
-      const newState = await bus.send({ type: 'GET_STATE' }, { target: 'background' })
-      if (newState) setState(newState)
+      const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
+      if (newState) setState(newState);
     } else {
       // Restore text if failed
-      setNewTodoText(text)
+      setNewTodoText(text);
     }
-  }
+  };
 
   const handleToggleTodo = async (id: string) => {
-    await bus.send({ type: 'TODO_TOGGLE', id }, { target: 'background' })
-    const newState = await bus.send({ type: 'GET_STATE' }, { target: 'background' })
-    if (newState) setState(newState)
-  }
+    await bus.send({ type: "TODO_TOGGLE", id }, { target: "background" });
+    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
+    if (newState) setState(newState);
+  };
 
   const handleRemoveTodo = async (id: string) => {
-    await bus.send({ type: 'TODO_REMOVE', id }, { target: 'background' })
-    const newState = await bus.send({ type: 'GET_STATE' }, { target: 'background' })
-    if (newState) setState(newState)
-  }
+    await bus.send({ type: "TODO_REMOVE", id }, { target: "background" });
+    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
+    if (newState) setState(newState);
+  };
 
   const handleClearCompleted = async () => {
-    await bus.send({ type: 'TODO_CLEAR_COMPLETED' }, { target: 'background' })
-    const newState = await bus.send({ type: 'GET_STATE' }, { target: 'background' })
-    if (newState) setState(newState)
-  }
+    await bus.send({ type: "TODO_CLEAR_COMPLETED" }, { target: "background" });
+    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
+    if (newState) setState(newState);
+  };
 
   if (!state) {
-    return <div class="loading">Loading...</div>
+    return <div class="loading">Loading...</div>;
   }
 
-  const activeTodos = state.todos.filter(t => !t.completed)
-  const completedTodos = state.todos.filter(t => t.completed)
+  const activeTodos = state.todos.filter((t) => !t.completed);
+  const completedTodos = state.todos.filter((t) => t.completed);
 
   return (
     <div class="app">
@@ -114,7 +117,7 @@ function App() {
           <p class="empty">No todos yet. Add one above!</p>
         ) : (
           <>
-            {activeTodos.map(todo => (
+            {activeTodos.map((todo) => (
               <TodoItem
                 key={todo.id}
                 todo={todo}
@@ -125,7 +128,7 @@ function App() {
             {completedTodos.length > 0 && (
               <div class="completed-section">
                 <h3>Completed ({completedTodos.length})</h3>
-                {completedTodos.map(todo => (
+                {completedTodos.map((todo) => (
                   <TodoItem
                     key={todo.id}
                     todo={todo}
@@ -152,7 +155,7 @@ function App() {
         <span>{state.todos.length} / 100 total</span>
       </div>
     </div>
-  )
+  );
 }
 
 function TodoItem({
@@ -160,23 +163,19 @@ function TodoItem({
   onToggle,
   onRemove,
 }: {
-  todo: Todo
-  onToggle: (id: string) => void
-  onRemove: (id: string) => void
+  todo: Todo;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
 }) {
   return (
-    <div class={`todo-item ${todo.completed ? 'completed' : ''}`}>
-      <input
-        type="checkbox"
-        checked={todo.completed}
-        onChange={() => onToggle(todo.id)}
-      />
+    <div class={`todo-item ${todo.completed ? "completed" : ""}`}>
+      <input type="checkbox" checked={todo.completed} onChange={() => onToggle(todo.id)} />
       <span class="todo-text">{todo.text}</span>
       <button onClick={() => onRemove(todo.id)} class="remove">
         ×
       </button>
     </div>
-  )
+  );
 }
 
-render(<App />, document.getElementById('root')!)
+render(<App />, document.getElementById("root")!);

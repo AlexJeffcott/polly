@@ -31,10 +31,7 @@ function Options() {
             onChange={(e) =>
               (settings.value = {
                 ...settings.value,
-                theme: (e.target as HTMLSelectElement).value as
-                  | "light"
-                  | "dark"
-                  | "auto",
+                theme: (e.target as HTMLSelectElement).value as "light" | "dark" | "auto",
               })
             }
             style={{ marginLeft: "8px", padding: "4px" }}
@@ -47,9 +44,7 @@ function Options() {
       </section>
 
       <section style={{ marginBottom: "24px" }}>
-        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>
-          Sync & Storage
-        </h2>
+        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>Sync & Storage</h2>
         <label style={{ display: "block", marginBottom: "8px" }}>
           <input
             type="checkbox"
@@ -80,9 +75,7 @@ function Options() {
       </section>
 
       <section style={{ marginBottom: "24px" }}>
-        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>
-          Notifications
-        </h2>
+        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>Notifications</h2>
         <label style={{ display: "block", marginBottom: "8px" }}>
           <input
             type="checkbox"
@@ -99,9 +92,7 @@ function Options() {
       </section>
 
       <section style={{ marginBottom: "24px" }}>
-        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>
-          API Configuration
-        </h2>
+        <h2 style={{ fontSize: "18px", marginBottom: "12px" }}>API Configuration</h2>
         <label style={{ display: "block", marginBottom: "8px" }}>
           API Endpoint:
           <input
@@ -149,8 +140,8 @@ function Options() {
           fontSize: "12px",
         }}
       >
-        <strong>Note:</strong> Settings are automatically saved and synced
-        across all extension contexts.
+        <strong>Note:</strong> Settings are automatically saved and synced across all extension
+        contexts.
       </div>
     </div>
   );

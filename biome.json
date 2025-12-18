@@ -9,7 +9,10 @@
       "build/**",
       "coverage/**",
       "vendor/**",
-      "**/build*.ts"
+      "**/build*.ts",
+      "examples/**/docs/**",
+      "**/*.min.js",
+      "**/*.min.css"
     ]
   },
   "organizeImports": {

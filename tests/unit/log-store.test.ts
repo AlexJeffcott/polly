@@ -51,7 +51,7 @@ test("LogStore - stores LOG messages", async () => {
 
   // Check what we got back
   expect(response).toBeDefined();
-  if (typeof response === 'object' && response !== null && 'success' in response) {
+  if (typeof response === "object" && response !== null && "success" in response) {
     expect(response.success).toBe(true);
   }
 

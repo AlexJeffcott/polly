@@ -335,7 +335,13 @@ test("Invalid message payload does NOT cause loop", async () => {
       targets: ["content"],
       tabId: 123,
       timestamp: Date.now(),
-      payload: { type: "LOG", level: "info", message: "test", source: "background", timestamp: Date.now() }, // Minimal valid message
+      payload: {
+        type: "LOG",
+        level: "info",
+        message: "test",
+        source: "background",
+        timestamp: Date.now(),
+      }, // Minimal valid message
     });
   } catch (_error) {
     // May throw error, but should not loop
