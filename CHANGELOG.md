@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2025-12-23
+
+### Fixed
+
+#### Verification: Filter Invalid TLA+ Identifiers from Message Types (Issue #11)
+Fixes critical bug where the code analyzer was extracting TypeScript utility type definitions as message types, generating invalid TLA+ syntax.
+
+**Problem:**
+The `polly verify` command's code analyzer was treating TypeScript type definition syntax like `{ ok: true; value: T }` as message types. This generated invalid TLA+ identifiers containing braces, colons, and semicolons, causing TLA+ parsing to fail with lexical errors.
+
+**Example Error:**
+```
+Lexical error at line 110, column 17. Encountered: ";" (59), after : ""
+Fatal errors while parsing TLA+ spec in file UserApp
+```
+
+**Solution:**
+- Added `isValidTLAIdentifier()` validation function to both `TypeExtractor` and `HandlerExtractor`
+- Validates identifiers match TLA+ rules: `/^[a-zA-Z][a-zA-Z0-9_]*$/`
+- Filters message types during analysis to only include valid TLA+ identifiers
+- Added debug logging to track filtered types (use `POLLY_DEBUG=1`)
+
+**What's Filtered:**
+- ❌ `{ ok: true; value: t }` (contains braces, colons, semicolons)
+- ❌ `{ ok: false; error: e }` (contains braces, colons, semicolons)
+- ❌ `event-type` (contains hyphen)
+- ❌ `123event` (starts with digit)
+- ✅ `authenticate`, `user_login`, `API_REQUEST`, `event123` (valid)
+
+**Impact:**
+The generated `UserApp.tla` now only contains valid message types, preventing TLA+ parsing errors. Projects with TypeScript utility types can now use `polly verify` successfully.
+
+**Testing:**
+- Added comprehensive unit tests (`vendor/analysis/src/extract/__tests__/tla-validation.test.ts`)
+- Tests cover valid identifiers, invalid identifiers, and edge cases
+- All 3 tests passing with 18 assertions
+
+**Debug Mode:**
+Run with `POLLY_DEBUG=1` to see filtered types:
+```bash
+POLLY_DEBUG=1 bunx polly verify
+```
+
+Output:
+```
+[WARN] Filtered out 2 invalid message type(s):
+[WARN]   - "{ ok: true; value: t }" (not a valid TLA+ identifier)
+[WARN]   - "{ ok: false; error: e }" (not a valid TLA+ identifier)
+```
+
+Fixes #11
+
+## [0.6.0] - 2025-12-23
+
+### Changed
+- **Major refactoring**: Eliminated all default exports across the codebase
+- Fixed all linting issues for consistent code style
+- Applied Biome formatter for unified formatting
+- Resolved all TypeScript compilation errors (340+ → 0)
+
 ## [0.5.4] - 2025-12-16
 
 ### Fixed
