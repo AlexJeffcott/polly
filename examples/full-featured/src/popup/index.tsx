@@ -195,7 +195,11 @@ function Popup() {
               <p>
                 Logged in as: <strong>{currentUser.value}</strong>
               </p>
-              <button onClick={handleLogout} style={{ width: "100%", padding: "8px" }}>
+              <button
+                type="button"
+                onClick={handleLogout}
+                style={{ width: "100%", padding: "8px" }}
+              >
                 Logout
               </button>
             </div>
@@ -205,17 +209,21 @@ function Popup() {
                 type="text"
                 placeholder="Username"
                 value={username.value}
-                onInput={(e) => (username.value = (e.target as HTMLInputElement).value)}
+                onInput={(e) => {
+                  username.value = (e.target as HTMLInputElement).value;
+                }}
                 style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
               />
               <input
                 type="password"
                 placeholder="Token"
                 value={token.value}
-                onInput={(e) => (token.value = (e.target as HTMLInputElement).value)}
+                onInput={(e) => {
+                  token.value = (e.target as HTMLInputElement).value;
+                }}
                 style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
               />
-              <button onClick={handleLogin} style={{ width: "100%", padding: "8px" }}>
+              <button type="button" onClick={handleLogin} style={{ width: "100%", padding: "8px" }}>
                 Login
               </button>
             </div>
@@ -236,17 +244,25 @@ function Popup() {
               type="text"
               placeholder="URL"
               value={newBookmarkUrl.value}
-              onInput={(e) => (newBookmarkUrl.value = (e.target as HTMLInputElement).value)}
+              onInput={(e) => {
+                newBookmarkUrl.value = (e.target as HTMLInputElement).value;
+              }}
               style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
             />
             <input
               type="text"
               placeholder="Title"
               value={newBookmarkTitle.value}
-              onInput={(e) => (newBookmarkTitle.value = (e.target as HTMLInputElement).value)}
+              onInput={(e) => {
+                newBookmarkTitle.value = (e.target as HTMLInputElement).value;
+              }}
               style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
             />
-            <button onClick={handleAddBookmark} style={{ width: "100%", padding: "8px" }}>
+            <button
+              type="button"
+              onClick={handleAddBookmark}
+              style={{ width: "100%", padding: "8px" }}
+            >
               Add Bookmark
             </button>
           </div>
@@ -290,6 +306,7 @@ function Popup() {
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleRemoveBookmark(bookmark.id)}
                     style={{
                       marginLeft: "8px",
@@ -315,6 +332,7 @@ function Popup() {
         >
           <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Current Tab</h2>
           <button
+            type="button"
             onClick={handleGetCurrentTab}
             style={{ width: "100%", padding: "8px", marginBottom: "8px" }}
           >
@@ -336,6 +354,7 @@ function Popup() {
                 <strong>URL:</strong> {currentTab.value.url}
               </div>
               <button
+                type="button"
                 onClick={handleBookmarkCurrentTab}
                 style={{ width: "100%", padding: "6px", marginTop: "8px" }}
               >

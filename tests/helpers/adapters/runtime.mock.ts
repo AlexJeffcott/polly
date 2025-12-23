@@ -49,7 +49,9 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
       if (typeof message === "object" && message !== null && "success" in message) {
         // This is a response, route it back to all listeners
         for (const listener of messageListeners) {
-          listener(message, { url: "" }, () => {});
+          listener(message, { url: "" }, () => {
+            // Empty response handler for mock
+          });
         }
         return undefined;
       }
@@ -75,7 +77,6 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
           // If it returns false/undefined/void and we haven't resolved yet, continue to next listener
           if (typeof result === "boolean" && result === true) {
             // Listener will send response asynchronously, wait for it
-            continue;
           }
         }
 
@@ -90,7 +91,7 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
         message: unknown,
         sender: MessageSender,
         sendResponse: (response: unknown) => void
-      ) => void | boolean
+      ) => undefined | boolean
     ) => {
       messageListeners.add(callback);
     },
@@ -99,7 +100,7 @@ export function createMockRuntime(id = "test-extension-id"): MockRuntime {
         message: unknown,
         sender: MessageSender,
         sendResponse: (response: unknown) => void
-      ) => void | boolean
+      ) => undefined | boolean
     ) => {
       messageListeners.delete(callback);
     },

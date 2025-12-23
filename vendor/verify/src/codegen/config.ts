@@ -46,7 +46,7 @@ export class ConfigGenerator {
   }
 
   private addExport(): void {
-    this.line("export default defineVerification({");
+    this.line("export const verificationConfig = defineVerification({");
     this.indent++;
   }
 

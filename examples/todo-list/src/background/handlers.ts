@@ -49,7 +49,7 @@ bus.on("USER_LOGOUT", () => {
 bus.on("TODO_ADD", (payload: { text: string }) => {
   // Preconditions
 
-  const previousCount = state.todos.length;
+  const _previousCount = state.todos.length;
 
   // State change
   const newTodo: Todo = {
@@ -64,7 +64,7 @@ bus.on("TODO_ADD", (payload: { text: string }) => {
 
   // Check for duplicate IDs
   const ids = state.todos.map((t) => t.id);
-  const uniqueIds = new Set(ids);
+  const _uniqueIds = new Set(ids);
 
   return { success: true, todo: newTodo };
 });
@@ -74,7 +74,7 @@ bus.on("TODO_TOGGLE", (payload: { id: string }) => {
   const todo = state.todos.find((t) => t.id === payload.id);
 
   if (todo) {
-    const previousCompleted = todo.completed;
+    const _previousCompleted = todo.completed;
 
     // State change
     todo.completed = !todo.completed;
@@ -91,7 +91,7 @@ bus.on("TODO_REMOVE", (payload: { id: string }) => {
   // Precondition
   const index = state.todos.findIndex((t) => t.id === payload.id);
 
-  const previousCount = state.todos.length;
+  const _previousCount = state.todos.length;
 
   // State change
   state.todos.splice(index, 1);
@@ -102,7 +102,7 @@ bus.on("TODO_REMOVE", (payload: { id: string }) => {
 });
 
 bus.on("TODO_CLEAR_COMPLETED", () => {
-  const previousCount = state.todos.length;
+  const _previousCount = state.todos.length;
   const completedCount = state.todos.filter((t) => t.completed).length;
 
   // State change
@@ -120,7 +120,7 @@ bus.on("TODO_CLEAR_COMPLETED", () => {
 bus.on("GET_STATE", () => {
   // Verification: ensure all todo IDs are unique
   const ids = state.todos.map((t) => t.id);
-  const uniqueIds = new Set(ids);
+  const _uniqueIds = new Set(ids);
 
   // Return a deep copy to prevent reference sharing issues
   return {

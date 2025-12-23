@@ -119,7 +119,7 @@ export class ConfigValidator {
     // Note: In production, this would use proper module loading
     delete require.cache[require.resolve(path.resolve(configPath))];
     const module = require(path.resolve(configPath));
-    return module.default || module;
+    return module.verificationConfig || module.default || module;
   }
 
   private validateConfig(config: VerificationConfig): void {

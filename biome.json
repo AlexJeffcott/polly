@@ -1,16 +1,16 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.3/schema.json",
   "files": {
     "ignore": [
-      "dist/**",
-      "dist-temp/**",
-      "node_modules/**",
-      ".next/**",
-      "build/**",
-      "coverage/**",
-      "vendor/**",
+      "**/dist/**",
+      "**/dist-temp/**",
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/build/**",
+      "**/coverage/**",
+      "**/vendor/**",
       "**/build*.ts",
-      "examples/**/docs/**",
+      "**/examples/**/docs/**",
       "**/*.min.js",
       "**/*.min.css"
     ]
@@ -47,14 +47,13 @@
         "useConsistentArrayType": "off",
         "useForOf": "error",
         "useFragmentSyntax": "off",
-        "useShorthandArrayType": "off",
         "useShorthandAssign": "error"
       },
       "suspicious": {
-        "noConsoleLog": "error",
         "noEmptyBlockStatements": "error",
         "noExplicitAny": "error",
-        "noSkippedTests": "error"
+        "noSkippedTests": "error",
+        "noConsole": { "level": "error", "options": { "allow": ["log"] } }
       }
     }
   },
@@ -76,5 +75,22 @@
       "bracketSpacing": true,
       "bracketSameLine": false
     }
-  }
+  },
+  "overrides": [
+    {
+      "include": [
+        "src/shared/adapters/**",
+        "src/shared/lib/**",
+        "src/popup/**",
+        "examples/todo-list/src/background/handlers.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
 }

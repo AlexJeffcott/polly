@@ -13,7 +13,7 @@ bus.on("CLIPBOARD_WRITE", async (payload) => {
     await navigator.clipboard.writeText(payload.text);
     return { success: true };
   } catch (error) {
-    console.error("[Offscreen] Failed to write to clipboard:", error);
+    console.log("[Offscreen] Failed to write to clipboard:", error);
     return { success: false };
   }
 });
@@ -25,7 +25,7 @@ bus.on("CLIPBOARD_WRITE_HTML", async (payload) => {
     await navigator.clipboard.write([item]);
     return { success: true };
   } catch (error) {
-    console.error("[Offscreen] Failed to write HTML to clipboard:", error);
+    console.log("[Offscreen] Failed to write HTML to clipboard:", error);
     return { success: false };
   }
 });
@@ -41,7 +41,7 @@ bus.on("CLIPBOARD_WRITE_RICH", async (payload) => {
     await navigator.clipboard.write([item]);
     return { success: true };
   } catch (error) {
-    console.error("[Offscreen] Failed to write rich content to clipboard:", error);
+    console.log("[Offscreen] Failed to write rich content to clipboard:", error);
     return { success: false };
   }
 });
@@ -51,7 +51,7 @@ bus.on("CLIPBOARD_READ", async () => {
     const text = await navigator.clipboard.readText();
     return { text };
   } catch (error) {
-    console.error("[Offscreen] Failed to read from clipboard:", error);
+    console.log("[Offscreen] Failed to read from clipboard:", error);
     return { text: "" };
   }
 });

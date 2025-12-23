@@ -28,12 +28,12 @@ function Options() {
           Theme:
           <select
             value={settings.value.theme}
-            onChange={(e) =>
-              (settings.value = {
+            onChange={(e) => {
+              settings.value = {
                 ...settings.value,
                 theme: (e.target as HTMLSelectElement).value as "light" | "dark" | "auto",
-              })
-            }
+              };
+            }}
             style={{ marginLeft: "8px", padding: "4px" }}
           >
             <option value="auto">Auto</option>
@@ -49,12 +49,12 @@ function Options() {
           <input
             type="checkbox"
             checked={settings.value.autoSync}
-            onChange={(e) =>
-              (settings.value = {
+            onChange={(e) => {
+              settings.value = {
                 ...settings.value,
                 autoSync: (e.target as HTMLInputElement).checked,
-              })
-            }
+              };
+            }}
           />{" "}
           Auto-sync data across devices
         </label>
@@ -63,12 +63,12 @@ function Options() {
           <input
             type="number"
             value={settings.value.refreshInterval}
-            onInput={(e) =>
-              (settings.value = {
+            onInput={(e) => {
+              settings.value = {
                 ...settings.value,
                 refreshInterval: Number((e.target as HTMLInputElement).value),
-              })
-            }
+              };
+            }}
             style={{ marginLeft: "8px", padding: "4px", width: "100px" }}
           />
         </label>
@@ -80,12 +80,12 @@ function Options() {
           <input
             type="checkbox"
             checked={settings.value.notifications}
-            onChange={(e) =>
-              (settings.value = {
+            onChange={(e) => {
+              settings.value = {
                 ...settings.value,
                 notifications: (e.target as HTMLInputElement).checked,
-              })
-            }
+              };
+            }}
           />{" "}
           Enable notifications
         </label>
@@ -98,12 +98,12 @@ function Options() {
           <input
             type="text"
             value={settings.value.apiEndpoint}
-            onInput={(e) =>
-              (settings.value = {
+            onInput={(e) => {
+              settings.value = {
                 ...settings.value,
                 apiEndpoint: (e.target as HTMLInputElement).value,
-              })
-            }
+              };
+            }}
             placeholder="https://api.example.com"
             style={{
               display: "block",
@@ -121,12 +121,12 @@ function Options() {
           <input
             type="checkbox"
             checked={settings.value.debugMode}
-            onChange={(e) =>
-              (settings.value = {
+            onChange={(e) => {
+              settings.value = {
                 ...settings.value,
                 debugMode: (e.target as HTMLInputElement).checked,
-              })
-            }
+              };
+            }}
           />{" "}
           Enable debug mode
         </label>

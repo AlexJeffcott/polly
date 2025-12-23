@@ -7,11 +7,35 @@ function Popup() {
     <div style={{ padding: "20px", minWidth: "200px" }}>
       <h2>Counter Demo</h2>
       <p>Count: {counter.value}</p>
-      <button onClick={() => counter.value++}>Increment</button>
-      <button onClick={() => counter.value--}>Decrement</button>
-      <button onClick={() => (counter.value = 0)}>Reset</button>
+      <button
+        type="button"
+        onClick={() => {
+          counter.value++;
+        }}
+      >
+        Increment
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          counter.value--;
+        }}
+      >
+        Decrement
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          counter.value = 0;
+        }}
+      >
+        Reset
+      </button>
     </div>
   );
 }
 
-render(<Popup />, document.getElementById("root")!);
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  render(<Popup />, rootElement);
+}

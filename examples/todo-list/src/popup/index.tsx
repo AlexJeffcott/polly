@@ -93,10 +93,14 @@ function App() {
           {state.user.loggedIn ? (
             <>
               <span>👤 {state.user.name}</span>
-              <button onClick={handleLogout}>Logout</button>
+              <button type="button" onClick={handleLogout}>
+                Logout
+              </button>
             </>
           ) : (
-            <button onClick={handleLogin}>Login</button>
+            <button type="button" onClick={handleLogin}>
+              Login
+            </button>
           )}
         </div>
       </header>
@@ -144,7 +148,7 @@ function App() {
 
       {completedTodos.length > 0 && (
         <footer>
-          <button onClick={handleClearCompleted} class="clear-completed">
+          <button type="button" onClick={handleClearCompleted} class="clear-completed">
             Clear Completed ({completedTodos.length})
           </button>
         </footer>
@@ -171,11 +175,14 @@ function TodoItem({
     <div class={`todo-item ${todo.completed ? "completed" : ""}`}>
       <input type="checkbox" checked={todo.completed} onChange={() => onToggle(todo.id)} />
       <span class="todo-text">{todo.text}</span>
-      <button onClick={() => onRemove(todo.id)} class="remove">
+      <button type="button" onClick={() => onRemove(todo.id)} class="remove">
         ×
       </button>
     </div>
   );
 }
 
-render(<App />, document.getElementById("root")!);
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  render(<App />, rootElement);
+}

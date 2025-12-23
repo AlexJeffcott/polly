@@ -8,7 +8,7 @@ export function injectPageScript(): void {
     script.remove();
   };
   script.onerror = (error) => {
-    console.error("[Content Script] Failed to inject page script:", error);
+    console.log("[Content Script] Failed to inject page script:", error);
   };
 
   // Inject as early as possible

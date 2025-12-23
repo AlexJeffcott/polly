@@ -16,7 +16,7 @@
 
 import { defineVerification } from "@fairfox/polly/verify";
 
-export default defineVerification({
+export const verificationConfig = defineVerification({
   state: {},
 
   messages: {

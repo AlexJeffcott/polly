@@ -3,56 +3,56 @@
  * Serves the application with hot reload support
  */
 
-const port = 3000
+const port = 3000;
 
-const server = Bun.serve({
-  port,
-  async fetch(req) {
-    const url = new URL(req.url)
-    let filePath = url.pathname
+Bun.serve({
+	port,
+	async fetch(req) {
+		const url = new URL(req.url);
+		let filePath = url.pathname;
 
-    // Serve root
-    if (filePath === '/') {
-      filePath = '/index.html'
-    }
+		// Serve root
+		if (filePath === "/") {
+			filePath = "/index.html";
+		}
 
-    // Try to serve from public directory first
-    const publicFile = Bun.file(`./public${filePath}`)
-    if (await publicFile.exists()) {
-      return new Response(publicFile)
-    }
+		// Try to serve from public directory first
+		const publicFile = Bun.file(`./public${filePath}`);
+		if (await publicFile.exists()) {
+			return new Response(publicFile);
+		}
 
-    // Try to serve from root
-    const rootFile = Bun.file(`.${filePath}`)
-    if (await rootFile.exists()) {
-      return new Response(rootFile)
-    }
+		// Try to serve from root
+		const rootFile = Bun.file(`.${filePath}`);
+		if (await rootFile.exists()) {
+			return new Response(rootFile);
+		}
 
-    // Handle TypeScript files - transpile on the fly
-    if (filePath.endsWith('.ts')) {
-      const tsFile = Bun.file(`.${filePath}`)
-      if (await tsFile.exists()) {
-        const transpiled = await Bun.build({
-          entrypoints: [`.${filePath}`],
-          format: 'esm',
-          target: 'browser',
-        })
+		// Handle TypeScript files - transpile on the fly
+		if (filePath.endsWith(".ts")) {
+			const tsFile = Bun.file(`.${filePath}`);
+			if (await tsFile.exists()) {
+				const transpiled = await Bun.build({
+					entrypoints: [`.${filePath}`],
+					format: "esm",
+					target: "browser",
+				});
 
-        if (transpiled.outputs.length > 0) {
-          return new Response(transpiled.outputs[0], {
-            headers: {
-              'Content-Type': 'application/javascript',
-            },
-          })
-        }
-      }
-    }
+				if (transpiled.outputs.length > 0) {
+					return new Response(transpiled.outputs[0], {
+						headers: {
+							"Content-Type": "application/javascript",
+						},
+					});
+				}
+			}
+		}
 
-    // 404
-    return new Response('Not Found', { status: 404 })
-  },
-})
+		// 404
+		return new Response("Not Found", { status: 404 });
+	},
+});
 
-console.log(`🚀 Server running at http://localhost:${port}`)
-console.log(`\n📱 PWA: {{PROJECT_NAME}}`)
-console.log(`\n💡 Open in browser and check the console for worker messages`)
+console.log(`🚀 Server running at http://localhost:${port}`);
+console.log(`\n📱 PWA: {{PROJECT_NAME}}`);
+console.log("\n💡 Open in browser and check the console for worker messages");

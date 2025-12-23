@@ -68,7 +68,7 @@ function copyTemplateFiles(
     if (entry.isDirectory()) {
       // Create directory and recurse
       mkdirSync(targetPath, { recursive: true });
-      copyTemplateFiles(sourceDir, targetDir, projectName, join(relativePath, entry.name));
+      copyTemplateFiles(sourcePath, targetDir, projectName, join(relativePath, entry.name));
     } else if (entry.name.endsWith(".template")) {
       // Process template file
       const content = readFileSync(sourcePath, "utf-8");
@@ -92,7 +92,7 @@ export function getAvailableTypes(): ProjectType[] {
  * Get template directory for project type
  */
 export function getTemplateDir(projectType: ProjectType, baseDir: string): string {
-  return join(baseDir, "..", "templates", projectType);
+  return join(baseDir, "../..", "templates", projectType);
 }
 
 /**

@@ -74,7 +74,7 @@ async function loadConfig() {
         const config = await import(configPath);
         return config.default || config;
       } catch (error) {
-        console.error(`❌ Failed to load config: ${configPath}`);
+        console.log(`❌ Failed to load config: ${configPath}`);
         throw error;
       }
     }
@@ -269,7 +269,7 @@ async function check() {
       if (optional) {
         continue;
       }
-      console.error(`\n\x1b[31m✗ ${name} failed\x1b[0m\n`);
+      console.log(`\n\x1b[31m✗ ${name} failed\x1b[0m\n`);
       process.exit(1);
     }
   }
@@ -288,7 +288,7 @@ async function init() {
   // Validate project name
   const validation = validateProjectName(projectName);
   if (!validation.valid) {
-    console.error(`\x1b[31m✗ ${validation.error}\x1b[0m\n`);
+    console.log(`\x1b[31m✗ ${validation.error}\x1b[0m\n`);
     process.exit(1);
   }
 
@@ -296,7 +296,7 @@ async function init() {
 
   // Check if directory already exists
   if (existsSync(projectPath)) {
-    console.error(`\x1b[31m✗ Directory '${projectName}' already exists\x1b[0m\n`);
+    console.log(`\x1b[31m✗ Directory '${projectName}' already exists\x1b[0m\n`);
     process.exit(1);
   }
 
@@ -362,12 +362,12 @@ async function main() {
         help();
         break;
       default:
-        console.error(`❌ Unknown command: ${command}\n`);
+        console.log(`❌ Unknown command: ${command}\n`);
         help();
         process.exit(1);
     }
   } catch (error) {
-    console.error("\n❌ Command failed:", error);
+    console.log("\n❌ Command failed:", error);
     process.exit(1);
   }
 }

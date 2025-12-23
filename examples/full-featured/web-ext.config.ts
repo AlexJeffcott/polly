@@ -4,7 +4,7 @@
  * Configuration for building the extension with web-ext CLI.
  */
 
-export default {
+export const webExtConfig = {
   // Source directory containing your extension code
   srcDir: "src",
 
