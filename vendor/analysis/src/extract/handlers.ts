@@ -29,6 +29,7 @@ export class HandlerExtractor {
   extractHandlers(): HandlerAnalysis {
     const handlers: MessageHandler[] = []
     const messageTypes = new Set<string>()
+    const invalidMessageTypes = new Set<string>()
 
     // Find all source files
     const sourceFiles = this.project.getSourceFiles()
@@ -48,18 +49,40 @@ export class HandlerExtractor {
       handlers.push(...fileHandlers)
 
       for (const handler of fileHandlers) {
-        messageTypes.add(handler.messageType)
+        if (this.isValidTLAIdentifier(handler.messageType)) {
+          messageTypes.add(handler.messageType)
+        } else {
+          invalidMessageTypes.add(handler.messageType)
+        }
       }
     }
 
     if (process.env['POLLY_DEBUG']) {
       console.log(`[DEBUG] Total handlers extracted: ${handlers.length}`)
+      if (invalidMessageTypes.size > 0) {
+        console.log(`[DEBUG] Filtered ${invalidMessageTypes.size} invalid message type(s) from handlers`)
+      }
     }
 
     return {
       handlers,
       messageTypes,
     }
+  }
+
+  /**
+   * Check if a string is a valid TLA+ identifier
+   * TLA+ identifiers must:
+   * - Start with a letter (a-zA-Z)
+   * - Contain only letters, digits, and underscores
+   * - Not be empty
+   */
+  private isValidTLAIdentifier(s: string): boolean {
+    if (!s || s.length === 0) {
+      return false
+    }
+    // TLA+ identifiers: start with letter, contain only alphanumeric + underscore
+    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s)
   }
 
   /**

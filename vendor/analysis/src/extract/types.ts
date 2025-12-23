@@ -34,12 +34,48 @@ export class TypeExtractor {
     const handlerExtractor = new HandlerExtractor(tsConfigPath)
     const handlerAnalysis = handlerExtractor.extractHandlers()
 
+    // Combine and filter message types to only include valid TLA+ identifiers
+    const allMessageTypes = Array.from(new Set([...messageTypes, ...handlerAnalysis.messageTypes]))
+    const validMessageTypes: string[] = []
+    const invalidMessageTypes: string[] = []
+
+    for (const msgType of allMessageTypes) {
+      if (this.isValidTLAIdentifier(msgType)) {
+        validMessageTypes.push(msgType)
+      } else {
+        invalidMessageTypes.push(msgType)
+      }
+    }
+
+    // Log warnings about invalid message types
+    if (invalidMessageTypes.length > 0 && process.env['POLLY_DEBUG']) {
+      console.log(`[WARN] Filtered out ${invalidMessageTypes.length} invalid message type(s):`)
+      for (const invalid of invalidMessageTypes) {
+        console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`)
+      }
+    }
+
     return {
       stateType,
-      messageTypes: Array.from(new Set([...messageTypes, ...handlerAnalysis.messageTypes])),
+      messageTypes: validMessageTypes,
       fields,
       handlers: handlerAnalysis.handlers,
     }
+  }
+
+  /**
+   * Check if a string is a valid TLA+ identifier
+   * TLA+ identifiers must:
+   * - Start with a letter (a-zA-Z)
+   * - Contain only letters, digits, and underscores
+   * - Not be empty
+   */
+  private isValidTLAIdentifier(s: string): boolean {
+    if (!s || s.length === 0) {
+      return false
+    }
+    // TLA+ identifiers: start with letter, contain only alphanumeric + underscore
+    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s)
   }
 
   /**
