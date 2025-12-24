@@ -174,8 +174,9 @@ export class DockerRunner {
 
   /**
    * Run a command and return output
+   * Public to allow other runners (like SANYRunner) to execute commands
    */
-  private runCommand(
+  runCommand(
     command: string,
     args: string[],
     options?: { timeout?: number }

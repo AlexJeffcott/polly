@@ -260,13 +260,88 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     const handlers: MessageHandler[] = [];
 
     sourceFile.forEachDescendant((node) => {
+      // Try to recognize as a function declaration (handle* pattern)
       const handler = this.recognizeMessageHandler(node);
       if (handler) {
         handlers.push(handler);
+        return;
+      }
+
+      // Try to recognize as an .on() event listener
+      const eventHandler = this.recognizeEventListenerHandler(node);
+      if (eventHandler) {
+        handlers.push(eventHandler);
       }
     });
 
     return handlers;
+  }
+
+  /**
+   * Recognize .on() event listener pattern:
+   * - wss.on('connection', (ws) => { ... })
+   * - ws.on('message', (data) => { ... })
+   * - socket.on('chat-message', (msg) => { ... })
+   * - io.on('connection', (socket) => { ... })
+   */
+  private recognizeEventListenerHandler(node: Node): MessageHandler | null {
+    if (!Node.isCallExpression(node)) {
+      return null;
+    }
+
+    const expression = node.getExpression();
+
+    // Check if it's a .on() call
+    if (!Node.isPropertyAccessExpression(expression)) {
+      return null;
+    }
+
+    const methodName = expression.getName();
+    if (methodName !== "on") {
+      return null;
+    }
+
+    const args = node.getArguments();
+    if (args.length < 2) {
+      return null;
+    }
+
+    // First argument should be the event name (string literal)
+    const eventNameArg = args[0];
+    if (!Node.isStringLiteral(eventNameArg)) {
+      return null;
+    }
+
+    const messageType = eventNameArg.getLiteralValue();
+
+    // Second argument should be the handler function (arrow function or function expression)
+    const handlerArg = args[1];
+    if (!Node.isArrowFunction(handlerArg) && !Node.isFunctionExpression(handlerArg)) {
+      return null;
+    }
+
+    // Extract state mutations and conditions from the handler
+    const assignments: StateAssignment[] = [];
+    const preconditions: VerificationCondition[] = [];
+    const postconditions: VerificationCondition[] = [];
+
+    this.extractAssignmentsFromFunction(handlerArg, assignments);
+    this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions);
+
+    const sourceFile = node.getSourceFile();
+    const line = node.getStartLineNumber();
+
+    return {
+      messageType,
+      node: "Server", // WebSocket handlers typically run on server
+      assignments,
+      preconditions,
+      postconditions,
+      location: {
+        file: sourceFile.getFilePath(),
+        line,
+      },
+    };
   }
 
   /**
@@ -299,7 +374,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
 
     return {
       messageType,
-      node: "server", // All handlers run on server
+      node: "Server", // All handlers run on server
       assignments,
       preconditions,
       postconditions,
@@ -345,13 +420,22 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     preconditions: VerificationCondition[],
     postconditions: VerificationCondition[]
   ): void {
-    if (!Node.isFunctionDeclaration(funcNode)) {
+    // Support function declarations, arrow functions, and function expressions
+    if (!Node.isFunctionDeclaration(funcNode) &&
+        !Node.isArrowFunction(funcNode) &&
+        !Node.isFunctionExpression(funcNode)) {
       return;
     }
 
     const body = funcNode.getBody();
 
-    if (!body || !Node.isBlock(body)) {
+    if (!body) {
+      return;
+    }
+
+    // Handle both block statements and expression bodies (arrow functions)
+    if (!Node.isBlock(body)) {
+      // For arrow functions with expression body, no statements to check
       return;
     }
 

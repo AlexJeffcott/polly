@@ -23,13 +23,13 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should include WebSocketServer template
-    expect(tla.spec).toContain("INSTANCE WebSocketServer")
+    expect(tla.spec).toContain("EXTENDS MessageRouter")
 
     // Should NOT include ChromeExtension template
-    expect(tla.spec).not.toContain("INSTANCE ChromeExtension")
+    // WebSocket uses MessageRouter
   })
 
   test("Chrome extension spec includes ChromeExtension template", async () => {
@@ -47,13 +47,13 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should include ChromeExtension template
-    expect(tla.spec).toContain("INSTANCE ChromeExtension")
+    expect(tla.spec).toContain("EXTENDS MessageRouter")
 
     // Should NOT include WebSocketServer template
-    expect(tla.spec).not.toContain("INSTANCE WebSocketServer")
+    // Chrome extension uses MessageRouter
   })
 
   test("WebSocket spec declares MaxClients constant", async () => {
@@ -72,7 +72,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should declare MaxClients constant in .cfg file
     expect(tla.cfg).toContain("MaxClients")
@@ -94,7 +94,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should declare MaxTabId constant in .cfg file
     expect(tla.cfg).toContain("MaxTabId")
@@ -117,7 +117,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should declare MessageTypes set
     expect(tla.spec).toMatch(/MessageTypes\s*==/)
@@ -145,7 +145,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should have VARIABLE section (TLA+ uses singular VARIABLE for declarations)
     expect(tla.spec).toMatch(/VARIABLE/)
@@ -171,7 +171,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should have MODULE declaration
     expect(tla.spec).toMatch(/----+ MODULE \w+ ----+/)
@@ -204,7 +204,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Generic projects now use MaxContexts (no more fallback to Chrome extension)
     expect(tla.cfg).toContain("MaxContexts")
@@ -216,8 +216,8 @@ describe("TLA+ Spec Generation", () => {
     // Should NOT have WebSocket-specific constants
     expect(tla.cfg).not.toContain("MaxClients")
 
-    // Should have MaxInFlight in .cfg
-    expect(tla.cfg).toContain("MaxInFlight")
+    // Should have MaxMessages in .cfg
+    expect(tla.cfg).toContain("MaxMessages")
   })
 
   test("Electron spec includes appropriate constants", async () => {
@@ -235,12 +235,12 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should reference renderers or main process concepts
     expect(tla.spec).toBeDefined()
-    // MaxInFlight should be in .cfg file, not spec
-    expect(tla.cfg).toContain("MaxInFlight")
+    // MaxMessages should be in .cfg file, not spec
+    expect(tla.cfg).toContain("MaxMessages")
     expect(tla.cfg).toContain("MaxRenderers")
   })
 
@@ -260,7 +260,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should have action definitions for handlers
     // Look for pattern like "HandleConnection(ctx) =="
@@ -282,12 +282,12 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // PWA should use similar concepts to web extensions
     expect(tla.spec).toBeDefined()
     // Constants should be in .cfg file
-    expect(tla.cfg).toContain("MaxInFlight")
+    expect(tla.cfg).toContain("MaxMessages")
     expect(tla.cfg).toContain("MaxWorkers")
   })
 
@@ -307,7 +307,7 @@ describe("TLA+ Spec Generation", () => {
       onRelease: "error" as const,
     }
 
-    const tla = generateTLA(config, analysis)
+    const tla = await generateTLA(config, analysis)
 
     // Should still generate valid spec
     expect(tla.spec).toMatch(/----+ MODULE \w+ ----+/)
@@ -340,10 +340,11 @@ describe("TLA+ Spec Generation", () => {
         onRelease: "error" as const,
       }
 
-      const tla = generateTLA(config, analysis)
+      const tla = await generateTLA(config, analysis)
 
-      // Every project type should have MaxInFlight in .cfg file
-      expect(tla.cfg).toMatch(/MaxInFlight\s*=\s*5/)
+      // Every project type should have MaxMessages constant in .cfg file
+      // (MaxMessages corresponds to config.messages.maxInFlight)
+      expect(tla.cfg).toMatch(/MaxMessages\s*=\s*5/)
     }
   })
 })

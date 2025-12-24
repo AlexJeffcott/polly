@@ -148,7 +148,11 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
   }
 
   /**
-   * Recognize message handler registration: bus.on("TYPE", handler)
+   * Recognize message handler registration:
+   * - bus.on("TYPE", handler)
+   * - chrome.runtime.onMessage.addListener(handler)
+   * - browser.runtime.onMessage.addListener(handler)
+   * - chrome.tabs.onUpdated.addListener(handler)
    */
   recognizeMessageHandler(node: Node): MessageHandler | null {
     if (!Node.isCallExpression(node)) {
@@ -157,17 +161,90 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
 
     const expression = node.getExpression();
 
-    // Check if this is a .on() call
+    // Check if this is a .on() or .addListener() call
     if (!Node.isPropertyAccessExpression(expression)) {
       return null;
     }
 
     const methodName = expression.getName();
-    if (methodName !== "on") {
+
+    // Handle .on() pattern
+    if (methodName === "on") {
+      return this.extractHandlerFromOnCall(node);
+    }
+
+    // Handle .addListener() pattern (Chrome/Firefox extensions)
+    if (methodName === "addListener") {
+      return this.extractHandlerFromAddListener(node);
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract handler from .addListener() call:
+   * - chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { ... })
+   * - chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => { ... })
+   */
+  private extractHandlerFromAddListener(callExpr: Node): MessageHandler | null {
+    if (!Node.isCallExpression(callExpr)) {
       return null;
     }
 
-    return this.extractHandlerFromOnCall(node);
+    const expression = callExpr.getExpression();
+    if (!Node.isPropertyAccessExpression(expression)) {
+      return null;
+    }
+
+    // Get the event object (e.g., chrome.runtime.onMessage, chrome.tabs.onUpdated)
+    const eventObject = expression.getExpression();
+    if (!Node.isPropertyAccessExpression(eventObject)) {
+      return null;
+    }
+
+    // Extract event name from the property chain
+    // chrome.runtime.onMessage -> "onMessage"
+    // chrome.tabs.onUpdated -> "onUpdated"
+    const eventName = eventObject.getName();
+
+    // Convert event name to message type
+    // onMessage -> "message"
+    // onUpdated -> "updated"
+    const messageType = eventName.replace(/^on/, "").toLowerCase();
+
+    // Get the handler function (first argument)
+    const args = callExpr.getArguments();
+    if (args.length === 0) {
+      return null;
+    }
+
+    const handlerArg = args[0];
+    if (!Node.isArrowFunction(handlerArg) && !Node.isFunctionExpression(handlerArg)) {
+      return null;
+    }
+
+    // Extract state mutations and conditions
+    const assignments: StateAssignment[] = [];
+    const preconditions: VerificationCondition[] = [];
+    const postconditions: VerificationCondition[] = [];
+
+    this.extractAssignmentsFromFunction(handlerArg, assignments);
+    this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions);
+
+    const sourceFile = callExpr.getSourceFile();
+    const line = callExpr.getStartLineNumber();
+
+    return {
+      messageType,
+      node: "background", // Default, will be overridden by context inference
+      assignments,
+      preconditions,
+      postconditions,
+      location: {
+        file: sourceFile.getFilePath(),
+        line,
+      },
+    };
   }
 
   /**
@@ -461,10 +538,17 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * @example
    * "/src/background/index.ts" => "background"
    * "/src/popup/popup.tsx" => "popup"
+   * "/src/service-worker.ts" => "Service Worker" (PWA)
    */
   private inferContextFromPath(filePath: string): string {
     const path = filePath.toLowerCase();
 
+    // PWA service worker context
+    if (path.includes("service-worker") || path.includes("sw.ts") || path.includes("sw.js")) {
+      return "Service Worker";
+    }
+
+    // Chrome extension contexts
     if (path.includes("/background/") || path.includes("\\background\\")) {
       return "background";
     }

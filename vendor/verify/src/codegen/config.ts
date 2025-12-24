@@ -1,14 +1,17 @@
 // Configuration file generator with smart comments
 
 import type { FieldAnalysis, CodebaseAnalysis, TypeInfo } from "../types";
+import type { ProjectType } from "../../../analysis/src/types/architecture";
 
 export class ConfigGenerator {
   private lines: string[] = [];
   private indent = 0;
+  private projectType: ProjectType = "chrome-extension";
 
-  generate(analysis: CodebaseAnalysis): string {
+  generate(analysis: CodebaseAnalysis, projectType: ProjectType = "chrome-extension"): string {
     this.lines = [];
     this.indent = 0;
+    this.projectType = projectType;
 
     this.addHeader();
     this.addImports();
@@ -26,8 +29,13 @@ export class ConfigGenerator {
     this.line("// Verification Configuration");
     this.line("// ═══════════════════════════════════════════════════════════════");
     this.line("//");
-    this.line("// This file configures TLA+ verification for your extension.");
+    this.line(`// Project type: ${this.projectType}`);
+    this.line("//");
+    this.line("// This file configures TLA+ verification for your application.");
     this.line("// Some values are auto-configured, others need your input.");
+    this.line("//");
+    this.line("// Entry points:");
+    this.addEntryPointsDocumentation();
     this.line("//");
     this.line("// Look for:");
     this.line("//   • /* CONFIGURE */ - Replace with your value");
@@ -40,13 +48,38 @@ export class ConfigGenerator {
     this.line("");
   }
 
+  private addEntryPointsDocumentation(): void {
+    switch (this.projectType) {
+      case "websocket-app":
+        this.line("//   • server - WebSocket server");
+        this.line("//   • client-* - Connected clients");
+        break;
+      case "pwa":
+        this.line("//   • ServiceWorker - Service worker context");
+        this.line("//   • Window - Browser window context");
+        break;
+      case "electron":
+        this.line("//   • MainProcess - Electron main process");
+        this.line("//   • Renderer-* - Renderer processes");
+        break;
+      case "chrome-extension":
+        this.line("//   • background - Background service worker");
+        this.line("//   • content - Content scripts");
+        this.line("//   • popup - Extension popup");
+        break;
+      case "generic":
+        this.line("//   • Detected from your code");
+        break;
+    }
+  }
+
   private addImports(): void {
     this.line("import { defineVerification } from '@fairfox/polly/verify'");
     this.line("");
   }
 
   private addExport(): void {
-    this.line("export const verificationConfig = defineVerification({");
+    this.line("export default defineVerification({");
     this.indent++;
   }
 
@@ -255,14 +288,76 @@ export class ConfigGenerator {
     this.line("// WARNING: State space grows exponentially! Start small.");
     this.line("maxInFlight: 3,");
     this.line("");
-    this.line("// Maximum tab IDs to model (content scripts are per-tab).");
-    this.line("//");
-    this.line("// Recommended:");
-    this.line("//   • 0-1: Most extensions (single tab or tab-agnostic)");
-    this.line("//   • 2-3: Multi-tab coordination");
-    this.line("//");
-    this.line("// Start with 0 or 1 for faster verification.");
-    this.line("maxTabs: 1,");
+
+    // Add project-specific fields
+    switch (this.projectType) {
+      case "websocket-app":
+        this.line("// Maximum number of connected WebSocket clients to model.");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 2-3: Most WebSocket apps");
+        this.line("//   • 4-5: Multi-client coordination");
+        this.line("//");
+        this.line("maxClients: 3,");
+        this.line("");
+        this.line("// Maximum messages per client in flight.");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 1-2: Simple request-response");
+        this.line("//   • 3-4: Complex message flows");
+        this.line("//");
+        this.line("maxMessagesPerClient: 2,");
+        break;
+
+      case "pwa":
+        this.line("// Maximum number of service workers to model.");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 1: Most PWAs (single service worker)");
+        this.line("//   • 2: Testing worker updates");
+        this.line("//");
+        this.line("maxWorkers: 1,");
+        this.line("");
+        this.line("// Maximum number of client windows to model.");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 2-3: Most PWAs");
+        this.line("//   • 4-5: Multi-window coordination");
+        this.line("//");
+        this.line("maxClients: 3,");
+        break;
+
+      case "electron":
+        this.line("// Maximum number of renderer processes to model.");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 1-2: Most Electron apps");
+        this.line("//   • 3-4: Multi-window applications");
+        this.line("//");
+        this.line("maxRenderers: 2,");
+        break;
+
+      case "chrome-extension":
+        this.line("// Maximum tab IDs to model (content scripts are per-tab).");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 0-1: Most extensions (single tab or tab-agnostic)");
+        this.line("//   • 2-3: Multi-tab coordination");
+        this.line("//");
+        this.line("// Start with 0 or 1 for faster verification.");
+        this.line("maxTabs: 1,");
+        break;
+
+      case "generic":
+        this.line("// Maximum contexts/actors to model.");
+        this.line("//");
+        this.line("// Recommended:");
+        this.line("//   • 2-3: Simple message passing");
+        this.line("//   • 4-5: Complex coordination");
+        this.line("//");
+        this.line("maxContexts: 3,");
+        break;
+    }
 
     this.indent--;
     this.line("},");
@@ -349,7 +444,10 @@ export class ConfigGenerator {
   }
 }
 
-export function generateConfig(analysis: CodebaseAnalysis): string {
+export function generateConfig(
+  analysis: CodebaseAnalysis,
+  projectType: ProjectType = "chrome-extension"
+): string {
   const generator = new ConfigGenerator();
-  return generator.generate(analysis);
+  return generator.generate(analysis, projectType);
 }

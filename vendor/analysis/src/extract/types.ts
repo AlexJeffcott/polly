@@ -122,35 +122,156 @@ export class TypeExtractor {
 
   /**
    * Find message types by searching for type unions
+   * Handles:
+   * - Simple string literal unions
+   * - Discriminated unions ({ type: 'foo' } | { type: 'bar' })
+   * - Type aliases across files
+   * - Template literal types (with warning)
+   * - Conditional types (conservatively)
+   * - Mapped types
    */
   private findMessageTypes(): string[] {
     const messageTypes: string[] = []
+    const warnings: string[] = []
 
     // Search for files with "message" in the name
     const messageFiles = this.project.getSourceFiles("**/message*.ts")
 
     for (const file of messageFiles) {
-      // Look for type aliases that are unions
+      // Look for type aliases that might contain message types
       for (const typeAlias of file.getTypeAliases()) {
-        const type = typeAlias.getType()
-        if (type.isUnion()) {
-          // Extract message type literals
-          for (const unionType of type.getUnionTypes()) {
-            if (unionType.isObject()) {
-              const typeProperty = unionType.getProperty("type")
-              if (typeProperty) {
-                const typeType = typeProperty.getTypeAtLocation(file)
-                if (typeType.isStringLiteral()) {
-                  messageTypes.push(typeType.getLiteralValue() as string)
-                }
-              }
+        const extractedTypes = this.extractMessageTypesFromType(
+          typeAlias.getType(),
+          typeAlias.getName(),
+          file,
+          warnings
+        )
+        messageTypes.push(...extractedTypes)
+      }
+    }
+
+    // Log warnings about unbounded types
+    if (warnings.length > 0 && process.env['POLLY_DEBUG']) {
+      console.log(`[WARN] Message type extraction warnings:`)
+      for (const warning of warnings) {
+        console.log(`[WARN]   ${warning}`)
+      }
+    }
+
+    return [...new Set(messageTypes)] // Dedupe
+  }
+
+  /**
+   * Extract message types from a TypeScript type
+   * Recursively handles unions, discriminated unions, aliases, etc.
+   */
+  private extractMessageTypesFromType(
+    type: Type,
+    typeName: string,
+    sourceFile: any,
+    warnings: string[]
+  ): string[] {
+    const messageTypes: string[] = []
+
+    // Handle union types
+    if (type.isUnion()) {
+      const unionTypes = type.getUnionTypes()
+
+      for (const unionType of unionTypes) {
+        // Pattern 1: Discriminated unions ({ type: 'foo' } | { type: 'bar' })
+        if (unionType.isObject()) {
+          const typeProperty = unionType.getProperty("type")
+          if (typeProperty) {
+            const typeType = typeProperty.getTypeAtLocation(sourceFile)
+
+            // String literal discriminant
+            if (typeType.isStringLiteral()) {
+              messageTypes.push(typeType.getLiteralValue() as string)
+            }
+            // Template literal discriminant (warn about unbounded set)
+            else if (typeType.getText().includes("`")) {
+              warnings.push(
+                `Template literal type in discriminant: ${typeType.getText()} - may be unbounded`
+              )
+            }
+          }
+        }
+        // Pattern 2: Simple string literal unions ('foo' | 'bar')
+        else if (unionType.isStringLiteral()) {
+          messageTypes.push(unionType.getLiteralValue() as string)
+        }
+        // Pattern 3: Type alias references (recurse)
+        else if (unionType.getAliasSymbol()) {
+          const aliasedType = unionType.getAliasSymbol()?.getDeclaredType()
+          if (aliasedType) {
+            messageTypes.push(
+              ...this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings)
+            )
+          }
+        }
+      }
+    }
+    // Handle type alias references (follow to definition)
+    else if (type.getAliasSymbol()) {
+      const aliasedType = type.getAliasSymbol()?.getDeclaredType()
+      if (aliasedType && aliasedType !== type) {
+        // Recursively extract from the aliased type
+        messageTypes.push(
+          ...this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings)
+        )
+      }
+    }
+    // Handle conditional types (T extends U ? X : Y)
+    // Extract conservatively from both branches
+    else if (type.isConditionalType?.()) {
+      warnings.push(`Conditional type detected: ${type.getText()} - extracting conservatively`)
+
+      // Try to extract from both branches
+      // This is conservative - we include both possible outcomes
+      const typeText = type.getText()
+      const parts = typeText.split("?")
+      if (parts.length >= 2) {
+        const branches = parts[1].split(":")
+        for (const branch of branches) {
+          const trimmed = branch.trim()
+          // If it looks like a string literal, extract it
+          if (trimmed.match(/^["'](\w+)["']$/)) {
+            const match = trimmed.match(/^["'](\w+)["']$/)
+            if (match?.[1]) {
+              messageTypes.push(match[1])
             }
           }
         }
       }
     }
+    // Handle mapped types ({ [K in MessageType]: Handler })
+    // Extract the keys being mapped over
+    else if (type.getText().includes("[K in ")) {
+      warnings.push(`Mapped type detected: ${type.getText()} - attempting to extract keys`)
 
-    return [...new Set(messageTypes)] // Dedupe
+      // Try to find the type being mapped over
+      const match = type.getText().match(/\[K in ([^\]]+)\]/)
+      if (match?.[1]) {
+        const keyTypeName = match[1].trim()
+
+        // Try to find the key type in the same file
+        const keyTypeAlias = sourceFile.getTypeAlias?.(keyTypeName)
+        if (keyTypeAlias) {
+          const keyType = keyTypeAlias.getType()
+          messageTypes.push(
+            ...this.extractMessageTypesFromType(keyType, keyTypeName, sourceFile, warnings)
+          )
+        }
+      }
+    }
+    // Template literal types (warn about unbounded set)
+    else if (type.getText().includes("`")) {
+      warnings.push(
+        `Template literal type: ${type.getText()} - this creates an unbounded set and cannot be fully extracted`
+      )
+    }
+
+    return messageTypes
   }
 
   /**

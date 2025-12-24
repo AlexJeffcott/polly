@@ -248,11 +248,21 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    */
   private extractHandlersFromFile(sourceFile: SourceFile): MessageHandler[] {
     const handlers: MessageHandler[] = [];
+    const filePath = sourceFile.getFilePath();
+    const contextFromPath = this.inferContextFromPath(filePath);
 
     sourceFile.forEachDescendant((node) => {
       const handler = this.recognizeMessageHandler(node);
       if (handler) {
-        handlers.push(handler);
+        // Override node with context inferred from file path if available
+        if (contextFromPath !== "unknown") {
+          handlers.push({
+            ...handler,
+            node: contextFromPath,
+          });
+        } else {
+          handlers.push(handler);
+        }
       }
     });
 
@@ -307,6 +317,11 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
       if (Node.isIdentifier(emitterExpr)) {
         emitterName = emitterExpr.getText();
       }
+    }
+
+    // Check if emitter name matches the pattern
+    if (!this.config.emitterPattern!.test(emitterName)) {
+      return null; // Emitter doesn't match pattern, skip this handler
     }
 
     const sourceFile = callExpr.getSourceFile();
@@ -459,6 +474,37 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
 
     // For complex expressions, return undefined (can't extract)
     return undefined;
+  }
+
+  /**
+   * Infer execution context from file path
+   *
+   * @example
+   * "/src/main.ts" => "Main Process" (Electron)
+   * "/src/renderer/index.ts" => "Renderer" (Electron)
+   * "/src/preload.ts" => "Preload" (Electron)
+   */
+  private inferContextFromPath(filePath: string): string {
+    const path = filePath.toLowerCase();
+
+    // Electron main process
+    if (path.includes("main.ts") || path.includes("main.js") ||
+        path.includes("/main/") || path.includes("\\main\\")) {
+      return "Main Process";
+    }
+
+    // Electron renderer process
+    if (path.includes("/renderer/") || path.includes("\\renderer\\") ||
+        path.includes("renderer.ts") || path.includes("renderer.js")) {
+      return "Renderer";
+    }
+
+    // Electron preload script
+    if (path.includes("preload.ts") || path.includes("preload.js")) {
+      return "Preload";
+    }
+
+    return "unknown";
   }
 
   /**

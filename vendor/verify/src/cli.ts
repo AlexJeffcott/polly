@@ -257,7 +257,7 @@ async function runFullVerification(configPath: string) {
 
   // Generate TLA+ specs
   console.log(color("📝 Generating TLA+ specification...", COLORS.blue))
-  const { spec, cfg } = generateTLA(config, analysis)
+  const { spec, cfg } = await generateTLA(config, analysis)
 
   // Write specs to temp directory
   const specDir = path.join(process.cwd(), "specs", "tla", "generated")

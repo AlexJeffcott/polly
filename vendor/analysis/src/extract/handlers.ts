@@ -180,6 +180,9 @@ export class HandlerExtractor {
     if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
       this.extractAssignments(handlerArg, assignments)
       this.extractVerificationConditions(handlerArg, preconditions, postconditions)
+
+      // Check for async mutations (potential race conditions)
+      this.checkAsyncMutations(handlerArg, messageType)
     }
 
     const line = callExpr.getStartLineNumber()
@@ -216,13 +219,19 @@ export class HandlerExtractor {
 
   /**
    * Extract state assignments from a handler function
+   * Handles:
+   * - Simple assignments: state.field = value
+   * - Compound operators: state.count += 1
+   * - Array mutations: state.items.push(item)
+   * - Array indexing: state.items[0] = value
    */
   private extractAssignments(funcNode: any, assignments: StateAssignment[]): void {
     funcNode.forEachDescendant((node: any) => {
-      // Look for assignment expressions: state.field = value
+      // Pattern 1: Assignment expressions (state.field = value, state.count += 1)
       if (Node.isBinaryExpression(node)) {
         const operator = node.getOperatorToken().getText()
 
+        // Simple assignment: state.field = value
         if (operator === "=") {
           const left = node.getLeft()
           const right = node.getRight()
@@ -244,9 +253,225 @@ export class HandlerExtractor {
               }
             }
           }
+          // Check if left side is array indexing: state.items[index]
+          else if (Node.isElementAccessExpression(left)) {
+            const expr = left.getExpression()
+            if (Node.isPropertyAccessExpression(expr)) {
+              const fieldPath = this.getPropertyPath(expr)
+              if (fieldPath.startsWith("state.")) {
+                const field = fieldPath.substring(6)
+                const indexExpr = left.getArgumentExpression()
+                const index = indexExpr ? indexExpr.getText() : "0"
+                const value = this.extractValue(right)
+
+                if (value !== undefined) {
+                  // Store as TLA+ array update: [field[index+1] = value]
+                  // Note: TLA+ uses 1-based indexing
+                  const tlaIndex = this.isNumericLiteral(index)
+                    ? (parseInt(index) + 1).toString()
+                    : `${index} + 1`
+
+                  assignments.push({
+                    field: `${field}[${tlaIndex}]`,
+                    value,
+                  })
+                }
+              }
+            }
+          }
+        }
+        // Compound assignment operators: +=, -=, *=, /=, %=
+        else if (["+="," -=", "*=", "/=", "%="].includes(operator)) {
+          const left = node.getLeft()
+          const right = node.getRight()
+
+          if (Node.isPropertyAccessExpression(left)) {
+            const fieldPath = this.getPropertyPath(left)
+
+            if (fieldPath.startsWith("state.")) {
+              const field = fieldPath.substring(6)
+              const rightValue = right.getText()
+
+              // Map compound operator to TLA+ binary operator
+              const tlaOp = operator.slice(0, -1)  // Remove '=' suffix
+
+              // Store as TLA+ expression: @ + value, @ - value, etc.
+              assignments.push({
+                field,
+                value: `@ ${tlaOp} ${rightValue}`,
+              })
+            }
+          }
+        }
+      }
+
+      // Pattern 2: Array mutation methods (state.items.push(item), etc.)
+      if (Node.isCallExpression(node)) {
+        const expr = node.getExpression()
+
+        if (Node.isPropertyAccessExpression(expr)) {
+          const methodName = expr.getName()
+          const object = expr.getExpression()
+
+          // Check if calling method on state property
+          if (Node.isPropertyAccessExpression(object)) {
+            const fieldPath = this.getPropertyPath(object)
+
+            if (fieldPath.startsWith("state.")) {
+              const field = fieldPath.substring(6)
+              const args = node.getArguments().map(arg => arg.getText())
+
+              // Translate array mutation methods to TLA+ operators
+              let tlaValue: string | null = null
+
+              switch (methodName) {
+                case "push":
+                  // state.items.push(item) → Append(@, item)
+                  if (args.length === 1) {
+                    tlaValue = `Append(@, ${args[0]})`
+                  }
+                  break
+
+                case "pop":
+                  // state.items.pop() → SubSeq(@, 1, Len(@)-1)
+                  tlaValue = "SubSeq(@, 1, Len(@)-1)"
+                  break
+
+                case "shift":
+                  // state.items.shift() → Tail(@) or SubSeq(@, 2, Len(@))
+                  tlaValue = "Tail(@)"
+                  break
+
+                case "unshift":
+                  // state.items.unshift(item) → <<item>> \\o @
+                  if (args.length === 1) {
+                    tlaValue = `<<${args[0]}>> \\o @`
+                  }
+                  break
+
+                case "splice":
+                  // Complex operation - warn about limited support
+                  // For now, we don't translate splice
+                  if (process.env['POLLY_DEBUG']) {
+                    console.log(`[DEBUG] Warning: splice() mutation on ${fieldPath} not fully translated`)
+                  }
+                  break
+
+                default:
+                  // Unknown method - skip
+                  break
+              }
+
+              if (tlaValue) {
+                assignments.push({
+                  field,
+                  value: tlaValue,
+                })
+              }
+            }
+          }
         }
       }
     })
+  }
+
+  /**
+   * Check for async mutations that could cause race conditions
+   * Warns when async handlers have state mutations after await expressions
+   */
+  private checkAsyncMutations(funcNode: any, messageType: string): void {
+    // Check if function is async
+    const isAsync =
+      funcNode.hasModifier?.(SyntaxKind.AsyncKeyword) ||
+      funcNode.getModifiers?.()?.some((m: any) => m.getKind() === SyntaxKind.AsyncKeyword);
+
+    if (!isAsync) {
+      return; // Not async, no race conditions possible
+    }
+
+    // Find all await expressions
+    const awaitExpressions: any[] = [];
+    funcNode.forEachDescendant((node: any) => {
+      if (Node.isAwaitExpression(node)) {
+        awaitExpressions.push(node);
+      }
+    });
+
+    if (awaitExpressions.length === 0) {
+      return; // No awaits, no interleaving possible
+    }
+
+    // Find all state mutations
+    const mutations: Array<{ field: string; line: number; afterAwait: boolean }> = [];
+    const body = funcNode.getBody();
+
+    if (!body) {
+      return;
+    }
+
+    // Get position of first await
+    const firstAwaitPos = awaitExpressions[0].getStart();
+
+    // Track mutations and whether they occur after await
+    funcNode.forEachDescendant((node: any) => {
+      // Check for state assignments
+      if (Node.isBinaryExpression(node)) {
+        const operator = node.getOperatorToken().getText();
+
+        if (operator === "=" || ["+="," -=", "*=", "/=", "%="].includes(operator)) {
+          const left = node.getLeft();
+
+          if (Node.isPropertyAccessExpression(left) || Node.isElementAccessExpression(left)) {
+            const fieldPath = Node.isPropertyAccessExpression(left)
+              ? this.getPropertyPath(left)
+              : this.getPropertyPath(left.getExpression());
+
+            if (fieldPath.startsWith("state.")) {
+              const field = fieldPath.substring(6);
+              const line = node.getStartLineNumber();
+              const afterAwait = node.getStart() > firstAwaitPos;
+
+              mutations.push({ field, line, afterAwait });
+            }
+          }
+        }
+      }
+
+      // Check for array mutation methods
+      if (Node.isCallExpression(node)) {
+        const expr = node.getExpression();
+
+        if (Node.isPropertyAccessExpression(expr)) {
+          const methodName = expr.getName();
+          const object = expr.getExpression();
+
+          if (Node.isPropertyAccessExpression(object)) {
+            const fieldPath = this.getPropertyPath(object);
+
+            if (fieldPath.startsWith("state.")) {
+              if (["push", "pop", "shift", "unshift", "splice"].includes(methodName)) {
+                const field = fieldPath.substring(6);
+                const line = node.getStartLineNumber();
+                const afterAwait = node.getStart() > firstAwaitPos;
+
+                mutations.push({ field, line, afterAwait });
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Filter to mutations after await
+    const mutationsAfterAwait = mutations.filter(m => m.afterAwait);
+
+    if (mutationsAfterAwait.length > 0 && process.env['POLLY_DEBUG']) {
+      console.log(
+        `[DEBUG] Warning: Async handler for '${messageType}' has ${mutationsAfterAwait.length} state mutation(s) after await`
+      );
+      console.log(`[DEBUG]   This may cause race conditions if multiple messages are processed concurrently`);
+      console.log(`[DEBUG]   Mutations: ${mutationsAfterAwait.map(m => `${m.field} (line ${m.line})`).join(", ")}`);
+    }
   }
 
   /**
@@ -371,6 +596,13 @@ export class HandlerExtractor {
 
     // For complex expressions, return undefined (can't extract)
     return undefined
+  }
+
+  /**
+   * Check if a string represents a numeric literal
+   */
+  private isNumericLiteral(str: string): boolean {
+    return /^\d+$/.test(str)
   }
 
   /**
@@ -814,6 +1046,36 @@ export class HandlerExtractor {
   private inferContext(filePath: string): string {
     const path = filePath.toLowerCase()
 
+    // Electron contexts (check first as they're more specific)
+    if (path.includes("main.ts") || path.includes("main.js") ||
+        path.includes("/main/") || path.includes("\\main\\")) {
+      return "Main Process"
+    }
+    if (path.includes("/renderer/") || path.includes("\\renderer\\") ||
+        path.includes("renderer.ts") || path.includes("renderer.js")) {
+      return "Renderer"
+    }
+    if (path.includes("preload.ts") || path.includes("preload.js")) {
+      return "Preload"
+    }
+
+    // PWA/Worker contexts
+    if (path.includes("service-worker") || path.includes("sw.ts") || path.includes("sw.js")) {
+      return "Service Worker"
+    }
+    if (path.includes("/worker/") || path.includes("\\worker\\")) {
+      return "Worker"
+    }
+
+    // WebSocket/server app contexts
+    if (path.includes("/server/") || path.includes("\\server\\") ||
+        path.includes("/server.") || path.includes("server.ts") || path.includes("server.js")) {
+      return "Server"
+    }
+    if (path.includes("/client/") || path.includes("\\client\\") || path.includes("/client.")) {
+      return "Client"
+    }
+
     // Chrome extension contexts
     if (path.includes("/background/") || path.includes("\\background\\")) {
       return "background"
@@ -832,19 +1094,6 @@ export class HandlerExtractor {
     }
     if (path.includes("/offscreen/") || path.includes("\\offscreen\\")) {
       return "offscreen"
-    }
-
-    // WebSocket/server app contexts
-    if (path.includes("/server/") || path.includes("\\server\\") || path.includes("/server.")) {
-      return "server"
-    }
-    if (path.includes("/client/") || path.includes("\\client\\") || path.includes("/client.")) {
-      return "client"
-    }
-
-    // PWA/Worker contexts
-    if (path.includes("/worker/") || path.includes("\\worker\\") || path.includes("service-worker")) {
-      return "worker"
     }
 
     return "unknown"
