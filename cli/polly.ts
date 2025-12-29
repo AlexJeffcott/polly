@@ -34,8 +34,6 @@
  *   --type=TYPE         Project type for init command
  */
 
-import { existsSync } from "node:fs";
-
 // Use Bun built-ins instead of Node.js APIs
 const __dirname = import.meta.dir;
 
