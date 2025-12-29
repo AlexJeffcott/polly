@@ -1,6 +1,6 @@
 // External integration detection - find external APIs, services, etc.
 
-import { Node, Project } from "ts-morph";
+import { Node, Project, type SourceFile } from "ts-morph";
 import type { ExternalIntegration } from "../types/architecture";
 
 export class IntegrationAnalyzer {
@@ -162,32 +162,67 @@ export class IntegrationAnalyzer {
     const seen = new Set<string>();
 
     for (const sourceFile of this.project.getSourceFiles()) {
-      for (const importDecl of sourceFile.getImportDeclarations()) {
-        const moduleSpecifier = importDecl.getModuleSpecifierValue();
-
-        // Only consider external packages (not relative imports)
-        if (!moduleSpecifier.startsWith(".") && !moduleSpecifier.startsWith("/")) {
-          // Extract package name (handle scoped packages)
-          const packageName = moduleSpecifier.startsWith("@")
-            ? moduleSpecifier.split("/").slice(0, 2).join("/")
-            : moduleSpecifier.split("/")[0];
-
-          if (packageName && !seen.has(packageName)) {
-            seen.add(packageName);
-
-            scripts.push({
-              type: "external-script",
-              name: packageName,
-              technology: "npm package",
-              usedIn: [sourceFile.getFilePath()],
-              description: `External dependency: ${packageName}`,
-            });
-          }
-        }
-      }
+      this.extractExternalImportsFromFile(sourceFile, scripts, seen);
     }
 
     return scripts;
+  }
+
+  /**
+   * Extract external imports from a single file
+   */
+  private extractExternalImportsFromFile(
+    sourceFile: SourceFile,
+    scripts: ExternalIntegration[],
+    seen: Set<string>
+  ): void {
+    for (const importDecl of sourceFile.getImportDeclarations()) {
+      const moduleSpecifier = importDecl.getModuleSpecifierValue();
+
+      if (this.isExternalImport(moduleSpecifier)) {
+        const packageName = this.extractPackageName(moduleSpecifier);
+
+        if (packageName && !seen.has(packageName)) {
+          seen.add(packageName);
+          scripts.push(this.createExternalScriptIntegration(packageName, sourceFile));
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if import is external (not relative)
+   */
+  private isExternalImport(moduleSpecifier: string): boolean {
+    return !moduleSpecifier.startsWith(".") && !moduleSpecifier.startsWith("/");
+  }
+
+  /**
+   * Extract package name from module specifier
+   */
+  private extractPackageName(moduleSpecifier: string): string | undefined {
+    // Handle scoped packages (@org/package)
+    if (moduleSpecifier.startsWith("@")) {
+      return moduleSpecifier.split("/").slice(0, 2).join("/");
+    }
+    // Handle regular packages
+    return moduleSpecifier.split("/")[0];
+  }
+
+  /**
+   * Create external script integration object
+   */
+  private createExternalScriptIntegration(
+    packageName: string,
+    sourceFile: SourceFile
+  ): ExternalIntegration {
+    return {
+      type: "external-script",
+      name: packageName,
+      technology: "npm package",
+      usedIn: [sourceFile.getFilePath()],
+      description: `External dependency: ${packageName}`,
+    };
   }
 
   /**

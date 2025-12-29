@@ -322,41 +322,23 @@ export class FlowAnalyzer {
   private inferContext(filePath: string): string {
     const path = filePath.toLowerCase();
 
-    // Chrome extension contexts
-    if (path.includes("/background/") || path.includes("\\background\\")) {
-      return "background";
-    }
-    if (path.includes("/content/") || path.includes("\\content\\")) {
-      return "content";
-    }
-    if (path.includes("/popup/") || path.includes("\\popup\\")) {
-      return "popup";
-    }
-    if (path.includes("/devtools/") || path.includes("\\devtools\\")) {
-      return "devtools";
-    }
-    if (path.includes("/options/") || path.includes("\\options\\")) {
-      return "options";
-    }
-    if (path.includes("/offscreen/") || path.includes("\\offscreen\\")) {
-      return "offscreen";
-    }
+    // Define context patterns to check
+    const contextPatterns: Array<{ context: string; patterns: string[] }> = [
+      { context: "background", patterns: ["/background/", "\\background\\"] },
+      { context: "content", patterns: ["/content/", "\\content\\"] },
+      { context: "popup", patterns: ["/popup/", "\\popup\\"] },
+      { context: "devtools", patterns: ["/devtools/", "\\devtools\\"] },
+      { context: "options", patterns: ["/options/", "\\options\\"] },
+      { context: "offscreen", patterns: ["/offscreen/", "\\offscreen\\"] },
+      { context: "server", patterns: ["/server/", "\\server\\", "/server."] },
+      { context: "client", patterns: ["/client/", "\\client\\", "/client."] },
+      { context: "worker", patterns: ["/worker/", "\\worker\\", "service-worker"] },
+    ];
 
-    // WebSocket/server app contexts
-    if (path.includes("/server/") || path.includes("\\server\\") || path.includes("/server.")) {
-      return "server";
-    }
-    if (path.includes("/client/") || path.includes("\\client\\") || path.includes("/client.")) {
-      return "client";
-    }
-
-    // PWA/Worker contexts
-    if (
-      path.includes("/worker/") ||
-      path.includes("\\worker\\") ||
-      path.includes("service-worker")
-    ) {
-      return "worker";
+    for (const { context, patterns } of contextPatterns) {
+      if (patterns.some((pattern) => path.includes(pattern))) {
+        return context;
+      }
     }
 
     return "unknown";
