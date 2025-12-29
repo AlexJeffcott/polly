@@ -820,61 +820,92 @@ export class HandlerExtractor {
     const handlers: MessageHandler[] = [];
 
     try {
-      // Get the source file to find type predicates
       const sourceFile = ifNode.getSourceFile();
+      const typeGuards = this.getOrComputeTypeGuards(sourceFile);
 
-      // Use cached type guards or compute if not cached
-      let typeGuards = this.typeGuardCache.get(sourceFile);
-      if (!typeGuards) {
-        typeGuards = this.findTypePredicateFunctions(sourceFile);
-        this.typeGuardCache.set(sourceFile, typeGuards);
-      }
-
-      // DEBUG: Log local type guards found
-      if (process.env["POLLY_DEBUG"]) {
-        console.log(`[DEBUG] File: ${sourceFile.getBaseName()}`);
-        console.log(`[DEBUG] Local type guards found: ${typeGuards.size}`);
-        if (typeGuards.size > 0) {
-          for (const [name, type] of typeGuards.entries()) {
-            console.log(`[DEBUG]   - ${name} → ${type}`);
-          }
-        }
-      }
-
-      // Don't return early - we still want to try imported type guards
-      // even if no local type guards exist
-
-      // Process the if statement and all else-if chains
-      let currentIf = ifNode as IfStatement;
-
-      while (currentIf) {
-        const handler = this.extractHandlerFromIfClause(currentIf, typeGuards, context, filePath);
-        if (handler) {
-          handlers.push(handler);
-
-          if (process.env["POLLY_DEBUG"]) {
-            console.log(
-              `[DEBUG] Found handler: ${handler.messageType} at line ${handler.location.line}`
-            );
-          }
-        }
-
-        // Check for else-if
-        const elseStatement = currentIf.getElseStatement();
-        if (elseStatement && Node.isIfStatement(elseStatement)) {
-          currentIf = elseStatement;
-        } else {
-          break;
-        }
-      }
+      this.debugLogTypeGuards(sourceFile, typeGuards);
+      this.processIfElseChain(ifNode as IfStatement, typeGuards, context, filePath, handlers);
     } catch (error) {
-      // DEBUG: Log errors
-      if (process.env["POLLY_DEBUG"]) {
-        console.log(`[DEBUG] Error in extractTypeGuardHandlers: ${error}`);
-      }
+      this.debugLogError(error);
     }
 
     return handlers;
+  }
+
+  /**
+   * Get cached type guards or compute if not cached
+   */
+  private getOrComputeTypeGuards(sourceFile: SourceFile): Map<string, string> {
+    let typeGuards = this.typeGuardCache.get(sourceFile);
+    if (!typeGuards) {
+      typeGuards = this.findTypePredicateFunctions(sourceFile);
+      this.typeGuardCache.set(sourceFile, typeGuards);
+    }
+    return typeGuards;
+  }
+
+  /**
+   * Debug log type guards found in source file
+   */
+  private debugLogTypeGuards(sourceFile: SourceFile, typeGuards: Map<string, string>): void {
+    if (!process.env["POLLY_DEBUG"]) return;
+
+    console.log(`[DEBUG] File: ${sourceFile.getBaseName()}`);
+    console.log(`[DEBUG] Local type guards found: ${typeGuards.size}`);
+
+    if (typeGuards.size > 0) {
+      for (const [name, type] of typeGuards.entries()) {
+        console.log(`[DEBUG]   - ${name} → ${type}`);
+      }
+    }
+  }
+
+  /**
+   * Process if-else-if chain to extract handlers
+   */
+  private processIfElseChain(
+    currentIf: IfStatement,
+    typeGuards: Map<string, string>,
+    context: string,
+    filePath: string,
+    handlers: MessageHandler[]
+  ): void {
+    while (currentIf) {
+      const handler = this.extractHandlerFromIfClause(currentIf, typeGuards, context, filePath);
+
+      if (handler) {
+        handlers.push(handler);
+        this.debugLogFoundHandler(handler);
+      }
+
+      // Check for else-if
+      const elseStatement = currentIf.getElseStatement();
+      if (elseStatement && Node.isIfStatement(elseStatement)) {
+        currentIf = elseStatement;
+      } else {
+        break;
+      }
+    }
+  }
+
+  /**
+   * Debug log found handler
+   */
+  private debugLogFoundHandler(handler: MessageHandler): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[DEBUG] Found handler: ${handler.messageType} at line ${handler.location.line}`
+      );
+    }
+  }
+
+  /**
+   * Debug log error
+   */
+  private debugLogError(error: unknown): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Error in extractTypeGuardHandlers: ${error}`);
+    }
   }
 
   /**
