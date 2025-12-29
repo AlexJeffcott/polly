@@ -71,7 +71,7 @@ console.log("🔨 Building CLI and tools (node target, fully bundled)...");
 const toolsResult = await Bun.build({
   entrypoints: [
     "cli/polly.ts",
-    "cli/template-utils.ts",
+    "tools/init/src/cli.ts",
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
     "tools/teach/src/cli.ts",
@@ -98,6 +98,16 @@ if (!toolsResult.success) {
 }
 
 console.log("✅ Tools built");
+console.log("🔨 Copying templates for init tool...");
+
+// Copy templates to dist so init CLI can find them
+const templatesSourceDir = join("tools", "init", "templates");
+const templatesDestDir = join(DIST_DIR, "tools", "init", "templates");
+
+mkdirSync(templatesDestDir, { recursive: true });
+cpSync(templatesSourceDir, templatesDestDir, { recursive: true });
+
+console.log("✅ Templates copied");
 console.log("🔨 Copying specs for verification tool...");
 
 // Copy MessageRouter.tla specs to dist so verify CLI can find them

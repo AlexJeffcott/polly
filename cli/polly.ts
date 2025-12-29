@@ -35,12 +35,6 @@
  */
 
 import { existsSync } from "node:fs";
-import {
-  type ProjectType,
-  getTemplateDir,
-  scaffoldFromTemplate,
-  validateProjectName,
-} from "./template-utils";
 
 // Use Bun built-ins instead of Node.js APIs
 const __dirname = import.meta.dir;
@@ -299,40 +293,25 @@ async function check() {
 }
 
 /**
- * Init command - scaffold a new project
+ * Init command - delegate to @fairfox/polly-init
  */
 async function init() {
-  // Parse arguments
-  const projectName = commandArgs[0] || "my-project";
-  const typeArg =
-    commandArgs.find((arg) => arg.startsWith("--type="))?.split("=")[1] || "extension";
-  const projectType = typeArg as ProjectType;
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../tools/init/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/init/src/cli.ts`;
+  const initCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  // Validate project name
-  const validation = validateProjectName(projectName);
-  if (!validation.valid) {
-    console.log(`\x1b[31m✗ ${validation.error}\x1b[0m\n`);
-    process.exit(1);
-  }
-
-  const projectPath = `${cwd}/${projectName}`;
-
-  // Check if directory already exists
-  if (existsSync(projectPath)) {
-    console.log(`\x1b[31m✗ Directory '${projectName}' already exists\x1b[0m\n`);
-    process.exit(1);
-  }
-
-  // Get template directory
-  const templateDir = getTemplateDir(projectType, __dirname);
-
-  // Scaffold project
-  await scaffoldFromTemplate({
-    projectName,
-    projectPath,
-    projectType,
-    templateDir,
+  const proc = Bun.spawn(["bun", initCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
   });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Initialization failed with exit code ${exitCode}`);
+  }
 }
 
 /**

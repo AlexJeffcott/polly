@@ -92,7 +92,7 @@ export function getAvailableTypes(): ProjectType[] {
  * Get template directory for project type
  */
 export function getTemplateDir(projectType: ProjectType, baseDir: string): string {
-  return join(baseDir, "../..", "templates", projectType);
+  return join(baseDir, "..", "templates", projectType);
 }
 
 /**
