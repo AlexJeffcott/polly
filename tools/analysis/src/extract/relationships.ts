@@ -58,93 +58,164 @@ export class RelationshipExtractor {
     relationships: DetectedRelationship[],
     visited: Set<string>
   ): void {
-    // Pattern 1: Function calls within the handler
     node.forEachDescendant((descendant) => {
-      if (Node.isCallExpression(descendant)) {
-        const expr = descendant.getExpression();
-
-        // Check if this is a local or imported function call that we should follow
-        if (Node.isIdentifier(expr)) {
-          const functionName = expr.getText();
-
-          // Try to find the function definition in the same file first
-          let functionDecl = sourceFile.getFunction(functionName);
-          let targetSourceFile = sourceFile;
-
-          // If not in same file, try to resolve from imports (cross-file analysis)
-          if (!functionDecl) {
-            const resolved = this.resolveImportedFunction(functionName, sourceFile);
-            if (resolved) {
-              functionDecl = resolved.functionDecl;
-              targetSourceFile = resolved.sourceFile;
-            }
-          }
-
-          if (functionDecl && !visited.has(functionName)) {
-            // Mark as visited to prevent infinite recursion
-            visited.add(functionName);
-
-            // Recursively extract relationships from the called function
-            const body = functionDecl.getBody();
-            if (body) {
-              this.extractFromNode(body, targetSourceFile, handlerName, relationships, visited);
-            }
-
-            // Don't add this as a relationship itself - we're following the call
-            return;
-          }
-
-          // If we couldn't resolve the function, check if it looks like a service call
-          // This catches patterns like getDatabase(), createRepositories()
-          if (!functionDecl) {
-            const componentFromName = this.inferComponentFromFunctionName(functionName);
-            if (componentFromName) {
-              relationships.push({
-                from: this.toComponentId(handlerName),
-                to: componentFromName,
-                description: `Calls ${functionName}()`,
-                technology: "Function Call",
-                confidence: "medium",
-                evidence: [`Function call: ${functionName}`],
-              });
-              return;
-            }
-          }
-        }
-
-        // Check if this call expression has a property access expression
-        // (e.g., userService.listUsers())
-        if (Node.isPropertyAccessExpression(expr)) {
-          const rel = this.extractFromPropertyAccess(expr, handlerName);
-          if (rel) {
-            relationships.push(rel);
-            return; // Don't process further for this call expression
-          }
-        }
-
-        // Not a local function or property access - try to extract as a relationship
-        const rel = this.extractFromFunctionCall(descendant, handlerName, sourceFile);
-        if (rel) {
-          relationships.push(rel);
-        }
-      }
-
-      // Pattern 3: Database queries (await db.query, await db.execute)
-      if (Node.isAwaitExpression(descendant)) {
-        const rel = this.extractFromDatabaseCall(descendant, handlerName);
-        if (rel) {
-          relationships.push(rel);
-        }
-      }
-
-      // Pattern 4: Fetch/HTTP calls
-      if (Node.isCallExpression(descendant) && descendant.getExpression().getText() === "fetch") {
-        const rel = this.extractFromFetchCall(descendant, handlerName);
-        if (rel) {
-          relationships.push(rel);
-        }
-      }
+      this.processDescendantNode(descendant, sourceFile, handlerName, relationships, visited);
     });
+  }
+
+  /**
+   * Process a single descendant node for relationship extraction
+   */
+  private processDescendantNode(
+    descendant: Node,
+    sourceFile: SourceFile,
+    handlerName: string,
+    relationships: DetectedRelationship[],
+    visited: Set<string>
+  ): void {
+    if (Node.isCallExpression(descendant)) {
+      this.processCallExpression(descendant, sourceFile, handlerName, relationships, visited);
+    }
+
+    if (Node.isAwaitExpression(descendant)) {
+      const rel = this.extractFromDatabaseCall(descendant, handlerName);
+      if (rel) {
+        relationships.push(rel);
+      }
+    }
+
+    if (Node.isCallExpression(descendant) && descendant.getExpression().getText() === "fetch") {
+      const rel = this.extractFromFetchCall(descendant, handlerName);
+      if (rel) {
+        relationships.push(rel);
+      }
+    }
+  }
+
+  /**
+   * Process a call expression for relationship extraction
+   */
+  private processCallExpression(
+    callExpr: CallExpression,
+    sourceFile: SourceFile,
+    handlerName: string,
+    relationships: DetectedRelationship[],
+    visited: Set<string>
+  ): void {
+    const expr = callExpr.getExpression();
+
+    if (Node.isIdentifier(expr)) {
+      this.processIdentifierCall(expr, sourceFile, handlerName, relationships, visited);
+      return;
+    }
+
+    if (Node.isPropertyAccessExpression(expr)) {
+      const rel = this.extractFromPropertyAccess(expr, handlerName);
+      if (rel) {
+        relationships.push(rel);
+        return;
+      }
+    }
+
+    const rel = this.extractFromFunctionCall(callExpr, handlerName, sourceFile);
+    if (rel) {
+      relationships.push(rel);
+    }
+  }
+
+  /**
+   * Process an identifier call (local or imported function)
+   */
+  private processIdentifierCall(
+    identifier: Identifier,
+    sourceFile: SourceFile,
+    handlerName: string,
+    relationships: DetectedRelationship[],
+    visited: Set<string>
+  ): void {
+    const functionName = identifier.getText();
+    const resolved = this.resolveFunctionDeclaration(functionName, sourceFile);
+
+    if (resolved && !visited.has(functionName)) {
+      this.followFunctionCall(
+        functionName,
+        resolved.functionDecl,
+        resolved.sourceFile,
+        handlerName,
+        relationships,
+        visited
+      );
+      return;
+    }
+
+    if (!resolved) {
+      this.tryAddServiceCallRelationship(functionName, handlerName, relationships);
+    }
+  }
+
+  /**
+   * Resolve function declaration from name
+   */
+  private resolveFunctionDeclaration(
+    functionName: string,
+    sourceFile: SourceFile
+  ): { functionDecl: FunctionDeclaration; sourceFile: SourceFile } | null {
+    let functionDecl = sourceFile.getFunction(functionName);
+    let targetSourceFile = sourceFile;
+
+    if (!functionDecl) {
+      const resolved = this.resolveImportedFunction(functionName, sourceFile);
+      if (resolved) {
+        functionDecl = resolved.functionDecl;
+        targetSourceFile = resolved.sourceFile;
+      }
+    }
+
+    if (!functionDecl) {
+      return null;
+    }
+
+    return { functionDecl, sourceFile: targetSourceFile };
+  }
+
+  /**
+   * Follow a function call recursively
+   */
+  private followFunctionCall(
+    functionName: string,
+    functionDecl: FunctionDeclaration,
+    targetSourceFile: SourceFile,
+    handlerName: string,
+    relationships: DetectedRelationship[],
+    visited: Set<string>
+  ): void {
+    visited.add(functionName);
+
+    const body = functionDecl.getBody();
+    if (body) {
+      this.extractFromNode(body, targetSourceFile, handlerName, relationships, visited);
+    }
+  }
+
+  /**
+   * Try to add a service call relationship based on function name
+   */
+  private tryAddServiceCallRelationship(
+    functionName: string,
+    handlerName: string,
+    relationships: DetectedRelationship[]
+  ): void {
+    const componentFromName = this.inferComponentFromFunctionName(functionName);
+    if (componentFromName) {
+      relationships.push({
+        from: this.toComponentId(handlerName),
+        to: componentFromName,
+        description: `Calls ${functionName}()`,
+        technology: "Function Call",
+        confidence: "medium",
+        evidence: [`Function call: ${functionName}`],
+      });
+    }
   }
 
   /**
