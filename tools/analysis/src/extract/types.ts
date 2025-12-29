@@ -27,13 +27,41 @@ export class TypeExtractor {
     const fields = stateType ? this.analyzeFields(stateType) : [];
 
     // Extract message handlers
+    const handlerAnalysis = this.extractHandlerAnalysis();
+
+    // Filter message types and handlers to only include valid TLA+ identifiers
+    const validMessageTypes = this.filterAndLogMessageTypes(
+      messageTypes,
+      handlerAnalysis.messageTypes
+    );
+    const validHandlers = this.filterAndLogHandlers(handlerAnalysis.handlers);
+
+    return {
+      stateType,
+      messageTypes: validMessageTypes,
+      fields,
+      handlers: validHandlers,
+    };
+  }
+
+  /**
+   * Extract handler analysis from the project
+   */
+  private extractHandlerAnalysis() {
     const configFilePath = this.project.getCompilerOptions()["configFilePath"];
     const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json";
     const handlerExtractor = new HandlerExtractor(tsConfigPath);
-    const handlerAnalysis = handlerExtractor.extractHandlers();
+    return handlerExtractor.extractHandlers();
+  }
 
-    // Combine and filter message types to only include valid TLA+ identifiers
-    const allMessageTypes = Array.from(new Set([...messageTypes, ...handlerAnalysis.messageTypes]));
+  /**
+   * Filter and log message types, keeping only valid TLA+ identifiers
+   */
+  private filterAndLogMessageTypes(
+    messageTypes: string[],
+    handlerMessageTypes: Set<string>
+  ): string[] {
+    const allMessageTypes = Array.from(new Set([...messageTypes, ...handlerMessageTypes]));
     const validMessageTypes: string[] = [];
     const invalidMessageTypes: string[] = [];
 
@@ -45,38 +73,54 @@ export class TypeExtractor {
       }
     }
 
-    // Log warnings about invalid message types
-    if (invalidMessageTypes.length > 0 && process.env["POLLY_DEBUG"]) {
-      console.log(`[WARN] Filtered out ${invalidMessageTypes.length} invalid message type(s):`);
-      for (const invalid of invalidMessageTypes) {
-        console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
-      }
-    }
+    this.logInvalidMessageTypes(invalidMessageTypes);
+    return validMessageTypes;
+  }
 
-    // Filter handlers to only include those with valid TLA+ identifier message types
-    const validHandlers = handlerAnalysis.handlers.filter((h) =>
-      this.isValidTLAIdentifier(h.messageType)
+  /**
+   * Log warnings about invalid message types
+   */
+  private logInvalidMessageTypes(invalidMessageTypes: string[]): void {
+    if (invalidMessageTypes.length === 0 || !process.env["POLLY_DEBUG"]) return;
+
+    console.log(`[WARN] Filtered out ${invalidMessageTypes.length} invalid message type(s):`);
+    for (const invalid of invalidMessageTypes) {
+      console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
+    }
+  }
+
+  /**
+   * Filter and log handlers, keeping only those with valid TLA+ identifier message types
+   */
+  private filterAndLogHandlers(
+    handlers: Array<{ messageType: string; location: { file: string; line: number } }>
+  ) {
+    const validHandlers = handlers.filter((h) => this.isValidTLAIdentifier(h.messageType));
+
+    this.logInvalidHandlers(handlers, validHandlers);
+    return validHandlers;
+  }
+
+  /**
+   * Log warnings about filtered handlers
+   */
+  private logInvalidHandlers(
+    allHandlers: Array<{ messageType: string; location: { file: string; line: number } }>,
+    validHandlers: Array<{ messageType: string }>
+  ): void {
+    const filteredHandlerCount = allHandlers.length - validHandlers.length;
+    if (filteredHandlerCount === 0 || !process.env["POLLY_DEBUG"]) return;
+
+    console.log(
+      `[WARN] Filtered out ${filteredHandlerCount} handler(s) with invalid message types:`
     );
-
-    // Log warnings about filtered handlers
-    const filteredHandlerCount = handlerAnalysis.handlers.length - validHandlers.length;
-    if (filteredHandlerCount > 0 && process.env["POLLY_DEBUG"]) {
-      console.log(`[WARN] Filtered out ${filteredHandlerCount} handler(s) with invalid message types:`);
-      for (const handler of handlerAnalysis.handlers) {
-        if (!this.isValidTLAIdentifier(handler.messageType)) {
-          console.log(
-            `[WARN]   - Handler for "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
-          );
-        }
+    for (const handler of allHandlers) {
+      if (!this.isValidTLAIdentifier(handler.messageType)) {
+        console.log(
+          `[WARN]   - Handler for "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
+        );
       }
     }
-
-    return {
-      stateType,
-      messageTypes: validMessageTypes,
-      fields,
-      handlers: validHandlers,
-    };
   }
 
   /**
