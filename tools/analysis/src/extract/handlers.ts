@@ -866,8 +866,9 @@ export class HandlerExtractor {
     filePath: string,
     handlers: MessageHandler[]
   ): void {
-    while (currentIf) {
-      const handler = this.extractHandlerFromIfClause(currentIf, typeGuards, context, filePath);
+    let ifStatement = currentIf;
+    while (ifStatement) {
+      const handler = this.extractHandlerFromIfClause(ifStatement, typeGuards, context, filePath);
 
       if (handler) {
         handlers.push(handler);
@@ -875,9 +876,9 @@ export class HandlerExtractor {
       }
 
       // Check for else-if
-      const elseStatement = currentIf.getElseStatement();
+      const elseStatement = ifStatement.getElseStatement();
       if (elseStatement && Node.isIfStatement(elseStatement)) {
-        currentIf = elseStatement;
+        ifStatement = elseStatement;
       } else {
         break;
       }

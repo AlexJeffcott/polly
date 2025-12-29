@@ -398,7 +398,10 @@ export class ProjectDetector {
   /**
    * Analyze server candidate content and return scoring details
    */
-  private analyzeServerCandidate(content: string, candidate: string): {
+  private analyzeServerCandidate(
+    content: string,
+    candidate: string
+  ): {
     score: number;
     hasWebSocket: boolean;
     hasHTTP: boolean;

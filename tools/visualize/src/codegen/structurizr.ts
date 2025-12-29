@@ -998,18 +998,9 @@ export class StructurizrDSLGenerator {
    * Automatically generate dynamic diagrams from handler relationships
    */
   private generateAutomaticDynamicDiagrams(): string[] {
-    type HandlerWithContext = {
-      handler: MessageHandler;
-      contextType: string;
-      contextName: string;
-    };
-
     const handlersWithRelationships = this.collectHandlersWithRelationships();
     const handlerGroups = this.categorizeHandlers(handlersWithRelationships);
-    return this.generateCategoryDiagrams(
-      handlerGroups,
-      handlersWithRelationships.length
-    );
+    return this.generateCategoryDiagrams(handlerGroups, handlersWithRelationships.length);
   }
 
   /**

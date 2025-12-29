@@ -62,8 +62,7 @@ async function generateCommand() {
     const dslPath = generateAndWriteDSL(analysis);
     displayNextSteps(dslPath);
   } catch (error) {
-    if (error instanceof Error && error.stack) {
-    }
+    // Error details logged by underlying functions
     process.exit(1);
   }
 }
@@ -88,9 +87,7 @@ function findAndDisplayProjectConfig(): { tsConfigPath: string; projectRoot: str
 
 function displayProjectType(projectRoot: string): void {
   const hasManifest = fs.existsSync(path.join(projectRoot, "manifest.json"));
-  const projectType = hasManifest
-    ? "Chrome Extension"
-    : "Detecting from project structure...";
+  const projectType = hasManifest ? "Chrome Extension" : "Detecting from project structure...";
   console.log(color(`   Type: ${projectType}`, COLORS.gray));
 }
 
@@ -100,9 +97,7 @@ async function analyzeAndDisplayResults(
 ): Promise<ArchitectureAnalysis> {
   const analysis = await analyzeArchitecture({ tsConfigPath, projectRoot });
 
-  console.log(
-    color(`\n✓ Found ${Object.keys(analysis.contexts).length} context(s)`, COLORS.green)
-  );
+  console.log(color(`\n✓ Found ${Object.keys(analysis.contexts).length} context(s)`, COLORS.green));
   console.log(color(`✓ Found ${analysis.messageFlows.length} message flow(s)`, COLORS.green));
   console.log(color(`✓ Found ${analysis.integrations.length} integration(s)`, COLORS.green));
 
@@ -224,8 +219,7 @@ async function exportCommand(_args: string[]) {
     console.log(color("   • Or open: docs/site/index.html", COLORS.gray));
     console.log();
   } catch (error) {
-    if (error instanceof Error && error.stack) {
-    }
+    // Error details logged by underlying functions
     process.exit(1);
   }
 }
@@ -250,7 +244,7 @@ async function serveCommand(args: string[]) {
     console.log();
 
     // Start Bun's static file server
-    const BunGlobal = (globalThis as any).Bun;
+    const BunGlobal = (globalThis as { Bun?: typeof Bun }).Bun;
     if (!BunGlobal) {
       throw new Error("Bun runtime is required to run the server");
     }
@@ -285,8 +279,10 @@ async function serveCommand(args: string[]) {
       await BunGlobal.spawn(["cmd", "/c", "start", `http://localhost:${port}`]);
     }
 
-    // Keep process alive
-    await new Promise(() => {});
+    // Keep process alive indefinitely
+    await new Promise(() => {
+      // Intentionally empty - keeps the server running
+    });
   } catch (_error) {
     process.exit(1);
   }
@@ -374,7 +370,6 @@ function findProjectRoot(): string | null {
 }
 
 main().catch((error) => {
-  if (error instanceof Error && error.stack) {
-  }
+  // Error details logged by underlying functions
   process.exit(1);
 });
