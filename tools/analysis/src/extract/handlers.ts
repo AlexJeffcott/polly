@@ -262,154 +262,167 @@ export class HandlerExtractor {
     assignments: StateAssignment[]
   ): void {
     funcNode.forEachDescendant((node: Node) => {
-      // Pattern 1: Assignment expressions (state.field = value, state.count += 1)
       if (Node.isBinaryExpression(node)) {
-        const operator = node.getOperatorToken().getText();
-
-        // Simple assignment: state.field = value
-        if (operator === "=") {
-          const left = node.getLeft();
-          const right = node.getRight();
-
-          // Check if left side is a state property access
-          if (Node.isPropertyAccessExpression(left)) {
-            const fieldPath = this.getPropertyPath(left);
-
-            // Check if this is a state access
-            if (fieldPath.startsWith("state.")) {
-              const field = fieldPath.substring(6); // Remove "state." prefix
-              const value = this.extractValue(right);
-
-              if (value !== undefined) {
-                assignments.push({
-                  field,
-                  value,
-                });
-              }
-            }
-          }
-          // Check if left side is array indexing: state.items[index]
-          else if (Node.isElementAccessExpression(left)) {
-            const expr = left.getExpression();
-            if (Node.isPropertyAccessExpression(expr)) {
-              const fieldPath = this.getPropertyPath(expr);
-              if (fieldPath.startsWith("state.")) {
-                const field = fieldPath.substring(6);
-                const indexExpr = left.getArgumentExpression();
-                const index = indexExpr ? indexExpr.getText() : "0";
-                const value = this.extractValue(right);
-
-                if (value !== undefined) {
-                  // Store as TLA+ array update: [field[index+1] = value]
-                  // Note: TLA+ uses 1-based indexing
-                  const tlaIndex = this.isNumericLiteral(index)
-                    ? (Number.parseInt(index) + 1).toString()
-                    : `${index} + 1`;
-
-                  assignments.push({
-                    field: `${field}[${tlaIndex}]`,
-                    value,
-                  });
-                }
-              }
-            }
-          }
-        }
-        // Compound assignment operators: +=, -=, *=, /=, %=
-        else if (["+=", " -=", "*=", "/=", "%="].includes(operator)) {
-          const left = node.getLeft();
-          const right = node.getRight();
-
-          if (Node.isPropertyAccessExpression(left)) {
-            const fieldPath = this.getPropertyPath(left);
-
-            if (fieldPath.startsWith("state.")) {
-              const field = fieldPath.substring(6);
-              const rightValue = right.getText();
-
-              // Map compound operator to TLA+ binary operator
-              const tlaOp = operator.slice(0, -1); // Remove '=' suffix
-
-              // Store as TLA+ expression: @ + value, @ - value, etc.
-              assignments.push({
-                field,
-                value: `@ ${tlaOp} ${rightValue}`,
-              });
-            }
-          }
-        }
+        this.extractBinaryExpressionAssignment(node, assignments);
       }
 
-      // Pattern 2: Array mutation methods (state.items.push(item), etc.)
       if (Node.isCallExpression(node)) {
-        const expr = node.getExpression();
-
-        if (Node.isPropertyAccessExpression(expr)) {
-          const methodName = expr.getName();
-          const object = expr.getExpression();
-
-          // Check if calling method on state property
-          if (Node.isPropertyAccessExpression(object)) {
-            const fieldPath = this.getPropertyPath(object);
-
-            if (fieldPath.startsWith("state.")) {
-              const field = fieldPath.substring(6);
-              const args = node.getArguments().map((arg) => arg.getText());
-
-              // Translate array mutation methods to TLA+ operators
-              let tlaValue: string | null = null;
-
-              switch (methodName) {
-                case "push":
-                  // state.items.push(item) → Append(@, item)
-                  if (args.length === 1) {
-                    tlaValue = `Append(@, ${args[0]})`;
-                  }
-                  break;
-
-                case "pop":
-                  // state.items.pop() → SubSeq(@, 1, Len(@)-1)
-                  tlaValue = "SubSeq(@, 1, Len(@)-1)";
-                  break;
-
-                case "shift":
-                  // state.items.shift() → Tail(@) or SubSeq(@, 2, Len(@))
-                  tlaValue = "Tail(@)";
-                  break;
-
-                case "unshift":
-                  // state.items.unshift(item) → <<item>> \\o @
-                  if (args.length === 1) {
-                    tlaValue = `<<${args[0]}>> \\o @`;
-                  }
-                  break;
-
-                case "splice":
-                  // Complex operation - warn about limited support
-                  // For now, we don't translate splice
-                  if (process.env["POLLY_DEBUG"]) {
-                    console.log(
-                      `[DEBUG] Warning: splice() mutation on ${fieldPath} not fully translated`
-                    );
-                  }
-                  break;
-
-                default:
-                  // Unknown method - skip
-                  break;
-              }
-
-              if (tlaValue) {
-                assignments.push({
-                  field,
-                  value: tlaValue,
-                });
-              }
-            }
-          }
-        }
+        this.extractArrayMutationAssignment(node, assignments);
       }
     });
+  }
+
+  /**
+   * Extract assignments from binary expressions (=, +=, -=, etc.)
+   */
+  private extractBinaryExpressionAssignment(
+    node: Node,
+    assignments: StateAssignment[]
+  ): void {
+    if (!Node.isBinaryExpression(node)) return;
+
+    const operator = node.getOperatorToken().getText();
+
+    if (operator === "=") {
+      this.extractSimpleOrElementAccessAssignment(node, assignments);
+    } else if (["+=", "-=", "*=", "/=", "%="].includes(operator)) {
+      this.extractCompoundAssignment(node, assignments);
+    }
+  }
+
+  /**
+   * Extract simple or element access assignments (state.field = value or state.items[0] = value)
+   */
+  private extractSimpleOrElementAccessAssignment(
+    node: Node,
+    assignments: StateAssignment[]
+  ): void {
+    if (!Node.isBinaryExpression(node)) return;
+
+    const left = node.getLeft();
+    const right = node.getRight();
+
+    // Property access: state.field = value
+    if (Node.isPropertyAccessExpression(left)) {
+      const fieldPath = this.getPropertyPath(left);
+      if (fieldPath.startsWith("state.")) {
+        const field = fieldPath.substring(6);
+        const value = this.extractValue(right);
+        if (value !== undefined) {
+          assignments.push({ field, value });
+        }
+      }
+    }
+    // Element access: state.items[index] = value
+    else if (Node.isElementAccessExpression(left)) {
+      const expr = left.getExpression();
+      if (Node.isPropertyAccessExpression(expr)) {
+        const fieldPath = this.getPropertyPath(expr);
+        if (fieldPath.startsWith("state.")) {
+          const field = fieldPath.substring(6);
+          const indexExpr = left.getArgumentExpression();
+          const index = indexExpr ? indexExpr.getText() : "0";
+          const value = this.extractValue(right);
+
+          if (value !== undefined) {
+            const tlaIndex = this.isNumericLiteral(index)
+              ? (Number.parseInt(index) + 1).toString()
+              : `${index} + 1`;
+            assignments.push({
+              field: `${field}[${tlaIndex}]`,
+              value,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Extract compound assignments (+=, -=, *=, /=, %=)
+   */
+  private extractCompoundAssignment(node: Node, assignments: StateAssignment[]): void {
+    if (!Node.isBinaryExpression(node)) return;
+
+    const operator = node.getOperatorToken().getText();
+    const left = node.getLeft();
+    const right = node.getRight();
+
+    if (Node.isPropertyAccessExpression(left)) {
+      const fieldPath = this.getPropertyPath(left);
+      if (fieldPath.startsWith("state.")) {
+        const field = fieldPath.substring(6);
+        const rightValue = right.getText();
+        const tlaOp = operator.slice(0, -1); // Remove '=' suffix
+        assignments.push({
+          field,
+          value: `@ ${tlaOp} ${rightValue}`,
+        });
+      }
+    }
+  }
+
+  /**
+   * Extract array mutation assignments (push, pop, shift, unshift, splice)
+   */
+  private extractArrayMutationAssignment(
+    node: Node,
+    assignments: StateAssignment[]
+  ): void {
+    if (!Node.isCallExpression(node)) return;
+
+    const expr = node.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
+
+    const methodName = expr.getName();
+    const object = expr.getExpression();
+
+    if (Node.isPropertyAccessExpression(object)) {
+      const fieldPath = this.getPropertyPath(object);
+      if (fieldPath.startsWith("state.")) {
+        const field = fieldPath.substring(6);
+        const args = node.getArguments().map((arg) => arg.getText());
+        const tlaValue = this.translateArrayMethod(methodName, args, fieldPath);
+
+        if (tlaValue) {
+          assignments.push({ field, value: tlaValue });
+        }
+      }
+    }
+  }
+
+  /**
+   * Translate array mutation methods to TLA+ operators
+   */
+  private translateArrayMethod(
+    methodName: string,
+    args: string[],
+    fieldPath: string
+  ): string | null {
+    switch (methodName) {
+      case "push":
+        return args.length === 1 ? `Append(@, ${args[0]})` : null;
+
+      case "pop":
+        return "SubSeq(@, 1, Len(@)-1)";
+
+      case "shift":
+        return "Tail(@)";
+
+      case "unshift":
+        return args.length === 1 ? `<<${args[0]}>> \\o @` : null;
+
+      case "splice":
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(
+            `[DEBUG] Warning: splice() mutation on ${fieldPath} not fully translated`
+          );
+        }
+        return null;
+
+      default:
+        return null;
+    }
   }
 
   /**
