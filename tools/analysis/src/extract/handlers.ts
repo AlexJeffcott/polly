@@ -16,7 +16,12 @@ import {
   SyntaxKind,
   type VariableDeclaration,
 } from "ts-morph";
-import type { MessageHandler, StateAssignment, VerificationCondition } from "../types";
+import type {
+  ComponentRelationship,
+  MessageHandler,
+  StateAssignment,
+  VerificationCondition,
+} from "../types";
 import { RelationshipExtractor } from "./relationships";
 
 export interface HandlerAnalysis {
@@ -206,7 +211,7 @@ export class HandlerExtractor {
     // Extract relationships from handler code
     const sourceFile = callExpr.getSourceFile();
     const handlerName = `${messageType}_handler`;
-    let relationships;
+    let relationships: ComponentRelationship[] | undefined;
 
     if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
       const detectedRelationships = this.relationshipExtractor.extractFromHandler(
@@ -515,7 +520,7 @@ export class HandlerExtractor {
     // Get all statements in the function body
     const statements = Node.isBlock(body) ? body.getStatements() : [body];
 
-    statements.forEach((statement: Statement | Node) => {
+    for (const statement of statements) {
       // Look for expression statements that are function calls
       if (Node.isExpressionStatement(statement)) {
         const expr = statement.getExpression();
@@ -542,7 +547,7 @@ export class HandlerExtractor {
           }
         }
       }
-    });
+    }
   }
 
   /**
@@ -850,10 +855,13 @@ export class HandlerExtractor {
 
       if (funcName && typeGuards.has(funcName)) {
         // Found in local file
-        messageType = typeGuards.get(funcName)!;
+        const guardType = typeGuards.get(funcName);
+        if (guardType) {
+          messageType = guardType;
 
-        if (process.env["POLLY_DEBUG"]) {
-          console.log(`[DEBUG] Found in local type guards: ${funcName} → ${messageType}`);
+          if (process.env["POLLY_DEBUG"]) {
+            console.log(`[DEBUG] Found in local type guards: ${funcName} → ${messageType}`);
+          }
         }
       } else if (Node.isIdentifier(funcExpr)) {
         // Not found locally - try to resolve from imports
@@ -877,7 +885,7 @@ export class HandlerExtractor {
       // Extract relationships from the if block
       const sourceFile = ifStmt.getSourceFile();
       const handlerName = `${messageType}_handler`;
-      let relationships;
+      let relationships: ComponentRelationship[] | undefined;
 
       const thenStatement = ifStmt.getThenStatement();
       if (thenStatement) {

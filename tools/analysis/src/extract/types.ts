@@ -1,6 +1,6 @@
 // Type extraction from TypeScript using ts-morph
 
-import { Project, type Type } from "ts-morph";
+import { Project, type SourceFile, type Type } from "ts-morph";
 import type { CodebaseAnalysis, FieldAnalysis, TypeInfo } from "../types";
 import { HandlerExtractor } from "./handlers";
 
@@ -166,7 +166,7 @@ export class TypeExtractor {
   private extractMessageTypesFromType(
     type: Type,
     typeName: string,
-    sourceFile: any,
+    sourceFile: SourceFile,
     warnings: string[]
   ): string[] {
     const messageTypes: string[] = [];
