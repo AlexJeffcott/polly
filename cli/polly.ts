@@ -18,6 +18,7 @@
  *   polly test [args]                Run tests (requires bun test)
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
+ *   polly teach                      Interactive teaching session
  *   polly help                       Show help
  *
  * Project Types (init --type):
@@ -165,6 +166,105 @@ async function visualize() {
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
     throw new Error(`Visualization failed with exit code ${exitCode}`);
+  }
+}
+
+/**
+ * Teach command - interactive teaching session about Polly projects
+ */
+async function teach() {
+  console.log("Analyzing Polly project...");
+  console.log();
+
+  try {
+    // Dynamic imports to avoid loading dependencies for other commands
+    const { analyzeArchitecture } = await import("../vendor/analysis/src/index.ts");
+    const { generateStructurizrDSL } = await import("../vendor/visualize/src/codegen/structurizr.ts");
+
+    // Run architecture analysis
+    const analysis = await analyzeArchitecture({
+      projectRoot: cwd,
+      tsConfigPath: `${cwd}/tsconfig.json`,
+    });
+
+    // Generate visualization
+    const dsl = await generateStructurizrDSL(analysis);
+
+    // Format and present teaching material
+    const contexts = Object.entries(analysis.contexts);
+    const allHandlers = contexts.flatMap(([_, ctx]: [string, any]) => ctx.handlers || []);
+    const messageFlows = analysis.messageFlows || [];
+
+    console.log(`
+# Polly Project Analysis
+
+## Architecture
+
+Your project contains ${contexts.length} context(s) and ${allHandlers.length} message handler(s).
+
+### Contexts
+
+${contexts
+  .map(([name, ctx]: [string, any]) => {
+    return `
+**${name}**
+Location: ${ctx.entryPoint}
+Handlers: ${ctx.handlers?.length || 0}
+State variables: ${Object.keys(ctx.state?.variables || {}).length}`;
+  })
+  .join("\n")}
+
+### Message Flows
+
+${
+  messageFlows.length > 0
+    ? messageFlows
+        .map((flow: any) => {
+          return `- ${flow.from} → ${flow.to}: ${flow.messageType}`;
+        })
+        .join("\n")
+    : "No message flows detected."
+}
+
+## Translation Example
+
+${
+  allHandlers.length > 0
+    ? `
+Consider this handler from your codebase:
+
+\`\`\`typescript
+// ${allHandlers[0].file}:${allHandlers[0].location?.line || "?"}
+${allHandlers[0].code || allHandlers[0].name || "Handler code not available"}
+\`\`\`
+
+Polly can translate this to TLA+ for formal verification.`
+    : "No handlers detected in your project."
+}
+
+## Architecture Diagram
+
+\`\`\`structurizr
+${dsl}
+\`\`\`
+
+---
+
+What would you like to understand?
+
+Possible topics:
+- Architecture analysis methodology
+- Specific context or handler
+- TypeScript to TLA+ translation rules
+- Verification properties and their meaning
+- Interpreting verification results
+- TLA+ specification structure
+    `.trim());
+
+    console.log("\n\nPrompt: ");
+  } catch (error) {
+    console.log(`\n❌ Failed to analyze project: ${error}`);
+    process.exit(1);
   }
 }
 
@@ -354,6 +454,9 @@ async function main() {
         break;
       case "visualize":
         await visualize();
+        break;
+      case "teach":
+        await teach();
         break;
       case "help":
       case "--help":
