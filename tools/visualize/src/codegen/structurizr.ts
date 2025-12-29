@@ -744,31 +744,7 @@ export class StructurizrDSLGenerator {
     }
 
     // Group flows by domain/feature for inter-context flow diagrams
-    const flowsByDomain = new Map<string, MessageFlow[]>();
-
-    for (const flow of this.analysis.messageFlows) {
-      // Extract domain from message type (e.g., USER_LOGIN -> user, TODO_ADD -> todo)
-      const messageType = flow.messageType.toLowerCase();
-      let domain = "general";
-
-      if (
-        messageType.includes("user") ||
-        messageType.includes("login") ||
-        messageType.includes("logout") ||
-        messageType.includes("auth")
-      ) {
-        domain = "authentication";
-      } else if (messageType.includes("todo")) {
-        domain = "todo";
-      } else if (messageType.includes("state")) {
-        domain = "state";
-      }
-
-      if (!flowsByDomain.has(domain)) {
-        flowsByDomain.set(domain, []);
-      }
-      flowsByDomain.get(domain)?.push(flow);
-    }
+    const flowsByDomain = this.groupFlowsByDomain(this.analysis.messageFlows);
 
     // Generate a dynamic view for each domain
     let count = 0;
@@ -781,6 +757,50 @@ export class StructurizrDSLGenerator {
     }
 
     return parts.join("\n\n");
+  }
+
+  /**
+   * Group message flows by domain/feature
+   */
+  private groupFlowsByDomain(flows: MessageFlow[]): Map<string, MessageFlow[]> {
+    const flowsByDomain = new Map<string, MessageFlow[]>();
+
+    for (const flow of flows) {
+      const domain = this.extractDomainFromMessageType(flow.messageType);
+
+      if (!flowsByDomain.has(domain)) {
+        flowsByDomain.set(domain, []);
+      }
+      flowsByDomain.get(domain)?.push(flow);
+    }
+
+    return flowsByDomain;
+  }
+
+  /**
+   * Extract domain from message type
+   */
+  private extractDomainFromMessageType(messageType: string): string {
+    const lowerType = messageType.toLowerCase();
+
+    if (
+      lowerType.includes("user") ||
+      lowerType.includes("login") ||
+      lowerType.includes("logout") ||
+      lowerType.includes("auth")
+    ) {
+      return "authentication";
+    }
+
+    if (lowerType.includes("todo")) {
+      return "todo";
+    }
+
+    if (lowerType.includes("state")) {
+      return "state";
+    }
+
+    return "general";
   }
 
   /**
