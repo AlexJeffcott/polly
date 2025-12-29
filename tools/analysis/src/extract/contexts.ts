@@ -165,64 +165,88 @@ export class ContextAnalyzer {
     const components: ComponentInfo[] = [];
 
     sourceFile.forEachDescendant((node: Node) => {
-      // Function components
-      if (Node.isFunctionDeclaration(node)) {
-        const name = node.getName();
-        if (name && this.looksLikeComponent(name, node)) {
-          const description = this.extractJSDocDescription(node);
-          components.push({
-            name,
-            type: "function",
-            filePath: sourceFile.getFilePath(),
-            line: node.getStartLineNumber(),
-            props: this.extractProps(node),
-            ...(description ? { description } : {}),
-          });
-        }
-      }
-
-      // Arrow function components (const Foo = () => ...)
-      if (Node.isVariableDeclaration(node)) {
-        const name = node.getName();
-        const initializer = node.getInitializer();
-
-        if (
-          name &&
-          initializer &&
-          (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
-        ) {
-          if (this.looksLikeComponent(name, initializer)) {
-            const description = this.extractJSDocDescription(node);
-            components.push({
-              name,
-              type: "function",
-              filePath: sourceFile.getFilePath(),
-              line: node.getStartLineNumber(),
-              props: this.extractProps(initializer),
-              ...(description ? { description } : {}),
-            });
-          }
-        }
-      }
-
-      // Class components
-      if (Node.isClassDeclaration(node)) {
-        const name = node.getName();
-        if (name && this.looksLikeClassComponent(node)) {
-          const description = this.extractJSDocDescription(node);
-          components.push({
-            name,
-            type: "class",
-            filePath: sourceFile.getFilePath(),
-            line: node.getStartLineNumber(),
-            props: this.extractPropsFromClass(node),
-            ...(description ? { description } : {}),
-          });
-        }
-      }
+      this.extractFunctionComponent(node, sourceFile, components);
+      this.extractArrowFunctionComponent(node, sourceFile, components);
+      this.extractClassComponent(node, sourceFile, components);
     });
 
     return components;
+  }
+
+  /**
+   * Extract function component from node if applicable
+   */
+  private extractFunctionComponent(
+    node: Node,
+    sourceFile: SourceFile,
+    components: ComponentInfo[]
+  ): void {
+    if (!Node.isFunctionDeclaration(node)) return;
+
+    const name = node.getName();
+    if (!name || !this.looksLikeComponent(name, node)) return;
+
+    const description = this.extractJSDocDescription(node);
+    components.push({
+      name,
+      type: "function",
+      filePath: sourceFile.getFilePath(),
+      line: node.getStartLineNumber(),
+      props: this.extractProps(node),
+      ...(description ? { description } : {}),
+    });
+  }
+
+  /**
+   * Extract arrow function component from node if applicable
+   */
+  private extractArrowFunctionComponent(
+    node: Node,
+    sourceFile: SourceFile,
+    components: ComponentInfo[]
+  ): void {
+    if (!Node.isVariableDeclaration(node)) return;
+
+    const name = node.getName();
+    const initializer = node.getInitializer();
+
+    if (!name || !initializer) return;
+    if (!Node.isArrowFunction(initializer) && !Node.isFunctionExpression(initializer)) return;
+    if (!this.looksLikeComponent(name, initializer)) return;
+
+    const description = this.extractJSDocDescription(node);
+    components.push({
+      name,
+      type: "function",
+      filePath: sourceFile.getFilePath(),
+      line: node.getStartLineNumber(),
+      props: this.extractProps(initializer),
+      ...(description ? { description } : {}),
+    });
+  }
+
+  /**
+   * Extract class component from node if applicable
+   */
+  private extractClassComponent(
+    node: Node,
+    sourceFile: SourceFile,
+    components: ComponentInfo[]
+  ): void {
+    if (!Node.isClassDeclaration(node)) return;
+
+    const name = node.getName();
+    if (!name || !this.looksLikeClassComponent(node)) return;
+
+    const description = this.extractJSDocDescription(node);
+    components.push({
+      name,
+      type: "class",
+      filePath: sourceFile.getFilePath(),
+      line: node.getStartLineNumber(),
+      props: this.extractPropsFromClass(node),
+      ...(description ? { description } : {}),
+    });
   }
 
   /**
