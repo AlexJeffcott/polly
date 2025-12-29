@@ -583,36 +583,40 @@ export class HandlerExtractor {
     postconditions: VerificationCondition[]
   ): void {
     const body = funcNode.getBody();
-
-    // Get all statements in the function body
     const statements = Node.isBlock(body) ? body.getStatements() : [body];
 
     for (const statement of statements) {
-      // Look for expression statements that are function calls
-      if (Node.isExpressionStatement(statement)) {
-        const expr = statement.getExpression();
+      this.processStatementForConditions(statement, preconditions, postconditions);
+    }
+  }
 
-        if (Node.isCallExpression(expr)) {
-          const callee = expr.getExpression();
+  /**
+   * Process a statement to extract verification conditions
+   */
+  private processStatementForConditions(
+    statement: Node | Statement,
+    preconditions: VerificationCondition[],
+    postconditions: VerificationCondition[]
+  ): void {
+    if (!Node.isExpressionStatement(statement)) return;
 
-          if (Node.isIdentifier(callee)) {
-            const functionName = callee.getText();
+    const expr = statement.getExpression();
+    if (!Node.isCallExpression(expr)) return;
 
-            if (functionName === "requires") {
-              // Extract precondition
-              const condition = this.extractCondition(expr);
-              if (condition) {
-                preconditions.push(condition);
-              }
-            } else if (functionName === "ensures") {
-              // Extract postcondition
-              const condition = this.extractCondition(expr);
-              if (condition) {
-                postconditions.push(condition);
-              }
-            }
-          }
-        }
+    const callee = expr.getExpression();
+    if (!Node.isIdentifier(callee)) return;
+
+    const functionName = callee.getText();
+
+    if (functionName === "requires") {
+      const condition = this.extractCondition(expr);
+      if (condition) {
+        preconditions.push(condition);
+      }
+    } else if (functionName === "ensures") {
+      const condition = this.extractCondition(expr);
+      if (condition) {
+        postconditions.push(condition);
       }
     }
   }
