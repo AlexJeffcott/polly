@@ -1258,7 +1258,20 @@ export class HandlerExtractor {
   private inferContext(filePath: string): string {
     const path = filePath.toLowerCase();
 
-    // Electron contexts (check first as they're more specific)
+    // Check contexts in priority order
+    return (
+      this.inferElectronContext(path) ||
+      this.inferWorkerContext(path) ||
+      this.inferServerAppContext(path) ||
+      this.inferChromeExtensionContext(path) ||
+      "unknown"
+    );
+  }
+
+  /**
+   * Infer Electron context (main, renderer, preload)
+   */
+  private inferElectronContext(path: string): string | null {
     if (
       path.includes("main.ts") ||
       path.includes("main.js") ||
@@ -1267,6 +1280,7 @@ export class HandlerExtractor {
     ) {
       return "main";
     }
+
     if (
       path.includes("/renderer/") ||
       path.includes("\\renderer\\") ||
@@ -1275,19 +1289,33 @@ export class HandlerExtractor {
     ) {
       return "renderer";
     }
+
     if (path.includes("preload.ts") || path.includes("preload.js")) {
       return "preload";
     }
 
-    // PWA/Worker contexts
+    return null;
+  }
+
+  /**
+   * Infer Worker/PWA context
+   */
+  private inferWorkerContext(path: string): string | null {
     if (path.includes("service-worker") || path.includes("sw.ts") || path.includes("sw.js")) {
       return "worker";
     }
+
     if (path.includes("/worker/") || path.includes("\\worker\\")) {
       return "worker";
     }
 
-    // WebSocket/server app contexts
+    return null;
+  }
+
+  /**
+   * Infer WebSocket/server app context
+   */
+  private inferServerAppContext(path: string): string | null {
     if (
       path.includes("/server/") ||
       path.includes("\\server\\") ||
@@ -1297,31 +1325,43 @@ export class HandlerExtractor {
     ) {
       return "server";
     }
+
     if (path.includes("/client/") || path.includes("\\client\\") || path.includes("/client.")) {
       return "client";
     }
 
-    // Chrome extension contexts
+    return null;
+  }
+
+  /**
+   * Infer Chrome extension context
+   */
+  private inferChromeExtensionContext(path: string): string | null {
     if (path.includes("/background/") || path.includes("\\background\\")) {
       return "background";
     }
+
     if (path.includes("/content/") || path.includes("\\content\\")) {
       return "content";
     }
+
     if (path.includes("/popup/") || path.includes("\\popup\\")) {
       return "popup";
     }
+
     if (path.includes("/devtools/") || path.includes("\\devtools\\")) {
       return "devtools";
     }
+
     if (path.includes("/options/") || path.includes("\\options\\")) {
       return "options";
     }
+
     if (path.includes("/offscreen/") || path.includes("\\offscreen\\")) {
       return "offscreen";
     }
 
-    return "unknown";
+    return null;
   }
 }
 
