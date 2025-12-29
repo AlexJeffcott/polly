@@ -52,43 +52,54 @@ export class HandlerExtractor {
 
     // Find all source files
     const sourceFiles = this.project.getSourceFiles();
-
-    if (process.env["POLLY_DEBUG"]) {
-      console.log(`[DEBUG] Loaded ${sourceFiles.length} source files`);
-      if (sourceFiles.length <= 20) {
-        // Only log file names if there aren't too many
-        for (const sf of sourceFiles) {
-          console.log(`[DEBUG]   - ${sf.getFilePath()}`);
-        }
-      }
-    }
+    this.debugLogSourceFiles(sourceFiles);
 
     for (const sourceFile of sourceFiles) {
       const fileHandlers = this.extractFromFile(sourceFile);
       handlers.push(...fileHandlers);
-
-      for (const handler of fileHandlers) {
-        if (this.isValidTLAIdentifier(handler.messageType)) {
-          messageTypes.add(handler.messageType);
-        } else {
-          invalidMessageTypes.add(handler.messageType);
-        }
-      }
+      this.categorizeHandlerMessageTypes(fileHandlers, messageTypes, invalidMessageTypes);
     }
 
-    if (process.env["POLLY_DEBUG"]) {
-      console.log(`[DEBUG] Total handlers extracted: ${handlers.length}`);
-      if (invalidMessageTypes.size > 0) {
-        console.log(
-          `[DEBUG] Filtered ${invalidMessageTypes.size} invalid message type(s) from handlers`
-        );
-      }
-    }
+    this.debugLogExtractionResults(handlers.length, invalidMessageTypes.size);
 
     return {
       handlers,
       messageTypes,
     };
+  }
+
+  private debugLogSourceFiles(sourceFiles: SourceFile[]): void {
+    if (!process.env["POLLY_DEBUG"]) return;
+
+    console.log(`[DEBUG] Loaded ${sourceFiles.length} source files`);
+    if (sourceFiles.length <= 20) {
+      for (const sf of sourceFiles) {
+        console.log(`[DEBUG]   - ${sf.getFilePath()}`);
+      }
+    }
+  }
+
+  private categorizeHandlerMessageTypes(
+    handlers: MessageHandler[],
+    messageTypes: Set<string>,
+    invalidMessageTypes: Set<string>
+  ): void {
+    for (const handler of handlers) {
+      if (this.isValidTLAIdentifier(handler.messageType)) {
+        messageTypes.add(handler.messageType);
+      } else {
+        invalidMessageTypes.add(handler.messageType);
+      }
+    }
+  }
+
+  private debugLogExtractionResults(handlerCount: number, invalidCount: number): void {
+    if (!process.env["POLLY_DEBUG"]) return;
+
+    console.log(`[DEBUG] Total handlers extracted: ${handlerCount}`);
+    if (invalidCount > 0) {
+      console.log(`[DEBUG] Filtered ${invalidCount} invalid message type(s) from handlers`);
+    }
   }
 
   /**
