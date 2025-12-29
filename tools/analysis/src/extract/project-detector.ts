@@ -484,7 +484,9 @@ export class ProjectDetector {
         if (score > 0) {
           scored.push({ path: fullPath, score, hasWebSocket, hasHTTP, framework });
         }
-      } catch (_error) {}
+      } catch (_error) {
+        // Ignore file read errors for candidates that don't exist
+      }
     }
 
     // Sort by score descending
@@ -513,7 +515,9 @@ export class ProjectDetector {
             }
           });
         }
-      } catch (_error) {}
+      } catch (_error) {
+        // Ignore tsconfig.json parse errors
+      }
     }
 
     // If no entry points found, scan src directory
@@ -541,7 +545,9 @@ export class ProjectDetector {
           version: packageJson.version,
           description: packageJson.description,
         };
-      } catch (_error) {}
+      } catch (_error) {
+        // Ignore package.json parse errors
+      }
     }
 
     return {
