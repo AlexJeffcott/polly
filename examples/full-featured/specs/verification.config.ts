@@ -1,60 +1,93 @@
 // ═══════════════════════════════════════════════════════════════
-// Verification Configuration
+// Verification Configuration for Full-Featured Extension
 // ═══════════════════════════════════════════════════════════════
 //
-// This file configures TLA+ verification for your extension.
-// Some values are auto-configured, others need your input.
-//
-// Look for:
-//   • /* CONFIGURE */ - Replace with your value
-//   • /* REVIEW */ - Check the auto-generated value
-//   • null - Must be replaced with a concrete value
-//
-// Run 'bun verify' to check for incomplete configuration.
-// Run 'bun verify --setup' for interactive help.
+// This configuration defines bounds for TLA+ verification.
+// It models authentication, bookmarks, settings, and tab operations.
 //
 
-import { defineVerification } from "@fairfox/polly/verify";
+import { defineVerification } from '@fairfox/polly/verify'
 
-export const verificationConfig = defineVerification({
-  state: {},
+export default defineVerification({
+  // State bounds define the maximum complexity of state
+  state: {
+    // User authentication
+    user: {
+      // User can be authenticated or not
+      authenticated: [true, false],
+    },
 
+    // Bookmarks collection
+    bookmarks: {
+      // Maximum bookmarks to model
+      // Keep small for fast verification
+      maxLength: 2,
+
+      item: {
+        // Bookmarks don't have complex internal state
+        // Just verify the collection operations
+      }
+    },
+
+    // Settings state
+    settings: {
+      // Theme options
+      theme: ["auto", "light", "dark"],
+
+      // Boolean settings
+      autoSync: [true, false],
+      debugMode: [true, false],
+      notifications: [true, false],
+
+      // Numeric ranges
+      refreshInterval: {
+        min: 30000,    // 30 seconds
+        max: 300000,   // 5 minutes
+        step: 30000,
+      }
+    },
+
+    // Active tab (for TAB_GET_CURRENT operations)
+    activeTab: {
+      exists: [true, false],
+    }
+  },
+
+  // Message concurrency bounds
   messages: {
-    // Maximum messages in flight simultaneously across all contexts.
-    // Higher = more realistic concurrency, but exponentially slower.
-    //
-    // Recommended values:
-    //   • 2-3: Fast verification (< 10 seconds)
-    //   • 4-6: Balanced (10-60 seconds)
-    //   • 8+: Thorough but slow (minutes)
-    //
-    // WARNING: State space grows exponentially! Start small.
-    maxInFlight: 3,
+    // Maximum messages in flight simultaneously
+    // Full-featured has more handlers, so keep this low
+    maxInFlight: 2,
 
-    // Maximum tab IDs to model (content scripts are per-tab).
-    //
-    // Recommended:
-    //   • 0-1: Most extensions (single tab or tab-agnostic)
-    //   • 2-3: Multi-tab coordination
-    //
-    // Start with 0 or 1 for faster verification.
+    // Tab operations (single tab should be sufficient)
     maxTabs: 1,
   },
 
   // Verification behavior
-  // ─────────────────────
-  //
-  // onBuild: What to do during development builds
-  //   • 'warn' - Show warnings but don't fail (recommended)
-  //   • 'error' - Fail the build on violations
-  //   • 'off' - Skip verification
-  //
-  onBuild: "warn",
+  onBuild: 'warn',   // Show warnings during development
+  onDeploy: 'error', // Block deployment on violations
 
-  // onRelease: What to do during production builds
-  //   • 'error' - Fail the build on violations (recommended)
-  //   • 'warn' - Show warnings but don't fail
-  //   • 'off' - Skip verification
-  //
-  onRelease: "error",
-});
+  // Properties to verify
+  properties: {
+    // Safety: No duplicate bookmark IDs
+    noDuplicateBookmarkIds: true,
+
+    // Safety: Settings always have valid values
+    settingsAlwaysValid: true,
+
+    // Safety: Can't open tab without URL
+    tabOpenRequiresUrl: true,
+
+    // Liveness: User can eventually login
+    canLogin: true,
+
+    // Liveness: Bookmarks can be added/removed
+    canManageBookmarks: true,
+
+    // Liveness: Settings can be updated
+    canUpdateSettings: true,
+
+    // Consistency: Settings persist across operations
+    settingsPersist: true,
+  },
+})

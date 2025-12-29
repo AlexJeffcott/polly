@@ -18,8 +18,8 @@
       "@fairfox/polly/background": ["../../src/background/index.ts"],
       "@fairfox/polly/types": ["../../src/shared/types/messages.ts"],
       "@fairfox/polly/test": ["../../tools/test/src/index.ts"],
-      "@fairfox/polly-verify": ["../../tools/verify/src/index.ts"]
+      "@fairfox/polly/verify": ["../../tools/verify/src/config.ts"]
     }
   },
-  "include": ["src/**/*", "tests/**/*"]
+  "include": ["src/**/*", "tests/**/*", "specs/**/*"]
 }
