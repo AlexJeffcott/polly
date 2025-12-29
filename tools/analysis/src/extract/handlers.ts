@@ -8,6 +8,7 @@ import {
   type Identifier,
   type IfStatement,
   Node,
+  type ObjectLiteralExpression,
   Project,
   type PropertyAccessExpression,
   type SourceFile,
@@ -729,41 +730,16 @@ export class HandlerExtractor {
 
     try {
       const initializer = varDecl.getInitializer();
-      if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
-        return handlers;
-      }
-
-      // Check if variable name suggests it's a handler map
-      const varName = varDecl.getName().toLowerCase();
-      if (!/(handler|listener|callback|event)s?/.test(varName)) {
+      if (!this.isHandlerMapInitializer(initializer, varDecl)) {
         return handlers;
       }
 
       // Extract handlers from object properties
       const properties = initializer.getProperties();
       for (const prop of properties) {
-        if (Node.isPropertyAssignment(prop)) {
-          const nameNode = prop.getNameNode();
-          let messageType: string | null = null;
-
-          if (Node.isStringLiteral(nameNode)) {
-            messageType = nameNode.getLiteralValue();
-          } else if (Node.isIdentifier(nameNode)) {
-            messageType = nameNode.getText();
-          }
-
-          if (messageType) {
-            const line = prop.getStartLineNumber();
-
-            handlers.push({
-              messageType,
-              node: context,
-              assignments: [],
-              preconditions: [],
-              postconditions: [],
-              location: { file: filePath, line },
-            });
-          }
+        const handler = this.extractHandlerFromProperty(prop, context, filePath);
+        if (handler) {
+          handlers.push(handler);
         }
       }
     } catch (_error) {
@@ -771,6 +747,65 @@ export class HandlerExtractor {
     }
 
     return handlers;
+  }
+
+  /**
+   * Check if initializer is a valid handler map
+   */
+  private isHandlerMapInitializer(
+    initializer: Node | undefined,
+    varDecl: VariableDeclaration
+  ): initializer is ObjectLiteralExpression {
+    if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
+      return false;
+    }
+
+    // Check if variable name suggests it's a handler map
+    const varName = varDecl.getName().toLowerCase();
+    return /(handler|listener|callback|event)s?/.test(varName);
+  }
+
+  /**
+   * Extract handler from a property assignment in a handler map
+   */
+  private extractHandlerFromProperty(
+    prop: Node,
+    context: string,
+    filePath: string
+  ): MessageHandler | null {
+    if (!Node.isPropertyAssignment(prop)) {
+      return null;
+    }
+
+    const nameNode = prop.getNameNode();
+    const messageType = this.getMessageTypeFromPropertyName(nameNode);
+
+    if (!messageType) {
+      return null;
+    }
+
+    const line = prop.getStartLineNumber();
+    return {
+      messageType,
+      node: context,
+      assignments: [],
+      preconditions: [],
+      postconditions: [],
+      location: { file: filePath, line },
+    };
+  }
+
+  /**
+   * Extract message type from property name node
+   */
+  private getMessageTypeFromPropertyName(nameNode: Node): string | null {
+    if (Node.isStringLiteral(nameNode)) {
+      return nameNode.getLiteralValue();
+    }
+    if (Node.isIdentifier(nameNode)) {
+      return nameNode.getText();
+    }
+    return null;
   }
 
   /**
