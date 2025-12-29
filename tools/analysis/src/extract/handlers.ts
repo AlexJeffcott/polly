@@ -1,7 +1,23 @@
 // Handler extraction from TypeScript code
 // Extracts message handlers and their state mutations
 
-import { type IfStatement, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type IfStatement,
+  Node,
+  Project,
+  type SourceFile,
+  SyntaxKind,
+  type CallExpression,
+  type ArrowFunction,
+  type FunctionExpression,
+  type BinaryExpression,
+  type PropertyAccessExpression,
+  type ElementAccessExpression,
+  type Statement,
+  type SwitchStatement,
+  type VariableDeclaration,
+  type Identifier,
+} from "ts-morph";
 import type { MessageHandler, StateAssignment, VerificationCondition } from "../types";
 import { RelationshipExtractor } from "./relationships";
 
@@ -146,7 +162,7 @@ export class HandlerExtractor {
   /**
    * Extract handler details from a .on() call expression
    */
-  private extractHandler(callExpr: any, context: string, filePath: string): MessageHandler | null {
+  private extractHandler(callExpr: CallExpression, context: string, filePath: string): MessageHandler | null {
     const args = callExpr.getArguments();
 
     if (args.length < 2) {
@@ -223,8 +239,8 @@ export class HandlerExtractor {
    * - Array mutations: state.items.push(item)
    * - Array indexing: state.items[0] = value
    */
-  private extractAssignments(funcNode: any, assignments: StateAssignment[]): void {
-    funcNode.forEachDescendant((node: any) => {
+  private extractAssignments(funcNode: ArrowFunction | FunctionExpression, assignments: StateAssignment[]): void {
+    funcNode.forEachDescendant((node: Node) => {
       // Pattern 1: Assignment expressions (state.field = value, state.count += 1)
       if (Node.isBinaryExpression(node)) {
         const operator = node.getOperatorToken().getText();
@@ -379,19 +395,19 @@ export class HandlerExtractor {
    * Check for async mutations that could cause race conditions
    * Warns when async handlers have state mutations after await expressions
    */
-  private checkAsyncMutations(funcNode: any, messageType: string): void {
+  private checkAsyncMutations(funcNode: ArrowFunction | FunctionExpression, messageType: string): void {
     // Check if function is async
     const isAsync =
       funcNode.hasModifier?.(SyntaxKind.AsyncKeyword) ||
-      funcNode.getModifiers?.()?.some((m: any) => m.getKind() === SyntaxKind.AsyncKeyword);
+      funcNode.getModifiers?.()?.some((m: Node) => m.getKind() === SyntaxKind.AsyncKeyword);
 
     if (!isAsync) {
       return; // Not async, no race conditions possible
     }
 
     // Find all await expressions
-    const awaitExpressions: any[] = [];
-    funcNode.forEachDescendant((node: any) => {
+    const awaitExpressions: Node[] = [];
+    funcNode.forEachDescendant((node: Node) => {
       if (Node.isAwaitExpression(node)) {
         awaitExpressions.push(node);
       }
@@ -413,7 +429,7 @@ export class HandlerExtractor {
     const firstAwaitPos = awaitExpressions[0].getStart();
 
     // Track mutations and whether they occur after await
-    funcNode.forEachDescendant((node: any) => {
+    funcNode.forEachDescendant((node: Node) => {
       // Check for state assignments
       if (Node.isBinaryExpression(node)) {
         const operator = node.getOperatorToken().getText();
@@ -482,7 +498,7 @@ export class HandlerExtractor {
    * Extract verification conditions (requires/ensures) from a handler function
    */
   private extractVerificationConditions(
-    funcNode: any,
+    funcNode: ArrowFunction | FunctionExpression,
     preconditions: VerificationCondition[],
     postconditions: VerificationCondition[]
   ): void {
@@ -491,7 +507,7 @@ export class HandlerExtractor {
     // Get all statements in the function body
     const statements = Node.isBlock(body) ? body.getStatements() : [body];
 
-    statements.forEach((statement: any) => {
+    statements.forEach((statement: Statement | Node) => {
       // Look for expression statements that are function calls
       if (Node.isExpressionStatement(statement)) {
         const expr = statement.getExpression();
@@ -524,7 +540,7 @@ export class HandlerExtractor {
   /**
    * Extract condition from a requires() or ensures() call
    */
-  private extractCondition(callExpr: any): VerificationCondition | null {
+  private extractCondition(callExpr: CallExpression): VerificationCondition | null {
     const args = callExpr.getArguments();
 
     if (args.length === 0) {
@@ -557,7 +573,7 @@ export class HandlerExtractor {
   /**
    * Get the full property access path (e.g., "state.user.loggedIn")
    */
-  private getPropertyPath(node: any): string {
+  private getPropertyPath(node: PropertyAccessExpression | Node): string {
     const parts: string[] = [];
 
     let current = node;
@@ -577,7 +593,7 @@ export class HandlerExtractor {
   /**
    * Extract a literal value from an expression
    */
-  private extractValue(node: any): string | boolean | number | null | undefined {
+  private extractValue(node: Node): string | boolean | number | null | undefined {
     if (Node.isStringLiteral(node)) {
       return node.getLiteralValue();
     }
@@ -614,7 +630,7 @@ export class HandlerExtractor {
    * Detects: switch(message.type) { case 'EVENT': handler(); }
    */
   private extractSwitchCaseHandlers(
-    switchNode: any,
+    switchNode: SwitchStatement,
     context: string,
     filePath: string
   ): MessageHandler[] {
@@ -668,7 +684,7 @@ export class HandlerExtractor {
    * Detects: const handlers = { 'EVENT': handlerFn, ... }
    */
   private extractHandlerMapPattern(
-    varDecl: any,
+    varDecl: VariableDeclaration,
     context: string,
     filePath: string
   ): MessageHandler[] {
@@ -953,7 +969,7 @@ export class HandlerExtractor {
    * Uses ts-morph symbol resolution to find definition across files
    * Checks AST structure, not resolved types (which can lose type predicate info)
    */
-  private resolveImportedTypeGuard(identifier: any): string | null {
+  private resolveImportedTypeGuard(identifier: Identifier): string | null {
     try {
       const funcName = identifier.getText();
 
