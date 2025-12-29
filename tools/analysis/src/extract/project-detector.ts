@@ -84,37 +84,10 @@ export class ProjectDetector {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
     const entryPoints: Record<string, string> = {};
 
-    // Background
-    const background = manifest.background;
-    if (background) {
-      const file = background.service_worker || background.scripts?.[0] || background.page;
-      if (file) {
-        entryPoints["background"] = this.findSourceFile(file);
-      }
-    }
-
-    // Content scripts
-    const contentScripts = manifest.content_scripts;
-    if (contentScripts && contentScripts.length > 0) {
-      const firstScript = contentScripts[0].js?.[0];
-      if (firstScript) {
-        entryPoints["content"] = this.findSourceFile(firstScript);
-      }
-    }
-
-    // Popup
-    const popup = manifest.action?.default_popup || manifest.browser_action?.default_popup;
-    if (popup) {
-      const jsFile = this.findAssociatedJS(path.join(this.projectRoot, popup));
-      if (jsFile) entryPoints["popup"] = jsFile;
-    }
-
-    // Options
-    const options = manifest.options_ui?.page || manifest.options_page;
-    if (options) {
-      const jsFile = this.findAssociatedJS(path.join(this.projectRoot, options));
-      if (jsFile) entryPoints["options"] = jsFile;
-    }
+    this.detectBackgroundEntry(manifest, entryPoints);
+    this.detectContentScriptEntry(manifest, entryPoints);
+    this.detectPopupEntry(manifest, entryPoints);
+    this.detectOptionsEntry(manifest, entryPoints);
 
     return {
       type: "chrome-extension",
@@ -125,6 +98,58 @@ export class ProjectDetector {
         description: manifest.description,
       },
     };
+  }
+
+  /**
+   * Detect background script entry point
+   */
+  private detectBackgroundEntry(manifest: any, entryPoints: Record<string, string>): void {
+    const background = manifest.background;
+    if (!background) return;
+
+    const file = background.service_worker || background.scripts?.[0] || background.page;
+    if (file) {
+      entryPoints["background"] = this.findSourceFile(file);
+    }
+  }
+
+  /**
+   * Detect content script entry point
+   */
+  private detectContentScriptEntry(manifest: any, entryPoints: Record<string, string>): void {
+    const contentScripts = manifest.content_scripts;
+    if (!contentScripts || contentScripts.length === 0) return;
+
+    const firstScript = contentScripts[0].js?.[0];
+    if (firstScript) {
+      entryPoints["content"] = this.findSourceFile(firstScript);
+    }
+  }
+
+  /**
+   * Detect popup entry point
+   */
+  private detectPopupEntry(manifest: any, entryPoints: Record<string, string>): void {
+    const popup = manifest.action?.default_popup || manifest.browser_action?.default_popup;
+    if (!popup) return;
+
+    const jsFile = this.findAssociatedJS(path.join(this.projectRoot, popup));
+    if (jsFile) {
+      entryPoints["popup"] = jsFile;
+    }
+  }
+
+  /**
+   * Detect options page entry point
+   */
+  private detectOptionsEntry(manifest: any, entryPoints: Record<string, string>): void {
+    const options = manifest.options_ui?.page || manifest.options_page;
+    if (!options) return;
+
+    const jsFile = this.findAssociatedJS(path.join(this.projectRoot, options));
+    if (jsFile) {
+      entryPoints["options"] = jsFile;
+    }
   }
 
   /**
