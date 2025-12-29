@@ -74,6 +74,7 @@ const toolsResult = await Bun.build({
     "cli/template-utils.ts",
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
+    "tools/teach/src/cli.ts",
     "scripts/build-extension.ts",
   ],
   outdir: DIST_DIR,
