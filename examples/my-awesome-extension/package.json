@@ -15,7 +15,8 @@
     "verify:setup": "polly verify --setup",
     "visualize": "polly visualize",
     "visualize:export": "polly visualize --export",
-    "visualize:serve": "polly visualize --serve"
+    "visualize:serve": "polly visualize --serve",
+    "teach": "polly teach"
   },
   "dependencies": {
     "@fairfox/polly": "^0.1.5",

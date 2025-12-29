@@ -51,6 +51,10 @@
     "./test": {
       "import": "./dist/tools/test/src/index.js",
       "types": "./dist/tools/test/src/index.d.ts"
+    },
+    "./teach": {
+      "import": "./dist/tools/teach/src/index.js",
+      "types": "./dist/tools/teach/src/index.d.ts"
     }
   },
   "files": ["dist", "README.md", "LICENSE"],
