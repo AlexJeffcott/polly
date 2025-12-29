@@ -232,10 +232,10 @@ export class ProjectDetector {
       "src/electron/main.ts",
       "electron/main.ts",
       "main.ts",
-    ].filter(Boolean);
+    ].filter((x): x is string => Boolean(x));
 
     for (const candidate of mainCandidates) {
-      const fullPath = path.join(this.projectRoot, candidate!);
+      const fullPath = path.join(this.projectRoot, candidate);
       if (fs.existsSync(fullPath) || fs.existsSync(fullPath.replace(/\.js$/, ".ts"))) {
         entryPoints["main"] = fs.existsSync(fullPath) ? fullPath : fullPath.replace(/\.js$/, ".ts");
         break;
@@ -298,16 +298,18 @@ export class ProjectDetector {
 
     const scoredServers = this.scoreServerCandidates(serverCandidates);
     if (scoredServers.length > 0) {
-      const best = scoredServers[0]!;
-      entryPoints["server"] = best.path;
+      const best = scoredServers[0];
+      if (best) {
+        entryPoints["server"] = best.path;
 
-      // Add context based on detected frameworks
-      if (best.hasWebSocket) {
-        contextMapping["server"] = "WebSocket Server";
-      } else if (best.hasHTTP) {
-        contextMapping["server"] = "HTTP Server";
-      } else {
-        contextMapping["server"] = "Server";
+        // Add context based on detected frameworks
+        if (best.hasWebSocket) {
+          contextMapping["server"] = "WebSocket Server";
+        } else if (best.hasHTTP) {
+          contextMapping["server"] = "HTTP Server";
+        } else {
+          contextMapping["server"] = "Server";
+        }
       }
     }
 

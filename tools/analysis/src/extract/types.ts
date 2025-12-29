@@ -305,11 +305,14 @@ export class TypeExtractor {
 
       if (nonNullTypes.length === 1) {
         // This is a nullable type: T | null or T | undefined
-        const baseType = this.convertType(nonNullTypes[0]!, name);
-        return {
-          ...baseType,
-          nullable: true,
-        };
+        const firstType = nonNullTypes[0];
+        if (firstType) {
+          const baseType = this.convertType(firstType, name);
+          return {
+            ...baseType,
+            nullable: true,
+          };
+        }
       }
 
       // Generic union - keep as-is
@@ -452,7 +455,9 @@ export class TypeExtractor {
     if (type.kind === "enum" && type.enumValues) {
       analysis.confidence = "high";
       analysis.evidence.push(`Enum with ${type.enumValues.length} values`);
-      analysis.bounds!.values = type.enumValues;
+      if (analysis.bounds) {
+        analysis.bounds.values = type.enumValues;
+      }
       return analysis;
     }
 
@@ -460,7 +465,9 @@ export class TypeExtractor {
     if (type.kind === "array") {
       analysis.confidence = "low";
       analysis.suggestions.push("Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)");
-      analysis.bounds!.maxLength = undefined;
+      if (analysis.bounds) {
+        analysis.bounds.maxLength = undefined;
+      }
 
       // Try to find bounds in code
       const foundBound = this.findArrayBound();
