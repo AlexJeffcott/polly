@@ -231,11 +231,9 @@ export class ContextAnalyzer {
           hasJSX = true;
         }
       });
-    } else {
+    } else if (Node.isJsxElement(body) || Node.isJsxSelfClosingElement(body)) {
       // Arrow function with implicit return
-      if (Node.isJsxElement(body) || Node.isJsxSelfClosingElement(body)) {
-        hasJSX = true;
-      }
+      hasJSX = true;
     }
 
     return hasJSX;

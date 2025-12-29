@@ -9,7 +9,7 @@ import type { ManifestInfo } from "../types/architecture";
  */
 export class ManifestParser {
   private manifestPath: string;
-  private manifestData: any | null;
+  private manifestData: Record<string, unknown> | null;
   private baseDir: string;
 
   constructor(projectRoot: string, optional = false) {

@@ -253,16 +253,16 @@ export class IntegrationAnalyzer {
    */
   private extractBaseURL(url: string): string {
     // Remove template parts
-    url = url.replace(/\$\{[^}]+\}/g, "");
-    url = url.replace(/`/g, "");
+    let cleanUrl = url.replace(/\$\{[^}]+\}/g, "");
+    cleanUrl = cleanUrl.replace(/`/g, "");
 
     try {
-      const parsed = new URL(url);
+      const parsed = new URL(cleanUrl);
       return `${parsed.protocol}//${parsed.host}`;
     } catch {
       // If parsing fails, try to extract domain
-      const match = url.match(/https?:\/\/([^/]+)/);
-      return match ? match[0] : url;
+      const match = cleanUrl.match(/https?:\/\/([^/]+)/);
+      return match ? match[0] : cleanUrl;
     }
   }
 
@@ -300,7 +300,8 @@ export class IntegrationAnalyzer {
     const key = `${integration.type}:${integration.name}`;
 
     if (map.has(key)) {
-      const existing = map.get(key)!;
+      const existing = map.get(key);
+      if (!existing) return;
 
       // Merge usedIn
       existing.usedIn = [...new Set([...existing.usedIn, ...integration.usedIn])];
@@ -319,7 +320,7 @@ export class IntegrationAnalyzer {
   /**
    * Extract JSDoc description from node
    */
-  private extractJSDocDescription(node: any): string | undefined {
+  private extractJSDocDescription(node: Node): string | undefined {
     const jsDocs = node.getJsDocs?.() || [];
     if (jsDocs.length === 0) return undefined;
 

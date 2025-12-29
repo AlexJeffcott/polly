@@ -285,7 +285,7 @@ export class FlowAnalyzer {
     if (!sourceFile) return {};
 
     // Find the node at this line
-    let targetNode: any = null;
+    let targetNode: Node | null = null;
 
     sourceFile.forEachDescendant((node) => {
       if (node.getStartLineNumber() === lineNumber) {
