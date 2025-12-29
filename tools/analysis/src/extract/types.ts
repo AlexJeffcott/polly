@@ -444,79 +444,86 @@ export class TypeExtractor {
       bounds: {},
     };
 
-    // Boolean - high confidence, no config needed
-    if (type.kind === "boolean") {
-      analysis.confidence = "high";
-      analysis.evidence.push("Boolean type - auto-configured");
-      return analysis;
-    }
+    if (type.kind === "boolean") return this.analyzeBooleanField(analysis);
+    if (type.kind === "enum") return this.analyzeEnumField(analysis, type);
+    if (type.kind === "array") return this.analyzeArrayField(analysis);
+    if (type.kind === "number") return this.analyzeNumberField(analysis);
+    if (type.kind === "string") return this.analyzeStringField(analysis);
+    if (type.kind === "map" || type.kind === "set") return this.analyzeMapSetField(analysis);
 
-    // Enum - high confidence
-    if (type.kind === "enum" && type.enumValues) {
+    return analysis;
+  }
+
+  private analyzeBooleanField(analysis: FieldAnalysis): FieldAnalysis {
+    analysis.confidence = "high";
+    analysis.evidence.push("Boolean type - auto-configured");
+    return analysis;
+  }
+
+  private analyzeEnumField(analysis: FieldAnalysis, type: TypeInfo): FieldAnalysis {
+    if (type.enumValues) {
       analysis.confidence = "high";
       analysis.evidence.push(`Enum with ${type.enumValues.length} values`);
       if (analysis.bounds) {
         analysis.bounds.values = type.enumValues;
       }
-      return analysis;
+    }
+    return analysis;
+  }
+
+  private analyzeArrayField(analysis: FieldAnalysis): FieldAnalysis {
+    analysis.confidence = "low";
+    analysis.suggestions.push("Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)");
+    if (analysis.bounds) {
+      analysis.bounds.maxLength = undefined;
     }
 
-    // Array - needs manual configuration
-    if (type.kind === "array") {
-      analysis.confidence = "low";
-      analysis.suggestions.push("Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)");
-      if (analysis.bounds) {
-        analysis.bounds.maxLength = undefined;
-      }
-
-      // Try to find bounds in code
-      const foundBound = this.findArrayBound();
-      if (foundBound) {
-        analysis.confidence = "medium";
-        analysis.evidence.push(`Found array check: ${foundBound.evidence}`);
-        analysis.bounds!.maxLength = foundBound.value;
-      }
-
-      return analysis;
+    const foundBound = this.findArrayBound();
+    if (foundBound && analysis.bounds) {
+      analysis.confidence = "medium";
+      analysis.evidence.push(`Found array check: ${foundBound.evidence}`);
+      analysis.bounds.maxLength = foundBound.value;
     }
 
-    // Number - needs manual configuration
-    if (type.kind === "number") {
-      analysis.confidence = "low";
-      analysis.suggestions.push("Provide min and max values based on your application logic");
-      analysis.bounds!.min = undefined;
-      analysis.bounds!.max = undefined;
+    return analysis;
+  }
 
-      // Try to find bounds in code
-      const foundBound = this.findNumberBound();
-      if (foundBound) {
-        analysis.confidence = "high";
-        analysis.evidence.push(`Found comparison: ${foundBound.evidence}`);
-        analysis.bounds = { ...analysis.bounds!, ...foundBound.bounds };
-      }
-
-      return analysis;
+  private analyzeNumberField(analysis: FieldAnalysis): FieldAnalysis {
+    analysis.confidence = "low";
+    analysis.suggestions.push("Provide min and max values based on your application logic");
+    if (analysis.bounds) {
+      analysis.bounds.min = undefined;
+      analysis.bounds.max = undefined;
     }
 
-    // String - needs manual configuration
-    if (type.kind === "string") {
-      analysis.confidence = "low";
-      analysis.suggestions.push(
-        'Provide 2-3 example values: ["value1", "value2", "value3"]',
-        "Or use { abstract: true } for symbolic verification"
-      );
-      analysis.bounds!.values = undefined;
-      return analysis;
+    const foundBound = this.findNumberBound();
+    if (foundBound && analysis.bounds) {
+      analysis.confidence = "high";
+      analysis.evidence.push(`Found comparison: ${foundBound.evidence}`);
+      analysis.bounds = { ...analysis.bounds, ...foundBound.bounds };
     }
 
-    // Map/Set - needs manual configuration
-    if (type.kind === "map" || type.kind === "set") {
-      analysis.confidence = "low";
-      analysis.suggestions.push("Provide maxSize (recommended: 3-5)");
-      analysis.bounds!.maxSize = undefined;
-      return analysis;
-    }
+    return analysis;
+  }
 
+  private analyzeStringField(analysis: FieldAnalysis): FieldAnalysis {
+    analysis.confidence = "low";
+    analysis.suggestions.push(
+      'Provide 2-3 example values: ["value1", "value2", "value3"]',
+      "Or use { abstract: true } for symbolic verification"
+    );
+    if (analysis.bounds) {
+      analysis.bounds.values = undefined;
+    }
+    return analysis;
+  }
+
+  private analyzeMapSetField(analysis: FieldAnalysis): FieldAnalysis {
+    analysis.confidence = "low";
+    analysis.suggestions.push("Provide maxSize (recommended: 3-5)");
+    if (analysis.bounds) {
+      analysis.bounds.maxSize = undefined;
+    }
     return analysis;
   }
 
