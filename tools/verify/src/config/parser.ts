@@ -1,8 +1,8 @@
 // Configuration validator - detects incomplete configuration
 
-import type { ValidationResult, ConfigIssue, VerificationConfig } from "../types";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { ConfigIssue, ValidationResult, VerificationConfig } from "../types";
 
 export class ConfigValidator {
   private issues: ConfigIssue[] = [];

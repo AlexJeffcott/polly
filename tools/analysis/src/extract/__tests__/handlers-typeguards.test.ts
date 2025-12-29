@@ -1,29 +1,29 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
+import * as path from "node:path";
 import { HandlerExtractor } from "../handlers";
 
 describe("HandlerExtractor - Type Guard Detection", () => {
-	let tempDir: string;
+  let tempDir: string;
 
-	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-handlers-test-"));
-	});
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-handlers-test-"));
+  });
 
-	afterEach(() => {
-		if (fs.existsSync(tempDir)) {
-			fs.rmSync(tempDir, { recursive: true });
-		}
-	});
+  afterEach(() => {
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true });
+    }
+  });
 
-	describe("Local type guards (same file)", () => {
-		test("should detect type guards defined in the same file", () => {
-			// Create test file with local type guards
-			const testFile = path.join(tempDir, "local-guards.ts");
-			fs.writeFileSync(
-				testFile,
-				`
+  describe("Local type guards (same file)", () => {
+    test("should detect type guards defined in the same file", () => {
+      // Create test file with local type guards
+      const testFile = path.join(tempDir, "local-guards.ts");
+      fs.writeFileSync(
+        testFile,
+        `
 export interface QueryMessage {
   type: 'query';
   data: string;
@@ -53,47 +53,47 @@ export function handleMessage(message: RequestMessage) {
     console.log('Handling command:', message.action);
   }
 }
-`,
-			);
+`
+      );
 
-			// Create tsconfig
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						strict: true,
-					},
-					include: ["*.ts"],
-				}),
-			);
+      // Create tsconfig
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            strict: true,
+          },
+          include: ["*.ts"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			expect(result.handlers.length).toBe(2);
-			expect(result.messageTypes.has("query")).toBe(true);
-			expect(result.messageTypes.has("command")).toBe(true);
+      expect(result.handlers.length).toBe(2);
+      expect(result.messageTypes.has("query")).toBe(true);
+      expect(result.messageTypes.has("command")).toBe(true);
 
-			const queryHandler = result.handlers.find((h) => h.messageType === "query");
-			expect(queryHandler).toBeDefined();
-			expect(queryHandler?.location.file).toBe(testFile);
+      const queryHandler = result.handlers.find((h) => h.messageType === "query");
+      expect(queryHandler).toBeDefined();
+      expect(queryHandler?.location.file).toBe(testFile);
 
-			const commandHandler = result.handlers.find((h) => h.messageType === "command");
-			expect(commandHandler).toBeDefined();
-		});
-	});
+      const commandHandler = result.handlers.find((h) => h.messageType === "command");
+      expect(commandHandler).toBeDefined();
+    });
+  });
 
-	describe("Imported type guards", () => {
-		test("should detect type guards imported from another file", () => {
-			// Create type guards file
-			const guardsFile = path.join(tempDir, "guards.ts");
-			fs.writeFileSync(
-				guardsFile,
-				`
+  describe("Imported type guards", () => {
+    test("should detect type guards imported from another file", () => {
+      // Create type guards file
+      const guardsFile = path.join(tempDir, "guards.ts");
+      fs.writeFileSync(
+        guardsFile,
+        `
 export interface QueryMessage {
   type: 'query';
   data: string;
@@ -113,14 +113,14 @@ export function isQueryMessage(msg: RequestMessage): msg is QueryMessage {
 export function isCommandMessage(msg: RequestMessage): msg is CommandMessage {
   return msg.type === 'command';
 }
-`,
-			);
+`
+      );
 
-			// Create handler file that imports type guards
-			const handlerFile = path.join(tempDir, "handler.ts");
-			fs.writeFileSync(
-				handlerFile,
-				`
+      // Create handler file that imports type guards
+      const handlerFile = path.join(tempDir, "handler.ts");
+      fs.writeFileSync(
+        handlerFile,
+        `
 import { isQueryMessage, isCommandMessage, type RequestMessage } from './guards';
 
 export function handleMessage(message: RequestMessage) {
@@ -130,43 +130,43 @@ export function handleMessage(message: RequestMessage) {
     console.log('Handling command:', message.action);
   }
 }
-`,
-			);
+`
+      );
 
-			// Create tsconfig
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						strict: true,
-					},
-					include: ["*.ts"],
-				}),
-			);
+      // Create tsconfig
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            strict: true,
+          },
+          include: ["*.ts"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			expect(result.handlers.length).toBe(2);
-			expect(result.messageTypes.has("query")).toBe(true);
-			expect(result.messageTypes.has("command")).toBe(true);
+      expect(result.handlers.length).toBe(2);
+      expect(result.messageTypes.has("query")).toBe(true);
+      expect(result.messageTypes.has("command")).toBe(true);
 
-			// Handlers should be found in the handler file, not the guards file
-			const queryHandler = result.handlers.find((h) => h.messageType === "query");
-			expect(queryHandler).toBeDefined();
-			expect(queryHandler?.location.file).toBe(handlerFile);
-		});
+      // Handlers should be found in the handler file, not the guards file
+      const queryHandler = result.handlers.find((h) => h.messageType === "query");
+      expect(queryHandler).toBeDefined();
+      expect(queryHandler?.location.file).toBe(handlerFile);
+    });
 
-		test("should detect type guards imported with .ts extension (Bun/Deno style)", () => {
-			// Create type guards file
-			const guardsFile = path.join(tempDir, "messages.ts");
-			fs.writeFileSync(
-				guardsFile,
-				`
+    test("should detect type guards imported with .ts extension (Bun/Deno style)", () => {
+      // Create type guards file
+      const guardsFile = path.join(tempDir, "messages.ts");
+      fs.writeFileSync(
+        guardsFile,
+        `
 export interface SubscribeMessage {
   type: 'subscribe';
   channel: string;
@@ -186,14 +186,14 @@ export function isSubscribeMessage(msg: RequestMessage): msg is SubscribeMessage
 export function isUnsubscribeMessage(msg: RequestMessage): msg is UnsubscribeMessage {
   return msg.type === 'unsubscribe';
 }
-`,
-			);
+`
+      );
 
-			// Create handler file with .ts extension in import
-			const handlerFile = path.join(tempDir, "server.ts");
-			fs.writeFileSync(
-				handlerFile,
-				`
+      // Create handler file with .ts extension in import
+      const handlerFile = path.join(tempDir, "server.ts");
+      fs.writeFileSync(
+        handlerFile,
+        `
 import { isSubscribeMessage, isUnsubscribeMessage, type RequestMessage } from './messages.ts';
 
 export function handleRequest(message: RequestMessage) {
@@ -203,45 +203,45 @@ export function handleRequest(message: RequestMessage) {
     console.log('Unsubscribing from:', message.channel);
   }
 }
-`,
-			);
+`
+      );
 
-			// Create tsconfig
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						allowImportingTsExtensions: true,
-						strict: true,
-					},
-					include: ["*.ts"],
-				}),
-			);
+      // Create tsconfig
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            allowImportingTsExtensions: true,
+            strict: true,
+          },
+          include: ["*.ts"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			expect(result.handlers.length).toBe(2);
-			expect(result.messageTypes.has("subscribe")).toBe(true);
-			expect(result.messageTypes.has("unsubscribe")).toBe(true);
-		});
+      expect(result.handlers.length).toBe(2);
+      expect(result.messageTypes.has("subscribe")).toBe(true);
+      expect(result.messageTypes.has("unsubscribe")).toBe(true);
+    });
 
-		test("should detect type guards imported with path aliases", () => {
-			// Create directory structure
-			const srcDir = path.join(tempDir, "src");
-			const wsDir = path.join(srcDir, "ws");
-			fs.mkdirSync(srcDir, { recursive: true });
-			fs.mkdirSync(wsDir, { recursive: true });
+    test("should detect type guards imported with path aliases", () => {
+      // Create directory structure
+      const srcDir = path.join(tempDir, "src");
+      const wsDir = path.join(srcDir, "ws");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.mkdirSync(wsDir, { recursive: true });
 
-			// Create type guards file
-			const guardsFile = path.join(wsDir, "messages.ts");
-			fs.writeFileSync(
-				guardsFile,
-				`
+      // Create type guards file
+      const guardsFile = path.join(wsDir, "messages.ts");
+      fs.writeFileSync(
+        guardsFile,
+        `
 export interface AuthMessage {
   type: 'auth';
   token: string;
@@ -261,14 +261,14 @@ export function isAuthMessage(msg: RequestMessage): msg is AuthMessage {
 export function isDataMessage(msg: RequestMessage): msg is DataMessage {
   return msg.type === 'data';
 }
-`,
-			);
+`
+      );
 
-			// Create handler file using path alias
-			const handlerFile = path.join(srcDir, "server.ts");
-			fs.writeFileSync(
-				handlerFile,
-				`
+      // Create handler file using path alias
+      const handlerFile = path.join(srcDir, "server.ts");
+      fs.writeFileSync(
+        handlerFile,
+        `
 import { isAuthMessage, isDataMessage, type RequestMessage } from '@ws/messages';
 
 export function handleWebSocketMessage(message: RequestMessage) {
@@ -278,43 +278,43 @@ export function handleWebSocketMessage(message: RequestMessage) {
     console.log('Processing data:', message.payload);
   }
 }
-`,
-			);
+`
+      );
 
-			// Create tsconfig with path alias
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						baseUrl: ".",
-						paths: {
-							"@ws/*": ["./src/ws/*"],
-						},
-						strict: true,
-					},
-					include: ["src/**/*"],
-				}),
-			);
+      // Create tsconfig with path alias
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            baseUrl: ".",
+            paths: {
+              "@ws/*": ["./src/ws/*"],
+            },
+            strict: true,
+          },
+          include: ["src/**/*"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			expect(result.handlers.length).toBe(2);
-			expect(result.messageTypes.has("auth")).toBe(true);
-			expect(result.messageTypes.has("data")).toBe(true);
-		});
-	});
+      expect(result.handlers.length).toBe(2);
+      expect(result.messageTypes.has("auth")).toBe(true);
+      expect(result.messageTypes.has("data")).toBe(true);
+    });
+  });
 
-	describe("Type name extraction", () => {
-		test("should extract message type from type name with Message suffix", () => {
-			const testFile = path.join(tempDir, "extraction.ts");
-			fs.writeFileSync(
-				testFile,
-				`
+  describe("Type name extraction", () => {
+    test("should extract message type from type name with Message suffix", () => {
+      const testFile = path.join(tempDir, "extraction.ts");
+      fs.writeFileSync(
+        testFile,
+        `
 export interface QueryMessage {
   type: 'query';
 }
@@ -350,40 +350,40 @@ export function process(message: RequestMessage) {
     console.log('subscribe');
   }
 }
-`,
-			);
+`
+      );
 
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						strict: true,
-					},
-					include: ["*.ts"],
-				}),
-			);
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            strict: true,
+          },
+          include: ["*.ts"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			// Should extract "query", "command", "subscribe" (lowercase, without "Message")
-			expect(result.messageTypes.has("query")).toBe(true);
-			expect(result.messageTypes.has("command")).toBe(true);
-			expect(result.messageTypes.has("subscribe")).toBe(true);
-			expect(result.handlers.length).toBe(3);
-		});
-	});
+      // Should extract "query", "command", "subscribe" (lowercase, without "Message")
+      expect(result.messageTypes.has("query")).toBe(true);
+      expect(result.messageTypes.has("command")).toBe(true);
+      expect(result.messageTypes.has("subscribe")).toBe(true);
+      expect(result.handlers.length).toBe(3);
+    });
+  });
 
-	describe("Edge cases", () => {
-		test("should handle else-if chains with multiple type guards", () => {
-			const testFile = path.join(tempDir, "chain.ts");
-			fs.writeFileSync(
-				testFile,
-				`
+  describe("Edge cases", () => {
+    test("should handle else-if chains with multiple type guards", () => {
+      const testFile = path.join(tempDir, "chain.ts");
+      fs.writeFileSync(
+        testFile,
+        `
 export interface CreateMessage { type: 'create'; }
 export interface UpdateMessage { type: 'update'; }
 export interface DeleteMessage { type: 'delete'; }
@@ -407,38 +407,38 @@ function handle(m: Message) {
     console.log('read');
   }
 }
-`,
-			);
+`
+      );
 
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						strict: true,
-					},
-					include: ["*.ts"],
-				}),
-			);
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            strict: true,
+          },
+          include: ["*.ts"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			expect(result.handlers.length).toBe(4);
-			expect(result.messageTypes.has("create")).toBe(true);
-			expect(result.messageTypes.has("update")).toBe(true);
-			expect(result.messageTypes.has("delete")).toBe(true);
-			expect(result.messageTypes.has("read")).toBe(true);
-		});
+      expect(result.handlers.length).toBe(4);
+      expect(result.messageTypes.has("create")).toBe(true);
+      expect(result.messageTypes.has("update")).toBe(true);
+      expect(result.messageTypes.has("delete")).toBe(true);
+      expect(result.messageTypes.has("read")).toBe(true);
+    });
 
-		test("should not detect non-type-guard functions", () => {
-			const testFile = path.join(tempDir, "non-guard.ts");
-			fs.writeFileSync(
-				testFile,
-				`
+    test("should not detect non-type-guard functions", () => {
+      const testFile = path.join(tempDir, "non-guard.ts");
+      fs.writeFileSync(
+        testFile,
+        `
 export interface Message {
   type: string;
 }
@@ -453,28 +453,28 @@ function handle(msg: Message) {
     console.log('valid');
   }
 }
-`,
-			);
+`
+      );
 
-			const tsconfig = path.join(tempDir, "tsconfig.json");
-			fs.writeFileSync(
-				tsconfig,
-				JSON.stringify({
-					compilerOptions: {
-						target: "ES2020",
-						module: "ESNext",
-						moduleResolution: "bundler",
-						strict: true,
-					},
-					include: ["*.ts"],
-				}),
-			);
+      const tsconfig = path.join(tempDir, "tsconfig.json");
+      fs.writeFileSync(
+        tsconfig,
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            strict: true,
+          },
+          include: ["*.ts"],
+        })
+      );
 
-			const extractor = new HandlerExtractor(tsconfig);
-			const result = extractor.extractHandlers();
+      const extractor = new HandlerExtractor(tsconfig);
+      const result = extractor.extractHandlers();
 
-			// Should not detect any handlers (isValid is not a type guard)
-			expect(result.handlers.length).toBe(0);
-		});
-	});
+      // Should not detect any handlers (isValid is not a type guard)
+      expect(result.handlers.length).toBe(0);
+    });
+  });
 });

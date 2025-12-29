@@ -25,7 +25,8 @@ async function main() {
     const allHandlers = contexts.flatMap(([_, ctx]: [string, any]) => ctx.handlers || []);
     const messageFlows = analysis.messageFlows || [];
 
-    console.log(`
+    console.log(
+      `
 # Polly Project Analysis
 
 ## Architecture
@@ -89,7 +90,8 @@ Possible topics:
 - Verification properties and their meaning
 - Interpreting verification results
 - TLA+ specification structure
-    `.trim());
+    `.trim()
+    );
 
     console.log("\n\nPrompt: ");
   } catch (error) {

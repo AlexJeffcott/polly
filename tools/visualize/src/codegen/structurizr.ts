@@ -1,19 +1,19 @@
 // Structurizr DSL generator
 
-import type { ArchitectureAnalysis } from "../../../analysis/src";
+import type { ArchitectureAnalysis, ContextInfo, MessageHandler, MessageFlow } from "../../../analysis/src";
 import type {
-	StructurizrDSLOptions as EnhancedDSLOptions,
-	ElementStyle,
-	RelationshipStyle,
-	ComponentProperties,
-	ComponentGroup,
-	DynamicDiagram,
-	DeploymentNode,
+  ComponentGroup,
+  ComponentProperties,
+  DeploymentNode,
+  DynamicDiagram,
+  ElementStyle,
+  StructurizrDSLOptions as EnhancedDSLOptions,
+  RelationshipStyle,
 } from "../types/structurizr";
 import {
-	DEFAULT_ELEMENT_STYLES,
-	DEFAULT_RELATIONSHIP_STYLES,
-	DEFAULT_THEME,
+  DEFAULT_ELEMENT_STYLES,
+  DEFAULT_RELATIONSHIP_STYLES,
+  DEFAULT_THEME,
 } from "../types/structurizr";
 
 // Re-export the enhanced type
@@ -77,7 +77,7 @@ export class StructurizrDSLGenerator {
 
     // Add ADRs if present
     if (this.analysis.adrs && this.analysis.adrs.adrs.length > 0) {
-      parts.push("  !adrs " + this.analysis.adrs.directory);
+      parts.push(`  !adrs ${this.analysis.adrs.directory}`);
     }
 
     return parts.join("\n");
@@ -144,7 +144,7 @@ export class StructurizrDSLGenerator {
         parts.push(
           `      tags "External System" "${integration.type === "websocket" ? "WebSocket" : "REST API"}"`
         );
-        parts.push(`    }`);
+        parts.push("    }");
       }
     }
 
@@ -175,7 +175,7 @@ export class StructurizrDSLGenerator {
   /**
    * Generate container (context)
    */
-  private generateContainer(contextType: string, contextInfo: any): string {
+  private generateContainer(contextType: string, contextInfo: ContextInfo): string {
     const parts: string[] = [];
 
     const technology = this.getContextTechnology(contextType);
@@ -203,7 +203,7 @@ export class StructurizrDSLGenerator {
   /**
    * Generate components within a container
    */
-  private generateComponents(contextType: string, contextInfo: any): string {
+  private generateComponents(contextType: string, contextInfo: ContextInfo): string {
     const parts: string[] = [];
 
     // Build component definitions
@@ -217,12 +217,12 @@ export class StructurizrDSLGenerator {
     }> = [];
 
     // Generate components from handlers
-    const handlersByType = new Map<string, any[]>();
+    const handlersByType = new Map<string, MessageHandler[]>();
     for (const handler of contextInfo.handlers) {
       if (!handlersByType.has(handler.messageType)) {
         handlersByType.set(handler.messageType, []);
       }
-      handlersByType.get(handler.messageType)!.push(handler);
+      handlersByType.get(handler.messageType)?.push(handler);
     }
 
     for (const [messageType, handlers] of handlersByType) {
@@ -284,7 +284,7 @@ export class StructurizrDSLGenerator {
         `        ${this.toId(serviceId)} = component "${serviceName}" "Business logic service" {`
       );
       parts.push(`          tags "Service" "Auto-detected"`);
-      parts.push(`        }`);
+      parts.push("        }");
     }
 
     // Generate components from UI components
@@ -294,7 +294,7 @@ export class StructurizrDSLGenerator {
           `        ${this.toId(comp.name)} = component "${comp.name}" "${this.escape(comp.description || "UI component")}" {`
         );
         parts.push(`          tags "UI Component"`);
-        parts.push(`        }`);
+        parts.push("        }");
       }
     }
 
@@ -306,7 +306,7 @@ export class StructurizrDSLGenerator {
           `        ${apiId} = component "Chrome ${this.capitalize(api)} API" "Browser API for ${api}" {`
         );
         parts.push(`          tags "Chrome API" "External"`);
-        parts.push(`        }`);
+        parts.push("        }");
       }
     }
 
@@ -316,7 +316,7 @@ export class StructurizrDSLGenerator {
   /**
    * Generate better component descriptions based on message type
    */
-  private generateComponentDescription(messageType: string, _handler: any): string {
+  private generateComponentDescription(messageType: string, _handler: MessageHandler): string {
     const type = messageType.toLowerCase();
 
     // Authentication related
@@ -358,7 +358,7 @@ export class StructurizrDSLGenerator {
   /**
    * Determine appropriate tags for a component
    */
-  private getComponentTags(messageType: string, _handler: any): string[] {
+  private getComponentTags(messageType: string, _handler: MessageHandler): string[] {
     const tags: string[] = ["Message Handler"];
     const type = messageType.toLowerCase();
 
@@ -397,14 +397,14 @@ export class StructurizrDSLGenerator {
    */
   private getComponentProperties(
     messageType: string,
-    handler: any,
+    handler: MessageHandler,
     contextType: string
   ): ComponentProperties {
     const properties: ComponentProperties = {};
 
     // Add source file and line number
     if (handler.location) {
-      const relativePath = handler.location.file.replace(this.analysis.projectRoot + "/", "");
+      const relativePath = handler.location.file.replace(`${this.analysis.projectRoot}/`, "");
       properties["Source"] = `${relativePath}:${handler.location.line}`;
     }
 
@@ -428,7 +428,12 @@ export class StructurizrDSLGenerator {
     const type = messageType.toLowerCase();
     let pattern = "Message Handler";
 
-    if (type.includes("query") || type.includes("get") || type.includes("fetch") || type.includes("load")) {
+    if (
+      type.includes("query") ||
+      type.includes("get") ||
+      type.includes("fetch") ||
+      type.includes("load")
+    ) {
       pattern = "Query Handler";
       properties["Message Type"] = "Query";
     } else if (
@@ -452,7 +457,7 @@ export class StructurizrDSLGenerator {
     properties["Pattern"] = pattern;
 
     // Merge with user-provided properties
-    if (this.options.properties && this.options.properties[messageType]) {
+    if (this.options.properties?.[messageType]) {
       Object.assign(properties, this.options.properties[messageType]);
     }
 
@@ -462,16 +467,16 @@ export class StructurizrDSLGenerator {
   /**
    * Generate relationships between components within a container
    */
-  private generateComponentRelationships(_contextType: string, contextInfo: any): string {
+  private generateComponentRelationships(_contextType: string, contextInfo: ContextInfo): string {
     const parts: string[] = [];
 
     // Build a map of handler components
-    const handlersByType = new Map<string, any[]>();
+    const handlersByType = new Map<string, MessageHandler[]>();
     for (const handler of contextInfo.handlers) {
       if (!handlersByType.has(handler.messageType)) {
         handlersByType.set(handler.messageType, []);
       }
-      handlersByType.get(handler.messageType)!.push(handler);
+      handlersByType.get(handler.messageType)?.push(handler);
     }
 
     // Add relationships to Chrome APIs
@@ -519,7 +524,7 @@ export class StructurizrDSLGenerator {
           parts.push(`          tags "${rel.tags.join('" "')}"`);
         }
 
-        parts.push(`        }`);
+        parts.push("        }");
       }
     }
 
@@ -534,7 +539,7 @@ export class StructurizrDSLGenerator {
 
           parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
           parts.push(`          tags "Auto-detected"`);
-          parts.push(`        }`);
+          parts.push("        }");
         }
       }
     }
@@ -572,7 +577,7 @@ export class StructurizrDSLGenerator {
           if (queryHandler !== stateHandler) {
             parts.push(`        ${stateHandler} -> ${queryHandler} "Updates state" {`);
             parts.push(`          tags "Implicit"`);
-            parts.push(`        }`);
+            parts.push("        }");
           }
         }
       }
@@ -608,7 +613,7 @@ export class StructurizrDSLGenerator {
       if (integration.type === "api" || integration.type === "websocket") {
         // Find which contexts use this integration
         for (const [contextType, contextInfo] of Object.entries(this.analysis.contexts)) {
-          const usesIntegration = contextInfo.externalAPIs.some((api: any) =>
+          const usesIntegration = contextInfo.externalAPIs.some((api) =>
             integration.calls?.some((call) => call.endpoint === api.endpoint)
           );
 
@@ -739,7 +744,7 @@ export class StructurizrDSLGenerator {
     }
 
     // Group flows by domain/feature for inter-context flow diagrams
-    const flowsByDomain = new Map<string, any[]>();
+    const flowsByDomain = new Map<string, MessageFlow[]>();
 
     for (const flow of this.analysis.messageFlows) {
       // Extract domain from message type (e.g., USER_LOGIN -> user, TODO_ADD -> todo)
@@ -762,7 +767,7 @@ export class StructurizrDSLGenerator {
       if (!flowsByDomain.has(domain)) {
         flowsByDomain.set(domain, []);
       }
-      flowsByDomain.get(domain)!.push(flow);
+      flowsByDomain.get(domain)?.push(flow);
     }
 
     // Generate a dynamic view for each domain
@@ -770,7 +775,7 @@ export class StructurizrDSLGenerator {
     for (const [domain, flows] of flowsByDomain) {
       if (count >= 5) break; // Limit to avoid too many diagrams
 
-      const viewName = this.capitalize(domain) + " Flow";
+      const viewName = `${this.capitalize(domain)} Flow`;
       parts.push(this.generateDynamicView(viewName, flows, domain));
       count++;
     }
@@ -785,7 +790,7 @@ export class StructurizrDSLGenerator {
     const diagrams: string[] = [];
     // Collect all handlers with relationships from all contexts
     type HandlerWithContext = {
-      handler: any;
+      handler: MessageHandler;
       contextType: string;
       contextName: string;
     };
@@ -849,7 +854,7 @@ export class StructurizrDSLGenerator {
       if (!handlerGroups.has(category)) {
         handlerGroups.set(category, []);
       }
-      handlerGroups.get(category)!.push(hwc);
+      handlerGroups.get(category)?.push(hwc);
     }
 
     // Generate a diagram for each category (limit to avoid clutter)
@@ -890,7 +895,7 @@ export class StructurizrDSLGenerator {
    */
   private generateHandlerFlowDiagram(
     category: string,
-    handlers: Array<{ handler: any; contextType: string; contextName: string }>
+    handlers: Array<{ handler: MessageHandler; contextType: string; contextName: string }>
   ): string | null {
     const parts: string[] = [];
 
@@ -899,13 +904,9 @@ export class StructurizrDSLGenerator {
     const description = this.getCategoryDescription(category);
 
     // Use container scope (most common for component flows)
-    const scope = handlers[0]?.contextName
-      ? `extension.${handlers[0].contextName}`
-      : "extension";
+    const scope = handlers[0]?.contextName ? `extension.${handlers[0].contextName}` : "extension";
 
-    parts.push(
-      `    dynamic ${scope} "${title}" "${description}" {`
-    );
+    parts.push(`    dynamic ${scope} "${title}" "${description}" {`);
 
     let stepCount = 0;
 
@@ -970,7 +971,9 @@ export class StructurizrDSLGenerator {
   private generateUserDynamicDiagram(diagram: DynamicDiagram): string {
     const parts: string[] = [];
 
-    parts.push(`    dynamic ${diagram.scope || "extension"} "${this.escape(diagram.title)}" "${this.escape(diagram.description || "")}" {`);
+    parts.push(
+      `    dynamic ${diagram.scope || "extension"} "${this.escape(diagram.title)}" "${this.escape(diagram.description || "")}" {`
+    );
 
     for (const step of diagram.steps) {
       const from = step.from;
@@ -989,7 +992,7 @@ export class StructurizrDSLGenerator {
   /**
    * Generate single dynamic view
    */
-  private generateDynamicView(flowName: string, flows: any[], domain: string): string {
+  private generateDynamicView(flowName: string, flows: MessageFlow[], domain: string): string {
     const parts: string[] = [];
 
     // Create a user-centric description
@@ -1034,7 +1037,7 @@ export class StructurizrDSLGenerator {
       state: "Application state synchronization",
       general: "Message flow through the system",
     };
-    return descriptions[domain] || descriptions['general']!;
+    return descriptions[domain] || descriptions["general"]!;
   }
 
   /**
@@ -1047,7 +1050,7 @@ export class StructurizrDSLGenerator {
       state: "Requests state",
       general: "Interacts",
     };
-    return actions[domain] || actions['general']!;
+    return actions[domain] || actions["general"]!;
   }
 
   /**
@@ -1077,13 +1080,14 @@ export class StructurizrDSLGenerator {
     const nodesByEnvironment = new Map<string, DeploymentNode[]>();
 
     for (const node of this.options.deploymentNodes || []) {
-      const env = node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))
-        ?.split(":")[1] || "Production";
+      const env =
+        node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))?.split(":")[1] ||
+        "Production";
 
       if (!nodesByEnvironment.has(env)) {
         nodesByEnvironment.set(env, []);
       }
-      nodesByEnvironment.get(env)!.push(node);
+      nodesByEnvironment.get(env)?.push(node);
     }
 
     // Generate deployment environment for each environment
@@ -1131,17 +1135,20 @@ export class StructurizrDSLGenerator {
     // Add child deployment nodes (nested infrastructure)
     if (node.children && node.children.length > 0) {
       for (const child of node.children) {
-        parts.push(this.generateDeploymentNode(child, indent + "  "));
+        parts.push(this.generateDeploymentNode(child, `${indent}  `));
       }
     }
 
     // Add container instances if specified
     if (node.containerInstances && node.containerInstances.length > 0) {
       for (const containerInstance of node.containerInstances) {
-        const instancesStr = containerInstance.instances && containerInstance.instances > 1
-          ? ` ${containerInstance.instances}`
-          : "";
-        parts.push(`${indent}  containerInstance extension.${containerInstance.container}${instancesStr}`);
+        const instancesStr =
+          containerInstance.instances && containerInstance.instances > 1
+            ? ` ${containerInstance.instances}`
+            : "";
+        parts.push(
+          `${indent}  containerInstance extension.${containerInstance.container}${instancesStr}`
+        );
       }
     } else if (!node.children || node.children.length === 0) {
       // If no container instances specified and no children, deploy all containers as fallback
@@ -1168,13 +1175,14 @@ export class StructurizrDSLGenerator {
     const nodesByEnvironment = new Map<string, DeploymentNode[]>();
 
     for (const node of this.options.deploymentNodes || []) {
-      const env = node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))
-        ?.split(":")[1] || "Production";
+      const env =
+        node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))?.split(":")[1] ||
+        "Production";
 
       if (!nodesByEnvironment.has(env)) {
         nodesByEnvironment.set(env, []);
       }
-      nodesByEnvironment.get(env)!.push(node);
+      nodesByEnvironment.get(env)?.push(node);
     }
 
     // Generate deployment view for each environment
@@ -1330,12 +1338,10 @@ export class StructurizrDSLGenerator {
    * Convert message type to component name
    */
   private toComponentName(messageType: string): string {
-    return (
-      messageType
-        .split("_")
-        .map((part) => this.capitalize(part.toLowerCase()))
-        .join(" ") + " Handler"
-    );
+    return `${messageType
+      .split("_")
+      .map((part) => this.capitalize(part.toLowerCase()))
+      .join(" ")} Handler`;
   }
 
   /**
@@ -1373,7 +1379,9 @@ export class StructurizrDSLGenerator {
   ): string {
     const parts: string[] = [];
 
-    parts.push(`${indent}${comp.id} = component "${comp.name}" "${this.escape(comp.description)}" {`);
+    parts.push(
+      `${indent}${comp.id} = component "${comp.name}" "${this.escape(comp.description)}" {`
+    );
 
     if (comp.tags.length > 0) {
       parts.push(`${indent}  tags "${comp.tags.join('" "')}"`);
@@ -1390,11 +1398,13 @@ export class StructurizrDSLGenerator {
     }
 
     // Add perspectives if configured for this component
-    if (this.options.perspectives && this.options.perspectives[comp.id]) {
+    if (this.options.perspectives?.[comp.id]) {
       const perspectives = this.options.perspectives[comp.id]!;
       parts.push(`${indent}  perspectives {`);
       for (const perspective of perspectives) {
-        parts.push(`${indent}    "${this.escape(perspective.name)}" "${this.escape(perspective.description)}"`);
+        parts.push(
+          `${indent}    "${this.escape(perspective.name)}" "${this.escape(perspective.description)}"`
+        );
       }
       parts.push(`${indent}  }`);
     }
@@ -1473,14 +1483,18 @@ export class StructurizrDSLGenerator {
       let entity: string | null = null;
 
       // Pattern 1: entity_action (e.g., "user_add", "todo_remove")
-      const underscoreMatch = type.match(/^([a-z]+)_(add|create|update|delete|remove|get|fetch|load|list|query)/);
+      const underscoreMatch = type.match(
+        /^([a-z]+)_(add|create|update|delete|remove|get|fetch|load|list|query)/
+      );
       if (underscoreMatch) {
         entity = underscoreMatch[1] ?? null;
       }
 
       // Pattern 2: actionEntity (e.g., "addUser", "removeTask")
       if (!entity) {
-        const camelMatch = type.match(/(add|create|update|delete|remove|get|fetch|load|list|query)([a-z]+)/i);
+        const camelMatch = type.match(
+          /(add|create|update|delete|remove|get|fetch|load|list|query)([a-z]+)/i
+        );
         if (camelMatch) {
           entity = camelMatch[2]?.toLowerCase() ?? null;
         }
@@ -1495,7 +1509,7 @@ export class StructurizrDSLGenerator {
         if (!entityGroups.has(entity)) {
           entityGroups.set(entity, []);
         }
-        entityGroups.get(entity)!.push(comp.id);
+        entityGroups.get(entity)?.push(comp.id);
         assigned.add(comp.id);
       }
     }
@@ -1591,9 +1605,7 @@ export class StructurizrDSLGenerator {
     const assignedComponents = new Set<string>();
 
     for (const group of groups) {
-      const groupComponents = componentDefs.filter((comp) =>
-        group.components.includes(comp.id)
-      );
+      const groupComponents = componentDefs.filter((comp) => group.components.includes(comp.id));
 
       if (groupComponents.length === 0) continue;
 
@@ -1604,14 +1616,12 @@ export class StructurizrDSLGenerator {
         assignedComponents.add(comp.id);
       }
 
-      parts.push(`        }`);
+      parts.push("        }");
       parts.push("");
     }
 
     // Add ungrouped components
-    const ungroupedComponents = componentDefs.filter(
-      (comp) => !assignedComponents.has(comp.id)
-    );
+    const ungroupedComponents = componentDefs.filter((comp) => !assignedComponents.has(comp.id));
 
     for (const comp of ungroupedComponents) {
       parts.push(this.generateComponentDefinition(comp, "        "));

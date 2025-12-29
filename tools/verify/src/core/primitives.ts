@@ -20,7 +20,6 @@
 export function requires(condition: boolean, message?: string): void {
   // Runtime no-op - only used during verification
   if (!condition && message && process.env["NODE_ENV"] === "development") {
-    console.warn(`Precondition failed: ${message}`);
   }
 }
 
@@ -39,7 +38,6 @@ export function requires(condition: boolean, message?: string): void {
 export function ensures(condition: boolean, message?: string): void {
   // Runtime no-op - only used during verification
   if (!condition && message && process.env["NODE_ENV"] === "development") {
-    console.warn(`Postcondition failed: ${message}`);
   }
 }
 
@@ -54,10 +52,9 @@ export function ensures(condition: boolean, message?: string): void {
  *   state.user.loggedIn === false || state.user.id !== null
  * )
  */
-export function invariant(name: string, condition: () => boolean): void {
+export function invariant(_name: string, condition: () => boolean): void {
   // Runtime no-op - only used during verification
   if (!condition() && process.env["NODE_ENV"] === "development") {
-    console.warn(`Invariant ${name} violated`);
   }
 }
 

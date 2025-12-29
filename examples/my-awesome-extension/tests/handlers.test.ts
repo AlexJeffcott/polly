@@ -5,7 +5,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { createMockAdapters, type MockExtensionAdapters } from "@fairfox/polly/test";
+import { type MockExtensionAdapters, createMockAdapters } from "@fairfox/polly/test";
 
 describe("Handler Logic", () => {
   test("PING handler returns pong", async () => {

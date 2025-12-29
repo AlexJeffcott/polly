@@ -16,7 +16,7 @@ export interface ViewerOptions {
 
 export class ViewerServer {
   private options: ViewerOptions;
-  private server: any;
+  private server: ReturnType<typeof Bun.serve> | null = null;
 
   constructor(options: ViewerOptions) {
     this.options = {
@@ -42,7 +42,7 @@ export class ViewerServer {
     const dsl = fs.readFileSync(dslPath, "utf-8");
 
     // Use Bun's server (dynamically accessed to avoid TS errors during build)
-    const BunGlobal = (globalThis as any).Bun;
+    const BunGlobal = (globalThis as typeof globalThis & { Bun: typeof Bun }).Bun;
     if (!BunGlobal) {
       throw new Error("Bun runtime is required to run the viewer");
     }
@@ -52,7 +52,7 @@ export class ViewerServer {
         port,
         fetch: (req: Request) => this.handleRequest(req, dsl, docsDir),
       });
-    } catch (error) {
+    } catch (_error) {
       throw new Error(`Failed to start server. Is port ${port} in use?`);
     }
 

@@ -144,8 +144,7 @@ export abstract class BaseRoutingAdapter<TConfig extends AdapterConfig = Adapter
    *
    * Subclasses can use this helper to avoid duplicating condition extraction logic.
    */
-  protected extractConditionFromCall(
-  ): VerificationCondition | null {
+  protected extractConditionFromCall(): VerificationCondition | null {
     // Shared implementation for requires()/ensures() extraction
     // This will be implemented when we refactor the existing handler extraction
     return null;

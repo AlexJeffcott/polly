@@ -6,8 +6,9 @@
 // It models the state space that the verifier will explore.
 //
 
-import { defineVerification } from '@fairfox/polly/verify'
+import { defineVerification } from "@fairfox/polly/verify";
 
+// biome-ignore lint/style/noDefaultExport: Config files require default exports
 export default defineVerification({
   // State bounds define the maximum complexity of state
   state: {
@@ -28,7 +29,7 @@ export default defineVerification({
       // Todo properties to verify
       item: {
         completed: [true, false],
-      }
+      },
     },
 
     // Filter state
@@ -46,8 +47,8 @@ export default defineVerification({
   },
 
   // Verification behavior
-  onBuild: 'warn',   // Show warnings during development
-  onDeploy: 'error', // Block deployment on violations
+  onBuild: "warn", // Show warnings during development
+  onDeploy: "error", // Block deployment on violations
 
   // Properties to verify
   properties: {
@@ -63,4 +64,4 @@ export default defineVerification({
     // Liveness: Todos can eventually be added
     canAddTodo: true,
   },
-})
+});

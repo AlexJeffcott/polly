@@ -1,17 +1,17 @@
-import { describe, test, expect } from "bun:test"
-import { WebSocketAdapter } from "../adapters/websocket"
-import { WebExtensionAdapter } from "../adapters/web-extension"
-import { EventBusAdapter } from "../adapters/event-bus"
-import path from "node:path"
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { EventBusAdapter } from "../adapters/event-bus";
+import { WebExtensionAdapter } from "../adapters/web-extension";
+import { WebSocketAdapter } from "../adapters/websocket";
 
 describe("Adapter Pattern Matching", () => {
-  const fixturesDir = path.join(__dirname, "../../test-projects")
+  const fixturesDir = path.join(__dirname, "../../test-projects");
 
   // Helper to create temporary test files
   function createTempProject(files: Record<string, string>): { dir: string; cleanup: () => void } {
-    const dir = mkdtempSync(path.join(tmpdir(), "polly-test-"))
+    const dir = mkdtempSync(path.join(tmpdir(), "polly-test-"));
 
     // Create tsconfig.json
     writeFileSync(
@@ -23,17 +23,17 @@ describe("Adapter Pattern Matching", () => {
           strict: true,
         },
       })
-    )
+    );
 
     // Create test files
     for (const [filename, content] of Object.entries(files)) {
-      writeFileSync(path.join(dir, filename), content)
+      writeFileSync(path.join(dir, filename), content);
     }
 
     return {
       dir,
       cleanup: () => rmSync(dir, { recursive: true, force: true }),
-    }
+    };
   }
 
   describe("WebSocketAdapter", () => {
@@ -53,27 +53,27 @@ describe("Adapter Pattern Matching", () => {
             });
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebSocketAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxConnections: 10,
           maxInFlight: 5,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
         // Should find 'connection', 'message', 'close' handlers
-        expect(model.handlers.length).toBeGreaterThanOrEqual(2)
+        expect(model.handlers.length).toBeGreaterThanOrEqual(2);
 
-        const messageTypes = model.handlers.map((h) => h.messageType)
-        expect(messageTypes).toContain("connection")
-        expect(messageTypes).toContain("message")
+        const messageTypes = model.handlers.map((h) => h.messageType);
+        expect(messageTypes).toContain("connection");
+        expect(messageTypes).toContain("message");
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("detects socket.io handlers", async () => {
       const { dir, cleanup } = createTempProject({
@@ -91,24 +91,24 @@ describe("Adapter Pattern Matching", () => {
             });
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebSocketAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxConnections: 10,
           maxInFlight: 5,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        const messageTypes = model.handlers.map((h) => h.messageType)
-        expect(messageTypes).toContain("connection")
-        expect(messageTypes).toContain("chat-message")
+        const messageTypes = model.handlers.map((h) => h.messageType);
+        expect(messageTypes).toContain("connection");
+        expect(messageTypes).toContain("chat-message");
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     // NOTE: Elysia WebSocket pattern (.ws({ message() {}, open() {} })) is not yet supported.
     // Elysia uses object literal methods, not .on() calls. This would require detecting
@@ -136,28 +136,28 @@ describe("Adapter Pattern Matching", () => {
             });
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebSocketAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxConnections: 10,
           maxInFlight: 5,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        const connectionHandler = model.handlers.find((h) => h.messageType === "connection")
-        expect(connectionHandler).toBeDefined()
+        const connectionHandler = model.handlers.find((h) => h.messageType === "connection");
+        expect(connectionHandler).toBeDefined();
 
         // Should capture state.connected = true assignment
         if (connectionHandler) {
-          expect(connectionHandler.assignments.length).toBeGreaterThan(0)
+          expect(connectionHandler.assignments.length).toBeGreaterThan(0);
         }
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("fails loudly when no handlers found", async () => {
       const { dir, cleanup } = createTempProject({
@@ -165,25 +165,25 @@ describe("Adapter Pattern Matching", () => {
           // No WebSocket code at all
           console.log('hello');
         `,
-      })
+      });
 
       try {
         const adapter = new WebSocketAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxConnections: 10,
           maxInFlight: 5,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
         // Should return empty handlers, NOT fallback to fake data
-        expect(model.handlers).toEqual([])
-        expect(model.nodes.length).toBeGreaterThan(0) // But still have nodes
+        expect(model.handlers).toEqual([]);
+        expect(model.nodes.length).toBeGreaterThan(0); // But still have nodes
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
-  })
+    });
+  });
 
   describe("WebExtensionAdapter", () => {
     test("detects chrome.runtime.onMessage handlers", async () => {
@@ -196,23 +196,23 @@ describe("Adapter Pattern Matching", () => {
             return true;
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebExtensionAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxTabs: 1,
           maxInFlight: 3,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
         // Should find onMessage handler
-        expect(model.handlers.length).toBeGreaterThan(0)
+        expect(model.handlers.length).toBeGreaterThan(0);
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("detects browser.runtime.onMessage handlers", async () => {
       const { dir, cleanup } = createTempProject({
@@ -223,22 +223,22 @@ describe("Adapter Pattern Matching", () => {
             }
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebExtensionAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxTabs: 1,
           maxInFlight: 3,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        expect(model.handlers.length).toBeGreaterThan(0)
+        expect(model.handlers.length).toBeGreaterThan(0);
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("detects chrome.tabs.onUpdated handlers", async () => {
       const { dir, cleanup } = createTempProject({
@@ -249,22 +249,22 @@ describe("Adapter Pattern Matching", () => {
             }
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebExtensionAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxTabs: 1,
           maxInFlight: 3,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        expect(model.handlers.length).toBeGreaterThan(0)
+        expect(model.handlers.length).toBeGreaterThan(0);
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("distinguishes background vs content script contexts", async () => {
       const { dir, cleanup } = createTempProject({
@@ -278,25 +278,25 @@ describe("Adapter Pattern Matching", () => {
             console.log('content received:', message);
           });
         `,
-      })
+      });
 
       try {
         const adapter = new WebExtensionAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxTabs: 1,
           maxInFlight: 3,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
         // Context detection happens in HandlerExtractor, not adapter
         // So we just verify handlers were found
-        expect(model.handlers.length).toBeGreaterThanOrEqual(2)
+        expect(model.handlers.length).toBeGreaterThanOrEqual(2);
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
-  })
+    });
+  });
 
   describe("EventBusAdapter", () => {
     test("detects EventEmitter.on() handlers", async () => {
@@ -314,23 +314,23 @@ describe("Adapter Pattern Matching", () => {
             console.log('User logged out:', userId);
           });
         `,
-      })
+      });
 
       try {
         const adapter = new EventBusAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxInFlight: 5,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        const messageTypes = model.handlers.map((h) => h.messageType)
-        expect(messageTypes).toContain("user-login")
-        expect(messageTypes).toContain("user-logout")
+        const messageTypes = model.handlers.map((h) => h.messageType);
+        expect(messageTypes).toContain("user-login");
+        expect(messageTypes).toContain("user-logout");
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("detects ipcMain.on() handlers for Electron", async () => {
       const { dir, cleanup } = createTempProject({
@@ -347,24 +347,24 @@ describe("Adapter Pattern Matching", () => {
             event.reply('file-saved', { success: true });
           });
         `,
-      })
+      });
 
       try {
         const adapter = new EventBusAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxInFlight: 5,
           emitterPattern: /ipc|electron/i,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        const messageTypes = model.handlers.map((h) => h.messageType)
-        expect(messageTypes).toContain("open-file")
-        expect(messageTypes).toContain("save-file")
+        const messageTypes = model.handlers.map((h) => h.messageType);
+        expect(messageTypes).toContain("open-file");
+        expect(messageTypes).toContain("save-file");
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("detects ipcRenderer.on() handlers", async () => {
       const { dir, cleanup } = createTempProject({
@@ -379,24 +379,24 @@ describe("Adapter Pattern Matching", () => {
             console.log('File saved:', data);
           });
         `,
-      })
+      });
 
       try {
         const adapter = new EventBusAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxInFlight: 5,
           emitterPattern: /ipc|electron/i,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
-        const messageTypes = model.handlers.map((h) => h.messageType)
-        expect(messageTypes).toContain("file-opened")
-        expect(messageTypes).toContain("file-saved")
+        const messageTypes = model.handlers.map((h) => h.messageType);
+        expect(messageTypes).toContain("file-opened");
+        expect(messageTypes).toContain("file-saved");
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
+    });
 
     test("fails loudly when emitter pattern doesn't match", async () => {
       const { dir, cleanup } = createTempProject({
@@ -408,61 +408,61 @@ describe("Adapter Pattern Matching", () => {
             console.log('event');
           });
         `,
-      })
+      });
 
       try {
         const adapter = new EventBusAdapter({
           tsConfigPath: path.join(dir, "tsconfig.json"),
           maxInFlight: 5,
           emitterPattern: /WILL_NOT_MATCH/,
-        })
+        });
 
-        const model = adapter.extractModel()
+        const model = adapter.extractModel();
 
         // Should return empty, NOT fallback to finding events anyway
-        expect(model.handlers).toEqual([])
+        expect(model.handlers).toEqual([]);
       } finally {
-        cleanup()
+        cleanup();
       }
-    })
-  })
+    });
+  });
 
   describe("Integration with Real Test Projects", () => {
     test("WebSocket test project extracts handlers correctly", () => {
-      const projectPath = path.join(fixturesDir, "websocket-server")
-      const tsConfigPath = path.join(projectPath, "tsconfig.json")
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
       const adapter = new WebSocketAdapter({
         tsConfigPath,
         maxConnections: 10,
         maxInFlight: 5,
-      })
+      });
 
-      const model = adapter.extractModel()
+      const model = adapter.extractModel();
 
       // Our test project has connection and message handlers
-      expect(model.handlers.length).toBeGreaterThanOrEqual(2)
+      expect(model.handlers.length).toBeGreaterThanOrEqual(2);
 
-      const messageTypes = model.handlers.map((h) => h.messageType)
-      expect(messageTypes).toContain("connection")
-      expect(messageTypes).toContain("message")
-    })
+      const messageTypes = model.handlers.map((h) => h.messageType);
+      expect(messageTypes).toContain("connection");
+      expect(messageTypes).toContain("message");
+    });
 
     test("Electron test project extracts IPC handlers correctly", () => {
-      const projectPath = path.join(fixturesDir, "electron")
-      const tsConfigPath = path.join(projectPath, "tsconfig.json")
+      const projectPath = path.join(fixturesDir, "electron");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
       const adapter = new EventBusAdapter({
         tsConfigPath,
         maxInFlight: 5,
         emitterPattern: /ipc|electron/i,
-      })
+      });
 
-      const model = adapter.extractModel()
+      const model = adapter.extractModel();
 
       // Our test project has ipcMain.on handlers
       // Should find the handlers we defined
-      expect(model.handlers.length).toBeGreaterThan(0)
-    })
-  })
-})
+      expect(model.handlers.length).toBeGreaterThan(0);
+    });
+  });
+});

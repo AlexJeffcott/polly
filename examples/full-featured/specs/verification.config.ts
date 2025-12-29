@@ -6,8 +6,9 @@
 // It models authentication, bookmarks, settings, and tab operations.
 //
 
-import { defineVerification } from '@fairfox/polly/verify'
+import { defineVerification } from "@fairfox/polly/verify";
 
+// biome-ignore lint/style/noDefaultExport: Config files require default exports
 export default defineVerification({
   // State bounds define the maximum complexity of state
   state: {
@@ -26,7 +27,7 @@ export default defineVerification({
       item: {
         // Bookmarks don't have complex internal state
         // Just verify the collection operations
-      }
+      },
     },
 
     // Settings state
@@ -41,16 +42,16 @@ export default defineVerification({
 
       // Numeric ranges
       refreshInterval: {
-        min: 30000,    // 30 seconds
-        max: 300000,   // 5 minutes
+        min: 30000, // 30 seconds
+        max: 300000, // 5 minutes
         step: 30000,
-      }
+      },
     },
 
     // Active tab (for TAB_GET_CURRENT operations)
     activeTab: {
       exists: [true, false],
-    }
+    },
   },
 
   // Message concurrency bounds
@@ -64,8 +65,8 @@ export default defineVerification({
   },
 
   // Verification behavior
-  onBuild: 'warn',   // Show warnings during development
-  onDeploy: 'error', // Block deployment on violations
+  onBuild: "warn", // Show warnings during development
+  onDeploy: "error", // Block deployment on violations
 
   // Properties to verify
   properties: {
@@ -90,4 +91,4 @@ export default defineVerification({
     // Consistency: Settings persist across operations
     settingsPersist: true,
   },
-})
+});

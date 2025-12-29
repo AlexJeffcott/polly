@@ -10,15 +10,15 @@
 // - State mutations via global state object
 // - Verification primitives (requires, ensures)
 
-import { Project, type SourceFile, SyntaxKind, Node } from "ts-morph";
+import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import type {
   CoreVerificationModel,
   MessageHandler,
+  MessageType,
+  NodeDefinition,
+  RoutingRule,
   StateAssignment,
   VerificationCondition,
-  NodeDefinition,
-  MessageType,
-  RoutingRule,
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
@@ -169,7 +169,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     }
 
     const name = node.getName();
-    if (!name || !this.config.handlerPattern!.test(name)) {
+    if (!name || !this.config.handlerPattern?.test(name)) {
       return null;
     }
 
@@ -421,9 +421,11 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     postconditions: VerificationCondition[]
   ): void {
     // Support function declarations, arrow functions, and function expressions
-    if (!Node.isFunctionDeclaration(funcNode) &&
-        !Node.isArrowFunction(funcNode) &&
-        !Node.isFunctionExpression(funcNode)) {
+    if (
+      !Node.isFunctionDeclaration(funcNode) &&
+      !Node.isArrowFunction(funcNode) &&
+      !Node.isFunctionExpression(funcNode)
+    ) {
       return;
     }
 

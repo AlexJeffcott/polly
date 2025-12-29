@@ -1,56 +1,56 @@
-import { describe, test, expect } from "bun:test"
-import { detectProjectConfig } from "../../../analysis/src"
-import path from "node:path"
+import { describe, expect, test } from "bun:test";
+import path from "node:path";
+import { detectProjectConfig } from "../../../analysis/src";
 
 describe("Project Detection for Verify Command", () => {
-  const fixturesDir = path.join(__dirname, "../../test-projects")
+  const fixturesDir = path.join(__dirname, "../../test-projects");
 
   test("detects WebSocket server project", () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const config = detectProjectConfig(projectPath)
+    const projectPath = path.join(fixturesDir, "websocket-server");
+    const config = detectProjectConfig(projectPath);
 
-    expect(config.type).toBe("websocket-app")
-    expect(config.entryPoints).toHaveProperty("server")
-    expect(config.contextMapping).toHaveProperty("server")
+    expect(config.type).toBe("websocket-app");
+    expect(config.entryPoints).toHaveProperty("server");
+    expect(config.contextMapping).toHaveProperty("server");
     // Should detect WebSocket Server based on imports
-    expect(config.contextMapping?.server).toMatch(/Server/)
-  })
+    expect(config.contextMapping?.server).toMatch(/Server/);
+  });
 
   test("detects PWA project", () => {
-    const projectPath = path.join(fixturesDir, "pwa")
-    const config = detectProjectConfig(projectPath)
+    const projectPath = path.join(fixturesDir, "pwa");
+    const config = detectProjectConfig(projectPath);
 
-    expect(config.type).toBe("pwa")
-    expect(config.entryPoints).toBeDefined()
+    expect(config.type).toBe("pwa");
+    expect(config.entryPoints).toBeDefined();
     // PWA detection should find service worker or main entry point
-    expect(Object.keys(config.entryPoints).length).toBeGreaterThan(0)
-  })
+    expect(Object.keys(config.entryPoints).length).toBeGreaterThan(0);
+  });
 
   test("detects Electron project", () => {
-    const projectPath = path.join(fixturesDir, "electron")
-    const config = detectProjectConfig(projectPath)
+    const projectPath = path.join(fixturesDir, "electron");
+    const config = detectProjectConfig(projectPath);
 
-    expect(config.type).toBe("electron")
-    expect(config.entryPoints).toHaveProperty("main")
-  })
+    expect(config.type).toBe("electron");
+    expect(config.entryPoints).toHaveProperty("main");
+  });
 
   test("provides correct context mapping for WebSocket", () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const config = detectProjectConfig(projectPath)
+    const projectPath = path.join(fixturesDir, "websocket-server");
+    const config = detectProjectConfig(projectPath);
 
-    expect(config.contextMapping).toBeDefined()
-    expect(config.contextMapping?.['server']).toMatch(/Server/)
+    expect(config.contextMapping).toBeDefined();
+    expect(config.contextMapping?.["server"]).toMatch(/Server/);
     // Client context is detected from client-side files
-    if (config.contextMapping?.['client']) {
-      expect(config.contextMapping?.['client']).toMatch(/Client/)
+    if (config.contextMapping?.["client"]) {
+      expect(config.contextMapping?.["client"]).toMatch(/Client/);
     }
-  })
+  });
 
   test("extracts metadata from package.json", () => {
-    const projectPath = path.join(fixturesDir, "websocket-server")
-    const config = detectProjectConfig(projectPath)
+    const projectPath = path.join(fixturesDir, "websocket-server");
+    const config = detectProjectConfig(projectPath);
 
-    expect(config.metadata).toBeDefined()
-    expect(config.metadata?.name).toBe("test-websocket-server")
-  })
-})
+    expect(config.metadata).toBeDefined();
+    expect(config.metadata?.name).toBe("test-websocket-server");
+  });
+});

@@ -59,8 +59,6 @@ async function generateCommand() {
     // Find tsconfig
     const tsConfigPath = findTsConfig();
     if (!tsConfigPath) {
-      console.error(color("❌ Could not find tsconfig.json", COLORS.red));
-      console.error("   Run this command from your project root");
       process.exit(1);
     }
 
@@ -69,8 +67,6 @@ async function generateCommand() {
     // Find project root
     const projectRoot = findProjectRoot();
     if (!projectRoot) {
-      console.error(color("❌ Could not find project root", COLORS.red));
-      console.error("   Run this command from a directory with manifest.json, package.json, or tsconfig.json");
       process.exit(1);
     }
 
@@ -79,9 +75,9 @@ async function generateCommand() {
     // Detect and display project type
     const hasManifest = fs.existsSync(path.join(projectRoot, "manifest.json"));
     if (hasManifest) {
-      console.log(color(`   Type: Chrome Extension`, COLORS.gray));
+      console.log(color("   Type: Chrome Extension", COLORS.gray));
     } else {
-      console.log(color(`   Type: Detecting from project structure...`, COLORS.gray));
+      console.log(color("   Type: Detecting from project structure...", COLORS.gray));
     }
 
     // Analyze architecture
@@ -165,11 +161,7 @@ async function generateCommand() {
     console.log(color("        -workspace /usr/local/structurizr/architecture.dsl", COLORS.gray));
     console.log();
   } catch (error) {
-    console.error(color("\n❌ Generation failed:", COLORS.red));
-    console.error(`   ${error instanceof Error ? error.message : String(error)}`);
     if (error instanceof Error && error.stack) {
-      console.error(color("\nStack trace:", COLORS.gray));
-      console.error(color(error.stack, COLORS.gray));
     }
     process.exit(1);
   }
@@ -182,9 +174,6 @@ async function exportCommand(_args: string[]) {
     // Find DSL file
     const dslPath = path.join(process.cwd(), "docs", "architecture.dsl");
     if (!fs.existsSync(dslPath)) {
-      console.error(color("❌ DSL file not found", COLORS.red));
-      console.error("   Expected: docs/architecture.dsl");
-      console.error("   Run 'bun visualize' first to generate the DSL");
       process.exit(1);
     }
 
@@ -204,8 +193,6 @@ async function exportCommand(_args: string[]) {
     });
 
     if (!result.success) {
-      console.error(color("\n❌ Export failed:", COLORS.red));
-      console.error(`   ${result.error}`);
       process.exit(1);
     }
 
@@ -219,11 +206,7 @@ async function exportCommand(_args: string[]) {
     console.log(color("   • Or open: docs/site/index.html", COLORS.gray));
     console.log();
   } catch (error) {
-    console.error(color("\n❌ Export failed:", COLORS.red));
-    console.error(`   ${error instanceof Error ? error.message : String(error)}`);
     if (error instanceof Error && error.stack) {
-      console.error(color("\nStack trace:", COLORS.gray));
-      console.error(color(error.stack, COLORS.gray));
     }
     process.exit(1);
   }
@@ -237,15 +220,12 @@ async function serveCommand(args: string[]) {
     const indexPath = path.join(siteDir, "index.html");
 
     if (!fs.existsSync(indexPath)) {
-      console.error(color("❌ Static site not found", COLORS.red));
-      console.error("   Expected: docs/site/index.html");
-      console.error("   Run 'bun visualize --export' first to generate the site");
       process.exit(1);
     }
 
     // Parse port argument
     const portArg = args.find((arg) => arg.startsWith("--port="));
-    const port = portArg ? parseInt(portArg.replace("--port=", "")) : 3000;
+    const port = portArg ? Number.parseInt(portArg.replace("--port=", "")) : 3000;
 
     console.log(color(`   Site: ${siteDir}`, COLORS.gray));
     console.log(color(`   Port: ${port}`, COLORS.gray));
@@ -261,7 +241,7 @@ async function serveCommand(args: string[]) {
       port,
       fetch(req: Request) {
         const url = new URL(req.url);
-        let filePath = path.join(siteDir, url.pathname === "/" ? "index.html" : url.pathname);
+        const filePath = path.join(siteDir, url.pathname === "/" ? "index.html" : url.pathname);
 
         if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
           const file = BunGlobal.file(filePath);
@@ -272,7 +252,7 @@ async function serveCommand(args: string[]) {
       },
     });
 
-    console.log(color(`\n✅ Server started!\n`, COLORS.green));
+    console.log(color("\n✅ Server started!\n", COLORS.green));
     console.log(`   ${color(`http://localhost:${port}`, COLORS.blue)}`);
     console.log();
     console.log(color("Press Ctrl+C to stop the server", COLORS.gray));
@@ -289,9 +269,7 @@ async function serveCommand(args: string[]) {
 
     // Keep process alive
     await new Promise(() => {});
-  } catch (error) {
-    console.error(color("\n❌ Failed to start server:", COLORS.red));
-    console.error(`   ${error instanceof Error ? error.message : String(error)}`);
+  } catch (_error) {
     process.exit(1);
   }
 }
@@ -378,11 +356,7 @@ function findProjectRoot(): string | null {
 }
 
 main().catch((error) => {
-  console.error(color("\n❌ Fatal error:", COLORS.red));
-  console.error(`   ${error instanceof Error ? error.message : String(error)}`);
   if (error instanceof Error && error.stack) {
-    console.error(color("\nStack trace:", COLORS.gray));
-    console.error(color(error.stack, COLORS.gray));
   }
   process.exit(1);
 });

@@ -1,9 +1,9 @@
 // Export static site using Structurizr CLI
 // Uses Docker to run Structurizr CLI for generating a static HTML site
 
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
 
 export interface ExportOptions {
   /** DSL file path */

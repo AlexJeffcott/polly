@@ -1,7 +1,7 @@
 // Business logic service layer
 
-import { db } from './database';
-import type { User, QueryResult } from './types';
+import { db } from "./database";
+import type { QueryResult, User } from "./types";
 
 /**
  * User service for business logic
@@ -27,7 +27,7 @@ export class UserService {
   async executeUserCommand(action: string, payload: unknown): Promise<boolean> {
     // Add business logic validation here
     if (!action) {
-      throw new Error('Action is required');
+      throw new Error("Action is required");
     }
 
     return await db.executeCommand(action, payload);

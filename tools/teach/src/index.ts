@@ -32,9 +32,7 @@ export interface TeachOptions {
  * console.log(material.formattedOutput)
  * ```
  */
-export async function generateTeachingMaterial(
-  options: TeachOptions
-): Promise<TeachingMaterial> {
+export async function generateTeachingMaterial(options: TeachOptions): Promise<TeachingMaterial> {
   const { analyzeArchitecture } = await import("../../analysis/src/index.ts");
   const { generateStructurizrDSL } = await import("../../visualize/src/codegen/structurizr.ts");
 
@@ -62,10 +60,7 @@ export async function generateTeachingMaterial(
 /**
  * Format analysis results as teaching material
  */
-function formatTeachingMaterial(
-  analysis: ArchitectureAnalysis,
-  dsl: string
-): string {
+function formatTeachingMaterial(analysis: ArchitectureAnalysis, dsl: string): string {
   const contexts = Object.entries(analysis.contexts);
   const allHandlers = contexts.flatMap(([_, ctx]: [string, any]) => ctx.handlers || []);
   const messageFlows = analysis.messageFlows || [];

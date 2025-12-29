@@ -38,11 +38,9 @@ export async function initProject(
     targetDir?: string;
   } = {}
 ): Promise<void> {
-  const {
-    scaffoldFromTemplate,
-    validateProjectName,
-    getTemplateDir,
-  } = await import("./template-utils.ts");
+  const { scaffoldFromTemplate, validateProjectName, getTemplateDir } = await import(
+    "./template-utils.ts"
+  );
 
   // Validate project name
   const validation = validateProjectName(projectName);

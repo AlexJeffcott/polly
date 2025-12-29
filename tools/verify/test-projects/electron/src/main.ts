@@ -1,9 +1,9 @@
 // Test fixture: Electron main process
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, app, ipcMain } from "electron";
 
 let mainWindow: BrowserWindow | null = null;
 
-app.on('ready', () => {
+app.on("ready", () => {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -13,10 +13,10 @@ app.on('ready', () => {
     },
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile("index.html");
 });
 
-ipcMain.on('message', (event, data) => {
-  console.log('Received:', data);
-  event.reply('response', { status: 'ok' });
+ipcMain.on("message", (event, data) => {
+  console.log("Received:", data);
+  event.reply("response", { status: "ok" });
 });

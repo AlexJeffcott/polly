@@ -14,11 +14,10 @@
 // Run 'bun verify --setup' for interactive help.
 //
 
-import { defineVerification } from '../src/index'
+import { defineVerification } from "../src/index";
 
 export default defineVerification({
-  state: {
-  },
+  state: {},
 
   messages: {
     // Maximum messages in flight simultaneously across all contexts.
@@ -50,12 +49,12 @@ export default defineVerification({
   //   • 'error' - Fail the build on violations
   //   • 'off' - Skip verification
   //
-  onBuild: 'warn',
+  onBuild: "warn",
 
   // onRelease: What to do during production builds
   //   • 'error' - Fail the build on violations (recommended)
   //   • 'warn' - Show warnings but don't fail
   //   • 'off' - Skip verification
   //
-  onRelease: 'error',
-})
+  onRelease: "error",
+});

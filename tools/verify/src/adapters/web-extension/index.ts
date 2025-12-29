@@ -9,15 +9,15 @@
 // - State mutations via state.field = value
 // - Verification primitives (requires, ensures)
 
-import { Project, type SourceFile, SyntaxKind, Node } from "ts-morph";
+import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import type {
   CoreVerificationModel,
   MessageHandler,
+  MessageType,
+  NodeDefinition,
+  RoutingRule,
   StateAssignment,
   VerificationCondition,
-  NodeDefinition,
-  MessageType,
-  RoutingRule,
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 

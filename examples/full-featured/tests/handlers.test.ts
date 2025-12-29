@@ -5,7 +5,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { createMockAdapters, type MockExtensionAdapters } from "@fairfox/polly/test";
+import { type MockExtensionAdapters, createMockAdapters } from "@fairfox/polly/test";
 import type { Bookmark } from "../src/shared/types/messages";
 
 describe("User Authentication Logic", () => {
@@ -153,7 +153,14 @@ describe("Bookmark Management Logic", () => {
 
 describe("Settings Management Logic", () => {
   let adapters: MockExtensionAdapters;
-  let settings: any;
+  let settings: {
+    theme: string;
+    autoSync: boolean;
+    debugMode: boolean;
+    notifications: boolean;
+    apiEndpoint: string;
+    refreshInterval: number;
+  };
 
   beforeEach(() => {
     adapters = createMockAdapters();

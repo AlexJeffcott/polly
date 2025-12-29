@@ -21,18 +21,18 @@ export type TypeKind =
   | "set"
   | "union"
   | "null"
-  | "unknown"
+  | "unknown";
 
 export type TypeInfo = {
-  name: string
-  kind: TypeKind
-  nullable: boolean
-  elementType?: TypeInfo  // For arrays, sets
-  valueType?: TypeInfo    // For maps
-  properties?: Record<string, TypeInfo>  // For objects
-  enumValues?: string[]   // For enums
-  unionTypes?: TypeInfo[] // For unions
-}
+  name: string;
+  kind: TypeKind;
+  nullable: boolean;
+  elementType?: TypeInfo; // For arrays, sets
+  valueType?: TypeInfo; // For maps
+  properties?: Record<string, TypeInfo>; // For objects
+  enumValues?: string[]; // For enums
+  unionTypes?: TypeInfo[]; // For unions
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Node System (Abstract)
@@ -49,20 +49,20 @@ export type TypeInfo = {
  */
 export type NodeDefinition = {
   /** Unique identifier for this node */
-  id: string
+  id: string;
 
   /** Type of node (adapter-specific) */
-  type: string
+  type: string;
 
   /** Which nodes can this send messages to? */
-  canSendTo: string[]
+  canSendTo: string[];
 
   /** Which nodes can send messages to this? */
-  canReceiveFrom: string[]
+  canReceiveFrom: string[];
 
   /** Optional: Additional metadata */
-  metadata?: Record<string, unknown>
-}
+  metadata?: Record<string, unknown>;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Message Types (Abstract)
@@ -73,23 +73,23 @@ export type NodeDefinition = {
  */
 export type MessageTypeDefinition = {
   /** Name/identifier of the message type */
-  name: string
+  name: string;
 
   /** Schema of the message payload */
-  payload: TypeInfo
+  payload: TypeInfo;
 
   /** Routing constraints */
   routing: {
     /** Which node types can send this message? */
-    from: string[]
+    from: string[];
 
     /** Which node types can receive this message? */
-    to: string[]
-  }
+    to: string[];
+  };
 
   /** Optional: Expected response type */
-  response?: TypeInfo
-}
+  response?: TypeInfo;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // State Schema (Abstract)
@@ -104,9 +104,9 @@ export type FieldConfig =
   | { type: "enum"; values: string[] }
   | { values: string[] | null; abstract?: boolean }
   | { maxSize: number | null; valueType?: unknown }
-  | { abstract: boolean }
+  | { abstract: boolean };
 
-export type StateSchema = Record<string, FieldConfig>
+export type StateSchema = Record<string, FieldConfig>;
 
 // ─────────────────────────────────────────────────────────────────
 // State Mutations (Abstract)
@@ -117,14 +117,14 @@ export type StateSchema = Record<string, FieldConfig>
  */
 export type StateAssignment = {
   /** Field path (e.g., "user.loggedIn") */
-  field: string
+  field: string;
 
   /** The assigned value */
-  value: string | boolean | number | null
+  value: string | boolean | number | null;
 
   /** Optional condition guard */
-  conditional?: string
-}
+  conditional?: string;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Verification Conditions (Abstract)
@@ -135,17 +135,17 @@ export type StateAssignment = {
  */
 export type VerificationCondition = {
   /** The condition expression as a string */
-  expression: string
+  expression: string;
 
   /** Optional error message */
-  message?: string
+  message?: string;
 
   /** Source location */
   location: {
-    line: number
-    column: number
-  }
-}
+    line: number;
+    column: number;
+  };
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Message Handler (Abstract)
@@ -156,76 +156,76 @@ export type VerificationCondition = {
  */
 export type ComponentRelationship = {
   /** Source component */
-  from: string
+  from: string;
   /** Target component */
-  to: string
+  to: string;
   /** Description of the relationship */
-  description: string
+  description: string;
   /** Technology/method used */
-  technology?: string
+  technology?: string;
   /** Confidence level */
-  confidence: "high" | "medium" | "low"
+  confidence: "high" | "medium" | "low";
   /** Evidence supporting this detection */
-  evidence: string[]
-}
+  evidence: string[];
+};
 
 /**
  * Represents a message handler extracted from code
  */
 export type MessageHandler = {
   /** Which message type does this handle? */
-  messageType: string
+  messageType: string;
 
   /** Which node handles this message? */
-  node: string
+  node: string;
 
   /** State assignments made by this handler */
-  assignments: StateAssignment[]
+  assignments: StateAssignment[];
 
   /** Preconditions (requires() calls) */
-  preconditions: VerificationCondition[]
+  preconditions: VerificationCondition[];
 
   /** Postconditions (ensures() calls) */
-  postconditions: VerificationCondition[]
+  postconditions: VerificationCondition[];
 
   /** Source location */
   location: {
-    file: string
-    line: number
-  }
+    file: string;
+    line: number;
+  };
 
   /** Component relationships detected from this handler's code */
-  relationships?: ComponentRelationship[]
-}
+  relationships?: ComponentRelationship[];
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Confidence Levels (Universal)
 // ─────────────────────────────────────────────────────────────────
 
-export type Confidence = "high" | "medium" | "low"
+export type Confidence = "high" | "medium" | "low";
 
 export type FieldAnalysis = {
-  path: string
-  type: TypeInfo
-  confidence: Confidence
-  evidence: string[]
-  suggestions: string[]
+  path: string;
+  type: TypeInfo;
+  confidence: Confidence;
+  evidence: string[];
+  suggestions: string[];
   bounds?: {
-    min?: number
-    max?: number
-    maxLength?: number
-    maxSize?: number
-    values?: string[]
-  }
-}
+    min?: number;
+    max?: number;
+    maxLength?: number;
+    maxSize?: number;
+    values?: string[];
+  };
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Codebase Analysis Result
 // ─────────────────────────────────────────────────────────────────
 
 export type CodebaseAnalysis = {
-  stateType: TypeInfo | null
-  messageTypes: string[]
-  fields: FieldAnalysis[]
-  handlers: MessageHandler[]
-}
+  stateType: TypeInfo | null;
+  messageTypes: string[];
+  fields: FieldAnalysis[];
+  handlers: MessageHandler[];
+};

@@ -1,7 +1,7 @@
 // Configuration file generator with smart comments
 
-import type { FieldAnalysis, CodebaseAnalysis, TypeInfo } from "../types";
 import type { ProjectType } from "../../../analysis/src/types/architecture";
+import type { CodebaseAnalysis, FieldAnalysis, TypeInfo } from "../types";
 
 export class ConfigGenerator {
   private lines: string[] = [];

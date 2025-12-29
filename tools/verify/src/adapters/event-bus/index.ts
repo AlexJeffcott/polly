@@ -10,15 +10,15 @@
 // - State mutations via state.field = value
 // - Verification primitives (requires, ensures)
 
-import { Project, type SourceFile, SyntaxKind, Node } from "ts-morph";
+import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import type {
   CoreVerificationModel,
   MessageHandler,
+  MessageType,
+  NodeDefinition,
+  RoutingRule,
   StateAssignment,
   VerificationCondition,
-  NodeDefinition,
-  MessageType,
-  RoutingRule,
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
@@ -320,7 +320,7 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     }
 
     // Check if emitter name matches the pattern
-    if (!this.config.emitterPattern!.test(emitterName)) {
+    if (!this.config.emitterPattern?.test(emitterName)) {
       return null; // Emitter doesn't match pattern, skip this handler
     }
 
@@ -488,14 +488,22 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     const path = filePath.toLowerCase();
 
     // Electron main process
-    if (path.includes("main.ts") || path.includes("main.js") ||
-        path.includes("/main/") || path.includes("\\main\\")) {
+    if (
+      path.includes("main.ts") ||
+      path.includes("main.js") ||
+      path.includes("/main/") ||
+      path.includes("\\main\\")
+    ) {
       return "Main Process";
     }
 
     // Electron renderer process
-    if (path.includes("/renderer/") || path.includes("\\renderer\\") ||
-        path.includes("renderer.ts") || path.includes("renderer.js")) {
+    if (
+      path.includes("/renderer/") ||
+      path.includes("\\renderer\\") ||
+      path.includes("renderer.ts") ||
+      path.includes("renderer.js")
+    ) {
       return "Renderer";
     }
 

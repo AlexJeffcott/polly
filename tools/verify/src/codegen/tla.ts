@@ -3,47 +3,43 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { VerificationConfig, CodebaseAnalysis } from "../types";
 import type { MessageHandler } from "../core/model";
-import type { TLAValidator, ValidationError } from "./tla-validator";
 import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
-import type { RoundTripValidator, RoundTripResult } from "./round-trip";
-import { InvariantExtractor, InvariantGenerator, type Invariant } from "./invariants";
-import {
-	TemporalPropertyGenerator,
-	TemporalTLAGenerator,
-	type TemporalProperty,
-} from "./temporal";
+import type { CodebaseAnalysis, VerificationConfig } from "../types";
+import { type Invariant, InvariantExtractor, InvariantGenerator } from "./invariants";
+import type { RoundTripResult, RoundTripValidator } from "./round-trip";
+import { type TemporalProperty, TemporalPropertyGenerator, TemporalTLAGenerator } from "./temporal";
+import type { TLAValidator, ValidationError } from "./tla-validator";
 
 /**
  * Validation report from all validators
  */
 export type ValidationReport = {
-	syntaxValidation: {
-		passed: boolean;
-		errors: ValidationError[];
-	};
-	sanyValidation: {
-		passed: boolean;
-		result: SANYValidationResult | null;
-	};
-	roundTripValidation: {
-		passed: boolean;
-		result: RoundTripResult | null;
-	};
+  syntaxValidation: {
+    passed: boolean;
+    errors: ValidationError[];
+  };
+  sanyValidation: {
+    passed: boolean;
+    result: SANYValidationResult | null;
+  };
+  roundTripValidation: {
+    passed: boolean;
+    result: RoundTripResult | null;
+  };
 };
 
 /**
  * Validation error thrown when generation produces invalid TLA+
  */
 export class TLAValidationError extends Error {
-	constructor(
-		message: string,
-		public readonly report: ValidationReport
-	) {
-		super(message);
-		this.name = "TLAValidationError";
-	}
+  constructor(
+    message: string,
+    public readonly report: ValidationReport
+  ) {
+    super(message);
+    this.name = "TLAValidationError";
+  }
 }
 
 export class TLAGenerator {
@@ -137,7 +133,11 @@ export class TLAGenerator {
     const cfg = this.generateConfig(config);
 
     // If no validators provided, return immediately (backward compatibility)
-    if (!this.options?.validator && !this.options?.sanyRunner && !this.options?.roundTripValidator) {
+    if (
+      !this.options?.validator &&
+      !this.options?.sanyRunner &&
+      !this.options?.roundTripValidator
+    ) {
       return { spec, cfg };
     }
 
@@ -191,11 +191,12 @@ export class TLAGenerator {
     };
 
     // If any validation failed, throw error
-    if (!validation.syntaxValidation.passed || !validation.sanyValidation.passed || !validation.roundTripValidation.passed) {
-      throw new TLAValidationError(
-        this.buildValidationErrorMessage(validation),
-        validation
-      );
+    if (
+      !validation.syntaxValidation.passed ||
+      !validation.sanyValidation.passed ||
+      !validation.roundTripValidation.passed
+    ) {
+      throw new TLAValidationError(this.buildValidationErrorMessage(validation), validation);
     }
 
     return { spec, cfg, validation };
@@ -204,7 +205,7 @@ export class TLAGenerator {
   /**
    * Pre-validate inputs before generation
    */
-  private validateInputs(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private validateInputs(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
     // Validate message types are valid TLA+ identifiers
     for (const messageType of analysis.messageTypes) {
       if (!this.isValidTLAIdentifier(messageType)) {
@@ -236,7 +237,9 @@ export class TLAGenerator {
     }
 
     if (!validation.sanyValidation.passed && validation.sanyValidation.result) {
-      messages.push(`\n  SANY validation errors (${validation.sanyValidation.result.errors.length}):`);
+      messages.push(
+        `\n  SANY validation errors (${validation.sanyValidation.result.errors.length}):`
+      );
       for (const error of validation.sanyValidation.result.errors.slice(0, 5)) {
         const location = error.line ? ` at line ${error.line}` : "";
         messages.push(`    - ${error.message}${location}`);
@@ -250,12 +253,16 @@ export class TLAGenerator {
     }
 
     if (!validation.roundTripValidation.passed && validation.roundTripValidation.result) {
-      messages.push(`\n  Round-trip validation errors (${validation.roundTripValidation.result.errors.length}):`);
+      messages.push(
+        `\n  Round-trip validation errors (${validation.roundTripValidation.result.errors.length}):`
+      );
       for (const error of validation.roundTripValidation.result.errors.slice(0, 5)) {
         messages.push(`    - ${error.message}`);
       }
       if (validation.roundTripValidation.result.errors.length > 5) {
-        messages.push(`    ... and ${validation.roundTripValidation.result.errors.length - 5} more`);
+        messages.push(
+          `    ... and ${validation.roundTripValidation.result.errors.length - 5} more`
+        );
       }
     }
 
@@ -311,30 +318,34 @@ export class TLAGenerator {
     // Priority order: maxWorkers > maxRenderers > maxContexts > maxClients > maxTabs
     let hasProjectConstant = false;
 
-    if ('maxWorkers' in config.messages && config.messages.maxWorkers !== undefined) {
+    if ("maxWorkers" in config.messages && config.messages.maxWorkers !== undefined) {
       lines.push(`  MaxWorkers = ${config.messages.maxWorkers}`);
       hasProjectConstant = true;
     }
-    if ('maxRenderers' in config.messages && config.messages.maxRenderers !== undefined) {
+    if ("maxRenderers" in config.messages && config.messages.maxRenderers !== undefined) {
       lines.push(`  MaxRenderers = ${config.messages.maxRenderers}`);
       hasProjectConstant = true;
     }
-    if ('maxContexts' in config.messages && config.messages.maxContexts !== undefined) {
+    if ("maxContexts" in config.messages && config.messages.maxContexts !== undefined) {
       lines.push(`  MaxContexts = ${config.messages.maxContexts}`);
       hasProjectConstant = true;
     }
-    if ('maxClients' in config.messages && config.messages.maxClients !== undefined && !hasProjectConstant) {
+    if (
+      "maxClients" in config.messages &&
+      config.messages.maxClients !== undefined &&
+      !hasProjectConstant
+    ) {
       lines.push(`  MaxClients = ${config.messages.maxClients}`);
       hasProjectConstant = true;
     }
-    if ('maxTabs' in config.messages && config.messages.maxTabs !== undefined) {
+    if ("maxTabs" in config.messages && config.messages.maxTabs !== undefined) {
       lines.push(`  MaxTabId = ${config.messages.maxTabs}`);
     } else if (hasProjectConstant) {
       // MaxTabId is required by MessageRouter.tla, set to 0 if unused
       lines.push("  MaxTabId = 0");
     } else {
       // Default to MaxTabId for backward compatibility
-      lines.push(`  MaxTabId = 1`);
+      lines.push("  MaxTabId = 1");
     }
 
     lines.push("  TimeoutLimit = 3");
@@ -490,14 +501,14 @@ export class TLAGenerator {
     // Also add fields from analysis (extracted from stateFilePath)
     for (const fieldAnalysis of _analysis.fields) {
       // Skip if path is invalid
-      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== 'string') {
+      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") {
         continue;
       }
 
       const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
 
       // Skip if already defined in config.state
-      if (stateFields.some(f => f.startsWith(`${fieldName}:`))) {
+      if (stateFields.some((f) => f.startsWith(`${fieldName}:`))) {
         continue;
       }
 
@@ -536,8 +547,10 @@ export class TLAGenerator {
     }
 
     // Log warnings about invalid message types
-    if (invalidMessageTypes.length > 0 && process.env['POLLY_DEBUG']) {
-      console.log(`[WARN] [TLAGenerator] Filtered out ${invalidMessageTypes.length} invalid message type(s):`);
+    if (invalidMessageTypes.length > 0 && process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[WARN] [TLAGenerator] Filtered out ${invalidMessageTypes.length} invalid message type(s):`
+      );
       for (const invalid of invalidMessageTypes) {
         console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
       }
@@ -588,14 +601,14 @@ export class TLAGenerator {
     // Also add fields from analysis (extracted from stateFilePath)
     for (const fieldAnalysis of _analysis.fields) {
       // Skip if path is invalid
-      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== 'string') {
+      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") {
         continue;
       }
 
       const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
 
       // Skip if already defined in config.state
-      if (fields.some(f => f.startsWith(`${fieldName} |->`))) {
+      if (fields.some((f) => f.startsWith(`${fieldName} |->`))) {
         continue;
       }
 
@@ -655,10 +668,14 @@ export class TLAGenerator {
     }
 
     // Log warnings about invalid handlers
-    if (invalidHandlers.length > 0 && process.env['POLLY_DEBUG']) {
-      console.log(`[WARN] [TLAGenerator] Filtered out ${invalidHandlers.length} handler(s) with invalid message types:`);
+    if (invalidHandlers.length > 0 && process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[WARN] [TLAGenerator] Filtered out ${invalidHandlers.length} handler(s) with invalid message types:`
+      );
       for (const handler of invalidHandlers) {
-        console.log(`[WARN]   - "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`);
+        console.log(
+          `[WARN]   - "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
+        );
       }
     }
 
@@ -684,7 +701,7 @@ export class TLAGenerator {
       if (!handlersByType.has(handler.messageType)) {
         handlersByType.set(handler.messageType, []);
       }
-      handlersByType.get(handler.messageType)!.push(handler);
+      handlersByType.get(handler.messageType)?.push(handler);
     }
 
     // Generate an action for each message type
@@ -826,7 +843,7 @@ export class TLAGenerator {
    * @param expr - TypeScript expression from requires() or ensures()
    * @param isPrimed - If true, use contextStates' (for postconditions)
    */
-  private tsExpressionToTLA(expr: string, isPrimed: boolean = false): string {
+  private tsExpressionToTLA(expr: string, isPrimed = false): string {
     // Early return for invalid expressions
     if (!expr || typeof expr !== "string") {
       return expr || "";
@@ -910,7 +927,7 @@ export class TLAGenerator {
    * - items.every(i => i.active) -> \A item \in items : item.active
    * - items.find(i => i.id === x) -> CHOOSE item \in items : item.id = x
    */
-  private translateArrayOperations(expr: string, statePrefix: string): string {
+  private translateArrayOperations(expr: string, _statePrefix: string): string {
     if (!expr || typeof expr !== "string") {
       return expr || "";
     }
@@ -921,7 +938,7 @@ export class TLAGenerator {
     // Match: identifier.length or state.field.length
     result = result.replace(/(\w+(?:\.\w+)*)\.length\b/g, (_match, arrayRef) => {
       // If it's a state reference, keep it for later replacement
-      if (arrayRef.startsWith('state.')) {
+      if (arrayRef.startsWith("state.")) {
         return `Len(${arrayRef})`;
       }
       return `Len(${arrayRef})`;
@@ -935,18 +952,20 @@ export class TLAGenerator {
     // Array[index] -> Array[index+1] (convert to 1-based indexing)
     // Handle nested indices: arr[0][1] -> arr[1][2]
     // Pattern matches either: identifier OR closing bracket, followed by [number]
-    const indexMap = new Map<string, number>();
-    result = result.replace(/(\w+(?:\.\w+)*)\[(\d+)\]|\]\[(\d+)\]/g, (match, identPart, index1, index2) => {
-      if (identPart) {
-        // First bracket after identifier: items[0]
-        const newIndex = Number.parseInt(index1) + 1;
-        return `${identPart}[${newIndex}]`;
-      } else {
+    const _indexMap = new Map<string, number>();
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\[(\d+)\]|\]\[(\d+)\]/g,
+      (_match, identPart, index1, index2) => {
+        if (identPart) {
+          // First bracket after identifier: items[0]
+          const newIndex = Number.parseInt(index1) + 1;
+          return `${identPart}[${newIndex}]`;
+        }
         // Subsequent bracket after ]: ][1]
         const newIndex = Number.parseInt(index2) + 1;
         return `][${newIndex}]`;
       }
-    });
+    );
 
     // Array.some(lambda) -> \E item \in array : condition
     // Match: array.some(item => condition) or array.some((item) => condition)
@@ -954,7 +973,7 @@ export class TLAGenerator {
       /(\w+(?:\.\w+)*)\.some\(\(?(\w+)\)?\s*=>\s*([^)]+)\)/g,
       (_match, arrayRef, param, condition) => {
         // Transform lambda parameter in condition
-        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, 'g'), `${param}.`);
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
         return `\\E ${param} \\in ${arrayRef} : ${tlaCondition}`;
       }
     );
@@ -963,7 +982,7 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.every\(\(?(\w+)\)?\s*=>\s*([^)]+)\)/g,
       (_match, arrayRef, param, condition) => {
-        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, 'g'), `${param}.`);
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
         return `\\A ${param} \\in ${arrayRef} : ${tlaCondition}`;
       }
     );
@@ -972,7 +991,7 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.find\(\(?(\w+)\)?\s*=>\s*([^)]+)\)/g,
       (_match, arrayRef, param, condition) => {
-        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, 'g'), `${param}.`);
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
         return `CHOOSE ${param} \\in ${arrayRef} : ${tlaCondition}`;
       }
     );
@@ -981,7 +1000,7 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.filter\(\(?(\w+)\)?\s*=>\s*([^)]+)\)\.length/g,
       (_match, arrayRef, param, condition) => {
-        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, 'g'), `${param}.`);
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
         return `Cardinality({${param} \\in ${arrayRef} : ${tlaCondition}})`;
       }
     );
@@ -995,12 +1014,9 @@ export class TLAGenerator {
     );
 
     // String.endsWith(suffix) -> SubSeq(str, Len(str)-Len(suffix)+1, Len(str)) = suffix
-    result = result.replace(
-      /(\w+(?:\.\w+)*)\.endsWith\("([^"]+)"\)/g,
-      (_match, strRef, suffix) => {
-        return `SubSeq(${strRef}, Len(${strRef})-${suffix.length}+1, Len(${strRef})) = "${suffix}"`;
-      }
-    );
+    result = result.replace(/(\w+(?:\.\w+)*)\.endsWith\("([^"]+)"\)/g, (_match, strRef, suffix) => {
+      return `SubSeq(${strRef}, Len(${strRef})-${suffix.length}+1, Len(${strRef})) = "${suffix}"`;
+    });
 
     // String.includes(substring) -> \E i \in 1..Len(str) : SubSeq(str, i, i+Len(sub)-1) = sub
     result = result.replace(
@@ -1054,18 +1070,15 @@ export class TLAGenerator {
 
     // String.slice(start, end?) -> SubSeq(str, start+1, end?) (1-based indexing)
     // slice(start) → SubSeq(str, start+1, Len(str))
-    result = result.replace(
-      /(\w+(?:\.\w+)*)\.slice\((-?\d+)\)(?!,)/g,
-      (_match, strRef, start) => {
-        const startNum = Number.parseInt(start);
-        if (startNum < 0) {
-          // Negative index: slice(-2) → SubSeq(str, Len(str) - 2 + 1, Len(str))
-          return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}))`;
-        }
-        // Positive index: slice(1) → SubSeq(str, 2, Len(str))
-        return `SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}))`;
+    result = result.replace(/(\w+(?:\.\w+)*)\.slice\((-?\d+)\)(?!,)/g, (_match, strRef, start) => {
+      const startNum = Number.parseInt(start);
+      if (startNum < 0) {
+        // Negative index: slice(-2) → SubSeq(str, Len(str) - 2 + 1, Len(str))
+        return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}))`;
       }
-    );
+      // Positive index: slice(1) → SubSeq(str, 2, Len(str))
+      return `SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}))`;
+    });
 
     // slice(start, end) → SubSeq(str, start+1, end)
     result = result.replace(
@@ -1126,7 +1139,7 @@ export class TLAGenerator {
    * - Optional chaining: a?.b → IF a # NULL THEN a.b ELSE NULL
    * - Logical short-circuit: a && b → IF a THEN b ELSE FALSE
    */
-  private translateComplexExpressions(expr: string, statePrefix: string): string {
+  private translateComplexExpressions(expr: string, _statePrefix: string): string {
     if (!expr || typeof expr !== "string") {
       return expr || "";
     }
@@ -1172,9 +1185,9 @@ export class TLAGenerator {
 
     // Process ternaries from innermost to outermost (right to left)
     while ((match = result.match(ternaryRegex)) && iterations < maxIterations) {
-      const condition = match[1]!.trim();
-      const trueVal = match[2]!.trim();
-      const falseVal = match[3]!.trim();
+      const condition = match[1]?.trim();
+      const trueVal = match[2]?.trim();
+      const falseVal = match[3]?.trim();
 
       const tlaIf = `IF ${condition} THEN ${trueVal} ELSE ${falseVal}`;
 
@@ -1206,8 +1219,8 @@ export class TLAGenerator {
     const maxIterations = 10;
 
     while ((match = result.match(nullishRegex)) && iterations < maxIterations) {
-      const value = match[1]!.trim();
-      const defaultVal = match[2]!.trim();
+      const value = match[1]?.trim();
+      const defaultVal = match[2]?.trim();
 
       const tlaIf = `IF ${value} # NULL THEN ${value} ELSE ${defaultVal}`;
 
@@ -1226,7 +1239,7 @@ export class TLAGenerator {
    */
   private translateOptionalChaining(expr: string): string {
     // If no optional chaining, return as-is
-    if (!expr.includes('?.')) {
+    if (!expr.includes("?.")) {
       return expr;
     }
 
@@ -1236,7 +1249,7 @@ export class TLAGenerator {
     let previousResult = "";
 
     // Iteratively process ?. operators until none remain or no changes made
-    while (result.includes('?.') && iteration < maxIterations && result !== previousResult) {
+    while (result.includes("?.") && iteration < maxIterations && result !== previousResult) {
       previousResult = result;
 
       // Pattern 1: identifier?.property (simple property access)
@@ -1256,13 +1269,10 @@ export class TLAGenerator {
       // Pattern 3: identifier?.[index] (bracket notation with number)
       // Matches: items?.[0], arr?.[5], etc.
       // Note: TLA+ uses 1-based indexing, so [0] becomes [1]
-      result = result.replace(
-        /(\w+(?:\.\w+)*)\?\.\[(\d+)\]/g,
-        (_match, obj, index) => {
-          const tlaIndex = Number.parseInt(index) + 1; // Convert to 1-based
-          return `IF ${obj} # NULL THEN ${obj}[${tlaIndex}] ELSE NULL`;
-        }
-      );
+      result = result.replace(/(\w+(?:\.\w+)*)\?\.\[(\d+)\]/g, (_match, obj, index) => {
+        const tlaIndex = Number.parseInt(index) + 1; // Convert to 1-based
+        return `IF ${obj} # NULL THEN ${obj}[${tlaIndex}] ELSE NULL`;
+      });
 
       // Pattern 4: identifier?.['property'] or identifier?.["property"]
       // Matches: obj?.['name'], user?.["id"], etc.
@@ -1275,7 +1285,7 @@ export class TLAGenerator {
     }
 
     // If ?. still remains after max iterations, warn and return original
-    if (result.includes('?.') && iteration >= maxIterations) {
+    if (result.includes("?.") && iteration >= maxIterations) {
       // Return original rather than partially translated to avoid confusing output
       return expr;
     }
@@ -1298,31 +1308,22 @@ export class TLAGenerator {
     let result = expr;
 
     // String.startsWith(prefix)
-    result = result.replace(
-      /(\w+(?:\.\w+)*)\.startsWith\(([^)]+)\)/g,
-      (_match, str, prefix) => {
-        const trimmedPrefix = prefix.trim();
-        return `SubSeq(${str}, 1, Len(${trimmedPrefix})) = ${trimmedPrefix}`;
-      }
-    );
+    result = result.replace(/(\w+(?:\.\w+)*)\.startsWith\(([^)]+)\)/g, (_match, str, prefix) => {
+      const trimmedPrefix = prefix.trim();
+      return `SubSeq(${str}, 1, Len(${trimmedPrefix})) = ${trimmedPrefix}`;
+    });
 
     // String.endsWith(suffix)
-    result = result.replace(
-      /(\w+(?:\.\w+)*)\.endsWith\(([^)]+)\)/g,
-      (_match, str, suffix) => {
-        const trimmedSuffix = suffix.trim();
-        return `SubSeq(${str}, Len(${str}) - Len(${trimmedSuffix}) + 1, Len(${str})) = ${trimmedSuffix}`;
-      }
-    );
+    result = result.replace(/(\w+(?:\.\w+)*)\.endsWith\(([^)]+)\)/g, (_match, str, suffix) => {
+      const trimmedSuffix = suffix.trim();
+      return `SubSeq(${str}, Len(${str}) - Len(${trimmedSuffix}) + 1, Len(${str})) = ${trimmedSuffix}`;
+    });
 
     // String.includes(substring) - more complex, uses existential quantifier
-    result = result.replace(
-      /(\w+(?:\.\w+)*)\.includes\(([^)]+)\)/g,
-      (_match, str, substring) => {
-        const trimmedSub = substring.trim();
-        return `\\E i \\in 1..Len(${str}) : SubSeq(${str}, i, i + Len(${trimmedSub}) - 1) = ${trimmedSub}`;
-      }
-    );
+    result = result.replace(/(\w+(?:\.\w+)*)\.includes\(([^)]+)\)/g, (_match, str, substring) => {
+      const trimmedSub = substring.trim();
+      return `\\E i \\in 1..Len(${str}) : SubSeq(${str}, i, i + Len(${trimmedSub}) - 1) = ${trimmedSub}`;
+    });
 
     return result;
   }
@@ -1332,7 +1333,7 @@ export class TLAGenerator {
     // (filtering happens earlier, but this adds an extra layer of safety)
     if (!this.isValidTLAIdentifier(messageType)) {
       // Sanitize by removing all invalid characters and replacing with underscores
-      const sanitized = messageType.replace(/[^a-zA-Z0-9_]/g, '_');
+      const sanitized = messageType.replace(/[^a-zA-Z0-9_]/g, "_");
       // Ensure it starts with a letter
       const validStart = sanitized.match(/[a-zA-Z]/);
       if (!validStart) {
@@ -1345,13 +1346,10 @@ export class TLAGenerator {
     }
 
     // Convert USER_LOGIN -> HandleUserLogin
-    return (
-      "Handle" +
-      messageType
-        .split("_")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-        .join("")
-    );
+    return `Handle${messageType
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join("")}`;
   }
 
   private assignmentValueToTLA(value: string | boolean | number | null): string {
@@ -1390,16 +1388,20 @@ export class TLAGenerator {
 
     // Check for TLA+ sequence operators
     const tlaOperators = [
-      "Append", "SubSeq", "Tail", "Head", "Len",
-      "\\o",      // Concatenation
-      "<<",       // Sequence start
+      "Append",
+      "SubSeq",
+      "Tail",
+      "Head",
+      "Len",
+      "\\o", // Concatenation
+      "<<", // Sequence start
       "Cardinality", // Set cardinality
-      "CHOOSE",   // Choice operator
-      "\\E",      // Exists quantifier
-      "\\A",      // Forall quantifier
+      "CHOOSE", // Choice operator
+      "\\E", // Exists quantifier
+      "\\A", // Forall quantifier
     ];
 
-    return tlaOperators.some(op => value.includes(op));
+    return tlaOperators.some((op) => value.includes(op));
   }
 
   private addRouteWithHandlers(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
@@ -1455,7 +1457,9 @@ export class TLAGenerator {
     this.indent++;
 
     // Check if there are any valid handlers (not just any handlers)
-    const hasValidHandlers = analysis.handlers.some(h => this.isValidTLAIdentifier(h.messageType));
+    const hasValidHandlers = analysis.handlers.some((h) =>
+      this.isValidTLAIdentifier(h.messageType)
+    );
 
     if (hasValidHandlers) {
       // Use integrated routing + handlers
@@ -1510,9 +1514,8 @@ export class TLAGenerator {
       this.line("");
 
       const invGenerator = new InvariantGenerator();
-      const tlaInvariants = invGenerator.generateTLAInvariants(
-        this.extractedInvariants,
-        (expr) => this.tsExpressionToTLA(expr, false)
+      const tlaInvariants = invGenerator.generateTLAInvariants(this.extractedInvariants, (expr) =>
+        this.tsExpressionToTLA(expr, false)
       );
 
       for (const invDef of tlaInvariants) {
@@ -1579,7 +1582,7 @@ export class TLAGenerator {
 
     if ("maxLength" in fieldConfig) {
       // Array type - represented as sequence with bounded length
-      return `Seq(Value)`; // Simplified - would need element type
+      return "Seq(Value)"; // Simplified - would need element type
     }
 
     if ("min" in fieldConfig && "max" in fieldConfig) {
@@ -1664,15 +1667,14 @@ export class TLAGenerator {
       case "union":
         // Try to pick the first non-null type
         if (typeInfo.unionTypes && typeInfo.unionTypes.length > 0) {
-          const firstType = typeInfo.unionTypes.find(t => t.kind !== "null") || typeInfo.unionTypes[0];
+          const firstType =
+            typeInfo.unionTypes.find((t) => t.kind !== "null") || typeInfo.unionTypes[0];
           return this.getInitialValueFromAnalysis({
             ...fieldAnalysis,
-            type: firstType
+            type: firstType,
           });
         }
         return "NULL";
-
-      case "unknown":
       default:
         return "NULL";
     }
@@ -1746,8 +1748,6 @@ export class TLAGenerator {
 
       case "null":
         return "NULL";
-
-      case "unknown":
       default:
         return "Value";
     }

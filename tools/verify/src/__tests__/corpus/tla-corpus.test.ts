@@ -1,6 +1,6 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { TLAGenerator } from "../../codegen/tla";
-import type { VerificationConfig, CodebaseAnalysis } from "../../core/model";
+import type { CodebaseAnalysis, VerificationConfig } from "../../core/model";
 
 describe("Corpus Testing: Real-World TLA+ Examples", () => {
   /**
@@ -323,7 +323,10 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       { messages: { maxInFlight: 3, maxTabs: 1 }, expectedConstant: "MaxTabId" },
       { messages: { maxInFlight: 3, maxContexts: 3 }, expectedConstant: "MaxContexts" },
       { messages: { maxInFlight: 3, maxRenderers: 2 }, expectedConstant: "MaxRenderers" },
-      { messages: { maxInFlight: 3, maxWorkers: 1, maxClients: 3 }, expectedConstant: "MaxWorkers" },
+      {
+        messages: { maxInFlight: 3, maxWorkers: 1, maxClients: 3 },
+        expectedConstant: "MaxWorkers",
+      },
     ];
 
     const analysis: CodebaseAnalysis = {

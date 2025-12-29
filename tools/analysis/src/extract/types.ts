@@ -1,16 +1,16 @@
 // Type extraction from TypeScript using ts-morph
 
-import { Project, Type } from "ts-morph"
-import type { TypeInfo, FieldAnalysis, CodebaseAnalysis } from "../types"
-import { HandlerExtractor } from "./handlers"
+import { Project, type Type } from "ts-morph";
+import type { CodebaseAnalysis, FieldAnalysis, TypeInfo } from "../types";
+import { HandlerExtractor } from "./handlers";
 
 export class TypeExtractor {
-  private project: Project
+  private project: Project;
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
-    })
+    });
   }
 
   /**
@@ -18,40 +18,38 @@ export class TypeExtractor {
    */
   async analyzeCodebase(stateFilePath?: string): Promise<CodebaseAnalysis> {
     // Find state type
-    const stateType = stateFilePath
-      ? this.extractStateType(stateFilePath)
-      : this.findStateType()
+    const stateType = stateFilePath ? this.extractStateType(stateFilePath) : this.findStateType();
 
     // Find message types
-    const messageTypes = this.findMessageTypes()
+    const messageTypes = this.findMessageTypes();
 
     // Analyze fields
-    const fields = stateType ? this.analyzeFields(stateType) : []
+    const fields = stateType ? this.analyzeFields(stateType) : [];
 
     // Extract message handlers
-    const configFilePath = this.project.getCompilerOptions()['configFilePath']
-    const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json"
-    const handlerExtractor = new HandlerExtractor(tsConfigPath)
-    const handlerAnalysis = handlerExtractor.extractHandlers()
+    const configFilePath = this.project.getCompilerOptions()["configFilePath"];
+    const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json";
+    const handlerExtractor = new HandlerExtractor(tsConfigPath);
+    const handlerAnalysis = handlerExtractor.extractHandlers();
 
     // Combine and filter message types to only include valid TLA+ identifiers
-    const allMessageTypes = Array.from(new Set([...messageTypes, ...handlerAnalysis.messageTypes]))
-    const validMessageTypes: string[] = []
-    const invalidMessageTypes: string[] = []
+    const allMessageTypes = Array.from(new Set([...messageTypes, ...handlerAnalysis.messageTypes]));
+    const validMessageTypes: string[] = [];
+    const invalidMessageTypes: string[] = [];
 
     for (const msgType of allMessageTypes) {
       if (this.isValidTLAIdentifier(msgType)) {
-        validMessageTypes.push(msgType)
+        validMessageTypes.push(msgType);
       } else {
-        invalidMessageTypes.push(msgType)
+        invalidMessageTypes.push(msgType);
       }
     }
 
     // Log warnings about invalid message types
-    if (invalidMessageTypes.length > 0 && process.env['POLLY_DEBUG']) {
-      console.log(`[WARN] Filtered out ${invalidMessageTypes.length} invalid message type(s):`)
+    if (invalidMessageTypes.length > 0 && process.env["POLLY_DEBUG"]) {
+      console.log(`[WARN] Filtered out ${invalidMessageTypes.length} invalid message type(s):`);
       for (const invalid of invalidMessageTypes) {
-        console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`)
+        console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
       }
     }
 
@@ -60,7 +58,7 @@ export class TypeExtractor {
       messageTypes: validMessageTypes,
       fields,
       handlers: handlerAnalysis.handlers,
-    }
+    };
   }
 
   /**
@@ -72,32 +70,33 @@ export class TypeExtractor {
    */
   private isValidTLAIdentifier(s: string): boolean {
     if (!s || s.length === 0) {
-      return false
+      return false;
     }
     // TLA+ identifiers: start with letter, contain only alphanumeric + underscore
-    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s)
+    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s);
   }
 
   /**
    * Extract state type from a specific file
    */
   private extractStateType(filePath: string): TypeInfo | null {
-    const sourceFile = this.project.getSourceFile(filePath)
+    const sourceFile = this.project.getSourceFile(filePath);
     if (!sourceFile) {
-      return null
+      return null;
     }
 
     // Look for type alias named "AppState" or similar
-    const typeAlias = sourceFile.getTypeAlias("AppState")
-      || sourceFile.getTypeAlias("State")
-      || sourceFile.getTypeAliases()[0]
+    const typeAlias =
+      sourceFile.getTypeAlias("AppState") ||
+      sourceFile.getTypeAlias("State") ||
+      sourceFile.getTypeAliases()[0];
 
     if (!typeAlias) {
-      return null
+      return null;
     }
 
-    const type = typeAlias.getType()
-    return this.convertType(type, typeAlias.getName())
+    const type = typeAlias.getType();
+    return this.convertType(type, typeAlias.getName());
   }
 
   /**
@@ -105,19 +104,18 @@ export class TypeExtractor {
    */
   private findStateType(): TypeInfo | null {
     // Search for files with "state" in the name
-    const stateFiles = this.project.getSourceFiles("**/state*.ts")
+    const stateFiles = this.project.getSourceFiles("**/state*.ts");
 
     for (const file of stateFiles) {
-      const typeAlias = file.getTypeAlias("AppState")
-        || file.getTypeAlias("State")
+      const typeAlias = file.getTypeAlias("AppState") || file.getTypeAlias("State");
 
       if (typeAlias) {
-        const type = typeAlias.getType()
-        return this.convertType(type, typeAlias.getName())
+        const type = typeAlias.getType();
+        return this.convertType(type, typeAlias.getName());
       }
     }
 
-    return null
+    return null;
   }
 
   /**
@@ -131,11 +129,11 @@ export class TypeExtractor {
    * - Mapped types
    */
   private findMessageTypes(): string[] {
-    const messageTypes: string[] = []
-    const warnings: string[] = []
+    const messageTypes: string[] = [];
+    const warnings: string[] = [];
 
     // Search for files with "message" in the name
-    const messageFiles = this.project.getSourceFiles("**/message*.ts")
+    const messageFiles = this.project.getSourceFiles("**/message*.ts");
 
     for (const file of messageFiles) {
       // Look for type aliases that might contain message types
@@ -145,20 +143,20 @@ export class TypeExtractor {
           typeAlias.getName(),
           file,
           warnings
-        )
-        messageTypes.push(...extractedTypes)
+        );
+        messageTypes.push(...extractedTypes);
       }
     }
 
     // Log warnings about unbounded types
-    if (warnings.length > 0 && process.env['POLLY_DEBUG']) {
-      console.log(`[WARN] Message type extraction warnings:`)
+    if (warnings.length > 0 && process.env["POLLY_DEBUG"]) {
+      console.log("[WARN] Message type extraction warnings:");
       for (const warning of warnings) {
-        console.log(`[WARN]   ${warning}`)
+        console.log(`[WARN]   ${warning}`);
       }
     }
 
-    return [...new Set(messageTypes)] // Dedupe
+    return [...new Set(messageTypes)]; // Dedupe
   }
 
   /**
@@ -171,74 +169,74 @@ export class TypeExtractor {
     sourceFile: any,
     warnings: string[]
   ): string[] {
-    const messageTypes: string[] = []
+    const messageTypes: string[] = [];
 
     // Handle union types
     if (type.isUnion()) {
-      const unionTypes = type.getUnionTypes()
+      const unionTypes = type.getUnionTypes();
 
       for (const unionType of unionTypes) {
         // Pattern 1: Discriminated unions ({ type: 'foo' } | { type: 'bar' })
         if (unionType.isObject()) {
-          const typeProperty = unionType.getProperty("type")
+          const typeProperty = unionType.getProperty("type");
           if (typeProperty) {
-            const typeType = typeProperty.getTypeAtLocation(sourceFile)
+            const typeType = typeProperty.getTypeAtLocation(sourceFile);
 
             // String literal discriminant
             if (typeType.isStringLiteral()) {
-              messageTypes.push(typeType.getLiteralValue() as string)
+              messageTypes.push(typeType.getLiteralValue() as string);
             }
             // Template literal discriminant (warn about unbounded set)
             else if (typeType.getText().includes("`")) {
               warnings.push(
                 `Template literal type in discriminant: ${typeType.getText()} - may be unbounded`
-              )
+              );
             }
           }
         }
         // Pattern 2: Simple string literal unions ('foo' | 'bar')
         else if (unionType.isStringLiteral()) {
-          messageTypes.push(unionType.getLiteralValue() as string)
+          messageTypes.push(unionType.getLiteralValue() as string);
         }
         // Pattern 3: Type alias references (recurse)
         else if (unionType.getAliasSymbol()) {
-          const aliasedType = unionType.getAliasSymbol()?.getDeclaredType()
+          const aliasedType = unionType.getAliasSymbol()?.getDeclaredType();
           if (aliasedType) {
             messageTypes.push(
               ...this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings)
-            )
+            );
           }
         }
       }
     }
     // Handle type alias references (follow to definition)
     else if (type.getAliasSymbol()) {
-      const aliasedType = type.getAliasSymbol()?.getDeclaredType()
+      const aliasedType = type.getAliasSymbol()?.getDeclaredType();
       if (aliasedType && aliasedType !== type) {
         // Recursively extract from the aliased type
         messageTypes.push(
           ...this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings)
-        )
+        );
       }
     }
     // Handle conditional types (T extends U ? X : Y)
     // Extract conservatively from both branches
     else if (type.isConditionalType?.()) {
-      warnings.push(`Conditional type detected: ${type.getText()} - extracting conservatively`)
+      warnings.push(`Conditional type detected: ${type.getText()} - extracting conservatively`);
 
       // Try to extract from both branches
       // This is conservative - we include both possible outcomes
-      const typeText = type.getText()
-      const parts = typeText.split("?")
+      const typeText = type.getText();
+      const parts = typeText.split("?");
       if (parts.length >= 2) {
-        const branches = parts[1].split(":")
+        const branches = parts[1].split(":");
         for (const branch of branches) {
-          const trimmed = branch.trim()
+          const trimmed = branch.trim();
           // If it looks like a string literal, extract it
           if (trimmed.match(/^["'](\w+)["']$/)) {
-            const match = trimmed.match(/^["'](\w+)["']$/)
+            const match = trimmed.match(/^["'](\w+)["']$/);
             if (match?.[1]) {
-              messageTypes.push(match[1])
+              messageTypes.push(match[1]);
             }
           }
         }
@@ -247,20 +245,20 @@ export class TypeExtractor {
     // Handle mapped types ({ [K in MessageType]: Handler })
     // Extract the keys being mapped over
     else if (type.getText().includes("[K in ")) {
-      warnings.push(`Mapped type detected: ${type.getText()} - attempting to extract keys`)
+      warnings.push(`Mapped type detected: ${type.getText()} - attempting to extract keys`);
 
       // Try to find the type being mapped over
-      const match = type.getText().match(/\[K in ([^\]]+)\]/)
+      const match = type.getText().match(/\[K in ([^\]]+)\]/);
       if (match?.[1]) {
-        const keyTypeName = match[1].trim()
+        const keyTypeName = match[1].trim();
 
         // Try to find the key type in the same file
-        const keyTypeAlias = sourceFile.getTypeAlias?.(keyTypeName)
+        const keyTypeAlias = sourceFile.getTypeAlias?.(keyTypeName);
         if (keyTypeAlias) {
-          const keyType = keyTypeAlias.getType()
+          const keyType = keyTypeAlias.getType();
           messageTypes.push(
             ...this.extractMessageTypesFromType(keyType, keyTypeName, sourceFile, warnings)
-          )
+          );
         }
       }
     }
@@ -268,10 +266,10 @@ export class TypeExtractor {
     else if (type.getText().includes("`")) {
       warnings.push(
         `Template literal type: ${type.getText()} - this creates an unbounded set and cannot be fully extracted`
-      )
+      );
     }
 
-    return messageTypes
+    return messageTypes;
   }
 
   /**
@@ -279,39 +277,39 @@ export class TypeExtractor {
    */
   private convertType(type: Type, name: string): TypeInfo {
     // Check for null/undefined
-    const nullable = type.isNullable()
+    const nullable = type.isNullable();
 
     // Boolean
     if (type.isBoolean() || type.isBooleanLiteral()) {
-      return { name, kind: "boolean", nullable }
+      return { name, kind: "boolean", nullable };
     }
 
     // Union types
     if (type.isUnion()) {
-      const unionTypes = type.getUnionTypes()
+      const unionTypes = type.getUnionTypes();
 
       // Check for string literal union (enum)
-      const allStringLiterals = unionTypes.every(t => t.isStringLiteral())
+      const allStringLiterals = unionTypes.every((t) => t.isStringLiteral());
       if (allStringLiterals) {
-        const enumValues = unionTypes.map(t => t.getLiteralValue() as string)
+        const enumValues = unionTypes.map((t) => t.getLiteralValue() as string);
         return {
           name,
           kind: "enum",
           nullable,
-          enumValues
-        }
+          enumValues,
+        };
       }
 
       // Check for nullable type (T | null | undefined)
-      const nonNullTypes = unionTypes.filter(t => !t.isNull() && !t.isUndefined())
+      const nonNullTypes = unionTypes.filter((t) => !t.isNull() && !t.isUndefined());
 
       if (nonNullTypes.length === 1) {
         // This is a nullable type: T | null or T | undefined
-        const baseType = this.convertType(nonNullTypes[0]!, name)
+        const baseType = this.convertType(nonNullTypes[0]!, name);
         return {
           ...baseType,
-          nullable: true
-        }
+          nullable: true,
+        };
       }
 
       // Generic union - keep as-is
@@ -319,76 +317,72 @@ export class TypeExtractor {
         name,
         kind: "union",
         nullable,
-        unionTypes: unionTypes.map((t, i) => this.convertType(t, `${name}_${i}`))
-      }
+        unionTypes: unionTypes.map((t, i) => this.convertType(t, `${name}_${i}`)),
+      };
     }
 
     // String
     if (type.isString() || type.isStringLiteral()) {
-      return { name, kind: "string", nullable }
+      return { name, kind: "string", nullable };
     }
 
     // Number
     if (type.isNumber() || type.isNumberLiteral()) {
-      return { name, kind: "number", nullable }
+      return { name, kind: "number", nullable };
     }
 
     // Array
     if (type.isArray()) {
-      const elementType = type.getArrayElementType()
+      const elementType = type.getArrayElementType();
       return {
         name,
         kind: "array",
         nullable,
         elementType: elementType
           ? this.convertType(elementType, `${name}_element`)
-          : { name: "unknown", kind: "unknown", nullable: false }
-      }
+          : { name: "unknown", kind: "unknown", nullable: false },
+      };
     }
 
     // Map/Set detection - must come before generic object handling
-    const symbol = type.getSymbol()
+    const symbol = type.getSymbol();
     if (symbol) {
-      const symbolName = symbol.getName()
+      const symbolName = symbol.getName();
 
       // Map<K, V>
       if (symbolName === "Map") {
-        const typeArgs = type.getTypeArguments()
+        const typeArgs = type.getTypeArguments();
         return {
           name,
           kind: "map",
           nullable,
           // Extract value type from Map<K, V>
-          valueType: typeArgs && typeArgs[1]
-            ? this.convertType(typeArgs[1], `${name}_value`)
-            : undefined
-        }
+          valueType: typeArgs?.[1] ? this.convertType(typeArgs[1], `${name}_value`) : undefined,
+        };
       }
 
       // Set<T>
       if (symbolName === "Set") {
-        const typeArgs = type.getTypeArguments()
+        const typeArgs = type.getTypeArguments();
         return {
           name,
           kind: "set",
           nullable,
-          elementType: typeArgs && typeArgs[0]
-            ? this.convertType(typeArgs[0], `${name}_element`)
-            : undefined
-        }
+          elementType: typeArgs?.[0] ? this.convertType(typeArgs[0], `${name}_element`) : undefined,
+        };
       }
     }
 
     // Object
     if (type.isObject()) {
-      const properties: Record<string, TypeInfo> = {}
-      const sourceFile = this.project.getSourceFiles()[0]
+      const properties: Record<string, TypeInfo> = {};
+      const sourceFile = this.project.getSourceFiles()[0];
 
       if (sourceFile) {
         for (const prop of type.getProperties()) {
-          const propName = prop.getName()
-          const propType = prop.getTypeAtLocation(sourceFile)
-          properties[propName] = this.convertType(propType, propName)
+          const propName = prop.getName();
+          const propType = prop.getTypeAtLocation(sourceFile);
+          properties[propName] = this.convertType(propType, propName);
         }
       }
 
@@ -396,42 +390,42 @@ export class TypeExtractor {
         name,
         kind: "object",
         nullable,
-        properties
-      }
+        properties,
+      };
     }
 
     // Null
     if (type.isNull()) {
-      return { name, kind: "null", nullable: true }
+      return { name, kind: "null", nullable: true };
     }
 
     // Unknown/Any
-    return { name, kind: "unknown", nullable }
+    return { name, kind: "unknown", nullable };
   }
 
   /**
    * Analyze fields and determine confidence/bounds
    */
   private analyzeFields(stateType: TypeInfo, prefix = ""): FieldAnalysis[] {
-    const fields: FieldAnalysis[] = []
+    const fields: FieldAnalysis[] = [];
 
     if (stateType.kind === "object" && stateType.properties) {
       for (const [key, propType] of Object.entries(stateType.properties)) {
-        const path = prefix ? `${prefix}.${key}` : key
+        const path = prefix ? `${prefix}.${key}` : key;
 
         // Recursively analyze nested objects (but not Map/Set - they're leaf nodes)
         if (propType.kind === "object") {
           // Don't add intermediate objects as fields, just recurse into them
-          fields.push(...this.analyzeFields(propType, path))
+          fields.push(...this.analyzeFields(propType, path));
         } else {
           // This is a leaf field (or Map/Set), add it for configuration
-          const analysis = this.analyzeField(path, propType)
-          fields.push(analysis)
+          const analysis = this.analyzeField(path, propType);
+          fields.push(analysis);
         }
       }
     }
 
-    return fields
+    return fields;
   }
 
   /**
@@ -444,81 +438,79 @@ export class TypeExtractor {
       confidence: "low",
       evidence: [],
       suggestions: [],
-      bounds: {}
-    }
+      bounds: {},
+    };
 
     // Boolean - high confidence, no config needed
     if (type.kind === "boolean") {
-      analysis.confidence = "high"
-      analysis.evidence.push("Boolean type - auto-configured")
-      return analysis
+      analysis.confidence = "high";
+      analysis.evidence.push("Boolean type - auto-configured");
+      return analysis;
     }
 
     // Enum - high confidence
     if (type.kind === "enum" && type.enumValues) {
-      analysis.confidence = "high"
-      analysis.evidence.push(`Enum with ${type.enumValues.length} values`)
-      analysis.bounds!.values = type.enumValues
-      return analysis
+      analysis.confidence = "high";
+      analysis.evidence.push(`Enum with ${type.enumValues.length} values`);
+      analysis.bounds!.values = type.enumValues;
+      return analysis;
     }
 
     // Array - needs manual configuration
     if (type.kind === "array") {
-      analysis.confidence = "low"
-      analysis.suggestions.push(
-        "Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)"
-      )
-      analysis.bounds!.maxLength = undefined
+      analysis.confidence = "low";
+      analysis.suggestions.push("Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)");
+      analysis.bounds!.maxLength = undefined;
 
       // Try to find bounds in code
-      const foundBound = this.findArrayBound()
+      const foundBound = this.findArrayBound();
       if (foundBound) {
-        analysis.confidence = "medium"
-        analysis.evidence.push(`Found array check: ${foundBound.evidence}`)
-        analysis.bounds!.maxLength = foundBound.value
+        analysis.confidence = "medium";
+        analysis.evidence.push(`Found array check: ${foundBound.evidence}`);
+        analysis.bounds!.maxLength = foundBound.value;
       }
 
-      return analysis
+      return analysis;
     }
 
     // Number - needs manual configuration
     if (type.kind === "number") {
-      analysis.confidence = "low"
-      analysis.suggestions.push("Provide min and max values based on your application logic")
-      analysis.bounds!.min = undefined
-      analysis.bounds!.max = undefined
+      analysis.confidence = "low";
+      analysis.suggestions.push("Provide min and max values based on your application logic");
+      analysis.bounds!.min = undefined;
+      analysis.bounds!.max = undefined;
 
       // Try to find bounds in code
-      const foundBound = this.findNumberBound()
+      const foundBound = this.findNumberBound();
       if (foundBound) {
-        analysis.confidence = "high"
-        analysis.evidence.push(`Found comparison: ${foundBound.evidence}`)
-        analysis.bounds = { ...analysis.bounds!, ...foundBound.bounds }
+        analysis.confidence = "high";
+        analysis.evidence.push(`Found comparison: ${foundBound.evidence}`);
+        analysis.bounds = { ...analysis.bounds!, ...foundBound.bounds };
       }
 
-      return analysis
+      return analysis;
     }
 
     // String - needs manual configuration
     if (type.kind === "string") {
-      analysis.confidence = "low"
+      analysis.confidence = "low";
       analysis.suggestions.push(
         'Provide 2-3 example values: ["value1", "value2", "value3"]',
         "Or use { abstract: true } for symbolic verification"
-      )
-      analysis.bounds!.values = undefined
-      return analysis
+      );
+      analysis.bounds!.values = undefined;
+      return analysis;
     }
 
     // Map/Set - needs manual configuration
     if (type.kind === "map" || type.kind === "set") {
-      analysis.confidence = "low"
-      analysis.suggestions.push("Provide maxSize (recommended: 3-5)")
-      analysis.bounds!.maxSize = undefined
-      return analysis
+      analysis.confidence = "low";
+      analysis.suggestions.push("Provide maxSize (recommended: 3-5)");
+      analysis.bounds!.maxSize = undefined;
+      return analysis;
     }
 
-    return analysis
+    return analysis;
   }
 
   /**
@@ -529,7 +521,7 @@ export class TypeExtractor {
     // - if (array.length < N)
     // - array.slice(0, N)
     // This would require analyzing the actual usage in code
-    return null
+    return null;
   }
 
   /**
@@ -540,14 +532,14 @@ export class TypeExtractor {
     // - if (counter < 100)
     // - if (value >= 0 && value <= 100)
     // This would require analyzing the actual usage in code
-    return null
+    return null;
   }
 }
 
 export async function analyzeCodebase(options: {
-  tsConfigPath: string
-  stateFilePath?: string
+  tsConfigPath: string;
+  stateFilePath?: string;
 }): Promise<CodebaseAnalysis> {
-  const extractor = new TypeExtractor(options.tsConfigPath)
-  return extractor.analyzeCodebase(options.stateFilePath)
+  const extractor = new TypeExtractor(options.tsConfigPath);
+  return extractor.analyzeCodebase(options.stateFilePath);
 }

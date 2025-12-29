@@ -1,18 +1,18 @@
 // Message type definitions
 
 export interface QueryMessage {
-  type: 'query';
+  type: "query";
   id: string;
 }
 
 export interface CommandMessage {
-  type: 'command';
+  type: "command";
   action: string;
   payload: unknown;
 }
 
 export interface AuthMessage {
-  type: 'auth';
+  type: "auth";
   token: string;
 }
 

@@ -1,7 +1,7 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { TLAGenerator } from "../../codegen/tla";
-import type { VerificationConfig, CodebaseAnalysis, FieldAnalysis } from "../../core/model";
+import type { CodebaseAnalysis, FieldAnalysis, VerificationConfig } from "../../core/model";
 
 describe("Property-Based Testing: TLA+ Generation", () => {
   // Arbitraries for generating random valid inputs
@@ -16,13 +16,15 @@ describe("Property-Based Testing: TLA+ Generation", () => {
       values: fc.array(fc.string({ minLength: 1, maxLength: 10 }), { minLength: 1, maxLength: 5 }),
     }),
     // Number with bounds
-    fc.record({
-      min: fc.integer({ min: 0, max: 100 }),
-      max: fc.integer({ min: 0, max: 100 }),
-    }).map((obj) => ({
-      min: Math.min(obj.min, obj.max),
-      max: Math.max(obj.min, obj.max),
-    })),
+    fc
+      .record({
+        min: fc.integer({ min: 0, max: 100 }),
+        max: fc.integer({ min: 0, max: 100 }),
+      })
+      .map((obj) => ({
+        min: Math.min(obj.min, obj.max),
+        max: Math.max(obj.min, obj.max),
+      })),
     // Array with max length
     fc.record({
       maxLength: fc.integer({ min: 1, max: 20 }),
@@ -171,7 +173,7 @@ describe("Property-Based Testing: TLA+ Generation", () => {
         const stateFieldNames = Object.keys(config.state);
         for (const fieldName of stateFieldNames) {
           // Sanitized field name should appear in State ==
-          const sanitized = fieldName.replace(/\./g, "_");
+          const _sanitized = fieldName.replace(/\./g, "_");
           if (stateFieldNames.length > 0) {
             expect(result.spec).toContain("State == [");
           }
@@ -188,14 +190,18 @@ describe("Property-Based Testing: TLA+ Generation", () => {
         const result = await generator.generate(config, analysis);
 
         // Property: MaxMessages should match maxInFlight
-        expect(result.cfg).toMatch(new RegExp(`MaxMessages\\s*=\\s*${config.messages.maxInFlight}`));
+        expect(result.cfg).toMatch(
+          new RegExp(`MaxMessages\\s*=\\s*${config.messages.maxInFlight}`)
+        );
 
         // Property: Project-specific constants should be present
         // Note: Priority order is maxWorkers > maxRenderers > maxContexts > maxClients
         const hasMaxWorkers = "maxWorkers" in config.messages;
         const hasMaxRenderers = !hasMaxWorkers && "maxRenderers" in config.messages;
-        const hasMaxContexts = !hasMaxWorkers && !hasMaxRenderers && "maxContexts" in config.messages;
-        const hasMaxClients = !hasMaxWorkers && !hasMaxRenderers && !hasMaxContexts && "maxClients" in config.messages;
+        const hasMaxContexts =
+          !hasMaxWorkers && !hasMaxRenderers && "maxContexts" in config.messages;
+        const hasMaxClients =
+          !hasMaxWorkers && !hasMaxRenderers && !hasMaxContexts && "maxClients" in config.messages;
 
         if (hasMaxWorkers) {
           expect(result.cfg).toContain("MaxWorkers");
