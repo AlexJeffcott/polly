@@ -86,62 +86,89 @@ export class ViewerServer {
   private handleRequest(req: Request, dsl: string, docsDir: string): Response {
     const url = new URL(req.url);
 
-    // Serve main viewer page
+    // Route to appropriate handler
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(this.generateViewerHTML(dsl), {
-        headers: { "Content-Type": "text/html" },
-      });
+      return this.serveMainPage(dsl);
     }
 
-    // Serve DSL file
     if (url.pathname === "/architecture.dsl") {
-      return new Response(dsl, {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return this.serveDslFile(dsl);
     }
 
-    // List available diagrams
     if (url.pathname === "/diagrams/list") {
-      const diagramsDir = path.join(docsDir, "diagrams");
+      return this.serveDiagramsList(docsDir);
+    }
 
-      if (fs.existsSync(diagramsDir)) {
-        const files = fs
-          .readdirSync(diagramsDir)
-          .filter((file) => file.endsWith(".png") && !file.includes("-key"))
-          .sort();
+    if (url.pathname.startsWith("/diagrams/")) {
+      return this.serveDiagramFile(url.pathname, docsDir);
+    }
 
-        return new Response(JSON.stringify(files), {
-          headers: { "Content-Type": "application/json" },
-        });
-      }
+    return new Response("Not found", { status: 404 });
+  }
 
-      return new Response(JSON.stringify([]), {
+  /**
+   * Serve the main viewer HTML page
+   */
+  private serveMainPage(dsl: string): Response {
+    return new Response(this.generateViewerHTML(dsl), {
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+
+  /**
+   * Serve the DSL source file
+   */
+  private serveDslFile(dsl: string): Response {
+    return new Response(dsl, {
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+
+  /**
+   * Serve the list of available diagram files
+   */
+  private serveDiagramsList(docsDir: string): Response {
+    const diagramsDir = path.join(docsDir, "diagrams");
+
+    if (fs.existsSync(diagramsDir)) {
+      const files = fs
+        .readdirSync(diagramsDir)
+        .filter((file) => file.endsWith(".png") && !file.includes("-key"))
+        .sort();
+
+      return new Response(JSON.stringify(files), {
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Serve diagram images from diagrams directory
-    if (url.pathname.startsWith("/diagrams/")) {
-      const fileName = path.basename(url.pathname);
-      const filePath = path.join(docsDir, "diagrams", fileName);
+    return new Response(JSON.stringify([]), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath);
-        const ext = path.extname(fileName).toLowerCase();
-        const contentType =
-          ext === ".png"
-            ? "image/png"
-            : ext === ".svg"
-              ? "image/svg+xml"
-              : "application/octet-stream";
+  /**
+   * Serve a diagram image file
+   */
+  private serveDiagramFile(pathname: string, docsDir: string): Response {
+    const fileName = path.basename(pathname);
+    const filePath = path.join(docsDir, "diagrams", fileName);
 
-        return new Response(content, {
-          headers: { "Content-Type": contentType },
-        });
-      }
+    if (!fs.existsSync(filePath)) {
+      return new Response("Not found", { status: 404 });
     }
 
-    return new Response("Not found", { status: 404 });
+    const content = fs.readFileSync(filePath);
+    const ext = path.extname(fileName).toLowerCase();
+    const contentType =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".svg"
+          ? "image/svg+xml"
+          : "application/octet-stream";
+
+    return new Response(content, {
+      headers: { "Content-Type": contentType },
+    });
   }
 
   /**

@@ -43,58 +43,15 @@ export class ArchitectureAnalyzer {
    * Perform complete architecture analysis
    */
   async analyze(): Promise<ArchitectureAnalysis> {
-    let manifest: ManifestInfo | undefined;
-    let projectConfig: ProjectConfig | undefined;
-    let entryPoints: Record<string, string> = {};
-    let systemInfo: { name: string; version: string; description?: string };
-
-    // Try to parse manifest.json, but allow it to be optional
-    const manifestParser = new ManifestParser(this.options.projectRoot, true);
-
-    if (manifestParser.hasManifest() && !this.options.useProjectDetector) {
-      // 1a. Parse manifest.json (Chrome extension)
-      manifest = manifestParser.parse();
-      entryPoints = manifestParser.getContextEntryPoints();
-
-      systemInfo = {
-        name: manifest.name,
-        version: manifest.version,
-        ...(manifest.description ? { description: manifest.description } : {}),
-      };
-    } else {
-      // 1b. Use project detector for generic projects
-      const { detectProjectConfig } = await import("./project-detector");
-      projectConfig = detectProjectConfig(this.options.projectRoot);
-      entryPoints = projectConfig.entryPoints;
-
-      systemInfo = {
-        name: projectConfig.metadata?.name || "Unknown Project",
-        version: projectConfig.metadata?.version || "0.0.0",
-        ...(projectConfig.metadata?.description
-          ? { description: projectConfig.metadata.description }
-          : {}),
-      };
-    }
+    // 1. Initialize system info and entry points
+    const { manifest, projectConfig, entryPoints, systemInfo } = await this.initializeSystemInfo();
 
     // 2. Extract message handlers
     const handlerExtractor = new HandlerExtractor(this.options.tsConfigPath);
     const { handlers } = handlerExtractor.extractHandlers();
 
     // 3. Analyze each context
-    const contextAnalyzer = new ContextAnalyzer(this.options.tsConfigPath);
-    const contexts: Record<string, ContextInfo> = {};
-
-    for (const [contextType, entryPoint] of Object.entries(entryPoints)) {
-      try {
-        const contextInfo = contextAnalyzer.analyzeContext(contextType, entryPoint, handlers);
-        contexts[contextType] = contextInfo;
-      } catch (error) {
-        // Skip contexts that fail to analyze
-        if (process.env["POLLY_DEBUG"]) {
-          console.log(`[DEBUG] Failed to analyze context ${contextType}: ${error}`);
-        }
-      }
-    }
+    const contexts = this.analyzeContexts(entryPoints, handlers);
 
     // 4. Analyze message flows
     const flowAnalyzer = new FlowAnalyzer(this.options.tsConfigPath, handlers);
@@ -124,6 +81,75 @@ export class ArchitectureAnalyzer {
       ...(adrs.adrs.length > 0 ? { adrs } : {}),
       ...(repository ? { repository } : {}),
     };
+  }
+
+  /**
+   * Initialize system information and entry points
+   */
+  private async initializeSystemInfo(): Promise<{
+    manifest?: ManifestInfo;
+    projectConfig?: ProjectConfig;
+    entryPoints: Record<string, string>;
+    systemInfo: { name: string; version: string; description?: string };
+  }> {
+    const manifestParser = new ManifestParser(this.options.projectRoot, true);
+
+    if (manifestParser.hasManifest() && !this.options.useProjectDetector) {
+      // Parse manifest.json (Chrome extension)
+      const manifest = manifestParser.parse();
+      const entryPoints = manifestParser.getContextEntryPoints();
+
+      return {
+        manifest,
+        entryPoints,
+        systemInfo: {
+          name: manifest.name,
+          version: manifest.version,
+          ...(manifest.description ? { description: manifest.description } : {}),
+        },
+      };
+    }
+
+    // Use project detector for generic projects
+    const { detectProjectConfig } = await import("./project-detector");
+    const projectConfig = detectProjectConfig(this.options.projectRoot);
+
+    return {
+      projectConfig,
+      entryPoints: projectConfig.entryPoints,
+      systemInfo: {
+        name: projectConfig.metadata?.name || "Unknown Project",
+        version: projectConfig.metadata?.version || "0.0.0",
+        ...(projectConfig.metadata?.description
+          ? { description: projectConfig.metadata.description }
+          : {}),
+      },
+    };
+  }
+
+  /**
+   * Analyze all contexts from entry points
+   */
+  private analyzeContexts(
+    entryPoints: Record<string, string>,
+    handlers: MessageHandler[]
+  ): Record<string, ContextInfo> {
+    const contextAnalyzer = new ContextAnalyzer(this.options.tsConfigPath);
+    const contexts: Record<string, ContextInfo> = {};
+
+    for (const [contextType, entryPoint] of Object.entries(entryPoints)) {
+      try {
+        const contextInfo = contextAnalyzer.analyzeContext(contextType, entryPoint, handlers);
+        contexts[contextType] = contextInfo;
+      } catch (error) {
+        // Skip contexts that fail to analyze
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(`[DEBUG] Failed to analyze context ${contextType}: ${error}`);
+        }
+      }
+    }
+
+    return contexts;
   }
 
   /**
