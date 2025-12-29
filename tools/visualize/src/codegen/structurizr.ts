@@ -1640,7 +1640,22 @@ export class StructurizrDSLGenerator {
     const groups: ComponentGroup[] = [];
     const assigned = new Set<string>();
 
-    // Group 1: Authentication handlers
+    this.addAuthenticationGroup(componentDefs, groups, assigned);
+    this.addSubscriptionGroup(componentDefs, groups, assigned);
+    this.addEntityBasedGroups(componentDefs, groups, assigned);
+    this.addQueryCommandGroups(componentDefs, groups, assigned);
+
+    return this.shouldReturnGroups(groups, assigned.size, componentDefs.length) ? groups : [];
+  }
+
+  /**
+   * Add authentication handlers group
+   */
+  private addAuthenticationGroup(
+    componentDefs: Array<{ id: string; messageType: string }>,
+    groups: ComponentGroup[],
+    assigned: Set<string>
+  ): void {
     const authHandlers = componentDefs.filter((comp) => {
       const type = comp.messageType.toLowerCase();
       return (
@@ -1662,8 +1677,16 @@ export class StructurizrDSLGenerator {
         assigned.add(h.id);
       }
     }
+  }
 
-    // Group 2: Subscription handlers
+  /**
+   * Add subscription handlers group
+   */
+  private addSubscriptionGroup(
+    componentDefs: Array<{ id: string; messageType: string }>,
+    groups: ComponentGroup[],
+    assigned: Set<string>
+  ): void {
     const subscriptionHandlers = componentDefs.filter((comp) => {
       const type = comp.messageType.toLowerCase();
       return type.includes("subscribe") || type.includes("unsubscribe");
@@ -1678,9 +1701,16 @@ export class StructurizrDSLGenerator {
         assigned.add(h.id);
       }
     }
+  }
 
-    // Group 3: Entity-based grouping
-    // Extract entities from message types (e.g., "user_add", "todo_remove" → "user", "todo")
+  /**
+   * Add entity-based groups
+   */
+  private addEntityBasedGroups(
+    componentDefs: Array<{ id: string; messageType: string }>,
+    groups: ComponentGroup[],
+    assigned: Set<string>
+  ): void {
     const entityGroups = new Map<string, string[]>();
 
     for (const comp of componentDefs) {
@@ -1693,31 +1723,7 @@ export class StructurizrDSLGenerator {
         continue;
       }
 
-      // Extract entity name (first part before underscore or action verb)
-      let entity: string | null = null;
-
-      // Pattern 1: entity_action (e.g., "user_add", "todo_remove")
-      const underscoreMatch = type.match(
-        /^([a-z]+)_(add|create|update|delete|remove|get|fetch|load|list|query)/
-      );
-      if (underscoreMatch) {
-        entity = underscoreMatch[1] ?? null;
-      }
-
-      // Pattern 2: actionEntity (e.g., "addUser", "removeTask")
-      if (!entity) {
-        const camelMatch = type.match(
-          /(add|create|update|delete|remove|get|fetch|load|list|query)([a-z]+)/i
-        );
-        if (camelMatch) {
-          entity = camelMatch[2]?.toLowerCase() ?? null;
-        }
-      }
-
-      // Pattern 3: plain entity name (e.g., "user", "todo")
-      if (!entity && type.match(/^[a-z]+$/)) {
-        entity = type;
-      }
+      const entity = this.extractEntityName(type);
 
       if (entity) {
         if (!entityGroups.has(entity)) {
@@ -1731,7 +1737,6 @@ export class StructurizrDSLGenerator {
     // Add entity groups (capitalize entity name for group title)
     for (const [entity, componentIds] of entityGroups) {
       if (componentIds.length >= 2) {
-        // Only create group if there are at least 2 components
         const entityName = entity.charAt(0).toUpperCase() + entity.slice(1);
         groups.push({
           name: `${entityName} Management`,
@@ -1744,8 +1749,44 @@ export class StructurizrDSLGenerator {
         }
       }
     }
+  }
 
-    // Group 4: Query/Command pattern for remaining handlers
+  /**
+   * Extract entity name from message type
+   */
+  private extractEntityName(type: string): string | null {
+    // Pattern 1: entity_action (e.g., "user_add", "todo_remove")
+    const underscoreMatch = type.match(
+      /^([a-z]+)_(add|create|update|delete|remove|get|fetch|load|list|query)/
+    );
+    if (underscoreMatch) {
+      return underscoreMatch[1] ?? null;
+    }
+
+    // Pattern 2: actionEntity (e.g., "addUser", "removeTask")
+    const camelMatch = type.match(
+      /(add|create|update|delete|remove|get|fetch|load|list|query)([a-z]+)/i
+    );
+    if (camelMatch) {
+      return camelMatch[2]?.toLowerCase() ?? null;
+    }
+
+    // Pattern 3: plain entity name (e.g., "user", "todo")
+    if (type.match(/^[a-z]+$/)) {
+      return type;
+    }
+
+    return null;
+  }
+
+  /**
+   * Add query and command handler groups
+   */
+  private addQueryCommandGroups(
+    componentDefs: Array<{ id: string; messageType: string }>,
+    groups: ComponentGroup[],
+    assigned: Set<string>
+  ): void {
     const queryHandlers = componentDefs.filter((comp) => {
       if (assigned.has(comp.id)) return false;
       const type = comp.messageType.toLowerCase();
@@ -1793,18 +1834,18 @@ export class StructurizrDSLGenerator {
         assigned.add(h.id);
       }
     }
+  }
 
-    // Only return groups if we successfully grouped most components
-    const groupedCount = assigned.size;
-    const totalCount = componentDefs.length;
-
+  /**
+   * Determine if groups should be returned based on coverage
+   */
+  private shouldReturnGroups(
+    groups: ComponentGroup[],
+    groupedCount: number,
+    totalCount: number
+  ): boolean {
     // Return groups if at least 50% are grouped OR we have at least 2 groups
-    if (groupedCount >= totalCount * 0.5 || groups.length >= 2) {
-      return groups;
-    }
-
-    // Not enough components grouped, return empty to skip grouping
-    return [];
+    return groupedCount >= totalCount * 0.5 || groups.length >= 2;
   }
 
   /**
