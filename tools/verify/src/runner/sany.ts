@@ -134,18 +134,9 @@ export class SANYRunner {
    */
   private parseSANYOutput(result: DockerRunResult, specPath: string): ValidationResult {
     const output = result.stdout + result.stderr;
-    const errors: ParseError[] = [];
-    const warnings: string[] = [];
 
-    // SANY exit code 0 means success
-    // But if there are semantic warnings, we need to parse them (they use location format)
-    if (
-      result.exitCode === 0 &&
-      !output.includes("*** Errors:") &&
-      !output.includes("***Parse Error***") &&
-      !output.includes("Fatal errors") &&
-      !output.includes("*** Warnings:")
-    ) {
+    // Check for early success
+    if (this.isSuccessfulParse(result.exitCode, output)) {
       return {
         valid: true,
         errors: [],
@@ -154,170 +145,319 @@ export class SANYRunner {
       };
     }
 
-    // Parse error patterns
+    // Parse errors from output
+    const { errors, warnings } = this.parseErrorsFromOutput(output, specPath);
+
+    // Add fallback error if no specific errors found
+    const finalErrors = this.addFallbackErrorIfNeeded(errors, result.exitCode);
+
+    return {
+      valid: finalErrors.length === 0,
+      errors: finalErrors,
+      warnings,
+      output,
+    };
+  }
+
+  /**
+   * Parse errors and warnings from SANY output text
+   */
+  private parseErrorsFromOutput(
+    output: string,
+    specPath: string
+  ): { errors: ParseError[]; warnings: string[] } {
+    const errors: ParseError[] = [];
+    const warnings: string[] = [];
     const lines = output.split("\n");
-    let inWarningsSection = false; // Track if we're in "Semantic errors: *** Warnings:" section
+    let inWarningsSection = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
 
-      // Track if we're in the warnings section
-      if (line.includes("*** Warnings:")) {
-        inWarningsSection = true;
-      } else if (line.includes("*** Errors:")) {
-        inWarningsSection = false;
+      // Track warnings section
+      inWarningsSection = this.updateWarningsSection(line, inWarningsSection);
+
+      // Try each error pattern handler
+      const result = this.tryParseErrorPatterns(line, lines, i, specPath, inWarningsSection);
+      if (result.handled) {
+        if (result.error) errors.push(result.error);
+        if (result.warning) warnings.push(result.warning);
+        if (result.skipLines) i += result.skipLines;
       }
+    }
 
-      // SANY-style parse errors: "***Parse Error***" followed by context
-      // Format:
-      //   ***Parse Error***
-      //   Was expecting "..."
-      //   Encountered "..." at line X, column Y
-      if (line.includes("***Parse Error***")) {
-        const expectingLine = lines[i + 1] || "";
-        const encounteredLine = lines[i + 2] || "";
+    return { errors, warnings };
+  }
 
-        // Extract line/column from "Encountered ... at line X, column Y"
-        const locationMatch = encounteredLine.match(/at line (\d+), column (\d+)/);
+  /**
+   * Add fallback error if no specific errors were found but exit code indicates failure
+   */
+  private addFallbackErrorIfNeeded(errors: ParseError[], exitCode: number): ParseError[] {
+    if (errors.length === 0 && exitCode !== 0) {
+      return [
+        ...errors,
+        {
+          type: "unknown",
+          message: "SANY validation failed with unknown error",
+        },
+      ];
+    }
+    return errors;
+  }
 
-        let message = "Parse error";
-        if (expectingLine.includes("Was expecting")) {
-          message = expectingLine.trim();
-        }
+  /**
+   * Check if parse completed successfully
+   */
+  private isSuccessfulParse(exitCode: number, output: string): boolean {
+    return (
+      exitCode === 0 &&
+      !output.includes("*** Errors:") &&
+      !output.includes("***Parse Error***") &&
+      !output.includes("Fatal errors") &&
+      !output.includes("*** Warnings:")
+    );
+  }
 
-        errors.push({
-          type: "syntax",
-          message,
-          line: locationMatch?.[1] ? Number.parseInt(locationMatch[1]) : undefined,
-          column: locationMatch?.[2] ? Number.parseInt(locationMatch[2]) : undefined,
-          file: specPath,
-          suggestion: this.suggestSyntaxFix(message),
-        });
-        i += 2; // Skip the next two lines we already processed
-        continue;
+  /**
+   * Update warnings section tracking
+   */
+  private updateWarningsSection(line: string, inWarningsSection: boolean): boolean {
+    if (line.includes("*** Warnings:")) return true;
+    if (line.includes("*** Errors:")) return false;
+    return inWarningsSection;
+  }
+
+  /**
+   * Try parsing the line with all error pattern handlers
+   */
+  private tryParseErrorPatterns(
+    line: string,
+    lines: string[],
+    index: number,
+    specPath: string,
+    inWarningsSection: boolean
+  ): { handled: boolean; error?: ParseError; warning?: string; skipLines?: number } {
+    // Try ***Parse Error*** pattern (multi-line)
+    const parseErrorResult = this.tryParseError(line, lines, index, specPath);
+    if (parseErrorResult) return parseErrorResult;
+
+    // Try lexical error pattern
+    const lexicalResult = this.tryLexicalError(line, specPath);
+    if (lexicalResult) return lexicalResult;
+
+    // Try syntax error pattern
+    const syntaxResult = this.trySyntaxError(line, specPath);
+    if (syntaxResult) return syntaxResult;
+
+    // Try semantic location pattern (multi-line)
+    const semanticLocationResult = this.trySemanticLocation(
+      line,
+      lines,
+      index,
+      specPath,
+      inWarningsSection
+    );
+    if (semanticLocationResult) return semanticLocationResult;
+
+    // Try semantic error fallback
+    const semanticResult = this.trySemanticError(line, specPath);
+    if (semanticResult) return semanticResult;
+
+    // Try generic error/warning patterns
+    const genericResult = this.tryGenericErrorOrWarning(line);
+    if (genericResult) return genericResult;
+
+    return { handled: false };
+  }
+
+  /**
+   * Handle ***Parse Error*** pattern (multi-line)
+   */
+  private tryParseError(
+    line: string,
+    lines: string[],
+    index: number,
+    specPath: string
+  ): { handled: boolean; error: ParseError; skipLines: number } | null {
+    if (!line.includes("***Parse Error***")) return null;
+
+    const expectingLine = lines[index + 1] || "";
+    const encounteredLine = lines[index + 2] || "";
+    const locationMatch = encounteredLine.match(/at line (\d+), column (\d+)/);
+
+    let message = "Parse error";
+    if (expectingLine.includes("Was expecting")) {
+      message = expectingLine.trim();
+    }
+
+    return {
+      handled: true,
+      error: {
+        type: "syntax",
+        message,
+        line: locationMatch?.[1] ? Number.parseInt(locationMatch[1]) : undefined,
+        column: locationMatch?.[2] ? Number.parseInt(locationMatch[2]) : undefined,
+        file: specPath,
+        suggestion: this.suggestSyntaxFix(message),
+      },
+      skipLines: 2,
+    };
+  }
+
+  /**
+   * Handle lexical error pattern
+   */
+  private tryLexicalError(
+    line: string,
+    specPath: string
+  ): { handled: boolean; error: ParseError } | null {
+    const lexicalMatch = line.match(
+      /Lexical error at line (\d+), column (\d+)\.?\s*Encountered:\s*(.+)/
+    );
+    if (!lexicalMatch?.[1] || !lexicalMatch[2] || !lexicalMatch[3]) return null;
+
+    return {
+      handled: true,
+      error: {
+        type: "lexical",
+        message: `Lexical error: ${lexicalMatch[3]}`,
+        line: Number.parseInt(lexicalMatch[1]),
+        column: Number.parseInt(lexicalMatch[2]),
+        file: specPath,
+        suggestion: this.suggestLexicalFix(lexicalMatch[3]),
+      },
+    };
+  }
+
+  /**
+   * Handle syntax error pattern (single-line)
+   */
+  private trySyntaxError(
+    line: string,
+    specPath: string
+  ): { handled: boolean; error: ParseError } | null {
+    const parseMatch = line.match(
+      /(?:Parse |Syntax )error at line (\d+), column (\d+)(?:\s+of\s+module\s+\w+)?\.?\s*(.+)/i
+    );
+    if (!parseMatch?.[1] || !parseMatch[2] || !parseMatch[3]) return null;
+
+    return {
+      handled: true,
+      error: {
+        type: "syntax",
+        message: parseMatch[3],
+        line: Number.parseInt(parseMatch[1]),
+        column: Number.parseInt(parseMatch[2]),
+        file: specPath,
+        suggestion: this.suggestSyntaxFix(parseMatch[3]),
+      },
+    };
+  }
+
+  /**
+   * Handle semantic location pattern (multi-line)
+   */
+  private trySemanticLocation(
+    line: string,
+    lines: string[],
+    index: number,
+    specPath: string,
+    inWarningsSection: boolean
+  ): { handled: boolean; error?: ParseError; warning?: string; skipLines: number } | null {
+    const semanticLocationMatch = line.match(
+      /^line (\d+), col (\d+) to line \d+, col \d+ of module (\w+)/
+    );
+    if (!semanticLocationMatch?.[1] || !semanticLocationMatch[2]) return null;
+
+    // Collect message lines
+    const msgLines = [];
+    let j = index + 1;
+    while (j < lines.length) {
+      const msgLine = lines[j];
+      if (
+        !msgLine ||
+        msgLine.trim() === "" ||
+        msgLine.startsWith("line ") ||
+        msgLine.includes("***")
+      ) {
+        break;
       }
+      msgLines.push(msgLine.trim());
+      j++;
+    }
 
-      // Lexical errors (invalid characters, unclosed strings, etc.)
-      const lexicalMatch = line.match(
-        /Lexical error at line (\d+), column (\d+)\.?\s*Encountered:\s*(.+)/
-      );
-      if (lexicalMatch?.[1] && lexicalMatch[2] && lexicalMatch[3]) {
-        errors.push({
-          type: "lexical",
-          message: `Lexical error: ${lexicalMatch[3]}`,
-          line: Number.parseInt(lexicalMatch[1]),
-          column: Number.parseInt(lexicalMatch[2]),
-          file: specPath,
-          suggestion: this.suggestLexicalFix(lexicalMatch[3]),
-        });
-        continue;
-      }
+    const message = msgLines.join(" ").trim();
 
-      // Parse errors (single-line format)
-      const parseMatch = line.match(
-        /(?:Parse |Syntax )error at line (\d+), column (\d+)(?:\s+of\s+module\s+\w+)?\.?\s*(.+)/i
-      );
-      if (parseMatch?.[1] && parseMatch[2] && parseMatch[3]) {
-        errors.push({
-          type: "syntax",
-          message: parseMatch[3],
-          line: Number.parseInt(parseMatch[1]),
-          column: Number.parseInt(parseMatch[2]),
-          file: specPath,
-          suggestion: this.suggestSyntaxFix(parseMatch[3]),
-        });
-        continue;
-      }
+    if (inWarningsSection) {
+      return {
+        handled: true,
+        warning: `line ${semanticLocationMatch[1]}, col ${semanticLocationMatch[2]}: ${message || "Semantic warning"}`,
+        skipLines: j - index - 1,
+      };
+    }
 
-      // Semantic error/warning location line:
-      // "line X, col Y to line X, col Y of module ModuleName"
-      // followed by error/warning message on next line(s)
-      const semanticLocationMatch = line.match(
-        /^line (\d+), col (\d+) to line \d+, col \d+ of module (\w+)/
-      );
-      if (semanticLocationMatch?.[1] && semanticLocationMatch[2]) {
-        // Collect message lines (until we hit another "line" or empty line or end)
-        const msgLines = [];
-        let j = i + 1;
-        while (j < lines.length) {
-          const msgLine = lines[j];
-          if (
-            !msgLine ||
-            msgLine.trim() === "" ||
-            msgLine.startsWith("line ") ||
-            msgLine.includes("***")
-          ) {
-            break;
-          }
-          msgLines.push(msgLine.trim());
-          j++;
-        }
+    return {
+      handled: true,
+      error: {
+        type: "semantic",
+        message: message || "Semantic error",
+        line: Number.parseInt(semanticLocationMatch[1]),
+        column: Number.parseInt(semanticLocationMatch[2]),
+        file: specPath,
+      },
+      skipLines: j - index - 1,
+    };
+  }
 
-        const message = msgLines.join(" ").trim();
+  /**
+   * Handle semantic error fallback (single-line)
+   */
+  private trySemanticError(
+    line: string,
+    specPath: string
+  ): { handled: boolean; error: ParseError } | null {
+    const semanticMatch = line.match(
+      /Semantic error at line (\d+), column (\d+)(?:\s+of\s+module\s+\w+)?\.?\s*(.+)/i
+    );
+    if (!semanticMatch?.[1] || !semanticMatch[2] || !semanticMatch[3]) return null;
 
-        // Add to warnings if in warnings section, otherwise errors
-        if (inWarningsSection) {
-          warnings.push(
-            `line ${semanticLocationMatch[1]}, col ${semanticLocationMatch[2]}: ${message || "Semantic warning"}`
-          );
-        } else {
-          errors.push({
-            type: "semantic",
-            message: message || "Semantic error",
-            line: Number.parseInt(semanticLocationMatch[1]),
-            column: Number.parseInt(semanticLocationMatch[2]),
-            file: specPath,
-          });
-        }
-        i = j - 1; // Skip to last processed line
-        continue;
-      }
+    return {
+      handled: true,
+      error: {
+        type: "semantic",
+        message: semanticMatch[3],
+        line: Number.parseInt(semanticMatch[1]),
+        column: Number.parseInt(semanticMatch[2]),
+        file: specPath,
+      },
+    };
+  }
 
-      // Semantic errors (single-line format - fallback)
-      const semanticMatch = line.match(
-        /Semantic error at line (\d+), column (\d+)(?:\s+of\s+module\s+\w+)?\.?\s*(.+)/i
-      );
-      if (semanticMatch?.[1] && semanticMatch[2] && semanticMatch[3]) {
-        errors.push({
-          type: "semantic",
-          message: semanticMatch[3],
-          line: Number.parseInt(semanticMatch[1]),
-          column: Number.parseInt(semanticMatch[2]),
-          file: specPath,
-        });
-        continue;
-      }
-
-      // Generic error pattern
-      if (line.includes("Error:") || line.includes("error:")) {
-        errors.push({
+  /**
+   * Handle generic error or warning patterns
+   */
+  private tryGenericErrorOrWarning(
+    line: string
+  ): { handled: boolean; error?: ParseError; warning?: string } | null {
+    if (line.includes("Error:") || line.includes("error:")) {
+      return {
+        handled: true,
+        error: {
           type: "unknown",
           message: line.trim(),
-        });
-      }
-
-      // Warnings
-      if (line.includes("Warning:") || line.includes("warning:")) {
-        warnings.push(line.trim());
-      }
+        },
+      };
     }
 
-    // If we found no specific errors but SANY failed, create a generic error
-    if (errors.length === 0 && result.exitCode !== 0) {
-      errors.push({
-        type: "unknown",
-        message: "SANY validation failed with unknown error",
-      });
+    if (line.includes("Warning:") || line.includes("warning:")) {
+      return {
+        handled: true,
+        warning: line.trim(),
+      };
     }
 
-    // Valid if there are no errors (warnings are ok)
-    return {
-      valid: errors.length === 0,
-      errors,
-      warnings,
-      output,
-    };
+    return null;
   }
 
   /**

@@ -64,7 +64,7 @@ export class ConfigValidator {
       const locations: Array<{ line: number; column: number; context: string }> = [];
 
       for (const match of matches) {
-        const position = match.index!;
+        const position = match.index ?? 0;
         const lineNumber = source.substring(0, position).split("\n").length;
         const line = lines[lineNumber - 1];
 
@@ -74,7 +74,7 @@ export class ConfigValidator {
 
         locations.push({
           line: lineNumber,
-          column: match.index! - source.lastIndexOf("\n", position),
+          column: (match.index ?? 0) - source.lastIndexOf("\n", position),
           context: fieldName ?? "unknown",
         });
       }
@@ -131,7 +131,7 @@ export class ConfigValidator {
     this.validateBounds(config);
   }
 
-  private findNullPlaceholders(obj: any, path: string): void {
+  private findNullPlaceholders(obj: unknown, path: string): void {
     if (obj === null || obj === undefined) {
       this.issues.push({
         type: "null_placeholder",
@@ -166,8 +166,24 @@ export class ConfigValidator {
 
   private validateBounds(config: VerificationConfig): void {
     // Check messages config
-    if (config.messages.maxInFlight !== null) {
-      if (config.messages.maxInFlight < 1) {
+    this.validateMessageBounds(config.messages);
+
+    // Check state field bounds
+    for (const [fieldName, fieldConfig] of Object.entries(config.state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) {
+        continue;
+      }
+
+      this.validateFieldBounds(fieldName, fieldConfig);
+    }
+  }
+
+  private validateMessageBounds(messages: {
+    maxInFlight: number | null;
+    maxTabs?: number | null;
+  }): void {
+    if (messages.maxInFlight !== null) {
+      if (messages.maxInFlight < 1) {
         this.issues.push({
           type: "invalid_value",
           severity: "error",
@@ -177,7 +193,7 @@ export class ConfigValidator {
         });
       }
 
-      if (config.messages.maxInFlight > 20) {
+      if (messages.maxInFlight > 20) {
         this.issues.push({
           type: "unrealistic_bound",
           severity: "warning",
@@ -188,8 +204,8 @@ export class ConfigValidator {
       }
     }
 
-    if (config.messages.maxTabs !== null && config.messages.maxTabs !== undefined) {
-      if (config.messages.maxTabs < 1) {
+    if (messages.maxTabs !== null && messages.maxTabs !== undefined) {
+      if (messages.maxTabs < 1) {
         this.issues.push({
           type: "invalid_value",
           severity: "error",
@@ -199,7 +215,7 @@ export class ConfigValidator {
         });
       }
 
-      if (config.messages.maxTabs > 10) {
+      if (messages.maxTabs > 10) {
         this.issues.push({
           type: "unrealistic_bound",
           severity: "warning",
@@ -209,90 +225,97 @@ export class ConfigValidator {
         });
       }
     }
+  }
 
-    // Check state field bounds
-    for (const [fieldName, fieldConfig] of Object.entries(config.state)) {
-      if (typeof fieldConfig !== "object" || fieldConfig === null) {
-        continue;
-      }
+  private validateFieldBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
+    // Array bounds
+    if ("maxLength" in fieldConfig) {
+      this.validateArrayBounds(fieldName, fieldConfig);
+    }
 
-      // Array bounds
-      if ("maxLength" in fieldConfig) {
-        const maxLength = (fieldConfig as any).maxLength;
-        if (maxLength !== null) {
-          if (maxLength < 0) {
-            this.issues.push({
-              type: "invalid_value",
-              severity: "error",
-              field: `state.${fieldName}.maxLength`,
-              message: "maxLength cannot be negative",
-              suggestion: "Use a positive number",
-            });
-          }
+    // Number bounds
+    if ("min" in fieldConfig && "max" in fieldConfig) {
+      this.validateNumberBounds(fieldName, fieldConfig);
+    }
 
-          if (maxLength > 50) {
-            this.issues.push({
-              type: "unrealistic_bound",
-              severity: "warning",
-              field: `state.${fieldName}.maxLength`,
-              message: `Very large maxLength (${maxLength}) will slow verification`,
-              suggestion: "Use 10-20 for most cases",
-            });
-          }
-        }
-      }
+    // Map/Set bounds
+    if ("maxSize" in fieldConfig) {
+      this.validateMapSetBounds(fieldName, fieldConfig);
+    }
+  }
 
-      // Number bounds
-      if ("min" in fieldConfig && "max" in fieldConfig) {
-        const min = (fieldConfig as any).min;
-        const max = (fieldConfig as any).max;
+  private validateArrayBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
+    const maxLength = (fieldConfig as { maxLength?: number | null }).maxLength;
+    if (maxLength === null) return;
 
-        if (min !== null && max !== null && min > max) {
-          this.issues.push({
-            type: "invalid_value",
-            severity: "error",
-            field: `state.${fieldName}`,
-            message: `Invalid range: min (${min}) > max (${max})`,
-            suggestion: "Ensure min is less than or equal to max",
-          });
-        }
+    if (maxLength < 0) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: `state.${fieldName}.maxLength`,
+        message: "maxLength cannot be negative",
+        suggestion: "Use a positive number",
+      });
+    }
 
-        if (min !== null && max !== null && max - min > 1000) {
-          this.issues.push({
-            type: "unrealistic_bound",
-            severity: "warning",
-            field: `state.${fieldName}`,
-            message: `Very large number range (${max - min}) will slow verification`,
-            suggestion: "Use smaller ranges when possible",
-          });
-        }
-      }
+    if (maxLength > 50) {
+      this.issues.push({
+        type: "unrealistic_bound",
+        severity: "warning",
+        field: `state.${fieldName}.maxLength`,
+        message: `Very large maxLength (${maxLength}) will slow verification`,
+        suggestion: "Use 10-20 for most cases",
+      });
+    }
+  }
 
-      // Map/Set bounds
-      if ("maxSize" in fieldConfig) {
-        const maxSize = (fieldConfig as any).maxSize;
-        if (maxSize !== null) {
-          if (maxSize < 0) {
-            this.issues.push({
-              type: "invalid_value",
-              severity: "error",
-              field: `state.${fieldName}.maxSize`,
-              message: "maxSize cannot be negative",
-              suggestion: "Use a positive number",
-            });
-          }
+  private validateNumberBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
+    const min = (fieldConfig as { min?: number | null }).min;
+    const max = (fieldConfig as { max?: number | null }).max;
 
-          if (maxSize > 20) {
-            this.issues.push({
-              type: "unrealistic_bound",
-              severity: "warning",
-              field: `state.${fieldName}.maxSize`,
-              message: `Very large maxSize (${maxSize}) will slow verification`,
-              suggestion: "Use 3-5 for most cases",
-            });
-          }
-        }
-      }
+    if (min !== null && max !== null && min > max) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: `state.${fieldName}`,
+        message: `Invalid range: min (${min}) > max (${max})`,
+        suggestion: "Ensure min is less than or equal to max",
+      });
+    }
+
+    if (min !== null && max !== null && max - min > 1000) {
+      this.issues.push({
+        type: "unrealistic_bound",
+        severity: "warning",
+        field: `state.${fieldName}`,
+        message: `Very large number range (${max - min}) will slow verification`,
+        suggestion: "Use smaller ranges when possible",
+      });
+    }
+  }
+
+  private validateMapSetBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
+    const maxSize = (fieldConfig as { maxSize?: number | null }).maxSize;
+    if (maxSize === null) return;
+
+    if (maxSize < 0) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: `state.${fieldName}.maxSize`,
+        message: "maxSize cannot be negative",
+        suggestion: "Use a positive number",
+      });
+    }
+
+    if (maxSize > 20) {
+      this.issues.push({
+        type: "unrealistic_bound",
+        severity: "warning",
+        field: `state.${fieldName}.maxSize`,
+        message: `Very large maxSize (${maxSize}) will slow verification`,
+        suggestion: "Use 3-5 for most cases",
+      });
     }
   }
 }

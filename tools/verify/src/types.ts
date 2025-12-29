@@ -24,11 +24,12 @@ export type VerificationConfig = {
 export type StateConfig = Record<string, FieldConfig>;
 
 export type FieldConfig =
+  | { type: "boolean" }
   | { maxLength: number | null }
   | { min: number | null; max: number | null }
   | { type: "enum"; values: string[] }
   | { values: string[] | null; abstract?: boolean }
-  | { maxSize: number | null; valueType?: any }
+  | { maxSize: number | null; valueType?: string }
   | { abstract: boolean };
 
 export type MessageConfig = {

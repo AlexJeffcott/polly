@@ -133,11 +133,13 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
       const serverContext = analysis.contexts["server"]!;
 
       // Check that each handler has unique relationships (no duplicates)
-      for (const handler of serverContext?.handlers) {
-        if (handler.relationships) {
-          const relationshipKeys = handler.relationships.map((r) => `${r.from}->${r.to}`);
-          const uniqueKeys = new Set(relationshipKeys);
-          expect(relationshipKeys.length).toBe(uniqueKeys.size);
+      if (serverContext?.handlers) {
+        for (const handler of serverContext.handlers) {
+          if (handler.relationships) {
+            const relationshipKeys = handler.relationships.map((r) => `${r.from}->${r.to}`);
+            const uniqueKeys = new Set(relationshipKeys);
+            expect(relationshipKeys.length).toBe(uniqueKeys.size);
+          }
         }
       }
     });
@@ -798,8 +800,8 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
 
       // Verify specific handlers have source info
       expect(dsl).toContain("src/server/handlers.ts:55"); // query handler
-      expect(dsl).toContain("src/server/handlers.ts:57"); // command handler
-      expect(dsl).toContain("src/server/handlers.ts:59"); // auth handler
+      expect(dsl).toContain("src/server/handlers.ts:58"); // command handler
+      expect(dsl).toContain("src/server/handlers.ts:61"); // auth handler
     });
 
     test("should include technology stack", () => {

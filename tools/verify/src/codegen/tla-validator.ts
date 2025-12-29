@@ -215,68 +215,137 @@ export class TLAValidator {
       "{": "}",
     };
 
-    // Track /\ and \/ balance
-    let _conjunctionBalance = 0;
-    let _disjunctionBalance = 0;
+    const context = {
+      conjunctionBalance: 0,
+      disjunctionBalance: 0,
+    };
 
     for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      if (!char) continue;
+      const result = this.processCharacter(text, i, stack, pairs, context);
 
-      const nextChar = text[i + 1];
-
-      // Handle << and >>
-      if (char === "<" && nextChar === "<") {
-        stack.push({ char: "<<", pos: i });
-        i++; // Skip next char
-        continue;
-      }
-      if (char === ">" && nextChar === ">") {
-        const top = stack.pop();
-        if (!top || top.char !== "<<") {
-          return {
-            type: "bracket",
-            message: `Unmatched '>>' at position ${i}`,
-          };
-        }
-        i++; // Skip next char
-        continue;
-      }
-
-      // Handle /\ and \/
-      if (char === "/" && nextChar === "\\") {
-        _conjunctionBalance++;
-        i++; // Skip next char
-        continue;
-      }
-      if (char === "\\" && nextChar === "/") {
-        _disjunctionBalance++;
-        i++; // Skip next char
-        continue;
-      }
-
-      // Handle opening brackets
-      if (char in pairs) {
-        stack.push({ char, pos: i });
-        continue;
-      }
-
-      // Handle closing brackets
-      if (Object.values(pairs).includes(char)) {
-        const top = stack.pop();
-        if (!top || pairs[top.char] !== char) {
-          return {
-            type: "bracket",
-            message: `Unmatched '${char}' at position ${i}`,
-            suggestion: top
-              ? `Expected '${pairs[top.char]}' to match '${top.char}' at position ${top.pos}`
-              : undefined,
-          };
-        }
-      }
+      if (result.error) return result.error;
+      if (result.newIndex !== i) i = result.newIndex;
     }
 
     // Check for unclosed brackets
+    return this.checkUnclosedBrackets(stack, pairs);
+  }
+
+  /**
+   * Process a single character in bracket validation
+   */
+  private processCharacter(
+    text: string,
+    index: number,
+    stack: Array<{ char: string; pos: number }>,
+    pairs: Record<string, string>,
+    context: { conjunctionBalance: number; disjunctionBalance: number }
+  ): { error?: ValidationError; newIndex: number } {
+    const char = text[index];
+    if (!char) return { newIndex: index };
+
+    const nextChar = text[index + 1];
+
+    // Handle angle brackets <<>>
+    const angleResult = this.handleAngleBrackets(char, nextChar, index, stack);
+    if (angleResult) {
+      if (angleResult.error) return { error: angleResult.error, newIndex: index };
+      return { newIndex: angleResult.newIndex };
+    }
+
+    // Handle logical operators /\ \/
+    const logicalResult = this.handleLogicalOperators(char, nextChar, index);
+    if (logicalResult) {
+      if (logicalResult.isConjunction) context.conjunctionBalance++;
+      if (logicalResult.isDisjunction) context.disjunctionBalance++;
+      return { newIndex: logicalResult.newIndex };
+    }
+
+    // Handle opening brackets
+    if (char in pairs) {
+      stack.push({ char, pos: index });
+      return { newIndex: index };
+    }
+
+    // Handle closing brackets
+    const closeResult = this.handleClosingBracket(char, index, stack, pairs);
+    if (closeResult) return { error: closeResult, newIndex: index };
+
+    return { newIndex: index };
+  }
+
+  private handleAngleBrackets(
+    char: string,
+    nextChar: string | undefined,
+    pos: number,
+    stack: Array<{ char: string; pos: number }>
+  ): { error?: ValidationError; newIndex: number } | null {
+    if (char === "<" && nextChar === "<") {
+      stack.push({ char: "<<", pos });
+      return { newIndex: pos + 1 };
+    }
+
+    if (char === ">" && nextChar === ">") {
+      const top = stack.pop();
+      if (!top || top.char !== "<<") {
+        return {
+          error: {
+            type: "bracket",
+            message: `Unmatched '>>' at position ${pos}`,
+          },
+          newIndex: pos + 1,
+        };
+      }
+      return { newIndex: pos + 1 };
+    }
+
+    return null;
+  }
+
+  private handleLogicalOperators(
+    char: string,
+    nextChar: string | undefined,
+    pos: number
+  ): { isConjunction?: boolean; isDisjunction?: boolean; newIndex: number } | null {
+    if (char === "/" && nextChar === "\\") {
+      return { isConjunction: true, newIndex: pos + 1 };
+    }
+
+    if (char === "\\" && nextChar === "/") {
+      return { isDisjunction: true, newIndex: pos + 1 };
+    }
+
+    return null;
+  }
+
+  private handleClosingBracket(
+    char: string,
+    pos: number,
+    stack: Array<{ char: string; pos: number }>,
+    pairs: Record<string, string>
+  ): ValidationError | null {
+    if (!Object.values(pairs).includes(char)) {
+      return null;
+    }
+
+    const top = stack.pop();
+    if (!top || pairs[top.char] !== char) {
+      return {
+        type: "bracket",
+        message: `Unmatched '${char}' at position ${pos}`,
+        suggestion: top
+          ? `Expected '${pairs[top.char]}' to match '${top.char}' at position ${top.pos}`
+          : undefined,
+      };
+    }
+
+    return null;
+  }
+
+  private checkUnclosedBrackets(
+    stack: Array<{ char: string; pos: number }>,
+    pairs: Record<string, string>
+  ): ValidationError | null {
     if (stack.length > 0) {
       const top = stack[stack.length - 1];
       if (top) {
@@ -359,8 +428,29 @@ export class TLAValidator {
     const lines = spec.split("\n");
 
     // Check for MODULE declaration
+    const moduleInfo = this.validateModuleDeclaration(lines, errors);
+
+    // Check for ==== separator after MODULE
+    if (moduleInfo.hasModule) {
+      this.validateModuleSeparator(lines, moduleInfo.moduleLineNum, errors);
+    }
+
+    // Check for EXTENDS clause
+    this.validateExtendsClause(spec, errors);
+
+    // Validate operator definitions
+    this.validateOperatorDefinitions(lines, errors);
+
+    return errors;
+  }
+
+  private validateModuleDeclaration(
+    lines: string[],
+    errors: ValidationError[]
+  ): { hasModule: boolean; moduleLineNum: number } {
     let hasModule = false;
     let moduleLineNum = 0;
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
@@ -395,26 +485,35 @@ export class TLAValidator {
       });
     }
 
-    // Check for ==== separator after MODULE
-    if (hasModule && moduleLineNum < lines.length) {
-      let foundSeparator = false;
-      for (let i = moduleLineNum; i < Math.min(moduleLineNum + 3, lines.length); i++) {
-        if (lines[i]?.trim().match(/^={4,}$/)) {
-          foundSeparator = true;
-          break;
-        }
-      }
-      if (!foundSeparator) {
-        errors.push({
-          type: "module",
-          message: "Missing ==== separator after MODULE declaration",
-          line: moduleLineNum + 1,
-          suggestion: "Add a line with ==== after the MODULE declaration",
-        });
+    return { hasModule, moduleLineNum };
+  }
+
+  private validateModuleSeparator(
+    lines: string[],
+    moduleLineNum: number,
+    errors: ValidationError[]
+  ): void {
+    if (moduleLineNum >= lines.length) return;
+
+    let foundSeparator = false;
+    for (let i = moduleLineNum; i < Math.min(moduleLineNum + 3, lines.length); i++) {
+      if (lines[i]?.trim().match(/^={4,}$/)) {
+        foundSeparator = true;
+        break;
       }
     }
 
-    // Check for EXTENDS clause
+    if (!foundSeparator) {
+      errors.push({
+        type: "module",
+        message: "Missing ==== separator after MODULE declaration",
+        line: moduleLineNum + 1,
+        suggestion: "Add a line with ==== after the MODULE declaration",
+      });
+    }
+  }
+
+  private validateExtendsClause(spec: string, errors: ValidationError[]): void {
     const hasExtends = spec.includes("EXTENDS");
     if (!hasExtends) {
       errors.push({
@@ -423,8 +522,9 @@ export class TLAValidator {
         suggestion: "Add 'EXTENDS Naturals, Sequences' or other required modules",
       });
     }
+  }
 
-    // Validate operator definitions (must have ==)
+  private validateOperatorDefinitions(lines: string[], errors: ValidationError[]): void {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
@@ -444,8 +544,6 @@ export class TLAValidator {
         }
       }
     }
-
-    return errors;
   }
 
   /**

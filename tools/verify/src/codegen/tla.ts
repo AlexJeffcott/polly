@@ -103,10 +103,45 @@ export class TLAGenerator {
     cfg: string;
     validation?: ValidationReport;
   }> {
-    // 1. Pre-validate inputs (basic checks)
+    // Pre-validate inputs
     this.validateInputs(config, analysis);
 
-    // 2. Extract invariants if enabled
+    // Extract invariants and temporal properties if enabled
+    this.extractInvariantsIfEnabled();
+    this.generateTemporalPropertiesIfEnabled(analysis);
+
+    // Generate spec and config
+    this.lines = [];
+    this.indent = 0;
+    const spec = this.generateSpec(config, analysis);
+    const cfg = this.generateConfig(config);
+
+    // If no validators provided, return immediately (backward compatibility)
+    if (!this.hasValidators()) {
+      return { spec, cfg };
+    }
+
+    // Perform all validations
+    const validation = await this.performAllValidations(spec, config, analysis);
+
+    return { spec, cfg, validation };
+  }
+
+  /**
+   * Check if any validators are configured
+   */
+  private hasValidators(): boolean {
+    return !!(
+      this.options?.validator ||
+      this.options?.sanyRunner ||
+      this.options?.roundTripValidator
+    );
+  }
+
+  /**
+   * Extract invariants from project if enabled
+   */
+  private extractInvariantsIfEnabled(): void {
     if (this.options?.enableInvariants && this.options.projectPath) {
       const extractor = new InvariantExtractor();
       const result = extractor.extractInvariants(this.options.projectPath);
@@ -119,60 +154,34 @@ export class TLAGenerator {
         }
       }
     }
+  }
 
-    // 3. Generate temporal properties if enabled
+  /**
+   * Generate temporal properties if enabled
+   */
+  private generateTemporalPropertiesIfEnabled(analysis: CodebaseAnalysis): void {
     if (this.options?.enableTemporalProperties) {
       const generator = new TemporalPropertyGenerator();
       this.temporalProperties = generator.generateProperties(analysis);
     }
+  }
 
-    // 4. Generate spec (existing code)
-    this.lines = [];
-    this.indent = 0;
-    const spec = this.generateSpec(config, analysis);
-    const cfg = this.generateConfig(config);
+  /**
+   * Perform all validations and return report
+   */
+  private async performAllValidations(
+    spec: string,
+    config: VerificationConfig,
+    analysis: CodebaseAnalysis
+  ): Promise<ValidationReport> {
+    // Fast syntax validation
+    const syntaxErrors = this.performSyntaxValidation(spec);
 
-    // If no validators provided, return immediately (backward compatibility)
-    if (
-      !this.options?.validator &&
-      !this.options?.sanyRunner &&
-      !this.options?.roundTripValidator
-    ) {
-      return { spec, cfg };
-    }
+    // SANY validation (comprehensive)
+    const sanyResult = await this.performSANYValidation(spec);
 
-    // 3. Fast syntax validation
-    const syntaxErrors: ValidationError[] = [];
-    if (this.options.validator) {
-      const moduleErrors = this.options.validator.validateModuleStructure(spec);
-      syntaxErrors.push(...moduleErrors);
-    }
-
-    // 4. SANY validation (comprehensive)
-    let sanyResult: SANYValidationResult | null = null;
-    if (this.options.sanyRunner) {
-      // Write spec to temp file for SANY
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-sany-"));
-      const specPath = path.join(tempDir, "UserApp.tla");
-      fs.writeFileSync(specPath, spec);
-
-      try {
-        sanyResult = await this.options.sanyRunner.validateSpec(specPath);
-      } finally {
-        // Cleanup temp file
-        try {
-          fs.rmSync(tempDir, { recursive: true });
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
-    }
-
-    // 5. Round-trip validation
-    let roundTripResult: RoundTripResult | null = null;
-    if (this.options.roundTripValidator) {
-      roundTripResult = await this.options.roundTripValidator.validate(config, analysis, spec);
-    }
+    // Round-trip validation
+    const roundTripResult = await this.performRoundTripValidation(config, analysis, spec);
 
     // Build validation report
     const validation: ValidationReport = {
@@ -199,7 +208,59 @@ export class TLAGenerator {
       throw new TLAValidationError(this.buildValidationErrorMessage(validation), validation);
     }
 
-    return { spec, cfg, validation };
+    return validation;
+  }
+
+  /**
+   * Perform fast syntax validation
+   */
+  private performSyntaxValidation(spec: string): ValidationError[] {
+    const syntaxErrors: ValidationError[] = [];
+    if (this.options?.validator) {
+      const moduleErrors = this.options.validator.validateModuleStructure(spec);
+      syntaxErrors.push(...moduleErrors);
+    }
+    return syntaxErrors;
+  }
+
+  /**
+   * Perform SANY validation
+   */
+  private async performSANYValidation(spec: string): Promise<SANYValidationResult | null> {
+    if (!this.options?.sanyRunner) {
+      return null;
+    }
+
+    // Write spec to temp file for SANY
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-sany-"));
+    const specPath = path.join(tempDir, "UserApp.tla");
+    fs.writeFileSync(specPath, spec);
+
+    try {
+      return await this.options.sanyRunner.validateSpec(specPath);
+    } finally {
+      // Cleanup temp file
+      try {
+        fs.rmSync(tempDir, { recursive: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  /**
+   * Perform round-trip validation
+   */
+  private async performRoundTripValidation(
+    config: VerificationConfig,
+    analysis: CodebaseAnalysis,
+    spec: string
+  ): Promise<RoundTripResult | null> {
+    if (!this.options?.roundTripValidator) {
+      return null;
+    }
+
+    return await this.options.roundTripValidator.validate(config, analysis, spec);
   }
 
   /**
@@ -225,6 +286,17 @@ export class TLAGenerator {
   private buildValidationErrorMessage(validation: ValidationReport): string {
     const messages: string[] = ["TLA+ generation validation failed:"];
 
+    this.appendSyntaxErrors(validation, messages);
+    this.appendSANYErrors(validation, messages);
+    this.appendRoundTripErrors(validation, messages);
+
+    return messages.join("\n");
+  }
+
+  /**
+   * Append syntax validation errors to message array
+   */
+  private appendSyntaxErrors(validation: ValidationReport, messages: string[]): void {
     if (!validation.syntaxValidation.passed) {
       messages.push(`\n  Syntax errors (${validation.syntaxValidation.errors.length}):`);
       for (const error of validation.syntaxValidation.errors.slice(0, 5)) {
@@ -235,7 +307,12 @@ export class TLAGenerator {
         messages.push(`    ... and ${validation.syntaxValidation.errors.length - 5} more`);
       }
     }
+  }
 
+  /**
+   * Append SANY validation errors to message array
+   */
+  private appendSANYErrors(validation: ValidationReport, messages: string[]): void {
     if (!validation.sanyValidation.passed && validation.sanyValidation.result) {
       messages.push(
         `\n  SANY validation errors (${validation.sanyValidation.result.errors.length}):`
@@ -251,7 +328,12 @@ export class TLAGenerator {
         messages.push(`    ... and ${validation.sanyValidation.result.errors.length - 5} more`);
       }
     }
+  }
 
+  /**
+   * Append round-trip validation errors to message array
+   */
+  private appendRoundTripErrors(validation: ValidationReport, messages: string[]): void {
     if (!validation.roundTripValidation.passed && validation.roundTripValidation.result) {
       messages.push(
         `\n  Round-trip validation errors (${validation.roundTripValidation.result.errors.length}):`
@@ -265,8 +347,6 @@ export class TLAGenerator {
         );
       }
     }
-
-    return messages.join("\n");
   }
 
   private generateSpec(config: VerificationConfig, analysis: CodebaseAnalysis): string {
@@ -303,71 +383,98 @@ export class TLAGenerator {
   private generateConfig(config: VerificationConfig): string {
     const lines: string[] = [];
 
+    this.addConfigHeader(lines);
+    this.addBasicConstants(lines, config);
+    this.addProjectSpecificConstants(lines, config.messages);
+    this.addStateBoundsConstants(lines, config.state);
+    this.addInvariantsSection(lines);
+    this.addTemporalPropertiesSection(lines);
+    this.addConstraintSection(lines);
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Add config file header
+   */
+  private addConfigHeader(lines: string[]): void {
     lines.push("SPECIFICATION UserSpec");
     lines.push("");
     lines.push("\\* Constants");
     lines.push("CONSTANTS");
+  }
 
-    // Generate context set (reduced for faster verification)
+  /**
+   * Add basic constants (Contexts, MaxMessages)
+   */
+  private addBasicConstants(lines: string[], config: VerificationConfig): void {
     lines.push("  Contexts = {background, content, popup}");
-
-    // Message bounds (defaults chosen for reasonable verification time)
     lines.push(`  MaxMessages = ${config.messages.maxInFlight || 3}`);
+  }
 
-    // Project-specific constants - generate all that are present
-    // Priority order: maxWorkers > maxRenderers > maxContexts > maxClients > maxTabs
+  /**
+   * Add project-specific constants (maxWorkers, maxRenderers, etc.)
+   */
+  private addProjectSpecificConstants(
+    lines: string[],
+    messages: VerificationConfig["messages"]
+  ): void {
     let hasProjectConstant = false;
 
-    if ("maxWorkers" in config.messages && config.messages.maxWorkers !== undefined) {
-      lines.push(`  MaxWorkers = ${config.messages.maxWorkers}`);
+    if ("maxWorkers" in messages && messages.maxWorkers !== undefined) {
+      lines.push(`  MaxWorkers = ${messages.maxWorkers}`);
       hasProjectConstant = true;
     }
-    if ("maxRenderers" in config.messages && config.messages.maxRenderers !== undefined) {
-      lines.push(`  MaxRenderers = ${config.messages.maxRenderers}`);
+    if ("maxRenderers" in messages && messages.maxRenderers !== undefined) {
+      lines.push(`  MaxRenderers = ${messages.maxRenderers}`);
       hasProjectConstant = true;
     }
-    if ("maxContexts" in config.messages && config.messages.maxContexts !== undefined) {
-      lines.push(`  MaxContexts = ${config.messages.maxContexts}`);
+    if ("maxContexts" in messages && messages.maxContexts !== undefined) {
+      lines.push(`  MaxContexts = ${messages.maxContexts}`);
       hasProjectConstant = true;
     }
-    if (
-      "maxClients" in config.messages &&
-      config.messages.maxClients !== undefined &&
-      !hasProjectConstant
-    ) {
-      lines.push(`  MaxClients = ${config.messages.maxClients}`);
+    if ("maxClients" in messages && messages.maxClients !== undefined && !hasProjectConstant) {
+      lines.push(`  MaxClients = ${messages.maxClients}`);
       hasProjectConstant = true;
     }
-    if ("maxTabs" in config.messages && config.messages.maxTabs !== undefined) {
-      lines.push(`  MaxTabId = ${config.messages.maxTabs}`);
+
+    // Handle MaxTabId
+    if ("maxTabs" in messages && messages.maxTabs !== undefined) {
+      lines.push(`  MaxTabId = ${messages.maxTabs}`);
     } else if (hasProjectConstant) {
-      // MaxTabId is required by MessageRouter.tla, set to 0 if unused
       lines.push("  MaxTabId = 0");
     } else {
-      // Default to MaxTabId for backward compatibility
       lines.push("  MaxTabId = 1");
     }
 
     lines.push("  TimeoutLimit = 3");
+  }
 
-    // State bounds from config
-    for (const [field, fieldConfig] of Object.entries(config.state)) {
-      if (typeof fieldConfig === "object" && fieldConfig !== null) {
-        if ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) {
-          const constName = this.fieldToConstName(field);
-          lines.push(`  ${constName}_MaxLength = ${fieldConfig.maxLength}`);
-        }
-        if ("max" in fieldConfig && fieldConfig.max !== null) {
-          const constName = this.fieldToConstName(field);
-          lines.push(`  ${constName}_Max = ${fieldConfig.max}`);
-        }
-        if ("maxSize" in fieldConfig && fieldConfig.maxSize !== null) {
-          const constName = this.fieldToConstName(field);
-          lines.push(`  ${constName}_MaxSize = ${fieldConfig.maxSize}`);
-        }
+  /**
+   * Add state bounds constants
+   */
+  private addStateBoundsConstants(lines: string[], state: VerificationConfig["state"]): void {
+    for (const [field, fieldConfig] of Object.entries(state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      const constName = this.fieldToConstName(field);
+
+      if ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) {
+        lines.push(`  ${constName}_MaxLength = ${fieldConfig.maxLength}`);
+      }
+      if ("max" in fieldConfig && fieldConfig.max !== null) {
+        lines.push(`  ${constName}_Max = ${fieldConfig.max}`);
+      }
+      if ("maxSize" in fieldConfig && fieldConfig.maxSize !== null) {
+        lines.push(`  ${constName}_MaxSize = ${fieldConfig.maxSize}`);
       }
     }
+  }
 
+  /**
+   * Add invariants section to config
+   */
+  private addInvariantsSection(lines: string[]): void {
     lines.push("");
     lines.push("\\* Invariants to check");
     lines.push("INVARIANTS");
@@ -375,29 +482,33 @@ export class TLAGenerator {
     lines.push("  NoRoutingLoops");
     lines.push("  UserStateTypeInvariant");
 
-    // Add extracted invariants if any
-    if (this.extractedInvariants.length > 0) {
-      for (const inv of this.extractedInvariants) {
-        lines.push(`  ${inv.name}`);
-      }
+    for (const inv of this.extractedInvariants) {
+      lines.push(`  ${inv.name}`);
     }
+  }
 
-    // Add temporal properties if any
-    if (this.temporalProperties.length > 0) {
-      lines.push("");
-      lines.push("\\* Temporal properties to check");
-      lines.push("PROPERTIES");
-      for (const prop of this.temporalProperties) {
-        lines.push(`  ${prop.name}`);
-      }
+  /**
+   * Add temporal properties section to config
+   */
+  private addTemporalPropertiesSection(lines: string[]): void {
+    if (this.temporalProperties.length === 0) return;
+
+    lines.push("");
+    lines.push("\\* Temporal properties to check");
+    lines.push("PROPERTIES");
+    for (const prop of this.temporalProperties) {
+      lines.push(`  ${prop.name}`);
     }
+  }
 
+  /**
+   * Add constraint section to config
+   */
+  private addConstraintSection(lines: string[]): void {
     lines.push("");
     lines.push("\\* State constraint");
     lines.push("CONSTRAINT");
     lines.push("  StateConstraint");
-
-    return lines.join("\n");
   }
 
   private addHeader(): void {
@@ -426,17 +537,7 @@ export class TLAGenerator {
     // MessageRouter already defines: Contexts, MaxMessages, MaxTabId, TimeoutLimit
     // We only add application-specific constants
 
-    const hasCustomConstants = Object.entries(config.state).some(([_, fieldConfig]) => {
-      if (typeof fieldConfig !== "object" || fieldConfig === null) return false;
-      return (
-        ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) ||
-        ("max" in fieldConfig && fieldConfig.max !== null) ||
-        ("maxSize" in fieldConfig && fieldConfig.maxSize !== null)
-      );
-    });
-
-    if (!hasCustomConstants) {
-      // No custom constants needed
+    if (!this.hasCustomConstants(config.state)) {
       return;
     }
 
@@ -444,28 +545,65 @@ export class TLAGenerator {
     this.line("CONSTANTS");
     this.indent++;
 
-    let first = true;
-    for (const [field, fieldConfig] of Object.entries(config.state)) {
-      if (typeof fieldConfig === "object" && fieldConfig !== null) {
-        const constName = this.fieldToConstName(field);
-
-        if ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) {
-          this.line(`${first ? "" : ","}${constName}_MaxLength  \\* Max length for ${field}`);
-          first = false;
-        }
-        if ("max" in fieldConfig && fieldConfig.max !== null) {
-          this.line(`${first ? "" : ","}${constName}_Max       \\* Max value for ${field}`);
-          first = false;
-        }
-        if ("maxSize" in fieldConfig && fieldConfig.maxSize !== null) {
-          this.line(`${first ? "" : ","}${constName}_MaxSize   \\* Max size for ${field}`);
-          first = false;
-        }
-      }
-    }
+    this.generateConstantDeclarations(config.state);
 
     this.indent--;
     this.line("");
+  }
+
+  /**
+   * Check if config has any custom constants
+   */
+  private hasCustomConstants(state: VerificationConfig["state"]): boolean {
+    return Object.values(state).some((fieldConfig) => {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) return false;
+      return (
+        ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) ||
+        ("max" in fieldConfig && fieldConfig.max !== null) ||
+        ("maxSize" in fieldConfig && fieldConfig.maxSize !== null)
+      );
+    });
+  }
+
+  /**
+   * Generate constant declarations for all state fields
+   */
+  private generateConstantDeclarations(state: VerificationConfig["state"]): void {
+    let first = true;
+
+    for (const [field, fieldConfig] of Object.entries(state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      const constName = this.fieldToConstName(field);
+      first = this.addFieldConstants(field, fieldConfig, constName, first);
+    }
+  }
+
+  /**
+   * Add constants for a single field
+   */
+  private addFieldConstants(
+    field: string,
+    fieldConfig: Record<string, unknown>,
+    constName: string,
+    first: boolean
+  ): boolean {
+    let isFirst = first;
+
+    if ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) {
+      this.line(`${isFirst ? "" : ","}${constName}_MaxLength  \\* Max length for ${field}`);
+      isFirst = false;
+    }
+    if ("max" in fieldConfig && fieldConfig.max !== null) {
+      this.line(`${isFirst ? "" : ","}${constName}_Max       \\* Max value for ${field}`);
+      isFirst = false;
+    }
+    if ("maxSize" in fieldConfig && fieldConfig.maxSize !== null) {
+      this.line(`${isFirst ? "" : ","}${constName}_MaxSize   \\* Max size for ${field}`);
+      isFirst = false;
+    }
+
+    return isFirst;
   }
 
   private addStateType(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
@@ -644,22 +782,60 @@ export class TLAGenerator {
     this.line("");
 
     if (analysis.handlers.length === 0) {
-      // No handlers found, keep the stub
-      this.line("\\* No message handlers found in codebase");
-      this.line("\\* State remains unchanged for all messages");
-      this.line("StateTransition(ctx, msgType) ==");
-      this.indent++;
-      this.line("UNCHANGED contextStates");
-      this.indent--;
-      this.line("");
+      this.generateNoHandlersStub();
       return;
     }
 
-    // Filter out handlers with invalid TLA+ identifiers
+    const { validHandlers, invalidHandlers } = this.filterHandlersByValidity(analysis.handlers);
+    this.logInvalidHandlers(invalidHandlers);
+
+    if (validHandlers.length === 0) {
+      this.generateNoValidHandlersStub();
+      return;
+    }
+
+    const handlersByType = this.groupHandlersByType(validHandlers);
+    this.generateHandlerActions(handlersByType, config);
+    this.generateStateTransitionDispatcher(handlersByType);
+  }
+
+  /**
+   * Generate stub for no handlers found
+   */
+  private generateNoHandlersStub(): void {
+    this.line("\\* No message handlers found in codebase");
+    this.line("\\* State remains unchanged for all messages");
+    this.line("StateTransition(ctx, msgType) ==");
+    this.indent++;
+    this.line("UNCHANGED contextStates");
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * Generate stub for no valid handlers
+   */
+  private generateNoValidHandlersStub(): void {
+    this.line("\\* No valid message handlers found (all had invalid TLA+ identifiers)");
+    this.line("\\* State remains unchanged for all messages");
+    this.line("StateTransition(ctx, msgType) ==");
+    this.indent++;
+    this.line("UNCHANGED contextStates");
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * Filter handlers into valid and invalid based on TLA+ identifier rules
+   */
+  private filterHandlersByValidity(handlers: MessageHandler[]): {
+    validHandlers: MessageHandler[];
+    invalidHandlers: MessageHandler[];
+  } {
     const validHandlers: MessageHandler[] = [];
     const invalidHandlers: MessageHandler[] = [];
 
-    for (const handler of analysis.handlers) {
+    for (const handler of handlers) {
       if (this.isValidTLAIdentifier(handler.messageType)) {
         validHandlers.push(handler);
       } else {
@@ -667,49 +843,60 @@ export class TLAGenerator {
       }
     }
 
-    // Log warnings about invalid handlers
-    if (invalidHandlers.length > 0 && process.env["POLLY_DEBUG"]) {
+    return { validHandlers, invalidHandlers };
+  }
+
+  /**
+   * Log warnings about invalid handlers
+   */
+  private logInvalidHandlers(invalidHandlers: MessageHandler[]): void {
+    if (invalidHandlers.length === 0 || !process.env["POLLY_DEBUG"]) return;
+
+    console.log(
+      `[WARN] [TLAGenerator] Filtered out ${invalidHandlers.length} handler(s) with invalid message types:`
+    );
+    for (const handler of invalidHandlers) {
       console.log(
-        `[WARN] [TLAGenerator] Filtered out ${invalidHandlers.length} handler(s) with invalid message types:`
+        `[WARN]   - "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
       );
-      for (const handler of invalidHandlers) {
-        console.log(
-          `[WARN]   - "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
-        );
-      }
     }
+  }
 
-    if (validHandlers.length === 0) {
-      // No valid handlers, keep the stub
-      this.line("\\* No valid message handlers found (all had invalid TLA+ identifiers)");
-      this.line("\\* State remains unchanged for all messages");
-      this.line("StateTransition(ctx, msgType) ==");
-      this.indent++;
-      this.line("UNCHANGED contextStates");
-      this.indent--;
-      this.line("");
-      return;
-    }
+  /**
+   * Group handlers by message type
+   */
+  private groupHandlersByType(handlers: MessageHandler[]): Map<string, MessageHandler[]> {
+    const handlersByType = new Map<string, MessageHandler[]>();
 
-    // Generate state transition actions for each handler
-    this.line("\\* State transitions extracted from message handlers");
-    this.line("");
-
-    // Group handlers by message type
-    const handlersByType = new Map<string, typeof analysis.handlers>();
-    for (const handler of validHandlers) {
+    for (const handler of handlers) {
       if (!handlersByType.has(handler.messageType)) {
         handlersByType.set(handler.messageType, []);
       }
       handlersByType.get(handler.messageType)?.push(handler);
     }
 
-    // Generate an action for each message type
+    return handlersByType;
+  }
+
+  /**
+   * Generate handler actions for all message types
+   */
+  private generateHandlerActions(
+    handlersByType: Map<string, MessageHandler[]>,
+    config: VerificationConfig
+  ): void {
+    this.line("\\* State transitions extracted from message handlers");
+    this.line("");
+
     for (const [messageType, handlers] of handlersByType.entries()) {
       this.generateHandlerAction(messageType, handlers, config);
     }
+  }
 
-    // Generate the main StateTransition action that dispatches to specific handlers
+  /**
+   * Generate main StateTransition dispatcher
+   */
+  private generateStateTransitionDispatcher(handlersByType: Map<string, MessageHandler[]>): void {
     this.line("\\* Main state transition action");
     this.line("StateTransition(ctx, msgType) ==");
     this.indent++;
@@ -745,97 +932,134 @@ export class TLAGenerator {
     this.line(`${actionName}(ctx) ==`);
     this.indent++;
 
-    // Collect all preconditions from all handlers
+    // Collect conditions and assignments
     const allPreconditions = handlers.flatMap((h) => h.preconditions);
-
-    // Collect all assignments from all handlers for this message type
     const allAssignments = handlers.flatMap((h) => h.assignments);
-
-    // Collect all postconditions from all handlers
     const allPostconditions = handlers.flatMap((h) => h.postconditions);
 
-    // Emit preconditions first
-    if (allPreconditions.length > 0) {
-      for (const precondition of allPreconditions) {
-        const tlaExpr = this.tsExpressionToTLA(precondition.expression);
-        const comment = precondition.message ? ` \\* ${precondition.message}` : "";
-        this.line(`/\\ ${tlaExpr}${comment}`);
-      }
-    }
+    // Emit preconditions
+    this.emitPreconditions(allPreconditions);
 
-    // Filter out null assignments and map them to valid values
-    const validAssignments = allAssignments
-      .filter((a) => {
-        if (a.value === null) {
-          // For null values, check if we can map to a valid value based on field config
-          const fieldConfig = config.state[a.field];
-          if (
-            fieldConfig &&
-            typeof fieldConfig === "object" &&
-            "values" in fieldConfig &&
-            fieldConfig.values
-          ) {
-            // Use the last value as the "null" value (often "guest", "none", etc.)
-            return true;
-          }
-          // Skip null assignments if we can't map them
-          return false;
-        }
-        return true;
-      })
-      .map((a) => {
-        if (a.value === null) {
-          const fieldConfig = config.state[a.field];
-          if (
-            fieldConfig &&
-            typeof fieldConfig === "object" &&
-            "values" in fieldConfig &&
-            fieldConfig.values
-          ) {
-            // Use the last value as the "null" value
-            const nullValue = fieldConfig.values[fieldConfig.values.length - 1];
-            return { ...a, value: nullValue };
-          }
-        }
-        return a;
-      });
+    // Process and emit assignments
+    const validAssignments = this.processAssignments(allAssignments, config.state);
+    this.emitStateUpdates(validAssignments, allPreconditions);
 
-    if (validAssignments.length === 0) {
-      // Handler exists but makes no state changes
-      if (allPreconditions.length === 0) {
-        this.line("\\* No state changes in handler");
-      }
-      this.line("/\\ UNCHANGED contextStates");
-    } else {
-      // Generate state updates
-      this.line("/\\ contextStates' = [contextStates EXCEPT");
-      this.indent++;
-
-      for (let i = 0; i < validAssignments.length; i++) {
-        const assignment = validAssignments[i];
-        if (!assignment || assignment.value === undefined) continue;
-        const fieldName = this.sanitizeFieldName(assignment.field);
-        const value = this.assignmentValueToTLA(assignment.value);
-        const suffix = i < validAssignments.length - 1 ? "," : "";
-
-        this.line(`![ctx].${fieldName} = ${value}${suffix}`);
-      }
-
-      this.indent--;
-      this.line("]");
-    }
-
-    // Emit postconditions last
-    if (allPostconditions.length > 0) {
-      for (const postcondition of allPostconditions) {
-        const tlaExpr = this.tsExpressionToTLA(postcondition.expression, true);
-        const comment = postcondition.message ? ` \\* ${postcondition.message}` : "";
-        this.line(`/\\ ${tlaExpr}${comment}`);
-      }
-    }
+    // Emit postconditions
+    this.emitPostconditions(allPostconditions);
 
     this.indent--;
     this.line("");
+  }
+
+  /**
+   * Emit precondition checks
+   */
+  private emitPreconditions(preconditions: Array<{ expression: string; message?: string }>): void {
+    for (const precondition of preconditions) {
+      const tlaExpr = this.tsExpressionToTLA(precondition.expression);
+      const comment = precondition.message ? ` \\* ${precondition.message}` : "";
+      this.line(`/\\ ${tlaExpr}${comment}`);
+    }
+  }
+
+  /**
+   * Emit postcondition checks
+   */
+  private emitPostconditions(
+    postconditions: Array<{ expression: string; message?: string }>
+  ): void {
+    for (const postcondition of postconditions) {
+      const tlaExpr = this.tsExpressionToTLA(postcondition.expression, true);
+      const comment = postcondition.message ? ` \\* ${postcondition.message}` : "";
+      this.line(`/\\ ${tlaExpr}${comment}`);
+    }
+  }
+
+  /**
+   * Process assignments, filtering and mapping null values
+   */
+  private processAssignments(
+    assignments: Array<{ field: string; value: string | boolean | number | null }>,
+    state: VerificationConfig["state"]
+  ): Array<{ field: string; value: string | boolean | number | null }> {
+    return assignments
+      .filter((a) => this.shouldIncludeAssignment(a, state))
+      .map((a) => this.mapNullAssignment(a, state));
+  }
+
+  /**
+   * Check if assignment should be included
+   */
+  private shouldIncludeAssignment(
+    assignment: { field: string; value: string | boolean | number | null },
+    state: VerificationConfig["state"]
+  ): boolean {
+    if (assignment.value !== null) return true;
+
+    // Check if null can be mapped to a valid value
+    const fieldConfig = state[assignment.field];
+    return !!(
+      fieldConfig &&
+      typeof fieldConfig === "object" &&
+      "values" in fieldConfig &&
+      fieldConfig.values
+    );
+  }
+
+  /**
+   * Map null assignment to a valid value if possible
+   */
+  private mapNullAssignment(
+    assignment: { field: string; value: string | boolean | number | null },
+    state: VerificationConfig["state"]
+  ): { field: string; value: string | boolean | number | null } {
+    if (assignment.value !== null) return assignment;
+
+    const fieldConfig = state[assignment.field];
+    if (
+      fieldConfig &&
+      typeof fieldConfig === "object" &&
+      "values" in fieldConfig &&
+      fieldConfig.values
+    ) {
+      const nullValue = fieldConfig.values[fieldConfig.values.length - 1];
+      return { ...assignment, value: nullValue };
+    }
+
+    return assignment;
+  }
+
+  /**
+   * Emit state updates or UNCHANGED
+   */
+  private emitStateUpdates(
+    validAssignments: Array<{ field: string; value: string | boolean | number | null }>,
+    preconditions: Array<{ expression: string; message?: string }>
+  ): void {
+    if (validAssignments.length === 0) {
+      if (preconditions.length === 0) {
+        this.line("\\* No state changes in handler");
+      }
+      this.line("/\\ UNCHANGED contextStates");
+      return;
+    }
+
+    this.line("/\\ contextStates' = [contextStates EXCEPT");
+    this.indent++;
+
+    for (let i = 0; i < validAssignments.length; i++) {
+      const assignment = validAssignments[i];
+      if (!assignment || assignment.value === undefined) continue;
+
+      const fieldName = this.sanitizeFieldName(assignment.field);
+      const value = this.assignmentValueToTLA(assignment.value);
+      const suffix = i < validAssignments.length - 1 ? "," : "";
+
+      this.line(`![ctx].${fieldName} = ${value}${suffix}`);
+    }
+
+    this.indent--;
+    this.line("]");
   }
 
   /**
@@ -1184,7 +1408,8 @@ export class TLAGenerator {
     const maxIterations = 10; // Prevent infinite loops
 
     // Process ternaries from innermost to outermost (right to left)
-    while ((match = result.match(ternaryRegex)) && iterations < maxIterations) {
+    match = result.match(ternaryRegex);
+    while (match && iterations < maxIterations) {
       const condition = match[1]?.trim();
       const trueVal = match[2]?.trim();
       const falseVal = match[3]?.trim();
@@ -1192,8 +1417,11 @@ export class TLAGenerator {
       const tlaIf = `IF ${condition} THEN ${trueVal} ELSE ${falseVal}`;
 
       // Replace the matched ternary
-      result = result.replace(match[0]!, tlaIf);
+      if (match[0]) {
+        result = result.replace(match[0], tlaIf);
+      }
       iterations++;
+      match = result.match(ternaryRegex);
     }
 
     return result;
@@ -1218,14 +1446,18 @@ export class TLAGenerator {
     let iterations = 0;
     const maxIterations = 10;
 
-    while ((match = result.match(nullishRegex)) && iterations < maxIterations) {
+    match = result.match(nullishRegex);
+    while (match && iterations < maxIterations) {
       const value = match[1]?.trim();
       const defaultVal = match[2]?.trim();
 
       const tlaIf = `IF ${value} # NULL THEN ${value} ELSE ${defaultVal}`;
 
-      result = result.replace(match[0]!, tlaIf);
+      if (match[0]) {
+        result = result.replace(match[0], tlaIf);
+      }
       iterations++;
+      match = result.match(nullishRegex);
     }
 
     return result;
@@ -1567,51 +1799,86 @@ export class TLAGenerator {
 
   private fieldConfigToTLAType(
     _fieldPath: string,
-    fieldConfig: any,
+    fieldConfig: FieldConfig,
     _config: VerificationConfig
   ): string {
-    if ("type" in fieldConfig) {
-      if (fieldConfig.type === "boolean") {
-        return "BOOLEAN";
-      }
-      if (fieldConfig.type === "enum" && fieldConfig.values) {
-        const values = fieldConfig.values.map((v: string) => `"${v}"`).join(", ");
-        return `{${values}}`;
-      }
-    }
+    // Try each type pattern in order
+    const typeResult =
+      this.tryBooleanType(fieldConfig) ||
+      this.tryEnumType(fieldConfig) ||
+      this.tryArrayType(fieldConfig) ||
+      this.tryNumberType(fieldConfig) ||
+      this.tryStringType(fieldConfig) ||
+      this.tryMapType(fieldConfig);
 
+    return typeResult || "Value";
+  }
+
+  /**
+   * Try to match boolean type pattern
+   */
+  private tryBooleanType(fieldConfig: FieldConfig): string | null {
+    if ("type" in fieldConfig && fieldConfig.type === "boolean") {
+      return "BOOLEAN";
+    }
+    return null;
+  }
+
+  /**
+   * Try to match enum type pattern
+   */
+  private tryEnumType(fieldConfig: FieldConfig): string | null {
+    if ("type" in fieldConfig && fieldConfig.type === "enum" && fieldConfig.values) {
+      const values = fieldConfig.values.map((v: string) => `"${v}"`).join(", ");
+      return `{${values}}`;
+    }
+    return null;
+  }
+
+  /**
+   * Try to match array type pattern
+   */
+  private tryArrayType(fieldConfig: FieldConfig): string | null {
     if ("maxLength" in fieldConfig) {
-      // Array type - represented as sequence with bounded length
-      return "Seq(Value)"; // Simplified - would need element type
+      return "Seq(Value)";
     }
+    return null;
+  }
 
+  /**
+   * Try to match number type pattern
+   */
+  private tryNumberType(fieldConfig: FieldConfig): string | null {
     if ("min" in fieldConfig && "max" in fieldConfig) {
-      // Number type
       const min = fieldConfig.min || 0;
       const max = fieldConfig.max || 100;
       return `${min}..${max}`;
     }
+    return null;
+  }
 
-    if ("values" in fieldConfig) {
-      if (fieldConfig.values && Array.isArray(fieldConfig.values)) {
-        // String with concrete values
-        const values = fieldConfig.values.map((v: string) => `"${v}"`).join(", ");
-        return `{${values}}`;
-      }
-      if (fieldConfig.abstract) {
-        // Abstract string
-        return "STRING";
-      }
-      // Needs configuration
-      return "STRING";
+  /**
+   * Try to match string type pattern
+   */
+  private tryStringType(fieldConfig: FieldConfig): string | null {
+    if (!("values" in fieldConfig)) return null;
+
+    if (fieldConfig.values && Array.isArray(fieldConfig.values)) {
+      const values = fieldConfig.values.map((v: string) => `"${v}"`).join(", ");
+      return `{${values}}`;
     }
 
+    return "STRING";
+  }
+
+  /**
+   * Try to match map type pattern
+   */
+  private tryMapType(fieldConfig: FieldConfig): string | null {
     if ("maxSize" in fieldConfig) {
-      // Map with bounded key set
       return "[Keys -> Value]";
     }
-
-    return "Value"; // Generic fallback
+    return null;
   }
 
   private getInitialValueFromAnalysis(fieldAnalysis: FieldAnalysis): string {
@@ -1620,64 +1887,81 @@ export class TLAGenerator {
     switch (typeInfo.kind) {
       case "boolean":
         return "FALSE";
-
       case "string":
-        // Check if there are enum values
-        if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
-          return `"${typeInfo.enumValues[0]}"`;
-        }
-        // Check bounds for bounded strings
-        if (fieldAnalysis.bounds?.values && fieldAnalysis.bounds.values.length > 0) {
-          return `"${fieldAnalysis.bounds.values[0]}"`;
-        }
-        return '""';
-
+        return this.getInitialStringValue(typeInfo, fieldAnalysis.bounds);
       case "number":
-        // Check for numeric bounds
-        if (fieldAnalysis.bounds?.min !== undefined) {
-          return `${fieldAnalysis.bounds.min}`;
-        }
-        return "0";
-
+        return this.getInitialNumberValue(fieldAnalysis.bounds);
       case "enum":
-        if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
-          return `"${typeInfo.enumValues[0]}"`;
-        }
-        return '""';
-
+        return this.getInitialEnumValue(typeInfo);
       case "array":
-        // Empty sequence
         return "<<>>";
-
       case "set":
-        // Empty set
         return "{}";
-
       case "map":
-        // Empty function
         return "[x \\in {} |-> NULL]";
-
       case "object":
-        // Empty record or generic value
         return "NULL";
-
       case "null":
         return "NULL";
-
       case "union":
-        // Try to pick the first non-null type
-        if (typeInfo.unionTypes && typeInfo.unionTypes.length > 0) {
-          const firstType =
-            typeInfo.unionTypes.find((t) => t.kind !== "null") || typeInfo.unionTypes[0];
-          return this.getInitialValueFromAnalysis({
-            ...fieldAnalysis,
-            type: firstType,
-          });
-        }
-        return "NULL";
+        return this.getInitialUnionValue(typeInfo, fieldAnalysis);
       default:
         return "NULL";
     }
+  }
+
+  /**
+   * Get initial value for string type
+   */
+  private getInitialStringValue(
+    typeInfo: { enumValues?: string[] },
+    bounds?: { values?: string[] }
+  ): string {
+    if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
+      return `"${typeInfo.enumValues[0]}"`;
+    }
+    if (bounds?.values && bounds.values.length > 0) {
+      return `"${bounds.values[0]}"`;
+    }
+    return '""';
+  }
+
+  /**
+   * Get initial value for number type
+   */
+  private getInitialNumberValue(bounds?: { min?: number }): string {
+    if (bounds?.min !== undefined) {
+      return `${bounds.min}`;
+    }
+    return "0";
+  }
+
+  /**
+   * Get initial value for enum type
+   */
+  private getInitialEnumValue(typeInfo: { enumValues?: string[] }): string {
+    if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
+      return `"${typeInfo.enumValues[0]}"`;
+    }
+    return '""';
+  }
+
+  /**
+   * Get initial value for union type
+   */
+  private getInitialUnionValue(
+    typeInfo: { unionTypes?: Array<{ kind: string }> },
+    fieldAnalysis: FieldAnalysis
+  ): string {
+    if (typeInfo.unionTypes && typeInfo.unionTypes.length > 0) {
+      const firstType =
+        typeInfo.unionTypes.find((t) => t.kind !== "null") || typeInfo.unionTypes[0];
+      return this.getInitialValueFromAnalysis({
+        ...fieldAnalysis,
+        type: firstType as FieldAnalysis["type"],
+      });
+    }
+    return "NULL";
   }
 
   private inferTLATypeFromAnalysis(fieldAnalysis: FieldAnalysis): string {
@@ -1753,7 +2037,7 @@ export class TLAGenerator {
     }
   }
 
-  private getInitialValue(fieldConfig: any): string {
+  private getInitialValue(fieldConfig: FieldConfig): string {
     if ("type" in fieldConfig) {
       if (fieldConfig.type === "boolean") {
         return "FALSE";
