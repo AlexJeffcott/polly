@@ -322,39 +322,62 @@ export class HandlerExtractor {
     const left = node.getLeft();
     const right = node.getRight();
 
-    // Property access: state.field = value
     if (Node.isPropertyAccessExpression(left)) {
-      const fieldPath = this.getPropertyPath(left);
-      if (fieldPath.startsWith("state.")) {
-        const field = fieldPath.substring(6);
-        const value = this.extractValue(right);
-        if (value !== undefined) {
-          assignments.push({ field, value });
-        }
+      this.extractPropertyAccessAssignment(left, right, assignments);
+    } else if (Node.isElementAccessExpression(left)) {
+      this.extractElementAccessAssignment(left, right, assignments);
+    }
+  }
+
+  /**
+   * Extract property access assignment (state.field = value)
+   */
+  private extractPropertyAccessAssignment(
+    left: Node,
+    right: Node,
+    assignments: StateAssignment[]
+  ): void {
+    if (!Node.isPropertyAccessExpression(left)) return;
+
+    const fieldPath = this.getPropertyPath(left);
+    if (fieldPath.startsWith("state.")) {
+      const field = fieldPath.substring(6);
+      const value = this.extractValue(right);
+      if (value !== undefined) {
+        assignments.push({ field, value });
       }
     }
-    // Element access: state.items[index] = value
-    else if (Node.isElementAccessExpression(left)) {
-      const expr = left.getExpression();
-      if (Node.isPropertyAccessExpression(expr)) {
-        const fieldPath = this.getPropertyPath(expr);
-        if (fieldPath.startsWith("state.")) {
-          const field = fieldPath.substring(6);
-          const indexExpr = left.getArgumentExpression();
-          const index = indexExpr ? indexExpr.getText() : "0";
-          const value = this.extractValue(right);
+  }
 
-          if (value !== undefined) {
-            const tlaIndex = this.isNumericLiteral(index)
-              ? (Number.parseInt(index) + 1).toString()
-              : `${index} + 1`;
-            assignments.push({
-              field: `${field}[${tlaIndex}]`,
-              value,
-            });
-          }
-        }
-      }
+  /**
+   * Extract element access assignment (state.items[index] = value)
+   */
+  private extractElementAccessAssignment(
+    left: Node,
+    right: Node,
+    assignments: StateAssignment[]
+  ): void {
+    if (!Node.isElementAccessExpression(left)) return;
+
+    const expr = left.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
+
+    const fieldPath = this.getPropertyPath(expr);
+    if (!fieldPath.startsWith("state.")) return;
+
+    const field = fieldPath.substring(6);
+    const indexExpr = left.getArgumentExpression();
+    const index = indexExpr ? indexExpr.getText() : "0";
+    const value = this.extractValue(right);
+
+    if (value !== undefined) {
+      const tlaIndex = this.isNumericLiteral(index)
+        ? (Number.parseInt(index) + 1).toString()
+        : `${index} + 1`;
+      assignments.push({
+        field: `${field}[${tlaIndex}]`,
+        value,
+      });
     }
   }
 
