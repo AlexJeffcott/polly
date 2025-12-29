@@ -592,15 +592,35 @@ export class StructurizrDSLGenerator {
   private generateContainerRelationships(): string {
     const parts: string[] = [];
 
-    // Add user relationships
+    parts.push(...this.generateUserRelationships());
+    parts.push(...this.generateMessageFlowRelationships());
+    parts.push(...this.generateExternalAPIRelationships());
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Generate user-to-UI relationships
+   */
+  private generateUserRelationships(): string[] {
+    const parts: string[] = [];
     const uiContexts = ["popup", "options", "devtools"];
+
     for (const contextType of Object.keys(this.analysis.contexts)) {
       if (uiContexts.includes(contextType)) {
         parts.push(`      user -> extension.${contextType} "Uses"`);
       }
     }
 
-    // Add message flow relationships
+    return parts;
+  }
+
+  /**
+   * Generate message flow relationships
+   */
+  private generateMessageFlowRelationships(): string[] {
+    const parts: string[] = [];
+
     for (const flow of this.analysis.messageFlows) {
       const tech = `Sends ${flow.messageType}`;
       for (const to of flow.to) {
@@ -608,26 +628,36 @@ export class StructurizrDSLGenerator {
       }
     }
 
-    // Add external API relationships
-    for (const integration of this.analysis.integrations) {
-      if (integration.type === "api" || integration.type === "websocket") {
-        // Find which contexts use this integration
-        for (const [contextType, contextInfo] of Object.entries(this.analysis.contexts)) {
-          const usesIntegration = contextInfo.externalAPIs.some((api) =>
-            integration.calls?.some((call) => call.endpoint === api.endpoint)
-          );
+    return parts;
+  }
 
-          if (usesIntegration) {
-            const method = integration.type === "websocket" ? "Connects to" : "Calls";
-            parts.push(
-              `      extension.${contextType} -> ${this.toId(integration.name)} "${method}"`
-            );
-          }
+  /**
+   * Generate external API relationships
+   */
+  private generateExternalAPIRelationships(): string[] {
+    const parts: string[] = [];
+
+    for (const integration of this.analysis.integrations) {
+      if (integration.type !== "api" && integration.type !== "websocket") {
+        continue;
+      }
+
+      // Find which contexts use this integration
+      for (const [contextType, contextInfo] of Object.entries(this.analysis.contexts)) {
+        const usesIntegration = contextInfo.externalAPIs.some((api) =>
+          integration.calls?.some((call) => call.endpoint === api.endpoint)
+        );
+
+        if (usesIntegration) {
+          const method = integration.type === "websocket" ? "Connects to" : "Calls";
+          parts.push(
+            `      extension.${contextType} -> ${this.toId(integration.name)} "${method}"`
+          );
         }
       }
     }
 
-    return parts.join("\n");
+    return parts;
   }
 
   /**
