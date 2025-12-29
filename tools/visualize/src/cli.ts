@@ -4,6 +4,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
+import type { ArchitectureAnalysis } from "../../analysis/src/types/architecture";
 import { generateStructurizrDSL } from "./codegen/structurizr";
 import { exportDiagrams } from "./runner/export";
 
@@ -56,115 +57,132 @@ async function generateCommand() {
   console.log(color("\n📊 Analyzing architecture...\n", COLORS.blue));
 
   try {
-    // Find tsconfig
-    const tsConfigPath = findTsConfig();
-    if (!tsConfigPath) {
-      process.exit(1);
-    }
-
-    console.log(color(`   Using: ${tsConfigPath}`, COLORS.gray));
-
-    // Find project root
-    const projectRoot = findProjectRoot();
-    if (!projectRoot) {
-      process.exit(1);
-    }
-
-    console.log(color(`   Project: ${projectRoot}`, COLORS.gray));
-
-    // Detect and display project type
-    const hasManifest = fs.existsSync(path.join(projectRoot, "manifest.json"));
-    if (hasManifest) {
-      console.log(color("   Type: Chrome Extension", COLORS.gray));
-    } else {
-      console.log(color("   Type: Detecting from project structure...", COLORS.gray));
-    }
-
-    // Analyze architecture
-    const analysis = await analyzeArchitecture({
-      tsConfigPath,
-      projectRoot,
-    });
-
-    console.log(
-      color(`\n✓ Found ${Object.keys(analysis.contexts).length} context(s)`, COLORS.green)
-    );
-    console.log(color(`✓ Found ${analysis.messageFlows.length} message flow(s)`, COLORS.green));
-    console.log(color(`✓ Found ${analysis.integrations.length} integration(s)`, COLORS.green));
-
-    // Show summary
-    console.log(color("\n📋 Architecture Summary:\n", COLORS.blue));
-
-    console.log(color("  Contexts:", COLORS.blue));
-    for (const [contextType, contextInfo] of Object.entries(analysis.contexts)) {
-      console.log(color(`    • ${contextType}`, COLORS.gray));
-      console.log(color(`      - ${contextInfo.handlers.length} handler(s)`, COLORS.gray));
-      console.log(color(`      - ${contextInfo.chromeAPIs.length} Chrome API(s)`, COLORS.gray));
-      if (contextInfo.components) {
-        console.log(color(`      - ${contextInfo.components.length} component(s)`, COLORS.gray));
-      }
-    }
-
-    if (analysis.integrations.length > 0) {
-      console.log(color("\n  External Integrations:", COLORS.blue));
-      for (const integration of analysis.integrations) {
-        console.log(color(`    • ${integration.name} (${integration.type})`, COLORS.gray));
-      }
-    }
-
-    // Generate Structurizr DSL
-    console.log(color("\n📝 Generating Structurizr DSL...\n", COLORS.blue));
-
-    // Auto-include all detected contexts for component diagrams
-    const contextTypes = Object.keys(analysis.contexts);
-
-    const dsl = generateStructurizrDSL(analysis, {
-      includeDynamicDiagrams: true,
-      includeComponentDiagrams: true,
-      componentDiagramContexts: contextTypes.length > 0 ? contextTypes : ["background"],
-    });
-
-    // Write to file
-    const outputDir = path.join(process.cwd(), "docs");
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    const dslPath = path.join(outputDir, "architecture.dsl");
-    fs.writeFileSync(dslPath, dsl, "utf-8");
-
-    console.log(color("✅ Architecture documentation generated!\n", COLORS.green));
-    console.log(`   File: ${color(dslPath, COLORS.blue)}`);
-    console.log();
-    console.log(color("📝 Next steps:", COLORS.blue));
-    console.log();
-    console.log("   1. Export diagrams:");
-    console.log("      bun visualize --export");
-    console.log();
-    console.log("   2. View in browser:");
-    console.log("      bun visualize --serve");
-    console.log();
-    console.log(color("💡 Alternative: Structurizr Lite", COLORS.gray));
-    console.log(color("   docker run -it --rm -p 8080:8080 \\", COLORS.gray));
-    console.log(color(`     -v ${outputDir}:/usr/local/structurizr \\`, COLORS.gray));
-    console.log(color("     structurizr/lite", COLORS.gray));
-    console.log();
-    console.log(color("💡 Upload to Structurizr Cloud:", COLORS.gray));
-    console.log(color("   1. Sign up at https://structurizr.com", COLORS.gray));
-    console.log(color("   2. Create a workspace and get API credentials", COLORS.gray));
-    console.log(
-      color("   3. docker run -it --rm -v $(pwd)/docs:/usr/local/structurizr \\", COLORS.gray)
-    );
-    console.log(
-      color("        structurizr/cli push -id WORKSPACE_ID -key KEY -secret SECRET \\", COLORS.gray)
-    );
-    console.log(color("        -workspace /usr/local/structurizr/architecture.dsl", COLORS.gray));
-    console.log();
+    const { tsConfigPath, projectRoot } = findAndDisplayProjectConfig();
+    const analysis = await analyzeAndDisplayResults(tsConfigPath, projectRoot);
+    const dslPath = generateAndWriteDSL(analysis);
+    displayNextSteps(dslPath);
   } catch (error) {
     if (error instanceof Error && error.stack) {
     }
     process.exit(1);
   }
+}
+
+function findAndDisplayProjectConfig(): { tsConfigPath: string; projectRoot: string } {
+  const tsConfigPath = findTsConfig();
+  if (!tsConfigPath) {
+    process.exit(1);
+  }
+  console.log(color(`   Using: ${tsConfigPath}`, COLORS.gray));
+
+  const projectRoot = findProjectRoot();
+  if (!projectRoot) {
+    process.exit(1);
+  }
+  console.log(color(`   Project: ${projectRoot}`, COLORS.gray));
+
+  displayProjectType(projectRoot);
+
+  return { tsConfigPath, projectRoot };
+}
+
+function displayProjectType(projectRoot: string): void {
+  const hasManifest = fs.existsSync(path.join(projectRoot, "manifest.json"));
+  const projectType = hasManifest
+    ? "Chrome Extension"
+    : "Detecting from project structure...";
+  console.log(color(`   Type: ${projectType}`, COLORS.gray));
+}
+
+async function analyzeAndDisplayResults(
+  tsConfigPath: string,
+  projectRoot: string
+): Promise<ArchitectureAnalysis> {
+  const analysis = await analyzeArchitecture({ tsConfigPath, projectRoot });
+
+  console.log(
+    color(`\n✓ Found ${Object.keys(analysis.contexts).length} context(s)`, COLORS.green)
+  );
+  console.log(color(`✓ Found ${analysis.messageFlows.length} message flow(s)`, COLORS.green));
+  console.log(color(`✓ Found ${analysis.integrations.length} integration(s)`, COLORS.green));
+
+  displayArchitectureSummary(analysis);
+
+  return analysis;
+}
+
+function displayArchitectureSummary(analysis: ArchitectureAnalysis): void {
+  console.log(color("\n📋 Architecture Summary:\n", COLORS.blue));
+
+  console.log(color("  Contexts:", COLORS.blue));
+  for (const [contextType, contextInfo] of Object.entries(analysis.contexts)) {
+    console.log(color(`    • ${contextType}`, COLORS.gray));
+    console.log(color(`      - ${contextInfo.handlers.length} handler(s)`, COLORS.gray));
+    console.log(color(`      - ${contextInfo.chromeAPIs.length} Chrome API(s)`, COLORS.gray));
+    if (contextInfo.components) {
+      console.log(color(`      - ${contextInfo.components.length} component(s)`, COLORS.gray));
+    }
+  }
+
+  if (analysis.integrations.length > 0) {
+    console.log(color("\n  External Integrations:", COLORS.blue));
+    for (const integration of analysis.integrations) {
+      console.log(color(`    • ${integration.name} (${integration.type})`, COLORS.gray));
+    }
+  }
+}
+
+function generateAndWriteDSL(analysis: ArchitectureAnalysis): string {
+  console.log(color("\n📝 Generating Structurizr DSL...\n", COLORS.blue));
+
+  const contextTypes = Object.keys(analysis.contexts);
+  const dsl = generateStructurizrDSL(analysis, {
+    includeDynamicDiagrams: true,
+    includeComponentDiagrams: true,
+    componentDiagramContexts: contextTypes.length > 0 ? contextTypes : ["background"],
+  });
+
+  const outputDir = path.join(process.cwd(), "docs");
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const dslPath = path.join(outputDir, "architecture.dsl");
+  fs.writeFileSync(dslPath, dsl, "utf-8");
+
+  return dslPath;
+}
+
+function displayNextSteps(dslPath: string): void {
+  const outputDir = path.join(process.cwd(), "docs");
+
+  console.log(color("✅ Architecture documentation generated!\n", COLORS.green));
+  console.log(`   File: ${color(dslPath, COLORS.blue)}`);
+  console.log();
+  console.log(color("📝 Next steps:", COLORS.blue));
+  console.log();
+  console.log("   1. Export diagrams:");
+  console.log("      bun visualize --export");
+  console.log();
+  console.log("   2. View in browser:");
+  console.log("      bun visualize --serve");
+  console.log();
+  console.log(color("💡 Alternative: Structurizr Lite", COLORS.gray));
+  console.log(color("   docker run -it --rm -p 8080:8080 \\", COLORS.gray));
+  console.log(color(`     -v ${outputDir}:/usr/local/structurizr \\`, COLORS.gray));
+  console.log(color("     structurizr/lite", COLORS.gray));
+  console.log();
+  console.log(color("💡 Upload to Structurizr Cloud:", COLORS.gray));
+  console.log(color("   1. Sign up at https://structurizr.com", COLORS.gray));
+  console.log(color("   2. Create a workspace and get API credentials", COLORS.gray));
+  console.log(
+    color("   3. docker run -it --rm -v $(pwd)/docs:/usr/local/structurizr \\", COLORS.gray)
+  );
+  console.log(
+    color("        structurizr/cli push -id WORKSPACE_ID -key KEY -secret SECRET \\", COLORS.gray)
+  );
+  console.log(color("        -workspace /usr/local/structurizr/architecture.dsl", COLORS.gray));
+  console.log();
 }
 
 async function exportCommand(_args: string[]) {
