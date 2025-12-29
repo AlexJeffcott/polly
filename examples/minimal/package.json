@@ -6,6 +6,7 @@
     "check": "polly check",
     "build": "polly build",
     "build:prod": "polly build --prod",
+    "test": "polly test",
     "typecheck": "polly typecheck",
     "lint": "polly lint",
     "lint:fix": "polly lint --fix",

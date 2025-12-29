@@ -6,6 +6,7 @@
     "dev": "bun run --hot src/main.ts",
     "build": "bun build.ts",
     "serve": "bun --hot server.ts",
+    "test": "bun test",
     "typecheck": "bun tsc --noEmit",
     "visualize": "bun ../../visualize/src/cli.ts"
   },
