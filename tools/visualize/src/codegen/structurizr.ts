@@ -903,20 +903,38 @@ export class StructurizrDSLGenerator {
    * Automatically generate dynamic diagrams from handler relationships
    */
   private generateAutomaticDynamicDiagrams(): string[] {
-    const diagrams: string[] = [];
-    // Collect all handlers with relationships from all contexts
     type HandlerWithContext = {
       handler: MessageHandler;
       contextType: string;
       contextName: string;
     };
 
-    const handlersWithRelationships: HandlerWithContext[] = [];
+    const handlersWithRelationships = this.collectHandlersWithRelationships();
+    const handlerGroups = this.categorizeHandlers(handlersWithRelationships);
+    return this.generateCategoryDiagrams(
+      handlerGroups,
+      handlersWithRelationships.length
+    );
+  }
+
+  /**
+   * Collect all handlers with relationships from all contexts
+   */
+  private collectHandlersWithRelationships(): Array<{
+    handler: MessageHandler;
+    contextType: string;
+    contextName: string;
+  }> {
+    const handlers: Array<{
+      handler: MessageHandler;
+      contextType: string;
+      contextName: string;
+    }> = [];
 
     for (const [contextType, contextInfo] of Object.entries(this.analysis.contexts)) {
       for (const handler of contextInfo.handlers) {
         if (handler.relationships && handler.relationships.length > 0) {
-          handlersWithRelationships.push({
+          handlers.push({
             handler,
             contextType,
             contextName: this.toId(contextType),
@@ -925,76 +943,104 @@ export class StructurizrDSLGenerator {
       }
     }
 
-    // Group handlers by category for focused diagrams
-    const handlerGroups = new Map<string, HandlerWithContext[]>();
+    return handlers;
+  }
 
-    for (const hwc of handlersWithRelationships) {
-      const messageType = hwc.handler.messageType.toLowerCase();
-      let category = "general";
+  /**
+   * Categorize handlers by message type patterns
+   */
+  private categorizeHandlers(
+    handlers: Array<{ handler: MessageHandler; contextType: string; contextName: string }>
+  ): Map<string, Array<{ handler: MessageHandler; contextType: string; contextName: string }>> {
+    const groups = new Map<
+      string,
+      Array<{ handler: MessageHandler; contextType: string; contextName: string }>
+    >();
 
-      // Category 1: Authentication
-      if (
-        messageType.includes("auth") ||
-        messageType.includes("login") ||
-        messageType.includes("logout") ||
-        messageType.includes("verify") ||
-        messageType.includes("register")
-      ) {
-        category = "authentication";
-      }
-      // Category 2: CRUD operations by entity
-      else if (messageType.includes("user")) {
-        category = "user";
-      } else if (messageType.includes("todo")) {
-        category = "todo";
-      }
-      // Category 3: Query vs Command
-      else if (
-        messageType.includes("query") ||
-        messageType.includes("get") ||
-        messageType.includes("fetch") ||
-        messageType.includes("list")
-      ) {
-        category = "query";
-      } else if (
-        messageType.includes("command") ||
-        messageType.includes("create") ||
-        messageType.includes("update") ||
-        messageType.includes("delete") ||
-        messageType.includes("add") ||
-        messageType.includes("remove")
-      ) {
-        category = "command";
-      }
+    for (const hwc of handlers) {
+      const category = this.inferHandlerCategory(hwc.handler.messageType);
 
-      if (!handlerGroups.has(category)) {
-        handlerGroups.set(category, []);
+      if (!groups.has(category)) {
+        groups.set(category, []);
       }
-      handlerGroups.get(category)?.push(hwc);
+      groups.get(category)?.push(hwc);
     }
 
-    // Generate a diagram for each category (limit to avoid clutter)
-    let diagramCount = 0;
+    return groups;
+  }
+
+  /**
+   * Infer handler category from message type
+   */
+  private inferHandlerCategory(messageType: string): string {
+    const lowerType = messageType.toLowerCase();
+
+    if (
+      lowerType.includes("auth") ||
+      lowerType.includes("login") ||
+      lowerType.includes("logout") ||
+      lowerType.includes("verify") ||
+      lowerType.includes("register")
+    ) {
+      return "authentication";
+    }
+
+    if (lowerType.includes("user")) {
+      return "user";
+    }
+
+    if (lowerType.includes("todo")) {
+      return "todo";
+    }
+
+    if (
+      lowerType.includes("query") ||
+      lowerType.includes("get") ||
+      lowerType.includes("fetch") ||
+      lowerType.includes("list")
+    ) {
+      return "query";
+    }
+
+    if (
+      lowerType.includes("command") ||
+      lowerType.includes("create") ||
+      lowerType.includes("update") ||
+      lowerType.includes("delete") ||
+      lowerType.includes("add") ||
+      lowerType.includes("remove")
+    ) {
+      return "command";
+    }
+
+    return "general";
+  }
+
+  /**
+   * Generate diagrams based on categorized handlers
+   */
+  private generateCategoryDiagrams(
+    handlerGroups: Map<
+      string,
+      Array<{ handler: MessageHandler; contextType: string; contextName: string }>
+    >,
+    totalHandlers: number
+  ): string[] {
+    const diagrams: string[] = [];
     const maxDiagrams = 5;
 
-    // If we have multiple small categories, combine into a single overview diagram
-    const totalHandlers = handlersWithRelationships.length;
-    const categoriesWithHandlers = handlerGroups.size;
-
-    if (totalHandlers <= 5 && categoriesWithHandlers <= 3) {
-      // Generate a single "Message Processing Flow" diagram with all handlers
+    if (totalHandlers <= 5 && handlerGroups.size <= 3) {
       const allHandlers = Array.from(handlerGroups.values()).flat();
       const diagram = this.generateHandlerFlowDiagram("general", allHandlers);
       if (diagram) {
         diagrams.push(diagram);
       }
     } else {
-      // Generate separate diagrams per category
+      let diagramCount = 0;
       for (const [category, handlers] of handlerGroups) {
         if (diagramCount >= maxDiagrams) break;
         if (handlers.length === 0) continue;
 
-        // Generate diagram if we have at least 1 handler with relationships
         const diagram = this.generateHandlerFlowDiagram(category, handlers);
         if (diagram) {
           diagrams.push(diagram);
