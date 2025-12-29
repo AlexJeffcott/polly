@@ -1,6 +1,13 @@
 // Context analysis - analyze individual execution contexts
 
-import { Node, Project } from "ts-morph";
+import {
+  Node,
+  Project,
+  type SourceFile,
+  type PropertyAccessExpression,
+  type FunctionDeclaration,
+  type ClassDeclaration,
+} from "ts-morph";
 import type { ComponentInfo, ContextInfo } from "../types/architecture";
 import type { MessageHandler } from "../types/core";
 
@@ -55,10 +62,10 @@ export class ContextAnalyzer {
   /**
    * Extract Chrome API usage from source file
    */
-  private extractChromeAPIs(sourceFile: any): string[] {
+  private extractChromeAPIs(sourceFile: SourceFile): string[] {
     const apis = new Set<string>();
 
-    sourceFile.forEachDescendant((node: any) => {
+    sourceFile.forEachDescendant((node: Node) => {
       if (Node.isPropertyAccessExpression(node)) {
         const text = node.getText();
 
@@ -100,7 +107,7 @@ export class ContextAnalyzer {
   /**
    * Extract import dependencies
    */
-  private extractDependencies(sourceFile: any): string[] {
+  private extractDependencies(sourceFile: SourceFile): string[] {
     const deps: string[] = [];
 
     for (const importDecl of sourceFile.getImportDeclarations()) {
@@ -114,7 +121,7 @@ export class ContextAnalyzer {
   /**
    * Extract JSDoc description from file
    */
-  private extractDescription(sourceFile: any): string | undefined {
+  private extractDescription(sourceFile: SourceFile): string | undefined {
     // Look for file-level JSDoc comment
     const firstStatement = sourceFile.getStatements()[0];
     if (!firstStatement) return undefined;
@@ -142,10 +149,10 @@ export class ContextAnalyzer {
   /**
    * Extract React/Preact components from source file
    */
-  private extractComponents(sourceFile: any): ComponentInfo[] {
+  private extractComponents(sourceFile: SourceFile): ComponentInfo[] {
     const components: ComponentInfo[] = [];
 
-    sourceFile.forEachDescendant((node: any) => {
+    sourceFile.forEachDescendant((node: Node) => {
       // Function components
       if (Node.isFunctionDeclaration(node)) {
         const name = node.getName();
@@ -209,7 +216,7 @@ export class ContextAnalyzer {
   /**
    * Check if a function looks like a React/Preact component
    */
-  private looksLikeComponent(name: string, node: any): boolean {
+  private looksLikeComponent(name: string, node: FunctionDeclaration): boolean {
     // Component names should start with uppercase
     if (!/^[A-Z]/.test(name)) return false;
 
@@ -220,7 +227,7 @@ export class ContextAnalyzer {
     let hasJSX = false;
 
     if (Node.isBlock(body)) {
-      body.forEachDescendant((child: any) => {
+      body.forEachDescendant((child: Node) => {
         if (Node.isJsxElement(child) || Node.isJsxSelfClosingElement(child)) {
           hasJSX = true;
         }
@@ -238,7 +245,7 @@ export class ContextAnalyzer {
   /**
    * Check if a class looks like a React component
    */
-  private looksLikeClassComponent(node: any): boolean {
+  private looksLikeClassComponent(node: ClassDeclaration): boolean {
     const extendedTypes = node.getExtends();
     if (!extendedTypes) return false;
 
@@ -249,7 +256,7 @@ export class ContextAnalyzer {
   /**
    * Extract props from function component
    */
-  private extractProps(node: any): string[] {
+  private extractProps(node: FunctionDeclaration): string[] {
     const params = node.getParameters();
     if (params.length === 0) return [];
 
@@ -267,7 +274,7 @@ export class ContextAnalyzer {
   /**
    * Extract props from class component
    */
-  private extractPropsFromClass(node: any): string[] {
+  private extractPropsFromClass(node: ClassDeclaration): string[] {
     const extendedTypes = node.getExtends();
     if (!extendedTypes) return [];
 
@@ -287,7 +294,7 @@ export class ContextAnalyzer {
   /**
    * Extract JSDoc description from node
    */
-  private extractJSDocDescription(node: any): string | undefined {
+  private extractJSDocDescription(node: Node): string | undefined {
     const jsDocs = node.getJsDocs();
     if (jsDocs.length === 0) return undefined;
 
