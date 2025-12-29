@@ -41,3 +41,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # test artifacts (Playwright)
 playwright-report
 test-results
+
+# auto-generated test fixtures
+**/__tests__/fixtures/**/*.dsl
