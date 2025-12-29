@@ -375,116 +375,16 @@ export class ProjectDetector {
 
       try {
         const content = fs.readFileSync(fullPath, "utf-8");
-        let score = 0;
-        let hasWebSocket = false;
-        let hasHTTP = false;
-        let framework: string | null = null;
+        const analysis = this.analyzeServerCandidate(content, candidate);
 
-        // Framework-specific patterns
-        const patterns = {
-          // Bun WebSocket server
-          bunWebSocket: /Bun\.serve\s*\([^)]*websocket\s*:/i,
-          bunHTTP: /Bun\.serve\s*\(/i,
-
-          // Node ws library
-          wsServer: /new\s+WebSocket\.Server/i,
-          wsImport: /from\s+['"]ws['"]/,
-
-          // Socket.io
-          socketIO: /io\s*\(|require\s*\(\s*['"]socket\.io['"]\s*\)/i,
-
-          // Elysia
-          elysia: /new\s+Elysia\s*\(|\.ws\s*\(/i,
-          elysiaImport: /from\s+['"]elysia['"]/,
-
-          // Express
-          express: /express\s*\(\)|app\.listen/i,
-          expressWs: /expressWs\s*\(/i,
-
-          // Generic HTTP server
-          httpServer: /createServer|app\.listen|server\.listen/i,
-
-          // Generic WebSocket patterns
-          webSocket: /WebSocket|websocket|\.ws\s*\(|wss\s*:/i,
-        };
-
-        // Detect frameworks and score
-        if (patterns.bunWebSocket.test(content)) {
-          score += 15;
-          hasWebSocket = true;
-          hasHTTP = true;
-          framework = "Bun";
-        } else if (patterns.bunHTTP.test(content)) {
-          score += 10;
-          hasHTTP = true;
-          framework = "Bun";
-        }
-
-        if (patterns.wsServer.test(content) || patterns.wsImport.test(content)) {
-          score += 12;
-          hasWebSocket = true;
-          framework = framework || "ws";
-        }
-
-        if (patterns.socketIO.test(content)) {
-          score += 12;
-          hasWebSocket = true;
-          framework = framework || "socket.io";
-        }
-
-        if (patterns.elysia.test(content) || patterns.elysiaImport.test(content)) {
-          score += 10;
-          hasHTTP = true;
-          framework = framework || "Elysia";
-        }
-
-        if (patterns.elysiaImport.test(content) && patterns.webSocket.test(content)) {
-          score += 8;
-          hasWebSocket = true;
-        }
-
-        if (patterns.express.test(content)) {
-          score += 8;
-          hasHTTP = true;
-          framework = framework || "Express";
-        }
-
-        if (patterns.expressWs.test(content)) {
-          score += 5;
-          hasWebSocket = true;
-        }
-
-        if (patterns.httpServer.test(content) && !hasHTTP) {
-          score += 5;
-          hasHTTP = true;
-        }
-
-        if (patterns.webSocket.test(content) && !hasWebSocket) {
-          score += 3;
-          hasWebSocket = true;
-        }
-
-        // Bonus points for likely entry points
-        if (/\.listen\s*\(/.test(content)) {
-          score += 5;
-        }
-
-        if (/export\s+default/.test(content)) {
-          score += 3;
-        }
-
-        // File name bonuses
-        if (candidate.includes("server")) {
-          score += 3;
-        }
-
-        if (candidate === "src/index.ts" || candidate === "src/index.js") {
-          score += 2;
-        }
-
-        // Only include files with some indication of being a server
-        if (score > 0) {
-          scored.push({ path: fullPath, score, hasWebSocket, hasHTTP, framework });
+        if (analysis.score > 0) {
+          scored.push({
+            path: fullPath,
+            score: analysis.score,
+            hasWebSocket: analysis.hasWebSocket,
+            hasHTTP: analysis.hasHTTP,
+            framework: analysis.framework,
+          });
         }
       } catch (_error) {
         // Ignore file read errors for candidates that don't exist
@@ -493,6 +393,262 @@ export class ProjectDetector {
 
     // Sort by score descending
     return scored.sort((a, b) => b.score - a.score);
+  }
+
+  /**
+   * Analyze server candidate content and return scoring details
+   */
+  private analyzeServerCandidate(content: string, candidate: string): {
+    score: number;
+    hasWebSocket: boolean;
+    hasHTTP: boolean;
+    framework: string | null;
+  } {
+    const patterns = this.getServerPatterns();
+    const frameworkAnalysis = this.detectFrameworksInContent(content, patterns);
+
+    const entryPointScore = this.scoreEntryPointIndicators(content);
+    const fileNameScore = this.scoreFileName(candidate);
+
+    return {
+      score: frameworkAnalysis.score + entryPointScore + fileNameScore,
+      hasWebSocket: frameworkAnalysis.hasWebSocket,
+      hasHTTP: frameworkAnalysis.hasHTTP,
+      framework: frameworkAnalysis.framework,
+    };
+  }
+
+  /**
+   * Get regex patterns for server framework detection
+   */
+  private getServerPatterns() {
+    return {
+      // Bun WebSocket server
+      bunWebSocket: /Bun\.serve\s*\([^)]*websocket\s*:/i,
+      bunHTTP: /Bun\.serve\s*\(/i,
+
+      // Node ws library
+      wsServer: /new\s+WebSocket\.Server/i,
+      wsImport: /from\s+['"]ws['"]/,
+
+      // Socket.io
+      socketIO: /io\s*\(|require\s*\(\s*['"]socket\.io['"]\s*\)/i,
+
+      // Elysia
+      elysia: /new\s+Elysia\s*\(|\.ws\s*\(/i,
+      elysiaImport: /from\s+['"]elysia['"]/,
+
+      // Express
+      express: /express\s*\(\)|app\.listen/i,
+      expressWs: /expressWs\s*\(/i,
+
+      // Generic HTTP server
+      httpServer: /createServer|app\.listen|server\.listen/i,
+
+      // Generic WebSocket patterns
+      webSocket: /WebSocket|websocket|\.ws\s*\(|wss\s*:/i,
+    };
+  }
+
+  /**
+   * Detect frameworks in content and calculate score
+   */
+  private detectFrameworksInContent(
+    content: string,
+    patterns: ReturnType<typeof this.getServerPatterns>
+  ): {
+    score: number;
+    hasWebSocket: boolean;
+    hasHTTP: boolean;
+    framework: string | null;
+  } {
+    let score = 0;
+    let hasWebSocket = false;
+    let hasHTTP = false;
+    let framework: string | null = null;
+
+    const bunScore = this.scoreBunFramework(content, patterns);
+    score += bunScore.score;
+    hasWebSocket = hasWebSocket || bunScore.hasWebSocket;
+    hasHTTP = hasHTTP || bunScore.hasHTTP;
+    framework = framework || bunScore.framework;
+
+    const wsScore = this.scoreWebSocketLibraries(content, patterns);
+    score += wsScore.score;
+    hasWebSocket = hasWebSocket || wsScore.hasWebSocket;
+    framework = framework || wsScore.framework;
+
+    const httpScore = this.scoreHTTPFrameworks(content, patterns);
+    score += httpScore.score;
+    hasWebSocket = hasWebSocket || httpScore.hasWebSocket;
+    hasHTTP = hasHTTP || httpScore.hasHTTP;
+    framework = framework || httpScore.framework;
+
+    const genericScore = this.scoreGenericPatterns(content, patterns, hasWebSocket, hasHTTP);
+    score += genericScore.score;
+    hasWebSocket = hasWebSocket || genericScore.hasWebSocket;
+    hasHTTP = hasHTTP || genericScore.hasHTTP;
+
+    return { score, hasWebSocket, hasHTTP, framework };
+  }
+
+  /**
+   * Score Bun framework patterns
+   */
+  private scoreBunFramework(
+    content: string,
+    patterns: ReturnType<typeof this.getServerPatterns>
+  ): {
+    score: number;
+    hasWebSocket: boolean;
+    hasHTTP: boolean;
+    framework: string | null;
+  } {
+    if (patterns.bunWebSocket.test(content)) {
+      return { score: 15, hasWebSocket: true, hasHTTP: true, framework: "Bun" };
+    }
+
+    if (patterns.bunHTTP.test(content)) {
+      return { score: 10, hasWebSocket: false, hasHTTP: true, framework: "Bun" };
+    }
+
+    return { score: 0, hasWebSocket: false, hasHTTP: false, framework: null };
+  }
+
+  /**
+   * Score WebSocket library patterns
+   */
+  private scoreWebSocketLibraries(
+    content: string,
+    patterns: ReturnType<typeof this.getServerPatterns>
+  ): {
+    score: number;
+    hasWebSocket: boolean;
+    framework: string | null;
+  } {
+    let score = 0;
+    let hasWebSocket = false;
+    let framework: string | null = null;
+
+    if (patterns.wsServer.test(content) || patterns.wsImport.test(content)) {
+      score += 12;
+      hasWebSocket = true;
+      framework = "ws";
+    }
+
+    if (patterns.socketIO.test(content)) {
+      score += 12;
+      hasWebSocket = true;
+      framework = framework || "socket.io";
+    }
+
+    return { score, hasWebSocket, framework };
+  }
+
+  /**
+   * Score HTTP framework patterns
+   */
+  private scoreHTTPFrameworks(
+    content: string,
+    patterns: ReturnType<typeof this.getServerPatterns>
+  ): {
+    score: number;
+    hasWebSocket: boolean;
+    hasHTTP: boolean;
+    framework: string | null;
+  } {
+    let score = 0;
+    let hasWebSocket = false;
+    let hasHTTP = false;
+    let framework: string | null = null;
+
+    if (patterns.elysia.test(content) || patterns.elysiaImport.test(content)) {
+      score += 10;
+      hasHTTP = true;
+      framework = "Elysia";
+    }
+
+    if (patterns.elysiaImport.test(content) && patterns.webSocket.test(content)) {
+      score += 8;
+      hasWebSocket = true;
+    }
+
+    if (patterns.express.test(content)) {
+      score += 8;
+      hasHTTP = true;
+      framework = framework || "Express";
+    }
+
+    if (patterns.expressWs.test(content)) {
+      score += 5;
+      hasWebSocket = true;
+    }
+
+    return { score, hasWebSocket, hasHTTP, framework };
+  }
+
+  /**
+   * Score generic server patterns
+   */
+  private scoreGenericPatterns(
+    content: string,
+    patterns: ReturnType<typeof this.getServerPatterns>,
+    hasWebSocket: boolean,
+    hasHTTP: boolean
+  ): {
+    score: number;
+    hasWebSocket: boolean;
+    hasHTTP: boolean;
+  } {
+    let score = 0;
+    let newHasWebSocket = hasWebSocket;
+    let newHasHTTP = hasHTTP;
+
+    if (patterns.httpServer.test(content) && !hasHTTP) {
+      score += 5;
+      newHasHTTP = true;
+    }
+
+    if (patterns.webSocket.test(content) && !hasWebSocket) {
+      score += 3;
+      newHasWebSocket = true;
+    }
+
+    return { score, hasWebSocket: newHasWebSocket, hasHTTP: newHasHTTP };
+  }
+
+  /**
+   * Score entry point indicators in content
+   */
+  private scoreEntryPointIndicators(content: string): number {
+    let score = 0;
+
+    if (/\.listen\s*\(/.test(content)) {
+      score += 5;
+    }
+
+    if (/export\s+default/.test(content)) {
+      score += 3;
+    }
+
+    return score;
+  }
+
+  /**
+   * Score based on file name patterns
+   */
+  private scoreFileName(candidate: string): number {
+    let score = 0;
+
+    if (candidate.includes("server")) {
+      score += 3;
+    }
+
+    if (candidate === "src/index.ts" || candidate === "src/index.js") {
+      score += 2;
+    }
+
+    return score;
   }
 
   /**
