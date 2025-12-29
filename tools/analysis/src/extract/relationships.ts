@@ -360,7 +360,7 @@ export class RelationshipExtractor {
     if (normalized.startsWith("get") || normalized.startsWith("create")) {
       const prefixLength = normalized.startsWith("get") ? 3 : 6;
       const suffix = functionName.substring(prefixLength);
-      return this.matchComponentPattern(suffix, functionName);
+      return this.matchComponentPattern(suffix);
     }
 
     // Pattern 2: initXxx() or setupXxx()
@@ -376,10 +376,10 @@ export class RelationshipExtractor {
   /**
    * Match component patterns for get/create functions
    */
-  private matchComponentPattern(suffix: string, fullFunctionName: string): string | null {
+  private matchComponentPattern(suffix: string): string | null {
     const suffixLower = suffix.toLowerCase();
 
-    const patterns = [
+    const componentPatterns = [
       {
         patterns: ["database", "db", "dbconnection", "connection"],
         component: "db_client",
@@ -406,7 +406,7 @@ export class RelationshipExtractor {
       },
     ];
 
-    for (const { patterns, component } of patterns) {
+    for (const { patterns, component } of componentPatterns) {
       if (patterns.some((pattern) => suffixLower.includes(pattern) || suffixLower === pattern)) {
         return component;
       }
