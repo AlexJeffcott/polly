@@ -1026,26 +1026,51 @@ export class StructurizrDSLGenerator {
     >,
     totalHandlers: number
   ): string[] {
+    if (totalHandlers <= 5 && handlerGroups.size <= 3) {
+      return this.generateCombinedDiagram(handlerGroups);
+    }
+    return this.generateSeparateDiagrams(handlerGroups);
+  }
+
+  /**
+   * Generate a single combined diagram for small handler sets
+   */
+  private generateCombinedDiagram(
+    handlerGroups: Map<
+      string,
+      Array<{ handler: MessageHandler; contextType: string; contextName: string }>
+    >
+  ): string[] {
+    const diagrams: string[] = [];
+    const allHandlers = Array.from(handlerGroups.values()).flat();
+    const diagram = this.generateHandlerFlowDiagram("general", allHandlers);
+    if (diagram) {
+      diagrams.push(diagram);
+    }
+    return diagrams;
+  }
+
+  /**
+   * Generate separate diagrams per category
+   */
+  private generateSeparateDiagrams(
+    handlerGroups: Map<
+      string,
+      Array<{ handler: MessageHandler; contextType: string; contextName: string }>
+    >
+  ): string[] {
     const diagrams: string[] = [];
     const maxDiagrams = 5;
+    let diagramCount = 0;
 
-    if (totalHandlers <= 5 && handlerGroups.size <= 3) {
-      const allHandlers = Array.from(handlerGroups.values()).flat();
-      const diagram = this.generateHandlerFlowDiagram("general", allHandlers);
+    for (const [category, handlers] of handlerGroups) {
+      if (diagramCount >= maxDiagrams) break;
+      if (handlers.length === 0) continue;
+
+      const diagram = this.generateHandlerFlowDiagram(category, handlers);
       if (diagram) {
         diagrams.push(diagram);
-      }
-    } else {
-      let diagramCount = 0;
-      for (const [category, handlers] of handlerGroups) {
-        if (diagramCount >= maxDiagrams) break;
-        if (handlers.length === 0) continue;
-
-        const diagram = this.generateHandlerFlowDiagram(category, handlers);
-        if (diagram) {
-          diagrams.push(diagram);
-          diagramCount++;
-        }
+        diagramCount++;
       }
     }
 
