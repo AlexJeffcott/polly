@@ -124,54 +124,73 @@ export class HandlerExtractor {
   private extractFromFile(sourceFile: SourceFile): MessageHandler[] {
     const handlers: MessageHandler[] = [];
     const filePath = sourceFile.getFilePath();
-
-    // Determine context from file path
     const context = this.inferContext(filePath);
 
-    // Find all handler patterns
     sourceFile.forEachDescendant((node) => {
-      if (Node.isCallExpression(node)) {
-        const expression = node.getExpression();
-
-        // Pattern 1: .on() calls (bus.on, ws.on, socket.on, etc.)
-        if (Node.isPropertyAccessExpression(expression)) {
-          const methodName = expression.getName();
-
-          if (methodName === "on" || methodName === "addEventListener") {
-            const handler = this.extractHandler(node, context, filePath);
-            if (handler) {
-              handlers.push(handler);
-            }
-          }
-        }
-      }
-
-      // Pattern 2: Switch/case message routers
-      if (Node.isSwitchStatement(node)) {
-        const switchHandlers = this.extractSwitchCaseHandlers(node, context, filePath);
-        handlers.push(...switchHandlers);
-      }
-
-      // Pattern 3: Handler map patterns (const handlers = { 'EVENT': fn })
-      if (Node.isVariableDeclaration(node)) {
-        const mapHandlers = this.extractHandlerMapPattern(node, context, filePath);
-        handlers.push(...mapHandlers);
-      }
-
-      // Pattern 4: Type guard if/else-if chains
-      // Only process root if statements, not else-if statements (they're handled by the chain walker)
-      if (Node.isIfStatement(node)) {
-        const parent = node.getParent();
-        const isElseIf = parent && Node.isIfStatement(parent);
-
-        if (!isElseIf) {
-          const typeGuardHandlers = this.extractTypeGuardHandlers(node, context, filePath);
-          handlers.push(...typeGuardHandlers);
-        }
-      }
+      this.processNodeForHandlers(node, context, filePath, handlers);
     });
 
     return handlers;
+  }
+
+  /**
+   * Process a single node to find handler patterns
+   */
+  private processNodeForHandlers(
+    node: Node,
+    context: string,
+    filePath: string,
+    handlers: MessageHandler[]
+  ): void {
+    if (Node.isCallExpression(node)) {
+      this.processCallExpressionHandler(node, context, filePath, handlers);
+    }
+
+    if (Node.isSwitchStatement(node)) {
+      const switchHandlers = this.extractSwitchCaseHandlers(node, context, filePath);
+      handlers.push(...switchHandlers);
+    }
+
+    if (Node.isVariableDeclaration(node)) {
+      const mapHandlers = this.extractHandlerMapPattern(node, context, filePath);
+      handlers.push(...mapHandlers);
+    }
+
+    if (Node.isIfStatement(node) && !this.isElseIfStatement(node)) {
+      const typeGuardHandlers = this.extractTypeGuardHandlers(node, context, filePath);
+      handlers.push(...typeGuardHandlers);
+    }
+  }
+
+  /**
+   * Process call expression to find .on() or .addEventListener() handlers
+   */
+  private processCallExpressionHandler(
+    node: CallExpression,
+    context: string,
+    filePath: string,
+    handlers: MessageHandler[]
+  ): void {
+    const expression = node.getExpression();
+
+    if (Node.isPropertyAccessExpression(expression)) {
+      const methodName = expression.getName();
+
+      if (methodName === "on" || methodName === "addEventListener") {
+        const handler = this.extractHandler(node, context, filePath);
+        if (handler) {
+          handlers.push(handler);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if a node is an else-if statement
+   */
+  private isElseIfStatement(node: Node): boolean {
+    const parent = node.getParent();
+    return parent !== undefined && Node.isIfStatement(parent);
   }
 
   /**
