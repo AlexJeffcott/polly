@@ -67,40 +67,53 @@ export class ContextAnalyzer {
     sourceFile.forEachDescendant((node: Node) => {
       if (Node.isPropertyAccessExpression(node)) {
         const text = node.getText();
-
-        // Match chrome.* API calls
-        if (text.startsWith("chrome.")) {
-          // Extract API namespace (e.g., "chrome.tabs", "chrome.storage.local")
-          const match = text.match(/^chrome\.([^.(]+(?:\.[^.(]+)?)/);
-          const api = match?.[1];
-          if (api) {
-            apis.add(api);
-          }
-        }
-
-        // Also match browser.* for Firefox compatibility
-        if (text.startsWith("browser.")) {
-          const match = text.match(/^browser\.([^.(]+(?:\.[^.(]+)?)/);
-          const api = match?.[1];
-          if (api) {
-            apis.add(api);
-          }
-        }
-
-        // Match bus.adapters.* pattern (framework abstraction over Chrome APIs)
-        // e.g., bus.adapters.storage.get() -> storage
-        //       bus.adapters.tabs.query() -> tabs
-        if (text.includes("bus.adapters.")) {
-          const match = text.match(/bus\.adapters\.([^.(]+)/);
-          const api = match?.[1];
-          if (api) {
-            apis.add(api);
-          }
-        }
+        this.detectAPIPattern(text, apis);
       }
     });
 
     return Array.from(apis).sort();
+  }
+
+  /**
+   * Detect and extract API from text using various patterns
+   */
+  private detectAPIPattern(text: string, apis: Set<string>): void {
+    // Match chrome.* API calls
+    if (text.startsWith("chrome.")) {
+      const api = this.extractAPIFromPrefix(text, "chrome");
+      if (api) apis.add(api);
+      return;
+    }
+
+    // Match browser.* for Firefox compatibility
+    if (text.startsWith("browser.")) {
+      const api = this.extractAPIFromPrefix(text, "browser");
+      if (api) apis.add(api);
+      return;
+    }
+
+    // Match bus.adapters.* pattern (framework abstraction)
+    if (text.includes("bus.adapters.")) {
+      const api = this.extractAPIFromBusAdapter(text);
+      if (api) apis.add(api);
+    }
+  }
+
+  /**
+   * Extract API namespace from chrome.* or browser.* prefix
+   */
+  private extractAPIFromPrefix(text: string, prefix: string): string | null {
+    const pattern = new RegExp(`^${prefix}\\.([^.(]+(?:\\.[^.(]+)?)`);
+    const match = text.match(pattern);
+    return match?.[1] || null;
+  }
+
+  /**
+   * Extract API from bus.adapters.* pattern
+   */
+  private extractAPIFromBusAdapter(text: string): string | null {
+    const match = text.match(/bus\.adapters\.([^.(]+)/);
+    return match?.[1] || null;
   }
 
   /**
