@@ -59,56 +59,106 @@ export class IntegrationAnalyzer {
 
     for (const sourceFile of this.project.getSourceFiles()) {
       sourceFile.forEachDescendant((node) => {
-        if (Node.isCallExpression(node)) {
-          const expression = node.getExpression();
-
-          // Check for fetch() calls
-          if (Node.isIdentifier(expression) && expression.getText() === "fetch") {
-            const args = node.getArguments();
-            if (args.length > 0) {
-              // Extract URL
-              const urlArg = args[0];
-              let url: string | null = null;
-
-              if (Node.isStringLiteral(urlArg)) {
-                url = urlArg.getLiteralValue();
-              } else if (Node.isTemplateExpression(urlArg)) {
-                // Try to extract base URL from template
-                url = this.extractBaseURL(urlArg.getText());
-              }
-
-              if (url) {
-                // Extract method
-                let method = "GET"; // Default
-                if (args.length > 1 && Node.isObjectLiteralExpression(args[1])) {
-                  const options = args[1];
-                  const methodProp = options.getProperty("method");
-                  if (methodProp && Node.isPropertyAssignment(methodProp)) {
-                    const initializer = methodProp.getInitializer();
-                    if (initializer && Node.isStringLiteral(initializer)) {
-                      method = initializer.getLiteralValue().toUpperCase();
-                    }
-                  }
-                }
-
-                // Extract description from JSDoc
-                const description = this.extractJSDocDescription(node);
-
-                calls.push({
-                  url,
-                  method,
-                  file: sourceFile.getFilePath(),
-                  line: node.getStartLineNumber(),
-                  description,
-                });
-              }
-            }
-          }
-        }
+        this.processFetchCall(node, sourceFile, calls);
       });
     }
 
     return calls;
+  }
+
+  /**
+   * Process a node that might be a fetch call
+   */
+  private processFetchCall(
+    node: Node,
+    sourceFile: SourceFile,
+    calls: Array<{
+      url: string;
+      method: string;
+      file: string;
+      line: number;
+      description?: string;
+    }>
+  ): void {
+    if (!Node.isCallExpression(node)) {
+      return;
+    }
+
+    const expression = node.getExpression();
+    if (!this.isFetchCall(expression)) {
+      return;
+    }
+
+    const args = node.getArguments();
+    if (args.length === 0) {
+      return;
+    }
+
+    const url = this.extractURLFromArg(args[0]);
+    if (!url) {
+      return;
+    }
+
+    const method = this.extractMethodFromOptions(args);
+    const description = this.extractJSDocDescription(node);
+
+    calls.push({
+      url,
+      method,
+      file: sourceFile.getFilePath(),
+      line: node.getStartLineNumber(),
+      description,
+    });
+  }
+
+  /**
+   * Check if expression is a fetch call
+   */
+  private isFetchCall(expression: Node): boolean {
+    return Node.isIdentifier(expression) && expression.getText() === "fetch";
+  }
+
+  /**
+   * Extract URL from fetch argument
+   */
+  private extractURLFromArg(urlArg: Node): string | null {
+    if (Node.isStringLiteral(urlArg)) {
+      return urlArg.getLiteralValue();
+    }
+
+    if (Node.isTemplateExpression(urlArg)) {
+      return this.extractBaseURL(urlArg.getText());
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract HTTP method from fetch options
+   */
+  private extractMethodFromOptions(args: Node[]): string {
+    const defaultMethod = "GET";
+
+    if (args.length <= 1) {
+      return defaultMethod;
+    }
+
+    const optionsArg = args[1];
+    if (!Node.isObjectLiteralExpression(optionsArg)) {
+      return defaultMethod;
+    }
+
+    const methodProp = optionsArg.getProperty("method");
+    if (!methodProp || !Node.isPropertyAssignment(methodProp)) {
+      return defaultMethod;
+    }
+
+    const initializer = methodProp.getInitializer();
+    if (!initializer || !Node.isStringLiteral(initializer)) {
+      return defaultMethod;
+    }
+
+    return initializer.getLiteralValue().toUpperCase();
   }
 
   /**
