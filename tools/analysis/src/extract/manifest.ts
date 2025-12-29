@@ -76,57 +76,66 @@ export class ManifestParser {
 
     const entryPoints: Record<string, string> = {};
 
-    // Background
-    const background = this.parseBackground();
-    if (background) {
-      // Take first file as entry point
-      const entryFile = background.files[0];
-      if (entryFile) {
-        entryPoints["background"] = this.findSourceFile(entryFile);
-      }
-    }
-
-    // Content scripts
-    const contentScripts = this.parseContentScripts();
-    if (contentScripts && contentScripts.length > 0) {
-      const firstScript = contentScripts[0]?.js[0];
-      if (firstScript) {
-        entryPoints["content"] = this.findSourceFile(firstScript);
-      }
-    }
-
-    // Popup
-    const popup = this.parsePopup();
-    if (popup) {
-      // For HTML, we need to find the associated JS/TS file
-      const htmlPath = path.join(this.baseDir, popup.html);
-      const jsPath = this.findAssociatedJS(htmlPath);
-      if (jsPath) {
-        entryPoints["popup"] = jsPath;
-      }
-    }
-
-    // Options
-    const options = this.parseOptions();
-    if (options) {
-      const htmlPath = path.join(this.baseDir, options.page);
-      const jsPath = this.findAssociatedJS(htmlPath);
-      if (jsPath) {
-        entryPoints["options"] = jsPath;
-      }
-    }
-
-    // DevTools
-    const devtools = this.parseDevtools();
-    if (devtools) {
-      const htmlPath = path.join(this.baseDir, devtools.page);
-      const jsPath = this.findAssociatedJS(htmlPath);
-      if (jsPath) {
-        entryPoints["devtools"] = jsPath;
-      }
-    }
+    this.addBackgroundEntryPoint(entryPoints);
+    this.addContentScriptEntryPoint(entryPoints);
+    this.addPopupEntryPoint(entryPoints);
+    this.addOptionsEntryPoint(entryPoints);
+    this.addDevtoolsEntryPoint(entryPoints);
 
     return entryPoints;
+  }
+
+  private addBackgroundEntryPoint(entryPoints: Record<string, string>): void {
+    const background = this.parseBackground();
+    if (!background) return;
+
+    const entryFile = background.files[0];
+    if (entryFile) {
+      entryPoints["background"] = this.findSourceFile(entryFile);
+    }
+  }
+
+  private addContentScriptEntryPoint(entryPoints: Record<string, string>): void {
+    const contentScripts = this.parseContentScripts();
+    if (!contentScripts || contentScripts.length === 0) return;
+
+    const firstScript = contentScripts[0]?.js[0];
+    if (firstScript) {
+      entryPoints["content"] = this.findSourceFile(firstScript);
+    }
+  }
+
+  private addPopupEntryPoint(entryPoints: Record<string, string>): void {
+    const popup = this.parsePopup();
+    if (!popup) return;
+
+    const htmlPath = path.join(this.baseDir, popup.html);
+    const jsPath = this.findAssociatedJS(htmlPath);
+    if (jsPath) {
+      entryPoints["popup"] = jsPath;
+    }
+  }
+
+  private addOptionsEntryPoint(entryPoints: Record<string, string>): void {
+    const options = this.parseOptions();
+    if (!options) return;
+
+    const htmlPath = path.join(this.baseDir, options.page);
+    const jsPath = this.findAssociatedJS(htmlPath);
+    if (jsPath) {
+      entryPoints["options"] = jsPath;
+    }
+  }
+
+  private addDevtoolsEntryPoint(entryPoints: Record<string, string>): void {
+    const devtools = this.parseDevtools();
+    if (!devtools) return;
+
+    const htmlPath = path.join(this.baseDir, devtools.page);
+    const jsPath = this.findAssociatedJS(htmlPath);
+    if (jsPath) {
+      entryPoints["devtools"] = jsPath;
+    }
   }
 
   /**
