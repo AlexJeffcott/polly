@@ -234,32 +234,13 @@ export class ConfigGenerator {
         return "{ type: 'boolean' }";
 
       case "enum":
-        if (field.type.enumValues) {
-          const values = field.type.enumValues.map((v) => `"${v}"`).join(", ");
-          return `{ type: "enum", values: [${values}] }`;
-        }
-        return "{ type: 'enum', values: /* CONFIGURE */ null }";
+        return this.generateEnumFieldConfig(field);
 
       case "array":
-        if (field.bounds?.maxLength !== undefined && field.bounds.maxLength !== null) {
-          if (field.confidence === "medium") {
-            return `{ maxLength: /* REVIEW */ ${field.bounds.maxLength} }`;
-          }
-          return `{ maxLength: ${field.bounds.maxLength} }`;
-        }
-        return "{ maxLength: /* CONFIGURE */ null }";
+        return this.generateArrayFieldConfig(field);
 
       case "number":
-        if (field.bounds?.min !== undefined && field.bounds?.max !== undefined) {
-          const minStr = field.bounds.min !== null ? field.bounds.min : "/* CONFIGURE */";
-          const maxStr = field.bounds.max !== null ? field.bounds.max : "/* CONFIGURE */";
-
-          if (field.confidence === "high") {
-            return `{ min: ${minStr}, max: ${maxStr} }`;
-          }
-          return `{ min: /* REVIEW */ ${minStr}, max: /* REVIEW */ ${maxStr} }`;
-        }
-        return "{ min: /* CONFIGURE */ null, max: /* CONFIGURE */ null }";
+        return this.generateNumberFieldConfig(field);
 
       case "string":
         return "{ values: /* CONFIGURE */ null }";
@@ -271,6 +252,37 @@ export class ConfigGenerator {
       default:
         return "{ /* CONFIGURE */ }";
     }
+  }
+
+  private generateEnumFieldConfig(field: FieldAnalysis): string {
+    if (field.type.enumValues) {
+      const values = field.type.enumValues.map((v) => `"${v}"`).join(", ");
+      return `{ type: "enum", values: [${values}] }`;
+    }
+    return "{ type: 'enum', values: /* CONFIGURE */ null }";
+  }
+
+  private generateArrayFieldConfig(field: FieldAnalysis): string {
+    if (field.bounds?.maxLength !== undefined && field.bounds.maxLength !== null) {
+      if (field.confidence === "medium") {
+        return `{ maxLength: /* REVIEW */ ${field.bounds.maxLength} }`;
+      }
+      return `{ maxLength: ${field.bounds.maxLength} }`;
+    }
+    return "{ maxLength: /* CONFIGURE */ null }";
+  }
+
+  private generateNumberFieldConfig(field: FieldAnalysis): string {
+    if (field.bounds?.min !== undefined && field.bounds?.max !== undefined) {
+      const minStr = field.bounds.min !== null ? field.bounds.min : "/* CONFIGURE */";
+      const maxStr = field.bounds.max !== null ? field.bounds.max : "/* CONFIGURE */";
+
+      if (field.confidence === "high") {
+        return `{ min: ${minStr}, max: ${maxStr} }`;
+      }
+      return `{ min: /* REVIEW */ ${minStr}, max: /* REVIEW */ ${maxStr} }`;
+    }
+    return "{ min: /* CONFIGURE */ null, max: /* CONFIGURE */ null }";
   }
 
   private addMessagesConfig(): void {

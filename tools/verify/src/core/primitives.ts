@@ -20,6 +20,7 @@
 export function requires(condition: boolean, message?: string): void {
   // Runtime no-op - only used during verification
   if (!condition && message && process.env["NODE_ENV"] === "development") {
+    // Intentionally empty - verification happens at compile time
   }
 }
 
@@ -38,6 +39,7 @@ export function requires(condition: boolean, message?: string): void {
 export function ensures(condition: boolean, message?: string): void {
   // Runtime no-op - only used during verification
   if (!condition && message && process.env["NODE_ENV"] === "development") {
+    // Intentionally empty - verification happens at compile time
   }
 }
 
@@ -55,6 +57,7 @@ export function ensures(condition: boolean, message?: string): void {
 export function invariant(_name: string, condition: () => boolean): void {
   // Runtime no-op - only used during verification
   if (!condition() && process.env["NODE_ENV"] === "development") {
+    // Intentionally empty - verification happens at compile time
   }
 }
 
@@ -99,5 +102,3 @@ export const verify = {
   oneOf,
   hasLength,
 };
-
-export default verify;

@@ -1,7 +1,7 @@
 // Invariant extraction from JSDoc comments
 // Extract domain-specific invariants from code annotations
 
-import { Node, Project, type SourceFile } from "ts-morph";
+import { type JSDoc, Node, Project, type SourceFile } from "ts-morph";
 import type { CodebaseAnalysis } from "../../../analysis/src/extract/types";
 
 /**
@@ -90,44 +90,58 @@ export class InvariantExtractor {
 
     // Traverse all nodes looking for JSDoc comments
     sourceFile.forEachDescendant((node) => {
-      const jsDocs = this.getJsDocComments(node);
-
-      for (const jsDoc of jsDocs) {
-        // Extract @invariant tags
-        for (const tag of jsDoc.getTags()) {
-          if (tag.getTagName() === "invariant") {
-            const text = tag.getComment();
-            if (typeof text === "string" && text.trim()) {
-              invariants.push(this.createInvariant(text.trim(), "invariant", sourceFile, node));
-            }
-          }
-
-          if (tag.getTagName() === "ensures") {
-            const text = tag.getComment();
-            if (typeof text === "string" && text.trim()) {
-              invariants.push(
-                this.createInvariant(text.trim(), "post-condition", sourceFile, node)
-              );
-            }
-          }
-
-          if (tag.getTagName() === "requires") {
-            const text = tag.getComment();
-            if (typeof text === "string" && text.trim()) {
-              invariants.push(this.createInvariant(text.trim(), "pre-condition", sourceFile, node));
-            }
-          }
-        }
-      }
+      this.processNodeJSDocs(node, sourceFile, invariants);
     });
 
     return invariants;
   }
 
   /**
+   * Process JSDoc comments for a node
+   */
+  private processNodeJSDocs(node: Node, sourceFile: SourceFile, invariants: Invariant[]): void {
+    const jsDocs = this.getJsDocComments(node);
+
+    for (const jsDoc of jsDocs) {
+      this.processJSDocTags(jsDoc, sourceFile, node, invariants);
+    }
+  }
+
+  /**
+   * Process tags within a JSDoc comment
+   */
+  private processJSDocTags(jsDoc: JSDoc, sourceFile: SourceFile, node: Node, invariants: Invariant[]): void {
+    for (const tag of jsDoc.getTags()) {
+      this.processJSDocTag(tag, sourceFile, node, invariants);
+    }
+  }
+
+  /**
+   * Process a single JSDoc tag
+   */
+  private processJSDocTag(tag: { getTagName: () => string; getComment: () => string | undefined }, sourceFile: SourceFile, node: Node, invariants: Invariant[]): void {
+    const tagName = tag.getTagName();
+    const text = tag.getComment();
+
+    if (typeof text !== "string" || !text.trim()) {
+      return;
+    }
+
+    const trimmedText = text.trim();
+
+    if (tagName === "invariant") {
+      invariants.push(this.createInvariant(trimmedText, "invariant", sourceFile, node));
+    } else if (tagName === "ensures") {
+      invariants.push(this.createInvariant(trimmedText, "post-condition", sourceFile, node));
+    } else if (tagName === "requires") {
+      invariants.push(this.createInvariant(trimmedText, "pre-condition", sourceFile, node));
+    }
+  }
+
+  /**
    * Get JSDoc comments for a node
    */
-  private getJsDocComments(node: Node): any[] {
+  private getJsDocComments(node: Node): JSDoc[] {
     if (Node.isJSDocable(node)) {
       return node.getJsDocs();
     }
@@ -192,38 +206,48 @@ export class InvariantExtractor {
     // Extract field names from expression
     const fieldMatches = expression.match(/state\.(\w+)/g);
     if (!fieldMatches || fieldMatches.length === 0) {
-      // No state references, use generic name
-      const prefix = type === "pre-condition" ? "Pre" : type === "post-condition" ? "Post" : "";
-      return `${prefix}Invariant${Math.random().toString(36).substring(2, 7)}`;
+      return this.generateGenericInvariantName(type);
     }
 
     // Use first field name as base
     const fieldName = fieldMatches[0]?.replace("state.", "");
 
-    // Determine constraint type
-    let constraintSuffix = "";
-    if (expression.includes("<=")) {
-      constraintSuffix = "MaxValue";
-    } else if (expression.includes(">=")) {
-      constraintSuffix = "MinValue";
-    } else if (expression.includes("===") || expression.includes("==")) {
-      constraintSuffix = "Equals";
-    } else if (expression.includes("!==") || expression.includes("!=")) {
-      constraintSuffix = "NotEquals";
-    } else if (expression.includes("<")) {
-      constraintSuffix = "LessThan";
-    } else if (expression.includes(">")) {
-      constraintSuffix = "GreaterThan";
-    } else {
-      constraintSuffix = "Check";
-    }
-
-    // Capitalize field name
+    // Build name from components
+    const constraintSuffix = this.determineConstraintSuffix(expression);
     const capitalizedField = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
-
-    const prefix = type === "pre-condition" ? "Pre" : type === "post-condition" ? "Post" : "";
+    const prefix = this.getInvariantPrefix(type);
 
     return `${prefix}${capitalizedField}${constraintSuffix}`;
+  }
+
+  /**
+   * Generate generic invariant name when no state fields found
+   */
+  private generateGenericInvariantName(type: "invariant" | "pre-condition" | "post-condition"): string {
+    const prefix = this.getInvariantPrefix(type);
+    return `${prefix}Invariant${Math.random().toString(36).substring(2, 7)}`;
+  }
+
+  /**
+   * Determine constraint suffix based on operators in expression
+   */
+  private determineConstraintSuffix(expression: string): string {
+    if (expression.includes("<=")) return "MaxValue";
+    if (expression.includes(">=")) return "MinValue";
+    if (expression.includes("===") || expression.includes("==")) return "Equals";
+    if (expression.includes("!==") || expression.includes("!=")) return "NotEquals";
+    if (expression.includes("<")) return "LessThan";
+    if (expression.includes(">")) return "GreaterThan";
+    return "Check";
+  }
+
+  /**
+   * Get prefix based on invariant type
+   */
+  private getInvariantPrefix(type: "invariant" | "pre-condition" | "post-condition"): string {
+    if (type === "pre-condition") return "Pre";
+    if (type === "post-condition") return "Post";
+    return "";
   }
 
   /**

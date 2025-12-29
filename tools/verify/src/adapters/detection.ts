@@ -66,7 +66,10 @@ export class AdapterDetector {
       { type: "worker" as const, ...workerScore },
     ].sort((a, b) => b.confidence - a.confidence);
 
-    const best = scores[0]!;
+    const best = scores[0];
+    if (!best) {
+      throw new Error("No adapter scores available");
+    }
     const alternatives = scores.slice(1).filter((s) => s.confidence > 20);
 
     // Create suggested adapter for the best match
@@ -167,62 +170,79 @@ export class AdapterDetector {
     const evidence: string[] = [];
 
     // Check for EventEmitter imports
-    let eventEmitterImports = 0;
-    for (const file of files) {
-      const imports = file.getImportDeclarations();
-      for (const imp of imports) {
-        const module = imp.getModuleSpecifierValue();
-        if (module === "events" || module === "eventemitter3" || module === "mitt") {
-          eventEmitterImports++;
-        }
-      }
-    }
+    const eventEmitterImports = this.countEventEmitterImports(files);
     if (eventEmitterImports > 0) {
       confidence += Math.min(40, eventEmitterImports * 15);
       evidence.push(`Found ${eventEmitterImports} EventEmitter import(s)`);
     }
 
     // Check for emitter.on() pattern
-    let emitterOnCount = 0;
-    for (const file of files) {
-      const text = file.getFullText();
-      const matches = text.match(/\.on\s*\(\s*['"`]/g);
-      if (matches) {
-        emitterOnCount += matches.length;
-      }
-    }
+    const emitterOnCount = this.countPatternMatches(files, /\.on\s*\(\s*['"`]/g);
     if (emitterOnCount > 0) {
       confidence += Math.min(30, emitterOnCount * 5);
       evidence.push(`Found ${emitterOnCount} .on() call(s)`);
     }
 
     // Check for emitter.emit() pattern
-    let emitterEmitCount = 0;
-    for (const file of files) {
-      const text = file.getFullText();
-      const matches = text.match(/\.emit\s*\(\s*['"`]/g);
-      if (matches) {
-        emitterEmitCount += matches.length;
-      }
-    }
+    const emitterEmitCount = this.countPatternMatches(files, /\.emit\s*\(\s*['"`]/g);
     if (emitterEmitCount > 0) {
       confidence += Math.min(30, emitterEmitCount * 3);
       evidence.push(`Found ${emitterEmitCount} .emit() call(s)`);
     }
 
     // Penalty if chrome APIs are present (likely not pure event bus)
-    let chromeApiCount = 0;
-    for (const file of files) {
-      if (file.getFullText().includes("chrome.runtime")) {
-        chromeApiCount++;
-      }
-    }
+    const chromeApiCount = this.countChromeAPIUsage(files);
     if (chromeApiCount > 5) {
       confidence = Math.max(0, confidence - 20);
       evidence.push("Note: Also found Chrome APIs (might be extension)");
     }
 
     return { confidence: Math.min(100, confidence), evidence };
+  }
+
+  /**
+   * Count EventEmitter imports across files
+   */
+  private countEventEmitterImports(files: SourceFile[]): number {
+    let count = 0;
+    for (const file of files) {
+      const imports = file.getImportDeclarations();
+      for (const imp of imports) {
+        const module = imp.getModuleSpecifierValue();
+        if (module === "events" || module === "eventemitter3" || module === "mitt") {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Count pattern matches across files
+   */
+  private countPatternMatches(files: SourceFile[], pattern: RegExp): number {
+    let count = 0;
+    for (const file of files) {
+      const text = file.getFullText();
+      const matches = text.match(pattern);
+      if (matches) {
+        count += matches.length;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Count Chrome API usage across files
+   */
+  private countChromeAPIUsage(files: SourceFile[]): number {
+    let count = 0;
+    for (const file of files) {
+      if (file.getFullText().includes("chrome.runtime")) {
+        count++;
+      }
+    }
+    return count;
   }
 
   /**

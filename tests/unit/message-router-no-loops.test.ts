@@ -214,7 +214,6 @@ test("Routing does not increase call stack depth dangerously", async () => {
 
   // Wrap the route function to track depth
   const originalRoute = router.routeMessage.bind(router);
-  // biome-ignore lint/suspicious/noExplicitAny: Testing with generic message parameter
   router.routeMessage = async (message: any) => {
     currentDepth++;
     if (currentDepth > maxDepth) {

@@ -96,7 +96,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     ];
 
     // Add client nodes (bounded for model checking)
-    for (let i = 1; i <= this.config.maxConnections!; i++) {
+    for (let i = 1; i <= (this.config.maxConnections ?? 10); i++) {
       nodes.push({
         id: `client-${i}`,
         type: "websocket-client",
@@ -151,10 +151,10 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
       state: {}, // Populated by user configuration
       handlers,
       bounds: {
-        maxConcurrentMessages: this.config.maxInFlight!,
+        maxConcurrentMessages: this.config.maxInFlight ?? 5,
         maxNodes: nodes.length,
         custom: {
-          maxConnections: this.config.maxConnections!,
+          maxConnections: this.config.maxConnections ?? 10,
         },
       },
     };

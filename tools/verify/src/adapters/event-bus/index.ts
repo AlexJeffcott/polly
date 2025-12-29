@@ -143,8 +143,8 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
       state: {}, // Populated by user configuration
       handlers,
       bounds: {
-        maxConcurrentMessages: this.config.maxInFlight!,
-        maxNodes: Math.min(nodes.length, this.config.maxEmitters! + 1), // +1 for central bus
+        maxConcurrentMessages: this.config.maxInFlight ?? 5,
+        maxNodes: Math.min(nodes.length, (this.config.maxEmitters ?? 3) + 1), // +1 for central bus
       },
     };
   }

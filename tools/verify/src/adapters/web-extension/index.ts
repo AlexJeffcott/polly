@@ -95,7 +95,16 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
 
     // Define nodes (extension contexts)
     const nodes: NodeDefinition[] = [];
-    for (const context of this.config.contexts!) {
+    const contexts = this.config.contexts ?? [
+      "background",
+      "content",
+      "popup",
+      "devtools",
+      "options",
+      "offscreen",
+      "sidepanel",
+    ];
+    for (const context of contexts) {
       nodes.push({
         id: context,
         type: "extension-context",
@@ -138,10 +147,10 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       state: {}, // Populated by user configuration
       handlers,
       bounds: {
-        maxConcurrentMessages: this.config.maxInFlight!,
+        maxConcurrentMessages: this.config.maxInFlight ?? 3,
         maxNodes: nodes.length,
         custom: {
-          maxTabs: this.config.maxTabs!,
+          maxTabs: this.config.maxTabs ?? 1,
         },
       },
     };
@@ -544,34 +553,33 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     const path = filePath.toLowerCase();
 
     // PWA service worker context
-    if (path.includes("service-worker") || path.includes("sw.ts") || path.includes("sw.js")) {
+    if (this.isServiceWorkerPath(path)) {
       return "Service Worker";
     }
 
     // Chrome extension contexts
-    if (path.includes("/background/") || path.includes("\\background\\")) {
-      return "background";
-    }
-    if (path.includes("/content/") || path.includes("\\content\\")) {
-      return "content";
-    }
-    if (path.includes("/popup/") || path.includes("\\popup\\")) {
-      return "popup";
-    }
-    if (path.includes("/devtools/") || path.includes("\\devtools\\")) {
-      return "devtools";
-    }
-    if (path.includes("/options/") || path.includes("\\options\\")) {
-      return "options";
-    }
-    if (path.includes("/offscreen/") || path.includes("\\offscreen\\")) {
-      return "offscreen";
-    }
-    if (path.includes("/sidepanel/") || path.includes("\\sidepanel\\")) {
-      return "sidepanel";
+    const contexts = ["background", "content", "popup", "devtools", "options", "offscreen", "sidepanel"];
+    for (const context of contexts) {
+      if (this.pathMatchesContext(path, context)) {
+        return context;
+      }
     }
 
     return "unknown";
+  }
+
+  /**
+   * Check if path is a service worker
+   */
+  private isServiceWorkerPath(path: string): boolean {
+    return path.includes("service-worker") || path.includes("sw.ts") || path.includes("sw.js");
+  }
+
+  /**
+   * Check if path matches a context directory
+   */
+  private pathMatchesContext(path: string, context: string): boolean {
+    return path.includes(`/${context}/`) || path.includes(`\\${context}\\`);
   }
 
   /**

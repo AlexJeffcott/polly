@@ -295,74 +295,69 @@ export class TemporalTLAGenerator {
 }
 
 /**
- * Helper to create common temporal patterns
+ * Create "eventually" property: <>P
  */
-export class TemporalPatterns {
-  /**
-   * Create "eventually" property: <>P
-   */
-  static eventually(name: string, description: string, condition: string): TemporalProperty {
-    return {
-      name,
-      description,
-      type: "eventually",
-      target: condition,
-    };
-  }
+export function eventually(name: string, description: string, condition: string): TemporalProperty {
+  return {
+    name,
+    description,
+    type: "eventually",
+    target: condition,
+  };
+}
 
-  /**
-   * Create "always" property: []P
-   */
-  static always(name: string, description: string, condition: string): TemporalProperty {
-    return {
-      name,
-      description,
-      type: "always",
-      target: condition,
-    };
-  }
+/**
+ * Create "always" property: []P
+ */
+export function always(name: string, description: string, condition: string): TemporalProperty {
+  return {
+    name,
+    description,
+    type: "always",
+    target: condition,
+  };
+}
 
-  /**
-   * Create "implies eventually" property: [](P => <>Q)
-   */
-  static impliesEventually(
-    name: string,
-    description: string,
-    trigger: string,
-    target: string
-  ): TemporalProperty {
-    return {
-      name,
-      description,
-      type: "implies-eventually",
-      trigger,
-      target,
-    };
-  }
+/**
+ * Create "implies eventually" property: [](P => <>Q)
+ */
+export function impliesEventually(
+  name: string,
+  description: string,
+  trigger: string,
+  target: string
+): TemporalProperty {
+  return {
+    name,
+    description,
+    type: "implies-eventually",
+    trigger,
+    target,
+  };
+}
 
-  /**
-   * Create ordering property: first before second
-   */
-  static ordering(first: string, second: string, description: string): TemporalProperty {
-    return {
-      name: `${first}Before${second}`,
-      description,
-      type: "order",
-      trigger: `delivered["${second}"]`,
-      target: `delivered["${first}"]`,
-    };
-  }
+/**
+ * Create ordering property: first before second
+ */
+export function ordering(first: string, second: string, description: string): TemporalProperty {
+  return {
+    name: `${first}Before${second}`,
+    description,
+    type: "order",
+    trigger: `delivered["${second}"]`,
+    target: `delivered["${first}"]`,
+  };
+}
 
-  /**
-   * Create request-response property
-   */
-  static requestResponse(request: string, response: string): TemporalProperty {
-    return {
-      name: `${request}EventuallyGets${response}`,
-      description: `Every ${request} eventually gets a ${response}`,
-      type: "implies-eventually",
-      trigger: `delivered["${request}"]`,
-      target: `delivered["${response}"]`,
-    };
-  }
+/**
+ * Create request-response property
+ */
+export function requestResponse(request: string, response: string): TemporalProperty {
+  return {
+    name: `${request}EventuallyGets${response}`,
+    description: `Every ${request} eventually gets a ${response}`,
+    type: "implies-eventually",
+    trigger: `delivered["${request}"]`,
+    target: `delivered["${response}"]`,
+  };
 }

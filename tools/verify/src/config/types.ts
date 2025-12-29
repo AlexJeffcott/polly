@@ -48,7 +48,7 @@ export interface AdapterVerificationConfig {
  */
 export interface LegacyVerificationConfig {
   /** State configuration (old format) */
-  state: Record<string, any>;
+  state: Record<string, unknown>;
 
   /** Message configuration (old format) */
   messages: {

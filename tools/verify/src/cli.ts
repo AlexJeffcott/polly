@@ -63,75 +63,89 @@ async function setupCommand() {
       stateFilePath: findStateFile(),
     });
 
-    if (analysis.stateType) {
-      console.log(
-        color(`✓ Found state type with ${analysis.fields.length} field(s)`, COLORS.green)
-      );
-    } else {
-      console.log(color("\n⚠️  Could not find state type definition", COLORS.yellow));
-      console.log("   Expected to find a type named 'AppState' or 'State'");
-      console.log("   in a file matching **/state*.ts");
-      console.log();
-      console.log("   You can still generate a config template:");
-      console.log("   It will be empty and you'll need to fill it in manually.");
-      console.log();
-    }
+    displayAnalysisResults(analysis);
+    displayAnalysisSummary(analysis);
 
-    console.log(color(`✓ Found ${analysis.messageTypes.length} message type(s)`, COLORS.green));
-
-    // Show analysis summary
-    if (analysis.fields.length > 0) {
-      console.log(color("\n📊 Configuration Summary:\n", COLORS.blue));
-
-      const table = [
-        ["Field", "Type", "Status"],
-        ["─".repeat(30), "─".repeat(20), "─".repeat(20)],
-      ];
-
-      for (const field of analysis.fields) {
-        const status =
-          field.confidence === "high"
-            ? color("✓ Auto-configured", COLORS.green)
-            : field.confidence === "medium"
-              ? color("⚠ Review needed", COLORS.yellow)
-              : color("⚠ Manual config", COLORS.red);
-
-        table.push([field.path, field.type.kind, status]);
-      }
-
-      for (const row of table) {
-        console.log(`   ${row[0]?.padEnd(32) ?? ""} ${row[1]?.padEnd(22) ?? ""} ${row[2] ?? ""}`);
-      }
-    }
-
-    // Generate config
+    // Generate and write config
     const configContent = generateConfig(analysis);
     const configPath = path.join(process.cwd(), "specs", "verification.config.ts");
 
-    // Ensure directory exists
-    const configDir = path.dirname(configPath);
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-
-    // Write config
-    fs.writeFileSync(configPath, configContent, "utf-8");
-
-    console.log(color("\n✅ Configuration generated!\n", COLORS.green));
-    console.log(`   File: ${color(configPath, COLORS.blue)}`);
-    console.log();
-    console.log(color("📝 Next steps:", COLORS.blue));
-    console.log();
-    console.log("   1. Review the generated configuration file");
-    console.log("   2. Fill in values marked with /* CONFIGURE */");
-    console.log("   3. Run 'bun verify' to check your configuration");
-    console.log();
-    console.log(color("💡 Tip:", COLORS.gray));
-    console.log(color("   Look for comments explaining what each field needs.", COLORS.gray));
-    console.log();
+    writeConfigFile(configPath, configContent);
+    displaySetupSuccess(configPath);
   } catch (_error) {
     process.exit(1);
   }
+}
+
+function displayAnalysisResults(analysis: {
+  stateType?: unknown;
+  fields: unknown[];
+  messageTypes: unknown[];
+}): void {
+  if (analysis.stateType) {
+    console.log(color(`✓ Found state type with ${analysis.fields.length} field(s)`, COLORS.green));
+  } else {
+    console.log(color("\n⚠️  Could not find state type definition", COLORS.yellow));
+    console.log("   Expected to find a type named 'AppState' or 'State'");
+    console.log("   in a file matching **/state*.ts");
+    console.log();
+    console.log("   You can still generate a config template:");
+    console.log("   It will be empty and you'll need to fill it in manually.");
+    console.log();
+  }
+
+  console.log(color(`✓ Found ${analysis.messageTypes.length} message type(s)`, COLORS.green));
+}
+
+function displayAnalysisSummary(analysis: {
+  fields: Array<{ path: string; type: { kind: string }; confidence: string }>;
+}): void {
+  if (analysis.fields.length === 0) return;
+
+  console.log(color("\n📊 Configuration Summary:\n", COLORS.blue));
+
+  const table = [
+    ["Field", "Type", "Status"],
+    ["─".repeat(30), "─".repeat(20), "─".repeat(20)],
+  ];
+
+  for (const field of analysis.fields) {
+    const status = getFieldStatus(field.confidence);
+    table.push([field.path, field.type.kind, status]);
+  }
+
+  for (const row of table) {
+    console.log(`   ${row[0]?.padEnd(32) ?? ""} ${row[1]?.padEnd(22) ?? ""} ${row[2] ?? ""}`);
+  }
+}
+
+function getFieldStatus(confidence: string): string {
+  if (confidence === "high") return color("✓ Auto-configured", COLORS.green);
+  if (confidence === "medium") return color("⚠ Review needed", COLORS.yellow);
+  return color("⚠ Manual config", COLORS.red);
+}
+
+function writeConfigFile(configPath: string, configContent: string): void {
+  const configDir = path.dirname(configPath);
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+  }
+  fs.writeFileSync(configPath, configContent, "utf-8");
+}
+
+function displaySetupSuccess(configPath: string): void {
+  console.log(color("\n✅ Configuration generated!\n", COLORS.green));
+  console.log(`   File: ${color(configPath, COLORS.blue)}`);
+  console.log();
+  console.log(color("📝 Next steps:", COLORS.blue));
+  console.log();
+  console.log("   1. Review the generated configuration file");
+  console.log("   2. Fill in values marked with /* CONFIGURE */");
+  console.log("   3. Run 'bun verify' to check your configuration");
+  console.log();
+  console.log(color("💡 Tip:", COLORS.gray));
+  console.log(color("   Look for comments explaining what each field needs.", COLORS.gray));
+  console.log();
 }
 
 async function validateCommand() {
@@ -152,37 +166,53 @@ async function validateCommand() {
   const errors = result.issues.filter((i) => i.severity === "error");
   const warnings = result.issues.filter((i) => i.severity === "warning");
 
-  if (errors.length > 0) {
-    console.log(color(`❌ Found ${errors.length} error(s):\n`, COLORS.red));
-
-    for (const error of errors) {
-      console.log(color(`   • ${error.message}`, COLORS.red));
-      if (error.field) {
-        console.log(color(`     Field: ${error.field}`, COLORS.gray));
-      }
-      if (error.location) {
-        console.log(color(`     Location: line ${error.location.line}`, COLORS.gray));
-      }
-      console.log(color(`     → ${error.suggestion}`, COLORS.yellow));
-      console.log();
-    }
-  }
-
-  if (warnings.length > 0) {
-    console.log(color(`⚠️  Found ${warnings.length} warning(s):\n`, COLORS.yellow));
-
-    for (const warning of warnings) {
-      console.log(color(`   • ${warning.message}`, COLORS.yellow));
-      if (warning.field) {
-        console.log(color(`     Field: ${warning.field}`, COLORS.gray));
-      }
-      console.log(color(`     → ${warning.suggestion}`, COLORS.gray));
-      console.log();
-    }
-  }
+  displayValidationErrors(errors);
+  displayValidationWarnings(warnings);
 
   console.log(color("Configuration incomplete. Please fix the errors above.\n", COLORS.red));
   process.exit(1);
+}
+
+function displayValidationErrors(
+  errors: Array<{
+    message: string;
+    field?: string;
+    location?: { line: number };
+    suggestion: string;
+  }>
+): void {
+  if (errors.length === 0) return;
+
+  console.log(color(`❌ Found ${errors.length} error(s):\n`, COLORS.red));
+
+  for (const error of errors) {
+    console.log(color(`   • ${error.message}`, COLORS.red));
+    if (error.field) {
+      console.log(color(`     Field: ${error.field}`, COLORS.gray));
+    }
+    if (error.location) {
+      console.log(color(`     Location: line ${error.location.line}`, COLORS.gray));
+    }
+    console.log(color(`     → ${error.suggestion}`, COLORS.yellow));
+    console.log();
+  }
+}
+
+function displayValidationWarnings(
+  warnings: Array<{ message: string; field?: string; suggestion: string }>
+): void {
+  if (warnings.length === 0) return;
+
+  console.log(color(`⚠️  Found ${warnings.length} warning(s):\n`, COLORS.yellow));
+
+  for (const warning of warnings) {
+    console.log(color(`   • ${warning.message}`, COLORS.yellow));
+    if (warning.field) {
+      console.log(color(`     Field: ${warning.field}`, COLORS.gray));
+    }
+    console.log(color(`     → ${warning.suggestion}`, COLORS.gray));
+    console.log();
+  }
 }
 
 async function verifyCommand() {
@@ -228,15 +258,46 @@ async function verifyCommand() {
 }
 
 async function runFullVerification(configPath: string) {
-  const { generateTLA } = await import("./codegen/tla");
-  const { DockerRunner } = await import("./runner/docker");
-
-  // Load config (using dynamic import with cache busting)
-  const resolvedPath = path.resolve(configPath);
-  const configModule = await import(`file://${resolvedPath}?t=${Date.now()}`);
-  const config = configModule.default;
+  // Load config
+  const config = await loadVerificationConfig(configPath);
 
   // Analyze codebase
+  const analysis = await runCodebaseAnalysis();
+
+  // Generate TLA+ specs
+  const { specPath, specDir } = await generateAndWriteTLASpecs(config, analysis);
+
+  // Find and copy base spec
+  findAndCopyBaseSpec(specDir);
+
+  console.log(color("✓ Specification generated", COLORS.green));
+  console.log(color(`   ${specPath}`, COLORS.gray));
+  console.log();
+
+  // Setup and run Docker
+  const docker = await setupDocker();
+
+  // Run TLC
+  console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
+  console.log(color("   This may take a minute...", COLORS.gray));
+  console.log();
+
+  const result = await docker.runTLC(specPath, {
+    workers: 2,
+    timeout: 120000, // 2 minutes
+  });
+
+  // Display results
+  displayVerificationResults(result, specDir);
+}
+
+async function loadVerificationConfig(configPath: string): Promise<unknown> {
+  const resolvedPath = path.resolve(configPath);
+  const configModule = await import(`file://${resolvedPath}?t=${Date.now()}`);
+  return configModule.default;
+}
+
+async function runCodebaseAnalysis(): Promise<{ fields: unknown[]; messageTypes: unknown[] }> {
   console.log(color("📊 Analyzing codebase...", COLORS.blue));
   const tsConfigPath = findTsConfig();
   if (!tsConfigPath) {
@@ -251,11 +312,18 @@ async function runFullVerification(configPath: string) {
   console.log(color("✓ Analysis complete", COLORS.green));
   console.log();
 
-  // Generate TLA+ specs
+  return analysis;
+}
+
+async function generateAndWriteTLASpecs(
+  config: unknown,
+  analysis: unknown
+): Promise<{ specPath: string; specDir: string }> {
+  const { generateTLA } = await import("./codegen/tla");
+
   console.log(color("📝 Generating TLA+ specification...", COLORS.blue));
   const { spec, cfg } = await generateTLA(config, analysis);
 
-  // Write specs to temp directory
   const specDir = path.join(process.cwd(), "specs", "tla", "generated");
   if (!fs.existsSync(specDir)) {
     fs.mkdirSync(specDir, { recursive: true });
@@ -267,23 +335,14 @@ async function runFullVerification(configPath: string) {
   fs.writeFileSync(specPath, spec);
   fs.writeFileSync(cfgPath, cfg);
 
-  // Copy base MessageRouter spec to generated directory so TLC can find it
-  // Try multiple locations to find MessageRouter.tla:
-  // 1. User's specs/tla/MessageRouter.tla (if they've customized it)
-  // 2. Package's bundled specs/tla/MessageRouter.tla (when installed via npm)
-  // 3. External polly directory (when using git submodule or manual clone)
+  return { specPath, specDir };
+}
+
+function findAndCopyBaseSpec(specDir: string): void {
   const possiblePaths = [
-    // User's custom version
     path.join(process.cwd(), "specs", "tla", "MessageRouter.tla"),
-
-    // Package's bundled version (when installed as npm package)
-    // CLI runs from dist/cli.js, so specs/ is at ../specs/
     path.join(__dirname, "..", "specs", "tla", "MessageRouter.tla"),
-
-    // When running from source in development
     path.join(__dirname, "..", "..", "specs", "tla", "MessageRouter.tla"),
-
-    // External polly directory (common in monorepos or git submodules)
     path.join(
       process.cwd(),
       "external",
@@ -294,8 +353,6 @@ async function runFullVerification(configPath: string) {
       "tla",
       "MessageRouter.tla"
     ),
-
-    // Node modules (scoped package)
     path.join(
       process.cwd(),
       "node_modules",
@@ -328,12 +385,22 @@ async function runFullVerification(configPath: string) {
       console.log(color(`   - ${searchPath}`, COLORS.gray));
     }
   }
+}
 
-  console.log(color("✓ Specification generated", COLORS.green));
-  console.log(color(`   ${specPath}`, COLORS.gray));
-  console.log();
+async function setupDocker(): Promise<{
+  runTLC: (
+    specPath: string,
+    options: { workers: number; timeout: number }
+  ) => Promise<{
+    success: boolean;
+    stats?: { statesGenerated: number; distinctStates: number };
+    violation?: { name: string; trace: string[] };
+    error?: string;
+    output: string;
+  }>;
+}> {
+  const { DockerRunner } = await import("./runner/docker");
 
-  // Check Docker
   console.log(color("🐳 Checking Docker...", COLORS.blue));
   const docker = new DockerRunner();
 
@@ -351,46 +418,49 @@ async function runFullVerification(configPath: string) {
   console.log(color("✓ Docker ready", COLORS.green));
   console.log();
 
-  // Run TLC
-  console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
-  console.log(color("   This may take a minute...", COLORS.gray));
-  console.log();
+  return docker;
+}
 
-  const result = await docker.runTLC(specPath, {
-    workers: 2,
-    timeout: 120000, // 2 minutes
-  });
-
-  // Display results
+function displayVerificationResults(
+  result: {
+    success: boolean;
+    stats?: { statesGenerated: number; distinctStates: number };
+    violation?: { name: string; trace: string[] };
+    error?: string;
+    output: string;
+  },
+  specDir: string
+): void {
   if (result.success) {
     console.log(color("✅ Verification passed!\n", COLORS.green));
     console.log(color("Statistics:", COLORS.blue));
     console.log(color(`   States explored: ${result.stats?.statesGenerated || 0}`, COLORS.gray));
     console.log(color(`   Distinct states: ${result.stats?.distinctStates || 0}`, COLORS.gray));
     console.log();
-  } else {
-    console.log(color("❌ Verification failed!\n", COLORS.red));
-
-    if (result.violation) {
-      console.log(color(`Invariant violated: ${result.violation.name}\n`, COLORS.red));
-      console.log(color("Trace to violation:", COLORS.yellow));
-      for (const line of result.violation.trace.slice(0, 20)) {
-        console.log(color(`  ${line}`, COLORS.gray));
-      }
-      if (result.violation.trace.length > 20) {
-        console.log(color(`  ... (${result.violation.trace.length - 20} more lines)`, COLORS.gray));
-      }
-    } else if (result.error) {
-      console.log(color(`Error: ${result.error}`, COLORS.red));
-    }
-
-    console.log();
-    console.log(color("Full output saved to:", COLORS.gray));
-    console.log(color(`  ${path.join(specDir, "tlc-output.log")}`, COLORS.gray));
-    fs.writeFileSync(path.join(specDir, "tlc-output.log"), result.output);
-
-    process.exit(1);
+    return;
   }
+
+  console.log(color("❌ Verification failed!\n", COLORS.red));
+
+  if (result.violation) {
+    console.log(color(`Invariant violated: ${result.violation.name}\n`, COLORS.red));
+    console.log(color("Trace to violation:", COLORS.yellow));
+    for (const line of result.violation.trace.slice(0, 20)) {
+      console.log(color(`  ${line}`, COLORS.gray));
+    }
+    if (result.violation.trace.length > 20) {
+      console.log(color(`  ... (${result.violation.trace.length - 20} more lines)`, COLORS.gray));
+    }
+  } else if (result.error) {
+    console.log(color(`Error: ${result.error}`, COLORS.red));
+  }
+
+  console.log();
+  console.log(color("Full output saved to:", COLORS.gray));
+  console.log(color(`  ${path.join(specDir, "tlc-output.log")}`, COLORS.gray));
+  fs.writeFileSync(path.join(specDir, "tlc-output.log"), result.output);
+
+  process.exit(1);
 }
 
 function showHelp() {
@@ -466,6 +536,7 @@ function findStateFile(): string | undefined {
 
 main().catch((error) => {
   if (error instanceof Error && error.stack) {
+    // Stack trace already printed by underlying functions
   }
   process.exit(1);
 });

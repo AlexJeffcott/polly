@@ -3,7 +3,11 @@
 import { describe, expect, test } from "bun:test";
 import type { CodebaseAnalysis } from "../../../../analysis/src/extract/types";
 import {
-  TemporalPatterns,
+  always,
+  eventually,
+  impliesEventually,
+  ordering,
+  requestResponse,
   type TemporalProperty,
   TemporalPropertyGenerator,
   TemporalTLAGenerator,
@@ -571,7 +575,7 @@ describe("Temporal TLA+ Generation", () => {
 
 describe("Temporal Patterns", () => {
   test("creates eventually pattern", () => {
-    const prop = TemporalPatterns.eventually("Done", "Eventually done", "state.done");
+    const prop = eventually("Done", "Eventually done", "state.done");
 
     expect(prop.name).toBe("Done");
     expect(prop.type).toBe("eventually");
@@ -579,7 +583,7 @@ describe("Temporal Patterns", () => {
   });
 
   test("creates always pattern", () => {
-    const prop = TemporalPatterns.always("Safe", "Always safe", "state.safe");
+    const prop = always("Safe", "Always safe", "state.safe");
 
     expect(prop.name).toBe("Safe");
     expect(prop.type).toBe("always");
@@ -587,7 +591,7 @@ describe("Temporal Patterns", () => {
   });
 
   test("creates implies-eventually pattern", () => {
-    const prop = TemporalPatterns.impliesEventually("ReqResp", "Request response", "req", "resp");
+    const prop = impliesEventually("ReqResp", "Request response", "req", "resp");
 
     expect(prop.name).toBe("ReqResp");
     expect(prop.type).toBe("implies-eventually");
@@ -596,7 +600,7 @@ describe("Temporal Patterns", () => {
   });
 
   test("creates ordering pattern", () => {
-    const prop = TemporalPatterns.ordering("A", "B", "A before B");
+    const prop = ordering("A", "B", "A before B");
 
     expect(prop.name).toBe("ABeforeB");
     expect(prop.type).toBe("order");
@@ -605,7 +609,7 @@ describe("Temporal Patterns", () => {
   });
 
   test("creates request-response pattern", () => {
-    const prop = TemporalPatterns.requestResponse("request", "response");
+    const prop = requestResponse("request", "response");
 
     expect(prop.name).toBe("requestEventuallyGetsresponse");
     expect(prop.type).toBe("implies-eventually");
