@@ -216,58 +216,105 @@ export class FlowAnalyzer {
     const sourceFile = this.project.getSourceFile(handler.location.file);
     if (!sourceFile) return sends;
 
-    // Find the handler function at the given line
     const targetLine = handler.location.line;
 
     sourceFile.forEachDescendant((node) => {
-      if (Node.isCallExpression(node)) {
-        const line = node.getStartLineNumber();
-
-        // Rough heuristic: if it's near the handler line, it's probably in the handler
-        if (Math.abs(line - targetLine) < 20) {
-          const expression = node.getExpression();
-
-          if (Node.isPropertyAccessExpression(expression)) {
-            const methodName = expression.getName();
-
-            if (methodName === "send" || methodName === "emit") {
-              const args = node.getArguments();
-              if (args.length > 0) {
-                const firstArg = args[0];
-                let messageType: string | undefined;
-
-                // Check if first argument is a string literal: send("MESSAGE")
-                if (Node.isStringLiteral(firstArg)) {
-                  messageType = firstArg.getLiteralValue();
-                }
-                // Check if first argument is an object literal: send({ type: "MESSAGE" })
-                else if (Node.isObjectLiteralExpression(firstArg)) {
-                  const typeProperty = firstArg.getProperty("type");
-                  if (typeProperty && Node.isPropertyAssignment(typeProperty)) {
-                    const initializer = typeProperty.getInitializer();
-                    if (initializer && Node.isStringLiteral(initializer)) {
-                      messageType = initializer.getLiteralValue();
-                    }
-                  }
-                }
-
-                if (messageType) {
-                  sends.push({
-                    messageType,
-                    location: {
-                      file: handler.location.file,
-                      line,
-                    },
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
+      this.processSendCall(node, targetLine, handler.location.file, sends);
     });
 
     return sends;
+  }
+
+  /**
+   * Process a node that might be a send/emit call
+   */
+  private processSendCall(
+    node: Node,
+    targetLine: number,
+    filePath: string,
+    sends: Array<{ messageType: string; location: { file: string; line: number } }>
+  ): void {
+    if (!Node.isCallExpression(node)) {
+      return;
+    }
+
+    const line = node.getStartLineNumber();
+    if (!this.isNearLine(line, targetLine)) {
+      return;
+    }
+
+    const expression = node.getExpression();
+    if (!this.isSendOrEmitCall(expression)) {
+      return;
+    }
+
+    const args = node.getArguments();
+    if (args.length === 0) {
+      return;
+    }
+
+    const messageType = this.extractMessageTypeFromArg(args[0]);
+    if (messageType) {
+      sends.push({
+        messageType,
+        location: { file: filePath, line },
+      });
+    }
+  }
+
+  /**
+   * Check if line is near target line
+   */
+  private isNearLine(line: number, targetLine: number): boolean {
+    return Math.abs(line - targetLine) < 20;
+  }
+
+  /**
+   * Check if expression is a send or emit call
+   */
+  private isSendOrEmitCall(expression: Node): boolean {
+    if (!Node.isPropertyAccessExpression(expression)) {
+      return false;
+    }
+
+    const methodName = expression.getName();
+    return methodName === "send" || methodName === "emit";
+  }
+
+  /**
+   * Extract message type from send/emit argument
+   */
+  private extractMessageTypeFromArg(arg: Node): string | undefined {
+    if (Node.isStringLiteral(arg)) {
+      return arg.getLiteralValue();
+    }
+
+    if (Node.isObjectLiteralExpression(arg)) {
+      return this.extractMessageTypeFromObject(arg);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract message type from object literal
+   */
+  private extractMessageTypeFromObject(obj: Node): string | undefined {
+    if (!Node.isObjectLiteralExpression(obj)) {
+      return undefined;
+    }
+
+    const typeProperty = obj.getProperty("type");
+    if (!typeProperty || !Node.isPropertyAssignment(typeProperty)) {
+      return undefined;
+    }
+
+    const initializer = typeProperty.getInitializer();
+    if (!initializer || !Node.isStringLiteral(initializer)) {
+      return undefined;
+    }
+
+    return initializer.getLiteralValue();
   }
 
   /**
