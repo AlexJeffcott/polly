@@ -1170,31 +1170,60 @@ export class StructurizrDSLGenerator {
 
     parts.push(`${indent}deploymentNode "${this.escape(node.name)}"${description}${technology} {`);
 
-    // Add tags if present
-    if (node.tags && node.tags.length > 0) {
-      const filteredTags = node.tags.filter((tag) => !tag.toLowerCase().includes("environment:"));
-      if (filteredTags.length > 0) {
-        parts.push(`${indent}  tags "${filteredTags.join('" "')}"`);
-      }
-    }
+    this.addDeploymentNodeTags(node, indent, parts);
+    this.addDeploymentNodeProperties(node, indent, parts);
+    this.addDeploymentNodeChildren(node, indent, parts);
+    this.addDeploymentNodeContainerInstances(node, indent, parts);
 
-    // Add properties if present
-    if (node.properties && Object.keys(node.properties).length > 0) {
-      parts.push(`${indent}  properties {`);
-      for (const [key, value] of Object.entries(node.properties)) {
-        parts.push(`${indent}    "${this.escape(key)}" "${this.escape(value)}"`);
-      }
-      parts.push(`${indent}  }`);
-    }
+    parts.push(`${indent}}`);
 
-    // Add child deployment nodes (nested infrastructure)
-    if (node.children && node.children.length > 0) {
-      for (const child of node.children) {
-        parts.push(this.generateDeploymentNode(child, `${indent}  `));
-      }
-    }
+    return parts.join("\n");
+  }
 
-    // Add container instances if specified
+  /**
+   * Add tags to deployment node
+   */
+  private addDeploymentNodeTags(node: DeploymentNode, indent: string, parts: string[]): void {
+    if (!node.tags || node.tags.length === 0) return;
+
+    const filteredTags = node.tags.filter((tag) => !tag.toLowerCase().includes("environment:"));
+    if (filteredTags.length > 0) {
+      parts.push(`${indent}  tags "${filteredTags.join('" "')}"`);
+    }
+  }
+
+  /**
+   * Add properties to deployment node
+   */
+  private addDeploymentNodeProperties(node: DeploymentNode, indent: string, parts: string[]): void {
+    if (!node.properties || Object.keys(node.properties).length === 0) return;
+
+    parts.push(`${indent}  properties {`);
+    for (const [key, value] of Object.entries(node.properties)) {
+      parts.push(`${indent}    "${this.escape(key)}" "${this.escape(value)}"`);
+    }
+    parts.push(`${indent}  }`);
+  }
+
+  /**
+   * Add child deployment nodes
+   */
+  private addDeploymentNodeChildren(node: DeploymentNode, indent: string, parts: string[]): void {
+    if (!node.children || node.children.length === 0) return;
+
+    for (const child of node.children) {
+      parts.push(this.generateDeploymentNode(child, `${indent}  `));
+    }
+  }
+
+  /**
+   * Add container instances to deployment node
+   */
+  private addDeploymentNodeContainerInstances(
+    node: DeploymentNode,
+    indent: string,
+    parts: string[]
+  ): void {
     if (node.containerInstances && node.containerInstances.length > 0) {
       for (const containerInstance of node.containerInstances) {
         const instancesStr =
@@ -1208,16 +1237,10 @@ export class StructurizrDSLGenerator {
     } else if (!node.children || node.children.length === 0) {
       // If no container instances specified and no children, deploy all containers as fallback
       const contexts = Object.keys(this.analysis.contexts);
-      if (contexts.length > 0) {
-        for (const contextType of contexts) {
-          parts.push(`${indent}  containerInstance extension.${contextType}`);
-        }
+      for (const contextType of contexts) {
+        parts.push(`${indent}  containerInstance extension.${contextType}`);
       }
     }
-
-    parts.push(`${indent}}`);
-
-    return parts.join("\n");
   }
 
   /**
