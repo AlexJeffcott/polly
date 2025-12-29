@@ -18,7 +18,7 @@ import {
   type MockRuntime,
   createMockAdapters,
   createMockPort,
-} from "../helpers/adapters";
+} from "@fairfox/polly/test";
 
 let adapters: ExtensionAdapters;
 let mockLogger: MockLogger;

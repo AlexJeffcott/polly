@@ -13,8 +13,8 @@ import {
   OffscreenError,
   TimeoutError,
 } from "@/shared/lib/errors";
-import { createMockLogger } from "../helpers/adapters/logger.mock";
-import type { MockLogger } from "../helpers/adapters/logger.mock";
+import { createMockLogger } from "@fairfox/polly/test";
+import type { MockLogger } from "@fairfox/polly/test";
 
 let mockLogger: MockLogger;
 let errorHandler: ErrorHandler;

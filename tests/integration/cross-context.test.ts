@@ -15,8 +15,8 @@ import {
   createMockStorageArea,
   createMockTabs,
   createMockWindow,
-} from "../helpers/adapters";
-import { waitFor } from "../helpers/test-utils";
+} from "@fairfox/polly/test";
+import { waitFor } from "@fairfox/polly/test";
 
 // Helper to simulate port connection
 function simulatePortConnection(mockRuntime: MockRuntime, port: ReturnType<typeof createMockPort>) {

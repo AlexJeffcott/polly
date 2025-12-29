@@ -2,7 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import type { ExtensionMessage } from "@/shared/types/messages";
-import { createMockAdapters } from "../../helpers/adapters";
+import { createMockAdapters } from "@fairfox/polly/test";
 
 /**
  * Content script tests - focus on message handling logic

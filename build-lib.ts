@@ -41,8 +41,11 @@ const libResult = await Bun.build({
     "src/background/index.ts",
     "src/background/message-router.ts",
 
-    // Verify tool config helper (lightweight, no heavy deps)
+    // Tool exports
     "tools/verify/src/config.ts",
+    "tools/test/src/index.ts",
+    "tools/test/src/test-utils.ts",
+    "tools/test/src/adapters/index.ts",
   ],
   outdir: DIST_DIR,
   target: "browser",
@@ -75,6 +78,7 @@ const toolsResult = await Bun.build({
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
     "tools/teach/src/cli.ts",
+    "tools/test/src/cli.ts",
     "scripts/build-extension.ts",
   ],
   outdir: DIST_DIR,
@@ -129,10 +133,11 @@ try {
       declaration: true,
       emitDeclarationOnly: true,
       outDir: "dist",
+      rootDir: ".",
       skipLibCheck: true,
       noEmit: false,
     },
-    include: ["src/**/*", "tools/verify/src/config.ts"],
+    include: ["src/**/*", "tools/verify/src/config.ts", "tools/test/src/**/*"],
     exclude: [
       "src/content/**/*",
       "src/devtools/**/*",

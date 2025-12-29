@@ -3,7 +3,7 @@ import { LogStore } from "@/background/log-store";
 import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import type { ExtensionMessage } from "@/shared/types/messages";
-import { createMockAdapters } from "../helpers/adapters";
+import { createMockAdapters } from "@fairfox/polly/test";
 
 let bus: MessageBus;
 let logStore: LogStore;

@@ -7,9 +7,9 @@ This directory contains mock implementations of all adapter interfaces defined i
 Each mock file corresponds to a production adapter interface:
 
 ```
-src/shared/adapters/runtime.adapter.ts  ←→  tests/helpers/adapters/runtime.mock.ts
-src/shared/adapters/storage.adapter.ts  ←→  tests/helpers/adapters/storage.mock.ts
-src/shared/adapters/tabs.adapter.ts     ←→  tests/helpers/adapters/tabs.mock.ts
+src/shared/adapters/runtime.adapter.ts  ←→  tools/test/src/adapters/runtime.mock.ts
+src/shared/adapters/storage.adapter.ts  ←→  tools/test/src/adapters/storage.mock.ts
+src/shared/adapters/tabs.adapter.ts     ←→  tools/test/src/adapters/tabs.mock.ts
 ...
 ```
 
@@ -18,7 +18,7 @@ src/shared/adapters/tabs.adapter.ts     ←→  tests/helpers/adapters/tabs.mock
 ### Basic: Complete Adapter Set
 
 ```typescript
-import { createMockAdapters } from '../helpers/adapters'
+import { createMockAdapters } from '@fairfox/polly/test'
 
 const adapters = createMockAdapters()
 const bus = new MessageBus('background', adapters)
@@ -28,7 +28,7 @@ const bus = new MessageBus('background', adapters)
 ### Advanced: Access Mock Internals
 
 ```typescript
-import { createMockAdapters, type MockFetch } from '../helpers/adapters'
+import { createMockAdapters, type MockFetch } from '@fairfox/polly/test'
 
 const adapters = createMockAdapters()
 const mockFetch = adapters.fetch as MockFetch
@@ -48,7 +48,7 @@ expect(mockFetch._calls[0].input).toBe('https://api.example.com')
 Some tests need direct access to internal mock state across multiple adapters:
 
 ```typescript
-import { createMockChrome } from '../helpers/adapters'
+import { createMockChrome } from '@fairfox/polly/test'
 
 const mockChrome = createMockChrome()
 // Returns { runtime, storage: { local }, tabs }

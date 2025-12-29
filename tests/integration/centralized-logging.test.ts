@@ -1,8 +1,8 @@
 import { beforeEach, expect, test } from "bun:test";
 import { LogStore } from "@/background/log-store";
 import { MessageBus } from "@/shared/lib/message-bus";
-import { createMockAdapters } from "../helpers/adapters";
-import type { MockExtensionAdapters } from "../helpers/adapters";
+import { createMockAdapters } from "@fairfox/polly/test";
+import type { MockExtensionAdapters } from "@fairfox/polly/test";
 
 let backgroundAdapters: MockExtensionAdapters;
 let backgroundBus: MessageBus;

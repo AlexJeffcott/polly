@@ -1,7 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import type { TabsAdapter } from "@/shared/adapters";
 import type { MessageSender } from "@/shared/adapters/runtime.adapter";
-import { createMockChrome, createMockPort, createMockStorageArea } from "../helpers/adapters";
+import { createMockChrome, createMockPort, createMockStorageArea } from "@fairfox/polly/test";
 
 /**
  * Adapter interface tests - these test the mock implementations

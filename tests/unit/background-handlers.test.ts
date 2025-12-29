@@ -15,8 +15,8 @@ import {
   createMockStorageArea,
   createMockTabs,
   createMockWindow,
-} from "../helpers/adapters";
-import { noOpAsync } from "../helpers/test-utils";
+} from "@fairfox/polly/test";
+import { noOpAsync } from "@fairfox/polly/test";
 
 let mockFetch: MockFetch;
 let adapters: ExtensionAdapters;

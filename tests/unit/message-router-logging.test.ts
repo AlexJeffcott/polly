@@ -10,7 +10,7 @@ import {
   type MockExtensionAdapters,
   createMockAdapters,
   createMockPort,
-} from "../helpers/adapters";
+} from "@fairfox/polly/test";
 
 let adapters: MockExtensionAdapters;
 let bus: MessageBus<ExtensionMessage>;

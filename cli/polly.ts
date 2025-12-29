@@ -237,30 +237,22 @@ async function format() {
 }
 
 /**
- * Test command - run Bun tests
+ * Test command - delegate to @fairfox/polly-test
  */
 async function test() {
-  const proc = Bun.spawn(["bun", "test", ...commandArgs], {
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../tools/test/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/test/src/cli.ts`;
+  const testCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  const proc = Bun.spawn(["bun", testCli, ...commandArgs], {
     cwd,
-    stdout: "pipe",
-    stderr: "pipe",
+    stdout: "inherit",
+    stderr: "inherit",
     stdin: "inherit",
   });
 
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-
-  // Output the results
-  if (stdout) process.stdout.write(stdout);
-  if (stderr) process.stderr.write(stderr);
-
   const exitCode = await proc.exited;
-
-  // Check if no tests were found (not a failure)
-  if (stderr.includes("0 test files matching")) {
-    return;
-  }
-
   if (exitCode !== 0) {
     throw new Error(`Tests failed with exit code ${exitCode}`);
   }

@@ -5,8 +5,8 @@
 import { beforeEach, expect, test } from "bun:test";
 import { ApiClient } from "@/background/api-client";
 import { MessageBus } from "@/shared/lib/message-bus";
-import { createMockAdapters } from "../helpers/adapters";
-import type { MockExtensionAdapters } from "../helpers/adapters";
+import { createMockAdapters } from "@fairfox/polly/test";
+import type { MockExtensionAdapters } from "@fairfox/polly/test";
 
 let adapters: MockExtensionAdapters;
 let bus: MessageBus;

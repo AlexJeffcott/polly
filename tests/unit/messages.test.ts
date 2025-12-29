@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ALL_CONTEXTS, type ExtensionMessage, type MessageResponse } from "@/shared/types/messages";
-import { createMockRoutedMessage, expectType } from "../helpers/test-utils";
+import { createMockRoutedMessage, expectType } from "@fairfox/polly/test";
 
 test("ExtensionMessage - DOM_QUERY type safety", () => {
   const message: ExtensionMessage = {

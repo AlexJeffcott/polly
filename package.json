@@ -47,6 +47,10 @@
     "./verify": {
       "import": "./dist/tools/verify/src/config.js",
       "types": "./dist/tools/verify/src/config.d.ts"
+    },
+    "./test": {
+      "import": "./dist/tools/test/src/index.js",
+      "types": "./dist/tools/test/src/index.d.ts"
     }
   },
   "files": ["dist", "README.md", "LICENSE"],

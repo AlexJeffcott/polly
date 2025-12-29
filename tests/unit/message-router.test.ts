@@ -14,7 +14,7 @@ import {
   createMockStorageArea,
   createMockTabs,
   createMockWindow,
-} from "../helpers/adapters";
+} from "@fairfox/polly/test";
 
 let mockRuntime: MockRuntime;
 let adapters: ExtensionAdapters;
