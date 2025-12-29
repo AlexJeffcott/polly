@@ -1448,7 +1448,9 @@ export class StructurizrDSLGenerator {
         name: "Authentication",
         components: authHandlers.map((c) => c.id),
       });
-      authHandlers.forEach((h) => assigned.add(h.id));
+      for (const h of authHandlers) {
+        assigned.add(h.id);
+      }
     }
 
     // Group 2: Subscription handlers
@@ -1462,7 +1464,9 @@ export class StructurizrDSLGenerator {
         name: "Subscriptions",
         components: subscriptionHandlers.map((c) => c.id),
       });
-      subscriptionHandlers.forEach((h) => assigned.add(h.id));
+      for (const h of subscriptionHandlers) {
+        assigned.add(h.id);
+      }
     }
 
     // Group 3: Entity-based grouping
@@ -1525,7 +1529,9 @@ export class StructurizrDSLGenerator {
         });
       } else {
         // Remove from assigned if not enough for a group
-        componentIds.forEach((id) => assigned.delete(id));
+        for (const id of componentIds) {
+          assigned.delete(id);
+        }
       }
     }
 
@@ -1563,7 +1569,9 @@ export class StructurizrDSLGenerator {
         name: "Query Handlers",
         components: queryHandlers.map((c) => c.id),
       });
-      queryHandlers.forEach((h) => assigned.add(h.id));
+      for (const h of queryHandlers) {
+        assigned.add(h.id);
+      }
     }
 
     if (commandHandlers.length >= 2) {
@@ -1571,7 +1579,9 @@ export class StructurizrDSLGenerator {
         name: "Command Handlers",
         components: commandHandlers.map((c) => c.id),
       });
-      commandHandlers.forEach((h) => assigned.add(h.id));
+      for (const h of commandHandlers) {
+        assigned.add(h.id);
+      }
     }
 
     // Only return groups if we successfully grouped most components
