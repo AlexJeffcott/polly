@@ -16,8 +16,9 @@
       "@fairfox/polly/message-bus": ["../../src/shared/lib/message-bus.ts"],
       "@fairfox/polly/message-router": ["../../src/background/message-router.ts"],
       "@fairfox/polly/background": ["../../src/background/index.ts"],
-      "@fairfox/polly/types": ["../../src/shared/types/messages.ts"]
+      "@fairfox/polly/types": ["../../src/shared/types/messages.ts"],
+      "@fairfox/polly/test": ["../../tools/test/src/index.ts"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/**/*"]
 }
