@@ -38,7 +38,12 @@ export class ADRExtractor {
         if (adr) {
           adrs.push(adr);
         }
-      } catch (_error) {}
+      } catch (error) {
+        // Skip malformed ADR files
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(`[DEBUG] Failed to parse ADR file ${file}: ${error}`);
+        }
+      }
     }
 
     // Sort by ID

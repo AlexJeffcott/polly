@@ -88,7 +88,12 @@ export class ArchitectureAnalyzer {
       try {
         const contextInfo = contextAnalyzer.analyzeContext(contextType, entryPoint, handlers);
         contexts[contextType] = contextInfo;
-      } catch (_error) {}
+      } catch (error) {
+        // Skip contexts that fail to analyze
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(`[DEBUG] Failed to analyze context ${contextType}: ${error}`);
+        }
+      }
     }
 
     // 4. Analyze message flows
@@ -170,7 +175,12 @@ export class ArchitectureAnalyzer {
           type: packageJson.repository.type || "git",
         };
       }
-    } catch (_error) {}
+    } catch (error) {
+      // Skip if package.json is malformed or unreadable
+      if (process.env["POLLY_DEBUG"]) {
+        console.log(`[DEBUG] Failed to extract repository info from package.json: ${error}`);
+      }
+    }
 
     return undefined;
   }
