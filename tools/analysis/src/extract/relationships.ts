@@ -358,71 +358,83 @@ export class RelationshipExtractor {
 
     // Pattern 1: getXxx() or createXxx()
     if (normalized.startsWith("get") || normalized.startsWith("create")) {
-      const suffix = functionName.substring(normalized.startsWith("get") ? 3 : 6);
-      const suffixLower = suffix.toLowerCase();
-
-      // Database patterns
-      if (
-        suffixLower.includes("database") ||
-        suffixLower === "db" ||
-        suffixLower.includes("dbconnection") ||
-        suffixLower.includes("connection")
-      ) {
-        return "db_client";
-      }
-
-      // Repository patterns
-      if (
-        suffixLower.includes("repositories") ||
-        suffixLower.includes("repos") ||
-        suffixLower.includes("repository")
-      ) {
-        return "repositories";
-      }
-
-      // Service patterns
-      if (suffixLower.includes("service")) {
-        // Extract service type (e.g., createAuthService -> auth_service)
-        const serviceMatch = suffix.match(/^(.+?)Service/i);
-        if (serviceMatch) {
-          return this.toComponentId(`${serviceMatch[1]}_service`);
-        }
-        return "service";
-      }
-
-      // Cache patterns
-      if (suffixLower.includes("cache")) {
-        return "cache";
-      }
-
-      // Storage patterns
-      if (suffixLower.includes("storage")) {
-        return "storage";
-      }
-
-      // AI/LLM patterns
-      if (suffixLower.includes("ai") || suffixLower.includes("llm")) {
-        return "ai_service";
-      }
-
-      // Logger patterns
-      if (suffixLower.includes("logger")) {
-        return "logger";
-      }
+      const prefixLength = normalized.startsWith("get") ? 3 : 6;
+      const suffix = functionName.substring(prefixLength);
+      return this.matchComponentPattern(suffix, functionName);
     }
 
     // Pattern 2: initXxx() or setupXxx()
     if (normalized.startsWith("init") || normalized.startsWith("setup")) {
-      // These often initialize services, treat similarly to get/create
-      const suffix = functionName.substring(normalized.startsWith("init") ? 4 : 5);
-      const suffixLower = suffix.toLowerCase();
+      const prefixLength = normalized.startsWith("init") ? 4 : 5;
+      const suffix = functionName.substring(prefixLength);
+      return this.matchInitPattern(suffix);
+    }
 
-      if (suffixLower.includes("database") || suffixLower === "db") {
-        return "db_client";
+    return null;
+  }
+
+  /**
+   * Match component patterns for get/create functions
+   */
+  private matchComponentPattern(suffix: string, fullFunctionName: string): string | null {
+    const suffixLower = suffix.toLowerCase();
+
+    const patterns = [
+      {
+        patterns: ["database", "db", "dbconnection", "connection"],
+        component: "db_client",
+      },
+      {
+        patterns: ["repositories", "repos", "repository"],
+        component: "repositories",
+      },
+      {
+        patterns: ["cache"],
+        component: "cache",
+      },
+      {
+        patterns: ["storage"],
+        component: "storage",
+      },
+      {
+        patterns: ["ai", "llm"],
+        component: "ai_service",
+      },
+      {
+        patterns: ["logger"],
+        component: "logger",
+      },
+    ];
+
+    for (const { patterns, component } of patterns) {
+      if (patterns.some((pattern) => suffixLower.includes(pattern) || suffixLower === pattern)) {
+        return component;
       }
-      if (suffixLower.includes("cache")) {
-        return "cache";
+    }
+
+    // Service patterns (special case with extraction)
+    if (suffixLower.includes("service")) {
+      const serviceMatch = suffix.match(/^(.+?)Service/i);
+      if (serviceMatch) {
+        return this.toComponentId(`${serviceMatch[1]}_service`);
       }
+      return "service";
+    }
+
+    return null;
+  }
+
+  /**
+   * Match patterns for init/setup functions
+   */
+  private matchInitPattern(suffix: string): string | null {
+    const suffixLower = suffix.toLowerCase();
+
+    if (suffixLower.includes("database") || suffixLower === "db") {
+      return "db_client";
+    }
+    if (suffixLower.includes("cache")) {
+      return "cache";
     }
 
     return null;
