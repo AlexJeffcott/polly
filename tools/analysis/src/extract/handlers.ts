@@ -1118,83 +1118,158 @@ export class HandlerExtractor {
   private resolveImportedTypeGuard(identifier: Identifier): string | null {
     try {
       const funcName = identifier.getText();
-
-      // Get the definition nodes (where the function is defined)
       const definitions = identifier.getDefinitionNodes();
 
       if (definitions.length === 0) {
-        if (process.env["POLLY_DEBUG"]) {
-          console.log(`[DEBUG] No definitions found for imported function: ${funcName}`);
-        }
+        this.debugLogNoDefinitions(funcName);
         return null;
       }
 
       for (const def of definitions) {
-        // Check if it's a function with type predicate return type
-        if (
-          Node.isFunctionDeclaration(def) ||
-          Node.isFunctionExpression(def) ||
-          Node.isArrowFunction(def)
-        ) {
-          // Check the return type NODE (AST structure), not the resolved TYPE
-          // This is critical: ts-morph returns "boolean" for type predicates when checking .getReturnType()
-          // but the AST node structure preserves the actual type predicate
-          const returnTypeNode = def.getReturnTypeNode();
-
-          if (process.env["POLLY_DEBUG"]) {
-            const returnType = def.getReturnType().getText();
-            console.log(`[DEBUG] Function ${funcName} return type (resolved): ${returnType}`);
-            console.log(`[DEBUG] Has return type node: ${!!returnTypeNode}`);
-            console.log(
-              `[DEBUG] Is type predicate node: ${returnTypeNode && Node.isTypePredicate(returnTypeNode)}`
-            );
-          }
-
-          // Check if the return type node is a type predicate
-          if (returnTypeNode && Node.isTypePredicate(returnTypeNode)) {
-            // Extract the type from the type predicate node
-            const typeNode = returnTypeNode.getTypeNode();
-
-            if (typeNode) {
-              const typeName = typeNode.getText(); // e.g., "QueryMessage"
-              const messageType = this.extractMessageTypeFromTypeName(typeName);
-
-              if (messageType) {
-                if (process.env["POLLY_DEBUG"]) {
-                  console.log(
-                    `[DEBUG] Resolved ${funcName} → ${messageType} (from AST type predicate)`
-                  );
-                }
-                return messageType;
-              }
-            }
-          }
-
-          // Fallback: Analyze function body for msg.type === 'value'
-          const body = def.getBody();
-          if (body) {
-            const bodyText = body.getText();
-            const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/);
-            if (typeValueMatch) {
-              const messageType = typeValueMatch[1] ?? null;
-
-              if (process.env["POLLY_DEBUG"]) {
-                console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from body)`);
-              }
-
-              return messageType;
-            }
-          }
+        const messageType = this.tryExtractTypeGuardFromDefinition(def, funcName);
+        if (messageType) {
+          return messageType;
         }
       }
     } catch (error) {
-      // DEBUG: Log errors
-      if (process.env["POLLY_DEBUG"]) {
-        console.log(`[DEBUG] Error resolving imported type guard: ${error}`);
-      }
+      this.debugLogResolutionError(error);
     }
 
     return null;
+  }
+
+  /**
+   * Try to extract type guard from a single function definition
+   */
+  private tryExtractTypeGuardFromDefinition(def: Node, funcName: string): string | null {
+    if (!this.isFunctionNode(def)) {
+      return null;
+    }
+
+    const returnTypeNode = def.getReturnTypeNode();
+    this.debugLogReturnTypeInfo(funcName, def, returnTypeNode);
+
+    const typePredicateResult = this.extractFromTypePredicate(returnTypeNode, funcName);
+    if (typePredicateResult) {
+      return typePredicateResult;
+    }
+
+    return this.extractFromFunctionBody(def, funcName);
+  }
+
+  /**
+   * Check if node is a function type
+   */
+  private isFunctionNode(
+    node: Node
+  ): node is FunctionDeclaration | FunctionExpression | ArrowFunction {
+    return (
+      Node.isFunctionDeclaration(node) ||
+      Node.isFunctionExpression(node) ||
+      Node.isArrowFunction(node)
+    );
+  }
+
+  /**
+   * Extract message type from type predicate node
+   */
+  private extractFromTypePredicate(returnTypeNode: Node | undefined, funcName: string): string | null {
+    if (!returnTypeNode || !Node.isTypePredicate(returnTypeNode)) {
+      return null;
+    }
+
+    const typeNode = returnTypeNode.getTypeNode();
+    if (!typeNode) {
+      return null;
+    }
+
+    const typeName = typeNode.getText();
+    const messageType = this.extractMessageTypeFromTypeName(typeName);
+
+    if (messageType) {
+      this.debugLogTypePredicateResolution(funcName, messageType);
+      return messageType;
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract message type from function body
+   */
+  private extractFromFunctionBody(
+    def: FunctionDeclaration | FunctionExpression | ArrowFunction,
+    funcName: string
+  ): string | null {
+    const body = def.getBody();
+    if (!body) {
+      return null;
+    }
+
+    const bodyText = body.getText();
+    const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/);
+
+    if (typeValueMatch) {
+      const messageType = typeValueMatch[1] ?? null;
+      this.debugLogBodyResolution(funcName, messageType);
+      return messageType;
+    }
+
+    return null;
+  }
+
+  /**
+   * Debug: Log no definitions found
+   */
+  private debugLogNoDefinitions(funcName: string): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] No definitions found for imported function: ${funcName}`);
+    }
+  }
+
+  /**
+   * Debug: Log return type info
+   */
+  private debugLogReturnTypeInfo(
+    funcName: string,
+    def: FunctionDeclaration | FunctionExpression | ArrowFunction,
+    returnTypeNode: Node | undefined
+  ): void {
+    if (process.env["POLLY_DEBUG"]) {
+      const returnType = def.getReturnType().getText();
+      console.log(`[DEBUG] Function ${funcName} return type (resolved): ${returnType}`);
+      console.log(`[DEBUG] Has return type node: ${!!returnTypeNode}`);
+      console.log(
+        `[DEBUG] Is type predicate node: ${returnTypeNode && Node.isTypePredicate(returnTypeNode)}`
+      );
+    }
+  }
+
+  /**
+   * Debug: Log type predicate resolution
+   */
+  private debugLogTypePredicateResolution(funcName: string, messageType: string): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from AST type predicate)`);
+    }
+  }
+
+  /**
+   * Debug: Log body resolution
+   */
+  private debugLogBodyResolution(funcName: string, messageType: string | null): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Resolved ${funcName} → ${messageType} (from body)`);
+    }
+  }
+
+  /**
+   * Debug: Log resolution error
+   */
+  private debugLogResolutionError(error: unknown): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Error resolving imported type guard: ${error}`);
+    }
   }
 
   /**
