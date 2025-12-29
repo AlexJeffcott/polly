@@ -535,82 +535,177 @@ export class StructurizrDSLGenerator {
    */
   private generateComponentRelationships(_contextType: string, contextInfo: ContextInfo): string {
     const parts: string[] = [];
+    const handlersByType = this.buildHandlersByTypeMap(contextInfo.handlers);
 
-    // Build a map of handler components
+    parts.push(...this.generateChromeAPIRelationships(contextInfo, handlersByType));
+    parts.push(...this.generateUserProvidedRelationships());
+    parts.push(...this.generateAutoDetectedRelationships(contextInfo));
+    parts.push(...this.generateStateManagementRelationships(handlersByType));
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Build a map of handlers by message type
+   */
+  private buildHandlersByTypeMap(handlers: MessageHandler[]): Map<string, MessageHandler[]> {
     const handlersByType = new Map<string, MessageHandler[]>();
-    for (const handler of contextInfo.handlers) {
+
+    for (const handler of handlers) {
       if (!handlersByType.has(handler.messageType)) {
         handlersByType.set(handler.messageType, []);
       }
       handlersByType.get(handler.messageType)?.push(handler);
     }
 
-    // Add relationships to Chrome APIs
-    if (contextInfo.chromeAPIs && contextInfo.chromeAPIs.length > 0) {
-      for (const api of contextInfo.chromeAPIs) {
-        const apiId = this.toId(`chrome_${api}`);
+    return handlersByType;
+  }
 
-        // Find handlers that use this API
-        for (const [messageType, _handlers] of handlersByType) {
-          const componentId = this.toId(this.toComponentName(messageType));
+  /**
+   * Generate Chrome API relationships
+   */
+  private generateChromeAPIRelationships(
+    contextInfo: ContextInfo,
+    handlersByType: Map<string, MessageHandler[]>
+  ): string[] {
+    const parts: string[] = [];
 
-          // Infer relationship based on API
-          let description = `Uses ${api}`;
-          if (api === "storage") {
-            if (
-              messageType.toLowerCase().includes("get") ||
-              messageType.toLowerCase().includes("load")
-            ) {
-              description = "Reads from storage";
-            } else {
-              description = "Writes to storage";
-            }
-          } else if (api === "tabs") {
-            description = "Manages browser tabs";
-          } else if (api === "runtime") {
-            description = "Sends messages";
-          }
+    if (!contextInfo.chromeAPIs || contextInfo.chromeAPIs.length === 0) {
+      return parts;
+    }
 
-          parts.push(`        ${componentId} -> ${apiId} "${description}"`);
-        }
+    for (const api of contextInfo.chromeAPIs) {
+      const apiId = this.toId(`chrome_${api}`);
+
+      for (const [messageType, _handlers] of handlersByType) {
+        const componentId = this.toId(this.toComponentName(messageType));
+        const description = this.inferChromeAPIDescription(api, messageType);
+        parts.push(`        ${componentId} -> ${apiId} "${description}"`);
       }
     }
 
-    // Add user-provided explicit relationships
-    if (this.options.relationships && this.options.relationships.length > 0) {
-      for (const rel of this.options.relationships) {
+    return parts;
+  }
+
+  /**
+   * Infer relationship description based on Chrome API
+   */
+  private inferChromeAPIDescription(api: string, messageType: string): string {
+    if (api === "storage") {
+      return this.inferStorageDescription(messageType);
+    }
+
+    if (api === "tabs") {
+      return "Manages browser tabs";
+    }
+
+    if (api === "runtime") {
+      return "Sends messages";
+    }
+
+    return `Uses ${api}`;
+  }
+
+  /**
+   * Infer storage description based on message type
+   */
+  private inferStorageDescription(messageType: string): string {
+    const type = messageType.toLowerCase();
+
+    if (type.includes("get") || type.includes("load")) {
+      return "Reads from storage";
+    }
+
+    return "Writes to storage";
+  }
+
+  /**
+   * Generate user-provided explicit relationships
+   */
+  private generateUserProvidedRelationships(): string[] {
+    const parts: string[] = [];
+
+    if (!this.options.relationships || this.options.relationships.length === 0) {
+      return parts;
+    }
+
+    for (const rel of this.options.relationships) {
+      const fromId = this.toId(rel.from);
+      const toId = this.toId(rel.to);
+      const description = this.escape(rel.description);
+      const technology = rel.technology ? ` "${this.escape(rel.technology)}"` : "";
+
+      parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
+
+      if (rel.tags && rel.tags.length > 0) {
+        parts.push(`          tags "${rel.tags.join('" "')}"`);
+      }
+
+      parts.push("        }");
+    }
+
+    return parts;
+  }
+
+  /**
+   * Generate automatically detected relationships
+   */
+  private generateAutoDetectedRelationships(contextInfo: ContextInfo): string[] {
+    const parts: string[] = [];
+
+    for (const handler of contextInfo.handlers) {
+      if (!handler.relationships || handler.relationships.length === 0) {
+        continue;
+      }
+
+      for (const rel of handler.relationships) {
         const fromId = this.toId(rel.from);
         const toId = this.toId(rel.to);
         const description = this.escape(rel.description);
         const technology = rel.technology ? ` "${this.escape(rel.technology)}"` : "";
 
         parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
-
-        if (rel.tags && rel.tags.length > 0) {
-          parts.push(`          tags "${rel.tags.join('" "')}"`);
-        }
-
+        parts.push(`          tags "Auto-detected"`);
         parts.push("        }");
       }
     }
 
-    // Add automatically detected relationships from handler code
-    for (const handler of contextInfo.handlers) {
-      if (handler.relationships && handler.relationships.length > 0) {
-        for (const rel of handler.relationships) {
-          const fromId = this.toId(rel.from);
-          const toId = this.toId(rel.to);
-          const description = this.escape(rel.description);
-          const technology = rel.technology ? ` "${this.escape(rel.technology)}"` : "";
+    return parts;
+  }
 
-          parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
-          parts.push(`          tags "Auto-detected"`);
+  /**
+   * Generate state management relationships
+   */
+  private generateStateManagementRelationships(
+    handlersByType: Map<string, MessageHandler[]>
+  ): string[] {
+    const parts: string[] = [];
+    const { stateHandlers, queryHandlers } = this.classifyHandlersByType(handlersByType);
+
+    if (stateHandlers.length === 0 || queryHandlers.length === 0) {
+      return parts;
+    }
+
+    for (const queryHandler of queryHandlers) {
+      for (const stateHandler of stateHandlers) {
+        if (queryHandler !== stateHandler) {
+          parts.push(`        ${stateHandler} -> ${queryHandler} "Updates state" {`);
+          parts.push(`          tags "Implicit"`);
           parts.push("        }");
         }
       }
     }
 
-    // Add state management relationships (handlers that modify state)
+    return parts;
+  }
+
+  /**
+   * Classify handlers into state and query handlers
+   */
+  private classifyHandlersByType(handlersByType: Map<string, MessageHandler[]>): {
+    stateHandlers: string[];
+    queryHandlers: string[];
+  } {
     const stateHandlers: string[] = [];
     const queryHandlers: string[] = [];
 
@@ -618,38 +713,38 @@ export class StructurizrDSLGenerator {
       const type = messageType.toLowerCase();
       const componentId = this.toId(this.toComponentName(messageType));
 
-      if (
-        type.includes("add") ||
-        type.includes("create") ||
-        type.includes("update") ||
-        type.includes("delete") ||
-        type.includes("remove") ||
-        type.includes("toggle") ||
-        type.includes("clear") ||
-        type.includes("login") ||
-        type.includes("logout")
-      ) {
+      if (this.isStateHandler(type)) {
         stateHandlers.push(componentId);
-      } else if (type.includes("get") || type.includes("fetch") || type.includes("load")) {
+      } else if (this.isQueryHandler(type)) {
         queryHandlers.push(componentId);
       }
     }
 
-    // Create implicit state manager if we have state operations
-    if (stateHandlers.length > 0 && queryHandlers.length > 0) {
-      // Query handlers depend on state set by mutation handlers
-      for (const queryHandler of queryHandlers) {
-        for (const stateHandler of stateHandlers) {
-          if (queryHandler !== stateHandler) {
-            parts.push(`        ${stateHandler} -> ${queryHandler} "Updates state" {`);
-            parts.push(`          tags "Implicit"`);
-            parts.push("        }");
-          }
-        }
-      }
-    }
+    return { stateHandlers, queryHandlers };
+  }
 
-    return parts.join("\n");
+  /**
+   * Check if handler is a state mutation handler
+   */
+  private isStateHandler(type: string): boolean {
+    return (
+      type.includes("add") ||
+      type.includes("create") ||
+      type.includes("update") ||
+      type.includes("delete") ||
+      type.includes("remove") ||
+      type.includes("toggle") ||
+      type.includes("clear") ||
+      type.includes("login") ||
+      type.includes("logout")
+    );
+  }
+
+  /**
+   * Check if handler is a query handler
+   */
+  private isQueryHandler(type: string): boolean {
+    return type.includes("get") || type.includes("fetch") || type.includes("load");
   }
 
   /**
