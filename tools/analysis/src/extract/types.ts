@@ -169,107 +169,185 @@ export class TypeExtractor {
     sourceFile: SourceFile,
     warnings: string[]
   ): string[] {
-    const messageTypes: string[] = [];
-
-    // Handle union types
     if (type.isUnion()) {
-      const unionTypes = type.getUnionTypes();
-
-      for (const unionType of unionTypes) {
-        // Pattern 1: Discriminated unions ({ type: 'foo' } | { type: 'bar' })
-        if (unionType.isObject()) {
-          const typeProperty = unionType.getProperty("type");
-          if (typeProperty) {
-            const typeType = typeProperty.getTypeAtLocation(sourceFile);
-
-            // String literal discriminant
-            if (typeType.isStringLiteral()) {
-              messageTypes.push(typeType.getLiteralValue() as string);
-            }
-            // Template literal discriminant (warn about unbounded set)
-            else if (typeType.getText().includes("`")) {
-              warnings.push(
-                `Template literal type in discriminant: ${typeType.getText()} - may be unbounded`
-              );
-            }
-          }
-        }
-        // Pattern 2: Simple string literal unions ('foo' | 'bar')
-        else if (unionType.isStringLiteral()) {
-          messageTypes.push(unionType.getLiteralValue() as string);
-        }
-        // Pattern 3: Type alias references (recurse)
-        else if (unionType.getAliasSymbol()) {
-          const aliasedType = unionType.getAliasSymbol()?.getDeclaredType();
-          if (aliasedType) {
-            messageTypes.push(
-              ...this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings)
-            );
-          }
-        }
-      }
+      return this.extractFromUnionType(type, typeName, sourceFile, warnings);
     }
-    // Handle type alias references (follow to definition)
-    else if (type.getAliasSymbol()) {
-      const aliasedType = type.getAliasSymbol()?.getDeclaredType();
-      if (aliasedType && aliasedType !== type) {
-        // Recursively extract from the aliased type
-        messageTypes.push(
-          ...this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings)
-        );
-      }
-    }
-    // Handle conditional types (T extends U ? X : Y)
-    // Extract conservatively from both branches
-    else if (type.isConditionalType?.()) {
-      warnings.push(`Conditional type detected: ${type.getText()} - extracting conservatively`);
 
-      // Try to extract from both branches
-      // This is conservative - we include both possible outcomes
-      const typeText = type.getText();
-      const parts = typeText.split("?");
-      if (parts.length >= 2) {
-        const branches = parts[1].split(":");
-        for (const branch of branches) {
-          const trimmed = branch.trim();
-          // If it looks like a string literal, extract it
-          if (trimmed.match(/^["'](\w+)["']$/)) {
-            const match = trimmed.match(/^["'](\w+)["']$/);
-            if (match?.[1]) {
-              messageTypes.push(match[1]);
-            }
-          }
-        }
-      }
+    if (type.getAliasSymbol()) {
+      return this.extractFromTypeAlias(type, typeName, sourceFile, warnings);
     }
-    // Handle mapped types ({ [K in MessageType]: Handler })
-    // Extract the keys being mapped over
-    else if (type.getText().includes("[K in ")) {
-      warnings.push(`Mapped type detected: ${type.getText()} - attempting to extract keys`);
 
-      // Try to find the type being mapped over
-      const match = type.getText().match(/\[K in ([^\]]+)\]/);
-      if (match?.[1]) {
-        const keyTypeName = match[1].trim();
-
-        // Try to find the key type in the same file
-        const keyTypeAlias = sourceFile.getTypeAlias?.(keyTypeName);
-        if (keyTypeAlias) {
-          const keyType = keyTypeAlias.getType();
-          messageTypes.push(
-            ...this.extractMessageTypesFromType(keyType, keyTypeName, sourceFile, warnings)
-          );
-        }
-      }
+    if (type.isConditionalType?.()) {
+      return this.extractFromConditionalType(type, warnings);
     }
-    // Template literal types (warn about unbounded set)
-    else if (type.getText().includes("`")) {
-      warnings.push(
-        `Template literal type: ${type.getText()} - this creates an unbounded set and cannot be fully extracted`
-      );
+
+    if (type.getText().includes("[K in ")) {
+      return this.extractFromMappedType(type, sourceFile, warnings);
+    }
+
+    if (type.getText().includes("`")) {
+      this.warnTemplateLiteral(type, warnings);
+      return [];
+    }
+
+    return [];
+  }
+
+  /**
+   * Extract message types from union type
+   */
+  private extractFromUnionType(
+    type: Type,
+    typeName: string,
+    sourceFile: SourceFile,
+    warnings: string[]
+  ): string[] {
+    const messageTypes: string[] = [];
+    const unionTypes = type.getUnionTypes();
+
+    for (const unionType of unionTypes) {
+      const extracted = this.extractFromUnionMember(unionType, typeName, sourceFile, warnings);
+      messageTypes.push(...extracted);
     }
 
     return messageTypes;
+  }
+
+  /**
+   * Extract message types from a single union member
+   */
+  private extractFromUnionMember(
+    unionType: Type,
+    typeName: string,
+    sourceFile: SourceFile,
+    warnings: string[]
+  ): string[] {
+    if (unionType.isObject()) {
+      return this.extractFromDiscriminatedUnion(unionType, sourceFile, warnings);
+    }
+
+    if (unionType.isStringLiteral()) {
+      return [unionType.getLiteralValue() as string];
+    }
+
+    if (unionType.getAliasSymbol()) {
+      const aliasedType = unionType.getAliasSymbol()?.getDeclaredType();
+      if (aliasedType) {
+        return this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings);
+      }
+    }
+
+    return [];
+  }
+
+  /**
+   * Extract message types from discriminated union
+   */
+  private extractFromDiscriminatedUnion(
+    unionType: Type,
+    sourceFile: SourceFile,
+    warnings: string[]
+  ): string[] {
+    const typeProperty = unionType.getProperty("type");
+    if (!typeProperty) {
+      return [];
+    }
+
+    const typeType = typeProperty.getTypeAtLocation(sourceFile);
+
+    if (typeType.isStringLiteral()) {
+      return [typeType.getLiteralValue() as string];
+    }
+
+    if (typeType.getText().includes("`")) {
+      warnings.push(
+        `Template literal type in discriminant: ${typeType.getText()} - may be unbounded`
+      );
+    }
+
+    return [];
+  }
+
+  /**
+   * Extract message types from type alias
+   */
+  private extractFromTypeAlias(
+    type: Type,
+    typeName: string,
+    sourceFile: SourceFile,
+    warnings: string[]
+  ): string[] {
+    const aliasedType = type.getAliasSymbol()?.getDeclaredType();
+    if (!aliasedType || aliasedType === type) {
+      return [];
+    }
+
+    return this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings);
+  }
+
+  /**
+   * Extract message types from conditional type
+   */
+  private extractFromConditionalType(type: Type, warnings: string[]): string[] {
+    warnings.push(`Conditional type detected: ${type.getText()} - extracting conservatively`);
+
+    const messageTypes: string[] = [];
+    const typeText = type.getText();
+    const parts = typeText.split("?");
+
+    if (parts.length < 2) {
+      return messageTypes;
+    }
+
+    const branches = parts[1].split(":");
+    for (const branch of branches) {
+      const extracted = this.extractStringLiteralFromBranch(branch);
+      if (extracted) {
+        messageTypes.push(extracted);
+      }
+    }
+
+    return messageTypes;
+  }
+
+  /**
+   * Extract string literal from conditional branch
+   */
+  private extractStringLiteralFromBranch(branch: string): string | null {
+    const trimmed = branch.trim();
+    const match = trimmed.match(/^["'](\w+)["']$/);
+    return match?.[1] ?? null;
+  }
+
+  /**
+   * Extract message types from mapped type
+   */
+  private extractFromMappedType(type: Type, sourceFile: SourceFile, warnings: string[]): string[] {
+    warnings.push(`Mapped type detected: ${type.getText()} - attempting to extract keys`);
+
+    const match = type.getText().match(/\[K in ([^\]]+)\]/);
+    if (!match?.[1]) {
+      return [];
+    }
+
+    const keyTypeName = match[1].trim();
+    const keyTypeAlias = sourceFile.getTypeAlias?.(keyTypeName);
+
+    if (!keyTypeAlias) {
+      return [];
+    }
+
+    const keyType = keyTypeAlias.getType();
+    return this.extractMessageTypesFromType(keyType, keyTypeName, sourceFile, warnings);
+  }
+
+  /**
+   * Warn about template literal types
+   */
+  private warnTemplateLiteral(type: Type, warnings: string[]): void {
+    warnings.push(
+      `Template literal type: ${type.getText()} - this creates an unbounded set and cannot be fully extracted`
+    );
   }
 
   /**
@@ -365,11 +443,7 @@ export class TypeExtractor {
   /**
    * Try to convert Map or Set type to TypeInfo
    */
-  private tryConvertCollectionType(
-    type: Type,
-    name: string,
-    nullable: boolean
-  ): TypeInfo | null {
+  private tryConvertCollectionType(type: Type, name: string, nullable: boolean): TypeInfo | null {
     const symbol = type.getSymbol();
     if (!symbol) return null;
 
