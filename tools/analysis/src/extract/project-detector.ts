@@ -103,7 +103,10 @@ export class ProjectDetector {
   /**
    * Detect background script entry point
    */
-  private detectBackgroundEntry(manifest: any, entryPoints: Record<string, string>): void {
+  private detectBackgroundEntry(
+    manifest: Record<string, unknown>,
+    entryPoints: Record<string, string>
+  ): void {
     const background = manifest.background;
     if (!background) return;
 
@@ -116,7 +119,10 @@ export class ProjectDetector {
   /**
    * Detect content script entry point
    */
-  private detectContentScriptEntry(manifest: any, entryPoints: Record<string, string>): void {
+  private detectContentScriptEntry(
+    manifest: Record<string, unknown>,
+    entryPoints: Record<string, string>
+  ): void {
     const contentScripts = manifest.content_scripts;
     if (!contentScripts || contentScripts.length === 0) return;
 
@@ -129,7 +135,10 @@ export class ProjectDetector {
   /**
    * Detect popup entry point
    */
-  private detectPopupEntry(manifest: any, entryPoints: Record<string, string>): void {
+  private detectPopupEntry(
+    manifest: Record<string, unknown>,
+    entryPoints: Record<string, string>
+  ): void {
     const popup = manifest.action?.default_popup || manifest.browser_action?.default_popup;
     if (!popup) return;
 
@@ -142,7 +151,10 @@ export class ProjectDetector {
   /**
    * Detect options page entry point
    */
-  private detectOptionsEntry(manifest: any, entryPoints: Record<string, string>): void {
+  private detectOptionsEntry(
+    manifest: Record<string, unknown>,
+    entryPoints: Record<string, string>
+  ): void {
     const options = manifest.options_ui?.page || manifest.options_page;
     if (!options) return;
 
