@@ -276,134 +276,144 @@ export class TypeExtractor {
    * Convert ts-morph Type to our TypeInfo
    */
   private convertType(type: Type, name: string): TypeInfo {
-    // Check for null/undefined
     const nullable = type.isNullable();
 
-    // Boolean
     if (type.isBoolean() || type.isBooleanLiteral()) {
       return { name, kind: "boolean", nullable };
     }
 
-    // Union types
     if (type.isUnion()) {
-      const unionTypes = type.getUnionTypes();
-
-      // Check for string literal union (enum)
-      const allStringLiterals = unionTypes.every((t) => t.isStringLiteral());
-      if (allStringLiterals) {
-        const enumValues = unionTypes.map((t) => t.getLiteralValue() as string);
-        return {
-          name,
-          kind: "enum",
-          nullable,
-          enumValues,
-        };
-      }
-
-      // Check for nullable type (T | null | undefined)
-      const nonNullTypes = unionTypes.filter((t) => !t.isNull() && !t.isUndefined());
-
-      if (nonNullTypes.length === 1) {
-        // This is a nullable type: T | null or T | undefined
-        const firstType = nonNullTypes[0];
-        if (firstType) {
-          const baseType = this.convertType(firstType, name);
-          return {
-            ...baseType,
-            nullable: true,
-          };
-        }
-      }
-
-      // Generic union - keep as-is
-      return {
-        name,
-        kind: "union",
-        nullable,
-        unionTypes: unionTypes.map((t, i) => this.convertType(t, `${name}_${i}`)),
-      };
+      return this.convertUnionType(type, name, nullable);
     }
 
-    // String
     if (type.isString() || type.isStringLiteral()) {
       return { name, kind: "string", nullable };
     }
 
-    // Number
     if (type.isNumber() || type.isNumberLiteral()) {
       return { name, kind: "number", nullable };
     }
 
-    // Array
     if (type.isArray()) {
-      const elementType = type.getArrayElementType();
-      return {
-        name,
-        kind: "array",
-        nullable,
-        elementType: elementType
-          ? this.convertType(elementType, `${name}_element`)
-          : { name: "unknown", kind: "unknown", nullable: false },
-      };
+      return this.convertArrayType(type, name, nullable);
     }
 
-    // Map/Set detection - must come before generic object handling
-    const symbol = type.getSymbol();
-    if (symbol) {
-      const symbolName = symbol.getName();
-
-      // Map<K, V>
-      if (symbolName === "Map") {
-        const typeArgs = type.getTypeArguments();
-        return {
-          name,
-          kind: "map",
-          nullable,
-          // Extract value type from Map<K, V>
-          valueType: typeArgs?.[1] ? this.convertType(typeArgs[1], `${name}_value`) : undefined,
-        };
-      }
-
-      // Set<T>
-      if (symbolName === "Set") {
-        const typeArgs = type.getTypeArguments();
-        return {
-          name,
-          kind: "set",
-          nullable,
-          elementType: typeArgs?.[0] ? this.convertType(typeArgs[0], `${name}_element`) : undefined,
-        };
-      }
+    const collectionType = this.tryConvertCollectionType(type, name, nullable);
+    if (collectionType) {
+      return collectionType;
     }
 
-    // Object
     if (type.isObject()) {
-      const properties: Record<string, TypeInfo> = {};
-      const sourceFile = this.project.getSourceFiles()[0];
-
-      if (sourceFile) {
-        for (const prop of type.getProperties()) {
-          const propName = prop.getName();
-          const propType = prop.getTypeAtLocation(sourceFile);
-          properties[propName] = this.convertType(propType, propName);
-        }
-      }
-
-      return {
-        name,
-        kind: "object",
-        nullable,
-        properties,
-      };
+      return this.convertObjectType(type, name, nullable);
     }
 
-    // Null
     if (type.isNull()) {
       return { name, kind: "null", nullable: true };
     }
 
-    // Unknown/Any
     return { name, kind: "unknown", nullable };
+  }
+
+  /**
+   * Convert union type to TypeInfo
+   */
+  private convertUnionType(type: Type, name: string, nullable: boolean): TypeInfo {
+    const unionTypes = type.getUnionTypes();
+
+    // Check for string literal union (enum)
+    const allStringLiterals = unionTypes.every((t) => t.isStringLiteral());
+    if (allStringLiterals) {
+      const enumValues = unionTypes.map((t) => t.getLiteralValue() as string);
+      return { name, kind: "enum", nullable, enumValues };
+    }
+
+    // Check for nullable type (T | null | undefined)
+    const nonNullTypes = unionTypes.filter((t) => !t.isNull() && !t.isUndefined());
+
+    if (nonNullTypes.length === 1) {
+      const firstType = nonNullTypes[0];
+      if (firstType) {
+        const baseType = this.convertType(firstType, name);
+        return { ...baseType, nullable: true };
+      }
+    }
+
+    // Generic union
+    return {
+      name,
+      kind: "union",
+      nullable,
+      unionTypes: unionTypes.map((t, i) => this.convertType(t, `${name}_${i}`)),
+    };
+  }
+
+  /**
+   * Convert array type to TypeInfo
+   */
+  private convertArrayType(type: Type, name: string, nullable: boolean): TypeInfo {
+    const elementType = type.getArrayElementType();
+    return {
+      name,
+      kind: "array",
+      nullable,
+      elementType: elementType
+        ? this.convertType(elementType, `${name}_element`)
+        : { name: "unknown", kind: "unknown", nullable: false },
+    };
+  }
+
+  /**
+   * Try to convert Map or Set type to TypeInfo
+   */
+  private tryConvertCollectionType(
+    type: Type,
+    name: string,
+    nullable: boolean
+  ): TypeInfo | null {
+    const symbol = type.getSymbol();
+    if (!symbol) return null;
+
+    const symbolName = symbol.getName();
+
+    if (symbolName === "Map") {
+      const typeArgs = type.getTypeArguments();
+      return {
+        name,
+        kind: "map",
+        nullable,
+        valueType: typeArgs?.[1] ? this.convertType(typeArgs[1], `${name}_value`) : undefined,
+      };
+    }
+
+    if (symbolName === "Set") {
+      const typeArgs = type.getTypeArguments();
+      return {
+        name,
+        kind: "set",
+        nullable,
+        elementType: typeArgs?.[0] ? this.convertType(typeArgs[0], `${name}_element`) : undefined,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Convert object type to TypeInfo
+   */
+  private convertObjectType(type: Type, name: string, nullable: boolean): TypeInfo {
+    const properties: Record<string, TypeInfo> = {};
+    const sourceFile = this.project.getSourceFiles()[0];
+
+    if (sourceFile) {
+      for (const prop of type.getProperties()) {
+        const propName = prop.getName();
+        const propType = prop.getTypeAtLocation(sourceFile);
+        properties[propName] = this.convertType(propType, propName);
+      }
+    }
+
+    return { name, kind: "object", nullable, properties };
   }
 
   /**
