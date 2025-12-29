@@ -211,7 +211,39 @@ export class StructurizrDSLGenerator {
   private generateComponents(contextType: string, contextInfo: ContextInfo): string {
     const parts: string[] = [];
 
-    // Build component definitions
+    // Build component definitions from handlers
+    const componentDefs = this.buildComponentDefinitionsFromHandlers(contextInfo, contextType);
+
+    // Apply grouping if configured, otherwise use automatic grouping
+    this.addGroupedOrDirectComponents(parts, componentDefs);
+
+    // Collect and generate service components
+    const serviceComponents = this.collectServiceComponents(contextInfo, componentDefs);
+    this.addServiceComponents(parts, serviceComponents);
+
+    // Generate UI components
+    this.addUIComponents(parts, contextInfo);
+
+    // Add Chrome API components
+    this.addChromeAPIComponents(parts, contextInfo);
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Build component definitions from message handlers
+   */
+  private buildComponentDefinitionsFromHandlers(
+    contextInfo: ContextInfo,
+    contextType: string
+  ): Array<{
+    id: string;
+    name: string;
+    description: string;
+    tags: string[];
+    properties: ComponentProperties;
+    messageType: string;
+  }> {
     const componentDefs: Array<{
       id: string;
       name: string;
@@ -221,7 +253,6 @@ export class StructurizrDSLGenerator {
       messageType: string;
     }> = [];
 
-    // Generate components from handlers
     const handlersByType = new Map<string, MessageHandler[]>();
     for (const handler of contextInfo.handlers) {
       if (!handlersByType.has(handler.messageType)) {
@@ -246,29 +277,48 @@ export class StructurizrDSLGenerator {
       });
     }
 
-    // Apply grouping if configured, otherwise use automatic grouping
+    return componentDefs;
+  }
+
+  /**
+   * Add grouped or direct components to parts
+   */
+  private addGroupedOrDirectComponents(
+    parts: string[],
+    componentDefs: Array<{
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+      properties: ComponentProperties;
+      messageType: string;
+    }>
+  ): void {
     if (this.options.groups && this.options.groups.length > 0) {
-      // User-provided groups
       parts.push(...this.generateGroupedComponents(componentDefs, this.options.groups));
     } else {
-      // Automatic grouping based on message type patterns
       const autoGroups = this.generateAutomaticGroups(componentDefs);
       if (autoGroups.length > 0) {
         parts.push(...this.generateGroupedComponents(componentDefs, autoGroups));
       } else {
-        // No groups detected, render components directly
         for (const comp of componentDefs) {
           parts.push(this.generateComponentDefinition(comp, "        "));
         }
       }
     }
+  }
 
-    // Collect and generate service components from detected relationships
+  /**
+   * Collect service components from relationships
+   */
+  private collectServiceComponents(
+    contextInfo: ContextInfo,
+    componentDefs: Array<{ id: string }>
+  ): Set<string> {
     const serviceComponents = new Set<string>();
     for (const handler of contextInfo.handlers) {
       if (handler.relationships) {
         for (const rel of handler.relationships) {
-          // Add the target component if it's not already a handler
           const targetId = this.toId(rel.to);
           const isHandler = componentDefs.some((c) => c.id === targetId);
           if (!isHandler) {
@@ -277,8 +327,13 @@ export class StructurizrDSLGenerator {
         }
       }
     }
+    return serviceComponents;
+  }
 
-    // Generate service component definitions
+  /**
+   * Add service component definitions
+   */
+  private addServiceComponents(parts: string[], serviceComponents: Set<string>): void {
     for (const serviceId of serviceComponents) {
       const serviceName = serviceId
         .split("_")
@@ -291,31 +346,37 @@ export class StructurizrDSLGenerator {
       parts.push(`          tags "Service" "Auto-detected"`);
       parts.push("        }");
     }
+  }
 
-    // Generate components from UI components
-    if (contextInfo.components) {
-      for (const comp of contextInfo.components) {
-        parts.push(
-          `        ${this.toId(comp.name)} = component "${comp.name}" "${this.escape(comp.description || "UI component")}" {`
-        );
-        parts.push(`          tags "UI Component"`);
-        parts.push("        }");
-      }
+  /**
+   * Add UI components
+   */
+  private addUIComponents(parts: string[], contextInfo: ContextInfo): void {
+    if (!contextInfo.components) return;
+
+    for (const comp of contextInfo.components) {
+      parts.push(
+        `        ${this.toId(comp.name)} = component "${comp.name}" "${this.escape(comp.description || "UI component")}" {`
+      );
+      parts.push(`          tags "UI Component"`);
+      parts.push("        }");
     }
+  }
 
-    // Add Chrome API components if used
-    if (contextInfo.chromeAPIs && contextInfo.chromeAPIs.length > 0) {
-      for (const api of contextInfo.chromeAPIs) {
-        const apiId = this.toId(`chrome_${api}`);
-        parts.push(
-          `        ${apiId} = component "Chrome ${this.capitalize(api)} API" "Browser API for ${api}" {`
-        );
-        parts.push(`          tags "Chrome API" "External"`);
-        parts.push("        }");
-      }
+  /**
+   * Add Chrome API components
+   */
+  private addChromeAPIComponents(parts: string[], contextInfo: ContextInfo): void {
+    if (!contextInfo.chromeAPIs || contextInfo.chromeAPIs.length === 0) return;
+
+    for (const api of contextInfo.chromeAPIs) {
+      const apiId = this.toId(`chrome_${api}`);
+      parts.push(
+        `        ${apiId} = component "Chrome ${this.capitalize(api)} API" "Browser API for ${api}" {`
+      );
+      parts.push(`          tags "Chrome API" "External"`);
+      parts.push("        }");
     }
-
-    return parts.join("\n");
   }
 
   /**
