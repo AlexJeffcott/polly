@@ -1049,31 +1049,31 @@ export class HandlerExtractor {
     // Electron contexts (check first as they're more specific)
     if (path.includes("main.ts") || path.includes("main.js") ||
         path.includes("/main/") || path.includes("\\main\\")) {
-      return "Main Process"
+      return "main"
     }
     if (path.includes("/renderer/") || path.includes("\\renderer\\") ||
         path.includes("renderer.ts") || path.includes("renderer.js")) {
-      return "Renderer"
+      return "renderer"
     }
     if (path.includes("preload.ts") || path.includes("preload.js")) {
-      return "Preload"
+      return "preload"
     }
 
     // PWA/Worker contexts
     if (path.includes("service-worker") || path.includes("sw.ts") || path.includes("sw.js")) {
-      return "Service Worker"
+      return "worker"
     }
     if (path.includes("/worker/") || path.includes("\\worker\\")) {
-      return "Worker"
+      return "worker"
     }
 
     // WebSocket/server app contexts
     if (path.includes("/server/") || path.includes("\\server\\") ||
         path.includes("/server.") || path.includes("server.ts") || path.includes("server.js")) {
-      return "Server"
+      return "server"
     }
     if (path.includes("/client/") || path.includes("\\client\\") || path.includes("/client.")) {
-      return "Client"
+      return "client"
     }
 
     // Chrome extension contexts

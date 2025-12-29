@@ -70,31 +70,11 @@ describe("TLA+ Code Generation Validation", () => {
 		};
 
 		const generator = new TLAGenerator();
-		const { spec } = await generator.generate(mockConfig, analysis);
 
-		// Should contain valid handler names (in PascalCase)
-		expect(spec).toContain("HandleQuery");
-		expect(spec).toContain("HandleCommand");
-
-		// Should NOT contain invalid handler names with braces, colons, semicolons
-		expect(spec).not.toContain("Handle{");
-		expect(spec).not.toContain("ok:");
-		expect(spec).not.toContain("value:");
-		expect(spec).not.toContain(";");
-
-		// The spec should be valid TLA+ syntax (basic check)
-		// Valid TLA+ function names should only contain alphanumeric and underscore
-		const handlerFunctionPattern = /Handle[a-zA-Z0-9_]+\s*\(/g;
-		const handlerMatches = spec.match(handlerFunctionPattern);
-
-		if (handlerMatches) {
-			for (const match of handlerMatches) {
-				// Extract the function name
-				const funcName = match.replace(/\s*\($/, "");
-				// Should match valid TLA+ identifier pattern
-				expect(funcName).toMatch(/^Handle[a-zA-Z][a-zA-Z0-9_]*$/);
-			}
-		}
+		// Should throw an error for invalid message types
+		await expect(async () => {
+			await generator.generate(mockConfig, analysis);
+		}).toThrow(/Invalid message type.*TLA\+ identifiers must start with a letter/);
 	});
 
 	test("should only include valid message types in UserMessageTypes set", async () => {
@@ -104,7 +84,7 @@ describe("TLA+ Code Generation Validation", () => {
 				"authenticate",
 				"query",
 				"command",
-				// Invalid types (should be filtered)
+				// Invalid types (should cause error)
 				"{ ok: true; value: t }",
 				"{ ok: false; error: e }",
 				"123invalid", // starts with number
@@ -117,30 +97,11 @@ describe("TLA+ Code Generation Validation", () => {
 		};
 
 		const generator = new TLAGenerator();
-		const { spec } = await generator.generate(mockConfig, analysis);
 
-		// Find the UserMessageTypes definition
-		const messageTypesMatch = spec.match(/UserMessageTypes\s*==\s*\{([^}]+)\}/);
-		expect(messageTypesMatch).toBeTruthy();
-
-		if (messageTypesMatch && messageTypesMatch[1]) {
-			const messageTypesString = messageTypesMatch[1];
-
-			// Should contain valid types
-			expect(messageTypesString).toContain('"authenticate"');
-			expect(messageTypesString).toContain('"query"');
-			expect(messageTypesString).toContain('"command"');
-
-			// Should NOT contain invalid types with special characters
-			expect(messageTypesString).not.toContain("{ ok: true");
-			expect(messageTypesString).not.toContain("{ ok: false");
-			expect(messageTypesString).not.toContain("{");
-			expect(messageTypesString).not.toContain("}");
-			expect(messageTypesString).not.toContain("123invalid");
-			expect(messageTypesString).not.toContain("has-dash");
-			expect(messageTypesString).not.toContain("has.dot");
-			expect(messageTypesString).not.toContain("has:colon");
-		}
+		// Should throw an error for invalid message types
+		await expect(async () => {
+			await generator.generate(mockConfig, analysis);
+		}).toThrow(/Invalid message type/);
 	});
 
 	test("should handle edge cases in message type names", async () => {
@@ -176,50 +137,11 @@ describe("TLA+ Code Generation Validation", () => {
 		};
 
 		const generator = new TLAGenerator();
-		const { spec } = await generator.generate(mockConfig, analysis);
 
-		// Find the UserMessageTypes definition
-		const messageTypesMatch = spec.match(/UserMessageTypes\s*==\s*\{([^}]+)\}/);
-		expect(messageTypesMatch).toBeTruthy();
-
-		if (messageTypesMatch && messageTypesMatch[1]) {
-			const messageTypesString = messageTypesMatch[1];
-
-			// Valid types should be included
-			expect(messageTypesString).toContain('"a"');
-			expect(messageTypesString).toContain('"A"');
-			expect(messageTypesString).toContain('"message123"');
-			expect(messageTypesString).toContain('"MESSAGE_TYPE"');
-			expect(messageTypesString).toContain('"message_type_with_underscores"');
-
-			// Invalid types should be filtered out
-			// Note: We can't easily check for empty string, but the spec should be parseable
-			// Extract all message type strings from the set
-			const messageTypeMatches = messageTypesString.match(/"([^"]*)"/g);
-			if (messageTypeMatches) {
-				const extractedTypes = messageTypeMatches.map((m: string) => m.slice(1, -1)); // Remove quotes
-
-				// Check that no extracted type contains invalid characters
-				const invalidCharsInIdentifiers = ["!", "-", ".", ":", ";", "{", "}", "[", "]", "(", ")", " "];
-				for (const type of extractedTypes) {
-					for (const char of invalidCharsInIdentifiers) {
-						expect(type).not.toContain(char);
-					}
-
-					// Also verify it matches the TLA+ identifier pattern
-					if (type.length > 0) { // Allow empty for edge case testing
-						expect(type).toMatch(/^[a-zA-Z][a-zA-Z0-9_]*$/);
-					}
-				}
-			}
-		}
-
-		// The generated spec should be parseable as TLA+ (basic validation)
-		expect(spec).toContain("MODULE UserApp");
-		expect(spec).not.toContain("Handle{");
-		expect(spec).not.toContain("Handle[");
-		expect(spec).not.toContain("Handle(");
-		expect(spec).not.toContain("Handle!");
+		// Should throw an error for invalid message types
+		await expect(async () => {
+			await generator.generate(mockConfig, analysis);
+		}).toThrow(/Invalid message type/);
 	});
 
 	test("should validate TLA+ identifier in messageTypeToActionName", async () => {

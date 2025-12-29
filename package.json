@@ -45,8 +45,8 @@
       "types": "./dist/shared/types/messages.d.ts"
     },
     "./verify": {
-      "import": "./dist/vendor/verify/src/public-api.js",
-      "types": "./dist/vendor/verify/src/public-api.d.ts"
+      "import": "./dist/tools/verify/src/config.js",
+      "types": "./dist/tools/verify/src/config.d.ts"
     }
   },
   "files": ["dist", "templates", "README.md", "LICENSE"],
@@ -76,6 +76,7 @@
     "@biomejs/biome": "^1.8.3",
     "@types/bun": "^1.2.19",
     "@types/chrome": "^0.0.268",
+    "fast-check": "^3.22.0",
     "typescript": "^5.5.4"
   },
   "engines": {

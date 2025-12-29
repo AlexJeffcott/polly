@@ -1,0 +1,9 @@
+{
+  "name": "test-pwa",
+  "version": "1.0.0",
+  "description": "Test PWA fixture",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "webpack"
+  }
+}

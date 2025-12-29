@@ -130,7 +130,7 @@ async function dev() {
  */
 async function verify() {
   // Check if bundled (published) or in monorepo
-  const bundledCli = `${__dirname}/../vendor/verify/src/cli.js`;
+  const bundledCli = `${__dirname}/../tools/verify/src/cli.js`;
   const monorepoCli = `${__dirname}/../../verify/src/cli.ts`;
   const verifyCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
@@ -152,7 +152,7 @@ async function verify() {
  */
 async function visualize() {
   // Check if bundled (published) or in monorepo
-  const bundledCli = `${__dirname}/../vendor/visualize/src/cli.js`;
+  const bundledCli = `${__dirname}/../tools/visualize/src/cli.js`;
   const monorepoCli = `${__dirname}/../../visualize/src/cli.ts`;
   const visualizeCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
@@ -178,8 +178,8 @@ async function teach() {
 
   try {
     // Dynamic imports to avoid loading dependencies for other commands
-    const { analyzeArchitecture } = await import("../vendor/analysis/src/index.ts");
-    const { generateStructurizrDSL } = await import("../vendor/visualize/src/codegen/structurizr.ts");
+    const { analyzeArchitecture } = await import("../tools/analysis/src/index.ts");
+    const { generateStructurizrDSL } = await import("../tools/visualize/src/codegen/structurizr.ts");
 
     // Run architecture analysis
     const analysis = await analyzeArchitecture({

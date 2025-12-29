@@ -14,7 +14,7 @@ describe("Context Inference", () => {
       stateFilePath: path.join(projectPath, "src/types/state.ts"),
     })
 
-    // All handlers in server.ts should have "Server" context
+    // All handlers in server.ts should have "server" context
     const serverHandlers = analysis.handlers.filter((h) =>
       h.location.file.includes("server.ts")
     )
@@ -22,7 +22,7 @@ describe("Context Inference", () => {
     expect(serverHandlers.length).toBeGreaterThan(0)
 
     for (const handler of serverHandlers) {
-      expect(handler.node).toBe("Server")
+      expect(handler.node).toBe("server")
     }
   })
 
@@ -34,7 +34,7 @@ describe("Context Inference", () => {
       tsConfigPath,
     })
 
-    // Handlers in main.ts should have MainProcess context
+    // Handlers in main.ts should have "main" context
     const mainHandlers = analysis.handlers.filter((h) =>
       h.location.file.includes("main.ts")
     )
@@ -42,7 +42,7 @@ describe("Context Inference", () => {
     expect(mainHandlers.length).toBeGreaterThan(0)
 
     for (const handler of mainHandlers) {
-      expect(handler.node).toBe("Main Process")
+      expect(handler.node).toBe("main")
     }
   })
 
@@ -94,14 +94,14 @@ describe("Context Inference", () => {
       tsConfigPath,
     })
 
-    // Handlers in service-worker.ts should have ServiceWorker context
+    // Handlers in service-worker.ts should have "worker" context
     const workerHandlers = analysis.handlers.filter((h) =>
       h.location.file.includes("service-worker.ts")
     )
 
     if (workerHandlers.length > 0) {
       for (const handler of workerHandlers) {
-        expect(handler.node).toBe("Service Worker")
+        expect(handler.node).toBe("worker")
       }
     }
   })

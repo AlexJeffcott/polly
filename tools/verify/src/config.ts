@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// Public API for @fairfox/polly/verify
+// Configuration Helper for @fairfox/polly/verify
 // ═══════════════════════════════════════════════════════════════
 //
 // Lightweight entry point for user configuration files.

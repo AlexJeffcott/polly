@@ -5,9 +5,9 @@
  * Build script for npm library publishing
  *
  * This script:
- * 1. Compiles ALL TypeScript (src + cli + vendor) to JavaScript ESM in dist/
+ * 1. Compiles ALL TypeScript (src + cli + tools) to JavaScript ESM in dist/
  * 2. Generates TypeScript declaration files (.d.ts)
- * 3. Bundles vendor tools with all dependencies inline
+ * 3. Bundles tools with all dependencies inline
  */
 
 import { existsSync, rmSync, cpSync, mkdirSync } from "node:fs";
@@ -41,8 +41,8 @@ const libResult = await Bun.build({
     "src/background/index.ts",
     "src/background/message-router.ts",
 
-    // Verify tool public API (lightweight, no heavy deps)
-    "vendor/verify/src/public-api.ts",
+    // Verify tool config helper (lightweight, no heavy deps)
+    "tools/verify/src/config.ts",
   ],
   outdir: DIST_DIR,
   target: "browser",
@@ -72,8 +72,8 @@ const toolsResult = await Bun.build({
   entrypoints: [
     "cli/polly.ts",
     "cli/template-utils.ts",
-    "vendor/verify/src/cli.ts",
-    "vendor/visualize/src/cli.ts",
+    "tools/verify/src/cli.ts",
+    "tools/visualize/src/cli.ts",
     "scripts/build-extension.ts",
   ],
   outdir: DIST_DIR,
@@ -100,8 +100,8 @@ console.log("✅ Tools built");
 console.log("🔨 Copying specs for verification tool...");
 
 // Copy MessageRouter.tla specs to dist so verify CLI can find them
-const specsSourceDir = join("vendor", "verify", "specs");
-const specsDestDir = join(DIST_DIR, "vendor", "verify", "specs");
+const specsSourceDir = join("tools", "verify", "specs");
+const specsDestDir = join(DIST_DIR, "tools", "verify", "specs");
 
 mkdirSync(specsDestDir, { recursive: true });
 cpSync(specsSourceDir, specsDestDir, { recursive: true });
@@ -121,7 +121,7 @@ try {
       skipLibCheck: true,
       noEmit: false,
     },
-    include: ["src/**/*", "vendor/verify/src/public-api.ts"],
+    include: ["src/**/*", "tools/verify/src/config.ts"],
     exclude: [
       "src/content/**/*",
       "src/devtools/**/*",

@@ -1,0 +1,9 @@
+{
+  "name": "test-electron-app",
+  "version": "1.0.0",
+  "description": "Test Electron app fixture",
+  "main": "src/main.ts",
+  "dependencies": {
+    "electron": "^25.0.0"
+  }
+}

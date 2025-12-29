@@ -14,7 +14,7 @@ workspace "test-websocket-server" "" {
         connection_handler = component "Connection Handler" "Processes connection messages and coordinates business logic" {
           tags "Message Handler"
           properties {
-            "Source" "src/server.ts:9"
+            "Source" "src/server.ts:10"
             "Technology" "TypeScript, WebSocket"
             "Pattern" "Message Handler"
           }
@@ -22,7 +22,7 @@ workspace "test-websocket-server" "" {
         message_handler = component "Message Handler" "Processes message messages and coordinates business logic" {
           tags "Message Handler"
           properties {
-            "Source" "src/server.ts:12"
+            "Source" "src/server.ts:13"
             "Technology" "TypeScript, WebSocket"
             "Pattern" "Message Handler"
           }
@@ -30,7 +30,7 @@ workspace "test-websocket-server" "" {
         close_handler = component "Close Handler" "Processes close messages and coordinates business logic" {
           tags "Message Handler"
           properties {
-            "Source" "src/server.ts:22"
+            "Source" "src/server.ts:23"
             "Technology" "TypeScript, WebSocket"
             "Pattern" "Message Handler"
           }

@@ -407,7 +407,16 @@ describe("DSL Generation", () => {
 					background: {
 						entryPoint: "background.ts",
 						type: "background.ts",
-				handlers: [],
+				handlers: [
+					{
+						messageType: "test",
+						node: "background",
+						assignments: [],
+						preconditions: [],
+						postconditions: [],
+						location: { file: "background.ts", line: 1 },
+					},
+				],
 						chromeAPIs: [],
 						externalAPIs: [],
 						dependencies: [],
@@ -439,7 +448,16 @@ describe("DSL Generation", () => {
 					server: {
 						entryPoint: "server.ts",
 						type: "server.ts",
-					handlers: [],
+					handlers: [
+						{
+							messageType: "message",
+							node: "server",
+							assignments: [],
+							preconditions: [],
+							postconditions: [],
+							location: { file: "server.ts", line: 1 },
+						},
+					],
 						chromeAPIs: [],
 						externalAPIs: [],
 						dependencies: [],
@@ -470,7 +488,16 @@ describe("DSL Generation", () => {
 				contexts: {
 					serviceworker: {
 						entryPoint: "sw.ts",
-					handlers: [],
+					handlers: [
+						{
+							messageType: "fetch",
+							node: "serviceworker",
+							assignments: [],
+							preconditions: [],
+							postconditions: [],
+							location: { file: "sw.ts", line: 1 },
+						},
+					],
 						type: "sw.ts",
 						chromeAPIs: [],
 						externalAPIs: [],
@@ -501,7 +528,16 @@ describe("DSL Generation", () => {
 				},
 				contexts: {
 					worker: {
-					handlers: [],
+					handlers: [
+						{
+							messageType: "compute",
+							node: "worker",
+							assignments: [],
+							preconditions: [],
+							postconditions: [],
+							location: { file: "worker.ts", line: 1 },
+						},
+					],
 						entryPoint: "worker.ts",
 						type: "worker.ts",
 						chromeAPIs: [],
