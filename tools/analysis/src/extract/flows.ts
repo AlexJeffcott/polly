@@ -76,86 +76,116 @@ export class FlowAnalyzer {
       const context = this.inferContext(filePath);
 
       sourceFile.forEachDescendant((node) => {
-        if (Node.isCallExpression(node)) {
-          const expression = node.getExpression();
-
-          // Pattern 1: .send() or .emit() calls (ws.send, socket.emit, bus.send, etc.)
-          if (Node.isPropertyAccessExpression(expression)) {
-            const methodName = expression.getName();
-
-            if (
-              methodName === "send" ||
-              methodName === "emit" ||
-              methodName === "postMessage" ||
-              methodName === "broadcast"
-            ) {
-              const args = node.getArguments();
-              if (args.length > 0) {
-                const firstArg = args[0];
-
-                let msgType: string | undefined;
-
-                // Check if first argument is a string literal: send("MESSAGE")
-                if (Node.isStringLiteral(firstArg)) {
-                  msgType = firstArg.getLiteralValue();
-                }
-                // Check if first argument is an object literal: send({ type: "MESSAGE" })
-                else if (Node.isObjectLiteralExpression(firstArg)) {
-                  const typeProperty = firstArg.getProperty("type");
-                  if (typeProperty && Node.isPropertyAssignment(typeProperty)) {
-                    const initializer = typeProperty.getInitializer();
-                    if (initializer && Node.isStringLiteral(initializer)) {
-                      msgType = initializer.getLiteralValue();
-                    }
-                  }
-                }
-
-                if (msgType === messageType) {
-                  senders.push({
-                    context,
-                    file: filePath,
-                    line: node.getStartLineNumber(),
-                  });
-                }
-              }
-            }
-          }
-
-          // Pattern 2: Standalone postMessage() calls (Web Workers, Window.postMessage)
-          if (Node.isIdentifier(expression)) {
-            if (expression.getText() === "postMessage") {
-              const args = node.getArguments();
-              if (args.length > 0) {
-                const firstArg = args[0];
-                let msgType: string | undefined;
-
-                if (Node.isStringLiteral(firstArg)) {
-                  msgType = firstArg.getLiteralValue();
-                } else if (Node.isObjectLiteralExpression(firstArg)) {
-                  const typeProperty = firstArg.getProperty("type");
-                  if (typeProperty && Node.isPropertyAssignment(typeProperty)) {
-                    const initializer = typeProperty.getInitializer();
-                    if (initializer && Node.isStringLiteral(initializer)) {
-                      msgType = initializer.getLiteralValue();
-                    }
-                  }
-                }
-
-                if (msgType === messageType) {
-                  senders.push({
-                    context,
-                    file: filePath,
-                    line: node.getStartLineNumber(),
-                  });
-                }
-              }
-            }
-          }
-        }
+        this.processMessageSender(node, messageType, context, filePath, senders);
       });
     }
 
     return senders;
+  }
+
+  /**
+   * Process a node that might be a message sender
+   */
+  private processMessageSender(
+    node: Node,
+    messageType: string,
+    context: string,
+    filePath: string,
+    senders: Array<{ context: string; file: string; line: number }>
+  ): void {
+    if (!Node.isCallExpression(node)) {
+      return;
+    }
+
+    const expression = node.getExpression();
+
+    if (Node.isPropertyAccessExpression(expression)) {
+      this.processPropertyAccessSender(node, expression, messageType, context, filePath, senders);
+    } else if (Node.isIdentifier(expression)) {
+      this.processIdentifierSender(node, expression, messageType, context, filePath, senders);
+    }
+  }
+
+  /**
+   * Process property access sender (.send(), .emit(), etc.)
+   */
+  private processPropertyAccessSender(
+    node: CallExpression,
+    expression: Node,
+    messageType: string,
+    context: string,
+    filePath: string,
+    senders: Array<{ context: string; file: string; line: number }>
+  ): void {
+    if (!Node.isPropertyAccessExpression(expression)) {
+      return;
+    }
+
+    const methodName = expression.getName();
+
+    if (!this.isMessageSendMethod(methodName)) {
+      return;
+    }
+
+    const args = node.getArguments();
+    if (args.length === 0) {
+      return;
+    }
+
+    const msgType = this.extractMessageTypeFromArg(args[0]);
+    if (msgType === messageType) {
+      senders.push({
+        context,
+        file: filePath,
+        line: node.getStartLineNumber(),
+      });
+    }
+  }
+
+  /**
+   * Process identifier sender (postMessage())
+   */
+  private processIdentifierSender(
+    node: CallExpression,
+    expression: Node,
+    messageType: string,
+    context: string,
+    filePath: string,
+    senders: Array<{ context: string; file: string; line: number }>
+  ): void {
+    if (!Node.isIdentifier(expression)) {
+      return;
+    }
+
+    if (expression.getText() !== "postMessage") {
+      return;
+    }
+
+    const args = node.getArguments();
+    if (args.length === 0) {
+      return;
+    }
+
+    const msgType = this.extractMessageTypeFromArg(args[0]);
+    if (msgType === messageType) {
+      senders.push({
+        context,
+        file: filePath,
+        line: node.getStartLineNumber(),
+      });
+    }
+  }
+
+  /**
+   * Check if method name is a message sending method
+   */
+  private isMessageSendMethod(methodName: string): boolean {
+    return (
+      methodName === "send" ||
+      methodName === "emit" ||
+      methodName === "postMessage" ||
+      methodName === "broadcast"
+    );
   }
 
   /**
