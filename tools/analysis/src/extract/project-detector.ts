@@ -222,7 +222,7 @@ export class ProjectDetector {
   /**
    * Detect Electron app
    */
-  private detectElectron(packageJson: any): ProjectConfig {
+  private detectElectron(packageJson: Record<string, unknown>): ProjectConfig {
     const entryPoints: Record<string, string> = {};
 
     // Main process
@@ -276,7 +276,7 @@ export class ProjectDetector {
   /**
    * Detect WebSocket/server app with content analysis and confidence scoring
    */
-  private detectWebSocketApp(packageJson: any): ProjectConfig {
+  private detectWebSocketApp(packageJson: Record<string, unknown>): ProjectConfig {
     const entryPoints: Record<string, string> = {};
     const contextMapping: Record<string, string> = {};
 

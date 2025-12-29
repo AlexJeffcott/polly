@@ -1,7 +1,14 @@
 // Component relationship extraction from TypeScript code
 // Detects function calls, imports, and dependencies between components
 
-import { type CallExpression, Node, type SourceFile } from "ts-morph";
+import {
+  type ArrowFunction,
+  type CallExpression,
+  type FunctionDeclaration,
+  type FunctionExpression,
+  Node,
+  type SourceFile,
+} from "ts-morph";
 
 /**
  * Represents a relationship between components detected from code analysis
@@ -486,7 +493,10 @@ export class RelationshipExtractor {
   private resolveImportedFunction(
     functionName: string,
     sourceFile: SourceFile
-  ): { functionDecl: any; sourceFile: SourceFile } | null {
+  ): {
+    functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression;
+    sourceFile: SourceFile;
+  } | null {
     try {
       for (const importDecl of sourceFile.getImportDeclarations()) {
         const namedImports = importDecl.getNamedImports();
@@ -516,7 +526,10 @@ export class RelationshipExtractor {
   private findFunctionInModule(
     functionName: string,
     moduleSpecifier: SourceFile
-  ): { functionDecl: any; sourceFile: SourceFile } | null {
+  ): {
+    functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression;
+    sourceFile: SourceFile;
+  } | null {
     // Find the function in the imported file
     const functionDecl = moduleSpecifier.getFunction(functionName);
     if (functionDecl) {

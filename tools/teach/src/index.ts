@@ -2,7 +2,11 @@
 //
 // Provides programmatic access to teaching material generation
 
-import type { ArchitectureAnalysis } from "../../analysis/src/types/architecture.ts";
+import type {
+  ArchitectureAnalysis,
+  ContextInfo,
+  MessageFlow,
+} from "../../analysis/src/types/architecture.ts";
 
 export interface TeachingMaterial {
   analysis: ArchitectureAnalysis;
@@ -61,8 +65,8 @@ export async function generateTeachingMaterial(options: TeachOptions): Promise<T
  * Format analysis results as teaching material
  */
 function formatTeachingMaterial(analysis: ArchitectureAnalysis, dsl: string): string {
-  const contexts = Object.entries(analysis.contexts);
-  const allHandlers = contexts.flatMap(([_, ctx]: [string, any]) => ctx.handlers || []);
+  const contexts = Object.entries(analysis.contexts) as [string, ContextInfo][];
+  const allHandlers = contexts.flatMap(([_, ctx]) => ctx.handlers || []);
   const messageFlows = analysis.messageFlows || [];
 
   return `
@@ -75,7 +79,7 @@ Your project contains ${contexts.length} context(s) and ${allHandlers.length} me
 ### Contexts
 
 ${contexts
-  .map(([name, ctx]: [string, any]) => {
+  .map(([name, ctx]) => {
     return `
 **${name}**
 Location: ${ctx.entryPoint}
@@ -89,7 +93,7 @@ State variables: ${Object.keys(ctx.state?.variables || {}).length}`;
 ${
   messageFlows.length > 0
     ? messageFlows
-        .map((flow: any) => {
+        .map((flow: MessageFlow) => {
           return `- ${flow.from} → ${flow.to}: ${flow.messageType}`;
         })
         .join("\n")
