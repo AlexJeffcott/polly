@@ -61,7 +61,7 @@ async function generateCommand() {
     const analysis = await analyzeAndDisplayResults(tsConfigPath, projectRoot);
     const dslPath = generateAndWriteDSL(analysis);
     displayNextSteps(dslPath);
-  } catch (error) {
+  } catch (_error) {
     // Error details logged by underlying functions
     process.exit(1);
   }
@@ -218,7 +218,7 @@ async function exportCommand(_args: string[]) {
     console.log(color("   • View: bun visualize --serve", COLORS.gray));
     console.log(color("   • Or open: docs/site/index.html", COLORS.gray));
     console.log();
-  } catch (error) {
+  } catch (_error) {
     // Error details logged by underlying functions
     process.exit(1);
   }
@@ -369,7 +369,7 @@ function findProjectRoot(): string | null {
   return null;
 }
 
-main().catch((error) => {
+main().catch((_error) => {
   // Error details logged by underlying functions
   process.exit(1);
 });
