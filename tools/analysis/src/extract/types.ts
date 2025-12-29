@@ -53,11 +53,29 @@ export class TypeExtractor {
       }
     }
 
+    // Filter handlers to only include those with valid TLA+ identifier message types
+    const validHandlers = handlerAnalysis.handlers.filter((h) =>
+      this.isValidTLAIdentifier(h.messageType)
+    );
+
+    // Log warnings about filtered handlers
+    const filteredHandlerCount = handlerAnalysis.handlers.length - validHandlers.length;
+    if (filteredHandlerCount > 0 && process.env["POLLY_DEBUG"]) {
+      console.log(`[WARN] Filtered out ${filteredHandlerCount} handler(s) with invalid message types:`);
+      for (const handler of handlerAnalysis.handlers) {
+        if (!this.isValidTLAIdentifier(handler.messageType)) {
+          console.log(
+            `[WARN]   - Handler for "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
+          );
+        }
+      }
+    }
+
     return {
       stateType,
       messageTypes: validMessageTypes,
       fields,
-      handlers: handlerAnalysis.handlers,
+      handlers: validHandlers,
     };
   }
 
