@@ -16,7 +16,7 @@
 
 import { defineVerification } from "../src/index";
 
-export default defineVerification({
+export const verificationConfig = defineVerification({
   state: {},
 
   messages: {
