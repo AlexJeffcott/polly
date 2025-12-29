@@ -2,21 +2,19 @@
 // Extracts message handlers and their state mutations
 
 import {
+  type ArrowFunction,
+  type CallExpression,
+  type FunctionExpression,
+  type Identifier,
   type IfStatement,
   Node,
   Project,
-  type SourceFile,
-  SyntaxKind,
-  type CallExpression,
-  type ArrowFunction,
-  type FunctionExpression,
-  type BinaryExpression,
   type PropertyAccessExpression,
-  type ElementAccessExpression,
+  type SourceFile,
   type Statement,
   type SwitchStatement,
+  SyntaxKind,
   type VariableDeclaration,
-  type Identifier,
 } from "ts-morph";
 import type { MessageHandler, StateAssignment, VerificationCondition } from "../types";
 import { RelationshipExtractor } from "./relationships";
@@ -162,7 +160,11 @@ export class HandlerExtractor {
   /**
    * Extract handler details from a .on() call expression
    */
-  private extractHandler(callExpr: CallExpression, context: string, filePath: string): MessageHandler | null {
+  private extractHandler(
+    callExpr: CallExpression,
+    context: string,
+    filePath: string
+  ): MessageHandler | null {
     const args = callExpr.getArguments();
 
     if (args.length < 2) {
@@ -239,7 +241,10 @@ export class HandlerExtractor {
    * - Array mutations: state.items.push(item)
    * - Array indexing: state.items[0] = value
    */
-  private extractAssignments(funcNode: ArrowFunction | FunctionExpression, assignments: StateAssignment[]): void {
+  private extractAssignments(
+    funcNode: ArrowFunction | FunctionExpression,
+    assignments: StateAssignment[]
+  ): void {
     funcNode.forEachDescendant((node: Node) => {
       // Pattern 1: Assignment expressions (state.field = value, state.count += 1)
       if (Node.isBinaryExpression(node)) {
@@ -395,7 +400,10 @@ export class HandlerExtractor {
    * Check for async mutations that could cause race conditions
    * Warns when async handlers have state mutations after await expressions
    */
-  private checkAsyncMutations(funcNode: ArrowFunction | FunctionExpression, messageType: string): void {
+  private checkAsyncMutations(
+    funcNode: ArrowFunction | FunctionExpression,
+    messageType: string
+  ): void {
     // Check if function is async
     const isAsync =
       funcNode.hasModifier?.(SyntaxKind.AsyncKeyword) ||

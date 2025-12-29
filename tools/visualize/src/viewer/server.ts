@@ -160,11 +160,7 @@ export class ViewerServer {
     const content = fs.readFileSync(filePath);
     const ext = path.extname(fileName).toLowerCase();
     const contentType =
-      ext === ".png"
-        ? "image/png"
-        : ext === ".svg"
-          ? "image/svg+xml"
-          : "application/octet-stream";
+      ext === ".png" ? "image/png" : ext === ".svg" ? "image/svg+xml" : "application/octet-stream";
 
     return new Response(content, {
       headers: { "Content-Type": contentType },

@@ -1,12 +1,11 @@
 // Context analysis - analyze individual execution contexts
 
 import {
+  type ClassDeclaration,
+  type FunctionDeclaration,
   Node,
   Project,
   type SourceFile,
-  type PropertyAccessExpression,
-  type FunctionDeclaration,
-  type ClassDeclaration,
 } from "ts-morph";
 import type { ComponentInfo, ContextInfo } from "../types/architecture";
 import type { MessageHandler } from "../types/core";

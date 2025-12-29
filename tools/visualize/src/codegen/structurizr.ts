@@ -1,6 +1,11 @@
 // Structurizr DSL generator
 
-import type { ArchitectureAnalysis, ContextInfo, MessageHandler, MessageFlow } from "../../../analysis/src";
+import type {
+  ArchitectureAnalysis,
+  ContextInfo,
+  MessageFlow,
+  MessageHandler,
+} from "../../../analysis/src";
 import type {
   ComponentGroup,
   ComponentProperties,
