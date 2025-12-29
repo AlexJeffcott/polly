@@ -2,6 +2,7 @@
 // CLI for Polly teaching system
 
 import { analyzeArchitecture } from "../../analysis/src/index.ts";
+import type { ContextInfo, MessageFlow } from "../../analysis/src/types/architecture.ts";
 import { generateStructurizrDSL } from "../../visualize/src/codegen/structurizr.ts";
 
 async function main() {
@@ -22,7 +23,7 @@ async function main() {
 
     // Format and present teaching material
     const contexts = Object.entries(analysis.contexts);
-    const allHandlers = contexts.flatMap(([_, ctx]: [string, any]) => ctx.handlers || []);
+    const allHandlers = contexts.flatMap(([_, ctx]: [string, ContextInfo]) => ctx.handlers || []);
     const messageFlows = analysis.messageFlows || [];
 
     console.log(
@@ -36,7 +37,7 @@ Your project contains ${contexts.length} context(s) and ${allHandlers.length} me
 ### Contexts
 
 ${contexts
-  .map(([name, ctx]: [string, any]) => {
+  .map(([name, ctx]: [string, ContextInfo]) => {
     return `
 **${name}**
 Location: ${ctx.entryPoint}
@@ -50,7 +51,7 @@ State variables: ${Object.keys(ctx.state?.variables || {}).length}`;
 ${
   messageFlows.length > 0
     ? messageFlows
-        .map((flow: any) => {
+        .map((flow: MessageFlow) => {
           return `- ${flow.from} → ${flow.to}: ${flow.messageType}`;
         })
         .join("\n")
