@@ -1711,6 +1711,17 @@ export class StructurizrDSLGenerator {
     groups: ComponentGroup[],
     assigned: Set<string>
   ): void {
+    const entityGroups = this.collectEntityGroups(componentDefs, assigned);
+    this.addValidEntityGroups(entityGroups, groups, assigned);
+  }
+
+  /**
+   * Collect components into entity groups
+   */
+  private collectEntityGroups(
+    componentDefs: Array<{ id: string; messageType: string }>,
+    assigned: Set<string>
+  ): Map<string, string[]> {
     const entityGroups = new Map<string, string[]>();
 
     for (const comp of componentDefs) {
@@ -1734,7 +1745,17 @@ export class StructurizrDSLGenerator {
       }
     }
 
-    // Add entity groups (capitalize entity name for group title)
+    return entityGroups;
+  }
+
+  /**
+   * Add valid entity groups (with at least 2 components)
+   */
+  private addValidEntityGroups(
+    entityGroups: Map<string, string[]>,
+    groups: ComponentGroup[],
+    assigned: Set<string>
+  ): void {
     for (const [entity, componentIds] of entityGroups) {
       if (componentIds.length >= 2) {
         const entityName = entity.charAt(0).toUpperCase() + entity.slice(1);
