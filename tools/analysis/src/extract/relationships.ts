@@ -444,32 +444,37 @@ export class RelationshipExtractor {
    * Resolve component from import statement
    */
   private resolveComponentFromImport(functionName: string, sourceFile: SourceFile): string | null {
-    // Look through imports to find where this function comes from
     for (const importDecl of sourceFile.getImportDeclarations()) {
       const namedImports = importDecl.getNamedImports();
 
       for (const namedImport of namedImports) {
         if (namedImport.getName() === functionName) {
           const modulePath = importDecl.getModuleSpecifierValue();
-
-          // Infer component from module path
-          if (modulePath.includes("/db/") || modulePath.includes("/database/")) {
-            return "db_client";
-          }
-          if (modulePath.includes("/repos") || modulePath.includes("/repositories")) {
-            return "repositories";
-          }
-          if (modulePath.includes("/service") || modulePath.includes("/services")) {
-            // Extract service name from path
-            const match = modulePath.match(/\/([^/]+)\.ts$/);
-            if (match?.[1]) {
-              return this.toComponentId(match[1]);
-            }
-          }
+          const component = this.inferComponentFromModulePath(modulePath);
+          if (component) return component;
         }
       }
     }
 
+    return null;
+  }
+
+  /**
+   * Infer component from module path
+   */
+  private inferComponentFromModulePath(modulePath: string): string | null {
+    if (modulePath.includes("/db/") || modulePath.includes("/database/")) {
+      return "db_client";
+    }
+    if (modulePath.includes("/repos") || modulePath.includes("/repositories")) {
+      return "repositories";
+    }
+    if (modulePath.includes("/service") || modulePath.includes("/services")) {
+      const match = modulePath.match(/\/([^/]+)\.ts$/);
+      if (match?.[1]) {
+        return this.toComponentId(match[1]);
+      }
+    }
     return null;
   }
 
@@ -483,39 +488,16 @@ export class RelationshipExtractor {
     sourceFile: SourceFile
   ): { functionDecl: any; sourceFile: SourceFile } | null {
     try {
-      // Look through imports to find where this function comes from
       for (const importDecl of sourceFile.getImportDeclarations()) {
         const namedImports = importDecl.getNamedImports();
 
         for (const namedImport of namedImports) {
           if (namedImport.getName() === functionName) {
-            // Resolve the import to the actual source file
             const moduleSpecifier = importDecl.getModuleSpecifierSourceFile();
             if (!moduleSpecifier) continue;
 
-            // Find the function in the imported file
-            const functionDecl = moduleSpecifier.getFunction(functionName);
-            if (functionDecl) {
-              return {
-                functionDecl,
-                sourceFile: moduleSpecifier,
-              };
-            }
-
-            // Also check for exported arrow functions or const declarations
-            const variableDecl = moduleSpecifier.getVariableDeclaration(functionName);
-            if (variableDecl) {
-              const initializer = variableDecl.getInitializer();
-              if (
-                initializer &&
-                (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
-              ) {
-                return {
-                  functionDecl: initializer,
-                  sourceFile: moduleSpecifier,
-                };
-              }
-            }
+            const result = this.findFunctionInModule(functionName, moduleSpecifier);
+            if (result) return result;
           }
         }
       }
@@ -523,6 +505,40 @@ export class RelationshipExtractor {
       // Silently fail on resolution errors (e.g., missing files, parse errors)
       // This ensures the extractor is resilient to incomplete projects
       return null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Find function declaration or arrow function in a module
+   */
+  private findFunctionInModule(
+    functionName: string,
+    moduleSpecifier: SourceFile
+  ): { functionDecl: any; sourceFile: SourceFile } | null {
+    // Find the function in the imported file
+    const functionDecl = moduleSpecifier.getFunction(functionName);
+    if (functionDecl) {
+      return {
+        functionDecl,
+        sourceFile: moduleSpecifier,
+      };
+    }
+
+    // Also check for exported arrow functions or const declarations
+    const variableDecl = moduleSpecifier.getVariableDeclaration(functionName);
+    if (variableDecl) {
+      const initializer = variableDecl.getInitializer();
+      if (
+        initializer &&
+        (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
+      ) {
+        return {
+          functionDecl: initializer,
+          sourceFile: moduleSpecifier,
+        };
+      }
     }
 
     return null;
