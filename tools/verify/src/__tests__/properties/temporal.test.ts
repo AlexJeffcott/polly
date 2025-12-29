@@ -3,14 +3,14 @@
 import { describe, expect, test } from "bun:test";
 import type { CodebaseAnalysis } from "../../../../analysis/src/extract/types";
 import {
+  type TemporalProperty,
+  TemporalPropertyGenerator,
+  TemporalTLAGenerator,
   always,
   eventually,
   impliesEventually,
   ordering,
   requestResponse,
-  type TemporalProperty,
-  TemporalPropertyGenerator,
-  TemporalTLAGenerator,
 } from "../../codegen/temporal";
 
 describe("Temporal Property Generation", () => {

@@ -110,7 +110,12 @@ export class InvariantExtractor {
   /**
    * Process tags within a JSDoc comment
    */
-  private processJSDocTags(jsDoc: JSDoc, sourceFile: SourceFile, node: Node, invariants: Invariant[]): void {
+  private processJSDocTags(
+    jsDoc: JSDoc,
+    sourceFile: SourceFile,
+    node: Node,
+    invariants: Invariant[]
+  ): void {
     for (const tag of jsDoc.getTags()) {
       this.processJSDocTag(tag, sourceFile, node, invariants);
     }
@@ -119,7 +124,12 @@ export class InvariantExtractor {
   /**
    * Process a single JSDoc tag
    */
-  private processJSDocTag(tag: { getTagName: () => string; getComment: () => string | undefined }, sourceFile: SourceFile, node: Node, invariants: Invariant[]): void {
+  private processJSDocTag(
+    tag: { getTagName: () => string; getComment: () => string | undefined },
+    sourceFile: SourceFile,
+    node: Node,
+    invariants: Invariant[]
+  ): void {
     const tagName = tag.getTagName();
     const text = tag.getComment();
 
@@ -223,7 +233,9 @@ export class InvariantExtractor {
   /**
    * Generate generic invariant name when no state fields found
    */
-  private generateGenericInvariantName(type: "invariant" | "pre-condition" | "post-condition"): string {
+  private generateGenericInvariantName(
+    type: "invariant" | "pre-condition" | "post-condition"
+  ): string {
     const prefix = this.getInvariantPrefix(type);
     return `${prefix}Invariant${Math.random().toString(36).substring(2, 7)}`;
   }

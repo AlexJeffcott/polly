@@ -558,7 +558,15 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     }
 
     // Chrome extension contexts
-    const contexts = ["background", "content", "popup", "devtools", "options", "offscreen", "sidepanel"];
+    const contexts = [
+      "background",
+      "content",
+      "popup",
+      "devtools",
+      "options",
+      "offscreen",
+      "sidepanel",
+    ];
     for (const context of contexts) {
       if (this.pathMatchesContext(path, context)) {
         return context;
