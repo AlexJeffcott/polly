@@ -1037,7 +1037,7 @@ export class StructurizrDSLGenerator {
       state: "Application state synchronization",
       general: "Message flow through the system",
     };
-    return descriptions[domain] || descriptions["general"]!;
+    return descriptions[domain] || descriptions.general;
   }
 
   /**
@@ -1050,7 +1050,7 @@ export class StructurizrDSLGenerator {
       state: "Requests state",
       general: "Interacts",
     };
-    return actions[domain] || actions["general"]!;
+    return actions[domain] || actions.general;
   }
 
   /**
@@ -1399,7 +1399,7 @@ export class StructurizrDSLGenerator {
 
     // Add perspectives if configured for this component
     if (this.options.perspectives?.[comp.id]) {
-      const perspectives = this.options.perspectives[comp.id]!;
+      const perspectives = this.options.perspectives[comp.id];
       parts.push(`${indent}  perspectives {`);
       for (const perspective of perspectives) {
         parts.push(

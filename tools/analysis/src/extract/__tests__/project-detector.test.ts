@@ -238,7 +238,10 @@ const wss = new WebSocketServer({ port: 8080 });`
       // Note: contextMapping value varies - sometimes "WebSocket Server", sometimes "Server"
       // depending on whether WebSocket framework is detected
       expect(config.contextMapping?.["server"]).toBeDefined();
-      expect(["Server", "WebSocket Server"]).toContain(config.contextMapping?.["server"]!);
+      const serverMapping = config.contextMapping?.["server"];
+      if (serverMapping) {
+        expect(["Server", "WebSocket Server"]).toContain(serverMapping);
+      }
     });
 
     test("client context should map to 'Client' if detected", () => {

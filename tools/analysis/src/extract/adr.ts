@@ -150,7 +150,12 @@ export class ADRExtractor {
     const dateMatch =
       content.match(/Date:\s*(\d{4}-\d{2}-\d{2})/i) || content.match(/(\d{4}-\d{2}-\d{2})/i);
 
-    return dateMatch?.[1] ?? new Date().toISOString().split("T")[0]!;
+    if (dateMatch?.[1]) {
+      return dateMatch[1];
+    }
+
+    const isoDate = new Date().toISOString().split("T")[0];
+    return isoDate || new Date().toLocaleDateString("en-CA");
   }
 
   /**
