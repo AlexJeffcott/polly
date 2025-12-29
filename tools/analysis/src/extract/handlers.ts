@@ -510,51 +510,12 @@ export class HandlerExtractor {
 
     // Track mutations and whether they occur after await
     funcNode.forEachDescendant((node: Node) => {
-      // Check for state assignments
       if (Node.isBinaryExpression(node)) {
-        const operator = node.getOperatorToken().getText();
-
-        if (operator === "=" || ["+=", " -=", "*=", "/=", "%="].includes(operator)) {
-          const left = node.getLeft();
-
-          if (Node.isPropertyAccessExpression(left) || Node.isElementAccessExpression(left)) {
-            const fieldPath = Node.isPropertyAccessExpression(left)
-              ? this.getPropertyPath(left)
-              : this.getPropertyPath(left.getExpression());
-
-            if (fieldPath.startsWith("state.")) {
-              const field = fieldPath.substring(6);
-              const line = node.getStartLineNumber();
-              const afterAwait = node.getStart() > firstAwaitPos;
-
-              mutations.push({ field, line, afterAwait });
-            }
-          }
-        }
+        this.checkBinaryExpressionMutation(node, firstAwaitPos, mutations);
       }
 
-      // Check for array mutation methods
       if (Node.isCallExpression(node)) {
-        const expr = node.getExpression();
-
-        if (Node.isPropertyAccessExpression(expr)) {
-          const methodName = expr.getName();
-          const object = expr.getExpression();
-
-          if (Node.isPropertyAccessExpression(object)) {
-            const fieldPath = this.getPropertyPath(object);
-
-            if (fieldPath.startsWith("state.")) {
-              if (["push", "pop", "shift", "unshift", "splice"].includes(methodName)) {
-                const field = fieldPath.substring(6);
-                const line = node.getStartLineNumber();
-                const afterAwait = node.getStart() > firstAwaitPos;
-
-                mutations.push({ field, line, afterAwait });
-              }
-            }
-          }
-        }
+        this.checkCallExpressionMutation(node, firstAwaitPos, mutations);
       }
     });
 
@@ -1366,6 +1327,63 @@ export class HandlerExtractor {
     }
 
     return null;
+  }
+
+  /**
+   * Check binary expression for state mutations
+   */
+  private checkBinaryExpressionMutation(
+    node: Node,
+    firstAwaitPos: number,
+    mutations: Array<{ field: string; line: number; afterAwait: boolean }>
+  ): void {
+    if (!Node.isBinaryExpression(node)) return;
+
+    const operator = node.getOperatorToken().getText();
+    if (operator !== "=" && !["+=", "-=", "*=", "/=", "%="].includes(operator)) return;
+
+    const left = node.getLeft();
+    if (!Node.isPropertyAccessExpression(left) && !Node.isElementAccessExpression(left)) return;
+
+    const fieldPath = Node.isPropertyAccessExpression(left)
+      ? this.getPropertyPath(left)
+      : this.getPropertyPath(left.getExpression());
+
+    if (fieldPath.startsWith("state.")) {
+      const field = fieldPath.substring(6);
+      const line = node.getStartLineNumber();
+      const afterAwait = node.getStart() > firstAwaitPos;
+      mutations.push({ field, line, afterAwait });
+    }
+  }
+
+  /**
+   * Check call expression for array mutation methods
+   */
+  private checkCallExpressionMutation(
+    node: Node,
+    firstAwaitPos: number,
+    mutations: Array<{ field: string; line: number; afterAwait: boolean }>
+  ): void {
+    if (!Node.isCallExpression(node)) return;
+
+    const expr = node.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
+
+    const methodName = expr.getName();
+    const object = expr.getExpression();
+
+    if (!Node.isPropertyAccessExpression(object)) return;
+
+    const fieldPath = this.getPropertyPath(object);
+    if (!fieldPath.startsWith("state.")) return;
+
+    if (["push", "pop", "shift", "unshift", "splice"].includes(methodName)) {
+      const field = fieldPath.substring(6);
+      const line = node.getStartLineNumber();
+      const afterAwait = node.getStart() > firstAwaitPos;
+      mutations.push({ field, line, afterAwait });
+    }
   }
 }
 
