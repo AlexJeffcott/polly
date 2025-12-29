@@ -918,76 +918,26 @@ export class HandlerExtractor {
     filePath: string
   ): MessageHandler | null {
     try {
-      // Cast to IfStatement for type safety
       const ifStmt = ifNode as IfStatement;
-      // Get condition expression
       const condition = ifStmt.getExpression();
 
-      // Check if condition is a call expression (function call)
       if (!Node.isCallExpression(condition)) {
         return null;
       }
 
-      // Get the function being called
       const funcExpr = condition.getExpression();
-      let funcName: string | undefined;
+      const funcName = Node.isIdentifier(funcExpr) ? funcExpr.getText() : undefined;
 
-      if (Node.isIdentifier(funcExpr)) {
-        funcName = funcExpr.getText();
-      }
+      this.debugLogProcessingFunction(funcName);
 
-      if (process.env["POLLY_DEBUG"] && funcName) {
-        console.log(`[DEBUG] Processing if condition with function: ${funcName}`);
-      }
-
-      // Try to find message type from local type guards first
-      let messageType: string | undefined;
-
-      if (funcName && typeGuards.has(funcName)) {
-        // Found in local file
-        const guardType = typeGuards.get(funcName);
-        if (guardType) {
-          messageType = guardType;
-
-          if (process.env["POLLY_DEBUG"]) {
-            console.log(`[DEBUG] Found in local type guards: ${funcName} → ${messageType}`);
-          }
-        }
-      } else if (Node.isIdentifier(funcExpr)) {
-        // Not found locally - try to resolve from imports
-        if (process.env["POLLY_DEBUG"]) {
-          console.log(`[DEBUG] Not found locally, trying import resolution for: ${funcName}`);
-        }
-
-        messageType = this.resolveImportedTypeGuard(funcExpr) ?? undefined;
-      }
-
+      const messageType = this.resolveMessageType(funcExpr, funcName, typeGuards);
       if (!messageType) {
-        if (process.env["POLLY_DEBUG"] && funcName) {
-          console.log(`[DEBUG] Could not resolve message type for: ${funcName}`);
-        }
+        this.debugLogUnresolvedMessageType(funcName);
         return null;
       }
 
-      // Found a type guard call! Use the message type
       const line = ifStmt.getStartLineNumber();
-
-      // Extract relationships from the if block
-      const sourceFile = ifStmt.getSourceFile();
-      const handlerName = `${messageType}_handler`;
-      let relationships: ComponentRelationship[] | undefined;
-
-      const thenStatement = ifStmt.getThenStatement();
-      if (thenStatement) {
-        const detectedRelationships = this.relationshipExtractor.extractFromHandler(
-          thenStatement,
-          sourceFile,
-          handlerName
-        );
-        if (detectedRelationships.length > 0) {
-          relationships = detectedRelationships;
-        }
-      }
+      const relationships = this.extractRelationshipsFromIfBlock(ifStmt, messageType);
 
       return {
         messageType,
@@ -1001,6 +951,89 @@ export class HandlerExtractor {
     } catch (_error) {
       return null;
     }
+  }
+
+  /**
+   * Debug log processing function
+   */
+  private debugLogProcessingFunction(funcName: string | undefined): void {
+    if (process.env["POLLY_DEBUG"] && funcName) {
+      console.log(`[DEBUG] Processing if condition with function: ${funcName}`);
+    }
+  }
+
+  /**
+   * Debug log unresolved message type
+   */
+  private debugLogUnresolvedMessageType(funcName: string | undefined): void {
+    if (process.env["POLLY_DEBUG"] && funcName) {
+      console.log(`[DEBUG] Could not resolve message type for: ${funcName}`);
+    }
+  }
+
+  /**
+   * Resolve message type from function expression
+   */
+  private resolveMessageType(
+    funcExpr: Node,
+    funcName: string | undefined,
+    typeGuards: Map<string, string>
+  ): string | undefined {
+    if (funcName && typeGuards.has(funcName)) {
+      const guardType = typeGuards.get(funcName);
+      if (guardType) {
+        this.debugLogFoundInLocalTypeGuards(funcName, guardType);
+        return guardType;
+      }
+    }
+
+    if (Node.isIdentifier(funcExpr)) {
+      this.debugLogTryingImportResolution(funcName);
+      return this.resolveImportedTypeGuard(funcExpr) ?? undefined;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Debug log found in local type guards
+   */
+  private debugLogFoundInLocalTypeGuards(funcName: string, messageType: string): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Found in local type guards: ${funcName} → ${messageType}`);
+    }
+  }
+
+  /**
+   * Debug log trying import resolution
+   */
+  private debugLogTryingImportResolution(funcName: string | undefined): void {
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Not found locally, trying import resolution for: ${funcName}`);
+    }
+  }
+
+  /**
+   * Extract relationships from if block
+   */
+  private extractRelationshipsFromIfBlock(
+    ifStmt: IfStatement,
+    messageType: string
+  ): ComponentRelationship[] | undefined {
+    const thenStatement = ifStmt.getThenStatement();
+    if (!thenStatement) {
+      return undefined;
+    }
+
+    const sourceFile = ifStmt.getSourceFile();
+    const handlerName = `${messageType}_handler`;
+    const detectedRelationships = this.relationshipExtractor.extractFromHandler(
+      thenStatement,
+      sourceFile,
+      handlerName
+    );
+
+    return detectedRelationships.length > 0 ? detectedRelationships : undefined;
   }
 
   /**
