@@ -295,10 +295,7 @@ export class HandlerExtractor {
   /**
    * Extract assignments from binary expressions (=, +=, -=, etc.)
    */
-  private extractBinaryExpressionAssignment(
-    node: Node,
-    assignments: StateAssignment[]
-  ): void {
+  private extractBinaryExpressionAssignment(node: Node, assignments: StateAssignment[]): void {
     if (!Node.isBinaryExpression(node)) return;
 
     const operator = node.getOperatorToken().getText();
@@ -313,10 +310,7 @@ export class HandlerExtractor {
   /**
    * Extract simple or element access assignments (state.field = value or state.items[0] = value)
    */
-  private extractSimpleOrElementAccessAssignment(
-    node: Node,
-    assignments: StateAssignment[]
-  ): void {
+  private extractSimpleOrElementAccessAssignment(node: Node, assignments: StateAssignment[]): void {
     if (!Node.isBinaryExpression(node)) return;
 
     const left = node.getLeft();
@@ -408,10 +402,7 @@ export class HandlerExtractor {
   /**
    * Extract array mutation assignments (push, pop, shift, unshift, splice)
    */
-  private extractArrayMutationAssignment(
-    node: Node,
-    assignments: StateAssignment[]
-  ): void {
+  private extractArrayMutationAssignment(node: Node, assignments: StateAssignment[]): void {
     if (!Node.isCallExpression(node)) return;
 
     const expr = node.getExpression();
@@ -457,9 +448,7 @@ export class HandlerExtractor {
 
       case "splice":
         if (process.env["POLLY_DEBUG"]) {
-          console.log(
-            `[DEBUG] Warning: splice() mutation on ${fieldPath} not fully translated`
-          );
+          console.log(`[DEBUG] Warning: splice() mutation on ${fieldPath} not fully translated`);
         }
         return null;
 
@@ -900,9 +889,7 @@ export class HandlerExtractor {
    */
   private debugLogFoundHandler(handler: MessageHandler): void {
     if (process.env["POLLY_DEBUG"]) {
-      console.log(
-        `[DEBUG] Found handler: ${handler.messageType} at line ${handler.location.line}`
-      );
+      console.log(`[DEBUG] Found handler: ${handler.messageType} at line ${handler.location.line}`);
     }
   }
 
@@ -1052,62 +1039,105 @@ export class HandlerExtractor {
     const typeGuards = new Map<string, string>();
 
     sourceFile.forEachDescendant((node) => {
-      if (
-        Node.isFunctionDeclaration(node) ||
-        Node.isFunctionExpression(node) ||
-        Node.isArrowFunction(node)
-      ) {
-        // Check the return type NODE (AST structure) for type predicate
-        const returnTypeNode = node.getReturnTypeNode();
-
-        if (returnTypeNode && Node.isTypePredicate(returnTypeNode)) {
-          // Extract function name
-          let functionName: string | undefined;
-          if (Node.isFunctionDeclaration(node)) {
-            functionName = node.getName();
-          } else if (Node.isFunctionExpression(node)) {
-            const parent = node.getParent();
-            if (Node.isVariableDeclaration(parent)) {
-              functionName = parent.getName();
-            }
-          } else if (Node.isArrowFunction(node)) {
-            const parent = node.getParent();
-            if (Node.isVariableDeclaration(parent)) {
-              functionName = parent.getName();
-            }
-          }
-
-          if (functionName) {
-            // Extract the type from the type predicate node
-            const typeNode = returnTypeNode.getTypeNode();
-            let messageType: string | null = null;
-
-            if (typeNode) {
-              const typeName = typeNode.getText(); // e.g., "QueryMessage"
-              messageType = this.extractMessageTypeFromTypeName(typeName);
-            }
-
-            // Fallback: Analyze function body for msg.type === 'value'
-            if (!messageType) {
-              const body = node.getBody();
-              if (body) {
-                const bodyText = body.getText();
-                const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/);
-                if (typeValueMatch) {
-                  messageType = typeValueMatch[1] ?? null;
-                }
-              }
-            }
-
-            if (messageType) {
-              typeGuards.set(functionName, messageType);
-            }
-          }
-        }
-      }
+      this.processTypePredicate(node, typeGuards);
     });
 
     return typeGuards;
+  }
+
+  /**
+   * Process a node that might be a type predicate function
+   */
+  private processTypePredicate(node: Node, typeGuards: Map<string, string>): void {
+    if (!this.isFunctionNode(node)) {
+      return;
+    }
+
+    const returnTypeNode = node.getReturnTypeNode();
+    if (!returnTypeNode || !Node.isTypePredicate(returnTypeNode)) {
+      return;
+    }
+
+    const functionName = this.extractFunctionName(node);
+    if (!functionName) {
+      return;
+    }
+
+    const messageType = this.extractMessageTypeFromTypePredicateFunction(node, returnTypeNode);
+    if (messageType) {
+      typeGuards.set(functionName, messageType);
+    }
+  }
+
+  /**
+   * Extract function name from function node
+   */
+  private extractFunctionName(
+    node: FunctionDeclaration | FunctionExpression | ArrowFunction
+  ): string | undefined {
+    if (Node.isFunctionDeclaration(node)) {
+      return node.getName();
+    }
+
+    if (Node.isFunctionExpression(node) || Node.isArrowFunction(node)) {
+      return this.extractFunctionNameFromVariable(node);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract function name from variable declaration
+   */
+  private extractFunctionNameFromVariable(
+    node: FunctionExpression | ArrowFunction
+  ): string | undefined {
+    const parent = node.getParent();
+    if (Node.isVariableDeclaration(parent)) {
+      return parent.getName();
+    }
+    return undefined;
+  }
+
+  /**
+   * Extract message type from type predicate function
+   */
+  private extractMessageTypeFromTypePredicateFunction(
+    node: FunctionDeclaration | FunctionExpression | ArrowFunction,
+    returnTypeNode: Node
+  ): string | null {
+    const typeNode = returnTypeNode.getTypeNode();
+
+    if (typeNode) {
+      const typeName = typeNode.getText();
+      const messageType = this.extractMessageTypeFromTypeName(typeName);
+      if (messageType) {
+        return messageType;
+      }
+    }
+
+    return this.extractMessageTypeFromFunctionBodyText(node);
+  }
+
+  /**
+   * Extract message type from function body text
+   */
+  private extractMessageTypeFromFunctionBodyText(
+    node: FunctionDeclaration | FunctionExpression | ArrowFunction
+  ): string | null {
+    const body = node.getBody();
+    if (!body) {
+      return null;
+    }
+
+    const bodyText = body.getText();
+    const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/);
+
+    if (typeValueMatch) {
+      return typeValueMatch[1] ?? null;
+    }
+
+    return null;
   }
 
   /**
@@ -1173,7 +1203,10 @@ export class HandlerExtractor {
   /**
    * Extract message type from type predicate node
    */
-  private extractFromTypePredicate(returnTypeNode: Node | undefined, funcName: string): string | null {
+  private extractFromTypePredicate(
+    returnTypeNode: Node | undefined,
+    funcName: string
+  ): string | null {
     if (!returnTypeNode || !Node.isTypePredicate(returnTypeNode)) {
       return null;
     }
