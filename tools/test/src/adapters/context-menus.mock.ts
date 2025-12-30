@@ -15,7 +15,7 @@ export function createMockContextMenus(): MockContextMenus {
     },
     update: async (
       _id: string,
-      _updateProperties: chrome.contextMenus.UpdateProperties
+      _updateProperties: Omit<chrome.contextMenus.CreateProperties, "id">
     ): Promise<void> => {
       // Mock implementation
     },

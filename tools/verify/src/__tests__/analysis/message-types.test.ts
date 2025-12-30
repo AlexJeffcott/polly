@@ -289,6 +289,7 @@ describe("Message Type Extraction", () => {
 
   describe("Template Literals", () => {
     test("handles unbounded template", async () => {
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Testing TypeScript template literal syntax
       const result = await createTest("export type M = `user_${string}`;");
       expect(result).toBeDefined();
     });
@@ -307,6 +308,7 @@ describe("Message Type Extraction", () => {
     });
 
     test("handles nested templates", async () => {
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Testing TypeScript template literal syntax
       const result = await createTest("export type M = `a_${string}_${number}`;");
       expect(result).toBeDefined();
     });

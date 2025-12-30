@@ -11,6 +11,12 @@ export interface Bookmark {
   timestamp: number;
 }
 
+export interface User {
+  username: string;
+  token?: string;
+  loginTime?: number;
+}
+
 export interface Settings {
   theme: "auto" | "light" | "dark";
   autoSync: boolean;

@@ -17,7 +17,6 @@ declare module "*.module.css" {
 }
 
 // Bun-specific globals
-// biome-ignore lint/correctness/noUnusedVariables: Global interface augmentation for Bun runtime
 interface ImportMeta {
   /**
    * The absolute path to the directory containing the current module.

@@ -386,7 +386,9 @@ export function createBackgroundHelpers(adapters: ExtensionAdapters): Background
     },
 
     getExtensionViews(type?: ExtensionViewType) {
-      return chrome.extension.getViews(type ? { type } : undefined);
+      return chrome.extension.getViews(
+        type && (type === "popup" || type === "tab") ? { type } : undefined
+      );
     },
 
     openOptionsPage() {

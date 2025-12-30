@@ -24,13 +24,13 @@ export interface TabsAdapter {
   /**
    * Listen for tab removal
    */
-  onRemoved(callback: (tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) => void): void;
+  onRemoved(callback: (tabId: number, removeInfo: chrome.tabs.OnRemovedInfo) => void): void;
 
   /**
    * Listen for tab updates
    */
   onUpdated(
-    callback: (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => void
+    callback: (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => void
   ): void;
 
   /**

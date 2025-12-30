@@ -13,7 +13,8 @@ export type TodoMessages =
       { userId: string; name: string; role: "user" | "admin" },
       { success: true; user: User }
     >
-  | Message<"USER_LOGOUT", Record<string, never>, { success: true }>
+  // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
+  | Message<"USER_LOGOUT", {}, { success: true }>
   | Message<"TODO_ADD", { text: string }, { success: true; todo: Todo }>
   | Message<
       "TODO_TOGGLE",
@@ -21,6 +22,8 @@ export type TodoMessages =
       { success: true; todo: Todo } | { success: false; error: string }
     >
   | Message<"TODO_REMOVE", { id: string }, { success: true }>
-  | Message<"TODO_CLEAR_COMPLETED", Record<string, never>, { success: true; removed: number }>
-  | Message<"GET_STATE", Record<string, never>, AppState>
+  // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
+  | Message<"TODO_CLEAR_COMPLETED", {}, { success: true; removed: number }>
+  // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
+  | Message<"GET_STATE", {}, AppState>
   | Message<"GET_TODOS", { filter?: "all" | "active" | "completed" }, { todos: Todo[] }>;

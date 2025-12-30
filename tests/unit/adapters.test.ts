@@ -187,6 +187,7 @@ test("TabsAdapter interface - query tabs", async () => {
     groupId: -1,
     url: "https://example.com",
     title: "Test",
+    frozen: false,
   };
   const tab2: chrome.tabs.Tab = {
     id: 2,
@@ -202,6 +203,7 @@ test("TabsAdapter interface - query tabs", async () => {
     groupId: -1,
     url: "https://test.com",
     title: "Test 2",
+    frozen: false,
   };
   mockChrome.tabs._tabs.set(1, tab1);
   mockChrome.tabs._tabs.set(2, tab2);
@@ -229,6 +231,7 @@ test("TabsAdapter interface - query active tab", async () => {
     discarded: false,
     autoDiscardable: true,
     groupId: -1,
+    frozen: false,
   });
 
   const adapter: TabsAdapter = mockChrome.tabs;

@@ -6,7 +6,7 @@
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import { type MockExtensionAdapters, createMockAdapters } from "@fairfox/polly/test";
-import type { Bookmark } from "../src/shared/types/messages";
+import type { Bookmark, Settings, User } from "../src/shared/types/messages";
 
 describe("User Authentication Logic", () => {
   let adapters: MockExtensionAdapters;
@@ -34,7 +34,7 @@ describe("User Authentication Logic", () => {
     expect(response.user.username).toBe("testuser");
 
     // Verify storage was updated
-    const stored = await adapters.storage.get("user");
+    const stored = await adapters.storage.get<{ user: User }>("user");
     expect(stored.user).toBeDefined();
     expect(stored.user.username).toBe("testuser");
   });
@@ -194,7 +194,7 @@ describe("Settings Management Logic", () => {
     expect(response.settings.debugMode).toBe(true);
 
     // Verify storage
-    const stored = await adapters.storage.get("settings");
+    const stored = await adapters.storage.get<{ settings: Settings }>("settings");
     expect(stored.settings.theme).toBe("dark");
   });
 
@@ -221,7 +221,7 @@ describe("Mock Adapters", () => {
 
   test("can use mock tabs adapter", async () => {
     // Create a mock tab
-    const mockTab = {
+    const mockTab: chrome.tabs.Tab = {
       id: 1,
       url: "https://example.com",
       title: "Example",
@@ -232,6 +232,10 @@ describe("Mock Adapters", () => {
       incognito: false,
       pinned: false,
       selected: true,
+      frozen: false,
+      discarded: false,
+      autoDiscardable: true,
+      groupId: -1,
     };
 
     adapters.tabs._tabs.set(1, mockTab);

@@ -107,7 +107,10 @@ export class ContextMenuManager {
         await this.bus.adapters.contextMenus.create({
           id: payload.id,
           title: payload.title,
-          contexts: payload.contexts,
+          contexts: payload.contexts as [
+            chrome.contextMenus.ContextType,
+            ...chrome.contextMenus.ContextType[],
+          ],
         });
         return { success: true };
       } catch (error) {

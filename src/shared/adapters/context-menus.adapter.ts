@@ -9,7 +9,10 @@ export interface ContextMenusAdapter {
   /**
    * Update context menu item
    */
-  update(id: string, updateProperties: chrome.contextMenus.UpdateProperties): Promise<void>;
+  update(
+    id: string,
+    updateProperties: Omit<chrome.contextMenus.CreateProperties, "id">
+  ): Promise<void>;
 
   /**
    * Remove context menu item

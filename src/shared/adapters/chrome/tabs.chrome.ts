@@ -16,15 +16,19 @@ export class ChromeTabsAdapter implements TabsAdapter {
   }
 
   async reload(tabId: number, reloadProperties?: { bypassCache?: boolean }): Promise<void> {
-    await chrome.tabs.reload(tabId, reloadProperties);
+    if (reloadProperties) {
+      await chrome.tabs.reload(tabId, reloadProperties);
+    } else {
+      await chrome.tabs.reload(tabId);
+    }
   }
 
-  onRemoved(callback: (tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) => void): void {
+  onRemoved(callback: (tabId: number, removeInfo: chrome.tabs.OnRemovedInfo) => void): void {
     chrome.tabs.onRemoved.addListener(callback);
   }
 
   onUpdated(
-    callback: (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => void
+    callback: (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => void
   ): void {
     chrome.tabs.onUpdated.addListener(callback);
   }

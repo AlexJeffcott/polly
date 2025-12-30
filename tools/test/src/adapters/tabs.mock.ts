@@ -41,14 +41,14 @@ export function createMockTabs(): MockTabs {
       // Mock implementation
     },
     onRemoved: (
-      _callback: (tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) => void
+      _callback: (tabId: number, removeInfo: chrome.tabs.OnRemovedInfo) => void
     ): void => {
       // Mock implementation - register listener
     },
     onUpdated: (
       _callback: (
         tabId: number,
-        changeInfo: chrome.tabs.TabChangeInfo,
+        changeInfo: chrome.tabs.OnUpdatedInfo,
         tab: chrome.tabs.Tab
       ) => void
     ): void => {
@@ -72,6 +72,7 @@ export function createMockTabs(): MockTabs {
         groupId: -1,
         url: createProperties.url || "about:blank",
         title: createProperties.url || "New Tab",
+        frozen: false,
       };
       if (newTab.id !== undefined) {
         tabs.set(newTab.id, newTab);

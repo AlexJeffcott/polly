@@ -15,7 +15,10 @@ export class ChromeContextMenusAdapter implements ContextMenusAdapter {
     });
   }
 
-  async update(id: string, updateProperties: chrome.contextMenus.UpdateProperties): Promise<void> {
+  async update(
+    id: string,
+    updateProperties: Omit<chrome.contextMenus.CreateProperties, "id">
+  ): Promise<void> {
     await chrome.contextMenus.update(id, updateProperties);
   }
 

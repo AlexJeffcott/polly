@@ -9,7 +9,7 @@
     "allowImportingTsExtensions": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": ["chrome"],
+    "types": ["chrome", "bun"],
     "paths": {
       "@fairfox/polly": ["../../src/index.ts"],
       "@fairfox/polly/state": ["../../src/shared/lib/state.ts"],
@@ -20,7 +20,8 @@
       "@fairfox/polly/errors": ["../../src/shared/lib/errors.ts"],
       "@fairfox/polly/types": ["../../src/shared/types/messages.ts"],
       "@fairfox/polly/test": ["../../tools/test/src/index.ts"],
-      "@fairfox/polly/verify": ["../../tools/verify/src/config.ts"]
+      "@fairfox/polly/verify": ["../../tools/verify/src/config.ts"],
+      "@/*": ["../../src/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*", "specs/**/*"]
