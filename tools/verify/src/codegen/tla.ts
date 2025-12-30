@@ -47,6 +47,8 @@ export class TLAGenerator {
   private indent = 0;
   private extractedInvariants: Invariant[] = [];
   private temporalProperties: TemporalProperty[] = [];
+  private symmetrySets: string[] = [];
+  private filteredMessageTypes: string[] = [];
 
   /**
    * Create TLA+ generator with optional validators and property generators
@@ -390,6 +392,7 @@ export class TLAGenerator {
     this.addInvariantsSection(lines);
     this.addTemporalPropertiesSection(lines);
     this.addConstraintSection(lines);
+    this.addSymmetrySection(lines, config);
 
     return lines.join("\n");
   }
@@ -410,6 +413,14 @@ export class TLAGenerator {
   private addBasicConstants(lines: string[], config: VerificationConfig): void {
     lines.push("  Contexts = {background, content, popup}");
     lines.push(`  MaxMessages = ${config.messages.maxInFlight || 3}`);
+
+    // Tier 1 Optimization: Per-message bounds
+    if (config.messages.perMessageBounds) {
+      for (const [msgType, bound] of Object.entries(config.messages.perMessageBounds)) {
+        const constName = `MaxMessages_${msgType}`;
+        lines.push(`  ${constName} = ${bound}`);
+      }
+    }
   }
 
   /**
@@ -509,6 +520,21 @@ export class TLAGenerator {
     lines.push("\\* State constraint");
     lines.push("CONSTRAINT");
     lines.push("  StateConstraint");
+  }
+
+  /**
+   * Add symmetry section to config for Tier 1 optimization
+   */
+  private addSymmetrySection(lines: string[], _config: VerificationConfig): void {
+    if (!this.symmetrySets || this.symmetrySets.length === 0) {
+      return;
+    }
+
+    lines.push("");
+    lines.push("\\* Symmetry sets for state space reduction");
+    for (const setName of this.symmetrySets) {
+      lines.push(`SYMMETRY ${setName}`);
+    }
   }
 
   private addHeader(): void {
@@ -674,14 +700,14 @@ export class TLAGenerator {
     }
   }
 
-  private addMessageTypes(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
+  private addMessageTypes(config: VerificationConfig, analysis: CodebaseAnalysis): void {
     if (analysis.messageTypes.length === 0) {
       // No message types found, skip
       return;
     }
 
     // Filter out invalid TLA+ identifiers
-    const validMessageTypes: string[] = [];
+    let validMessageTypes: string[] = [];
     const invalidMessageTypes: string[] = [];
 
     for (const msgType of analysis.messageTypes) {
@@ -702,6 +728,35 @@ export class TLAGenerator {
       }
     }
 
+    // Apply Tier 1 Optimization: Message filtering (Issue #12)
+    const originalCount = validMessageTypes.length;
+    const filteredOut: string[] = [];
+
+    if (config.messages.include && config.messages.include.length > 0) {
+      // Include mode: only keep specified message types
+      const included = new Set(config.messages.include);
+      const beforeFilter = validMessageTypes;
+      validMessageTypes = validMessageTypes.filter(msg => included.has(msg));
+      filteredOut.push(...beforeFilter.filter(msg => !included.has(msg)));
+    } else if (config.messages.exclude && config.messages.exclude.length > 0) {
+      // Exclude mode: filter out specified message types
+      const excluded = new Set(config.messages.exclude);
+      const beforeFilter = validMessageTypes;
+      validMessageTypes = validMessageTypes.filter(msg => !excluded.has(msg));
+      filteredOut.push(...beforeFilter.filter(msg => excluded.has(msg)));
+    }
+
+    // Log message filtering optimization
+    if (filteredOut.length > 0) {
+      const filterMode = config.messages.include ? "include" : "exclude";
+      console.log(
+        `[INFO] [TLAGenerator] Message filtering (${filterMode}): ${originalCount} → ${validMessageTypes.length} message types`
+      );
+      if (process.env["POLLY_DEBUG"]) {
+        console.log(`[INFO]   Filtered out: ${filteredOut.join(", ")}`);
+      }
+    }
+
     if (validMessageTypes.length === 0) {
       // No valid message types, skip
       return;
@@ -710,6 +765,55 @@ export class TLAGenerator {
     this.line("\\* Message types from application");
     const messageTypeSet = validMessageTypes.map((t) => `"${t}"`).join(", ");
     this.line(`UserMessageTypes == {${messageTypeSet}}`);
+    this.line("");
+
+    // Store for symmetry reduction
+    this.filteredMessageTypes = validMessageTypes;
+
+    // Apply Tier 1 Optimization: Symmetry reduction
+    if (config.messages.symmetry && config.messages.symmetry.length > 0) {
+      this.addSymmetrySets(config.messages.symmetry, validMessageTypes);
+    }
+  }
+
+  /**
+   * Add symmetry set definitions for Tier 1 optimization
+   */
+  private addSymmetrySets(symmetryGroups: string[][], validMessageTypes: string[]): void {
+    const validTypes = new Set(validMessageTypes);
+
+    this.line("\\* Symmetry sets for state space reduction (Tier 1 optimization)");
+
+    for (let i = 0; i < symmetryGroups.length; i++) {
+      const group = symmetryGroups[i];
+      if (!group || group.length < 2) continue;
+
+      // Filter to only valid message types in this group
+      const validGroupTypes = group.filter(t => validTypes.has(t));
+      if (validGroupTypes.length < 2) {
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(`[WARN] [TLAGenerator] Symmetry group ${i + 1} has < 2 valid types, skipping`);
+        }
+        continue;
+      }
+
+      const setName = `SymmetrySet${i + 1}`;
+      const setValues = validGroupTypes.map(t => `"${t}"`).join(", ");
+      this.line(`${setName} == {${setValues}}`);
+
+      // Store for config generation
+      if (!this.symmetrySets) {
+        this.symmetrySets = [];
+      }
+      this.symmetrySets.push(setName);
+    }
+
+    if (this.symmetrySets && this.symmetrySets.length > 0) {
+      console.log(
+        `[INFO] [TLAGenerator] Symmetry reduction: ${this.symmetrySets.length} symmetry group(s) defined`
+      );
+    }
+
     this.line("");
   }
 
@@ -1738,7 +1842,7 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addInvariants(_config: VerificationConfig, _analysis: CodebaseAnalysis): void {
+  private addInvariants(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
     this.line("\\* =============================================================================");
     this.line("\\* Application Invariants");
     this.line("\\* =============================================================================");
@@ -1773,14 +1877,96 @@ export class TLAGenerator {
       }
     }
 
+    // Add Tier 2 Optimization: Temporal constraints
+    if (config.tier2?.temporalConstraints && config.tier2.temporalConstraints.length > 0) {
+      this.addTemporalConstraints(config.tier2.temporalConstraints);
+    }
+
     this.line("\\* State constraint to bound state space");
+    this.addStateConstraint(config);
+
+    this.line("=============================================================================");
+  }
+
+  /**
+   * Add temporal constraint invariants (Tier 2 optimization)
+   */
+  private addTemporalConstraints(constraints: Array<{before: string; after: string; description?: string}>): void {
+    this.line("\\* Tier 2: Temporal constraint invariants");
+    this.line("\\* Enforce ordering requirements between message types");
+    this.line("");
+
+    for (let i = 0; i < constraints.length; i++) {
+      const constraint = constraints[i];
+      const invName = `TemporalConstraint${i + 1}`;
+
+      if (constraint.description) {
+        this.line(`\\* ${constraint.description}`);
+      }
+      this.line(`${invName} ==`);
+      this.indent++;
+      this.line(`\\* If ${constraint.after} has been delivered, then ${constraint.before} must have been delivered`);
+      this.line(`(\\E m \\in DOMAIN delivered : delivered[m].type = "${constraint.after}")`);
+      this.line("=>");
+      this.line(`(\\E m \\in DOMAIN delivered : delivered[m].type = "${constraint.before}")`);
+      this.indent--;
+      this.line("");
+
+      // Track this invariant for config generation
+      this.extractedInvariants.push({
+        name: invName,
+        description: constraint.description || `${constraint.before} must happen before ${constraint.after}`,
+        condition: '',
+        confidence: 'high',
+        source: { file: '', line: 0, column: 0 }
+      });
+    }
+  }
+
+  /**
+   * Generate StateConstraint with per-message bounds support (Tier 1 optimization)
+   * and bounded exploration (Tier 2 optimization)
+   */
+  private addStateConstraint(config: VerificationConfig): void {
+    const hasPerMessageBounds = config.messages.perMessageBounds &&
+                                 Object.keys(config.messages.perMessageBounds).length > 0;
+    const hasBoundedExploration = config.tier2?.boundedExploration?.maxDepth !== undefined;
+
+    const needsConjunction = hasPerMessageBounds || hasBoundedExploration;
+
     this.line("StateConstraint ==");
     this.indent++;
-    this.line("Len(messages) <= MaxMessages");
+
+    if (needsConjunction) {
+      // Multiple constraints
+      this.line("/\\ Len(messages) <= MaxMessages");
+
+      // Tier 1: Per-message bounds
+      if (hasPerMessageBounds) {
+        for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
+          const constName = `MaxMessages_${msgType}`;
+          this.line(`/\\ Cardinality({m \\in DOMAIN messages : messages[m].type = "${msgType}"}) <= ${constName}`);
+        }
+      }
+
+      // Tier 2: Bounded exploration (depth limit)
+      if (hasBoundedExploration && config.tier2?.boundedExploration?.maxDepth) {
+        this.line(`/\\ TLCGet("level") <= ${config.tier2.boundedExploration.maxDepth} \\* Tier 2: Bounded exploration`);
+      }
+    } else {
+      // Simple global bound only
+      this.line("Len(messages) <= MaxMessages");
+    }
+
     this.indent--;
     this.line("");
 
-    this.line("=============================================================================");
+    // Log bounded exploration
+    if (hasBoundedExploration && config.tier2?.boundedExploration?.maxDepth) {
+      console.log(
+        `[INFO] [TLAGenerator] Tier 2: Bounded exploration with maxDepth = ${config.tier2.boundedExploration.maxDepth}`
+      );
+    }
   }
 
   /**

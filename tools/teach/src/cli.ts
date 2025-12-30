@@ -1,18 +1,33 @@
 #!/usr/bin/env bun
-// CLI for Polly teaching system
+// CLI for Polly teaching system - Claude-powered
 
+import Anthropic from "@anthropic-ai/sdk";
 import { analyzeArchitecture } from "../../analysis/src/index.ts";
-import type {
-  ArchitectureAnalysis,
-  ContextInfo,
-  MessageFlow,
-} from "../../analysis/src/types/architecture.ts";
 import { generateStructurizrDSL } from "../../visualize/src/codegen/structurizr.ts";
+import { buildTeachingContext } from "./context-builder.ts";
+import { generateTeachingPrompt, generateOptimizationPrompt } from "./system-prompt.ts";
 
 async function main() {
   const cwd = process.cwd();
 
-  console.log("Analyzing Polly project...");
+  // Check for mode flag
+  const args = process.argv.slice(2);
+  const modeArg = args.find(arg => arg.startsWith("--mode="));
+  const mode = modeArg ? modeArg.split("=")[1] : "teach";
+
+  // Check for API key
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error("\n❌ Error: ANTHROPIC_API_KEY environment variable not set");
+    console.error("\nTo use polly teach, you need a Claude API key:");
+    console.error("1. Get an API key from https://console.anthropic.com/");
+    console.error("2. Set the environment variable:");
+    console.error("   export ANTHROPIC_API_KEY=your_key_here");
+    console.error("\nAlternatively, add it to your shell profile (.bashrc, .zshrc, etc.)\n");
+    process.exit(1);
+  }
+
+  console.log(mode === "optimize" ? "Analyzing verification setup..." : "Analyzing Polly project...");
   console.log();
 
   try {
@@ -25,23 +40,43 @@ async function main() {
     // Generate visualization
     const dsl = await generateStructurizrDSL(analysis);
 
-    // Format and present teaching material
-    const contexts = Object.entries(analysis.contexts);
-    const allHandlers = contexts.flatMap(([_, ctx]: [string, ContextInfo]) => ctx.handlers || []);
-    const messageFlows = analysis.messageFlows || [];
+    // Build teaching context
+    const context = await buildTeachingContext(cwd, analysis);
 
-    console.log(
-      `
+    // Display appropriate overview based on mode
+    if (mode === "optimize") {
+      displayOptimizationOverview(context);
+    } else {
+      displayProjectOverview(context, dsl);
+    }
+
+    // Start Claude-powered interactive session
+    await startClaudeSession(apiKey, context, mode);
+  } catch (error) {
+    console.log(`\n❌ Failed to analyze project: ${error}`);
+    process.exit(1);
+  }
+}
+
+function displayProjectOverview(context: ReturnType<typeof buildTeachingContext>, dsl: string) {
+  const contexts = Object.entries(context.project.architecture.contexts);
+  const allHandlers = contexts.flatMap(
+    ([_, ctx]: [string, { handlers?: unknown[] }]) => ctx.handlers || []
+  );
+  const messageFlows = context.project.architecture.messageFlows || [];
+
+  console.log(
+    `
 # Polly Project Analysis
 
 ## Architecture
 
-Your project contains ${contexts.length} context(s) and ${allHandlers.length} message handler(s).
+${context.project.summary}
 
 ### Contexts
 
 ${contexts
-  .map(([name, ctx]: [string, ContextInfo]) => {
+  .map(([name, ctx]: [string, { entryPoint: string; handlers?: unknown[]; state?: { variables?: Record<string, unknown> } }]) => {
     return `
 **${name}**
 Location: ${ctx.entryPoint}
@@ -55,27 +90,11 @@ State variables: ${Object.keys(ctx.state?.variables || {}).length}`;
 ${
   messageFlows.length > 0
     ? messageFlows
-        .map((flow: MessageFlow) => {
+        .map((flow: { from: string; to: string; messageType: string }) => {
           return `- ${flow.from} → ${flow.to}: ${flow.messageType}`;
         })
         .join("\n")
     : "No message flows detected."
-}
-
-## Translation Example
-
-${
-  allHandlers.length > 0
-    ? `
-Consider this handler from your codebase:
-
-\`\`\`typescript
-// ${allHandlers[0].file}:${allHandlers[0].location?.line || "?"}
-${allHandlers[0].code || allHandlers[0].name || "Handler code not available"}
-\`\`\`
-
-Polly can translate this to TLA+ for formal verification.`
-    : "No handlers detected in your project."
 }
 
 ## Architecture Diagram
@@ -86,27 +105,63 @@ ${dsl}
 
 ---
 
-What would you like to understand?
+What would you like to understand about your project?
 
-Possible topics:
-- Architecture analysis methodology
-- Specific context or handler
-- TypeScript to TLA+ translation rules
-- Verification properties and their meaning
-- Interpreting verification results
-- TLA+ specification structure
+I'm powered by Claude and have full context of your Polly project's architecture,
+handlers, state, message flows, and verification configuration. Ask me anything!
     `.trim()
-    );
-
-    // Start interactive REPL
-    await startREPL(analysis, dsl);
-  } catch (error) {
-    console.log(`\n❌ Failed to analyze project: ${error}`);
-    process.exit(1);
-  }
+  );
 }
 
-async function startREPL(analysis: ArchitectureAnalysis, dsl: string) {
+function displayOptimizationOverview(context: Awaited<ReturnType<typeof buildTeachingContext>>) {
+  let output = "# Verification Optimization Session\n\n";
+  output += "## Current Setup\n\n";
+  output += context.project.summary + "\n\n";
+
+  if (context.verification?.config) {
+    output += "### Verification Configuration\n\n";
+    output += "Config found at `specs/verification.config.ts`\n";
+
+    if (context.verification.lastResults) {
+      output += "\n### Last Verification Results\n\n";
+      output += context.verification.lastResults.success ? "✓ Passed\n" : "✗ Failed\n";
+
+      if (context.verification.lastResults.stats) {
+        output += `- States explored: ${context.verification.lastResults.stats.statesGenerated}\n`;
+        output += `- Distinct states: ${context.verification.lastResults.stats.distinctStates}\n`;
+      }
+
+      if (context.verification.lastResults.timestamp) {
+        output += `- Run at: ${context.verification.lastResults.timestamp.toLocaleString()}\n`;
+      }
+    }
+  } else {
+    output += "### No Verification Setup\n\n";
+    output += "Run `polly verify --setup` to configure verification.\n";
+  }
+
+  output += "\n---\n\n";
+  output += "I'll analyze your verification setup and suggest optimizations to:\n";
+  output += "- Reduce verification time while maintaining precision\n";
+  output += "- Implement safe state space reductions\n";
+  output += "- Configure optimal bounds and constraints\n\n";
+  output += 'Ask me about specific optimizations or say "analyze" for a full assessment.\n';
+
+  console.log(output);
+}
+
+async function startClaudeSession(apiKey: string, context: Awaited<ReturnType<typeof buildTeachingContext>>, mode: string = "teach") {
+  const anthropic = new Anthropic({ apiKey });
+  const systemPrompt = mode === "optimize"
+    ? generateOptimizationPrompt(context)
+    : generateTeachingPrompt(context);
+
+  // Initialize conversation history
+  const conversationHistory: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }> = [];
+
   const readline = await import("node:readline");
   const rl = readline.createInterface({
     input: process.stdin,
@@ -114,15 +169,10 @@ async function startREPL(analysis: ArchitectureAnalysis, dsl: string) {
     prompt: "\n\nPrompt: ",
   });
 
-  const contexts = Object.entries(analysis.contexts);
-  const allHandlers = contexts.flatMap(([_, ctx]: [string, ContextInfo]) => ctx.handlers || []);
-  const messageFlows = analysis.messageFlows || [];
-
   rl.prompt();
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: REPL command handler needs to handle many query types
-  rl.on("line", (input: string) => {
-    const query = input.trim().toLowerCase();
+  rl.on("line", async (input: string) => {
+    const query = input.trim();
 
     if (!query || query === "exit" || query === "quit") {
       console.log("\nGoodbye!");
@@ -130,250 +180,43 @@ async function startREPL(analysis: ArchitectureAnalysis, dsl: string) {
       process.exit(0);
     }
 
-    // Handle different query types
-    if (query.includes("architecture") || query.includes("methodology")) {
-      console.log(
-        `
-Architecture Analysis Methodology
-================================
+    // Add user message to history
+    conversationHistory.push({
+      role: "user",
+      content: query,
+    });
 
-Polly analyzes your codebase by:
+    try {
+      // Call Claude API
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: conversationHistory,
+      });
 
-1. **Context Discovery**: Identifies all execution contexts (background, popup, content scripts, etc.)
-   - Scans for \`createBackgroundContext()\`, \`createUIContext()\`, etc.
-   - Each context has its own message handlers and state
+      const assistantMessage = response.content[0];
+      if (assistantMessage.type === "text") {
+        const text = assistantMessage.text;
 
-2. **Handler Detection**: Finds message handlers in each context
-   - Looks for \`onMessage()\` calls
-   - Extracts handler logic and dependencies
+        // Add assistant message to history
+        conversationHistory.push({
+          role: "assistant",
+          content: text,
+        });
 
-3. **State Analysis**: Tracks reactive state variables
-   - Identifies Preact signals and computed values
-   - Maps state dependencies between handlers
-
-4. **Message Flow Mapping**: Traces messages between contexts
-   - Detects \`sendMessage()\` calls
-   - Builds communication graph
-
-5. **Pattern Recognition**: Classifies handlers by pattern
-   - Query (read operations)
-   - Command (write operations)
-   - Authentication, CRUD, etc.
-
-Your project has:
-- ${contexts.length} context(s)
-- ${allHandlers.length} handler(s)
-- ${messageFlows.length} message flow(s)
-      `.trim()
-      );
-    } else if (query.includes("context") || query.includes("handler")) {
-      console.log(
-        `
-Contexts and Handlers in Your Project
-====================================
-
-${contexts
-  .map(([name, ctx]: [string, ContextInfo]) => {
-    const handlers = ctx.handlers || [];
-    return `
-**${name}** Context
-- Location: ${ctx.entryPoint}
-- Handlers: ${handlers.length}
-- State Variables: ${Object.keys(ctx.state?.variables || {}).length}
-
-Handlers:
-${handlers.map((h) => `  - ${h.name} (${h.file}:${h.location?.line || "?"})`).join("\n") || "  None"}
-`;
-  })
-  .join("\n")}
-      `.trim()
-      );
-    } else if (query.includes("tla") || query.includes("translation")) {
-      console.log(
-        `
-TypeScript to TLA+ Translation
-=============================
-
-Polly can translate your message handlers to TLA+ for formal verification.
-
-Translation Rules:
-- Message handlers → TLA+ actions
-- State variables → TLA+ variables
-- Async operations → Non-deterministic choices
-- Chrome APIs → Abstract operations
-
-Example from your project:
-${
-  allHandlers.length > 0
-    ? `
-\`\`\`typescript
-// ${allHandlers[0].file}:${allHandlers[0].location?.line || "?"}
-${allHandlers[0].code || allHandlers[0].name || "Handler code not available"}
-\`\`\`
-
-This would translate to a TLA+ action that:
-1. Checks preconditions
-2. Updates state variables
-3. Sends response messages
-`
-    : "No handlers available for translation example"
-}
-
-Use \`polly verify\` to generate and check TLA+ specifications.
-      `.trim()
-      );
-    } else if (query.includes("verification") || query.includes("properties")) {
-      console.log(
-        `
-Verification Properties
-=====================
-
-Polly verifies these properties of your system:
-
-1. **Safety Properties**
-   - No invalid state transitions
-   - Type safety maintained
-   - No race conditions
-
-2. **Liveness Properties**
-   - Messages eventually delivered
-   - Handlers eventually respond
-   - No deadlocks
-
-3. **Consistency Properties**
-   - State synchronized across contexts
-   - No conflicting updates
-
-To verify your project:
-\`\`\`bash
-polly verify --setup  # First time setup
-polly verify          # Run verification
-\`\`\`
-
-The verification will check all ${allHandlers.length} handlers in your project.
-      `.trim()
-      );
-    } else if (query.includes("result") || query.includes("interpret")) {
-      console.log(
-        `
-Interpreting Verification Results
-================================
-
-TLC (TLA+ model checker) output:
-
-✅ **Success**: "Model checking completed. No error has been found."
-   - Your system is correct for the checked scenarios
-   - All properties hold
-
-❌ **Error Found**: Shows a counterexample trace
-   - Step-by-step execution leading to violation
-   - Variable states at each step
-   - Helps identify the bug
-
-⚠️ **Deadlock**: System can reach a state with no enabled actions
-   - Usually indicates missing handlers or blocked operations
-
-📊 **Statistics**:
-   - States explored: How many system states checked
-   - Distinct states: Unique states found
-   - Depth: Longest execution sequence
-
-Use the trace to understand and fix issues.
-      `.trim()
-      );
-    } else if (query.includes("specification") || query.includes("structure")) {
-      console.log(
-        `
-TLA+ Specification Structure
-===========================
-
-A Polly-generated TLA+ spec contains:
-
-1. **MODULE Header**: Declares the module name
-
-2. **EXTENDS**: Imports standard TLA+ modules (Naturals, Sequences, etc.)
-
-3. **VARIABLES**: Declares state variables
-   - One per reactive signal in your code
-   - Message queues between contexts
-
-4. **Init**: Initial state
-   - Sets starting values for all variables
-
-5. **Actions**: One per message handler
-   - Preconditions (when handler can run)
-   - State updates (effect of handler)
-
-6. **Next**: Defines all possible transitions
-   - Disjunction of all actions
-   - Represents any single step
-
-7. **Spec**: The complete specification
-   - Init ∧ [][Next]_vars
-   - Means: start in Init, then repeatedly apply Next
-
-Your ${allHandlers.length} handlers become ${allHandlers.length} TLA+ actions.
-      `.trim()
-      );
-    } else if (query.includes("diagram") || query.includes("visual")) {
-      console.log(
-        `
-Architecture Diagram
-==================
-
-Your architecture in Structurizr DSL format:
-
-\`\`\`structurizr
-${dsl}
-\`\`\`
-
-To visualize this:
-1. Visit https://structurizr.com/dsl
-2. Paste the DSL code above
-3. Explore the interactive diagram
-
-Or use the CLI:
-\`\`\`bash
-polly visualize --serve  # Opens browser with diagram
-\`\`\`
-      `.trim()
-      );
-    } else if (query.includes("help") || query === "?") {
-      console.log(
-        `
-Available Topics
-===============
-
-Ask about:
-- "architecture" or "methodology" - How Polly analyzes your code
-- "context" or "handler" - Details about your contexts and handlers
-- "tla" or "translation" - How TypeScript becomes TLA+
-- "verification" or "properties" - What properties are verified
-- "results" or "interpret" - Understanding verification output
-- "specification" or "structure" - TLA+ spec structure
-- "diagram" or "visual" - Architecture visualization
-
-Commands:
-- "help" or "?" - Show this help
-- "exit" or "quit" - Exit the teach mode
-- Just press Enter - Exit
-      `.trim()
-      );
-    } else {
-      console.log(
-        `
-I can help explain:
-- Architecture analysis methodology
-- Your specific contexts and handlers
-- TypeScript to TLA+ translation rules
-- Verification properties and their meaning
-- Interpreting verification results
-- TLA+ specification structure
-- Architecture diagrams
-
-Type "help" to see all available topics, or ask a question!
-      `.trim()
-      );
+        // Display response
+        console.log(`\n${text}`);
+      }
+    } catch (error) {
+      if (error instanceof Anthropic.APIError) {
+        console.error(`\n❌ API Error: ${error.message}`);
+        if (error.status === 401) {
+          console.error("Your API key may be invalid. Please check ANTHROPIC_API_KEY.");
+        }
+      } else {
+        console.error(`\n❌ Error: ${error}`);
+      }
     }
 
     rl.prompt();

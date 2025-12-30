@@ -121,6 +121,13 @@ async function dev() {
  * Verify command - delegate to @fairfox/web-ext-verify
  */
 async function verify() {
+  // Check if --optimize flag is present
+  if (commandArgs.includes("--optimize")) {
+    // Delegate to teach with optimization mode
+    await verifyOptimize();
+    return;
+  }
+
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/verify/src/cli.js`;
   const monorepoCli = `${__dirname}/../../verify/src/cli.ts`;
@@ -131,11 +138,35 @@ async function verify() {
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
+    env: process.env,
   });
 
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
     throw new Error(`Verification failed with exit code ${exitCode}`);
+  }
+}
+
+/**
+ * Verify optimize command - delegate to teach with optimization context
+ */
+async function verifyOptimize() {
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../tools/teach/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/teach/src/cli.ts`;
+  const teachCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  const proc = Bun.spawn(["bun", teachCli, "--mode=optimize"], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Optimization session failed with exit code ${exitCode}`);
   }
 }
 
@@ -153,6 +184,7 @@ async function visualize() {
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
+    env: process.env,
   });
 
   const exitCode = await proc.exited;
@@ -175,6 +207,7 @@ async function teach() {
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
+    env: process.env,
   });
 
   const exitCode = await proc.exited;

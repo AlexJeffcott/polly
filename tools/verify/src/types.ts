@@ -23,6 +23,33 @@ export type VerificationConfig = {
     timeout?: number; // Timeout in seconds (0 = no timeout)
     workers?: number; // Number of TLC workers
   };
+
+  // Tier 2 Optimizations (controlled approximations)
+  tier2?: {
+    // Temporal constraints: ordering requirements between messages
+    temporalConstraints?: TemporalConstraint[];
+
+    // Bounded exploration: limit depth for specific scenarios
+    boundedExploration?: BoundedExplorationConfig;
+  };
+};
+
+/**
+ * Temporal constraint (Tier 2) - ordering requirement between message types
+ * Example: 'USER_LOGIN' must happen before 'USER_LOGOUT'
+ */
+export type TemporalConstraint = {
+  before: string; // Message type that must occur first
+  after: string;  // Message type that must occur after
+  description?: string; // Human-readable description
+};
+
+/**
+ * Bounded exploration configuration (Tier 2)
+ */
+export type BoundedExplorationConfig = {
+  maxDepth?: number; // Maximum state depth to explore
+  criticalPaths?: string[][]; // Sequences of message types that must be fully explored
 };
 
 export type StateConfig = Record<string, FieldConfig>;
@@ -43,6 +70,12 @@ export type MessageConfig = {
   maxRenderers?: number | null;
   maxWorkers?: number | null;
   maxContexts?: number | null;
+
+  // Tier 1 Optimizations (no precision loss)
+  include?: string[]; // Only verify these message types
+  exclude?: string[]; // Exclude these message types (mutually exclusive with include)
+  symmetry?: string[][]; // Groups of symmetric message types [[type1, type2], [type3, type4]]
+  perMessageBounds?: Record<string, number>; // Different maxInFlight per message type
 };
 
 export type ConfigIssue = {
