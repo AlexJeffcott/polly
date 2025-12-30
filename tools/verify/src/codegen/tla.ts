@@ -48,7 +48,6 @@ export class TLAGenerator {
   private extractedInvariants: Invariant[] = [];
   private temporalProperties: TemporalProperty[] = [];
   private symmetrySets: string[] = [];
-  private filteredMessageTypes: string[] = [];
 
   /**
    * Create TLA+ generator with optional validators and property generators
@@ -700,6 +699,7 @@ export class TLAGenerator {
     }
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex filtering logic needed for optimization
   private addMessageTypes(config: VerificationConfig, analysis: CodebaseAnalysis): void {
     if (analysis.messageTypes.length === 0) {
       // No message types found, skip
@@ -736,14 +736,14 @@ export class TLAGenerator {
       // Include mode: only keep specified message types
       const included = new Set(config.messages.include);
       const beforeFilter = validMessageTypes;
-      validMessageTypes = validMessageTypes.filter(msg => included.has(msg));
-      filteredOut.push(...beforeFilter.filter(msg => !included.has(msg)));
+      validMessageTypes = validMessageTypes.filter((msg) => included.has(msg));
+      filteredOut.push(...beforeFilter.filter((msg) => !included.has(msg)));
     } else if (config.messages.exclude && config.messages.exclude.length > 0) {
       // Exclude mode: filter out specified message types
       const excluded = new Set(config.messages.exclude);
       const beforeFilter = validMessageTypes;
-      validMessageTypes = validMessageTypes.filter(msg => !excluded.has(msg));
-      filteredOut.push(...beforeFilter.filter(msg => excluded.has(msg)));
+      validMessageTypes = validMessageTypes.filter((msg) => !excluded.has(msg));
+      filteredOut.push(...beforeFilter.filter((msg) => excluded.has(msg)));
     }
 
     // Log message filtering optimization
@@ -789,16 +789,18 @@ export class TLAGenerator {
       if (!group || group.length < 2) continue;
 
       // Filter to only valid message types in this group
-      const validGroupTypes = group.filter(t => validTypes.has(t));
+      const validGroupTypes = group.filter((t) => validTypes.has(t));
       if (validGroupTypes.length < 2) {
         if (process.env["POLLY_DEBUG"]) {
-          console.log(`[WARN] [TLAGenerator] Symmetry group ${i + 1} has < 2 valid types, skipping`);
+          console.log(
+            `[WARN] [TLAGenerator] Symmetry group ${i + 1} has < 2 valid types, skipping`
+          );
         }
         continue;
       }
 
       const setName = `SymmetrySet${i + 1}`;
-      const setValues = validGroupTypes.map(t => `"${t}"`).join(", ");
+      const setValues = validGroupTypes.map((t) => `"${t}"`).join(", ");
       this.line(`${setName} == {${setValues}}`);
 
       // Store for config generation
@@ -1891,7 +1893,9 @@ export class TLAGenerator {
   /**
    * Add temporal constraint invariants (Tier 2 optimization)
    */
-  private addTemporalConstraints(constraints: Array<{before: string; after: string; description?: string}>): void {
+  private addTemporalConstraints(
+    constraints: Array<{ before: string; after: string; description?: string }>
+  ): void {
     this.line("\\* Tier 2: Temporal constraint invariants");
     this.line("\\* Enforce ordering requirements between message types");
     this.line("");
@@ -1905,7 +1909,9 @@ export class TLAGenerator {
       }
       this.line(`${invName} ==`);
       this.indent++;
-      this.line(`\\* If ${constraint.after} has been delivered, then ${constraint.before} must have been delivered`);
+      this.line(
+        `\\* If ${constraint.after} has been delivered, then ${constraint.before} must have been delivered`
+      );
       this.line(`(\\E m \\in DOMAIN delivered : delivered[m].type = "${constraint.after}")`);
       this.line("=>");
       this.line(`(\\E m \\in DOMAIN delivered : delivered[m].type = "${constraint.before}")`);
@@ -1915,10 +1921,11 @@ export class TLAGenerator {
       // Track this invariant for config generation
       this.extractedInvariants.push({
         name: invName,
-        description: constraint.description || `${constraint.before} must happen before ${constraint.after}`,
-        condition: '',
-        confidence: 'high',
-        source: { file: '', line: 0, column: 0 }
+        description:
+          constraint.description || `${constraint.before} must happen before ${constraint.after}`,
+        condition: "",
+        confidence: "high",
+        source: { file: "", line: 0, column: 0 },
       });
     }
   }
@@ -1928,8 +1935,8 @@ export class TLAGenerator {
    * and bounded exploration (Tier 2 optimization)
    */
   private addStateConstraint(config: VerificationConfig): void {
-    const hasPerMessageBounds = config.messages.perMessageBounds &&
-                                 Object.keys(config.messages.perMessageBounds).length > 0;
+    const hasPerMessageBounds =
+      config.messages.perMessageBounds && Object.keys(config.messages.perMessageBounds).length > 0;
     const hasBoundedExploration = config.tier2?.boundedExploration?.maxDepth !== undefined;
 
     const needsConjunction = hasPerMessageBounds || hasBoundedExploration;
@@ -1945,13 +1952,17 @@ export class TLAGenerator {
       if (hasPerMessageBounds) {
         for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
           const constName = `MaxMessages_${msgType}`;
-          this.line(`/\\ Cardinality({m \\in DOMAIN messages : messages[m].type = "${msgType}"}) <= ${constName}`);
+          this.line(
+            `/\\ Cardinality({m \\in DOMAIN messages : messages[m].type = "${msgType}"}) <= ${constName}`
+          );
         }
       }
 
       // Tier 2: Bounded exploration (depth limit)
       if (hasBoundedExploration && config.tier2?.boundedExploration?.maxDepth) {
-        this.line(`/\\ TLCGet("level") <= ${config.tier2.boundedExploration.maxDepth} \\* Tier 2: Bounded exploration`);
+        this.line(
+          `/\\ TLCGet("level") <= ${config.tier2.boundedExploration.maxDepth} \\* Tier 2: Bounded exploration`
+        );
       }
     } else {
       // Simple global bound only

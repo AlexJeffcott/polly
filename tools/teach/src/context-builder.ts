@@ -94,8 +94,8 @@ async function loadVerificationInfo(
   const configPath = path.join(projectRoot, "specs", "verification.config.ts");
   const resultsPath = path.join(projectRoot, "specs", "tla", "generated", "tlc-output.log");
 
-  let config: unknown = undefined;
-  let lastResults: TeachingContext["verification"]["lastResults"] = undefined;
+  let config: unknown;
+  let lastResults: TeachingContext["verification"]["lastResults"];
 
   // Try to load verification config
   if (fs.existsSync(configPath)) {
@@ -128,6 +128,7 @@ async function loadVerificationInfo(
   return null;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TLC output parsing requires complex conditional logic
 function parseVerificationResults(
   output: string,
   timestamp: Date

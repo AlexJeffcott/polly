@@ -1,7 +1,7 @@
 // System prompt generator for Claude-powered teaching
 
-import type { TeachingContext } from "./context-builder.ts";
 import type { ContextInfo, MessageFlow } from "../../analysis/src/types/architecture.ts";
+import type { TeachingContext } from "./context-builder.ts";
 
 /**
  * Generate teaching system prompt with project context
@@ -61,7 +61,7 @@ function generateProjectSection(
   handlers: unknown[],
   flows: MessageFlow[]
 ): string {
-  let section = `## Architecture Overview
+  const section = `## Architecture Overview
 
 ${context.project.summary}
 
@@ -109,6 +109,7 @@ ${handlers
   return section;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Comprehensive verification status formatting requires many branches
 function generateVerificationSection(context: TeachingContext): string {
   if (!context.verification) {
     return `## Verification Status

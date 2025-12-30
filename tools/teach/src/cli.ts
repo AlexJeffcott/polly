@@ -5,29 +5,37 @@ import Anthropic from "@anthropic-ai/sdk";
 import { analyzeArchitecture } from "../../analysis/src/index.ts";
 import { generateStructurizrDSL } from "../../visualize/src/codegen/structurizr.ts";
 import { buildTeachingContext } from "./context-builder.ts";
-import { generateTeachingPrompt, generateOptimizationPrompt } from "./system-prompt.ts";
+import { generateOptimizationPrompt, generateTeachingPrompt } from "./system-prompt.ts";
 
 async function main() {
   const cwd = process.cwd();
 
   // Check for mode flag
   const args = process.argv.slice(2);
-  const modeArg = args.find(arg => arg.startsWith("--mode="));
+  const modeArg = args.find((arg) => arg.startsWith("--mode="));
   const mode = modeArg ? modeArg.split("=")[1] : "teach";
 
   // Check for API key
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
+    // biome-ignore lint/suspicious/noConsole: CLI error output
     console.error("\n❌ Error: ANTHROPIC_API_KEY environment variable not set");
+    // biome-ignore lint/suspicious/noConsole: CLI error output
     console.error("\nTo use polly teach, you need a Claude API key:");
+    // biome-ignore lint/suspicious/noConsole: CLI error output
     console.error("1. Get an API key from https://console.anthropic.com/");
+    // biome-ignore lint/suspicious/noConsole: CLI error output
     console.error("2. Set the environment variable:");
+    // biome-ignore lint/suspicious/noConsole: CLI error output
     console.error("   export ANTHROPIC_API_KEY=your_key_here");
+    // biome-ignore lint/suspicious/noConsole: CLI error output
     console.error("\nAlternatively, add it to your shell profile (.bashrc, .zshrc, etc.)\n");
     process.exit(1);
   }
 
-  console.log(mode === "optimize" ? "Analyzing verification setup..." : "Analyzing Polly project...");
+  console.log(
+    mode === "optimize" ? "Analyzing verification setup..." : "Analyzing Polly project..."
+  );
   console.log();
 
   try {
@@ -60,7 +68,7 @@ async function main() {
 
 function displayProjectOverview(context: ReturnType<typeof buildTeachingContext>, dsl: string) {
   const contexts = Object.entries(context.project.architecture.contexts);
-  const allHandlers = contexts.flatMap(
+  const _allHandlers = contexts.flatMap(
     ([_, ctx]: [string, { handlers?: unknown[] }]) => ctx.handlers || []
   );
   const messageFlows = context.project.architecture.messageFlows || [];
@@ -76,13 +84,18 @@ ${context.project.summary}
 ### Contexts
 
 ${contexts
-  .map(([name, ctx]: [string, { entryPoint: string; handlers?: unknown[]; state?: { variables?: Record<string, unknown> } }]) => {
-    return `
+  .map(
+    ([name, ctx]: [
+      string,
+      { entryPoint: string; handlers?: unknown[]; state?: { variables?: Record<string, unknown> } },
+    ]) => {
+      return `
 **${name}**
 Location: ${ctx.entryPoint}
 Handlers: ${ctx.handlers?.length || 0}
 State variables: ${Object.keys(ctx.state?.variables || {}).length}`;
-  })
+    }
+  )
   .join("\n")}
 
 ### Message Flows
@@ -116,7 +129,7 @@ handlers, state, message flows, and verification configuration. Ask me anything!
 function displayOptimizationOverview(context: Awaited<ReturnType<typeof buildTeachingContext>>) {
   let output = "# Verification Optimization Session\n\n";
   output += "## Current Setup\n\n";
-  output += context.project.summary + "\n\n";
+  output += `${context.project.summary}\n\n`;
 
   if (context.verification?.config) {
     output += "### Verification Configuration\n\n";
@@ -150,11 +163,14 @@ function displayOptimizationOverview(context: Awaited<ReturnType<typeof buildTea
   console.log(output);
 }
 
-async function startClaudeSession(apiKey: string, context: Awaited<ReturnType<typeof buildTeachingContext>>, mode: string = "teach") {
+async function startClaudeSession(
+  apiKey: string,
+  context: Awaited<ReturnType<typeof buildTeachingContext>>,
+  mode: string = "teach"
+) {
   const anthropic = new Anthropic({ apiKey });
-  const systemPrompt = mode === "optimize"
-    ? generateOptimizationPrompt(context)
-    : generateTeachingPrompt(context);
+  const systemPrompt =
+    mode === "optimize" ? generateOptimizationPrompt(context) : generateTeachingPrompt(context);
 
   // Initialize conversation history
   const conversationHistory: Array<{
@@ -210,11 +226,14 @@ async function startClaudeSession(apiKey: string, context: Awaited<ReturnType<ty
       }
     } catch (error) {
       if (error instanceof Anthropic.APIError) {
+        // biome-ignore lint/suspicious/noConsole: CLI error output
         console.error(`\n❌ API Error: ${error.message}`);
         if (error.status === 401) {
+          // biome-ignore lint/suspicious/noConsole: CLI error output
           console.error("Your API key may be invalid. Please check ANTHROPIC_API_KEY.");
         }
       } else {
+        // biome-ignore lint/suspicious/noConsole: CLI error output
         console.error(`\n❌ Error: ${error}`);
       }
     }

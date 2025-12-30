@@ -40,7 +40,7 @@ export type VerificationConfig = {
  */
 export type TemporalConstraint = {
   before: string; // Message type that must occur first
-  after: string;  // Message type that must occur after
+  after: string; // Message type that must occur after
   description?: string; // Human-readable description
 };
 
