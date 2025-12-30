@@ -5,6 +5,152 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-12-30
+
+### Added
+
+#### Expose Tier 1 & 2 Optimization Features to Users (Issue #13)
+
+**Problem:**
+The `polly verify --optimize` command (added in v0.8.0) was recommending configuration options that weren't accessible to users through TypeScript types. Users would apply the AI's recommendations and encounter validation errors because the features appeared to not exist.
+
+**What Was Missing:**
+- Tier 1 optimizations: `include`, `exclude`, `symmetry`, `perMessageBounds`
+- Tier 2 optimizations: `temporalConstraints`, `boundedExploration`
+- Verification options: `timeout`, `workers`
+- Project-specific bounds: `maxClients`, `maxRenderers`, `maxWorkers`, `maxContexts`
+
+**Solution:**
+All these features were already fully implemented in the TLA+ generator - they just weren't exposed through the public TypeScript API! This release adds:
+
+1. **Updated Type Definitions** (`tools/verify/src/config.ts`)
+   - Expanded `LegacyVerificationConfig` interface with all optimization fields
+   - Full TypeScript autocomplete support
+   - Comprehensive inline documentation
+
+2. **Validation Logic** (`tools/verify/src/config/parser.ts`)
+   - Validates include/exclude mutual exclusivity
+   - Checks symmetry group sizes
+   - Validates perMessageBounds ranges (1-20)
+   - Validates temporal constraint ordering
+   - Validates bounded exploration depth limits
+   - Validates verification timeout and worker counts
+
+3. **Config Generation** (`tools/verify/src/codegen/config.ts`)
+   - Generated configs now include commented examples for all optimizations
+   - Helpful inline documentation explaining each feature
+   - Clear tier labels (Tier 1 vs Tier 2)
+
+4. **AI Optimizer Updates** (`tools/teach/src/system-prompt.ts`)
+   - Updated prompt to confidently recommend all available features
+   - AI knows all features are fully implemented
+
+**Usage Example:**
+```typescript
+export default defineVerification({
+  state: { /* ... */ },
+  messages: {
+    maxInFlight: 3,
+
+    // Tier 1: Message filtering (use include OR exclude)
+    include: ['authenticate', 'query', 'command'],
+
+    // Tier 1: Symmetry reduction
+    symmetry: [
+      ['query_user', 'query_post'],
+      ['create', 'update', 'delete'],
+    ],
+
+    // Tier 1: Per-message bounds
+    perMessageBounds: {
+      'authenticate': 1,
+      'query': 5,
+    },
+  },
+
+  // Verification engine options
+  verification: {
+    timeout: 300,  // seconds
+    workers: 2,
+  },
+
+  // Tier 2: Controlled approximations
+  tier2: {
+    temporalConstraints: [{
+      before: 'authenticate',
+      after: 'query',
+      description: 'Must authenticate before querying',
+    }],
+    boundedExploration: {
+      maxDepth: 20,
+    },
+  },
+});
+```
+
+**Impact:**
+- Users can now access all optimization features with full TypeScript support
+- `polly verify --optimize` recommendations work without errors
+- Helpful validation messages guide proper configuration
+- 252 lines of new validation and documentation code
+
+Fixes #13
+
+## [0.8.0] - 2025-12-30
+
+### Added
+
+#### Claude-Powered Teach Command with Verification Optimizations (Issue #12)
+
+Replaces the basic keyword-matching REPL with a full Claude API integration that provides intelligent, context-aware guidance about your Polly project.
+
+**New Commands:**
+- `polly teach` - Interactive Claude session for learning about your project
+- `polly verify --optimize` - Launches teach mode focused on verification optimization
+
+**Features:**
+1. **Context-Aware AI** - Claude analyzes your entire project:
+   - Project architecture and message flows
+   - Verification configuration and results
+   - Message types and handlers
+   - State space statistics
+
+2. **Verification Optimizations** - Five powerful optimization strategies:
+
+   **Tier 1: Zero Precision Loss**
+   - Message Type Filtering: `include`/`exclude` arrays (83% state reduction in examples)
+   - Symmetry Reduction: `symmetry` groups for interchangeable messages
+   - Per-Message Bounds: `perMessageBounds` for different concurrency limits per type
+
+   **Tier 2: Controlled Approximations**
+   - Temporal Constraints: `tier2.temporalConstraints` for ordering requirements
+   - Bounded Exploration: `tier2.boundedExploration` for depth limits
+
+3. **Implementation:**
+   - Full TLA+ codegen support for all optimizations
+   - @anthropic-ai/sdk integration
+   - Conversation history tracking
+   - Mode switching (teach vs optimize)
+
+**Test Results:**
+- Message filtering: 43 → 7 types (83.7% reduction)
+- Combined optimizations: ~90-95% state space reduction
+- Per-message bounds: 6 different bounds correctly generated
+- Temporal constraints: 3 ordering requirements enforced
+
+**Note:** Features were implemented in TLA+ generator but not exposed to users until v0.9.0 (see #13)
+
+**Files Added:**
+- `tools/teach/src/context-builder.ts` - Project analysis gathering
+- `tools/teach/src/system-prompt.ts` - AI prompt generation
+- `docs/OPTIMIZATION.md` - Comprehensive optimization guide
+- `examples/full-featured/specs/verification.config.optimized.ts` - Example
+
+**Dependencies:**
+- Added `@anthropic-ai/sdk` for Claude API integration
+
+Implements #12
+
 ## [0.6.1] - 2025-12-23
 
 ### Fixed
