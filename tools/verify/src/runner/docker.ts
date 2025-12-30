@@ -196,12 +196,18 @@ export class DockerRunner {
       });
 
       // Only set timeout if a timeout value is provided
-      const timeout = options?.timeout && options.timeout > 0
-        ? setTimeout(() => {
-            proc.kill();
-            reject(new Error(`Command timed out after ${Math.floor(options.timeout! / 1000)}s. TLC was still making progress. Consider increasing the timeout or using preset: 'thorough' for no timeout.`));
-          }, options.timeout)
-        : null;
+      const timeoutValue = options?.timeout ?? 0;
+      const timeout =
+        timeoutValue > 0
+          ? setTimeout(() => {
+              proc.kill();
+              reject(
+                new Error(
+                  `Command timed out after ${Math.floor(timeoutValue / 1000)}s. TLC was still making progress. Consider increasing the timeout or using preset: 'thorough' for no timeout.`
+                )
+              );
+            }, timeoutValue)
+          : null;
 
       proc.on("close", (exitCode) => {
         if (timeout) clearTimeout(timeout);

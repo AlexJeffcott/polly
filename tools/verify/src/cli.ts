@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { generateConfig } from "./codegen/config";
 import { validateConfig } from "./config/parser";
+import type { UnifiedVerificationConfig } from "./config/types";
 import { analyzeCodebase } from "./extract/types";
 
 const COLORS = {
@@ -253,17 +254,22 @@ async function verifyCommand() {
   try {
     await runFullVerification(configPath);
   } catch (error) {
-    // Log the error for debugging
+    // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
     console.error(color("\n❌ Verification error:", COLORS.red));
     if (error instanceof Error) {
+      // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
       console.error(color(error.message, COLORS.red));
       if (process.env.POLLY_DEBUG) {
+        // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
         console.error(color("\nStack trace:", COLORS.gray));
+        // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
         console.error(error.stack);
       }
     } else {
+      // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
       console.error(String(error));
     }
+    // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
     console.error();
     process.exit(1);
   }
@@ -272,7 +278,7 @@ async function verifyCommand() {
 /**
  * Get timeout in seconds based on config or preset
  */
-function getTimeout(config: any): number {
+function getTimeout(config: UnifiedVerificationConfig): number {
   // Explicit timeout in config takes precedence
   if (config.verification?.timeout !== undefined) {
     return config.verification.timeout;
@@ -295,7 +301,7 @@ function getTimeout(config: any): number {
 /**
  * Get number of workers based on config or preset
  */
-function getWorkers(config: any): number {
+function getWorkers(config: UnifiedVerificationConfig): number {
   // Explicit workers in config takes precedence
   if (config.verification?.workers !== undefined) {
     return config.verification.workers;
@@ -345,9 +351,10 @@ async function runFullVerification(configPath: string) {
     console.log(color("   No timeout set - will run until completion", COLORS.gray));
   } else {
     const timeoutMinutes = Math.floor(timeoutSeconds / 60);
-    const timeoutLabel = timeoutMinutes > 0
-      ? `${timeoutMinutes} minute${timeoutMinutes > 1 ? "s" : ""}`
-      : `${timeoutSeconds} seconds`;
+    const timeoutLabel =
+      timeoutMinutes > 0
+        ? `${timeoutMinutes} minute${timeoutMinutes > 1 ? "s" : ""}`
+        : `${timeoutSeconds} seconds`;
     console.log(color(`   Timeout: ${timeoutLabel}`, COLORS.gray));
   }
   console.log();

@@ -2,7 +2,11 @@
 // CLI for Polly teaching system
 
 import { analyzeArchitecture } from "../../analysis/src/index.ts";
-import type { ContextInfo, MessageFlow } from "../../analysis/src/types/architecture.ts";
+import type {
+  ArchitectureAnalysis,
+  ContextInfo,
+  MessageFlow,
+} from "../../analysis/src/types/architecture.ts";
 import { generateStructurizrDSL } from "../../visualize/src/codegen/structurizr.ts";
 
 async function main() {
@@ -102,8 +106,8 @@ Possible topics:
   }
 }
 
-async function startREPL(analysis: any, dsl: string) {
-  const readline = await import("readline");
+async function startREPL(analysis: ArchitectureAnalysis, dsl: string) {
+  const readline = await import("node:readline");
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -116,6 +120,7 @@ async function startREPL(analysis: any, dsl: string) {
 
   rl.prompt();
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: REPL command handler needs to handle many query types
   rl.on("line", (input: string) => {
     const query = input.trim().toLowerCase();
 
@@ -127,7 +132,8 @@ async function startREPL(analysis: any, dsl: string) {
 
     // Handle different query types
     if (query.includes("architecture") || query.includes("methodology")) {
-      console.log(`
+      console.log(
+        `
 Architecture Analysis Methodology
 ================================
 
@@ -158,9 +164,11 @@ Your project has:
 - ${contexts.length} context(s)
 - ${allHandlers.length} handler(s)
 - ${messageFlows.length} message flow(s)
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("context") || query.includes("handler")) {
-      console.log(`
+      console.log(
+        `
 Contexts and Handlers in Your Project
 ====================================
 
@@ -178,9 +186,11 @@ ${handlers.map((h) => `  - ${h.name} (${h.file}:${h.location?.line || "?"})`).jo
 `;
   })
   .join("\n")}
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("tla") || query.includes("translation")) {
-      console.log(`
+      console.log(
+        `
 TypeScript to TLA+ Translation
 =============================
 
@@ -210,9 +220,11 @@ This would translate to a TLA+ action that:
 }
 
 Use \`polly verify\` to generate and check TLA+ specifications.
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("verification") || query.includes("properties")) {
-      console.log(`
+      console.log(
+        `
 Verification Properties
 =====================
 
@@ -239,9 +251,11 @@ polly verify          # Run verification
 \`\`\`
 
 The verification will check all ${allHandlers.length} handlers in your project.
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("result") || query.includes("interpret")) {
-      console.log(`
+      console.log(
+        `
 Interpreting Verification Results
 ================================
 
@@ -265,9 +279,11 @@ TLC (TLA+ model checker) output:
    - Depth: Longest execution sequence
 
 Use the trace to understand and fix issues.
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("specification") || query.includes("structure")) {
-      console.log(`
+      console.log(
+        `
 TLA+ Specification Structure
 ===========================
 
@@ -297,9 +313,11 @@ A Polly-generated TLA+ spec contains:
    - Means: start in Init, then repeatedly apply Next
 
 Your ${allHandlers.length} handlers become ${allHandlers.length} TLA+ actions.
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("diagram") || query.includes("visual")) {
-      console.log(`
+      console.log(
+        `
 Architecture Diagram
 ==================
 
@@ -318,9 +336,11 @@ Or use the CLI:
 \`\`\`bash
 polly visualize --serve  # Opens browser with diagram
 \`\`\`
-      `.trim());
+      `.trim()
+      );
     } else if (query.includes("help") || query === "?") {
-      console.log(`
+      console.log(
+        `
 Available Topics
 ===============
 
@@ -337,9 +357,11 @@ Commands:
 - "help" or "?" - Show this help
 - "exit" or "quit" - Exit the teach mode
 - Just press Enter - Exit
-      `.trim());
+      `.trim()
+      );
     } else {
-      console.log(`
+      console.log(
+        `
 I can help explain:
 - Architecture analysis methodology
 - Your specific contexts and handlers
@@ -350,7 +372,8 @@ I can help explain:
 - Architecture diagrams
 
 Type "help" to see all available topics, or ask a question!
-      `.trim());
+      `.trim()
+      );
     }
 
     rl.prompt();

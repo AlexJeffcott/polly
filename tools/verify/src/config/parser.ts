@@ -54,6 +54,7 @@ export class ConfigValidator {
     };
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Config validation requires complex pattern matching
   private checkConfigureMarkers(source: string): void {
     const configureRegex = /\/\*\s*CONFIGURE\s*\*\//g;
     const matches = [...source.matchAll(configureRegex)];
