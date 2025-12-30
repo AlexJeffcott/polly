@@ -86,24 +86,24 @@
     "publish:public": "npm publish --access public --otp=$(pass-cli item totp --output json --item-id Rdr--oUgHp-IfyjoTB7vhMPHfNt6Oz2JpXfS1WrdQMQ9damDMPOvKiOxxpCZqp92WgqXnfY68cSXWdQ_JVMNMQ== --share-id Ixmpll6U5ioU_1P4fzUbarQNANRPU51O68xzFblTB08S0HUfw4dhQaNAv4Yv7Sud_Vf8ps4mnQUFqdvN-eTRdQ== | jq -r '.totp')"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.8.3",
-    "@types/bun": "^1.2",
-    "@types/chrome": "^0.1",
-    "fast-check": "^3.22.0",
-    "typescript": "^5"
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "^1.3.5",
+    "@types/chrome": "^0.1.32",
+    "fast-check": "^3.23.2",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "bun": ">=1.2.0"
   },
   "dependencies": {
-    "@preact/signals": "^2",
-    "preact": "^10",
+    "@preact/signals": "^2.5.1",
+    "preact": "^10.28.1",
     "ts-morph": "^21.0.1"
   },
   "peerDependencies": {
-    "typescript": "^5",
-    "preact": "^10",
-    "@preact/signals": "^2"
+    "typescript": "^5.9.3",
+    "preact": "^10.28.1",
+    "@preact/signals": "^2.5.1"
   },
   "keywords": [
     "multi-context",

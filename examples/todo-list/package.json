@@ -22,12 +22,12 @@
     "teach": "polly teach"
   },
   "dependencies": {
-    "@fairfox/polly": "^0.7",
-    "preact": "^10",
-    "@preact/signals": "^2"
+    "@fairfox/polly": "link:../..",
+    "preact": "^10.28.1",
+    "@preact/signals": "^2.5.1"
   },
   "devDependencies": {
-    "@types/chrome": "^0.1",
-    "bun-types": "latest"
+    "@types/chrome": "^0.1.32",
+    "typescript": "^5.9.3"
   }
 }

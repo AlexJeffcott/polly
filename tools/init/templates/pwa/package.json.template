@@ -16,10 +16,10 @@
     "teach": "polly teach"
   },
   "dependencies": {
-    "@fairfox/polly": "*"
+    "@fairfox/polly": "^0.7.3"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/bun": "latest"
+    "typescript": "^5.9.3",
+    "@types/bun": "^1.3.5"
   }
 }
