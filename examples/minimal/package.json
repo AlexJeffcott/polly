@@ -7,6 +7,7 @@
     "build": "polly build",
     "build:prod": "polly build --prod",
     "test": "polly test",
+    "test:all": "polly lint && polly typecheck && polly test && polly verify",
     "typecheck": "polly typecheck",
     "lint": "polly lint",
     "lint:fix": "polly lint --fix",

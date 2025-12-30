@@ -11,6 +11,7 @@
     "lint:fix": "polly lint --fix",
     "format": "polly format",
     "test": "polly test",
+    "test:all": "polly lint && polly typecheck && polly test && polly verify",
     "verify": "polly verify",
     "verify:setup": "polly verify --setup",
     "visualize": "polly visualize",
