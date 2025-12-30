@@ -149,6 +149,19 @@ export class ConfigValidator {
 
     // Validate bounds
     this.validateBounds(config);
+
+    // Validate Tier 1 optimizations
+    this.validateTier1Optimizations(config.messages);
+
+    // Validate verification options
+    if (config.verification) {
+      this.validateVerificationOptions(config.verification);
+    }
+
+    // Validate Tier 2 optimizations
+    if (config.tier2) {
+      this.validateTier2Optimizations(config.tier2);
+    }
   }
 
   private findNullPlaceholders(obj: unknown, path: string): void {
@@ -336,6 +349,158 @@ export class ConfigValidator {
         message: `Very large maxSize (${maxSize}) will slow verification`,
         suggestion: "Use 3-5 for most cases",
       });
+    }
+  }
+
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Validation requires checking multiple conditions
+  private validateTier1Optimizations(messages: VerificationConfig["messages"]): void {
+    // Validate include/exclude are mutually exclusive
+    if (messages.include && messages.exclude) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "messages",
+        message: "Cannot use both 'include' and 'exclude' filters",
+        suggestion: "Use either 'include' OR 'exclude', not both",
+      });
+    }
+
+    // Validate symmetry groups have at least 2 members
+    if (messages.symmetry) {
+      for (let i = 0; i < messages.symmetry.length; i++) {
+        const group = messages.symmetry[i];
+        if (group.length < 2) {
+          this.issues.push({
+            type: "invalid_value",
+            severity: "warning",
+            field: `messages.symmetry[${i}]`,
+            message: "Symmetry group must have at least 2 message types",
+            suggestion: "Remove single-element symmetry groups",
+          });
+        }
+      }
+    }
+
+    // Validate perMessageBounds values are realistic
+    if (messages.perMessageBounds) {
+      for (const [msgType, bound] of Object.entries(messages.perMessageBounds)) {
+        if (bound < 1) {
+          this.issues.push({
+            type: "invalid_value",
+            severity: "error",
+            field: `messages.perMessageBounds.${msgType}`,
+            message: `Per-message bound must be at least 1`,
+            suggestion: "Use a positive number",
+          });
+        }
+        if (bound > 20) {
+          this.issues.push({
+            type: "unrealistic_bound",
+            severity: "warning",
+            field: `messages.perMessageBounds.${msgType}`,
+            message: `Per-message bound ${bound} is outside recommended range (1-20)`,
+            suggestion: "Consider adjusting bound to a more realistic value",
+          });
+        }
+      }
+    }
+  }
+
+  private validateVerificationOptions(
+    verification: NonNullable<VerificationConfig["verification"]>
+  ): void {
+    if (verification.timeout !== undefined) {
+      if (verification.timeout < 0) {
+        this.issues.push({
+          type: "invalid_value",
+          severity: "error",
+          field: "verification.timeout",
+          message: "Timeout cannot be negative",
+          suggestion: "Use 0 for no timeout, or positive number for timeout in seconds",
+        });
+      }
+      if (verification.timeout > 3600) {
+        this.issues.push({
+          type: "unrealistic_bound",
+          severity: "warning",
+          field: "verification.timeout",
+          message: "Timeout over 1 hour (3600s) is very long",
+          suggestion: "Consider reducing timeout or using 0 for no limit",
+        });
+      }
+    }
+
+    if (verification.workers !== undefined) {
+      if (verification.workers < 1) {
+        this.issues.push({
+          type: "invalid_value",
+          severity: "error",
+          field: "verification.workers",
+          message: "Workers must be at least 1",
+          suggestion: "Use 1 or more workers",
+        });
+      }
+      if (verification.workers > 16) {
+        this.issues.push({
+          type: "unrealistic_bound",
+          severity: "warning",
+          field: "verification.workers",
+          message: "More than 16 workers may not improve performance",
+          suggestion: "Typical range is 1-8 workers",
+        });
+      }
+    }
+  }
+
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Validation requires checking multiple conditions
+  private validateTier2Optimizations(tier2: NonNullable<VerificationConfig["tier2"]>): void {
+    // Validate temporal constraints
+    if (tier2.temporalConstraints) {
+      for (let i = 0; i < tier2.temporalConstraints.length; i++) {
+        const constraint = tier2.temporalConstraints[i];
+        if (!constraint.before || !constraint.after) {
+          this.issues.push({
+            type: "invalid_value",
+            severity: "error",
+            field: `tier2.temporalConstraints[${i}]`,
+            message: "Temporal constraint must have 'before' and 'after' fields",
+            suggestion: "Specify both message types for ordering constraint",
+          });
+        }
+        if (constraint.before === constraint.after) {
+          this.issues.push({
+            type: "invalid_value",
+            severity: "error",
+            field: `tier2.temporalConstraints[${i}]`,
+            message: "Temporal constraint cannot have same message type for 'before' and 'after'",
+            suggestion: "Use different message types",
+          });
+        }
+      }
+    }
+
+    // Validate bounded exploration
+    if (tier2.boundedExploration) {
+      if (tier2.boundedExploration.maxDepth !== undefined) {
+        if (tier2.boundedExploration.maxDepth < 1) {
+          this.issues.push({
+            type: "invalid_value",
+            severity: "error",
+            field: "tier2.boundedExploration.maxDepth",
+            message: "maxDepth must be at least 1",
+            suggestion: "Use positive integer for depth limit",
+          });
+        }
+        if (tier2.boundedExploration.maxDepth > 100) {
+          this.issues.push({
+            type: "unrealistic_bound",
+            severity: "warning",
+            field: "tier2.boundedExploration.maxDepth",
+            message: "maxDepth > 100 may not be useful",
+            suggestion: "Typical range is 10-50",
+          });
+        }
+      }
     }
   }
 }

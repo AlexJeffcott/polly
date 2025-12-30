@@ -371,6 +371,29 @@ export class ConfigGenerator {
         break;
     }
 
+    this.line("");
+    this.line("// ─────────────────────────────────────────────────────────");
+    this.line("// Tier 1 Optimizations (no precision loss) - OPTIONAL");
+    this.line("// ─────────────────────────────────────────────────────────");
+    this.line("// Uncomment and configure to reduce state space:");
+    this.line("//");
+    this.line("// 1. Filter messages (use include OR exclude, not both):");
+    this.line("//    include: ['authenticate', 'query', 'command', 'result'],");
+    this.line("//    exclude: ['load', 'unload', 'resize', 'scroll', 'click'],");
+    this.line("//");
+    this.line("// 2. Symmetry reduction (group equivalent message types):");
+    this.line("//    symmetry: [");
+    this.line("//      ['query_user', 'query_post'],     // All query types");
+    this.line("//      ['create', 'update', 'delete'],   // CRUD operations");
+    this.line("//    ],");
+    this.line("//");
+    this.line("// 3. Per-message bounds (different maxInFlight per type):");
+    this.line("//    perMessageBounds: {");
+    this.line("//      'authenticate': 1,  // Sequential only");
+    this.line("//      'query': 5,         // Allow concurrency");
+    this.line("//      'command': 2,");
+    this.line("//    },");
+
     this.indent--;
     this.line("},");
     this.line("");
@@ -409,6 +432,31 @@ export class ConfigGenerator {
     this.line("//   }");
     this.line("//");
     this.line("// preset: 'balanced',");
+    this.line("");
+    this.line("// ─────────────────────────────────────────────────────────");
+    this.line("// Tier 2 Optimizations (controlled approximations) - ADVANCED");
+    this.line("// ─────────────────────────────────────────────────────────");
+    this.line("// Use with caution - these reduce precision for performance.");
+    this.line("// Only use if verification is too slow even with Tier 1 optimizations.");
+    this.line("//");
+    this.line("// tier2: {");
+    this.line("//   // Temporal constraints: specify known ordering requirements");
+    this.line("//   temporalConstraints: [");
+    this.line("//     {");
+    this.line("//       before: 'LOGIN',");
+    this.line("//       after: 'LOGOUT',");
+    this.line("//       description: 'User must login before logout'");
+    this.line("//     },");
+    this.line("//   ],");
+    this.line("//");
+    this.line("//   // Bounded exploration: limit state depth");
+    this.line("//   boundedExploration: {");
+    this.line("//     maxDepth: 20,  // Stop exploring after 20 actions");
+    this.line("//     // criticalPaths: [  // Ensure these sequences are fully explored");
+    this.line("//     //   ['LOGIN', 'QUERY', 'LOGOUT'],");
+    this.line("//     // ],");
+    this.line("//   },");
+    this.line("// },");
   }
 
   private formatTypeName(type: TypeInfo): string {

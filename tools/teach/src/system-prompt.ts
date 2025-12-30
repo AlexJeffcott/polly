@@ -207,6 +207,10 @@ export function generateOptimizationPrompt(context: TeachingContext): string {
 Analyze this Polly project's verification setup and suggest **precise, actionable optimizations**
 to reduce verification time while maintaining or improving verification precision.
 
+**IMPORTANT**: All Tier 1 and Tier 2 optimization features described below are fully implemented
+and available in the current version of Polly. You can recommend any of these optimizations with
+confidence that they will work when users apply them to their configuration.
+
 # Communication Style
 
 - Direct and precise - no fluff
