@@ -1,10 +1,11 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "minimal-example",
       "dependencies": {
-        "@fairfox/polly": "^0.1.4",
+        "@fairfox/polly": "^0.7.2",
         "@preact/signals": "^2.3.1",
         "preact": "^10.27.2",
       },
@@ -14,7 +15,7 @@
     },
   },
   "packages": {
-    "@fairfox/polly": ["@fairfox/polly@0.1.4", "", { "dependencies": { "@preact/signals": "^2.3.1", "preact": "^10.27.2", "ts-morph": "^21.0.1" }, "peerDependencies": { "typescript": "^5" }, "bin": { "polly": "dist/cli/polly.js" } }, "sha512-5nDNZ3r7uLxHEVoStLmbavBankZeGXINmJJO1T8emn5C8akdQJ96660Dj3Lyk0rnCLSepOd7UVxhU8IpHHOtyg=="],
+    "@fairfox/polly": ["@fairfox/polly@0.7.2", "", { "dependencies": { "@preact/signals": "^2.3.1", "preact": "^10.27.2", "ts-morph": "^21.0.1" }, "peerDependencies": { "typescript": "^5" }, "bin": { "polly": "dist/cli/polly.js" } }, "sha512-RY0kTxabY88ere0nCXzamfuoJjthuwogcmCUBrlbthWf93r1/hPbWHewWscPxwK58OQ971QfxzqEBi3rzbOU0g=="],
 
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
 

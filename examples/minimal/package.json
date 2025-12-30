@@ -19,7 +19,7 @@
     "teach": "polly teach"
   },
   "dependencies": {
-    "@fairfox/polly": "^0.1.5",
+    "@fairfox/polly": "^0.7.2",
     "preact": "^10.27.2",
     "@preact/signals": "^2.3.1"
   },
