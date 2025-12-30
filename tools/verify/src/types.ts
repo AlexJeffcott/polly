@@ -19,6 +19,10 @@ export type VerificationConfig = {
   messages: MessageConfig;
   onBuild: "warn" | "error" | "off";
   onRelease: "warn" | "error" | "off";
+  verification?: {
+    timeout?: number; // Timeout in seconds (0 = no timeout)
+    workers?: number; // Number of TLC workers
+  };
 };
 
 export type StateConfig = Record<string, FieldConfig>;

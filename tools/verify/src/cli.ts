@@ -252,8 +252,66 @@ async function verifyCommand() {
   // Run full verification
   try {
     await runFullVerification(configPath);
-  } catch (_error) {
+  } catch (error) {
+    // Log the error for debugging
+    console.error(color("\n❌ Verification error:", COLORS.red));
+    if (error instanceof Error) {
+      console.error(color(error.message, COLORS.red));
+      if (process.env.POLLY_DEBUG) {
+        console.error(color("\nStack trace:", COLORS.gray));
+        console.error(error.stack);
+      }
+    } else {
+      console.error(String(error));
+    }
+    console.error();
     process.exit(1);
+  }
+}
+
+/**
+ * Get timeout in seconds based on config or preset
+ */
+function getTimeout(config: any): number {
+  // Explicit timeout in config takes precedence
+  if (config.verification?.timeout !== undefined) {
+    return config.verification.timeout;
+  }
+
+  // Use preset-based defaults
+  const preset = config.preset || "balanced";
+  switch (preset) {
+    case "quick":
+      return 60; // 1 minute
+    case "balanced":
+      return 300; // 5 minutes
+    case "thorough":
+      return 0; // No timeout
+    default:
+      return 300; // Default to balanced
+  }
+}
+
+/**
+ * Get number of workers based on config or preset
+ */
+function getWorkers(config: any): number {
+  // Explicit workers in config takes precedence
+  if (config.verification?.workers !== undefined) {
+    return config.verification.workers;
+  }
+
+  // Use preset-based defaults
+  const preset = config.preset || "balanced";
+  switch (preset) {
+    case "quick":
+      return 1;
+    case "balanced":
+      return 2;
+    case "thorough":
+      return 4;
+    default:
+      return 2; // Default to balanced
   }
 }
 
@@ -277,14 +335,26 @@ async function runFullVerification(configPath: string) {
   // Setup and run Docker
   const docker = await setupDocker();
 
+  // Determine timeout and workers from config
+  const timeoutSeconds = getTimeout(config);
+  const workers = getWorkers(config);
+
   // Run TLC
   console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
-  console.log(color("   This may take a minute...", COLORS.gray));
+  if (timeoutSeconds === 0) {
+    console.log(color("   No timeout set - will run until completion", COLORS.gray));
+  } else {
+    const timeoutMinutes = Math.floor(timeoutSeconds / 60);
+    const timeoutLabel = timeoutMinutes > 0
+      ? `${timeoutMinutes} minute${timeoutMinutes > 1 ? "s" : ""}`
+      : `${timeoutSeconds} seconds`;
+    console.log(color(`   Timeout: ${timeoutLabel}`, COLORS.gray));
+  }
   console.log();
 
   const result = await docker.runTLC(specPath, {
-    workers: 2,
-    timeout: 120000, // 2 minutes
+    workers,
+    timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
   });
 
   // Display results
@@ -294,7 +364,10 @@ async function runFullVerification(configPath: string) {
 async function loadVerificationConfig(configPath: string): Promise<unknown> {
   const resolvedPath = path.resolve(configPath);
   const configModule = await import(`file://${resolvedPath}?t=${Date.now()}`);
-  return configModule.default;
+
+  // Support both named export (verificationConfig) and default export
+  // Named export was added in v0.7.0 for better IDE support
+  return configModule.verificationConfig || configModule.default;
 }
 
 async function runCodebaseAnalysis(): Promise<{ fields: unknown[]; messageTypes: unknown[] }> {

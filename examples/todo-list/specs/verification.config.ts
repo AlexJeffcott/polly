@@ -10,6 +10,9 @@ import { defineVerification } from "@fairfox/polly/verify";
 
 // biome-ignore lint/style/noDefaultExport: Config files require default exports
 export default defineVerification({
+  // Use balanced preset (5 minutes timeout, 2 workers)
+  preset: "balanced",
+
   // State bounds define the maximum complexity of state
   state: {
     // User state

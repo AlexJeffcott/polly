@@ -195,10 +195,11 @@ export class DockerRunner {
         stderr += data.toString();
       });
 
-      const timeout = options?.timeout
+      // Only set timeout if a timeout value is provided
+      const timeout = options?.timeout && options.timeout > 0
         ? setTimeout(() => {
             proc.kill();
-            reject(new Error(`Command timed out after ${options.timeout}ms`));
+            reject(new Error(`Command timed out after ${Math.floor(options.timeout! / 1000)}s. TLC was still making progress. Consider increasing the timeout or using preset: 'thorough' for no timeout.`));
           }, options.timeout)
         : null;
 

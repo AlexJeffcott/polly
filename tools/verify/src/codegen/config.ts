@@ -393,6 +393,22 @@ export class ConfigGenerator {
     this.line("//   • 'off' - Skip verification");
     this.line("//");
     this.line("onRelease: 'error',");
+    this.line("");
+    this.line("// Verification options (optional)");
+    this.line("// ─────────────────────");
+    this.line("//");
+    this.line("// Presets provide quick configuration:");
+    this.line("//   • 'quick': 1 minute timeout, 1 worker");
+    this.line("//   • 'balanced': 5 minutes timeout, 2 workers (default)");
+    this.line("//   • 'thorough': No timeout, 4 workers");
+    this.line("//");
+    this.line("// Or customize with verification options:");
+    this.line("//   verification: {");
+    this.line("//     timeout: 300,  // Timeout in seconds (0 = no timeout)");
+    this.line("//     workers: 2,    // Number of TLC workers");
+    this.line("//   }");
+    this.line("//");
+    this.line("// preset: 'balanced',");
   }
 
   private formatTypeName(type: TypeInfo): string {

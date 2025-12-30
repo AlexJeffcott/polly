@@ -68,6 +68,11 @@ export class ConfigValidator {
         const lineNumber = source.substring(0, position).split("\n").length;
         const line = lines[lineNumber - 1];
 
+        // Skip if this is in a single-line comment
+        if (line?.trim().startsWith("//")) {
+          continue;
+        }
+
         // Extract field name from context
         const fieldMatch = line?.match(/"([^"]+)":\s*{/);
         const fieldName = fieldMatch ? fieldMatch[1] : "unknown";
@@ -79,23 +84,26 @@ export class ConfigValidator {
         });
       }
 
-      this.issues.push({
-        type: "incomplete",
-        severity: "error",
-        message: `Found ${matches.length} incomplete configuration marker(s)`,
-        suggestion: "Replace all /* CONFIGURE */ markers with actual values",
-      });
-
-      // Add individual issues for each marker
-      for (const loc of locations) {
+      // Only add issues if there are actual incomplete markers (not in comments)
+      if (locations.length > 0) {
         this.issues.push({
           type: "incomplete",
           severity: "error",
-          field: loc.context,
-          location: { line: loc.line, column: loc.column },
-          message: `Incomplete configuration at line ${loc.line}`,
-          suggestion: `Fill in value for "${loc.context}"`,
+          message: `Found ${locations.length} incomplete configuration marker(s)`,
+          suggestion: "Replace all /* CONFIGURE */ markers with actual values",
         });
+
+        // Add individual issues for each marker
+        for (const loc of locations) {
+          this.issues.push({
+            type: "incomplete",
+            severity: "error",
+            field: loc.context,
+            location: { line: loc.line, column: loc.column },
+            message: `Incomplete configuration at line ${loc.line}`,
+            suggestion: `Fill in value for "${loc.context}"`,
+          });
+        }
       }
     }
   }
@@ -105,12 +113,23 @@ export class ConfigValidator {
     const matches = [...source.matchAll(reviewRegex)];
 
     if (matches.length > 0) {
-      this.issues.push({
-        type: "incomplete",
-        severity: "warning",
-        message: `Found ${matches.length} value(s) that should be reviewed`,
-        suggestion: "Review auto-generated values marked with /* REVIEW */",
+      // Filter out matches in single-line comments
+      const lines = source.split("\n");
+      const validMatches = [...matches].filter((match) => {
+        const position = match.index ?? 0;
+        const lineNumber = source.substring(0, position).split("\n").length;
+        const line = lines[lineNumber - 1];
+        return !line?.trim().startsWith("//");
       });
+
+      if (validMatches.length > 0) {
+        this.issues.push({
+          type: "incomplete",
+          severity: "warning",
+          message: `Found ${validMatches.length} value(s) that should be reviewed`,
+          suggestion: "Review auto-generated values marked with /* REVIEW */",
+        });
+      }
     }
   }
 
