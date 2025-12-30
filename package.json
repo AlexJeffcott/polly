@@ -78,7 +78,7 @@
     "test:framework:headed": "bun run --cwd tests test:framework:headed",
     "test:all": "bun run --cwd tests test:all",
     "prepublishOnly": "bun run typecheck && bun run lint && bun run build:lib",
-    "publish:public": "npm publish --access public"
+    "publish:public": "npm publish --access public --otp=$(pass-cli item totp --output json --item-id Rdr--oUgHp-IfyjoTB7vhMPHfNt6Oz2JpXfS1WrdQMQ9damDMPOvKiOxxpCZqp92WgqXnfY68cSXWdQ_JVMNMQ== --share-id Ixmpll6U5ioU_1P4fzUbarQNANRPU51O68xzFblTB08S0HUfw4dhQaNAv4Yv7Sud_Vf8ps4mnQUFqdvN-eTRdQ== | jq -r '.totp')"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
