@@ -608,22 +608,34 @@ export class TLAGenerator {
 
   private addStateType(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
     // Define Value type for generic sequences and maps
-    // Use a finite set for model checking
+    this.defineValueTypes();
+
+    // Generate State type definition
+    this.line("\\* Application state type definition");
+    this.line("State == [");
+    this.indent++;
+
+    const stateFields = this.collectStateFields(config, _analysis);
+    this.writeStateFields(stateFields);
+
+    this.indent--;
+    this.line("]");
+    this.line("");
+  }
+
+  private defineValueTypes(): void {
     this.line("\\* Generic value type for sequences and maps");
     this.line("\\* Bounded to allow model checking");
     this.line('Value == {"v1", "v2", "v3"}');
     this.line("");
 
-    // Define Keys type for map domains
     this.line("\\* Generic key type for maps");
     this.line("\\* Bounded to allow model checking");
     this.line('Keys == {"k1", "k2", "k3"}');
     this.line("");
+  }
 
-    this.line("\\* Application state type definition");
-    this.line("State == [");
-    this.indent++;
-
+  private collectStateFields(config: VerificationConfig, _analysis: CodebaseAnalysis): string[] {
     const stateFields: string[] = [];
 
     // Add fields from config.state
@@ -632,38 +644,34 @@ export class TLAGenerator {
 
       const fieldName = this.sanitizeFieldName(fieldPath);
       const tlaType = this.fieldConfigToTLAType(fieldPath, fieldConfig, config);
-
       stateFields.push(`${fieldName}: ${tlaType}`);
     }
 
-    // Also add fields from analysis (extracted from stateFilePath)
+    // Add fields from analysis
     for (const fieldAnalysis of _analysis.fields) {
-      // Skip if path is invalid
-      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") {
-        continue;
-      }
+      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") continue;
 
       const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
+      if (stateFields.some((f) => f.startsWith(`${fieldName}:`))) continue;
 
-      // Skip if already defined in config.state
-      if (stateFields.some((f) => f.startsWith(`${fieldName}:`))) {
-        continue;
-      }
-
-      // Infer TLA+ type from analysis
       const tlaType = this.inferTLATypeFromAnalysis(fieldAnalysis);
       stateFields.push(`${fieldName}: ${tlaType}`);
     }
 
-    for (let i = 0; i < stateFields.length; i++) {
-      const field = stateFields[i];
-      const suffix = i < stateFields.length - 1 ? "," : "";
-      this.line(`${field}${suffix}`);
+    return stateFields;
+  }
+
+  private writeStateFields(fields: string[]): void {
+    if (fields.length === 0) {
+      this.line("dummy: BOOLEAN  \\* Placeholder for empty state");
+      return;
     }
 
-    this.indent--;
-    this.line("]");
-    this.line("");
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i];
+      const suffix = i < fields.length - 1 ? "," : "";
+      this.line(`${field}${suffix}`);
+    }
   }
 
   private addMessageTypes(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
@@ -725,41 +733,8 @@ export class TLAGenerator {
     this.line("InitialState == [");
     this.indent++;
 
-    const fields: string[] = [];
-
-    // Add fields from config.state
-    for (const [fieldPath, fieldConfig] of Object.entries(config.state)) {
-      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
-
-      const fieldName = this.sanitizeFieldName(fieldPath);
-      const initialValue = this.getInitialValue(fieldConfig);
-      fields.push(`${fieldName} |-> ${initialValue}`);
-    }
-
-    // Also add fields from analysis (extracted from stateFilePath)
-    for (const fieldAnalysis of _analysis.fields) {
-      // Skip if path is invalid
-      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") {
-        continue;
-      }
-
-      const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
-
-      // Skip if already defined in config.state
-      if (fields.some((f) => f.startsWith(`${fieldName} |->`))) {
-        continue;
-      }
-
-      // Infer initial value from analysis
-      const initialValue = this.getInitialValueFromAnalysis(fieldAnalysis);
-      fields.push(`${fieldName} |-> ${initialValue}`);
-    }
-
-    for (let i = 0; i < fields.length; i++) {
-      const field = fields[i];
-      const suffix = i < fields.length - 1 ? "," : "";
-      this.line(`${field}${suffix}`);
-    }
+    const fields = this.collectInitialStateFields(config, _analysis);
+    this.writeInitialStateFields(fields);
 
     this.indent--;
     this.line("]");
@@ -773,6 +748,48 @@ export class TLAGenerator {
     this.line("/\\ contextStates = [c \\in Contexts |-> InitialState]");
     this.indent--;
     this.line("");
+  }
+
+  private collectInitialStateFields(
+    config: VerificationConfig,
+    _analysis: CodebaseAnalysis
+  ): string[] {
+    const fields: string[] = [];
+
+    // Add fields from config.state
+    for (const [fieldPath, fieldConfig] of Object.entries(config.state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      const fieldName = this.sanitizeFieldName(fieldPath);
+      const initialValue = this.getInitialValue(fieldConfig);
+      fields.push(`${fieldName} |-> ${initialValue}`);
+    }
+
+    // Add fields from analysis
+    for (const fieldAnalysis of _analysis.fields) {
+      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") continue;
+
+      const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
+      if (fields.some((f) => f.startsWith(`${fieldName} |->`))) continue;
+
+      const initialValue = this.getInitialValueFromAnalysis(fieldAnalysis);
+      fields.push(`${fieldName} |-> ${initialValue}`);
+    }
+
+    return fields;
+  }
+
+  private writeInitialStateFields(fields: string[]): void {
+    if (fields.length === 0) {
+      this.line("dummy |-> FALSE  \\* Placeholder for empty state");
+      return;
+    }
+
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i];
+      const suffix = i < fields.length - 1 ? "," : "";
+      this.line(`${field}${suffix}`);
+    }
   }
 
   private addActions(config: VerificationConfig, analysis: CodebaseAnalysis): void {
