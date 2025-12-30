@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { createMockAdapters, createMockPort, waitFor } from "@fairfox/polly/test";
 import { ConnectionError, TimeoutError } from "@/shared/lib/errors";
 import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import type { ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
-import { createMockAdapters, createMockPort } from "@fairfox/polly/test";
-import { waitFor } from "@fairfox/polly/test";
 
 let bus: MessageBus;
 

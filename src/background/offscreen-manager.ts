@@ -2,7 +2,7 @@
 
 import type { OffscreenAdapter } from "@/shared/adapters";
 import { ErrorHandler } from "@/shared/lib/errors";
-import { type MessageBus, getMessageBus } from "@/shared/lib/message-bus";
+import { getMessageBus, type MessageBus } from "@/shared/lib/message-bus";
 
 export class OffscreenManager {
   private bus: MessageBus;

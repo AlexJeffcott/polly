@@ -21,6 +21,7 @@ export function createMockLogger(options?: { silent?: boolean }): MockLogger {
 
   const logToConsole = (level: LogLevel, message: string, context?: Record<string, unknown>) => {
     if (!silent) {
+      // biome-ignore lint/suspicious/noConsole: Mock logger intentionally uses console for testing
       const consoleMethod = level === "debug" ? console.log : console[level];
       consoleMethod(message, context);
     }

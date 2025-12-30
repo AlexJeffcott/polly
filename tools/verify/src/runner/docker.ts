@@ -122,8 +122,8 @@ export class DockerRunner {
     return {
       success: true,
       stats: {
-        statesGenerated: statesMatch?.[1] ? Number.parseInt(statesMatch[1]) : 0,
-        distinctStates: distinctMatch?.[1] ? Number.parseInt(distinctMatch[1]) : 0,
+        statesGenerated: statesMatch?.[1] ? Number.parseInt(statesMatch[1], 10) : 0,
+        distinctStates: distinctMatch?.[1] ? Number.parseInt(distinctMatch[1], 10) : 0,
       },
       output,
     };

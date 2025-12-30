@@ -1199,11 +1199,11 @@ export class TLAGenerator {
       (_match, identPart, index1, index2) => {
         if (identPart) {
           // First bracket after identifier: items[0]
-          const newIndex = Number.parseInt(index1) + 1;
+          const newIndex = Number.parseInt(index1, 10) + 1;
           return `${identPart}[${newIndex}]`;
         }
         // Subsequent bracket after ]: ][1]
-        const newIndex = Number.parseInt(index2) + 1;
+        const newIndex = Number.parseInt(index2, 10) + 1;
         return `][${newIndex}]`;
       }
     );
@@ -1272,9 +1272,9 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.slice\((-?\d+)(?:,\s*(-?\d+))?\)\.length/g,
       (_match, strRef, start, end) => {
-        const startNum = Number.parseInt(start);
+        const startNum = Number.parseInt(start, 10);
         if (end !== undefined) {
-          const endNum = Number.parseInt(end);
+          const endNum = Number.parseInt(end, 10);
           if (startNum < 0 && endNum < 0) {
             return `Len(SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}) - ${Math.abs(endNum)}))`;
           }
@@ -1297,9 +1297,9 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.substring\((\d+)(?:,\s*(\d+))?\)\.length/g,
       (_match, strRef, start, end) => {
-        const startNum = Number.parseInt(start);
+        const startNum = Number.parseInt(start, 10);
         if (end !== undefined) {
-          const endNum = Number.parseInt(end);
+          const endNum = Number.parseInt(end, 10);
           if (startNum > endNum) {
             return `Len(SubSeq(${strRef}, ${endNum + 1}, ${startNum}))`;
           }
@@ -1312,7 +1312,7 @@ export class TLAGenerator {
     // String.slice(start, end?) -> SubSeq(str, start+1, end?) (1-based indexing)
     // slice(start) → SubSeq(str, start+1, Len(str))
     result = result.replace(/(\w+(?:\.\w+)*)\.slice\((-?\d+)\)(?!,)/g, (_match, strRef, start) => {
-      const startNum = Number.parseInt(start);
+      const startNum = Number.parseInt(start, 10);
       if (startNum < 0) {
         // Negative index: slice(-2) → SubSeq(str, Len(str) - 2 + 1, Len(str))
         return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}))`;
@@ -1325,8 +1325,8 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.slice\((-?\d+),\s*(-?\d+)\)/g,
       (_match, strRef, start, end) => {
-        const startNum = Number.parseInt(start);
-        const endNum = Number.parseInt(end);
+        const startNum = Number.parseInt(start, 10);
+        const endNum = Number.parseInt(end, 10);
 
         if (startNum < 0 && endNum < 0) {
           return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}) - ${Math.abs(endNum)})`;
@@ -1347,7 +1347,7 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.substring\((\d+)\)(?!,)/g,
       (_match, strRef, start) => {
-        const startNum = Number.parseInt(start);
+        const startNum = Number.parseInt(start, 10);
         return `SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}))`;
       }
     );
@@ -1357,8 +1357,8 @@ export class TLAGenerator {
     result = result.replace(
       /(\w+(?:\.\w+)*)\.substring\((\d+),\s*(\d+)\)/g,
       (_match, strRef, start, end) => {
-        const startNum = Number.parseInt(start);
-        const endNum = Number.parseInt(end);
+        const startNum = Number.parseInt(start, 10);
+        const endNum = Number.parseInt(end, 10);
 
         // substring auto-swaps indices if start > end
         if (startNum > endNum) {
@@ -1519,7 +1519,7 @@ export class TLAGenerator {
       // Matches: items?.[0], arr?.[5], etc.
       // Note: TLA+ uses 1-based indexing, so [0] becomes [1]
       result = result.replace(/(\w+(?:\.\w+)*)\?\.\[(\d+)\]/g, (_match, obj, index) => {
-        const tlaIndex = Number.parseInt(index) + 1; // Convert to 1-based
+        const tlaIndex = Number.parseInt(index, 10) + 1; // Convert to 1-based
         return `IF ${obj} # NULL THEN ${obj}[${tlaIndex}] ELSE NULL`;
       });
 

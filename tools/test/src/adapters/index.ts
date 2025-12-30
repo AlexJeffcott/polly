@@ -1,11 +1,11 @@
-import { type MockContextMenus, createMockContextMenus } from "./context-menus.mock";
-import { type MockFetch, createMockFetch } from "./fetch.mock";
-import { type MockLogger, createMockLogger } from "./logger.mock";
-import { type MockOffscreen, createMockOffscreen } from "./offscreen.mock";
-import { type MockPort, type MockRuntime, createMockPort, createMockRuntime } from "./runtime.mock";
-import { type MockStorageArea, createMockStorageArea } from "./storage.mock";
-import { type MockTabs, createMockTabs } from "./tabs.mock";
-import { type MockWindow, createMockWindow } from "./window.mock";
+import { createMockContextMenus, type MockContextMenus } from "./context-menus.mock";
+import { createMockFetch, type MockFetch } from "./fetch.mock";
+import { createMockLogger, type MockLogger } from "./logger.mock";
+import { createMockOffscreen, type MockOffscreen } from "./offscreen.mock";
+import { createMockPort, createMockRuntime, type MockPort, type MockRuntime } from "./runtime.mock";
+import { createMockStorageArea, type MockStorageArea } from "./storage.mock";
+import { createMockTabs, type MockTabs } from "./tabs.mock";
+import { createMockWindow, type MockWindow } from "./window.mock";
 
 /**
  * Mock adapters with full type information including mock-specific properties

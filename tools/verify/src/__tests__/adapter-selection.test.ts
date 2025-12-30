@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
-import { detectProjectConfig } from "../../../analysis/src";
 import type { ProjectType } from "../../../analysis/src";
+import { detectProjectConfig } from "../../../analysis/src";
 import { ADAPTER_REGISTRY, selectAdapter } from "../adapters/registry";
 
 describe("Adapter Selection", () => {

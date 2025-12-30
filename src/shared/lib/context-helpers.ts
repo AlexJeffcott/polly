@@ -5,7 +5,7 @@
  */
 
 import type { BaseMessage, Context, ExtensionMessage } from "../types/messages";
-import { type MessageBus, getMessageBus } from "./message-bus";
+import { getMessageBus, type MessageBus } from "./message-bus";
 
 export interface ContextConfig<TMessage extends BaseMessage = ExtensionMessage> {
   /**

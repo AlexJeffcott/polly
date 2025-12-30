@@ -237,7 +237,7 @@ async function serveCommand(args: string[]) {
 
     // Parse port argument
     const portArg = args.find((arg) => arg.startsWith("--port="));
-    const port = portArg ? Number.parseInt(portArg.replace("--port=", "")) : 3000;
+    const port = portArg ? Number.parseInt(portArg.replace("--port=", ""), 10) : 3000;
 
     console.log(color(`   Site: ${siteDir}`, COLORS.gray));
     console.log(color(`   Port: ${port}`, COLORS.gray));

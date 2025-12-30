@@ -80,6 +80,7 @@ export class TLAValidator {
    * TLA+ operators that we generate
    * (Reserved for future validation)
    */
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Reserved for future validation
   private static readonly _VALID_OPERATORS = new Set([
     // Logical
     "/\\",

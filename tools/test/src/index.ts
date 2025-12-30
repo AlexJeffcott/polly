@@ -16,41 +16,40 @@
  * ```
  */
 
+export type {
+  MockChrome,
+  MockContextMenus,
+  MockExtensionAdapters,
+  MockFetch,
+  MockLogger,
+  MockOffscreen,
+  MockPort,
+  MockRuntime,
+  MockStorageArea,
+  MockTabs,
+  MockWindow,
+} from "./adapters/index";
 // Re-export all mock adapters
 export {
   createMockAdapters,
   createMockChrome,
-  createMockRuntime,
-  createMockPort,
-  createMockStorageArea,
-  createMockTabs,
-  createMockWindow,
-  createMockOffscreen,
   createMockContextMenus,
   createMockFetch,
   createMockLogger,
-} from "./adapters/index";
-
-export type {
-  MockExtensionAdapters,
-  MockChrome,
-  MockRuntime,
-  MockPort,
-  MockStorageArea,
-  MockTabs,
-  MockWindow,
-  MockOffscreen,
-  MockContextMenus,
-  MockFetch,
-  MockLogger,
+  createMockOffscreen,
+  createMockPort,
+  createMockRuntime,
+  createMockStorageArea,
+  createMockTabs,
+  createMockWindow,
 } from "./adapters/index";
 
 // Re-export test utilities
 export {
   createMockRoutedMessage,
-  waitFor,
-  waitForCondition,
   expectType,
   noOp,
   noOpAsync,
+  waitFor,
+  waitForCondition,
 } from "./test-utils";

@@ -1,8 +1,8 @@
 // Options page UI
 
-import { defaultSettings, settings } from "@/shared/state/app-state";
 import { signal } from "@preact/signals";
 import { render } from "preact";
+import { defaultSettings, settings } from "@/shared/state/app-state";
 
 // Local state
 const saveStatus = signal<"idle" | "saving" | "saved" | "error">("idle");
@@ -161,7 +161,8 @@ function Options() {
               onInput={(e) => {
                 settings.value = {
                   ...settings.value,
-                  refreshInterval: Number.parseInt((e.target as HTMLInputElement).value) || 60000,
+                  refreshInterval:
+                    Number.parseInt((e.target as HTMLInputElement).value, 10) || 60000,
                 };
               }}
               min="1000"

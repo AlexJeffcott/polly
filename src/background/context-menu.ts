@@ -1,6 +1,6 @@
 // Context menu manager
 
-import { type MessageBus, getMessageBus } from "@/shared/lib/message-bus";
+import { getMessageBus, type MessageBus } from "@/shared/lib/message-bus";
 
 export class ContextMenuManager {
   private bus: MessageBus;

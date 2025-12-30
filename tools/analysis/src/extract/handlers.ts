@@ -366,7 +366,7 @@ export class HandlerExtractor {
 
     if (value !== undefined) {
       const tlaIndex = this.isNumericLiteral(index)
-        ? (Number.parseInt(index) + 1).toString()
+        ? (Number.parseInt(index, 10) + 1).toString()
         : `${index} + 1`;
       assignments.push({
         field: `${field}[${tlaIndex}]`,

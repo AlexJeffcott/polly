@@ -5,7 +5,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { type MockExtensionAdapters, createMockAdapters, waitFor } from "@fairfox/polly/test";
+import { createMockAdapters, type MockExtensionAdapters, waitFor } from "@fairfox/polly/test";
 import { generateId, state } from "../src/background/state";
 
 describe("Todo Handler Logic with Mock Adapters", () => {

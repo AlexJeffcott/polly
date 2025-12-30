@@ -6,6 +6,12 @@
  */
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  createMockAdapters,
+  createMockPort,
+  type MockLogger,
+  type MockRuntime,
+} from "@fairfox/polly/test";
 import { LogStore } from "@/background/log-store";
 import { MessageRouter } from "@/background/message-router";
 import type { ExtensionAdapters } from "@/shared/adapters";
@@ -13,12 +19,6 @@ import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import { settings } from "@/shared/state/app-state";
 import type { LogEntry } from "@/shared/types/messages";
-import {
-  type MockLogger,
-  type MockRuntime,
-  createMockAdapters,
-  createMockPort,
-} from "@fairfox/polly/test";
 
 let adapters: ExtensionAdapters;
 let mockLogger: MockLogger;

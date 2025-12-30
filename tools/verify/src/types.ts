@@ -2,15 +2,15 @@
 
 // Re-export shared types from analysis package
 export type {
-  Context,
-  TypeKind,
-  TypeInfo,
-  FieldAnalysis,
+  CodebaseAnalysis,
   Confidence,
+  Context,
+  FieldAnalysis,
   MessageHandler,
   StateAssignment,
+  TypeInfo,
+  TypeKind,
   VerificationCondition,
-  CodebaseAnalysis,
 } from "../../analysis/src/index.ts";
 
 export type VerificationConfig = {

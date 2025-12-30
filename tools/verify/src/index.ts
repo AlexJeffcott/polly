@@ -3,79 +3,74 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────
-// Core Types (Domain-Agnostic)
-// ─────────────────────────────────────────────────────────────────
-export type {
-  CoreVerificationModel,
-  NodeDefinition,
-  MessageType,
-  RoutingPattern,
-  RoutingRule,
-  StateSchema,
-  FieldConfig,
-  StateAssignment,
-  VerificationCondition,
-  MessageHandler,
-  TypeKind,
-  TypeInfo,
-  Confidence,
-  FieldAnalysis,
-  CodebaseAnalysis,
-} from "./core/model";
-
-// ─────────────────────────────────────────────────────────────────
-// Verification Primitives (Domain-Agnostic)
-// ─────────────────────────────────────────────────────────────────
-export {
-  requires,
-  ensures,
-  invariant,
-  inRange,
-  oneOf,
-  hasLength,
-  verify,
-} from "./core/primitives";
-
-// Also re-export from old location for backward compatibility
-export * from "./primitives/index";
-
-// ─────────────────────────────────────────────────────────────────
 // Adapters
 // ─────────────────────────────────────────────────────────────────
-export type { RoutingAdapter, AdapterConfig } from "./adapters/base";
+export type { AdapterConfig, RoutingAdapter } from "./adapters/base";
 export { BaseRoutingAdapter } from "./adapters/base";
+// Adapter Detection
 export {
-  WebExtensionAdapter,
-  type WebExtensionAdapterConfig,
-  type ExtensionContext,
-} from "./adapters/web-extension";
+  type AdapterDetectionResult,
+  AdapterDetector,
+  detectAdapter,
+} from "./adapters/detection";
 export {
   EventBusAdapter,
   type EventBusAdapterConfig,
 } from "./adapters/event-bus";
 export {
+  type ExtensionContext,
+  WebExtensionAdapter,
+  type WebExtensionAdapterConfig,
+} from "./adapters/web-extension";
+export {
   WebSocketAdapter,
   type WebSocketAdapterConfig,
 } from "./adapters/websocket";
-
-// Adapter Detection
-export {
-  AdapterDetector,
-  detectAdapter,
-  type AdapterDetectionResult,
-} from "./adapters/detection";
-
 // ─────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────
 export type {
   AdapterVerificationConfig,
+  ConfigIssue,
   LegacyVerificationConfig,
   UnifiedVerificationConfig,
-  ConfigIssue,
   ValidationResult as ConfigValidationResult,
 } from "./config/types";
 export { isAdapterConfig, isLegacyConfig } from "./config/types";
+// ─────────────────────────────────────────────────────────────────
+// Core Types (Domain-Agnostic)
+// ─────────────────────────────────────────────────────────────────
+export type {
+  CodebaseAnalysis,
+  Confidence,
+  CoreVerificationModel,
+  FieldAnalysis,
+  FieldConfig,
+  MessageHandler,
+  MessageType,
+  NodeDefinition,
+  RoutingPattern,
+  RoutingRule,
+  StateAssignment,
+  StateSchema,
+  TypeInfo,
+  TypeKind,
+  VerificationCondition,
+} from "./core/model";
+// ─────────────────────────────────────────────────────────────────
+// Verification Primitives (Domain-Agnostic)
+// ─────────────────────────────────────────────────────────────────
+export {
+  ensures,
+  hasLength,
+  inRange,
+  invariant,
+  oneOf,
+  requires,
+  verify,
+} from "./core/primitives";
+// Also re-export from old location for backward compatibility
+export * from "./primitives/index";
 
 import type { UnifiedVerificationConfig } from "./config/types";
 
@@ -139,12 +134,12 @@ export function defineVerification<T extends UnifiedVerificationConfig>(config: 
   return config;
 }
 
+export { generateConfig } from "./codegen/config";
+export { generateTLA, TLAGenerator } from "./codegen/tla";
+export { validateConfig } from "./config/parser";
+export { extractHandlers, HandlerExtractor } from "./extract/handlers";
+export { analyzeCodebase } from "./extract/types";
 // ─────────────────────────────────────────────────────────────────
 // Legacy API (Backward Compatibility)
 // ─────────────────────────────────────────────────────────────────
-export type { VerificationConfig, ValidationResult } from "./types";
-export { HandlerExtractor, extractHandlers } from "./extract/handlers";
-export { analyzeCodebase } from "./extract/types";
-export { TLAGenerator, generateTLA } from "./codegen/tla";
-export { generateConfig } from "./codegen/config";
-export { validateConfig } from "./config/parser";
+export type { ValidationResult, VerificationConfig } from "./types";

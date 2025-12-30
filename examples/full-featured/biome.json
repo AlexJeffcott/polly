@@ -1,7 +1,7 @@
 {
+  "root": false,
   "files": {
-    "include": ["**/src/**/*.ts", "**/src/**/*.tsx"],
-    "ignore": ["**/docs/**/*"],
+    "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/docs"],
     "ignoreUnknown": true
   },
   "linter": {

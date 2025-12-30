@@ -1,6 +1,6 @@
 // API client for cross-origin requests
 
-import { type MessageBus, getMessageBus } from "@/shared/lib/message-bus";
+import { getMessageBus, type MessageBus } from "@/shared/lib/message-bus";
 
 export class APIClient {
   private bus: MessageBus;

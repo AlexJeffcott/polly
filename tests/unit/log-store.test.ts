@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createMockAdapters } from "@fairfox/polly/test";
 import { LogStore } from "@/background/log-store";
 import { globalExecutionTracker } from "@/shared/lib/handler-execution-tracker";
 import { MessageBus } from "@/shared/lib/message-bus";
 import type { ExtensionMessage } from "@/shared/types/messages";
-import { createMockAdapters } from "@fairfox/polly/test";
 
 let bus: MessageBus;
 let logStore: LogStore;

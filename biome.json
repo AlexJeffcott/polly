@@ -1,22 +1,25 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
   "files": {
-    "ignore": [
-      "**/dist/**",
-      "**/dist-temp/**",
-      "**/node_modules/**",
-      "**/.next/**",
-      "**/build/**",
-      "**/coverage/**",
-      "**/vendor/**",
-      "**/build*.ts",
-      "**/examples/**/docs/**",
-      "**/*.min.js",
-      "**/*.min.css"
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "!**/dist",
+      "!**/dist-temp",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/build",
+      "!**/coverage",
+      "!**/vendor",
+      "!**/build*.ts",
+      "!**/examples/**/docs",
+      "!**/*.min.js",
+      "!**/*.min.css"
     ]
-  },
-  "organizeImports": {
-    "enabled": true
   },
   "linter": {
     "enabled": true,
@@ -78,7 +81,7 @@
   },
   "overrides": [
     {
-      "include": [
+      "includes": [
         "src/shared/adapters/**",
         "src/shared/lib/**",
         "src/popup/**",
@@ -93,7 +96,7 @@
       }
     },
     {
-      "include": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
+      "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
       "linter": {
         "rules": {
           "complexity": {

@@ -1,9 +1,9 @@
 // DevTools panel UI
 
-import { getMessageBus } from "@/shared/lib/message-bus";
-import { settings } from "@/shared/state/app-state";
 import { signal } from "@preact/signals";
 import { render } from "preact";
+import { getMessageBus } from "@/shared/lib/message-bus";
+import { settings } from "@/shared/state/app-state";
 
 const bus = getMessageBus("devtools");
 const tabId = chrome.devtools.inspectedWindow.tabId;

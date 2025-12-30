@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { DockerRunResult, DockerRunner } from "./docker";
+import type { DockerRunner, DockerRunResult } from "./docker";
 
 /**
  * Parse error from SANY with location information
@@ -296,8 +296,8 @@ export class SANYRunner {
       error: {
         type: "syntax",
         message,
-        line: locationMatch?.[1] ? Number.parseInt(locationMatch[1]) : undefined,
-        column: locationMatch?.[2] ? Number.parseInt(locationMatch[2]) : undefined,
+        line: locationMatch?.[1] ? Number.parseInt(locationMatch[1], 10) : undefined,
+        column: locationMatch?.[2] ? Number.parseInt(locationMatch[2], 10) : undefined,
         file: specPath,
         suggestion: this.suggestSyntaxFix(message),
       },
@@ -322,8 +322,8 @@ export class SANYRunner {
       error: {
         type: "lexical",
         message: `Lexical error: ${lexicalMatch[3]}`,
-        line: Number.parseInt(lexicalMatch[1]),
-        column: Number.parseInt(lexicalMatch[2]),
+        line: Number.parseInt(lexicalMatch[1], 10),
+        column: Number.parseInt(lexicalMatch[2], 10),
         file: specPath,
         suggestion: this.suggestLexicalFix(lexicalMatch[3]),
       },
@@ -347,8 +347,8 @@ export class SANYRunner {
       error: {
         type: "syntax",
         message: parseMatch[3],
-        line: Number.parseInt(parseMatch[1]),
-        column: Number.parseInt(parseMatch[2]),
+        line: Number.parseInt(parseMatch[1], 10),
+        column: Number.parseInt(parseMatch[2], 10),
         file: specPath,
         suggestion: this.suggestSyntaxFix(parseMatch[3]),
       },
@@ -402,8 +402,8 @@ export class SANYRunner {
       error: {
         type: "semantic",
         message: message || "Semantic error",
-        line: Number.parseInt(semanticLocationMatch[1]),
-        column: Number.parseInt(semanticLocationMatch[2]),
+        line: Number.parseInt(semanticLocationMatch[1], 10),
+        column: Number.parseInt(semanticLocationMatch[2], 10),
         file: specPath,
       },
       skipLines: j - index - 1,
@@ -427,8 +427,8 @@ export class SANYRunner {
       error: {
         type: "semantic",
         message: semanticMatch[3],
-        line: Number.parseInt(semanticMatch[1]),
-        column: Number.parseInt(semanticMatch[2]),
+        line: Number.parseInt(semanticMatch[1], 10),
+        column: Number.parseInt(semanticMatch[2], 10),
         file: specPath,
       },
     };

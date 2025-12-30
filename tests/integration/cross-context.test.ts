@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
-import { MessageRouter } from "@/background/message-router";
-import type { ExtensionAdapters } from "@/shared/adapters";
-import { MessageBus } from "@/shared/lib/message-bus";
-import type { ExtensionMessage } from "@/shared/types/messages";
 import {
-  type MockRuntime,
   createMockAdapters,
   createMockContextMenus,
   createMockFetch,
@@ -15,8 +10,13 @@ import {
   createMockStorageArea,
   createMockTabs,
   createMockWindow,
+  type MockRuntime,
+  waitFor,
 } from "@fairfox/polly/test";
-import { waitFor } from "@fairfox/polly/test";
+import { MessageRouter } from "@/background/message-router";
+import type { ExtensionAdapters } from "@/shared/adapters";
+import { MessageBus } from "@/shared/lib/message-bus";
+import type { ExtensionMessage } from "@/shared/types/messages";
 
 // Helper to simulate port connection
 function simulatePortConnection(mockRuntime: MockRuntime, port: ReturnType<typeof createMockPort>) {

@@ -3,10 +3,10 @@
 import type { PortAdapter } from "@/shared/adapters";
 import { ErrorHandler, MessageRouterError } from "@/shared/lib/errors";
 import {
-  type MessageBus,
   getMessageBus,
   isRoutedMessage,
   isRoutedResponse,
+  type MessageBus,
 } from "@/shared/lib/message-bus";
 import type { BaseMessage, Context, RoutedMessage, RoutedResponse } from "@/shared/types/messages";
 

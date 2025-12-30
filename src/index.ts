@@ -5,43 +5,38 @@
  * Users can import from '@fairfox/web-ext' to get common utilities.
  */
 
-// State management
-export { $state, $sharedState, $syncedState, $persistedState } from "./shared/lib/state";
-export { settings } from "./shared/state/app-state";
-
-// Messaging
-export { MessageBus, getMessageBus } from "./shared/lib/message-bus";
+export type { ExtensionAdapters } from "./shared/adapters";
+// Adapters
+export { createChromeAdapters } from "./shared/adapters";
+export type { ContextConfig } from "./shared/lib/context-helpers";
 
 // Context helpers (DX improvements)
 export { createContext, runInContext } from "./shared/lib/context-helpers";
-export type { ContextConfig } from "./shared/lib/context-helpers";
-
-// Test utilities (DX improvements)
-export { createTestSuite, quickTest, TestRunner } from "./shared/lib/test-helpers";
-export type { TestCase, TestSuite } from "./shared/lib/test-helpers";
-
 // Context-specific helpers (DX improvements)
 export type {
+  BackgroundHelpers,
   ContentScriptHelpers,
   DevToolsHelpers,
-  PopupHelpers,
   OptionsHelpers,
+  PopupHelpers,
   SidePanelHelpers,
-  BackgroundHelpers,
 } from "./shared/lib/context-specific-helpers";
-
-// Adapters
-export { createChromeAdapters } from "./shared/adapters";
-export type { ExtensionAdapters } from "./shared/adapters";
-
 // Errors
 export {
+  ConnectionError,
+  ErrorHandler,
   ExtensionError,
   HandlerError,
   TimeoutError,
-  ConnectionError,
-  ErrorHandler,
 } from "./shared/lib/errors";
+// Messaging
+export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
+// State management
+export { $persistedState, $sharedState, $state, $syncedState } from "./shared/lib/state";
+export type { TestCase, TestSuite } from "./shared/lib/test-helpers";
+// Test utilities (DX improvements)
+export { createTestSuite, quickTest, TestRunner } from "./shared/lib/test-helpers";
+export { settings } from "./shared/state/app-state";
 
 // Types
 export type {

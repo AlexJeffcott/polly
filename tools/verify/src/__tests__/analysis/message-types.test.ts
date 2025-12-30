@@ -2,8 +2,7 @@
 // 50 comprehensive tests for message type extraction improvements
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TypeExtractor } from "../../../../analysis/src/extract/types";

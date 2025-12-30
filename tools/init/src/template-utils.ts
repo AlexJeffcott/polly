@@ -2,7 +2,7 @@
  * Template utilities for project initialization
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type ProjectType = "extension" | "pwa" | "websocket" | "generic";

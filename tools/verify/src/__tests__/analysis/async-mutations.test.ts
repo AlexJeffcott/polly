@@ -2,8 +2,7 @@
 // 30 comprehensive tests for async mutation tracking
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HandlerExtractor } from "../../../../analysis/src/extract/handlers";

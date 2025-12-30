@@ -1,10 +1,5 @@
 import { beforeEach, expect, mock, test } from "bun:test";
-import { MessageRouter } from "@/background/message-router";
-import type { ExtensionAdapters } from "@/shared/adapters";
-import { MessageBus } from "@/shared/lib/message-bus";
-import type { ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
 import {
-  type MockRuntime,
   createMockContextMenus,
   createMockFetch,
   createMockLogger,
@@ -14,7 +9,12 @@ import {
   createMockStorageArea,
   createMockTabs,
   createMockWindow,
+  type MockRuntime,
 } from "@fairfox/polly/test";
+import { MessageRouter } from "@/background/message-router";
+import type { ExtensionAdapters } from "@/shared/adapters";
+import { MessageBus } from "@/shared/lib/message-bus";
+import type { ExtensionMessage, RoutedMessage } from "@/shared/types/messages";
 
 let mockRuntime: MockRuntime;
 let adapters: ExtensionAdapters;

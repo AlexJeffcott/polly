@@ -3,7 +3,7 @@
 
 import { handleCommand } from "./handlers/command";
 import { handleQuery } from "./handlers/query";
-import { type RequestMessage, isCommandMessage, isQueryMessage } from "./messages";
+import { isCommandMessage, isQueryMessage, type RequestMessage } from "./messages";
 
 // WebSocket server simulation
 declare const ws: {

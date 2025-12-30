@@ -186,7 +186,7 @@ describe("Error Message Quality", () => {
       ];
 
       expect(errors.every((e) => e !== null)).toBe(true);
-      expect(errors.every((e) => e?.message.length! > 10)).toBe(true);
+      expect(errors.every((e) => e?.message && e.message.length > 10)).toBe(true);
     });
   });
 

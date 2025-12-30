@@ -1,5 +1,5 @@
 // Test fixture: Electron main process
-import { BrowserWindow, app, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 
 let mainWindow: BrowserWindow | null = null;
 

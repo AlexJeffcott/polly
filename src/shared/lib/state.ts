@@ -1,8 +1,8 @@
 // State primitives with optional sync and persistence
 
-import { type Signal, effect, signal } from "@preact/signals";
+import { effect, type Signal, signal } from "@preact/signals";
 import type { Context } from "../types/messages";
-import { type MessageBus, getMessageBus } from "./message-bus";
+import { getMessageBus, type MessageBus } from "./message-bus";
 
 type StateEntry<T> = {
   signal: Signal<T>;

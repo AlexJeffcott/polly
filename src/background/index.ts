@@ -1,6 +1,7 @@
 // Background helper - simplifies background script setup
-import { getMessageBus } from "../shared/lib/message-bus";
+
 import type { MessageBus } from "../shared/lib/message-bus";
+import { getMessageBus } from "../shared/lib/message-bus";
 import type { BaseMessage, ExtensionMessage } from "../shared/types/messages";
 import { MessageRouter } from "./message-router";
 
@@ -42,6 +43,6 @@ export function createBackground<
   return bus;
 }
 
+export { getMessageBus } from "../shared/lib/message-bus";
 // Re-export for convenience
 export { MessageRouter } from "./message-router";
-export { getMessageBus } from "../shared/lib/message-bus";

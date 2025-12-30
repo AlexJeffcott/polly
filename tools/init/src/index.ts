@@ -8,11 +8,11 @@ export type {
 } from "./template-utils.ts";
 
 export {
-  scaffoldFromTemplate,
-  validateProjectName,
   getAvailableTypes,
   getTemplateDir,
   processTemplate,
+  scaffoldFromTemplate,
+  validateProjectName,
 } from "./template-utils.ts";
 
 /**

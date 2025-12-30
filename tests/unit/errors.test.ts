@@ -3,6 +3,8 @@
  */
 
 import { beforeEach, expect, test } from "bun:test";
+import type { MockLogger } from "@fairfox/polly/test";
+import { createMockLogger } from "@fairfox/polly/test";
 import {
   APIError,
   ConnectionError,
@@ -13,8 +15,6 @@ import {
   OffscreenError,
   TimeoutError,
 } from "@/shared/lib/errors";
-import { createMockLogger } from "@fairfox/polly/test";
-import type { MockLogger } from "@fairfox/polly/test";
 
 let mockLogger: MockLogger;
 let errorHandler: ErrorHandler;

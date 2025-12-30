@@ -3,12 +3,11 @@
  */
 
 import { beforeEach, expect, mock, test } from "bun:test";
+import type { MockExtensionAdapters } from "@fairfox/polly/test";
+import { createMockAdapters, noOpAsync } from "@fairfox/polly/test";
 import { OffscreenManager } from "@/background/offscreen-manager";
 import type { OffscreenAdapter } from "@/shared/adapters/offscreen.adapter";
 import { MessageBus } from "@/shared/lib/message-bus";
-import { createMockAdapters } from "@fairfox/polly/test";
-import type { MockExtensionAdapters } from "@fairfox/polly/test";
-import { noOpAsync } from "@fairfox/polly/test";
 
 let adapters: MockExtensionAdapters;
 

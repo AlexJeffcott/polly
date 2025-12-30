@@ -3,8 +3,8 @@
 
 import { existsSync } from "node:fs";
 import {
-  type ProjectType,
   getTemplateDir,
+  type ProjectType,
   scaffoldFromTemplate,
   validateProjectName,
 } from "./template-utils.ts";

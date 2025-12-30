@@ -1,11 +1,11 @@
 // Export all core types
-export * from "./core";
-
-// Export architecture types
-export * from "./architecture";
 
 // Export ADR types
 export * from "./adr";
+
+// Export architecture types
+export * from "./architecture";
+export * from "./core";
 
 // Extension-specific context types
 export type Context =

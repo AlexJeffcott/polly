@@ -1,9 +1,9 @@
 // Popup UI
 
-import { getMessageBus } from "@/shared/lib/message-bus";
-import { settings } from "@/shared/state/app-state";
 import { computed, signal } from "@preact/signals";
 import { render } from "preact";
+import { getMessageBus } from "@/shared/lib/message-bus";
+import { settings } from "@/shared/state/app-state";
 
 const bus = getMessageBus("popup");
 

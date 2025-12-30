@@ -1,12 +1,5 @@
 import { beforeEach, expect, mock, test } from "bun:test";
-import { ApiClient } from "@/background/api-client";
-import { ContextMenuManager } from "@/background/context-menu";
-import { OffscreenManager } from "@/background/offscreen-manager";
-import type { ExtensionAdapters } from "@/shared/adapters";
-import type { OffscreenAdapter } from "@/shared/adapters/offscreen.adapter";
-import { MessageBus } from "@/shared/lib/message-bus";
 import {
-  type MockFetch,
   createMockContextMenus,
   createMockFetch,
   createMockLogger,
@@ -15,8 +8,15 @@ import {
   createMockStorageArea,
   createMockTabs,
   createMockWindow,
+  type MockFetch,
+  noOpAsync,
 } from "@fairfox/polly/test";
-import { noOpAsync } from "@fairfox/polly/test";
+import { ApiClient } from "@/background/api-client";
+import { ContextMenuManager } from "@/background/context-menu";
+import { OffscreenManager } from "@/background/offscreen-manager";
+import type { ExtensionAdapters } from "@/shared/adapters";
+import type { OffscreenAdapter } from "@/shared/adapters/offscreen.adapter";
+import { MessageBus } from "@/shared/lib/message-bus";
 
 let mockFetch: MockFetch;
 let adapters: ExtensionAdapters;

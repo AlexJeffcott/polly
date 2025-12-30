@@ -27,7 +27,9 @@ const isLoggedIn = signal(false);
 const currentUser = signal("");
 const newBookmarkUrl = signal("");
 const newBookmarkTitle = signal("");
-const currentTab = signal<{ id?: number; url?: string; title?: string } | null>(null);
+const currentTab = signal<{ id?: number; url?: string; title?: string } | null>(
+  null,
+);
 const statusMessage = signal("");
 
 // Type guards
@@ -165,7 +167,9 @@ function Popup() {
   return (
     <div class="popup" style={{ padding: "16px", minWidth: "300px" }}>
       <header style={{ marginBottom: "16px" }}>
-        <h1 style={{ margin: "0 0 8px 0", fontSize: "20px" }}>Full-Featured Example</h1>
+        <h1 style={{ margin: "0 0 8px 0", fontSize: "20px" }}>
+          Full-Featured Example
+        </h1>
         {statusMessage.value && (
           <div
             style={{
@@ -189,7 +193,9 @@ function Popup() {
             borderBottom: "1px solid #e0e0e0",
           }}
         >
-          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Authentication</h2>
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>
+            Authentication
+          </h2>
           {isLoggedIn.value ? (
             <div>
               <p>
@@ -223,7 +229,11 @@ function Popup() {
                 }}
                 style={{ width: "100%", padding: "4px", marginBottom: "4px" }}
               />
-              <button type="button" onClick={handleLogin} style={{ width: "100%", padding: "8px" }}>
+              <button
+                type="button"
+                onClick={handleLogin}
+                style={{ width: "100%", padding: "8px" }}
+              >
                 Login
               </button>
             </div>
@@ -268,7 +278,9 @@ function Popup() {
           </div>
           <div style={{ maxHeight: "150px", overflowY: "auto" }}>
             {bookmarks.value.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "#666" }}>No bookmarks yet</p>
+              <p style={{ fontSize: "12px", color: "#666" }}>
+                No bookmarks yet
+              </p>
             ) : (
               bookmarks.value.map((bookmark) => (
                 <div
@@ -366,7 +378,9 @@ function Popup() {
 
         {/* Quick Settings */}
         <section>
-          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>Quick Settings</h2>
+          <h2 style={{ fontSize: "16px", marginBottom: "8px" }}>
+            Quick Settings
+          </h2>
           <div style={{ fontSize: "12px" }}>
             <label style={{ display: "block", marginBottom: "4px" }}>
               <input

@@ -3,14 +3,14 @@
  */
 
 import { beforeEach, expect, test } from "bun:test";
+import {
+  createMockAdapters,
+  createMockPort,
+  type MockExtensionAdapters,
+} from "@fairfox/polly/test";
 import { MessageRouter } from "@/background/message-router";
 import { MessageBus } from "@/shared/lib/message-bus";
 import { ALL_CONTEXTS, type ExtensionMessage } from "@/shared/types/messages";
-import {
-  type MockExtensionAdapters,
-  createMockAdapters,
-  createMockPort,
-} from "@fairfox/polly/test";
 
 let adapters: MockExtensionAdapters;
 let bus: MessageBus<ExtensionMessage>;
