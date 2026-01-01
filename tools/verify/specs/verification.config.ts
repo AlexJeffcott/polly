@@ -39,6 +39,10 @@ export const verificationConfig = defineVerification({
     //
     // Start with 0 or 1 for faster verification.
     maxTabs: 1,
+
+    // TEST: Message filtering (Issue #14)
+    // Only verify these specific message types
+    include: ['test_message_1', 'test_message_2', 'test_message_3'],
   },
 
   // Verification behavior
