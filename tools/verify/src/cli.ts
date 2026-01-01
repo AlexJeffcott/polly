@@ -484,15 +484,51 @@ async function setupDocker(): Promise<{
   console.log(color("🐳 Checking Docker...", COLORS.blue));
   const docker = new DockerRunner();
 
-  if (!(await docker.isDockerAvailable())) {
-    throw new Error("Docker is not available. Please install Docker and try again.");
+  try {
+    if (!(await docker.isDockerAvailable())) {
+      console.log();
+      console.log(color("❌ Docker is not available", COLORS.red));
+      console.log();
+      console.log("Please ensure Docker is installed and running:");
+      console.log(color("  • Install Docker Desktop: https://www.docker.com/products/docker-desktop", COLORS.gray));
+      console.log(color("  • Make sure Docker Desktop is running", COLORS.gray));
+      console.log();
+      throw new Error("Docker is not available");
+    }
+  } catch (error) {
+    console.log();
+    if (error instanceof Error && error.message.includes("timed out")) {
+      console.log(color("❌ Docker is unresponsive", COLORS.red));
+      console.log();
+      console.log("Docker appears to be installed but is not responding.");
+      console.log("Try restarting Docker:");
+      console.log(color("  • Quit Docker Desktop completely", COLORS.gray));
+      console.log(color("  • Restart Docker Desktop", COLORS.gray));
+      console.log(color("  • Wait for Docker to fully start (check the menu bar icon)", COLORS.gray));
+      console.log();
+    } else if (error instanceof Error && error.message !== "Docker is not available") {
+      console.log(color(`❌ Error checking Docker: ${error.message}`, COLORS.red));
+      console.log();
+    }
+    throw error;
   }
 
-  if (!(await docker.hasImage())) {
-    console.log(color("   Pulling TLA+ image (this may take a moment)...", COLORS.gray));
-    await docker.pullImage((line) => {
-      console.log(color(`   ${line}`, COLORS.gray));
-    });
+  try {
+    if (!(await docker.hasImage())) {
+      console.log(color("   Pulling TLA+ image (this may take a moment)...", COLORS.gray));
+      await docker.pullImage((line) => {
+        console.log(color(`   ${line}`, COLORS.gray));
+      });
+    }
+  } catch (error) {
+    console.log();
+    if (error instanceof Error && error.message.includes("timed out")) {
+      console.log(color("❌ Docker is unresponsive while checking for TLA+ image", COLORS.red));
+      console.log();
+      console.log("Docker is not responding. Try restarting Docker Desktop.");
+      console.log();
+    }
+    throw error;
   }
 
   console.log(color("✓ Docker ready", COLORS.green));

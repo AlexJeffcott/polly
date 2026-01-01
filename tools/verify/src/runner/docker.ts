@@ -12,25 +12,41 @@ export type DockerRunResult = {
 
 export class DockerRunner {
   /**
-   * Check if Docker is available
+   * Check if Docker is available and daemon is responsive
+   * Throws an error if Docker times out (to distinguish from Docker not being installed)
    */
   async isDockerAvailable(): Promise<boolean> {
     try {
-      const result = await this.runCommand("docker", ["--version"]);
+      // Use 'docker info' instead of '--version' to verify daemon is running
+      // '--version' only checks the client, not the daemon
+      const result = await this.runCommand("docker", ["info"], {
+        timeout: 5000, // 5 second timeout
+      });
       return result.exitCode === 0;
-    } catch {
+    } catch (error) {
+      // Re-throw timeout errors so caller can handle them specially
+      if (error instanceof Error && error.message.includes("timed out")) {
+        throw error;
+      }
       return false;
     }
   }
 
   /**
    * Check if TLA+ image exists
+   * Throws an error if Docker times out
    */
   async hasImage(): Promise<boolean> {
     try {
-      const result = await this.runCommand("docker", ["images", "-q", "talex5/tla"]);
+      const result = await this.runCommand("docker", ["images", "-q", "talex5/tla"], {
+        timeout: 10000, // 10 second timeout
+      });
       return result.stdout.trim().length > 0;
-    } catch {
+    } catch (error) {
+      // Re-throw timeout errors so caller can handle them specially
+      if (error instanceof Error && error.message.includes("timed out")) {
+        throw error;
+      }
       return false;
     }
   }
@@ -39,7 +55,12 @@ export class DockerRunner {
    * Pull TLA+ image
    */
   async pullImage(onProgress?: (line: string) => void): Promise<void> {
-    await this.runCommandStreaming("docker", ["pull", "talex5/tla:latest"], onProgress);
+    await this.runCommandStreaming(
+      "docker",
+      ["pull", "talex5/tla:latest"],
+      onProgress,
+      300000 // 5 minute timeout for pulling image
+    );
   }
 
   /**
@@ -232,10 +253,24 @@ export class DockerRunner {
   private runCommandStreaming(
     command: string,
     args: string[],
-    onOutput?: (line: string) => void
+    onOutput?: (line: string) => void,
+    timeout?: number
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const proc = spawn(command, args);
+
+      // Set up timeout if provided
+      const timeoutHandle =
+        timeout && timeout > 0
+          ? setTimeout(() => {
+              proc.kill();
+              reject(
+                new Error(
+                  `Command timed out after ${Math.floor(timeout / 1000)}s. Docker may be unresponsive.`
+                )
+              );
+            }, timeout)
+          : null;
 
       proc.stdout.on("data", (data) => {
         if (onOutput) {
@@ -260,6 +295,8 @@ export class DockerRunner {
       });
 
       proc.on("close", (exitCode) => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+
         if (exitCode === 0) {
           resolve();
         } else {
@@ -267,7 +304,10 @@ export class DockerRunner {
         }
       });
 
-      proc.on("error", reject);
+      proc.on("error", (error) => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        reject(error);
+      });
     });
   }
 }
