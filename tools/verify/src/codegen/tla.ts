@@ -706,6 +706,15 @@ export class TLAGenerator {
       return;
     }
 
+    // Debug: Log the config.messages object
+    if (process.env["POLLY_DEBUG"]) {
+      console.log("[DEBUG] [TLAGenerator] Full config keys:", Object.keys(config));
+      console.log("[DEBUG] [TLAGenerator] config.messages:", JSON.stringify(config.messages, null, 2));
+      console.log("[DEBUG] [TLAGenerator] config.messages.include:", config.messages.include);
+      console.log("[DEBUG] [TLAGenerator] config.messages.exclude:", config.messages.exclude);
+      console.log("[DEBUG] [TLAGenerator] analysis.messageTypes:", analysis.messageTypes);
+    }
+
     // Filter out invalid TLA+ identifiers
     let validMessageTypes: string[] = [];
     const invalidMessageTypes: string[] = [];
@@ -728,22 +737,59 @@ export class TLAGenerator {
       }
     }
 
+    // Debug: Log message types before filtering
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] [TLAGenerator] Valid message types before filtering (${validMessageTypes.length}):`, validMessageTypes);
+    }
+
     // Apply Tier 1 Optimization: Message filtering (Issue #12)
     const originalCount = validMessageTypes.length;
     const filteredOut: string[] = [];
 
+    // Debug: Check if config.messages.include is accessible
+    if (process.env["POLLY_DEBUG"]) {
+      console.log("[DEBUG] [TLAGenerator] Checking filter conditions:");
+      console.log("[DEBUG]   - config.messages.include exists:", !!config.messages.include);
+      console.log("[DEBUG]   - config.messages.include.length:", config.messages.include?.length ?? "N/A");
+      console.log("[DEBUG]   - First condition result:", !!(config.messages.include && config.messages.include.length > 0));
+    }
+
     if (config.messages.include && config.messages.include.length > 0) {
       // Include mode: only keep specified message types
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] Entering include mode filtering");
+      }
       const included = new Set(config.messages.include);
       const beforeFilter = validMessageTypes;
       validMessageTypes = validMessageTypes.filter((msg) => included.has(msg));
       filteredOut.push(...beforeFilter.filter((msg) => !included.has(msg)));
+
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] After include filtering:");
+        console.log("[DEBUG]   - validMessageTypes:", validMessageTypes);
+        console.log("[DEBUG]   - filteredOut:", filteredOut);
+      }
     } else if (config.messages.exclude && config.messages.exclude.length > 0) {
       // Exclude mode: filter out specified message types
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] Entering exclude mode filtering");
+      }
       const excluded = new Set(config.messages.exclude);
       const beforeFilter = validMessageTypes;
       validMessageTypes = validMessageTypes.filter((msg) => !excluded.has(msg));
       filteredOut.push(...beforeFilter.filter((msg) => excluded.has(msg)));
+
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] After exclude filtering:");
+        console.log("[DEBUG]   - validMessageTypes:", validMessageTypes);
+        console.log("[DEBUG]   - filteredOut:", filteredOut);
+      }
+    } else {
+      // Debug: Log when no filtering is applied
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] No include/exclude filtering applied");
+        console.log("[DEBUG]   - Reason: Neither include nor exclude conditions met");
+      }
     }
 
     // Log message filtering optimization
@@ -755,6 +801,9 @@ export class TLAGenerator {
       if (process.env["POLLY_DEBUG"]) {
         console.log(`[INFO]   Filtered out: ${filteredOut.join(", ")}`);
       }
+    } else if (config.messages.include || config.messages.exclude) {
+      // If we have filters but nothing was filtered out, that's suspicious
+      console.log("[WARN] [TLAGenerator] Message filters configured but no types were filtered");
     }
 
     if (validMessageTypes.length === 0) {
