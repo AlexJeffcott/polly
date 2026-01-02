@@ -97,10 +97,28 @@ Symmetry reduction is a powerful optimization technique that reduces the state s
 - [Jack Vanlightly's Symmetry Guide](https://jack-vanlightly.com/blog/2024/12/5/an-introduction-to-symmetry-in-tla) - Visual introduction
 - [Google Group: Symmetry performance](https://groups.google.com/g/tlaplus/c/LlUYtAG8OyE) - Performance discussion
 
+**Multiple Independent Symmetry Groups:**
+
+TLA+ config files only allow ONE `SYMMETRY` declaration, but you can achieve independent symmetry groups using the union of permutations:
+
+```tla
+\* In your .tla spec:
+Symmetry == Permutations(Set1) \cup Permutations(Set2)
+
+\* In your .cfg file:
+SYMMETRY Symmetry
+```
+
+**Real-world examples:**
+- [Paxos (MCPaxos.tla)](https://github.com/tlaplus/Examples/blob/master/specifications/Paxos/MCPaxos.tla) - `Permutations(MCAcceptor) \cup Permutations(MCValue)`
+- [SimpleAllocator.tla](https://github.com/tlaplus/Examples/blob/master/specifications/allocator/SimpleAllocator.tla) - `Permutations(Clients) \cup Permutations(Resources)`
+
+This preserves independent group semantics (elements within each group are interchangeable, but not across groups). See [Polly Issue #16](https://github.com/AlexJeffcott/polly/issues/16) for detailed explanation.
+
 **Important Limitations:**
-- Only ONE `SYMMETRY` declaration is allowed per config file (see [Issue #16](https://github.com/AlexJeffcott/polly/issues/16))
+- Only ONE `SYMMETRY` keyword is allowed per config file
 - Cannot check liveness properties when symmetry is used
-- Large symmetry sets can be computationally expensive
+- Large symmetry sets can be computationally expensive (factorial complexity)
 
 ### Model Checking
 
@@ -112,8 +130,14 @@ Symmetry reduction is a powerful optimization technique that reduces the state s
 ### Public Specifications
 
 - **[TLA+ Examples Repository](https://github.com/tlaplus/Examples)** - Official collection of TLA+ specs
+  - **[Paxos](https://github.com/tlaplus/Examples/tree/master/specifications/Paxos)** - Multiple Paxos variants with symmetry
+    - [MCPaxos.tla](https://github.com/tlaplus/Examples/blob/master/specifications/Paxos/MCPaxos.tla) - Uses `Permutations(MCAcceptor) \cup Permutations(MCValue)`
+    - [MCPaxos.cfg](https://github.com/tlaplus/Examples/blob/master/specifications/Paxos/MCPaxos.cfg) - Example config with `SYMMETRY MCSymmetry`
+  - **[SimpleAllocator](https://github.com/tlaplus/Examples/tree/master/specifications/allocator)** - Resource allocation with independent symmetry groups
+    - [SimpleAllocator.tla](https://github.com/tlaplus/Examples/blob/master/specifications/allocator/SimpleAllocator.tla) - Uses `Permutations(Clients) \cup Permutations(Resources)`
+    - [SimpleAllocator.cfg](https://github.com/tlaplus/Examples/blob/master/specifications/allocator/SimpleAllocator.cfg) - Shows symmetry usage (commented for liveness)
 - **[Consensus Algorithms in TLA+](https://github.com/ongardie/raft.tla)** - Raft consensus algorithm
-- **[Paxos in TLA+](https://github.com/tlaplus/tlaplus/tree/master/examples)** - Classic Paxos specification
+- **[Specifying Systems Examples](https://github.com/tlaplus/Examples/tree/master/specifications/SpecifyingSystems)** - Examples from Lamport's book
 
 ### Tutorials & Workshops
 

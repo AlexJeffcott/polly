@@ -249,6 +249,20 @@ messages: {
 ### 2. Symmetry Reduction
 Treat identical or commutative message types as interchangeable to reduce state space.
 
+**Example**: For multiple independent symmetry groups (e.g., workers and replicas):
+\`\`\`typescript
+messages: {
+  symmetry: [
+    ['worker1', 'worker2', 'worker3'],   // Workers are interchangeable
+    ['replica1', 'replica2'],            // Replicas are interchangeable
+  ],
+}
+\`\`\`
+
+Polly generates: \`Symmetry == Permutations(Set1) \\cup Permutations(Set2)\` which preserves
+independent group semantics (elements within each group are interchangeable, but not across groups).
+This is the standard TLA+ pattern used in Paxos and SimpleAllocator.
+
 ### 3. Message-Specific Bounds
 Different maxInFlight per message type - auth messages should be sequential (1),
 but data queries might allow concurrency (3).
