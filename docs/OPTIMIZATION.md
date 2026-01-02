@@ -114,8 +114,8 @@ SYMMETRY SymmetrySet1
 
 **Important**: Only group message types that are truly interchangeable. If their handlers differ in any way, don't group them.
 
-**TLA+ Limitation** (Issue [#16](https://github.com/AlexJeffcott/polly/issues/16)):
-TLA+ config files only support ONE symmetry declaration. If you specify multiple symmetry groups:
+**Multiple Symmetry Groups** (Issue [#16](https://github.com/AlexJeffcott/polly/issues/16)):
+TLA+ config files only support ONE `SYMMETRY` declaration, but you can achieve **independent symmetry groups** using the union of permutations. This is the standard approach used in real TLA+ specifications like Paxos and SimpleAllocator.
 
 ```typescript
 symmetry: [
@@ -124,21 +124,29 @@ symmetry: [
 ]
 ```
 
-Polly will **automatically combine them into a single set**:
+Polly will generate:
 
 ```tla
-\* Individual sets (for documentation)
+\* Individual symmetry set definitions
 SymmetrySet1 == {"WORKER1_TASK", "WORKER2_TASK"}
 SymmetrySet2 == {"REPLICA1_SYNC", "REPLICA2_SYNC"}
 
-\* TLA+ limitation: Must combine all symmetry groups into single set
-\* Warning: This makes ALL symmetric types interchangeable, not just within groups
-AllSymmetricMessages == {"WORKER1_TASK", "WORKER2_TASK", "REPLICA1_SYNC", "REPLICA2_SYNC"}
-
-SYMMETRY AllSymmetricMessages
+\* Independent symmetry groups via union of permutations
+\* Standard TLA+ pattern (see: Paxos, SimpleAllocator)
+Symmetry == Permutations(SymmetrySet1) \cup Permutations(SymmetrySet2)
 ```
 
-**Trade-off**: This makes ALL message types in ALL groups fully interchangeable (e.g., `WORKER1_TASK` ↔ `REPLICA1_SYNC`), not just within their groups. If this is not semantically correct for your application, use only one symmetry group.
+In the .cfg file:
+```tla
+SYMMETRY Symmetry
+```
+
+**How this works**: The union of permutation sets (`\cup`) preserves independent group semantics:
+- `WORKER1_TASK` ↔ `WORKER2_TASK` (interchangeable within workers)
+- `REPLICA1_SYNC` ↔ `REPLICA2_SYNC` (interchangeable within replicas)
+- `WORKER1_TASK` ≠ `REPLICA1_SYNC` (NOT interchangeable across groups)
+
+This is the **correct mathematical approach** and maintains the intended semantics of your symmetry groups.
 
 ---
 
@@ -362,7 +370,7 @@ export default defineVerification({
 
     // 2. Symmetry Reduction
     // (No symmetric message types in this example)
-    // Note: Only use one symmetry group due to TLA+ limitation (Issue #16)
+    // Note: Multiple groups are supported via union of Permutations (Issue #16)
     symmetry: [],
 
     // 3. Per-Message Bounds

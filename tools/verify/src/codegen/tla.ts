@@ -851,10 +851,11 @@ export class TLAGenerator {
    * Add symmetry set definitions for Tier 1 optimization
    *
    * IMPORTANT: TLA+ config files only support ONE SYMMETRY declaration (Issue #16).
-   * If multiple symmetry groups are provided, we combine them into a single union set.
+   * However, we can achieve independent symmetry groups by using the union of permutations:
+   *   Symmetry == Permutations(Set1) \cup Permutations(Set2)
    *
-   * Note: This changes semantics - all message types become fully interchangeable,
-   * not just within their groups. This is a limitation of TLA+ config file syntax.
+   * This is the standard approach used in real TLA+ specs (e.g., Paxos, SimpleAllocator).
+   * It preserves independent group semantics while using a single SYMMETRY declaration.
    */
   private addSymmetrySets(symmetryGroups: string[][], validMessageTypes: string[]): void {
     const validTypes = new Set(validMessageTypes);
@@ -863,7 +864,6 @@ export class TLAGenerator {
 
     // Collect all valid symmetry groups
     const validSymmetryGroups: string[][] = [];
-    const allSymmetricTypes: Set<string> = new Set();
 
     for (let i = 0; i < symmetryGroups.length; i++) {
       const group = symmetryGroups[i];
@@ -881,9 +881,6 @@ export class TLAGenerator {
       }
 
       validSymmetryGroups.push(validGroupTypes);
-      for (const type of validGroupTypes) {
-        allSymmetricTypes.add(type);
-      }
     }
 
     // If no valid symmetry groups, return early
@@ -891,7 +888,7 @@ export class TLAGenerator {
       return;
     }
 
-    // Generate individual symmetry set definitions (for documentation/clarity)
+    // Generate individual symmetry set definitions
     for (let i = 0; i < validSymmetryGroups.length; i++) {
       const group = validSymmetryGroups[i];
       const setName = `SymmetrySet${i + 1}`;
@@ -899,30 +896,32 @@ export class TLAGenerator {
       this.line(`${setName} == {${setValues}}`);
     }
 
-    // TLA+ config files only support ONE SYMMETRY declaration (Issue #16)
-    // We must combine all symmetry groups into a single set
-    if (validSymmetryGroups.length > 1) {
-      this.line("");
-      this.line("\\* TLA+ limitation: Must combine all symmetry groups into single set");
-      this.line("\\* Warning: This makes ALL symmetric types interchangeable, not just within groups");
-      const combinedSetValues = Array.from(allSymmetricTypes).map((t) => `"${t}"`).join(", ");
-      this.line(`AllSymmetricMessages == {${combinedSetValues}}`);
+    this.line("");
 
-      // Store combined set for config generation
-      this.symmetrySets = ["AllSymmetricMessages"];
+    // Use union of Permutations for independent symmetry groups
+    // This is the standard approach used in Paxos, SimpleAllocator, etc.
+    if (validSymmetryGroups.length > 1) {
+      this.line("\\* Independent symmetry groups via union of permutations");
+      this.line("\\* Standard TLA+ pattern (see: Paxos, SimpleAllocator)");
+      const permutationsUnion = validSymmetryGroups
+        .map((_, i) => `Permutations(SymmetrySet${i + 1})`)
+        .join(" \\cup ");
+      this.line(`Symmetry == ${permutationsUnion}`);
 
       console.log(
-        `[WARN] [TLAGenerator] Multiple symmetry groups detected (${validSymmetryGroups.length}). ` +
-        `Combining into single set due to TLA+ limitation (Issue #16). ` +
-        `This makes all ${allSymmetricTypes.size} message types fully interchangeable.`
+        `[INFO] [TLAGenerator] Symmetry reduction: ${validSymmetryGroups.length} independent symmetry groups ` +
+        `(${validSymmetryGroups.map(g => g.length).join(", ")} message types)`
       );
     } else {
-      // Single symmetry group - use it directly
-      this.symmetrySets = ["SymmetrySet1"];
+      // Single symmetry group
+      this.line(`Symmetry == Permutations(SymmetrySet1)`);
       console.log(
         `[INFO] [TLAGenerator] Symmetry reduction: 1 symmetry group with ${validSymmetryGroups[0].length} message types`
       );
     }
+
+    // Store "Symmetry" for config generation (single identifier)
+    this.symmetrySets = ["Symmetry"];
 
     this.line("");
   }

@@ -377,14 +377,17 @@ describe("TLA+ Spec Generation", () => {
       // Should define symmetry set in spec
       expect(tla.spec).toContain('SymmetrySet1 == {"subscribe", "unsubscribe"}');
 
+      // Should use Permutations (consistent pattern)
+      expect(tla.spec).toContain('Symmetry == Permutations(SymmetrySet1)');
+
       // Should have exactly ONE SYMMETRY declaration in config
       const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);
       expect(symmetryMatches).toBeTruthy();
       expect(symmetryMatches?.length).toBe(1);
-      expect(tla.cfg).toContain("SYMMETRY SymmetrySet1");
+      expect(tla.cfg).toContain("SYMMETRY Symmetry");
     });
 
-    test("Multiple symmetry groups should NOT generate duplicate SYMMETRY keywords", async () => {
+    test("Multiple symmetry groups use union of Permutations (correct approach)", async () => {
       const projectPath = path.join(fixturesDir, "websocket-server");
       const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
@@ -415,15 +418,16 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.spec).toContain('SymmetrySet1 == {"subscribe", "unsubscribe"}');
       expect(tla.spec).toContain('SymmetrySet2 == {"result", "error"}');
 
-      // CRITICAL: Should have exactly ONE SYMMETRY declaration (not multiple)
-      // TLC rejects config files with duplicate SYMMETRY keywords
+      // Should use union of Permutations (standard TLA+ pattern)
+      expect(tla.spec).toContain('Symmetry == Permutations(SymmetrySet1) \\cup Permutations(SymmetrySet2)');
+
+      // Should have exactly ONE SYMMETRY declaration (not duplicate keywords)
       const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);
       expect(symmetryMatches).toBeTruthy();
       expect(symmetryMatches?.length).toBe(1);
 
-      // The single SYMMETRY should reference the union of all sets
-      // OR only reference one combined set
-      expect(tla.cfg).toMatch(/SYMMETRY\s+\w+/);
+      // The single SYMMETRY should reference "Symmetry"
+      expect(tla.cfg).toContain("SYMMETRY Symmetry");
     });
 
     test("Empty symmetry groups should not generate SYMMETRY declarations", async () => {
