@@ -386,6 +386,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
   /**
    * Recognize a $constraints() call and extract constraint definitions
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals
   private recognizeStateConstraint(node: Node): Array<Omit<StateConstraint, "location">> {
     if (!Node.isCallExpression(node)) {
       return [];

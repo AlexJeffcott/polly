@@ -1533,6 +1533,7 @@ export class HandlerExtractor {
   /**
    * Recognize a $constraints() call and extract constraint definitions
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals
   private recognizeStateConstraint(node: Node, filePath: string): StateConstraint[] {
     if (!Node.isCallExpression(node)) {
       return [];

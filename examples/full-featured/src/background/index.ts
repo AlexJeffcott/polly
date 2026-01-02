@@ -27,9 +27,12 @@ const settings = $sharedState<Settings>("app-settings", {
 const bookmarks = $sharedState<Bookmark[]>("bookmarks", []);
 
 // Login state tracking (for UI/persistence)
-const loginState = $sharedState<{ loggedIn: boolean; username?: string }>("login-state", {
-  loggedIn: false,
-});
+const loginState = $sharedState<{ loggedIn: boolean; username?: string }>(
+  "login-state",
+  {
+    loggedIn: false,
+  },
+);
 
 // State object for verification (code analysis detects direct assignments)
 const state = {

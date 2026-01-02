@@ -1207,7 +1207,13 @@ export class TLAGenerator {
   private generateHandlerActions(
     handlersByType: Map<string, MessageHandler[]>,
     config: VerificationConfig,
-    stateConstraints: Array<{ field: string; messageType: string; requires?: string; ensures?: string; message?: string }>
+    stateConstraints: Array<{
+      field: string;
+      messageType: string;
+      requires?: string;
+      ensures?: string;
+      message?: string;
+    }>
   ): void {
     this.line("\\* State transitions extracted from message handlers");
     this.line("");
@@ -1251,7 +1257,12 @@ export class TLAGenerator {
     messageType: string,
     handlers: MessageHandler[],
     config: VerificationConfig,
-    stateConstraints: Array<{ field: string; requires?: string; ensures?: string; message?: string }>
+    stateConstraints: Array<{
+      field: string;
+      requires?: string;
+      ensures?: string;
+      message?: string;
+    }>
   ): void {
     const actionName = this.messageTypeToActionName(messageType);
 
@@ -2283,9 +2294,11 @@ export class TLAGenerator {
 
     // Check for boolean array: [true, false] or [false, true]
     if (Array.isArray(fieldConfig)) {
-      if (fieldConfig.length === 2 &&
-          typeof fieldConfig[0] === "boolean" &&
-          typeof fieldConfig[1] === "boolean") {
+      if (
+        fieldConfig.length === 2 &&
+        typeof fieldConfig[0] === "boolean" &&
+        typeof fieldConfig[1] === "boolean"
+      ) {
         return "BOOLEAN";
       }
     }
@@ -2506,6 +2519,7 @@ export class TLAGenerator {
     }
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Config type discrimination requires multiple conditionals
   private getInitialValue(fieldConfig: FieldConfig): string {
     // Check for boolean array: [true, false]
     if (Array.isArray(fieldConfig)) {
