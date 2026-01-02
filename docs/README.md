@@ -77,6 +77,25 @@ Build system and tooling:
 - Watch mode
 - Production builds
 
+## Verification & Formal Methods
+
+### [OPTIMIZATION.md](./OPTIMIZATION.md)
+TLA+ verification optimization guide:
+- Tier 1 optimizations (zero precision loss)
+- Tier 2 optimizations (controlled approximations)
+- Message filtering and symmetry reduction
+- Per-message bounds and temporal constraints
+- Performance impact and best practices
+
+### [TLA_RESOURCES.md](./TLA_RESOURCES.md) ⭐ NEW
+Comprehensive TLA+ learning resources:
+- Official documentation and tools
+- Interactive tutorials and courses
+- Community blogs and forums
+- Symmetry reduction guides
+- Troubleshooting and FAQs
+- Related formal methods tools
+
 ## Quick Start
 
 1. **New to the project?** Start with [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -86,6 +105,7 @@ Build system and tooling:
 5. **Message passing?** Study [MESSAGING.md](./MESSAGING.md)
 6. **Error handling?** See [ERRORS.md](./ERRORS.md)
 7. **Logging?** Check [LOGGING.md](./LOGGING.md)
+8. **Verification & TLA+?** See [OPTIMIZATION.md](./OPTIMIZATION.md) and [TLA_RESOURCES.md](./TLA_RESOURCES.md)
 
 ## Key Achievements
 
