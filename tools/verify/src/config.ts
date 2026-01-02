@@ -115,3 +115,6 @@ export function defineVerification<T extends UnifiedVerificationConfig>(config: 
 
   return config;
 }
+
+// Re-export $constraints from primitives for user code
+export { $constraints } from "./primitives/index.js";
