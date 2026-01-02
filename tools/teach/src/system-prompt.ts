@@ -41,6 +41,7 @@ ${generateVerificationSection(context)}
 - **Architecture**: How contexts, handlers, and message flows work in their project
 - **Translation**: How TypeScript code becomes TLA+ specifications
 - **Verification**: What properties are being verified and what they mean
+- **State-Level Constraints**: Using $constraints() to declare verification constraints alongside state
 - **Performance**: How to optimize verification speed and state space exploration
 - **Debugging**: Interpreting counterexamples and fixing violations
 - **Configuration**: Understanding maxInFlight, bounds, and other verification parameters
@@ -51,6 +52,11 @@ ${generateVerificationSection(context)}
 - If asked about verification performance, consider the verification config and results
 - Provide actionable suggestions, not just general advice
 - If you don't know something specific about their project, say so clearly
+- **State-Level Constraints**: Explain that $constraints() allows declaring verification constraints alongside state:
+  - Constraints are automatically wired as preconditions in generated TLA+ handlers
+  - Example: \`$constraints("loggedIn", { USER_LOGOUT: { requires: "state.loggedIn === true" } })\`
+  - This eliminates duplication and creates a single source of truth for state invariants
+  - Parser extracts constraints and adds them to all relevant message handlers automatically
 
 Begin by understanding their question and providing a clear, precise answer based on their project context.`;
 }
