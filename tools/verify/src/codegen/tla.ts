@@ -1118,7 +1118,7 @@ export class TLAGenerator {
     }
 
     const handlersByType = this.groupHandlersByType(validHandlers);
-    this.generateHandlerActions(handlersByType, config);
+    this.generateHandlerActions(handlersByType, config, analysis.stateConstraints);
     this.generateStateTransitionDispatcher(handlersByType);
   }
 
@@ -1206,13 +1206,16 @@ export class TLAGenerator {
    */
   private generateHandlerActions(
     handlersByType: Map<string, MessageHandler[]>,
-    config: VerificationConfig
+    config: VerificationConfig,
+    stateConstraints: Array<{ field: string; messageType: string; requires?: string; ensures?: string; message?: string }>
   ): void {
     this.line("\\* State transitions extracted from message handlers");
     this.line("");
 
     for (const [messageType, handlers] of handlersByType.entries()) {
-      this.generateHandlerAction(messageType, handlers, config);
+      // Find state constraints for this message type
+      const constraintsForMessage = stateConstraints.filter((c) => c.messageType === messageType);
+      this.generateHandlerAction(messageType, handlers, config, constraintsForMessage);
     }
   }
 
@@ -1247,7 +1250,8 @@ export class TLAGenerator {
   private generateHandlerAction(
     messageType: string,
     handlers: MessageHandler[],
-    config: VerificationConfig
+    config: VerificationConfig,
+    stateConstraints: Array<{ field: string; requires?: string; ensures?: string; message?: string }>
   ): void {
     const actionName = this.messageTypeToActionName(messageType);
 
@@ -1259,6 +1263,28 @@ export class TLAGenerator {
     const allPreconditions = handlers.flatMap((h) => h.preconditions);
     const allAssignments = handlers.flatMap((h) => h.assignments);
     const allPostconditions = handlers.flatMap((h) => h.postconditions);
+
+    // Wire in state-level constraints as preconditions
+    for (const constraint of stateConstraints) {
+      if (constraint.requires) {
+        allPreconditions.push({
+          expression: constraint.requires,
+          message: constraint.message,
+          location: { line: 0, column: 0 },
+        });
+      }
+    }
+
+    // Wire in state-level constraints as postconditions
+    for (const constraint of stateConstraints) {
+      if (constraint.ensures) {
+        allPostconditions.push({
+          expression: constraint.ensures,
+          message: constraint.message,
+          location: { line: 0, column: 0 },
+        });
+      }
+    }
 
     // Emit preconditions
     this.emitPreconditions(allPreconditions);

@@ -3,7 +3,11 @@
 import { defineVerification } from "@fairfox/polly/verify";
 
 export default defineVerification({
-  state: {},
+  state: {
+    // Track login state for temporal constraint enforcement
+    // First value is initial state (logged out)
+    loggedIn: [false, true],
+  },
 
   messages: {
     maxInFlight: 2,

@@ -11,6 +11,7 @@
 import { getMessageBus } from "@fairfox/polly/message-bus";
 import { MessageRouter } from "@fairfox/polly/message-router";
 import { $sharedState } from "@fairfox/polly/state";
+import { $constraints } from "@fairfox/polly/verify";
 import type { AllMessages, Bookmark, Settings } from "../shared/types/messages";
 
 // Application state
@@ -24,6 +25,32 @@ const settings = $sharedState<Settings>("app-settings", {
 });
 
 const bookmarks = $sharedState<Bookmark[]>("bookmarks", []);
+
+// Login state tracking (for UI/persistence)
+const loginState = $sharedState<{ loggedIn: boolean; username?: string }>("login-state", {
+  loggedIn: false,
+});
+
+// State object for verification (code analysis detects direct assignments)
+const state = {
+  loggedIn: false,
+};
+
+// State-level constraints (declarative, automatically wired to handlers)
+$constraints("loggedIn", {
+  USER_LOGOUT: {
+    requires: "state.loggedIn === true",
+    message: "Must be logged in to logout",
+  },
+  BOOKMARK_ADD: {
+    requires: "state.loggedIn === true",
+    message: "Must be logged in to add bookmarks",
+  },
+  SETTINGS_UPDATE: {
+    requires: "state.loggedIn === true",
+    message: "Must be logged in to update settings",
+  },
+});
 
 // Type guards for storage validation
 function isSettings(value: unknown): value is Settings {
@@ -56,6 +83,10 @@ bus.on("USER_LOGIN", async (payload) => {
     user: { username, token, loginTime: Date.now() },
   });
 
+  // Update login state (for UI/persistence and verification)
+  loginState.value = { loggedIn: true, username };
+  state.loggedIn = true;
+
   return {
     success: true,
     user: { username },
@@ -63,13 +94,27 @@ bus.on("USER_LOGIN", async (payload) => {
 });
 
 bus.on("USER_LOGOUT", async () => {
+  // Precondition: must be logged in to logout
+  if (!loginState.value.loggedIn) {
+    throw new Error("Cannot logout - not logged in");
+  }
+
   await bus.adapters.storage.remove(["user"]);
+
+  // Update login state (for UI/persistence and verification)
+  loginState.value = { loggedIn: false };
+  state.loggedIn = false;
 
   return { success: true };
 });
 
 // Bookmark management
 bus.on("BOOKMARK_ADD", async (payload) => {
+  // Precondition: must be logged in to add bookmarks
+  if (!loginState.value.loggedIn) {
+    throw new Error("Cannot add bookmark - not logged in");
+  }
+
   const { url, title } = payload;
 
   const bookmark: Bookmark = {
@@ -125,6 +170,11 @@ bus.on("TAB_OPEN", async (payload) => {
 
 // Settings management
 bus.on("SETTINGS_UPDATE", async (payload) => {
+  // Precondition: must be logged in to update settings
+  if (!loginState.value.loggedIn) {
+    throw new Error("Cannot update settings - not logged in");
+  }
+
   const { type, ...updates } = payload;
   settings.value = { ...settings.value, ...updates };
 

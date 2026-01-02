@@ -17,6 +17,7 @@ import type {
   NodeDefinition,
   RoutingRule,
   StateAssignment,
+  StateConstraint,
   VerificationCondition,
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
@@ -93,6 +94,13 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       }
     }
 
+    // Extract state-level constraints
+    const stateConstraints: StateConstraint[] = [];
+    for (const sourceFile of sourceFiles) {
+      const fileConstraints = this.extractStateConstraintsFromFile(sourceFile);
+      stateConstraints.push(...fileConstraints);
+    }
+
     // Define nodes (extension contexts)
     const nodes: NodeDefinition[] = [];
     const contexts = this.config.contexts ?? [
@@ -146,6 +154,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       routingRules,
       state: {}, // Populated by user configuration
       handlers,
+      stateConstraints,
       bounds: {
         maxConcurrentMessages: this.config.maxInFlight ?? 3,
         maxNodes: nodes.length,
@@ -347,6 +356,123 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     });
 
     return handlers;
+  }
+
+  /**
+   * Extract state-level constraints from a source file
+   */
+  private extractStateConstraintsFromFile(sourceFile: SourceFile): StateConstraint[] {
+    const constraints: StateConstraint[] = [];
+    const filePath = sourceFile.getFilePath();
+
+    sourceFile.forEachDescendant((node) => {
+      const nodeConstraints = this.recognizeStateConstraint(node);
+      if (nodeConstraints.length > 0) {
+        for (const constraint of nodeConstraints) {
+          constraints.push({
+            ...constraint,
+            location: {
+              ...constraint.location,
+              file: filePath,
+            },
+          });
+        }
+      }
+    });
+
+    return constraints;
+  }
+
+  /**
+   * Recognize a $constraints() call and extract constraint definitions
+   */
+  private recognizeStateConstraint(node: Node): Array<Omit<StateConstraint, "location">> {
+    if (!Node.isCallExpression(node)) {
+      return [];
+    }
+
+    const expression = node.getExpression();
+    if (!Node.isIdentifier(expression)) {
+      return [];
+    }
+
+    const functionName = expression.getText();
+    if (functionName !== "$constraints") {
+      return [];
+    }
+
+    // Get arguments: $constraints(field, constraintsObject)
+    const args = node.getArguments();
+    if (args.length < 2) {
+      return [];
+    }
+
+    // First argument is the state field name
+    const fieldArg = args[0];
+    if (!Node.isStringLiteral(fieldArg)) {
+      return [];
+    }
+    const field = fieldArg.getLiteralValue();
+
+    // Second argument is the constraints object
+    const constraintsArg = args[1];
+    if (!Node.isObjectLiteralExpression(constraintsArg)) {
+      return [];
+    }
+
+    // Extract each message type constraint
+    const results: Omit<StateConstraint, "location">[] = [];
+    for (const property of constraintsArg.getProperties()) {
+      if (!Node.isPropertyAssignment(property)) {
+        continue;
+      }
+
+      const messageType = property.getName();
+      const initializer = property.getInitializer();
+      if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
+        continue;
+      }
+
+      // Extract requires, ensures, and message from the constraint object
+      let requires: string | undefined;
+      let ensures: string | undefined;
+      let message: string | undefined;
+
+      for (const constraintProp of initializer.getProperties()) {
+        if (!Node.isPropertyAssignment(constraintProp)) {
+          continue;
+        }
+
+        const propName = constraintProp.getName();
+        const propValue = constraintProp.getInitializer();
+        if (!propValue) {
+          continue;
+        }
+
+        if (propName === "requires" && Node.isStringLiteral(propValue)) {
+          requires = propValue.getLiteralValue();
+        } else if (propName === "ensures" && Node.isStringLiteral(propValue)) {
+          ensures = propValue.getLiteralValue();
+        } else if (propName === "message" && Node.isStringLiteral(propValue)) {
+          message = propValue.getLiteralValue();
+        }
+      }
+
+      results.push({
+        field,
+        messageType,
+        requires,
+        ensures,
+        message,
+        location: {
+          file: "", // Will be set by caller
+          line: property.getStartLineNumber(),
+        },
+      });
+    }
+
+    // Return all extracted constraints
+    return results;
   }
 
   /**

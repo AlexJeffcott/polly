@@ -88,6 +88,35 @@ export function hasLength(array: unknown[], constraint: { min?: number; max?: nu
   return true;
 }
 
+/**
+ * Declare state-level constraints for verification.
+ * Maps message types to preconditions on state fields.
+ *
+ * The parser automatically wires these constraints to handlers.
+ *
+ * @example
+ * const state = { loggedIn: false };
+ *
+ * $constraints("loggedIn", {
+ *   USER_LOGOUT: { requires: "loggedIn === true", message: "Must be logged in" },
+ *   BOOKMARK_ADD: { requires: "loggedIn === true", message: "Must be logged in" },
+ * });
+ */
+export function $constraints(
+  _stateField: string,
+  _constraints: Record<
+    string,
+    {
+      requires?: string;
+      ensures?: string;
+      message?: string;
+    }
+  >
+): void {
+  // Runtime no-op - only used during verification
+  // Parser extracts these and wires them to TLA+ handlers
+}
+
 // Re-export for convenience
 export const verify = {
   requires,
@@ -96,4 +125,5 @@ export const verify = {
   inRange,
   oneOf,
   hasLength,
+  $constraints,
 };

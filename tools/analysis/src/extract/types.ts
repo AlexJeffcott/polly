@@ -41,6 +41,7 @@ export class TypeExtractor {
       messageTypes: validMessageTypes,
       fields,
       handlers: validHandlers,
+      stateConstraints: handlerAnalysis.stateConstraints,
     };
   }
 
