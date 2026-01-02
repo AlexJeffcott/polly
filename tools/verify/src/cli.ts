@@ -490,7 +490,12 @@ async function setupDocker(): Promise<{
       console.log(color("❌ Docker is not available", COLORS.red));
       console.log();
       console.log("Please ensure Docker is installed and running:");
-      console.log(color("  • Install Docker Desktop: https://www.docker.com/products/docker-desktop", COLORS.gray));
+      console.log(
+        color(
+          "  • Install Docker Desktop: https://www.docker.com/products/docker-desktop",
+          COLORS.gray
+        )
+      );
       console.log(color("  • Make sure Docker Desktop is running", COLORS.gray));
       console.log();
       throw new Error("Docker is not available");
@@ -504,7 +509,9 @@ async function setupDocker(): Promise<{
       console.log("Try restarting Docker:");
       console.log(color("  • Quit Docker Desktop completely", COLORS.gray));
       console.log(color("  • Restart Docker Desktop", COLORS.gray));
-      console.log(color("  • Wait for Docker to fully start (check the menu bar icon)", COLORS.gray));
+      console.log(
+        color("  • Wait for Docker to fully start (check the menu bar icon)", COLORS.gray)
+      );
       console.log();
     } else if (error instanceof Error && error.message !== "Docker is not available") {
       console.log(color(`❌ Error checking Docker: ${error.message}`, COLORS.red));

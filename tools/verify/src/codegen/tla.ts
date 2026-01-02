@@ -709,7 +709,10 @@ export class TLAGenerator {
     // Debug: Log the config.messages object
     if (process.env["POLLY_DEBUG"]) {
       console.log("[DEBUG] [TLAGenerator] Full config keys:", Object.keys(config));
-      console.log("[DEBUG] [TLAGenerator] config.messages:", JSON.stringify(config.messages, null, 2));
+      console.log(
+        "[DEBUG] [TLAGenerator] config.messages:",
+        JSON.stringify(config.messages, null, 2)
+      );
       console.log("[DEBUG] [TLAGenerator] config.messages.include:", config.messages.include);
       console.log("[DEBUG] [TLAGenerator] config.messages.exclude:", config.messages.exclude);
       console.log("[DEBUG] [TLAGenerator] analysis.messageTypes:", analysis.messageTypes);
@@ -739,7 +742,10 @@ export class TLAGenerator {
 
     // Debug: Log message types before filtering
     if (process.env["POLLY_DEBUG"]) {
-      console.log(`[DEBUG] [TLAGenerator] Valid message types before filtering (${validMessageTypes.length}):`, validMessageTypes);
+      console.log(
+        `[DEBUG] [TLAGenerator] Valid message types before filtering (${validMessageTypes.length}):`,
+        validMessageTypes
+      );
     }
 
     // Apply Tier 1 Optimization: Message filtering (Issue #12)
@@ -750,8 +756,14 @@ export class TLAGenerator {
     if (process.env["POLLY_DEBUG"]) {
       console.log("[DEBUG] [TLAGenerator] Checking filter conditions:");
       console.log("[DEBUG]   - config.messages.include exists:", !!config.messages.include);
-      console.log("[DEBUG]   - config.messages.include.length:", config.messages.include?.length ?? "N/A");
-      console.log("[DEBUG]   - First condition result:", !!(config.messages.include && config.messages.include.length > 0));
+      console.log(
+        "[DEBUG]   - config.messages.include.length:",
+        config.messages.include?.length ?? "N/A"
+      );
+      console.log(
+        "[DEBUG]   - First condition result:",
+        !!(config.messages.include && config.messages.include.length > 0)
+      );
     }
 
     if (config.messages.include && config.messages.include.length > 0) {
@@ -784,12 +796,10 @@ export class TLAGenerator {
         console.log("[DEBUG]   - validMessageTypes:", validMessageTypes);
         console.log("[DEBUG]   - filteredOut:", filteredOut);
       }
-    } else {
+    } else if (process.env["POLLY_DEBUG"]) {
       // Debug: Log when no filtering is applied
-      if (process.env["POLLY_DEBUG"]) {
-        console.log("[DEBUG] [TLAGenerator] No include/exclude filtering applied");
-        console.log("[DEBUG]   - Reason: Neither include nor exclude conditions met");
-      }
+      console.log("[DEBUG] [TLAGenerator] No include/exclude filtering applied");
+      console.log("[DEBUG]   - Reason: Neither include nor exclude conditions met");
     }
 
     // Log message filtering optimization

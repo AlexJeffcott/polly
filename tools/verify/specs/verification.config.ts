@@ -42,7 +42,7 @@ export const verificationConfig = defineVerification({
 
     // TEST: Message filtering (Issue #14)
     // Only verify these specific message types
-    include: ['test_message_1', 'test_message_2', 'test_message_3'],
+    include: ["test_message_1", "test_message_2", "test_message_3"],
   },
 
   // Verification behavior
