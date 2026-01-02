@@ -43,7 +43,7 @@ export default defineVerification({
   messages: {
     // Maximum messages in flight simultaneously
     // Start with 2-3 for fast verification
-    maxInFlight: 3,
+    maxInFlight: 2,
 
     // Maximum tab IDs (todo-list is tab-agnostic)
     maxTabs: 1,

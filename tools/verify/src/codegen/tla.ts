@@ -537,7 +537,7 @@ export class TLAGenerator {
     if (this.symmetrySets.length > 1) {
       throw new Error(
         `Internal error: TLA+ config files only support ONE SYMMETRY declaration (Issue #16), ` +
-        `but ${this.symmetrySets.length} sets were prepared. This should have been handled in addSymmetrySets().`
+          `but ${this.symmetrySets.length} sets were prepared. This should have been handled in addSymmetrySets().`
       );
     }
 
@@ -572,9 +572,13 @@ export class TLAGenerator {
 
   private addConstants(config: VerificationConfig): void {
     // MessageRouter already defines: Contexts, MaxMessages, MaxTabId, TimeoutLimit
-    // We only add application-specific constants
+    // We add application-specific constants and per-message bounds constants
 
-    if (!this.hasCustomConstants(config.state)) {
+    const hasStateConstants = this.hasCustomConstants(config.state);
+    const hasPerMessageBounds =
+      config.messages.perMessageBounds && Object.keys(config.messages.perMessageBounds).length > 0;
+
+    if (!hasStateConstants && !hasPerMessageBounds) {
       return;
     }
 
@@ -582,7 +586,20 @@ export class TLAGenerator {
     this.line("CONSTANTS");
     this.indent++;
 
-    this.generateConstantDeclarations(config.state);
+    // Add state-related constants
+    if (hasStateConstants) {
+      this.generateConstantDeclarations(config.state);
+    }
+
+    // Add per-message bounds constants (Tier 1 optimization)
+    if (hasPerMessageBounds) {
+      let first = !hasStateConstants;
+      for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
+        const constName = `MaxMessages_${msgType}`;
+        this.line(`${first ? "" : ","}${constName}`);
+        first = false;
+      }
+    }
 
     this.indent--;
     this.line("");
@@ -675,13 +692,12 @@ export class TLAGenerator {
   private collectStateFields(config: VerificationConfig, _analysis: CodebaseAnalysis): string[] {
     const stateFields: string[] = [];
 
-    // Add fields from config.state
+    // Add fields from config.state (with recursive flattening for nested objects)
     for (const [fieldPath, fieldConfig] of Object.entries(config.state)) {
       if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
 
-      const fieldName = this.sanitizeFieldName(fieldPath);
-      const tlaType = this.fieldConfigToTLAType(fieldPath, fieldConfig, config);
-      stateFields.push(`${fieldName}: ${tlaType}`);
+      // Recursively collect fields from nested configurations
+      this.collectNestedFields(fieldPath, fieldConfig, config, stateFields);
     }
 
     // Add fields from analysis
@@ -696,6 +712,54 @@ export class TLAGenerator {
     }
 
     return stateFields;
+  }
+
+  /**
+   * Recursively collect fields from nested configurations, flattening nested objects
+   */
+  private collectNestedFields(
+    prefix: string,
+    fieldConfig: FieldConfig,
+    config: VerificationConfig,
+    stateFields: string[]
+  ): void {
+    // Check if this is a leaf field (has a type we can translate)
+    const tlaType = this.fieldConfigToTLAType(prefix, fieldConfig, config);
+
+    // If we got a non-default type or this config has type indicators, it's a leaf field
+    if (tlaType !== "Value" || this.hasTypeIndicators(fieldConfig)) {
+      const fieldName = this.sanitizeFieldName(prefix);
+      stateFields.push(`${fieldName}: ${tlaType}`);
+      return;
+    }
+
+    // Otherwise, it's a nested object - recurse into its properties
+    for (const [key, value] of Object.entries(fieldConfig)) {
+      if (typeof value !== "object" || value === null) continue;
+
+      // Skip special keys that aren't nested state fields
+      if (key === "item" || key === "element") {
+        // These are array element configs, not nested state
+        continue;
+      }
+
+      const nestedPath = `${prefix}_${key}`;
+      this.collectNestedFields(nestedPath, value as FieldConfig, config, stateFields);
+    }
+  }
+
+  /**
+   * Check if a field config has type indicators (not just nested structure)
+   */
+  private hasTypeIndicators(fieldConfig: FieldConfig): boolean {
+    return (
+      "type" in fieldConfig ||
+      "values" in fieldConfig ||
+      "maxLength" in fieldConfig ||
+      "min" in fieldConfig ||
+      "max" in fieldConfig ||
+      "maxSize" in fieldConfig
+    );
   }
 
   private writeStateFields(fields: string[]): void {
@@ -910,7 +974,7 @@ export class TLAGenerator {
 
       console.log(
         `[INFO] [TLAGenerator] Symmetry reduction: ${validSymmetryGroups.length} independent symmetry groups ` +
-        `(${validSymmetryGroups.map(g => g.length).join(", ")} message types)`
+          `(${validSymmetryGroups.map((g) => g.length).join(", ")} message types)`
       );
     } else {
       // Single symmetry group
@@ -969,13 +1033,12 @@ export class TLAGenerator {
   ): string[] {
     const fields: string[] = [];
 
-    // Add fields from config.state
+    // Add fields from config.state (with recursive flattening for nested objects)
     for (const [fieldPath, fieldConfig] of Object.entries(config.state)) {
       if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
 
-      const fieldName = this.sanitizeFieldName(fieldPath);
-      const initialValue = this.getInitialValue(fieldConfig);
-      fields.push(`${fieldName} |-> ${initialValue}`);
+      // Recursively collect initial values from nested configurations
+      this.collectNestedInitialValues(fieldPath, fieldConfig, fields);
     }
 
     // Add fields from analysis
@@ -990,6 +1053,36 @@ export class TLAGenerator {
     }
 
     return fields;
+  }
+
+  /**
+   * Recursively collect initial values from nested configurations
+   */
+  private collectNestedInitialValues(
+    prefix: string,
+    fieldConfig: FieldConfig,
+    fields: string[]
+  ): void {
+    // Check if this is a leaf field (has type indicators)
+    if (this.hasTypeIndicators(fieldConfig)) {
+      const fieldName = this.sanitizeFieldName(prefix);
+      const initialValue = this.getInitialValue(fieldConfig);
+      fields.push(`${fieldName} |-> ${initialValue}`);
+      return;
+    }
+
+    // Otherwise, it's a nested object - recurse into its properties
+    for (const [key, value] of Object.entries(fieldConfig)) {
+      if (typeof value !== "object" || value === null) continue;
+
+      // Skip special keys that aren't nested state fields
+      if (key === "item" || key === "element") {
+        continue;
+      }
+
+      const nestedPath = `${prefix}_${key}`;
+      this.collectNestedInitialValues(nestedPath, value as FieldConfig, fields);
+    }
   }
 
   private writeInitialStateFields(fields: string[]): void {
@@ -1274,22 +1367,17 @@ export class TLAGenerator {
       return;
     }
 
-    this.line("/\\ contextStates' = [contextStates EXCEPT");
-    this.indent++;
+    // Always use single-line format for EXCEPT clauses to avoid indentation issues
+    const assignments = validAssignments
+      .filter((a) => a && a.value !== undefined)
+      .map((assignment) => {
+        const fieldName = this.sanitizeFieldName(assignment.field);
+        const value = this.assignmentValueToTLA(assignment.value);
+        return `![ctx].${fieldName} = ${value}`;
+      })
+      .join(", ");
 
-    for (let i = 0; i < validAssignments.length; i++) {
-      const assignment = validAssignments[i];
-      if (!assignment || assignment.value === undefined) continue;
-
-      const fieldName = this.sanitizeFieldName(assignment.field);
-      const value = this.assignmentValueToTLA(assignment.value);
-      const suffix = i < validAssignments.length - 1 ? "," : "";
-
-      this.line(`![ctx].${fieldName} = ${value}${suffix}`);
-    }
-
-    this.indent--;
-    this.line("]");
+    this.line(`/\\ contextStates' = [contextStates EXCEPT ${assignments}]`);
   }
 
   /**
@@ -1828,11 +1916,31 @@ export class TLAGenerator {
       // Check if this is already a TLA+ expression (compound operator or array mutation)
       // These contain @ (current value reference) or TLA+ operators
       if (this.isTLAExpression(value)) {
-        return value; // Return as-is, already in TLA+ format
+        // Replace undefined variable references with placeholder from Value set
+        return this.sanitizeTLAExpression(value);
       }
       return `"${value}"`; // Regular string literal
     }
     return "NULL";
+  }
+
+  /**
+   * Sanitize TLA+ expressions by replacing undefined variables with placeholders
+   * Uses "v1" from our bounded Value set for abstract model checking
+   */
+  private sanitizeTLAExpression(expr: string): string {
+    // Pattern to match Append(@, identifier) where identifier is not quoted
+    const appendPattern = /Append\(@,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
+
+    return expr.replace(appendPattern, (match, varName) => {
+      // If it's already a string literal or number, keep it
+      if (/^".*"$/.test(varName) || /^\d+$/.test(varName)) {
+        return match;
+      }
+
+      // Replace with placeholder from Value set for abstract model checking
+      return 'Append(@, "v1")';
+    });
   }
 
   /**
@@ -2019,9 +2127,13 @@ export class TLAGenerator {
       this.line(
         `\\* If ${constraint.after} has been delivered, then ${constraint.before} must have been delivered`
       );
-      this.line(`(\\E m \\in DOMAIN delivered : delivered[m].type = "${constraint.after}")`);
+      this.line(
+        `(\\E i \\in 1..Len(messages) : messages[i].id \\in delivered /\\ messages[i].msgType = "${constraint.after}")`
+      );
       this.line("=>");
-      this.line(`(\\E m \\in DOMAIN delivered : delivered[m].type = "${constraint.before}")`);
+      this.line(
+        `(\\E i \\in 1..Len(messages) : messages[i].id \\in delivered /\\ messages[i].msgType = "${constraint.before}")`
+      );
       this.indent--;
       this.line("");
 
@@ -2060,7 +2172,7 @@ export class TLAGenerator {
         for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
           const constName = `MaxMessages_${msgType}`;
           this.line(
-            `/\\ Cardinality({m \\in DOMAIN messages : messages[m].type = "${msgType}"}) <= ${constName}`
+            `/\\ Cardinality({m \\in DOMAIN messages : messages[m].msgType = "${msgType}"}) <= ${constName}`
           );
         }
       }
@@ -2142,6 +2254,16 @@ export class TLAGenerator {
     if ("type" in fieldConfig && fieldConfig.type === "boolean") {
       return "BOOLEAN";
     }
+
+    // Check for boolean array: [true, false] or [false, true]
+    if (Array.isArray(fieldConfig)) {
+      if (fieldConfig.length === 2 &&
+          typeof fieldConfig[0] === "boolean" &&
+          typeof fieldConfig[1] === "boolean") {
+        return "BOOLEAN";
+      }
+    }
+
     return null;
   }
 
@@ -2359,6 +2481,17 @@ export class TLAGenerator {
   }
 
   private getInitialValue(fieldConfig: FieldConfig): string {
+    // Check for boolean array: [true, false]
+    if (Array.isArray(fieldConfig)) {
+      if (fieldConfig.length > 0 && typeof fieldConfig[0] === "boolean") {
+        return fieldConfig[0] ? "TRUE" : "FALSE";
+      }
+      // String array
+      if (fieldConfig.length > 0 && typeof fieldConfig[0] === "string") {
+        return `"${fieldConfig[0]}"`;
+      }
+    }
+
     if ("type" in fieldConfig) {
       if (fieldConfig.type === "boolean") {
         return "FALSE";

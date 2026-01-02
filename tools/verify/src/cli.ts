@@ -290,11 +290,11 @@ function getTimeout(config: UnifiedVerificationConfig): number {
     case "quick":
       return 60; // 1 minute
     case "balanced":
-      return 300; // 5 minutes
+      return 600; // 10 minutes
     case "thorough":
       return 0; // No timeout
     default:
-      return 300; // Default to balanced
+      return 600; // Default to balanced
   }
 }
 

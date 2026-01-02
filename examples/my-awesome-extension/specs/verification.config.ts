@@ -32,7 +32,7 @@ export const verificationConfig = defineVerification({
     //   • 8+: Thorough but slow (minutes)
     //
     // WARNING: State space grows exponentially! Start small.
-    maxInFlight: 3,
+    maxInFlight: 2,
 
     // Maximum tab IDs to model (content scripts are per-tab).
     //

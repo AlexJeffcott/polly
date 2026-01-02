@@ -293,12 +293,12 @@ export class ConfigGenerator {
     this.line("// Higher = more realistic concurrency, but exponentially slower.");
     this.line("//");
     this.line("// Recommended values:");
-    this.line("//   • 2-3: Fast verification (< 10 seconds)");
-    this.line("//   • 4-6: Balanced (10-60 seconds)");
-    this.line("//   • 8+: Thorough but slow (minutes)");
+    this.line("//   • 2: Fast verification (< 1 minute)");
+    this.line("//   • 3: Balanced (5-10 minutes)");
+    this.line("//   • 4+: Thorough but slow (10+ minutes)");
     this.line("//");
     this.line("// WARNING: State space grows exponentially! Start small.");
-    this.line("maxInFlight: 3,");
+    this.line("maxInFlight: 2,");
     this.line("");
 
     // Add project-specific fields

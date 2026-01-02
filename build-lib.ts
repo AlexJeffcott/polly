@@ -123,6 +123,15 @@ mkdirSync(specsDestDir, { recursive: true });
 cpSync(specsSourceDir, specsDestDir, { recursive: true });
 
 console.log("✅ Specs copied");
+console.log("🔨 Copying Dockerfile for verification tool...");
+
+// Copy Dockerfile to dist so verify CLI can build Docker image
+const dockerfileSourcePath = join("tools", "verify", "Dockerfile");
+const dockerfileDestPath = join(DIST_DIR, "tools", "verify", "Dockerfile");
+
+await Bun.write(dockerfileDestPath, await Bun.file(dockerfileSourcePath).text());
+
+console.log("✅ Dockerfile copied");
 console.log("🔨 Generating TypeScript declarations...");
 
 try {

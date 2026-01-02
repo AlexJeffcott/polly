@@ -378,7 +378,7 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.spec).toContain('SymmetrySet1 == {"subscribe", "unsubscribe"}');
 
       // Should use Permutations (consistent pattern)
-      expect(tla.spec).toContain('Symmetry == Permutations(SymmetrySet1)');
+      expect(tla.spec).toContain("Symmetry == Permutations(SymmetrySet1)");
 
       // Should have exactly ONE SYMMETRY declaration in config
       const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);
@@ -419,7 +419,9 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.spec).toContain('SymmetrySet2 == {"result", "error"}');
 
       // Should use union of Permutations (standard TLA+ pattern)
-      expect(tla.spec).toContain('Symmetry == Permutations(SymmetrySet1) \\cup Permutations(SymmetrySet2)');
+      expect(tla.spec).toContain(
+        "Symmetry == Permutations(SymmetrySet1) \\cup Permutations(SymmetrySet2)"
+      );
 
       // Should have exactly ONE SYMMETRY declaration (not duplicate keywords)
       const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);

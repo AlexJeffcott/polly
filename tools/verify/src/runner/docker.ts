@@ -11,6 +11,9 @@ export type DockerRunResult = {
 };
 
 export class DockerRunner {
+  private readonly IMAGE_NAME = "polly-tla:latest";
+  private readonly DOCKERFILE_PATH = path.join(__dirname, "../../Dockerfile");
+
   /**
    * Check if Docker is available and daemon is responsive
    * Throws an error if Docker times out (to distinguish from Docker not being installed)
@@ -38,7 +41,7 @@ export class DockerRunner {
    */
   async hasImage(): Promise<boolean> {
     try {
-      const result = await this.runCommand("docker", ["images", "-q", "talex5/tla"], {
+      const result = await this.runCommand("docker", ["images", "-q", this.IMAGE_NAME], {
         timeout: 10000, // 10 second timeout
       });
       return result.stdout.trim().length > 0;
@@ -52,15 +55,24 @@ export class DockerRunner {
   }
 
   /**
-   * Pull TLA+ image
+   * Build TLA+ image from Dockerfile
    */
-  async pullImage(onProgress?: (line: string) => void): Promise<void> {
+  async buildImage(onProgress?: (line: string) => void): Promise<void> {
+    const dockerfileDir = path.dirname(this.DOCKERFILE_PATH);
+
     await this.runCommandStreaming(
       "docker",
-      ["pull", "talex5/tla:latest"],
+      ["build", "-f", this.DOCKERFILE_PATH, "-t", this.IMAGE_NAME, dockerfileDir],
       onProgress,
-      300000 // 5 minute timeout for pulling image
+      300000 // 5 minute timeout for building image
     );
+  }
+
+  /**
+   * Pull TLA+ image (deprecated - use buildImage instead)
+   */
+  async pullImage(onProgress?: (line: string) => void): Promise<void> {
+    await this.buildImage(onProgress);
   }
 
   /**
@@ -88,16 +100,15 @@ export class DockerRunner {
     }
 
     // Run TLC in Docker
-    // Use sh -c to cd into /specs directory so TLC can find imported modules
     const args = [
       "run",
       "--rm",
       "-v",
-      `${specDir}:/specs`,
-      "talex5/tla",
-      "sh",
-      "-c",
-      `cd /specs && tlc -workers ${options?.workers || 1} ${specName}.tla`,
+      `${specDir}:/work`,
+      this.IMAGE_NAME,
+      "-workers",
+      `${options?.workers || 1}`,
+      `${specName}.tla`,
     ];
 
     const result = await this.runCommand("docker", args, {

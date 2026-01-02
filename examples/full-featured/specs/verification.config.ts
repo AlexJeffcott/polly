@@ -6,7 +6,7 @@ export default defineVerification({
   state: {},
 
   messages: {
-    maxInFlight: 3,
+    maxInFlight: 2,
     maxTabs: 1,
 
     // ═══════════════════════════════════════════════════════════
