@@ -92,10 +92,9 @@ export default defineVerification({
   messages: {
     maxInFlight: 3,
 
-    // Groups of message types where order doesn't affect properties
+    // RECOMMENDED: Single group of symmetric message types
     symmetry: [
       ['WORKER1_TASK', 'WORKER2_TASK', 'WORKER3_TASK'],
-      ['REPLICA1_SYNC', 'REPLICA2_SYNC'],
     ],
   },
 });
@@ -104,10 +103,8 @@ export default defineVerification({
 **Generated TLA+**:
 ```tla
 SymmetrySet1 == {"WORKER1_TASK", "WORKER2_TASK", "WORKER3_TASK"}
-SymmetrySet2 == {"REPLICA1_SYNC", "REPLICA2_SYNC"}
 
 SYMMETRY SymmetrySet1
-SYMMETRY SymmetrySet2
 ```
 
 **When to use**:
@@ -116,6 +113,32 @@ SYMMETRY SymmetrySet2
 - You want TLC to explore fewer equivalent states
 
 **Important**: Only group message types that are truly interchangeable. If their handlers differ in any way, don't group them.
+
+**TLA+ Limitation** (Issue [#16](https://github.com/AlexJeffcott/polly/issues/16)):
+TLA+ config files only support ONE symmetry declaration. If you specify multiple symmetry groups:
+
+```typescript
+symmetry: [
+  ['WORKER1_TASK', 'WORKER2_TASK'],
+  ['REPLICA1_SYNC', 'REPLICA2_SYNC'],
+]
+```
+
+Polly will **automatically combine them into a single set**:
+
+```tla
+\* Individual sets (for documentation)
+SymmetrySet1 == {"WORKER1_TASK", "WORKER2_TASK"}
+SymmetrySet2 == {"REPLICA1_SYNC", "REPLICA2_SYNC"}
+
+\* TLA+ limitation: Must combine all symmetry groups into single set
+\* Warning: This makes ALL symmetric types interchangeable, not just within groups
+AllSymmetricMessages == {"WORKER1_TASK", "WORKER2_TASK", "REPLICA1_SYNC", "REPLICA2_SYNC"}
+
+SYMMETRY AllSymmetricMessages
+```
+
+**Trade-off**: This makes ALL message types in ALL groups fully interchangeable (e.g., `WORKER1_TASK` ↔ `REPLICA1_SYNC`), not just within their groups. If this is not semantically correct for your application, use only one symmetry group.
 
 ---
 
@@ -339,6 +362,7 @@ export default defineVerification({
 
     // 2. Symmetry Reduction
     // (No symmetric message types in this example)
+    // Note: Only use one symmetry group due to TLA+ limitation (Issue #16)
     symmetry: [],
 
     // 3. Per-Message Bounds

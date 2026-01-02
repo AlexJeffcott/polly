@@ -523,10 +523,22 @@ export class TLAGenerator {
 
   /**
    * Add symmetry section to config for Tier 1 optimization
+   *
+   * IMPORTANT (Issue #16): TLA+ config files only support ONE SYMMETRY declaration.
+   * this.symmetrySets should only contain one element after addSymmetrySets() processes
+   * the configuration (either a single group or a combined set).
    */
   private addSymmetrySection(lines: string[], _config: VerificationConfig): void {
     if (!this.symmetrySets || this.symmetrySets.length === 0) {
       return;
+    }
+
+    // Defensive assertion: TLA+ only allows one SYMMETRY declaration
+    if (this.symmetrySets.length > 1) {
+      throw new Error(
+        `Internal error: TLA+ config files only support ONE SYMMETRY declaration (Issue #16), ` +
+        `but ${this.symmetrySets.length} sets were prepared. This should have been handled in addSymmetrySets().`
+      );
     }
 
     lines.push("");
@@ -837,11 +849,21 @@ export class TLAGenerator {
 
   /**
    * Add symmetry set definitions for Tier 1 optimization
+   *
+   * IMPORTANT: TLA+ config files only support ONE SYMMETRY declaration (Issue #16).
+   * If multiple symmetry groups are provided, we combine them into a single union set.
+   *
+   * Note: This changes semantics - all message types become fully interchangeable,
+   * not just within their groups. This is a limitation of TLA+ config file syntax.
    */
   private addSymmetrySets(symmetryGroups: string[][], validMessageTypes: string[]): void {
     const validTypes = new Set(validMessageTypes);
 
     this.line("\\* Symmetry sets for state space reduction (Tier 1 optimization)");
+
+    // Collect all valid symmetry groups
+    const validSymmetryGroups: string[][] = [];
+    const allSymmetricTypes: Set<string> = new Set();
 
     for (let i = 0; i < symmetryGroups.length; i++) {
       const group = symmetryGroups[i];
@@ -858,20 +880,47 @@ export class TLAGenerator {
         continue;
       }
 
-      const setName = `SymmetrySet${i + 1}`;
-      const setValues = validGroupTypes.map((t) => `"${t}"`).join(", ");
-      this.line(`${setName} == {${setValues}}`);
-
-      // Store for config generation
-      if (!this.symmetrySets) {
-        this.symmetrySets = [];
+      validSymmetryGroups.push(validGroupTypes);
+      for (const type of validGroupTypes) {
+        allSymmetricTypes.add(type);
       }
-      this.symmetrySets.push(setName);
     }
 
-    if (this.symmetrySets && this.symmetrySets.length > 0) {
+    // If no valid symmetry groups, return early
+    if (validSymmetryGroups.length === 0) {
+      return;
+    }
+
+    // Generate individual symmetry set definitions (for documentation/clarity)
+    for (let i = 0; i < validSymmetryGroups.length; i++) {
+      const group = validSymmetryGroups[i];
+      const setName = `SymmetrySet${i + 1}`;
+      const setValues = group.map((t) => `"${t}"`).join(", ");
+      this.line(`${setName} == {${setValues}}`);
+    }
+
+    // TLA+ config files only support ONE SYMMETRY declaration (Issue #16)
+    // We must combine all symmetry groups into a single set
+    if (validSymmetryGroups.length > 1) {
+      this.line("");
+      this.line("\\* TLA+ limitation: Must combine all symmetry groups into single set");
+      this.line("\\* Warning: This makes ALL symmetric types interchangeable, not just within groups");
+      const combinedSetValues = Array.from(allSymmetricTypes).map((t) => `"${t}"`).join(", ");
+      this.line(`AllSymmetricMessages == {${combinedSetValues}}`);
+
+      // Store combined set for config generation
+      this.symmetrySets = ["AllSymmetricMessages"];
+
       console.log(
-        `[INFO] [TLAGenerator] Symmetry reduction: ${this.symmetrySets.length} symmetry group(s) defined`
+        `[WARN] [TLAGenerator] Multiple symmetry groups detected (${validSymmetryGroups.length}). ` +
+        `Combining into single set due to TLA+ limitation (Issue #16). ` +
+        `This makes all ${allSymmetricTypes.size} message types fully interchangeable.`
+      );
+    } else {
+      // Single symmetry group - use it directly
+      this.symmetrySets = ["SymmetrySet1"];
+      console.log(
+        `[INFO] [TLAGenerator] Symmetry reduction: 1 symmetry group with ${validSymmetryGroups[0].length} message types`
       );
     }
 

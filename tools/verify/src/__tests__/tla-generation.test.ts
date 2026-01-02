@@ -347,4 +347,168 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.cfg).toMatch(/MaxMessages\s*=\s*5/);
     }
   });
+
+  // Issue #16: Tests for symmetry group handling
+  describe("Symmetry groups (Issue #16)", () => {
+    test("Single symmetry group generates correct TLA+", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add some test message types
+      analysis.messageTypes = ["subscribe", "unsubscribe", "query", "result"];
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 1,
+          symmetry: [["subscribe", "unsubscribe"]],
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should define symmetry set in spec
+      expect(tla.spec).toContain('SymmetrySet1 == {"subscribe", "unsubscribe"}');
+
+      // Should have exactly ONE SYMMETRY declaration in config
+      const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);
+      expect(symmetryMatches).toBeTruthy();
+      expect(symmetryMatches?.length).toBe(1);
+      expect(tla.cfg).toContain("SYMMETRY SymmetrySet1");
+    });
+
+    test("Multiple symmetry groups should NOT generate duplicate SYMMETRY keywords", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add test message types
+      analysis.messageTypes = ["subscribe", "unsubscribe", "result", "error"];
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 1,
+          symmetry: [
+            ["subscribe", "unsubscribe"],
+            ["result", "error"],
+          ],
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should define both symmetry sets in spec
+      expect(tla.spec).toContain('SymmetrySet1 == {"subscribe", "unsubscribe"}');
+      expect(tla.spec).toContain('SymmetrySet2 == {"result", "error"}');
+
+      // CRITICAL: Should have exactly ONE SYMMETRY declaration (not multiple)
+      // TLC rejects config files with duplicate SYMMETRY keywords
+      const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);
+      expect(symmetryMatches).toBeTruthy();
+      expect(symmetryMatches?.length).toBe(1);
+
+      // The single SYMMETRY should reference the union of all sets
+      // OR only reference one combined set
+      expect(tla.cfg).toMatch(/SYMMETRY\s+\w+/);
+    });
+
+    test("Empty symmetry groups should not generate SYMMETRY declarations", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 1,
+          symmetry: [],
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should NOT have SYMMETRY in config
+      expect(tla.cfg).not.toMatch(/^SYMMETRY\s+/m);
+    });
+
+    test("Symmetry groups with invalid message types are filtered out", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add test message types
+      analysis.messageTypes = ["subscribe", "unsubscribe"];
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 1,
+          // Include a non-existent message type
+          symmetry: [["subscribe", "unsubscribe", "nonexistent"]],
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should only include valid message types
+      expect(tla.spec).toContain('SymmetrySet1 == {"subscribe", "unsubscribe"}');
+      expect(tla.spec).not.toContain('"nonexistent"');
+    });
+
+    test("Symmetry groups with less than 2 valid types are skipped", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add test message types
+      analysis.messageTypes = ["subscribe"];
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 1,
+          // Only one valid type in the group
+          symmetry: [["subscribe"]],
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should NOT generate symmetry set (need at least 2 types)
+      expect(tla.spec).not.toContain("SymmetrySet1");
+      expect(tla.cfg).not.toMatch(/^SYMMETRY\s+/m);
+    });
+  });
 });
