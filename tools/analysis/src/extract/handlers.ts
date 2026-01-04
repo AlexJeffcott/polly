@@ -48,6 +48,7 @@ export class HandlerExtractor {
   private project: Project;
   private typeGuardCache: WeakMap<SourceFile, Map<string, string>>;
   private relationshipExtractor: RelationshipExtractor;
+  private analyzedFiles: Set<string>; // Track files we've already analyzed
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
@@ -55,10 +56,16 @@ export class HandlerExtractor {
     });
     this.typeGuardCache = new WeakMap();
     this.relationshipExtractor = new RelationshipExtractor();
+    this.analyzedFiles = new Set<string>();
   }
 
   /**
    * Extract all message handlers from the codebase
+   *
+   * Uses transitive import following to discover all reachable code:
+   * 1. Start with all source files from tsconfig
+   * 2. Follow imports recursively
+   * 3. Cache analyzed files to avoid re-processing
    */
   extractHandlers(): HandlerAnalysis {
     const handlers: MessageHandler[] = [];
@@ -66,27 +73,112 @@ export class HandlerExtractor {
     const invalidMessageTypes = new Set<string>();
     const stateConstraints: StateConstraint[] = [];
 
-    // Find all source files
-    const sourceFiles = this.project.getSourceFiles();
-    this.debugLogSourceFiles(sourceFiles);
+    // Find all source files from tsconfig as entry points
+    const entryPoints = this.project.getSourceFiles();
+    this.debugLogSourceFiles(entryPoints);
 
-    for (const sourceFile of sourceFiles) {
-      const fileHandlers = this.extractFromFile(sourceFile);
-      handlers.push(...fileHandlers);
-      this.categorizeHandlerMessageTypes(fileHandlers, messageTypes, invalidMessageTypes);
-
-      // Extract state constraints from this file
-      const fileConstraints = this.extractStateConstraintsFromFile(sourceFile);
-      stateConstraints.push(...fileConstraints);
+    // Analyze each entry point and follow its imports transitively
+    for (const entryPoint of entryPoints) {
+      this.analyzeFileAndImports(
+        entryPoint,
+        handlers,
+        messageTypes,
+        invalidMessageTypes,
+        stateConstraints
+      );
     }
 
     this.debugLogExtractionResults(handlers.length, invalidMessageTypes.size);
+    this.debugLogAnalysisStats(entryPoints.length);
 
     return {
       handlers,
       messageTypes,
       stateConstraints,
     };
+  }
+
+  /**
+   * Analyze a file and recursively follow its imports
+   *
+   * This implements the Knip pattern: follow imports transitively
+   * to discover all reachable code, including files outside src/
+   * that are imported from analyzed files.
+   */
+  private analyzeFileAndImports(
+    sourceFile: SourceFile,
+    handlers: MessageHandler[],
+    messageTypes: Set<string>,
+    invalidMessageTypes: Set<string>,
+    stateConstraints: StateConstraint[]
+  ): void {
+    const filePath = sourceFile.getFilePath();
+
+    // Skip if already analyzed
+    if (this.analyzedFiles.has(filePath)) {
+      return;
+    }
+
+    // Mark as analyzed
+    this.analyzedFiles.add(filePath);
+
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(`[DEBUG] Analyzing: ${filePath}`);
+    }
+
+    // Extract handlers from this file
+    const fileHandlers = this.extractFromFile(sourceFile);
+    handlers.push(...fileHandlers);
+    this.categorizeHandlerMessageTypes(fileHandlers, messageTypes, invalidMessageTypes);
+
+    // Extract state constraints from this file
+    const fileConstraints = this.extractStateConstraintsFromFile(sourceFile);
+    stateConstraints.push(...fileConstraints);
+
+    // Follow imports to discover more files
+    const importDeclarations = sourceFile.getImportDeclarations();
+    for (const importDecl of importDeclarations) {
+      const importedFile = importDecl.getModuleSpecifierSourceFile();
+
+      if (importedFile) {
+        // Recursively analyze imported file
+        this.analyzeFileAndImports(
+          importedFile,
+          handlers,
+          messageTypes,
+          invalidMessageTypes,
+          stateConstraints
+        );
+      } else if (process.env["POLLY_DEBUG"]) {
+        // Log unresolved imports for debugging
+        const specifier = importDecl.getModuleSpecifierValue();
+        if (!specifier.startsWith("node:") && !this.isNodeModuleImport(specifier)) {
+          console.log(
+            `[DEBUG] Could not resolve import: ${specifier} in ${filePath}`
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if an import specifier is a node_modules import
+   */
+  private isNodeModuleImport(specifier: string): boolean {
+    // Relative imports start with . or ..
+    // Absolute/node_modules imports don't
+    return !specifier.startsWith(".") && !specifier.startsWith("/");
+  }
+
+  private debugLogAnalysisStats(entryPointCount: number): void {
+    if (!process.env["POLLY_DEBUG"]) return;
+
+    console.log(`[DEBUG] Analysis Statistics:`);
+    console.log(`[DEBUG]   Entry points: ${entryPointCount}`);
+    console.log(`[DEBUG]   Files analyzed (including imports): ${this.analyzedFiles.size}`);
+    console.log(
+      `[DEBUG]   Additional files discovered: ${this.analyzedFiles.size - entryPointCount}`
+    );
   }
 
   private debugLogSourceFiles(sourceFiles: SourceFile[]): void {
