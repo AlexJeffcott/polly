@@ -57,6 +57,10 @@ ${generateVerificationSection(context)}
   - Example: \`$constraints("loggedIn", { USER_LOGOUT: { requires: "state.loggedIn === true" } })\`
   - This eliminates duplication and creates a single source of truth for state invariants
   - Parser extracts constraints and adds them to all relevant message handlers automatically
+  - **File Organization**: Constraints can be organized in separate files (e.g., specs/constraints.ts)
+  - **Transitive Discovery**: The analyzer uses transitive import following to discover constraints
+  - Files outside src/ are automatically found if imported from handler files
+  - This enables clean separation of verification code from runtime code
 
 Begin by understanding their question and providing a clear, precise answer based on their project context.`;
 }
@@ -216,6 +220,10 @@ to reduce verification time while maintaining or improving verification precisio
 **IMPORTANT**: All Tier 1 and Tier 2 optimization features described below are fully implemented
 and available in the current version of Polly. You can recommend any of these optimizations with
 confidence that they will work when users apply them to their configuration.
+
+**Code Organization**: The analyzer uses transitive import following to discover all reachable code.
+Constraints and type guards can be organized in separate files (e.g., specs/constraints.ts) and will
+be automatically discovered via imports. Files outside src/ are fully supported.
 
 # Communication Style
 
