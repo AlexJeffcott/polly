@@ -153,9 +153,7 @@ export class HandlerExtractor {
         // Log unresolved imports for debugging
         const specifier = importDecl.getModuleSpecifierValue();
         if (!specifier.startsWith("node:") && !this.isNodeModuleImport(specifier)) {
-          console.log(
-            `[DEBUG] Could not resolve import: ${specifier} in ${filePath}`
-          );
+          console.log(`[DEBUG] Could not resolve import: ${specifier} in ${filePath}`);
         }
       }
     }

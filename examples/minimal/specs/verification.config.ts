@@ -17,7 +17,10 @@
 import { defineVerification } from "@fairfox/polly/verify";
 
 export const verificationConfig = defineVerification({
-  state: {},
+  state: {
+    // User activity state (see specs/constraints.ts for related constraints)
+    "user.active": { type: "boolean" },
+  },
 
   messages: {
     // Maximum messages in flight simultaneously across all contexts.

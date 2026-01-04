@@ -1,6 +1,8 @@
 // Background script - runs when extension loads
 import { createBackground } from "@fairfox/polly/background";
 import type { ExtensionMessage } from "@fairfox/polly/types";
+// Import verification constraints from specs/ directory
+import "../../specs/constraints.js";
 
 // Define custom message types
 type CustomMessages = { type: "PING" };

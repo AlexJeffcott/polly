@@ -11,8 +11,9 @@
 import { getMessageBus } from "@fairfox/polly/message-bus";
 import { MessageRouter } from "@fairfox/polly/message-router";
 import { $sharedState } from "@fairfox/polly/state";
-import { $constraints } from "@fairfox/polly/verify";
 import type { AllMessages, Bookmark, Settings } from "../shared/types/messages";
+// Import verification constraints (discovered via transitive import following)
+import "../../specs/constraints.js";
 
 // Application state
 const settings = $sharedState<Settings>("app-settings", {
@@ -39,21 +40,8 @@ const state = {
   loggedIn: false,
 };
 
-// State-level constraints (declarative, automatically wired to handlers)
-$constraints("loggedIn", {
-  USER_LOGOUT: {
-    requires: "state.loggedIn === true",
-    message: "Must be logged in to logout",
-  },
-  BOOKMARK_ADD: {
-    requires: "state.loggedIn === true",
-    message: "Must be logged in to add bookmarks",
-  },
-  SETTINGS_UPDATE: {
-    requires: "state.loggedIn === true",
-    message: "Must be logged in to update settings",
-  },
-});
+// Note: State-level constraints are defined in specs/constraints.ts
+// They're automatically discovered via transitive import following
 
 // Type guards for storage validation
 function isSettings(value: unknown): value is Settings {
