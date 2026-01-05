@@ -49,6 +49,7 @@ export class HandlerExtractor {
   private typeGuardCache: WeakMap<SourceFile, Map<string, string>>;
   private relationshipExtractor: RelationshipExtractor;
   private analyzedFiles: Set<string>; // Track files we've already analyzed
+  private packageRoot: string; // Package directory (contains package.json)
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
@@ -57,14 +58,42 @@ export class HandlerExtractor {
     this.typeGuardCache = new WeakMap();
     this.relationshipExtractor = new RelationshipExtractor();
     this.analyzedFiles = new Set<string>();
+    // Find package root by looking for package.json from tsconfig location
+    this.packageRoot = this.findPackageRoot(tsConfigPath);
+  }
+
+  /**
+   * Find the nearest package.json directory from tsconfig location
+   * This defines the package boundary - we only analyze files within this package
+   */
+  private findPackageRoot(tsConfigPath: string): string {
+    let dir = tsConfigPath.substring(0, tsConfigPath.lastIndexOf("/"));
+    // Walk up until we find package.json
+    while (dir.length > 1) {
+      try {
+        const packageJsonPath = `${dir}/package.json`;
+        const file = Bun.file(packageJsonPath);
+        if (file.size > 0) {
+          // Found package.json
+          return dir;
+        }
+      } catch {
+        // Keep looking
+      }
+      const parentDir = dir.substring(0, dir.lastIndexOf("/"));
+      if (parentDir === dir) break; // Reached root
+      dir = parentDir;
+    }
+    // Fallback: use tsconfig directory
+    return tsConfigPath.substring(0, tsConfigPath.lastIndexOf("/"));
   }
 
   /**
    * Extract all message handlers from the codebase
    *
    * Uses transitive import following to discover all reachable code:
-   * 1. Start with all source files from tsconfig
-   * 2. Follow imports recursively
+   * 1. Start with source files from tsconfig that are within the package
+   * 2. Follow imports recursively (within package boundary)
    * 3. Cache analyzed files to avoid re-processing
    */
   extractHandlers(): HandlerAnalysis {
@@ -73,9 +102,12 @@ export class HandlerExtractor {
     const invalidMessageTypes = new Set<string>();
     const stateConstraints: StateConstraint[] = [];
 
-    // Find all source files from tsconfig as entry points
-    const entryPoints = this.project.getSourceFiles();
-    this.debugLogSourceFiles(entryPoints);
+    // Find all source files from tsconfig as potential entry points
+    const allSourceFiles = this.project.getSourceFiles();
+    // Filter to only files within the package boundary
+    const entryPoints = allSourceFiles.filter((f) => this.isWithinPackage(f.getFilePath()));
+
+    this.debugLogSourceFiles(allSourceFiles, entryPoints);
 
     // Analyze each entry point and follow its imports transitively
     for (const entryPoint of entryPoints) {
@@ -89,7 +121,7 @@ export class HandlerExtractor {
     }
 
     this.debugLogExtractionResults(handlers.length, invalidMessageTypes.size);
-    this.debugLogAnalysisStats(entryPoints.length);
+    this.debugLogAnalysisStats(allSourceFiles.length, entryPoints.length);
 
     return {
       handlers,
@@ -105,6 +137,7 @@ export class HandlerExtractor {
    * to discover all reachable code, including files outside src/
    * that are imported from analyzed files.
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Import following requires conditional logic for package boundaries, caching, and recursion
   private analyzeFileAndImports(
     sourceFile: SourceFile,
     handlers: MessageHandler[],
@@ -135,12 +168,27 @@ export class HandlerExtractor {
     const fileConstraints = this.extractStateConstraintsFromFile(sourceFile);
     stateConstraints.push(...fileConstraints);
 
-    // Follow imports to discover more files
+    // Follow imports to discover more files (within package boundary only)
     const importDeclarations = sourceFile.getImportDeclarations();
     for (const importDecl of importDeclarations) {
       const importedFile = importDecl.getModuleSpecifierSourceFile();
 
       if (importedFile) {
+        const importedPath = importedFile.getFilePath();
+
+        // Only follow imports within the same package
+        // This excludes:
+        // - node_modules (other packages)
+        // - Framework code in monorepo parent (other packages)
+        // But includes:
+        // - All files in this package (src/, specs/, tests/, etc.)
+        if (!this.isWithinPackage(importedPath)) {
+          if (process.env["POLLY_DEBUG"]) {
+            console.log(`[DEBUG] Skipping external import: ${importedPath}`);
+          }
+          continue;
+        }
+
         // Recursively analyze imported file
         this.analyzeFileAndImports(
           importedFile,
@@ -160,6 +208,21 @@ export class HandlerExtractor {
   }
 
   /**
+   * Check if a file path is within the package boundary
+   */
+  private isWithinPackage(filePath: string): boolean {
+    // Must be under package root
+    if (!filePath.startsWith(this.packageRoot)) {
+      return false;
+    }
+    // Must not be in node_modules
+    if (filePath.includes("/node_modules/")) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Check if an import specifier is a node_modules import
    */
   private isNodeModuleImport(specifier: string): boolean {
@@ -168,23 +231,26 @@ export class HandlerExtractor {
     return !specifier.startsWith(".") && !specifier.startsWith("/");
   }
 
-  private debugLogAnalysisStats(entryPointCount: number): void {
+  private debugLogAnalysisStats(totalSourceFiles: number, entryPointCount: number): void {
     if (!process.env["POLLY_DEBUG"]) return;
 
     console.log(`[DEBUG] Analysis Statistics:`);
-    console.log(`[DEBUG]   Entry points: ${entryPointCount}`);
+    console.log(`[DEBUG]   Package root: ${this.packageRoot}`);
+    console.log(`[DEBUG]   Source files from tsconfig: ${totalSourceFiles}`);
+    console.log(`[DEBUG]   Entry points (in package): ${entryPointCount}`);
     console.log(`[DEBUG]   Files analyzed (including imports): ${this.analyzedFiles.size}`);
     console.log(
       `[DEBUG]   Additional files discovered: ${this.analyzedFiles.size - entryPointCount}`
     );
   }
 
-  private debugLogSourceFiles(sourceFiles: SourceFile[]): void {
+  private debugLogSourceFiles(allSourceFiles: SourceFile[], entryPoints: SourceFile[]): void {
     if (!process.env["POLLY_DEBUG"]) return;
 
-    console.log(`[DEBUG] Loaded ${sourceFiles.length} source files`);
-    if (sourceFiles.length <= 20) {
-      for (const sf of sourceFiles) {
+    console.log(`[DEBUG] Loaded ${allSourceFiles.length} source files from tsconfig`);
+    console.log(`[DEBUG] Filtered to ${entryPoints.length} entry points within package`);
+    if (entryPoints.length <= 20) {
+      for (const sf of entryPoints) {
         console.log(`[DEBUG]   - ${sf.getFilePath()}`);
       }
     }
