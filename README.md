@@ -343,6 +343,192 @@ test('user profile updates', async ({ page, extensionId }) => {
 })
 ```
 
+### Full-Stack SPAs with Elysia (Bun)
+
+Polly provides first-class support for building full-stack web applications with Elysia and Bun, treating your SPA as a distributed system.
+
+**Why?** Modern SPAs are distributed systems facing classic distributed computing problems: network unreliability, eventual consistency, offline behavior, cache invalidation, and the CAP theorem. The Elysia integration makes these concerns explicit and verifiable.
+
+#### Server: Add Polly Middleware
+
+```typescript
+// server/index.ts
+import { Elysia, t } from 'elysia'
+import { polly } from '@fairfox/polly/elysia'
+import { $syncedState, $serverState } from '@fairfox/polly'
+
+const app = new Elysia()
+  .use(polly({
+    // Define shared state
+    state: {
+      client: {
+        todos: $syncedState('todos', []),
+        user: $syncedState('user', null),
+      },
+      server: {
+        db: $serverState('db', database),
+      },
+    },
+
+    // Define client-side effects (what happens after server operations)
+    effects: {
+      'POST /todos': {
+        client: ({ result, state }) => {
+          // Update client state with new todo
+          state.client.todos.value = [...state.client.todos.value, result]
+        },
+        broadcast: true,  // Notify all connected clients
+      },
+      'PATCH /todos/:id': {
+        client: ({ result, state }) => {
+          // Update specific todo in client state
+          state.client.todos.value = state.client.todos.value.map(t =>
+            t.id === result.id ? result : t
+          )
+        },
+        broadcast: true,
+      },
+      'DELETE /todos/:id': {
+        client: ({ params, state }) => {
+          // Remove todo from client state
+          state.client.todos.value = state.client.todos.value.filter(
+            t => t.id !== Number(params.id)
+          )
+        },
+        broadcast: true,
+      },
+    },
+
+    // Define authorization rules
+    authorization: {
+      'POST /todos': ({ state }) => state.client.user.value !== null,
+      'PATCH /todos/:id': ({ state }) => state.client.user.value !== null,
+      'DELETE /todos/:id': ({ state }) => state.client.user.value !== null,
+    },
+
+    // Configure offline behavior
+    offline: {
+      'POST /todos': {
+        queue: true,  // Queue when offline
+        optimistic: (body) => ({
+          id: -Date.now(),  // Temporary ID
+          text: body.text,
+          completed: false,
+        }),
+      },
+    },
+
+    // Enable TLA+ generation for verification
+    tlaGeneration: true,
+  }))
+
+  // Write normal Elysia routes (no Polly annotations!)
+  .post('/todos', async ({ body, pollyState }) => {
+    const todo = await pollyState.server.db.value.todos.create(body)
+    return todo
+  }, {
+    body: t.Object({ text: t.String() })
+  })
+
+  .listen(3000)
+```
+
+#### Client: Use Eden with Polly Wrapper
+
+```typescript
+// client/api.ts
+import { createPollyClient } from '@fairfox/polly/client'
+import { $syncedState } from '@fairfox/polly'
+import type { app } from '../server'  // Import server type!
+
+// Define client state
+export const clientState = {
+  todos: $syncedState('todos', []),
+  user: $syncedState('user', null),
+}
+
+// Create type-safe API client (types inferred from server!)
+export const api = createPollyClient<typeof app>('http://localhost:3000', {
+  state: clientState,
+  websocket: true,  // Enable real-time updates
+})
+```
+
+```typescript
+// client/components/TodoList.tsx
+import { useSignal } from '@preact/signals'
+import { api, clientState } from '../api'
+
+export function TodoList() {
+  const newTodo = useSignal('')
+
+  async function handleAdd() {
+    // Automatically handles:
+    // - Optimistic update if offline
+    // - Queue for retry
+    // - Execute client effect on success
+    // - Broadcast to other clients
+    await api.todos.post({ text: newTodo.value })
+    newTodo.value = ''
+  }
+
+  return (
+    <div>
+      {/* Connection status */}
+      <div>Status: {api.$polly.state.isOnline.value ? '🟢 Online' : '🔴 Offline'}</div>
+
+      {/* Queued requests indicator */}
+      {api.$polly.state.queuedRequests.value.length > 0 && (
+        <div>{api.$polly.state.queuedRequests.value.length} requests queued</div>
+      )}
+
+      {/* Todo list (automatically updates from state) */}
+      <ul>
+        {clientState.todos.value.map(todo => (
+          <li key={todo.id}>
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => api.todos[todo.id].patch({ completed: !todo.completed })}
+            />
+            <span>{todo.text}</span>
+            <button onClick={() => api.todos[todo.id].delete()}>Delete</button>
+          </li>
+        ))}
+      </ul>
+
+      {/* Add new todo */}
+      <input
+        value={newTodo.value}
+        onInput={(e) => newTodo.value = e.currentTarget.value}
+        placeholder="What needs to be done?"
+      />
+      <button onClick={handleAdd}>Add</button>
+    </div>
+  )
+}
+```
+
+#### Key Benefits
+
+1. **Zero Type Duplication** - Eden infers client types from Elysia routes automatically
+2. **Distributed Systems Semantics** - Explicit offline, authorization, and effects configuration
+3. **Production-Ready** - Middleware is pass-through in production (minimal overhead)
+4. **Real-Time Updates** - WebSocket broadcast keeps all clients in sync
+5. **Formal Verification** - Generate TLA+ specs from middleware config to verify distributed properties
+
+#### Production vs Development
+
+**Development Mode:**
+- Middleware adds metadata to responses for hot-reload and debugging
+- Client effects serialized from server for live updates
+- TLA+ generation enabled for verification
+
+**Production Mode:**
+- Middleware is minimal (authorization + broadcast only)
+- Client effects are bundled at build time
+- Zero serialization overhead
+
 ## Core Concepts
 
 ### State Primitives

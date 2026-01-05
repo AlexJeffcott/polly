@@ -288,13 +288,13 @@ function getTimeout(config: UnifiedVerificationConfig): number {
   const preset = config.preset || "balanced";
   switch (preset) {
     case "quick":
-      return 60; // 1 minute
+      return 300; // 5 minutes
     case "balanced":
-      return 600; // 10 minutes
+      return 900; // 15 minutes
     case "thorough":
       return 0; // No timeout
     default:
-      return 600; // Default to balanced
+      return 900; // Default to balanced
   }
 }
 

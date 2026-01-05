@@ -45,6 +45,7 @@ ${generateVerificationSection(context)}
 - **Performance**: How to optimize verification speed and state space exploration
 - **Debugging**: Interpreting counterexamples and fixing violations
 - **Configuration**: Understanding maxInFlight, bounds, and other verification parameters
+- **Elysia Integration**: Using Polly with Elysia/Bun servers for full-stack distributed systems verification
 
 # Important Notes
 
@@ -61,6 +62,145 @@ ${generateVerificationSection(context)}
   - **Transitive Discovery**: The analyzer uses transitive import following to discover constraints
   - Files outside src/ are automatically found if imported from handler files
   - This enables clean separation of verification code from runtime code
+
+# Elysia/Bun Integration
+
+Polly now provides first-class support for Elysia (Bun-first web framework) with Eden type-safe client generation:
+
+## Server-Side Middleware (\`@fairfox/polly/elysia\`)
+
+The \`polly()\` middleware adds distributed systems semantics to Elysia apps:
+
+**Key Features:**
+- **State Management**: Define client and server state signals
+- **Client Effects**: Specify what should happen on the client after server operations
+- **Authorization**: Route-level authorization rules
+- **Offline Behavior**: Configure optimistic updates and queueing
+- **WebSocket Broadcast**: Real-time updates to connected clients
+- **TLA+ Generation**: Automatic formal specification generation from routes + config
+
+**Example:**
+\`\`\`typescript
+import { Elysia, t } from 'elysia';
+import { polly } from '@fairfox/polly/elysia';
+import { $syncedState, $serverState } from '@fairfox/polly';
+
+const app = new Elysia()
+  .use(polly({
+    state: {
+      client: {
+        todos: $syncedState('todos', []),
+        user: $syncedState('user', null),
+      },
+      server: {
+        db: $serverState('db', db),
+      },
+    },
+    effects: {
+      'POST /todos': {
+        client: ({ result, state }) => {
+          state.client.todos.value = [...state.client.todos.value, result];
+        },
+        broadcast: true,  // Send to all connected clients
+      },
+    },
+    authorization: {
+      'POST /todos': ({ state }) => state.client.user.value !== null,
+    },
+    offline: {
+      'POST /todos': {
+        queue: true,
+        optimistic: (body) => ({ id: -Date.now(), ...body }),
+      },
+    },
+  }))
+  .post('/todos', handler, { body: t.Object({ text: t.String() }) });
+\`\`\`
+
+**Route Pattern Matching:**
+- Exact: \`'POST /todos'\`
+- Params: \`'GET /todos/:id'\`
+- Wildcard: \`'/todos/*'\`
+
+**Production Behavior:**
+- In development: Adds metadata to responses for hot-reload and debugging
+- In production: Pass-through (minimal overhead) - client effects are bundled at build time
+- Authorization and broadcasts work in both modes
+
+## Client-Side Wrapper (\`@fairfox/polly/client\`)
+
+Enhances Eden treaty client with Polly features:
+
+**Example:**
+\`\`\`typescript
+import { createPollyClient } from '@fairfox/polly/client';
+import { $syncedState } from '@fairfox/polly';
+import type { app } from './server';
+
+const clientState = {
+  todos: $syncedState('todos', []),
+  user: $syncedState('user', null),
+};
+
+export const api = createPollyClient<typeof app>('http://localhost:3000', {
+  state: clientState,
+  websocket: true,  // Enable real-time updates
+});
+
+// Use it (types are automatically inferred from server!)
+await api.todos.post({ text: 'Buy milk' });
+
+// Access Polly features
+console.log(api.$polly.state.isOnline.value);        // true/false
+console.log(api.$polly.state.queuedRequests.value);  // Queued requests
+api.$polly.sync();  // Manually sync queued requests
+\`\`\`
+
+**Key Features:**
+- Offline queueing with automatic retry
+- WebSocket connection for real-time updates
+- Lamport clock synchronization
+- Type inference from server via Eden
+
+## Why This Matters for Distributed Systems
+
+SPAs/PWAs are distributed systems facing classic problems:
+- **CAP theorem**: Must choose consistency vs availability during partitions
+- **Network unreliability**: The first fallacy of distributed computing
+- **Cache invalidation**: "One of the two hard things in computer science"
+- **Eventual consistency**: State sync across client/server
+- **Conflict resolution**: When multiple devices edit offline
+
+The Elysia integration addresses this by:
+1. Making distributed concerns explicit (offline, authorization, effects)
+2. Leveraging Eden for zero-duplication type safety
+3. Supporting verification via TLA+ generation from middleware config
+4. Providing WebSocket broadcast for real-time consistency
+
+## Architecture Pattern
+
+\`\`\`
+Browser (Client)
+  ├── Eden Treaty Client (types from Elysia)
+  ├── Polly Wrapper (offline, sync, WebSocket)
+  └── Client State ($syncedState)
+        │
+        │ HTTP / WebSocket
+        │
+Server (Elysia + Bun)
+  ├── Elysia Routes (normal routes)
+  ├── Polly Middleware (effects, auth, broadcast)
+  └── Server State ($serverState)
+\`\`\`
+
+## Best Practices
+
+1. **Separate Elysia is the contract** - Don't define types twice. Elysia routes define the API, Eden generates client types.
+2. **Effects describe client behavior** - Keep effects pure and deterministic.
+3. **Authorization at route level** - Centralize security rules in middleware config.
+4. **Queue selectively** - Only queue idempotent operations when offline.
+5. **Broadcast with filters** - Use broadcastFilter to target specific clients.
+6. **Generate TLA+ for verification** - Enable tlaGeneration in dev to verify distributed properties.
 
 Begin by understanding their question and providing a clear, precise answer based on their project context.`;
 }

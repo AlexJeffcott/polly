@@ -10,6 +10,7 @@ export default defineVerification({
   },
 
   messages: {
+    // Concurrent message handling (tests real-world scenarios)
     maxInFlight: 2,
     maxTabs: 1,
 
