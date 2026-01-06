@@ -41,6 +41,10 @@ const libResult = await Bun.build({
     "src/background/index.ts",
     "src/background/message-router.ts",
 
+    // Elysia integration
+    "src/elysia/index.ts",
+    "src/client/index.ts",
+
     // Tool exports
     "tools/verify/src/config.ts",
     "tools/test/src/index.ts",
@@ -57,7 +61,13 @@ const libResult = await Bun.build({
   naming: {
     entry: "[dir]/[name].[ext]",
   },
-  external: ["preact", "@preact/signals"],
+  external: [
+    "preact",
+    "@preact/signals",
+    "elysia",
+    "@elysiajs/eden",
+    "serialize-javascript",
+  ],
 });
 
 if (!libResult.success) {
@@ -147,7 +157,12 @@ try {
       skipLibCheck: true,
       noEmit: false,
     },
-    include: ["src/**/*", "tools/verify/src/config.ts", "tools/test/src/**/*"],
+    include: [
+      "src/**/*",
+      "tools/verify/src/config.ts",
+      "tools/test/src/**/*",
+      "tools/teach/src/index.ts",
+    ],
     exclude: [
       "src/content/**/*",
       "src/devtools/**/*",

@@ -60,11 +60,11 @@
     },
     "./elysia": {
       "import": "./dist/src/elysia/index.js",
-      "types": "./dist/elysia/index.d.ts"
+      "types": "./dist/src/elysia/index.d.ts"
     },
     "./client": {
       "import": "./dist/src/client/index.js",
-      "types": "./dist/client/index.d.ts"
+      "types": "./dist/src/client/index.d.ts"
     }
   },
   "files": [
@@ -103,6 +103,7 @@
     "@biomejs/biome": "^2.3.10",
     "@types/bun": "^1.3.5",
     "@types/chrome": "^0.1.32",
+    "@types/serialize-javascript": "^5.0.4",
     "fast-check": "^3.23.2",
     "typescript": "^5.9.3"
   },
@@ -120,8 +121,8 @@
     "typescript": "^5.9.3",
     "preact": "^10.28.1",
     "@preact/signals": "^2.5.1",
-    "elysia": "^1.0.0",
-    "@elysiajs/eden": "^1.0.0"
+    "elysia": "",
+    "@elysiajs/eden": ""
   },
   "peerDependenciesMeta": {
     "elysia": {
