@@ -1,8 +1,10 @@
 // Context analysis - analyze individual execution contexts
 
 import {
+  type ArrowFunction,
   type ClassDeclaration,
   type FunctionDeclaration,
+  type FunctionExpression,
   Node,
   Project,
   type SourceFile,
@@ -141,11 +143,14 @@ export class ContextAnalyzer {
     const leadingComments = firstStatement.getLeadingCommentRanges();
     if (leadingComments.length === 0) return undefined;
 
-    const comment = leadingComments[0].getText();
+    const firstComment = leadingComments[0];
+    if (!firstComment) return undefined;
+
+    const comment = firstComment.getText();
 
     // Extract description from JSDoc
     const descMatch = comment.match(/@description\s+(.+?)(?:\n|$)/s);
-    if (descMatch) {
+    if (descMatch?.[1]) {
       return descMatch[1].trim();
     }
 
@@ -252,7 +257,10 @@ export class ContextAnalyzer {
   /**
    * Check if a function looks like a React/Preact component
    */
-  private looksLikeComponent(name: string, node: FunctionDeclaration): boolean {
+  private looksLikeComponent(
+    name: string,
+    node: FunctionDeclaration | ArrowFunction | FunctionExpression
+  ): boolean {
     // Component names should start with uppercase
     if (!/^[A-Z]/.test(name)) return false;
 
@@ -290,11 +298,13 @@ export class ContextAnalyzer {
   /**
    * Extract props from function component
    */
-  private extractProps(node: FunctionDeclaration): string[] {
+  private extractProps(node: FunctionDeclaration | ArrowFunction | FunctionExpression): string[] {
     const params = node.getParameters();
     if (params.length === 0) return [];
 
     const propsParam = params[0];
+    if (!propsParam) return [];
+
     const type = propsParam.getType();
 
     const props: string[] = [];
@@ -316,6 +326,8 @@ export class ContextAnalyzer {
     if (typeArgs.length === 0) return [];
 
     const propsType = typeArgs[0];
+    if (!propsType) return [];
+
     const props: string[] = [];
 
     for (const prop of propsType.getProperties()) {
@@ -329,10 +341,15 @@ export class ContextAnalyzer {
    * Extract JSDoc description from node
    */
   private extractJSDocDescription(node: Node): string | undefined {
+    if (!Node.isJSDocable(node)) return undefined;
+
     const jsDocs = node.getJsDocs();
     if (jsDocs.length === 0) return undefined;
 
-    const description = jsDocs[0].getDescription().trim();
+    const firstDoc = jsDocs[0];
+    if (!firstDoc) return undefined;
+
+    const description = firstDoc.getDescription().trim();
     return description || undefined;
   }
 

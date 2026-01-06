@@ -107,10 +107,13 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const background = manifest.background;
+    const background = manifest["background"] as Record<string, unknown> | undefined;
     if (!background) return;
 
-    const file = background.service_worker || background.scripts?.[0] || background.page;
+    const file =
+      (background["service_worker"] as string | undefined) ||
+      ((background["scripts"] as string[] | undefined)?.[0] as string | undefined) ||
+      (background["page"] as string | undefined);
     if (file) {
       entryPoints["background"] = this.findSourceFile(file);
     }
@@ -123,10 +126,13 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const contentScripts = manifest.content_scripts;
+    const contentScripts = manifest["content_scripts"] as Record<string, unknown>[] | undefined;
     if (!contentScripts || contentScripts.length === 0) return;
 
-    const firstScript = contentScripts[0].js?.[0];
+    const firstScriptObj = contentScripts[0];
+    if (!firstScriptObj) return;
+
+    const firstScript = (firstScriptObj["js"] as string[] | undefined)?.[0] as string | undefined;
     if (firstScript) {
       entryPoints["content"] = this.findSourceFile(firstScript);
     }
@@ -139,7 +145,11 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const popup = manifest.action?.default_popup || manifest.browser_action?.default_popup;
+    const action = manifest["action"] as Record<string, unknown> | undefined;
+    const browserAction = manifest["browser_action"] as Record<string, unknown> | undefined;
+    const popup =
+      (action?.["default_popup"] as string | undefined) ||
+      (browserAction?.["default_popup"] as string | undefined);
     if (!popup) return;
 
     const jsFile = this.findAssociatedJS(path.join(this.projectRoot, popup));
@@ -155,7 +165,10 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const options = manifest.options_ui?.page || manifest.options_page;
+    const optionsUi = manifest["options_ui"] as Record<string, unknown> | undefined;
+    const options =
+      (optionsUi?.["page"] as string | undefined) ||
+      (manifest["options_page"] as string | undefined);
     if (!options) return;
 
     const jsFile = this.findAssociatedJS(path.join(this.projectRoot, options));
@@ -227,7 +240,7 @@ export class ProjectDetector {
 
     // Main process
     const mainCandidates = [
-      packageJson.main,
+      packageJson["main"] as string | undefined,
       "src/main/index.ts",
       "src/electron/main.ts",
       "electron/main.ts",
@@ -266,9 +279,9 @@ export class ProjectDetector {
         renderer: "Renderer Process",
       },
       metadata: {
-        name: packageJson.name,
-        version: packageJson.version,
-        description: packageJson.description,
+        name: packageJson["name"] as string | undefined,
+        version: packageJson["version"] as string | undefined,
+        description: packageJson["description"] as string | undefined,
       },
     };
   }
@@ -343,9 +356,9 @@ export class ProjectDetector {
               client: "Client",
             },
       metadata: {
-        name: packageJson.name,
-        version: packageJson.version,
-        description: packageJson.description,
+        name: packageJson["name"] as string | undefined,
+        version: packageJson["version"] as string | undefined,
+        description: packageJson["description"] as string | undefined,
       },
     };
   }

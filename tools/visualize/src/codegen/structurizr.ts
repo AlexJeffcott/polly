@@ -263,9 +263,12 @@ export class StructurizrDSLGenerator {
 
     for (const [messageType, handlers] of handlersByType) {
       const componentName = this.toComponentName(messageType);
-      const description = this.generateComponentDescription(messageType, handlers[0]);
-      const tags = this.getComponentTags(messageType, handlers[0]);
-      const properties = this.getComponentProperties(messageType, handlers[0], contextType);
+      const firstHandler = handlers[0];
+      if (!firstHandler) continue;
+
+      const description = this.generateComponentDescription(messageType, firstHandler);
+      const tags = this.getComponentTags(messageType, firstHandler);
+      const properties = this.getComponentProperties(messageType, firstHandler, contextType);
 
       componentDefs.push({
         id: this.toId(componentName),
@@ -1188,7 +1191,8 @@ export class StructurizrDSLGenerator {
       const handlerComponentId = this.toId(`${handler.messageType}_handler`);
 
       // Show flow for each relationship
-      for (const rel of handler.relationships) {
+      const relationships = handler.relationships || [];
+      for (const rel of relationships) {
         const toComponent = this.toId(rel.to);
 
         // Add flow step
@@ -1310,7 +1314,7 @@ export class StructurizrDSLGenerator {
       state: "Application state synchronization",
       general: "Message flow through the system",
     };
-    return descriptions[domain] || descriptions.general;
+    return descriptions[domain] || descriptions["general"] || "Message flow through the system";
   }
 
   /**
@@ -1323,7 +1327,7 @@ export class StructurizrDSLGenerator {
       state: "Requests state",
       general: "Interacts",
     };
-    return actions[domain] || actions.general;
+    return actions[domain] || actions["general"] || "Interacts";
   }
 
   /**
@@ -1696,13 +1700,15 @@ export class StructurizrDSLGenerator {
     // Add perspectives if configured for this component
     if (this.options.perspectives?.[comp.id]) {
       const perspectives = this.options.perspectives[comp.id];
-      parts.push(`${indent}  perspectives {`);
-      for (const perspective of perspectives) {
-        parts.push(
-          `${indent}    "${this.escape(perspective.name)}" "${this.escape(perspective.description)}"`
-        );
+      if (perspectives) {
+        parts.push(`${indent}  perspectives {`);
+        for (const perspective of perspectives) {
+          parts.push(
+            `${indent}    "${this.escape(perspective.name)}" "${this.escape(perspective.description)}"`
+          );
+        }
+        parts.push(`${indent}  }`);
       }
-      parts.push(`${indent}  }`);
     }
 
     parts.push(`${indent}}`);

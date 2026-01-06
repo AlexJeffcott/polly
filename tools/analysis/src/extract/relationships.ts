@@ -6,6 +6,7 @@ import {
   type CallExpression,
   type FunctionDeclaration,
   type FunctionExpression,
+  type Identifier,
   Node,
   type SourceFile,
 } from "ts-morph";
@@ -159,8 +160,12 @@ export class RelationshipExtractor {
   private resolveFunctionDeclaration(
     functionName: string,
     sourceFile: SourceFile
-  ): { functionDecl: FunctionDeclaration; sourceFile: SourceFile } | null {
-    let functionDecl = sourceFile.getFunction(functionName);
+  ): {
+    functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression;
+    sourceFile: SourceFile;
+  } | null {
+    let functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression | undefined =
+      sourceFile.getFunction(functionName);
     let targetSourceFile = sourceFile;
 
     if (!functionDecl) {
@@ -183,7 +188,7 @@ export class RelationshipExtractor {
    */
   private followFunctionCall(
     functionName: string,
-    functionDecl: FunctionDeclaration,
+    functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression,
     targetSourceFile: SourceFile,
     handlerName: string,
     relationships: DetectedRelationship[],

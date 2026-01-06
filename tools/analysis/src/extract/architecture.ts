@@ -8,6 +8,7 @@ import type {
   ManifestInfo,
   ProjectConfig,
 } from "../types/architecture";
+import type { MessageHandler } from "../types/core";
 import { extractADRs } from "./adr";
 import { ContextAnalyzer } from "./contexts";
 import { FlowAnalyzer } from "./flows";

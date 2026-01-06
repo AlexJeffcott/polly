@@ -4,6 +4,7 @@
 import {
   type ArrowFunction,
   type CallExpression,
+  type FunctionDeclaration,
   type FunctionExpression,
   type Identifier,
   type IfStatement,
@@ -670,8 +671,11 @@ export class HandlerExtractor {
       return;
     }
 
+    const firstAwait = awaitExpressions[0];
+    if (!firstAwait) return;
+
     // Get position of first await
-    const firstAwaitPos = awaitExpressions[0].getStart();
+    const firstAwaitPos = firstAwait.getStart();
 
     // Track mutations and whether they occur after await
     funcNode.forEachDescendant((node: Node) => {
@@ -759,6 +763,8 @@ export class HandlerExtractor {
 
     // First argument is the condition expression
     const conditionArg = args[0];
+    if (!conditionArg) return null;
+
     const expression = conditionArg.getText();
 
     // Second argument (optional) is the message
@@ -1283,13 +1289,20 @@ export class HandlerExtractor {
     node: FunctionDeclaration | FunctionExpression | ArrowFunction,
     returnTypeNode: Node
   ): string | null {
-    const typeNode = returnTypeNode.getTypeNode();
+    if (!Node.isTypePredicate(returnTypeNode)) {
+      return null;
+    }
 
-    if (typeNode) {
-      const typeName = typeNode.getText();
-      const messageType = this.extractMessageTypeFromTypeName(typeName);
-      if (messageType) {
-        return messageType;
+    // Try to get type node if method exists
+    if ("getTypeNode" in returnTypeNode && typeof returnTypeNode.getTypeNode === "function") {
+      const typeNode = returnTypeNode.getTypeNode();
+
+      if (typeNode) {
+        const typeName = typeNode.getText();
+        const messageType = this.extractMessageTypeFromTypeName(typeName);
+        if (messageType) {
+          return messageType;
+        }
       }
     }
 

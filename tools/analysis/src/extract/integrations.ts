@@ -94,7 +94,10 @@ export class IntegrationAnalyzer {
       return;
     }
 
-    const url = this.extractURLFromArg(args[0]);
+    const firstArg = args[0];
+    if (!firstArg) return;
+
+    const url = this.extractURLFromArg(firstArg);
     if (!url) {
       return;
     }
@@ -406,10 +409,15 @@ export class IntegrationAnalyzer {
    * Extract JSDoc description from node
    */
   private extractJSDocDescription(node: Node): string | undefined {
-    const jsDocs = node.getJsDocs?.() || [];
+    if (!Node.isJSDocable(node)) return undefined;
+
+    const jsDocs = node.getJsDocs();
     if (jsDocs.length === 0) return undefined;
 
-    const comment = jsDocs[0].getDescription().trim();
+    const firstDoc = jsDocs[0];
+    if (!firstDoc) return undefined;
+
+    const comment = firstDoc.getDescription().trim();
     return comment || undefined;
   }
 }

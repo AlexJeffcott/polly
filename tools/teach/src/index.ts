@@ -80,11 +80,13 @@ Your project contains ${contexts.length} context(s) and ${allHandlers.length} me
 
 ${contexts
   .map(([name, ctx]) => {
+    // biome-ignore lint/suspicious/noExplicitAny: ContextInfo.state property access for backward compatibility
+    const state = (ctx as any).state as { variables?: Record<string, unknown> } | undefined;
     return `
 **${name}**
 Location: ${ctx.entryPoint}
 Handlers: ${ctx.handlers?.length || 0}
-State variables: ${Object.keys(ctx.state?.variables || {}).length}`;
+State variables: ${Object.keys(state?.variables || {}).length}`;
   })
   .join("\n")}
 
@@ -108,8 +110,9 @@ ${
 Consider this handler from your codebase:
 
 \`\`\`typescript
-// ${allHandlers[0].file}:${allHandlers[0].location?.line || "?"}
-${allHandlers[0].code || allHandlers[0].name || "Handler code not available"}
+// ${allHandlers[0]?.location?.file}:${allHandlers[0]?.location?.line || "?"}
+// Handler for message: ${allHandlers[0]?.messageType}
+// Node: ${allHandlers[0]?.node}
 \`\`\`
 
 Polly can translate this to TLA+ for formal verification.`

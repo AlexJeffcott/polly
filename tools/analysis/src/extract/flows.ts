@@ -1,6 +1,6 @@
 // Message flow analysis - trace messages between contexts
 
-import { Node, Project } from "ts-morph";
+import { type CallExpression, Node, Project } from "ts-morph";
 import type { MessageFlow, MessageStep } from "../types/architecture";
 import type { MessageHandler } from "../types/core";
 
@@ -132,7 +132,10 @@ export class FlowAnalyzer {
       return;
     }
 
-    const msgType = this.extractMessageTypeFromArg(args[0]);
+    const firstArg = args[0];
+    if (!firstArg) return;
+
+    const msgType = this.extractMessageTypeFromArg(firstArg);
     if (msgType === messageType) {
       senders.push({
         context,
@@ -166,7 +169,10 @@ export class FlowAnalyzer {
       return;
     }
 
-    const msgType = this.extractMessageTypeFromArg(args[0]);
+    const firstArg = args[0];
+    if (!firstArg) return;
+
+    const msgType = this.extractMessageTypeFromArg(firstArg);
     if (msgType === messageType) {
       senders.push({
         context,
@@ -283,7 +289,10 @@ export class FlowAnalyzer {
       return;
     }
 
-    const messageType = this.extractMessageTypeFromArg(args[0]);
+    const firstArg = args[0];
+    if (!firstArg) return;
+
+    const messageType = this.extractMessageTypeFromArg(firstArg);
     if (messageType) {
       sends.push({
         messageType,
@@ -372,11 +381,20 @@ export class FlowAnalyzer {
 
     if (!targetNode) return {};
 
-    // Look for JSDoc comments
-    const jsDocs = targetNode.getJsDocs?.() || [];
+    // Look for JSDoc comments - use type guard to check if node supports JSDoc
+    // biome-ignore lint/suspicious/noExplicitAny: Type guard for dynamic JSDoc support
+    const nodeAny = targetNode as any;
+    if (!("getJsDocs" in nodeAny) || typeof nodeAny.getJsDocs !== "function") {
+      return {};
+    }
+
+    const jsDocs = nodeAny.getJsDocs();
     if (jsDocs.length === 0) return {};
 
-    const comment = jsDocs[0].getText();
+    const firstDoc = jsDocs[0];
+    if (!firstDoc) return {};
+
+    const comment = firstDoc.getText();
 
     // Extract @flow annotation
     const flowMatch = comment.match(/@flow\s+([^\s]+)/);

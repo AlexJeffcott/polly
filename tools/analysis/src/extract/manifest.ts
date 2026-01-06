@@ -52,17 +52,17 @@ export class ManifestParser {
     const manifest = this.manifestData;
 
     return {
-      name: manifest.name || "Unknown Extension",
-      version: manifest.version || "0.0.0",
-      description: manifest.description,
-      manifestVersion: manifest.manifest_version || 2,
+      name: (manifest["name"] as string) || "Unknown Extension",
+      version: (manifest["version"] as string) || "0.0.0",
+      description: manifest["description"] as string | undefined,
+      manifestVersion: (manifest["manifest_version"] as number) || 2,
       background: this.parseBackground(),
       contentScripts: this.parseContentScripts(),
       popup: this.parsePopup(),
       options: this.parseOptions(),
       devtools: this.parseDevtools(),
-      permissions: manifest.permissions || [],
-      hostPermissions: manifest.host_permissions || [],
+      permissions: (manifest["permissions"] as string[]) || [],
+      hostPermissions: (manifest["host_permissions"] as string[]) || [],
     };
   }
 
@@ -144,30 +144,30 @@ export class ManifestParser {
   private parseBackground(): ManifestInfo["background"] {
     if (!this.manifestData) return undefined;
 
-    const bg = this.manifestData.background;
+    const bg = this.manifestData["background"] as Record<string, unknown> | undefined;
     if (!bg) return undefined;
 
     // Manifest V3 - service worker
-    if (bg.service_worker) {
+    if (bg["service_worker"]) {
       return {
         type: "service_worker",
-        files: [bg.service_worker],
+        files: [bg["service_worker"] as string],
       };
     }
 
     // Manifest V2 - scripts
-    if (bg.scripts) {
+    if (bg["scripts"]) {
       return {
         type: "script",
-        files: bg.scripts,
+        files: bg["scripts"] as string[],
       };
     }
 
     // Manifest V2 - page
-    if (bg.page) {
+    if (bg["page"]) {
       return {
         type: "script",
-        files: [bg.page],
+        files: [bg["page"] as string],
       };
     }
 
@@ -180,13 +180,13 @@ export class ManifestParser {
   private parseContentScripts(): ManifestInfo["contentScripts"] {
     if (!this.manifestData) return undefined;
 
-    const cs = this.manifestData.content_scripts;
+    const cs = this.manifestData["content_scripts"];
     if (!cs || !Array.isArray(cs)) return undefined;
 
-    return cs.map((script) => ({
-      matches: script.matches || [],
-      js: script.js || [],
-      css: script.css,
+    return cs.map((script: Record<string, unknown>) => ({
+      matches: (script["matches"] as string[]) || [],
+      js: (script["js"] as string[]) || [],
+      css: script["css"] as string[] | undefined,
     }));
   }
 
@@ -196,12 +196,14 @@ export class ManifestParser {
   private parsePopup(): ManifestInfo["popup"] {
     if (!this.manifestData) return undefined;
 
-    const action = this.manifestData.action || this.manifestData.browser_action;
+    const action =
+      (this.manifestData["action"] as Record<string, unknown> | undefined) ||
+      (this.manifestData["browser_action"] as Record<string, unknown> | undefined);
     if (!action) return undefined;
 
-    if (action.default_popup) {
+    if (action["default_popup"]) {
       return {
-        html: action.default_popup,
+        html: action["default_popup"] as string,
         default: true,
       };
     }
@@ -215,7 +217,7 @@ export class ManifestParser {
   private parseOptions(): ManifestInfo["options"] {
     if (!this.manifestData) return undefined;
 
-    const options = this.manifestData.options_ui || this.manifestData.options_page;
+    const options = this.manifestData["options_ui"] || this.manifestData["options_page"];
     if (!options) return undefined;
 
     if (typeof options === "string") {
@@ -225,9 +227,10 @@ export class ManifestParser {
       };
     }
 
+    const optionsObj = options as Record<string, unknown>;
     return {
-      page: options.page,
-      openInTab: options.open_in_tab,
+      page: optionsObj["page"] as string,
+      openInTab: optionsObj["open_in_tab"] as boolean,
     };
   }
 
@@ -237,11 +240,11 @@ export class ManifestParser {
   private parseDevtools(): ManifestInfo["devtools"] {
     if (!this.manifestData) return undefined;
 
-    const devtools = this.manifestData.devtools_page;
+    const devtools = this.manifestData["devtools_page"];
     if (!devtools) return undefined;
 
     return {
-      page: devtools,
+      page: devtools as string,
     };
   }
 

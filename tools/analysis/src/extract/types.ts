@@ -1,7 +1,7 @@
 // Type extraction from TypeScript using ts-morph
 
 import { Project, type SourceFile, type Type } from "ts-morph";
-import type { CodebaseAnalysis, FieldAnalysis, TypeInfo } from "../types";
+import type { CodebaseAnalysis, FieldAnalysis, MessageHandler, TypeInfo } from "../types";
 import { HandlerExtractor } from "./handlers";
 
 export class TypeExtractor {
@@ -36,12 +36,23 @@ export class TypeExtractor {
     );
     const validHandlers = this.filterAndLogHandlers(handlerAnalysis.handlers);
 
+    // Ensure handlers have all required properties
+    // biome-ignore lint/suspicious/noExplicitAny: Mapping partial handler objects to complete MessageHandler interface
+    const completeHandlers: MessageHandler[] = validHandlers.map((h: any) => ({
+      messageType: h.messageType,
+      node: h.node || "unknown",
+      assignments: h.assignments || [],
+      preconditions: h.preconditions || [],
+      postconditions: h.postconditions || [],
+      location: h.location,
+      relationships: h.relationships,
+    }));
+
     return {
       stateType,
       messageTypes: validMessageTypes,
       fields,
-      handlers: validHandlers,
-      stateConstraints: handlerAnalysis.stateConstraints,
+      handlers: completeHandlers,
     };
   }
 
@@ -240,7 +251,13 @@ export class TypeExtractor {
       return this.extractFromTypeAlias(type, typeName, sourceFile, warnings);
     }
 
-    if (type.isConditionalType?.()) {
+    // Check if type has conditional type method before calling
+    if (
+      // biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability
+      typeof (type as any).isConditionalType === "function" &&
+      // biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability
+      (type as any).isConditionalType()
+    ) {
       return this.extractFromConditionalType(type, warnings);
     }
 
@@ -362,7 +379,10 @@ export class TypeExtractor {
       return messageTypes;
     }
 
-    const branches = parts[1].split(":");
+    const secondPart = parts[1];
+    if (!secondPart) return messageTypes;
+
+    const branches = secondPart.split(":");
     for (const branch of branches) {
       const extracted = this.extractStringLiteralFromBranch(branch);
       if (extracted) {
