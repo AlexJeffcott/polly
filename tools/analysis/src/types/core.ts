@@ -148,6 +148,37 @@ export type VerificationCondition = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// State-Level Constraints (Declarative)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Constraint declared at the state level.
+ * These are automatically wired to message handlers by the parser.
+ */
+export type StateConstraint = {
+  /** State field this constraint applies to */
+  field: string;
+
+  /** Message type this constraint applies to */
+  messageType: string;
+
+  /** Precondition expression (e.g., "loggedIn === true") */
+  requires?: string;
+
+  /** Postcondition expression */
+  ensures?: string;
+
+  /** Optional error message */
+  message?: string;
+
+  /** Source location */
+  location: {
+    file: string;
+    line: number;
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────
 // Message Handler (Abstract)
 // ─────────────────────────────────────────────────────────────────
 
@@ -228,4 +259,5 @@ export type CodebaseAnalysis = {
   messageTypes: string[];
   fields: FieldAnalysis[];
   handlers: MessageHandler[];
+  stateConstraints: StateConstraint[];
 };

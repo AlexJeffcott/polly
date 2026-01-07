@@ -22,22 +22,10 @@ import type {
   ComponentRelationship,
   MessageHandler,
   StateAssignment,
+  StateConstraint,
   VerificationCondition,
 } from "../types";
 import { RelationshipExtractor } from "./relationships";
-
-// State-level constraint extracted from $constraints() calls
-export interface StateConstraint {
-  field: string;
-  messageType: string;
-  requires?: string;
-  ensures?: string;
-  message?: string;
-  location: {
-    file: string;
-    line: number;
-  };
-}
 
 export interface HandlerAnalysis {
   handlers: MessageHandler[];
