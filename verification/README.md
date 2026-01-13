@@ -85,6 +85,39 @@ This will:
 
 ### 4. Run Model Checker
 
+#### Option A: Using Docker (Recommended)
+
+The verification CLI uses Docker to run TLC model checking. Docker ensures you have the correct TLC version (2.19) without installing Java or TLA+ tools manually.
+
+**First-time setup:**
+```bash
+# The CLI will automatically build the Docker image on first run
+# Or build manually:
+docker build -f node_modules/@fairfox/polly/tools/verify/Dockerfile \
+  -t polly-tla:latest \
+  node_modules/@fairfox/polly/tools/verify
+```
+
+**When to rebuild the Docker image:**
+- After upgrading Polly to a new version
+- If you see TLC version errors (e.g., "TLCGet should be a nonnegative integer")
+- After a long time without using verification (old cached image)
+
+**Check your current TLC version:**
+```bash
+docker run --rm polly-tla:latest -version
+```
+
+You should see: `TLC2 Version 2.19 of Day Month Year` (2024 or later)
+
+**Run verification with Docker:**
+```bash
+cd verification/output
+docker run --rm -v $(pwd):/work polly-tla:latest tlc UserApp.tla -config UserApp.cfg
+```
+
+#### Option B: Using TLA+ Toolbox Directly
+
 With TLA+ Toolbox installed:
 
 ```bash
@@ -159,6 +192,26 @@ requires(hasLength(state.items, { max: 100 }), "Too many items")
 5. **Tune Bounds** - Reduce state space by carefully choosing bounds in `verify.config.ts`
 
 ## Common Issues
+
+### "TLCGet should be a nonnegative integer" (Docker)
+
+This error means you have an old cached Docker image with TLC 2.13 (from 2018) which doesn't support modern TLC features.
+
+**Solution:**
+```bash
+# Rebuild the Docker image to get TLC 2.19
+docker build -f node_modules/@fairfox/polly/tools/verify/Dockerfile \
+  -t polly-tla:latest \
+  node_modules/@fairfox/polly/tools/verify
+
+# Verify the version
+docker run --rm polly-tla:latest -version
+# Should show: TLC2 Version 2.19 (2024)
+```
+
+### "Error: more than one input files: tlc and UserApp.tla" (Docker)
+
+This was a bug in older versions of Polly where the Docker ENTRYPOINT didn't handle the "tlc" command correctly. Upgrade to Polly v0.12.4+ and rebuild the Docker image.
 
 ### "State space too large"
 

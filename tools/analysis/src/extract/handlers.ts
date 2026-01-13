@@ -439,6 +439,7 @@ export class HandlerExtractor {
    * Handles:
    * - Simple assignments: state.field = value
    * - Compound operators: state.count += 1
+   * - Unary operators: state.count++, state.count--, ++state.count, --state.count
    * - Array mutations: state.items.push(item)
    * - Array indexing: state.items[0] = value
    */
@@ -453,6 +454,10 @@ export class HandlerExtractor {
 
       if (Node.isCallExpression(node)) {
         this.extractArrayMutationAssignment(node, assignments);
+      }
+
+      if (Node.isPostfixUnaryExpression(node) || Node.isPrefixUnaryExpression(node)) {
+        this.extractUnaryExpressionAssignment(node, assignments);
       }
     });
   }
@@ -561,6 +566,30 @@ export class HandlerExtractor {
           value: `@ ${tlaOp} ${rightValue}`,
         });
       }
+    }
+  }
+
+  /**
+   * Extract unary expression assignments (++, --)
+   */
+  private extractUnaryExpressionAssignment(node: Node, assignments: StateAssignment[]): void {
+    if (!Node.isPostfixUnaryExpression(node) && !Node.isPrefixUnaryExpression(node)) return;
+
+    const operator = node.getOperatorToken();
+    const operatorText = operator.toString();
+
+    // Only handle ++ and --
+    if (operatorText !== "++" && operatorText !== "--") return;
+
+    const operand = node.getOperand();
+    if (!Node.isPropertyAccessExpression(operand)) return;
+
+    const fieldPath = this.getPropertyPath(operand);
+    if (fieldPath.startsWith("state.")) {
+      const field = fieldPath.substring(6);
+      // Translate ++ to @ + 1 and -- to @ - 1
+      const value = operatorText === "++" ? "@ + 1" : "@ - 1";
+      assignments.push({ field, value });
     }
   }
 

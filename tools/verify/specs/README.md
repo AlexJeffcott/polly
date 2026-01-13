@@ -14,20 +14,27 @@ TLA+ specifications for formal verification:
 - `README.md` - Documentation for running TLA+ verification
 
 ### Docker Setup
-- `Dockerfile` - Container setup for TLA+ toolchain
-- `docker-compose.yml` - Docker Compose configuration for running verification
+- `Dockerfile` - Development container with TLA+ tools and editing utilities (vim, less, tree)
+- `docker-compose.yml` - Docker Compose configuration for interactive development
+
+**Note:** This is separate from the main `/tools/verify/Dockerfile` which is used by the Polly CLI for automated verification. Use this Dockerfile for interactive development and manual spec editing.
 
 ## Running Verification
 
-### With Docker (Recommended)
+### With Docker Compose (Interactive Development)
+Start a container with TLA+ tools and development utilities:
 ```bash
-cd packages/verify/specs
-docker-compose up
+cd tools/verify/specs
+docker-compose up -d
+docker-compose exec tla bash
+# Inside container:
+cd tla
+tlc MessageRouter.tla -config MessageRouter.cfg
 ```
 
 ### With TLC Directly
 ```bash
-cd packages/verify/specs/tla
+cd tools/verify/specs/tla
 tlc MessageRouter.tla -config MessageRouter.cfg
 ```
 
