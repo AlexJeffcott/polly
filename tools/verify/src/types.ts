@@ -14,7 +14,6 @@ export type {
 } from "../../analysis/src/index.ts";
 
 export type VerificationConfig = {
-  preset?: "quick" | "balanced" | "thorough";
   state: StateConfig;
   messages: MessageConfig;
   onBuild: "warn" | "error" | "off";

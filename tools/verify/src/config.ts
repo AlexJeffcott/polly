@@ -30,7 +30,6 @@ interface LegacyVerificationConfig {
   };
   onBuild?: "warn" | "error" | "off";
   onRelease?: "warn" | "error" | "off";
-  preset?: "quick" | "balanced" | "thorough";
 
   // Verification engine options
   verification?: {

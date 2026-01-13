@@ -112,7 +112,7 @@ export class DockerRunner {
     ];
 
     const result = await this.runCommand("docker", args, {
-      timeout: options?.timeout || 60000,
+      timeout: options?.timeout,
     });
 
     return this.parseTLCOutput(result);
@@ -235,7 +235,7 @@ export class DockerRunner {
               proc.kill();
               reject(
                 new Error(
-                  `Command timed out after ${Math.floor(timeoutValue / 1000)}s. TLC was still making progress. Consider increasing the timeout or using preset: 'thorough' for no timeout.`
+                  `Command timed out after ${Math.floor(timeoutValue / 1000)}s. TLC was still making progress. Consider increasing the timeout or setting timeout: 0 for no timeout.`
                 )
               );
             }, timeoutValue)

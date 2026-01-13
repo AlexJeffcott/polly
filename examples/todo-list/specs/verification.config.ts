@@ -10,10 +10,7 @@ import { defineVerification } from "@fairfox/polly/verify";
 
 // biome-ignore lint/style/noDefaultExport: Config files require default exports
 export default defineVerification({
-  // Use balanced preset
-  preset: "balanced",
-
-  // Override timeout for this complex state space
+  // Timeout for this complex state space
   verification: {
     timeout: 1800, // 30 minutes
   },

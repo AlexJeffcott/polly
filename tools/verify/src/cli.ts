@@ -276,49 +276,17 @@ async function verifyCommand() {
 }
 
 /**
- * Get timeout in seconds based on config or preset
+ * Get timeout in seconds from config (0 = no timeout)
  */
 function getTimeout(config: UnifiedVerificationConfig): number {
-  // Explicit timeout in config takes precedence
-  if (config.verification?.timeout !== undefined) {
-    return config.verification.timeout;
-  }
-
-  // Use preset-based defaults
-  const preset = config.preset || "balanced";
-  switch (preset) {
-    case "quick":
-      return 300; // 5 minutes
-    case "balanced":
-      return 900; // 15 minutes
-    case "thorough":
-      return 0; // No timeout
-    default:
-      return 900; // Default to balanced
-  }
+  return config.verification?.timeout ?? 0;
 }
 
 /**
- * Get number of workers based on config or preset
+ * Get number of workers from config
  */
 function getWorkers(config: UnifiedVerificationConfig): number {
-  // Explicit workers in config takes precedence
-  if (config.verification?.workers !== undefined) {
-    return config.verification.workers;
-  }
-
-  // Use preset-based defaults
-  const preset = config.preset || "balanced";
-  switch (preset) {
-    case "quick":
-      return 1;
-    case "balanced":
-      return 2;
-    case "thorough":
-      return 4;
-    default:
-      return 2; // Default to balanced
-  }
+  return config.verification?.workers ?? 1;
 }
 
 async function runFullVerification(configPath: string) {

@@ -61,9 +61,6 @@ export interface LegacyVerificationConfig {
 
   /** Verification behavior on release */
   onRelease: "warn" | "error" | "off";
-
-  /** Optional preset */
-  preset?: "quick" | "balanced" | "thorough";
 }
 
 // ─────────────────────────────────────────────────────────────────

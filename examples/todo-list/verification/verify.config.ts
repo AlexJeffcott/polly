@@ -2,8 +2,6 @@
 import type { VerificationConfig } from "@fairfox/polly-verify";
 
 export const verificationConfig: VerificationConfig = {
-  preset: "balanced",
-
   state: {
     // User state
     "user.loggedIn": { type: "boolean" },

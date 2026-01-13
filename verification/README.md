@@ -52,8 +52,6 @@ Edit `verify.config.ts` to specify state bounds and verification settings:
 
 ```typescript
 export const verificationConfig: VerificationConfig = {
-  preset: 'balanced', // quick | balanced | thorough
-
   state: {
     'user.loggedIn': { type: 'boolean' },
     'user.role': { type: 'enum', values: ['guest', 'user', 'admin'] },

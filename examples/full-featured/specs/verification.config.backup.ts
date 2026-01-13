@@ -82,20 +82,4 @@ export default defineVerification({
   //   • 'off' - Skip verification
   //
   onRelease: 'error',
-
-  // Verification options (optional)
-  // ─────────────────────
-  //
-  // Presets provide quick configuration:
-  //   • 'quick': 1 minute timeout, 1 worker
-  //   • 'balanced': 5 minutes timeout, 2 workers (default)
-  //   • 'thorough': No timeout, 4 workers
-  //
-  // Or customize with verification options:
-  //   verification: {
-  //     timeout: 300,  // Timeout in seconds (0 = no timeout)
-  //     workers: 2,    // Number of TLC workers
-  //   }
-  //
-  // preset: 'balanced',
 })

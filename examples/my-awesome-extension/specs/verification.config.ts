@@ -17,9 +17,6 @@
 import { defineVerification } from "@fairfox/polly/verify";
 
 export const verificationConfig = defineVerification({
-  // Use balanced preset (5 minutes timeout, 2 workers)
-  preset: "balanced",
-
   state: {},
 
   messages: {
