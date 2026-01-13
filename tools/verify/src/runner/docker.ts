@@ -106,6 +106,7 @@ export class DockerRunner {
       "-v",
       `${specDir}:/work`,
       this.IMAGE_NAME,
+      "tlc",
       "-workers",
       `${options?.workers || 1}`,
       `${specName}.tla`,
