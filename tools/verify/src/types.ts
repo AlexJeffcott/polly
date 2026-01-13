@@ -55,6 +55,8 @@ export type StateConfig = Record<string, FieldConfig>;
 
 export type FieldConfig =
   | { type: "boolean" }
+  | { type: "array"; maxLength?: number | null; initial?: unknown[] }
+  | { type: "string"; initial?: string }
   | { maxLength: number | null }
   | { min: number | null; max: number | null }
   | { type: "enum"; values: string[] }

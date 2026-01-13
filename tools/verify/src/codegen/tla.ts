@@ -2543,6 +2543,14 @@ export class TLAGenerator {
       if (fieldConfig.type === "enum" && fieldConfig.values && fieldConfig.values.length > 0) {
         return `"${fieldConfig.values[0]}"`;
       }
+      // Handle array type
+      if (fieldConfig.type === "array") {
+        return "<<>>"; // Empty sequence
+      }
+      // Handle string type
+      if (fieldConfig.type === "string") {
+        return '""'; // Empty string
+      }
     }
 
     if ("maxLength" in fieldConfig) {

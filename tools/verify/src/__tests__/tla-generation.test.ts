@@ -517,4 +517,84 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.cfg).not.toMatch(/^SYMMETRY\s+/m);
     });
   });
+
+  // Issue #21: Arrays and strings should be initialized correctly
+  describe("Array and string initialization (Issue #21)", () => {
+    test("Arrays initialized as empty sequences", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {
+          subscriptions: { type: "array" as const },
+        },
+        messages: { maxInFlight: 3, maxClients: 3 },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Array should be initialized as <<>> (empty sequence), not 0
+      expect(tla.spec).toContain("subscriptions |-> <<>>");
+      expect(tla.spec).not.toContain("subscriptions |-> 0");
+    });
+
+    test("Strings initialized as empty strings", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {
+          userId: { type: "string" as const },
+        },
+        messages: { maxInFlight: 3, maxClients: 3 },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // String should be initialized as "", not 0
+      expect(tla.spec).toContain('userId |-> ""');
+      expect(tla.spec).not.toContain("userId |-> 0");
+    });
+
+    test("Mixed types initialized correctly", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {
+          subscriptions: { type: "array" as const },
+          userId: { type: "string" as const },
+          isActive: { type: "boolean" as const },
+          count: { min: 0, max: 10 },
+        },
+        messages: { maxInFlight: 3, maxClients: 3 },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Each type should be initialized correctly
+      expect(tla.spec).toContain("subscriptions |-> <<>>");
+      expect(tla.spec).toContain('userId |-> ""');
+      expect(tla.spec).toContain("isActive |-> FALSE");
+      expect(tla.spec).toContain("count |-> 0");
+    });
+  });
 });
