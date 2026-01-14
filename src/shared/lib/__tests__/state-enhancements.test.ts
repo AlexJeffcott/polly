@@ -5,9 +5,8 @@
  * Enhancement #5: Exposed .loaded promise for hydration control
  */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { $sharedState, $persistedState } from "../state";
-import { getMessageBus } from "../message-bus";
 
 describe("Enhancement #1: Verification Tracking (.verify property)", () => {
   beforeEach(() => {
