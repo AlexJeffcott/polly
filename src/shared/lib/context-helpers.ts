@@ -4,6 +4,7 @@
  * Provides utilities to reduce boilerplate when initializing extension contexts.
  */
 
+import type { ExtensionAdapters } from "../adapters";
 import type { BaseMessage, Context, ExtensionMessage } from "../types/messages";
 import { getMessageBus, type MessageBus } from "./message-bus";
 
@@ -31,10 +32,20 @@ export interface ContextConfig<TMessage extends BaseMessage = ExtensionMessage> 
    * @default `[${context}]`
    */
   logPrefix?: string;
+
+  /**
+   * Optional extension adapters. If not provided, Chrome adapters will be used.
+   * Useful for testing with mock adapters.
+   */
+  adapters?: ExtensionAdapters;
 }
 
 /**
  * Create and initialize an extension context with reduced boilerplate.
+ *
+ * @param context - The extension context (popup, background, content, etc.)
+ * @param config - Configuration options including optional adapters
+ * @returns MessageBus instance for the context
  *
  * @example
  * ```typescript
@@ -49,6 +60,18 @@ export interface ContextConfig<TMessage extends BaseMessage = ExtensionMessage> 
  *   }
  * })
  * ```
+ *
+ * @example With mock adapters for testing
+ * ```typescript
+ * import { createMockAdapters } from '@fairfox/polly/test'
+ *
+ * createContext('popup', {
+ *   adapters: createMockAdapters(),
+ *   async onInit(bus) {
+ *     // Your initialization code
+ *   }
+ * })
+ * ```
  */
 export function createContext<TMessage extends BaseMessage = ExtensionMessage>(
   context: Context,
@@ -59,9 +82,10 @@ export function createContext<TMessage extends BaseMessage = ExtensionMessage>(
     onError,
     waitForDOM = true,
     logPrefix = `[${context.charAt(0).toUpperCase() + context.slice(1)}]`,
+    adapters,
   } = config;
 
-  const bus = getMessageBus<TMessage>(context);
+  const bus = getMessageBus<TMessage>(context, adapters);
 
   // Setup error handler if provided
   if (onError) {
@@ -130,12 +154,13 @@ export function createContext<TMessage extends BaseMessage = ExtensionMessage>(
 export function runInContext(
   context: Context,
   contexts: Context | Context[],
-  fn: (bus: MessageBus) => void | Promise<void>
+  fn: (bus: MessageBus) => void | Promise<void>,
+  adapters?: ExtensionAdapters
 ): void {
   const targetContexts = Array.isArray(contexts) ? contexts : [contexts];
 
   if (targetContexts.includes(context)) {
-    const bus = getMessageBus(context);
+    const bus = getMessageBus(context, adapters);
     Promise.resolve(fn(bus)).catch(() => {
       // Error already handled by global error handler
     });

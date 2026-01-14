@@ -46,6 +46,7 @@ ${generateVerificationSection(context)}
 - **Debugging**: Interpreting counterexamples and fixing violations
 - **Configuration**: Understanding maxInFlight, bounds, and other verification parameters
 - **Elysia Integration**: Using Polly with Elysia/Bun servers for full-stack distributed systems verification
+- **Testing & Adapters**: Using mock adapters for testing and verification in Node.js environments
 
 # Important Notes
 
@@ -201,6 +202,147 @@ Server (Elysia + Bun)
 4. **Queue selectively** - Only queue idempotent operations when offline.
 5. **Broadcast with filters** - Use broadcastFilter to target specific clients.
 6. **Generate TLA+ for verification** - Enable tlaGeneration in dev to verify distributed properties.
+
+# Testing & Adapters
+
+## The Adapter Pattern
+
+Polly uses an **adapter pattern** to abstract Chrome extension APIs, enabling testing in Node.js environments and solving the "chrome is not defined" issue during verification.
+
+### Core Adapter Types
+
+All extension API access goes through adapters defined in \`ExtensionAdapters\`:
+- \`runtime\` - Message passing, extension lifecycle
+- \`storage\` - Persistent storage (local, sync, session)
+- \`tabs\` - Tab management and queries
+- \`window\` - Window management
+- \`offscreen\` - Offscreen documents
+- \`contextMenus\` - Context menu registration
+- \`fetch\` - HTTP requests
+- \`logger\` - Logging infrastructure
+
+### Why This Matters for Verification
+
+**Problem**: Chrome extensions use \`chrome.*\` APIs that don't exist in Node.js. When Polly's verification runs in Node.js/Docker, importing files that access \`chrome.*\` fails with "chrome is not defined".
+
+**Solution**: Pass mock adapters to MessageBus/context creators, allowing verification code to import and analyze handler files without Chrome runtime.
+
+## Using Mock Adapters
+
+### In Tests
+
+\`\`\`typescript
+import { createMockAdapters } from '@fairfox/polly/test';
+
+const adapters = createMockAdapters();
+const bus = new MessageBus('background', adapters);
+\`\`\`
+
+### With createBackground()
+
+\`\`\`typescript
+import { createBackground } from '@fairfox/polly/background';
+import { createMockAdapters } from '@fairfox/polly/test';
+
+// Production (Chrome extension)
+const bus = createBackground();  // Uses real Chrome adapters
+
+// Testing/Verification (Node.js)
+const bus = createBackground(createMockAdapters());  // Uses mocks
+\`\`\`
+
+### With createContext()
+
+\`\`\`typescript
+import { createContext } from '@fairfox/polly';
+import { createMockAdapters } from '@fairfox/polly/test';
+
+// Production
+const bus = createContext('popup', {
+  async onInit(bus) {
+    // Setup handlers
+  }
+});
+
+// Testing/Verification
+const bus = createContext('popup', {
+  adapters: createMockAdapters(),
+  waitForDOM: false,
+  async onInit(bus) {
+    // Setup handlers
+  }
+});
+\`\`\`
+
+## Solving GitHub Issue #25: "chrome is not defined"
+
+**Issue**: Handler extraction fails during verification when background scripts use \`createBackground()\` because it tries to access \`chrome.*\` APIs at module load time.
+
+**Root Cause**: \`createBackground()\` internally calls \`createChromeAdapters()\` which instantiates adapter classes that immediately access \`chrome.runtime\`, \`chrome.storage\`, etc.
+
+**Solution (Implemented)**:
+1. \`createBackground()\` now accepts optional \`adapters\` parameter
+2. \`createContext()\` now accepts \`adapters\` in config
+3. Both pass adapters to \`getMessageBus()\`, bypassing Chrome API access
+
+**Verification Setup Pattern**:
+
+\`\`\`typescript
+// specs/verification.config.ts
+import { defineVerification } from '@fairfox/polly/verify';
+import { createMockAdapters } from '@fairfox/polly/test';
+
+// Import state (works - no chrome needed)
+import '../packages/api/src/state.ts';
+
+// Import handlers with mock adapters
+import { createBackground } from '@fairfox/polly/background';
+const adapters = createMockAdapters();
+
+// This file sets up handlers for extraction
+import '../packages/api/src/bus.ts';  // Now works!
+
+export default defineVerification({
+  // ... verification config
+});
+\`\`\`
+
+**Alternative**: Create verification-specific handler registration file:
+
+\`\`\`typescript
+// packages/api/specs/handlers-verify.ts
+import { createBackground } from '@fairfox/polly/background';
+import { createMockAdapters } from '@fairfox/polly/test';
+import { connectionState } from '../src/state';
+
+const bus = createBackground(createMockAdapters());
+
+bus.on('authenticate', async ({ message, wsId }) => {
+  connectionState.value = {
+    ...connectionState.value,
+    authenticated: true,
+    user: { userId: 1, auth0Id: 'auth0|123', handle: 'user' },
+  };
+  return { type: 'ack', success: true };
+});
+
+// Import this in verification.config.ts instead of runtime bus.ts
+\`\`\`
+
+## Best Practices
+
+1. **Always accept adapters in factory functions** - Makes code testable
+2. **Use mock adapters in tests** - Don't require Chrome runtime for unit tests
+3. **Separate verification handler setup** - Keep runtime and verification concerns separate if needed
+4. **Document adapter requirements** - Help users understand when mocks are needed
+
+## API Consistency
+
+All context creation functions now follow the adapter pattern:
+- \`createBackground(adapters?)\` ✓
+- \`createContext(context, { adapters?, ... })\` ✓
+- \`getMessageBus(context, adapters?)\` ✓
+- \`new MessageBus(context, adapters?)\` ✓
 
 Begin by understanding their question and providing a clear, precise answer based on their project context.`;
 }
