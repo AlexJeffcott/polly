@@ -129,6 +129,7 @@ export function $constraints(
   if (options?.runtime) {
     // Import dynamically to avoid circular dependencies
     // This is safe because it only happens at runtime, not during static analysis
+    // @ts-expect-error - Dynamic import path resolves correctly at runtime
     import('../../../src/shared/lib/constraints.js')
       .then(({ registerConstraints }) => {
         registerConstraints(stateField, constraints);

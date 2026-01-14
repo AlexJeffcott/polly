@@ -394,12 +394,23 @@ export class HandlerExtractor {
     const postconditions: VerificationCondition[] = [];
 
     // Parse the handler function for state assignments and verification conditions
+    let actualHandler: ArrowFunction | FunctionExpression | FunctionDeclaration | null = null;
+
     if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
-      this.extractAssignments(handlerArg, assignments);
-      this.extractVerificationConditions(handlerArg, preconditions, postconditions);
+      actualHandler = handlerArg;
+    } else if (Node.isIdentifier(handlerArg)) {
+      // Resolve function reference (e.g., bus.on('query', handleQuery))
+      actualHandler = this.resolveFunctionReference(handlerArg);
+    }
+
+    if (actualHandler) {
+      this.extractAssignments(actualHandler, assignments);
+      this.extractVerificationConditions(actualHandler, preconditions, postconditions);
 
       // Check for async mutations (potential race conditions)
-      this.checkAsyncMutations(handlerArg, messageType);
+      if (Node.isArrowFunction(actualHandler) || Node.isFunctionExpression(actualHandler)) {
+        this.checkAsyncMutations(actualHandler, messageType);
+      }
     }
 
     const line = callExpr.getStartLineNumber();
@@ -409,9 +420,9 @@ export class HandlerExtractor {
     const handlerName = `${messageType}_handler`;
     let relationships: ComponentRelationship[] | undefined;
 
-    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+    if (actualHandler) {
       const detectedRelationships = this.relationshipExtractor.extractFromHandler(
-        handlerArg,
+        actualHandler,
         sourceFile,
         handlerName
       );
@@ -444,7 +455,7 @@ export class HandlerExtractor {
    * - Array indexing: state.items[0] = value
    */
   private extractAssignments(
-    funcNode: ArrowFunction | FunctionExpression,
+    funcNode: ArrowFunction | FunctionExpression | FunctionDeclaration,
     assignments: StateAssignment[]
   ): void {
     funcNode.forEachDescendant((node: Node) => {
@@ -576,7 +587,24 @@ export class HandlerExtractor {
     if (!Node.isPostfixUnaryExpression(node) && !Node.isPrefixUnaryExpression(node)) return;
 
     const operator = node.getOperatorToken();
-    const operatorText = operator.toString();
+
+    // Handle both SyntaxKind enum values and text tokens
+    let operatorText: string;
+    if (typeof operator === "number") {
+      // It's a SyntaxKind enum value
+      if (operator === SyntaxKind.PlusPlusToken) {
+        operatorText = "++";
+      } else if (operator === SyntaxKind.MinusMinusToken) {
+        operatorText = "--";
+      } else {
+        return; // Not ++ or --
+      }
+    } else if (operator && typeof operator === "object" && "getText" in operator) {
+      // It's a Node with getText method
+      operatorText = (operator as { getText(): string }).getText();
+    } else {
+      return; // Unknown type
+    }
 
     // Only handle ++ and --
     if (operatorText !== "++" && operatorText !== "--") return;
@@ -725,12 +753,12 @@ export class HandlerExtractor {
    * Extract verification conditions (requires/ensures) from a handler function
    */
   private extractVerificationConditions(
-    funcNode: ArrowFunction | FunctionExpression,
+    funcNode: ArrowFunction | FunctionExpression | FunctionDeclaration,
     preconditions: VerificationCondition[],
     postconditions: VerificationCondition[]
   ): void {
     const body = funcNode.getBody();
-    const statements = Node.isBlock(body) ? body.getStatements() : [body];
+    const statements = Node.isBlock(body) ? body.getStatements() : (body ? [body] : []);
 
     for (const statement of statements) {
       this.processStatementForConditions(statement, preconditions, postconditions);
@@ -925,12 +953,18 @@ export class HandlerExtractor {
 
     try {
       const initializer = varDecl.getInitializer();
-      if (!this.isHandlerMapInitializer(initializer, varDecl)) {
+      if (!initializer) {
+        return handlers;
+      }
+
+      // Get the object literal - either direct or from defineHandlers() call
+      const objectLiteral = this.getHandlerMapObject(initializer, varDecl);
+      if (!objectLiteral) {
         return handlers;
       }
 
       // Extract handlers from object properties
-      const properties = initializer.getProperties();
+      const properties = objectLiteral.getProperties();
       for (const prop of properties) {
         const handler = this.extractHandlerFromProperty(prop, context, filePath);
         if (handler) {
@@ -945,20 +979,29 @@ export class HandlerExtractor {
   }
 
   /**
-   * Check if initializer is a valid handler map
+   * Extract the object literal from a handler map.
+   * Only processes direct object literals with handler-like variable names.
    */
-  private isHandlerMapInitializer(
-    initializer: Node | undefined,
+  private getHandlerMapObject(
+    initializer: Node,
     varDecl: VariableDeclaration
-  ): initializer is ObjectLiteralExpression {
-    if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
-      return false;
+  ): ObjectLiteralExpression | null {
+    // Only process direct object literals
+    if (Node.isObjectLiteralExpression(initializer)) {
+      if (this.isHandlerMapName(varDecl.getName())) {
+        return initializer;
+      }
     }
-
-    // Check if variable name suggests it's a handler map
-    const varName = varDecl.getName().toLowerCase();
-    return /(handler|listener|callback|event)s?/.test(varName);
+    return null;
   }
+
+  /**
+   * Check if variable name suggests it's a handler map
+   */
+  private isHandlerMapName(varName: string): boolean {
+    return /(handler|listener|callback|event)s?/.test(varName.toLowerCase());
+  }
+
 
   /**
    * Extract handler from a property assignment in a handler map
@@ -979,13 +1022,39 @@ export class HandlerExtractor {
       return null;
     }
 
+    const value = prop.getInitializer();
+    const assignments: StateAssignment[] = [];
+    const preconditions: VerificationCondition[] = [];
+    const postconditions: VerificationCondition[] = [];
+
+    // Extract from the handler function
+    if (value) {
+      // Case 1: Inline arrow function or function expression
+      if (Node.isArrowFunction(value) || Node.isFunctionExpression(value)) {
+        this.extractAssignments(value, assignments);
+        this.extractVerificationConditions(value, preconditions, postconditions);
+      }
+      // Case 2: Function reference (e.g., handleQuery)
+      else if (Node.isIdentifier(value)) {
+        const referencedFunction = this.resolveFunctionReference(value);
+        if (referencedFunction) {
+          this.extractAssignments(referencedFunction, assignments);
+          this.extractVerificationConditions(
+            referencedFunction,
+            preconditions,
+            postconditions
+          );
+        }
+      }
+    }
+
     const line = prop.getStartLineNumber();
     return {
       messageType,
       node: context,
-      assignments: [],
-      preconditions: [],
-      postconditions: [],
+      assignments,
+      preconditions,
+      postconditions,
       location: { file: filePath, line },
     };
   }
@@ -1000,6 +1069,47 @@ export class HandlerExtractor {
     if (Node.isIdentifier(nameNode)) {
       return nameNode.getText();
     }
+    return null;
+  }
+
+  /**
+   * Resolve a function reference to its declaration or expression.
+   * Handles both named function declarations and variable-assigned functions.
+   *
+   * @param identifier - The identifier node referencing the function
+   * @returns The resolved function node, or null if not found
+   */
+  private resolveFunctionReference(
+    identifier: Node
+  ): FunctionDeclaration | ArrowFunction | FunctionExpression | null {
+    if (!Node.isIdentifier(identifier)) {
+      return null;
+    }
+
+    try {
+      const definitions = identifier.getDefinitionNodes();
+
+      for (const def of definitions) {
+        // Direct function declaration
+        if (Node.isFunctionDeclaration(def)) {
+          return def;
+        }
+
+        // Variable declaration with function initializer
+        if (Node.isVariableDeclaration(def)) {
+          const initializer = def.getInitializer();
+          if (
+            initializer &&
+            (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
+          ) {
+            return initializer;
+          }
+        }
+      }
+    } catch (_error) {
+      // Failed to resolve - return null
+    }
+
     return null;
   }
 
