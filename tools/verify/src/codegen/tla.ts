@@ -1243,11 +1243,11 @@ export class TLAGenerator {
         this.line(`IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
         // If this is the only message type, add ELSE clause
         if (messageTypes.length === 1) {
-          this.line("ELSE UNCHANGED contextStates  \\* Unknown message type");
+          this.line("ELSE FALSE  \\* Unknown message type - action disabled");
         }
       } else if (i === messageTypes.length - 1) {
         this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
-        this.line("ELSE UNCHANGED contextStates  \\* Unknown message type");
+        this.line("ELSE FALSE  \\* Unknown message type - action disabled");
       } else {
         this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
       }
