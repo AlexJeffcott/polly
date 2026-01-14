@@ -64,7 +64,12 @@ test("createBackground - message router is initialized", () => {
   const bus = createBackground(adapters);
 
   // Verify bus can register handlers (MessageRouter functionality)
-  const handler = async () => ({ success: true });
+  const handler = async () => ({
+    data: { success: true },
+    status: 200,
+    statusText: "OK",
+    headers: {},
+  });
   bus.on("API_REQUEST", handler);
 
   expect(bus).toBeDefined();

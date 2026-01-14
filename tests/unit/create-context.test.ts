@@ -83,7 +83,9 @@ test("createContext - calls onError when onInit fails", async () => {
   const onInitMock = mock(async () => {
     throw error;
   });
-  const onErrorMock = mock(() => {});
+  const onErrorMock = mock(() => {
+    // No-op: just tracking if this gets called
+  });
 
   const bus = createContext("sidepanel", {
     adapters,
@@ -117,7 +119,12 @@ test("createContext - can register handlers", () => {
   });
 
   // Verify bus can register handlers
-  const handler = async () => ({ success: true });
+  const handler = async () => ({
+    data: { success: true },
+    status: 200,
+    statusText: "OK",
+    headers: {},
+  });
   bus.on("API_REQUEST", handler);
 
   expect(bus).toBeDefined();

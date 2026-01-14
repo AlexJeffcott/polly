@@ -1,8 +1,8 @@
 // Background helper - simplifies background script setup
 
+import type { ExtensionAdapters } from "../shared/adapters";
 import type { MessageBus } from "../shared/lib/message-bus";
 import { getMessageBus } from "../shared/lib/message-bus";
-import type { ExtensionAdapters } from "../shared/adapters";
 import type { BaseMessage, ExtensionMessage } from "../shared/types/messages";
 import { MessageRouter } from "./message-router";
 
@@ -39,9 +39,9 @@ import { MessageRouter } from "./message-router";
  * const bus = createBackground(createMockAdapters())
  * ```
  */
-export function createBackground<
-  TMessage extends BaseMessage = ExtensionMessage,
->(adapters?: ExtensionAdapters): MessageBus<TMessage> {
+export function createBackground<TMessage extends BaseMessage = ExtensionMessage>(
+  adapters?: ExtensionAdapters
+): MessageBus<TMessage> {
   // Create MessageBus without setting up listeners (MessageRouter will handle that)
   const bus = getMessageBus<TMessage>("background", adapters, { skipListenerSetup: true });
 
