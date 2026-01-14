@@ -362,4 +362,135 @@ function handleConnect() {
     expect(authAssignment).toBeDefined();
     expect(authAssignment?.value).toBe(false);
   });
+
+  test("should extract state mutations from .value pattern (signal-based state)", () => {
+    const testFile = path.join(tempDir, "signal-state-handlers.ts");
+    fs.writeFileSync(
+      testFile,
+      `
+// Simulate $sharedState signal pattern
+const connectionState = {
+  value: {
+    authenticated: false,
+    connected: false,
+    user: null as { userId: number; handle: string } | null,
+  }
+};
+
+// Plain state object for verification
+const state = {
+  authenticated: false,
+  connected: false,
+  user: null as { userId: number; handle: string } | null,
+};
+
+const bus = {
+  on: (type: string, handler: () => void) => {}
+};
+
+// Handler using .value pattern (currently not extracted)
+bus.on("authenticate", async () => {
+  connectionState.value = {
+    ...connectionState.value,
+    authenticated: true,
+    user: { userId: 1, handle: 'testuser' },
+  };
+});
+
+// Handler using direct state mutation (currently works)
+bus.on("connect", async () => {
+  state.connected = true;
+});
+`
+    );
+
+    const tsConfigPath = path.join(tempDir, "tsconfig.json");
+    fs.writeFileSync(
+      tsConfigPath,
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2020",
+          module: "ESNext",
+        },
+      })
+    );
+
+    const extractor = new HandlerExtractor(tsConfigPath);
+    const result = extractor.extractHandlers([testFile], testFile);
+
+    // Should find both handlers
+    expect(result.handlers.length).toBeGreaterThanOrEqual(2);
+
+    // Direct state mutation should work (baseline)
+    const connectHandler = result.handlers.find((h) => h.messageType === "connect");
+    expect(connectHandler).toBeDefined();
+    expect(connectHandler?.assignments.length).toBeGreaterThan(0);
+    expect(connectHandler?.assignments[0]?.field).toBe("connected");
+    expect(connectHandler?.assignments[0]?.value).toBe(true);
+
+    // .value pattern should also work (ISSUE #25)
+    const authHandler = result.handlers.find((h) => h.messageType === "authenticate");
+    expect(authHandler).toBeDefined();
+    expect(authHandler?.assignments.length).toBeGreaterThan(0);
+
+    // Should extract authenticated field from object spread
+    const authAssignment = authHandler?.assignments.find((a) => a.field === "authenticated");
+    expect(authAssignment).toBeDefined();
+    expect(authAssignment?.value).toBe(true);
+  });
+
+  test("should extract nested .value.field assignments", () => {
+    const testFile = path.join(tempDir, "nested-value-assignments.ts");
+    fs.writeFileSync(
+      testFile,
+      `
+const connectionState = {
+  value: {
+    authenticated: false,
+    count: 0,
+  }
+};
+
+const bus = {
+  on: (type: string, handler: () => void) => {}
+};
+
+bus.on("authenticate", async () => {
+  // Direct nested property assignment
+  connectionState.value.authenticated = true;
+});
+
+bus.on("increment", async () => {
+  connectionState.value.count++;
+});
+`
+    );
+
+    const tsConfigPath = path.join(tempDir, "tsconfig.json");
+    fs.writeFileSync(
+      tsConfigPath,
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2020",
+          module: "ESNext",
+        },
+      })
+    );
+
+    const extractor = new HandlerExtractor(tsConfigPath);
+    const result = extractor.extractHandlers([testFile], testFile);
+
+    // Find authenticate handler with nested .value.field assignment
+    const authHandler = result.handlers.find((h) => h.messageType === "authenticate");
+    expect(authHandler).toBeDefined();
+    expect(authHandler?.assignments.length).toBeGreaterThan(0);
+    expect(authHandler?.assignments[0]?.field).toBe("authenticated");
+    expect(authHandler?.assignments[0]?.value).toBe(true);
+
+    // Find increment handler with unary operator on nested property
+    const incrementHandler = result.handlers.find((h) => h.messageType === "increment");
+    expect(incrementHandler).toBeDefined();
+    expect(incrementHandler?.assignments.length).toBeGreaterThan(0);
+    expect(incrementHandler?.assignments[0]?.field).toBe("count");
+  });
 });

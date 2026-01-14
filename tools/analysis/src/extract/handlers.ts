@@ -505,7 +505,7 @@ export class HandlerExtractor {
   }
 
   /**
-   * Extract property access assignment (state.field = value)
+   * Extract property access assignment (state.field = value or someState.value.field = value)
    */
   private extractPropertyAccessAssignment(
     left: Node,
@@ -515,11 +515,64 @@ export class HandlerExtractor {
     if (!Node.isPropertyAccessExpression(left)) return;
 
     const fieldPath = this.getPropertyPath(left);
+
+    // Pattern 1: state.field = value (original pattern)
     if (fieldPath.startsWith("state.")) {
       const field = fieldPath.substring(6);
       const value = this.extractValue(right);
       if (value !== undefined) {
         assignments.push({ field, value });
+      }
+      return;
+    }
+
+    // Pattern 2: someState.value.field = value (signal pattern)
+    const valueMatch = fieldPath.match(/\.value\.(.+)$/);
+    if (valueMatch && valueMatch[1]) {
+      const field = valueMatch[1];
+      const value = this.extractValue(right);
+      if (value !== undefined) {
+        assignments.push({ field, value });
+      }
+      return;
+    }
+
+    // Pattern 3: someState.value = { object literal } (signal replacement)
+    if (fieldPath.endsWith(".value") && Node.isObjectLiteralExpression(right)) {
+      this.extractObjectLiteralAssignments(right, assignments);
+    }
+  }
+
+  /**
+   * Extract assignments from object literal properties
+   * Used for: someState.value = { field1: value1, field2: value2 }
+   */
+  private extractObjectLiteralAssignments(
+    objectLiteral: Node,
+    assignments: StateAssignment[]
+  ): void {
+    if (!Node.isObjectLiteralExpression(objectLiteral)) return;
+
+    for (const prop of objectLiteral.getProperties()) {
+      // Handle regular property assignments: { field: value }
+      if (Node.isPropertyAssignment(prop)) {
+        const name = prop.getName();
+        const initializer = prop.getInitializer();
+
+        if (!name || !initializer) continue;
+
+        const value = this.extractValue(initializer);
+        if (value !== undefined) {
+          assignments.push({ field: name, value });
+        }
+      }
+
+      // Handle shorthand properties: { field }
+      if (Node.isShorthandPropertyAssignment(prop)) {
+        const name = prop.getName();
+        // For shorthand, we can't extract the value statically
+        // but we know the field is being set
+        assignments.push({ field: name, value: "@" }); // Use @ as placeholder
       }
     }
   }
@@ -538,9 +591,9 @@ export class HandlerExtractor {
     if (!Node.isPropertyAccessExpression(expr)) return;
 
     const fieldPath = this.getPropertyPath(expr);
-    if (!fieldPath.startsWith("state.")) return;
+    const field = this.extractFieldFromStatePath(fieldPath);
 
-    const field = fieldPath.substring(6);
+    if (!field) return;
     const indexExpr = left.getArgumentExpression();
     const index = indexExpr ? indexExpr.getText() : "0";
     const value = this.extractValue(right);
@@ -557,6 +610,26 @@ export class HandlerExtractor {
   }
 
   /**
+   * Check if field path is a state mutation pattern and extract field name
+   * Supports: state.field, someState.value.field
+   * Returns: field name or null if not a state pattern
+   */
+  private extractFieldFromStatePath(fieldPath: string): string | null {
+    // Pattern 1: state.field
+    if (fieldPath.startsWith("state.")) {
+      return fieldPath.substring(6);
+    }
+
+    // Pattern 2: someState.value.field
+    const valueMatch = fieldPath.match(/\.value\.(.+)$/);
+    if (valueMatch && valueMatch[1]) {
+      return valueMatch[1];
+    }
+
+    return null;
+  }
+
+  /**
    * Extract compound assignments (+=, -=, *=, /=, %=)
    */
   private extractCompoundAssignment(node: Node, assignments: StateAssignment[]): void {
@@ -568,8 +641,9 @@ export class HandlerExtractor {
 
     if (Node.isPropertyAccessExpression(left)) {
       const fieldPath = this.getPropertyPath(left);
-      if (fieldPath.startsWith("state.")) {
-        const field = fieldPath.substring(6);
+      const field = this.extractFieldFromStatePath(fieldPath);
+
+      if (field) {
         const rightValue = right.getText();
         const tlaOp = operator.slice(0, -1); // Remove '=' suffix
         assignments.push({
@@ -613,8 +687,9 @@ export class HandlerExtractor {
     if (!Node.isPropertyAccessExpression(operand)) return;
 
     const fieldPath = this.getPropertyPath(operand);
-    if (fieldPath.startsWith("state.")) {
-      const field = fieldPath.substring(6);
+    const field = this.extractFieldFromStatePath(fieldPath);
+
+    if (field) {
       // Translate ++ to @ + 1 and -- to @ - 1
       const value = operatorText === "++" ? "@ + 1" : "@ - 1";
       assignments.push({ field, value });
@@ -635,8 +710,9 @@ export class HandlerExtractor {
 
     if (Node.isPropertyAccessExpression(object)) {
       const fieldPath = this.getPropertyPath(object);
-      if (fieldPath.startsWith("state.")) {
-        const field = fieldPath.substring(6);
+      const field = this.extractFieldFromStatePath(fieldPath);
+
+      if (field) {
         const args = node.getArguments().map((arg) => arg.getText());
         const tlaValue = this.translateArrayMethod(methodName, args, fieldPath);
 
@@ -1769,8 +1845,8 @@ export class HandlerExtractor {
       ? this.getPropertyPath(left)
       : this.getPropertyPath(left.getExpression());
 
-    if (fieldPath.startsWith("state.")) {
-      const field = fieldPath.substring(6);
+    const field = this.extractFieldFromStatePath(fieldPath);
+    if (field) {
       const line = node.getStartLineNumber();
       const afterAwait = node.getStart() > firstAwaitPos;
       mutations.push({ field, line, afterAwait });
@@ -1796,10 +1872,9 @@ export class HandlerExtractor {
     if (!Node.isPropertyAccessExpression(object)) return;
 
     const fieldPath = this.getPropertyPath(object);
-    if (!fieldPath.startsWith("state.")) return;
+    const field = this.extractFieldFromStatePath(fieldPath);
 
-    if (["push", "pop", "shift", "unshift", "splice"].includes(methodName)) {
-      const field = fieldPath.substring(6);
+    if (field && ["push", "pop", "shift", "unshift", "splice"].includes(methodName)) {
       const line = node.getStartLineNumber();
       const afterAwait = node.getStart() > firstAwaitPos;
       mutations.push({ field, line, afterAwait });
