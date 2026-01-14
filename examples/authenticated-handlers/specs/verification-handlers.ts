@@ -30,12 +30,11 @@ export function handleCommand() {
   }
 }
 
-// Register handlers with message bus for verification analysis
-// The extractor will resolve these function references and extract state transitions
-import { getMessageBus } from "../../../tools/verify/src/index";
-
-const bus = getMessageBus<Record<string, unknown>>("verification");
-bus.on("connect", handleConnect);
-bus.on("authenticate", handleAuthenticate);
-bus.on("query", handleQuery);
-bus.on("command", handleCommand);
+// Handler map for verification analysis
+// The extractor will discover these handlers and extract state transitions
+export const handlers = {
+  connect: handleConnect,
+  authenticate: handleAuthenticate,
+  query: handleQuery,
+  command: handleCommand,
+};
