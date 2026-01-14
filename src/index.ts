@@ -33,6 +33,17 @@ export {
 export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
 // State management
 export { $persistedState, $sharedState, $state, $syncedState } from "./shared/lib/state";
+// Validation helpers
+export { validateArray, validateEnum, validatePartial, validateShape } from "./shared/lib/validation";
+// Runtime constraint checking
+export {
+  checkPostconditions,
+  checkPreconditions,
+  clearConstraints,
+  isRuntimeConstraintsEnabled,
+  registerConstraint,
+  registerConstraints,
+} from "./shared/lib/constraints";
 export type { TestCase, TestSuite } from "./shared/lib/test-helpers";
 // Test utilities (DX improvements)
 export { createTestSuite, quickTest, TestRunner } from "./shared/lib/test-helpers";

@@ -15,6 +15,7 @@ type StateOptions<T = unknown> = {
   bus?: MessageBus; // Custom message bus (for testing)
   debounceMs?: number; // Debounce storage writes
   validator?: (value: unknown) => value is T; // Runtime type validation
+  verify?: boolean; // Enable verification tracking (creates plain object mirror)
 };
 
 const stateRegistry = new Map<string, StateEntry<unknown>>();
@@ -88,12 +89,20 @@ export function $sharedState<T>(
   key: string,
   initialValue: T,
   options: StateOptions<T> = {}
-): Signal<T> {
-  return createState(key, initialValue, {
+): Signal<T> & { loaded: Promise<void>; verify?: T } {
+  const sig = createState(key, initialValue, {
     ...options,
     sync: true,
     persist: true,
   });
+
+  // Expose loaded promise for awaiting hydration
+  const entry = stateRegistry.get(key);
+  if (entry) {
+    (sig as any).loaded = entry.loaded;
+  }
+
+  return sig as Signal<T> & { loaded: Promise<void> };
 }
 
 /**
@@ -151,12 +160,20 @@ export function $persistedState<T>(
   key: string,
   initialValue: T,
   options: StateOptions<T> = {}
-): Signal<T> {
-  return createState(key, initialValue, {
+): Signal<T> & { loaded: Promise<void> } {
+  const sig = createState(key, initialValue, {
     ...options,
     sync: false,
     persist: true,
   });
+
+  // Expose loaded promise for awaiting hydration
+  const entry = stateRegistry.get(key);
+  if (entry) {
+    (sig as any).loaded = entry.loaded;
+  }
+
+  return sig as Signal<T> & { loaded: Promise<void> };
 }
 
 /**
@@ -232,6 +249,13 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
 
   const sig = signal(initialValue);
 
+  // Create verification mirror if requested
+  if (options.verify) {
+    // Create plain object mirror for verification
+    const mirror = JSON.parse(JSON.stringify(initialValue));
+    (sig as any).verify = mirror;
+  }
+
   const entry: StateEntry<T> = {
     signal: sig,
     clock: 0,
@@ -278,6 +302,11 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       }
 
       previousValue = value;
+
+      // Update verification mirror if enabled
+      if (options.verify && (sig as any).verify) {
+        Object.assign((sig as any).verify, JSON.parse(JSON.stringify(value)));
+      }
 
       // Increment clock monotonically
       entry.clock++;

@@ -90,6 +90,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   private port: ReturnType<ExtensionAdapters["runtime"]["connect"]> | null = null;
   private errorHandler: ErrorHandler;
   private userErrorHandlers: Array<(error: Error, bus: MessageBus<TMessage>) => void> = [];
+  private stateAccessor: (() => any) | null = null;
   public messageListener:
     | ((
         message: unknown,
@@ -267,6 +268,30 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
    */
   onError(handler: (error: Error, bus: MessageBus<TMessage>) => void): void {
     this.userErrorHandlers.push(handler);
+  }
+
+  /**
+   * Register a state accessor for runtime constraint checking.
+   * The accessor function should return the current state object that constraints will check against.
+   *
+   * @param accessor - Function that returns the current state object
+   *
+   * @example
+   * ```typescript
+   * const state = { loggedIn: false };
+   * bus.setStateAccessor(() => state);
+   *
+   * // Now constraints can be checked against this state
+   * $constraints("loggedIn", {
+   *   USER_LOGOUT: {
+   *     requires: (s) => s.loggedIn === true,
+   *     message: "Must be logged in"
+   *   }
+   * }, { runtime: true });
+   * ```
+   */
+  setStateAccessor(accessor: () => any): void {
+    this.stateAccessor = accessor;
   }
 
   /**
@@ -598,12 +623,51 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       // Track execution to detect double-handler invocation
       globalExecutionTracker.track(message.id, message.payload.type);
 
+      // Check runtime constraints before handler execution
+      if (this.stateAccessor) {
+        try {
+          const { checkPreconditions, isRuntimeConstraintsEnabled } = await import('./constraints.js');
+          if (isRuntimeConstraintsEnabled()) {
+            const currentState = this.stateAccessor();
+            checkPreconditions(message.payload.type, currentState);
+          }
+        } catch (error) {
+          // If constraint check fails, throw immediately
+          if (error instanceof Error) {
+            throw error;
+          }
+          // If import fails, log warning but continue (constraints not available)
+          if (error && typeof error === 'object' && 'code' in error && error.code === 'MODULE_NOT_FOUND') {
+            // Constraints module not available - continue without checking
+          } else {
+            throw error;
+          }
+        }
+      }
+
       // We've already checked handlers.length > 0 above, so handlers[0] exists
       const handler = handlers[0];
       if (!handler) {
         throw new Error(`Handler not found for ${message.payload.type}`);
       }
       const data = await handler(message.payload, message);
+
+      // Check postconditions after handler execution (optional)
+      if (this.stateAccessor) {
+        try {
+          const { checkPostconditions, isRuntimeConstraintsEnabled } = await import('./constraints.js');
+          if (isRuntimeConstraintsEnabled()) {
+            const currentState = this.stateAccessor();
+            checkPostconditions(message.payload.type, currentState);
+          }
+        } catch (error) {
+          // Postcondition failures should be logged but not block response
+          if (error instanceof Error && error.message.includes('Postcondition')) {
+            console.error(`[${this.context}] Postcondition failed:`, error.message);
+            // Continue - postcondition failures don't block the response
+          }
+        }
+      }
 
       const response: RoutedResponse<TMessage> = {
         id: message.id,

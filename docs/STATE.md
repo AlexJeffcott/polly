@@ -64,6 +64,22 @@ settings.value = { ...settings.value, theme: 'light' }
 - `settings` → the state value
 - `settings:clock` → Lamport clock for versioning
 
+**⚠️ Automatic Persistence:**
+
+`$sharedState` **automatically persists** to `chrome.storage.local` on every change. You do **NOT** need to call `storage.set()` manually.
+
+```typescript
+// ❌ Don't Do This - Redundant!
+bookmarks.value = [...bookmarks.value, newItem];
+await bus.adapters.storage.set({ bookmarks: bookmarks.value }); // REDUNDANT
+
+// ✅ Do This Instead
+bookmarks.value = [...bookmarks.value, newItem];
+// That's it! Automatically persisted to storage.
+```
+
+The framework handles persistence automatically when you update the signal. Manual `storage.set()` calls are redundant and can cause unnecessary storage operations.
+
 ---
 
 ### `$syncedState(key, initialValue, options?)`
@@ -302,6 +318,54 @@ cursorPosition.value = { x: 12, y: 22 }
 - Reduces storage API calls
 - Improves performance
 - Messages still send immediately (sync not debounced)
+
+---
+
+## Waiting for Hydration
+
+`$sharedState` **automatically loads** from `chrome.storage.local` on initialization. However, this load is asynchronous. If you need to wait for the storage load to complete before using the state, you can await the `.loaded` promise:
+
+```typescript
+const settings = $sharedState('settings', defaultSettings);
+
+// Wait for storage load to complete
+await settings.loaded;
+
+// Now settings.value is guaranteed to have the loaded value from storage
+console.log(settings.value.theme); // Value from storage, not just initialValue
+```
+
+**⚠️ Automatic Hydration:**
+
+You do **NOT** need to manually load state from storage. The framework handles this automatically.
+
+```typescript
+// ❌ Don't Do This - Redundant!
+(async () => {
+  const stored = await bus.adapters.storage.get(["settings"]);
+  if (isSettings(stored.settings)) {
+    settings.value = stored.settings; // REDUNDANT
+  }
+})();
+
+// ✅ Do This Instead
+const settings = $sharedState("settings", defaultSettings);
+// Automatically loads from storage in the background
+
+// Or if you need to wait:
+await settings.loaded;
+console.log(settings.value); // Loaded from storage
+```
+
+**When to await `.loaded`:**
+- Before reading state that MUST be from storage (not initialValue)
+- In background script initialization
+- When state is critical for immediate operations
+
+**When NOT to await `.loaded`:**
+- In UI components (they'll re-render when state loads)
+- When initialValue is a reasonable default
+- For non-critical state that can update asynchronously
 
 ---
 

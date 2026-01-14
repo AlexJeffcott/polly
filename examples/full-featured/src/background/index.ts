@@ -11,11 +11,12 @@
 import { getMessageBus } from "@fairfox/polly/message-bus";
 import { MessageRouter } from "@fairfox/polly/message-router";
 import { $sharedState } from "@fairfox/polly/state";
+import { validateShape } from "@fairfox/polly";
 import type { AllMessages, Bookmark, Settings } from "../shared/types/messages";
 // Import verification constraints (discovered via transitive import following)
 import "../../specs/constraints.js";
 
-// Application state
+// Application state with automatic persistence and validation
 const settings = $sharedState<Settings>("app-settings", {
   theme: "auto",
   autoSync: true,
@@ -23,47 +24,61 @@ const settings = $sharedState<Settings>("app-settings", {
   notifications: true,
   apiEndpoint: "",
   refreshInterval: 60000,
+}, {
+  // Enhancement #4: Simple shape validation instead of manual type guards
+  validator: validateShape<Settings>({
+    theme: 'string',
+    autoSync: 'boolean',
+    debugMode: 'boolean',
+    notifications: 'boolean',
+    apiEndpoint: 'string',
+    refreshInterval: 'number'
+  })
 });
 
 const bookmarks = $sharedState<Bookmark[]>("bookmarks", []);
 
-// Login state tracking (for UI/persistence)
+// Enhancement #1: Unified state with verification tracking
+// The .verify property provides a plain object mirror for verification
 const loginState = $sharedState<{ loggedIn: boolean; username?: string }>(
   "login-state",
   {
     loggedIn: false,
   },
+  { verify: true } // Enable verification tracking
 );
 
-// State object for verification (code analysis detects direct assignments)
-const state = {
-  loggedIn: false,
-};
+// Enhancement #1: Export verification state - automatically syncs with loginState
+export const state = loginState.verify!;
 
 // Note: State-level constraints are defined in specs/constraints.ts
 // They're automatically discovered via transitive import following
 
-// Type guards for storage validation
-function isSettings(value: unknown): value is Settings {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    "theme" in value &&
-    "autoSync" in value &&
-    "debugMode" in value &&
-    "notifications" in value &&
-    "apiEndpoint" in value &&
-    "refreshInterval" in value
-  );
-}
-
-function isBookmarkArray(value: unknown): value is Bookmark[] {
-  return Array.isArray(value);
-}
+// Enhancement #2: Runtime constraint checking (optional)
+// Uncomment to enable runtime enforcement:
+// import { $constraints } from "@fairfox/polly/verify";
+// $constraints("loggedIn", {
+//   USER_LOGOUT: {
+//     requires: (s) => s.loggedIn === true,
+//     message: "Must be logged in to logout"
+//   },
+//   BOOKMARK_ADD: {
+//     requires: (s) => s.loggedIn === true,
+//     message: "Must be logged in to add bookmarks"
+//   },
+//   SETTINGS_UPDATE: {
+//     requires: (s) => s.loggedIn === true,
+//     message: "Must be logged in to update settings"
+//   }
+// }, { runtime: true });
 
 // Initialize background script
 const bus = getMessageBus<AllMessages>("background");
 new MessageRouter(bus);
+
+// Enhancement #2: Register state accessor for runtime constraint checking
+// This allows constraints to access current state when checking preconditions
+bus.setStateAccessor(() => state);
 
 // User authentication
 bus.on("USER_LOGIN", async (payload) => {
@@ -74,9 +89,8 @@ bus.on("USER_LOGIN", async (payload) => {
     user: { username, token, loginTime: Date.now() },
   });
 
-  // Update login state (for UI/persistence and verification)
+  // Update login state - verification mirror (state) auto-syncs via .verify property
   loginState.value = { loggedIn: true, username };
-  state.loggedIn = true;
 
   return {
     success: true,
@@ -92,9 +106,8 @@ bus.on("USER_LOGOUT", async () => {
 
   await bus.adapters.storage.remove(["user"]);
 
-  // Update login state (for UI/persistence and verification)
+  // Update login state - verification mirror (state) auto-syncs via .verify property
   loginState.value = { loggedIn: false };
-  state.loggedIn = false;
 
   return { success: true };
 });
@@ -117,8 +130,7 @@ bus.on("BOOKMARK_ADD", async (payload) => {
 
   const current = bookmarks.value || [];
   bookmarks.value = [...current, bookmark];
-
-  await bus.adapters.storage.set({ bookmarks: bookmarks.value });
+  // Note: $sharedState automatically persists to storage
 
   return { success: true, bookmark };
 });
@@ -128,8 +140,7 @@ bus.on("BOOKMARK_REMOVE", async (payload) => {
 
   const current = bookmarks.value || [];
   bookmarks.value = current.filter((b) => b.id !== id);
-
-  await bus.adapters.storage.set({ bookmarks: bookmarks.value });
+  // Note: $sharedState automatically persists to storage
 
   return { success: true };
 });
@@ -168,8 +179,7 @@ bus.on("SETTINGS_UPDATE", async (payload) => {
 
   const { type, ...updates } = payload;
   settings.value = { ...settings.value, ...updates };
-
-  await bus.adapters.storage.set({ settings: settings.value });
+  // Note: $sharedState automatically persists to storage
 
   return { success: true, settings: settings.value };
 });
@@ -182,17 +192,13 @@ bus.on("GET_BOOKMARKS", async () => {
   return { success: true, bookmarks: bookmarks.value };
 });
 
-// Initialize state from storage
+// Initialize - wait for state to load from storage
+// Note: $sharedState automatically loads from storage in the background
+// We only need to wait for completion if we need the loaded values immediately
 (async () => {
-  const stored = await bus.adapters.storage.get(["settings", "bookmarks"]);
-
-  if (isSettings(stored.settings)) {
-    settings.value = stored.settings;
-  }
-
-  if (isBookmarkArray(stored.bookmarks)) {
-    bookmarks.value = stored.bookmarks;
-  }
+  // Wait for state hydration to complete
+  await settings.loaded;
+  await bookmarks.loaded;
 
   console.log("[Full-Featured Extension] Background initialized");
 })();

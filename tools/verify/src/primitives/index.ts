@@ -89,31 +89,56 @@ export function hasLength(array: unknown[], constraint: { min?: number; max?: nu
 }
 
 /**
- * Declare state-level constraints for verification.
+ * Declare state-level constraints for verification and optional runtime checking.
  * Maps message types to preconditions on state fields.
  *
- * The parser automatically wires these constraints to handlers.
+ * The parser automatically wires these constraints to handlers during verification.
+ * Optionally, constraints can be enforced at runtime by passing `{ runtime: true }`.
  *
  * @example
+ * // Verification only (TLA+ generation)
  * const state = { loggedIn: false };
  *
  * $constraints("loggedIn", {
- *   USER_LOGOUT: { requires: "loggedIn === true", message: "Must be logged in" },
- *   BOOKMARK_ADD: { requires: "loggedIn === true", message: "Must be logged in" },
+ *   USER_LOGOUT: { requires: "state.loggedIn === true", message: "Must be logged in" },
+ *   BOOKMARK_ADD: { requires: "state.loggedIn === true", message: "Must be logged in" },
  * });
+ *
+ * @example
+ * // Runtime enforcement (function predicates)
+ * $constraints("loggedIn", {
+ *   USER_LOGOUT: {
+ *     requires: (state) => state.loggedIn === true,
+ *     message: "Must be logged in to logout"
+ *   },
+ * }, { runtime: true });
  */
 export function $constraints(
-  _stateField: string,
-  _constraints: Record<
+  stateField: string,
+  constraints: Record<
     string,
     {
-      requires?: string;
-      ensures?: string;
+      requires?: string | ((state: any) => boolean);
+      ensures?: string | ((state: any) => boolean);
       message?: string;
     }
-  >
+  >,
+  options?: { runtime?: boolean }
 ): void {
-  // Runtime no-op - only used during verification
+  // Register constraints for runtime checking if enabled
+  if (options?.runtime) {
+    // Import dynamically to avoid circular dependencies
+    // This is safe because it only happens at runtime, not during static analysis
+    import('../../../src/shared/lib/constraints.js')
+      .then(({ registerConstraints }) => {
+        registerConstraints(stateField, constraints);
+      })
+      .catch((err) => {
+        console.warn('[polly] Failed to register runtime constraints:', err);
+      });
+  }
+
+  // For verification: Still a no-op at runtime
   // Parser extracts these and wires them to TLA+ handlers
 }
 
