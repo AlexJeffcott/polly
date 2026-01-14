@@ -7,13 +7,13 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import {
-  registerConstraint,
-  registerConstraints,
-  checkPreconditions,
   checkPostconditions,
+  checkPreconditions,
   clearConstraints,
   getRegisteredConstraints,
   isRuntimeConstraintsEnabled,
+  registerConstraint,
+  registerConstraints,
 } from "../constraints";
 
 describe("registerConstraint", () => {
@@ -210,9 +210,7 @@ describe("checkPreconditions", () => {
     });
 
     // Should fail on counter constraint
-    expect(() => checkPreconditions("COMPLEX_OPERATION", state)).toThrow(
-      "Count must be positive"
-    );
+    expect(() => checkPreconditions("COMPLEX_OPERATION", state)).toThrow("Count must be positive");
   });
 
   test("should pass when no constraints are registered", () => {
@@ -362,7 +360,7 @@ describe("isRuntimeConstraintsEnabled", () => {
       if (original !== undefined) {
         process.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
       } else {
-        delete process.env["POLLY_RUNTIME_CONSTRAINTS"];
+        process.env["POLLY_RUNTIME_CONSTRAINTS"] = undefined;
       }
     }
   });
@@ -379,7 +377,7 @@ describe("isRuntimeConstraintsEnabled", () => {
       if (original !== undefined) {
         Bun.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
       } else {
-        delete Bun.env["POLLY_RUNTIME_CONSTRAINTS"];
+        Bun.env["POLLY_RUNTIME_CONSTRAINTS"] = undefined;
       }
     }
   });
@@ -395,7 +393,7 @@ describe("isRuntimeConstraintsEnabled", () => {
       if (original !== undefined) {
         process.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
       } else {
-        delete process.env["POLLY_RUNTIME_CONSTRAINTS"];
+        process.env["POLLY_RUNTIME_CONSTRAINTS"] = undefined;
       }
     }
   });

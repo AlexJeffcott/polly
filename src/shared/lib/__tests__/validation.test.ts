@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { validateShape, validateEnum, validateArray, validatePartial } from "../validation";
+import { validateArray, validateEnum, validatePartial, validateShape } from "../validation";
 
 describe("validateShape", () => {
   test("should validate simple object shapes", () => {

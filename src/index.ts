@@ -8,8 +8,16 @@
 export type { ExtensionAdapters } from "./shared/adapters";
 // Adapters
 export { createChromeAdapters } from "./shared/adapters";
+// Runtime constraint checking
+export {
+  checkPostconditions,
+  checkPreconditions,
+  clearConstraints,
+  isRuntimeConstraintsEnabled,
+  registerConstraint,
+  registerConstraints,
+} from "./shared/lib/constraints";
 export type { ContextConfig } from "./shared/lib/context-helpers";
-
 // Context helpers (DX improvements)
 export { createContext, runInContext } from "./shared/lib/context-helpers";
 // Context-specific helpers (DX improvements)
@@ -33,20 +41,16 @@ export {
 export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
 // State management
 export { $persistedState, $sharedState, $state, $syncedState } from "./shared/lib/state";
-// Validation helpers
-export { validateArray, validateEnum, validatePartial, validateShape } from "./shared/lib/validation";
-// Runtime constraint checking
-export {
-  checkPostconditions,
-  checkPreconditions,
-  clearConstraints,
-  isRuntimeConstraintsEnabled,
-  registerConstraint,
-  registerConstraints,
-} from "./shared/lib/constraints";
 export type { TestCase, TestSuite } from "./shared/lib/test-helpers";
 // Test utilities (DX improvements)
 export { createTestSuite, quickTest, TestRunner } from "./shared/lib/test-helpers";
+// Validation helpers
+export {
+  validateArray,
+  validateEnum,
+  validatePartial,
+  validateShape,
+} from "./shared/lib/validation";
 export { settings } from "./shared/state/app-state";
 
 // Types

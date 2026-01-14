@@ -5,7 +5,7 @@
  * Constraints can be checked before handler execution to ensure preconditions are met.
  */
 
-type ConstraintFunction = (state: any) => boolean;
+type ConstraintFunction = (state: unknown) => boolean;
 
 type Constraint = {
   requires?: ConstraintFunction;
@@ -23,11 +23,15 @@ const registry = new Map<string, Map<string, Constraint>>();
  * @param messageType - Message type this constraint applies to
  * @param constraint - Constraint definition with requires/ensures predicates
  */
-export function registerConstraint(field: string, messageType: string, constraint: Constraint): void {
+export function registerConstraint(
+  field: string,
+  messageType: string,
+  constraint: Constraint
+): void {
   if (!registry.has(field)) {
     registry.set(field, new Map());
   }
-  registry.get(field)!.set(messageType, constraint);
+  registry.get(field)?.set(messageType, constraint);
 }
 
 /**
@@ -38,11 +42,14 @@ export function registerConstraint(field: string, messageType: string, constrain
  */
 export function registerConstraints(
   field: string,
-  constraints: Record<string, {
-    requires?: ConstraintFunction | string;
-    ensures?: ConstraintFunction | string;
-    message?: string;
-  }>
+  constraints: Record<
+    string,
+    {
+      requires?: ConstraintFunction | string;
+      ensures?: ConstraintFunction | string;
+      message?: string;
+    }
+  >
 ): void {
   for (const [messageType, constraint] of Object.entries(constraints)) {
     // Only register function-based constraints (strings are for TLA+ generation)
@@ -50,11 +57,11 @@ export function registerConstraints(
       message: constraint.message,
     };
 
-    if (typeof constraint.requires === 'function') {
+    if (typeof constraint.requires === "function") {
       runtimeConstraint.requires = constraint.requires;
     }
 
-    if (typeof constraint.ensures === 'function') {
+    if (typeof constraint.ensures === "function") {
       runtimeConstraint.ensures = constraint.ensures;
     }
 
@@ -66,30 +73,54 @@ export function registerConstraints(
 }
 
 /**
+ * Execute a constraint predicate and handle errors
+ */
+function executeConstraint(
+  predicate: ConstraintFunction,
+  state: unknown,
+  messageType: string,
+  field: string,
+  customMessage?: string,
+  constraintType: "Precondition" | "Postcondition" = "Precondition"
+): void {
+  try {
+    const result = predicate(state);
+    if (!result) {
+      const message =
+        customMessage || `${constraintType} failed for ${messageType} on field ${field}`;
+      throw new Error(message);
+    }
+  } catch (error) {
+    // Re-throw if it's already our constraint error
+    if (error instanceof Error && error.message.includes(`${constraintType} failed`)) {
+      throw error;
+    }
+    // Wrap other errors with context
+    const message =
+      customMessage || `${constraintType} check error for ${messageType} on field ${field}`;
+    throw new Error(`${message}: ${error}`);
+  }
+}
+
+/**
  * Check preconditions for a message type before handler execution.
  *
  * @param messageType - The message type being handled
  * @param state - Current state object to check against
  * @throws Error if any precondition fails
  */
-export function checkPreconditions(messageType: string, state: any): void {
+export function checkPreconditions(messageType: string, state: unknown): void {
   for (const [field, constraints] of registry) {
     const constraint = constraints.get(messageType);
     if (constraint?.requires) {
-      try {
-        const result = constraint.requires(state);
-        if (!result) {
-          const message = constraint.message || `Precondition failed for ${messageType} on field ${field}`;
-          throw new Error(message);
-        }
-      } catch (error) {
-        // Re-throw with context if it's our error, otherwise wrap it
-        if (error instanceof Error && error.message.includes('Precondition failed')) {
-          throw error;
-        }
-        const message = constraint.message || `Precondition check error for ${messageType} on field ${field}`;
-        throw new Error(`${message}: ${error}`);
-      }
+      executeConstraint(
+        constraint.requires,
+        state,
+        messageType,
+        field,
+        constraint.message,
+        "Precondition"
+      );
     }
   }
 }
@@ -101,24 +132,18 @@ export function checkPreconditions(messageType: string, state: any): void {
  * @param state - Current state object to check against
  * @throws Error if any postcondition fails
  */
-export function checkPostconditions(messageType: string, state: any): void {
+export function checkPostconditions(messageType: string, state: unknown): void {
   for (const [field, constraints] of registry) {
     const constraint = constraints.get(messageType);
     if (constraint?.ensures) {
-      try {
-        const result = constraint.ensures(state);
-        if (!result) {
-          const message = constraint.message || `Postcondition failed for ${messageType} on field ${field}`;
-          throw new Error(message);
-        }
-      } catch (error) {
-        // Re-throw with context if it's our error, otherwise wrap it
-        if (error instanceof Error && error.message.includes('Postcondition failed')) {
-          throw error;
-        }
-        const message = constraint.message || `Postcondition check error for ${messageType} on field ${field}`;
-        throw new Error(`${message}: ${error}`);
-      }
+      executeConstraint(
+        constraint.ensures,
+        state,
+        messageType,
+        field,
+        constraint.message,
+        "Postcondition"
+      );
     }
   }
 }
@@ -143,13 +168,13 @@ export function getRegisteredConstraints(): Map<string, Map<string, Constraint>>
  */
 export function isRuntimeConstraintsEnabled(): boolean {
   // Check environment variable
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env['POLLY_RUNTIME_CONSTRAINTS'] === 'true';
+  if (typeof process !== "undefined" && process.env) {
+    return process.env["POLLY_RUNTIME_CONSTRAINTS"] === "true";
   }
 
   // Check for Bun
-  if (typeof Bun !== 'undefined' && Bun.env) {
-    return Bun.env['POLLY_RUNTIME_CONSTRAINTS'] === 'true';
+  if (typeof Bun !== "undefined" && Bun.env) {
+    return Bun.env["POLLY_RUNTIME_CONSTRAINTS"] === "true";
   }
 
   // Default: disabled

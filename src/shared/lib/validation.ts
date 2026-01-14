@@ -5,9 +5,33 @@
  * For more complex validation, consider using Zod or similar libraries.
  */
 
-type PrimitiveType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null' | 'undefined';
+type PrimitiveType = "string" | "number" | "boolean" | "object" | "array" | "null" | "undefined";
 
 type ShapeDefinition = Record<string, PrimitiveType | Record<string, PrimitiveType>>;
+
+/**
+ * Check if a value matches a primitive type
+ */
+function checkPrimitiveType(val: unknown, type: PrimitiveType): boolean {
+  if (type === "array") return Array.isArray(val);
+  if (type === "null") return val === null;
+  if (type === "undefined") return val === undefined;
+  return typeof val === type;
+}
+
+/**
+ * Check if a field matches its expected type definition
+ */
+function checkFieldType(
+  val: unknown,
+  type: PrimitiveType | Record<string, PrimitiveType>
+): boolean {
+  if (typeof type === "string") {
+    return checkPrimitiveType(val, type);
+  }
+  // Nested object validation
+  return validateShape(type)(val);
+}
 
 /**
  * Create a type guard that validates an object's shape.
@@ -48,25 +72,13 @@ type ShapeDefinition = Record<string, PrimitiveType | Record<string, PrimitiveTy
  */
 export function validateShape<T>(shape: ShapeDefinition): (value: unknown) => value is T {
   return (value: unknown): value is T => {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== "object" || value === null) return false;
+
+    const obj = value as Record<string, unknown>;
 
     for (const [key, type] of Object.entries(shape)) {
-      if (!(key in value)) return false;
-
-      const val = (value as Record<string, unknown>)[key];
-
-      if (typeof type === 'string') {
-        // Handle primitive type checks
-        if (type === 'array' && !Array.isArray(val)) return false;
-        if (type === 'null' && val !== null) return false;
-        if (type === 'undefined' && val !== undefined) return false;
-        if (type !== 'array' && type !== 'null' && type !== 'undefined' && typeof val !== type) {
-          return false;
-        }
-      } else {
-        // Handle nested object validation
-        if (!validateShape(type)(val)) return false;
-      }
+      if (!(key in obj)) return false;
+      if (!checkFieldType(obj[key], type)) return false;
     }
 
     return true;
@@ -89,7 +101,9 @@ export function validateShape<T>(shape: ShapeDefinition): (value: unknown) => va
  * }
  * ```
  */
-export function validateEnum<T extends string | number>(allowed: readonly T[]): (value: unknown) => value is T {
+export function validateEnum<T extends string | number>(
+  allowed: readonly T[]
+): (value: unknown) => value is T {
   return (value: unknown): value is T => {
     return allowed.includes(value as T);
   };
@@ -136,7 +150,7 @@ export function validatePartial<T>(
   _validator: (value: unknown) => value is T
 ): (value: unknown) => value is Partial<T> {
   return (value: unknown): value is Partial<T> => {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== "object" || value === null) return false;
     // For partial validation, we just check that the object is of the right shape
     // but allow missing fields
     // TODO: Could use the validator to check present fields

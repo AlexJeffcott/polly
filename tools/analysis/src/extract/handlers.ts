@@ -581,30 +581,30 @@ export class HandlerExtractor {
   }
 
   /**
+   * Get operator text from unary expression token
+   */
+  private getUnaryOperatorText(operator: unknown): string | null {
+    if (typeof operator === "number") {
+      // It's a SyntaxKind enum value
+      if (operator === SyntaxKind.PlusPlusToken) return "++";
+      if (operator === SyntaxKind.MinusMinusToken) return "--";
+      return null;
+    }
+    if (operator && typeof operator === "object" && "getText" in operator) {
+      // It's a Node with getText method
+      return (operator as { getText(): string }).getText();
+    }
+    return null;
+  }
+
+  /**
    * Extract unary expression assignments (++, --)
    */
   private extractUnaryExpressionAssignment(node: Node, assignments: StateAssignment[]): void {
     if (!Node.isPostfixUnaryExpression(node) && !Node.isPrefixUnaryExpression(node)) return;
 
     const operator = node.getOperatorToken();
-
-    // Handle both SyntaxKind enum values and text tokens
-    let operatorText: string;
-    if (typeof operator === "number") {
-      // It's a SyntaxKind enum value
-      if (operator === SyntaxKind.PlusPlusToken) {
-        operatorText = "++";
-      } else if (operator === SyntaxKind.MinusMinusToken) {
-        operatorText = "--";
-      } else {
-        return; // Not ++ or --
-      }
-    } else if (operator && typeof operator === "object" && "getText" in operator) {
-      // It's a Node with getText method
-      operatorText = (operator as { getText(): string }).getText();
-    } else {
-      return; // Unknown type
-    }
+    const operatorText = this.getUnaryOperatorText(operator);
 
     // Only handle ++ and --
     if (operatorText !== "++" && operatorText !== "--") return;
@@ -758,7 +758,7 @@ export class HandlerExtractor {
     postconditions: VerificationCondition[]
   ): void {
     const body = funcNode.getBody();
-    const statements = Node.isBlock(body) ? body.getStatements() : (body ? [body] : []);
+    const statements = Node.isBlock(body) ? body.getStatements() : body ? [body] : [];
 
     for (const statement of statements) {
       this.processStatementForConditions(statement, preconditions, postconditions);
@@ -1002,7 +1002,6 @@ export class HandlerExtractor {
     return /(handler|listener|callback|event)s?/.test(varName.toLowerCase());
   }
 
-
   /**
    * Extract handler from a property assignment in a handler map
    */
@@ -1039,11 +1038,7 @@ export class HandlerExtractor {
         const referencedFunction = this.resolveFunctionReference(value);
         if (referencedFunction) {
           this.extractAssignments(referencedFunction, assignments);
-          this.extractVerificationConditions(
-            referencedFunction,
-            preconditions,
-            postconditions
-          );
+          this.extractVerificationConditions(referencedFunction, preconditions, postconditions);
         }
       }
     }

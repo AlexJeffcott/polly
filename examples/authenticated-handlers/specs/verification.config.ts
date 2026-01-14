@@ -1,7 +1,7 @@
 import { defineVerification } from "../../../tools/verify/src/index";
 import "./verification-state.ts";
 
-export default defineVerification({
+export const verificationConfig = defineVerification({
   state: {
     authenticated: { type: "boolean", initial: false },
     connected: { type: "boolean", initial: false },

@@ -34,7 +34,7 @@ export function handleCommand() {
 // The extractor will resolve these function references and extract state transitions
 import { getMessageBus } from "../../../tools/verify/src/index";
 
-const bus = getMessageBus<any>("verification");
+const bus = getMessageBus<Record<string, unknown>>("verification");
 bus.on("connect", handleConnect);
 bus.on("authenticate", handleAuthenticate);
 bus.on("query", handleQuery);

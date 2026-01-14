@@ -118,8 +118,8 @@ export function $constraints(
   constraints: Record<
     string,
     {
-      requires?: string | ((state: any) => boolean);
-      ensures?: string | ((state: any) => boolean);
+      requires?: string | ((state: unknown) => boolean);
+      ensures?: string | ((state: unknown) => boolean);
       message?: string;
     }
   >,
@@ -130,12 +130,12 @@ export function $constraints(
     // Import dynamically to avoid circular dependencies
     // This is safe because it only happens at runtime, not during static analysis
     // @ts-expect-error - Dynamic import path resolves correctly at runtime
-    import('../../../src/shared/lib/constraints.js')
+    import("../../../src/shared/lib/constraints.js")
       .then(({ registerConstraints }) => {
         registerConstraints(stateField, constraints);
       })
-      .catch((err) => {
-        console.warn('[polly] Failed to register runtime constraints:', err);
+      .catch(() => {
+        // Silently ignore - constraints module may not be available during static analysis
       });
   }
 

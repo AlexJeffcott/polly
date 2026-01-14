@@ -4,6 +4,16 @@ import { effect, type Signal, signal } from "@preact/signals";
 import type { Context } from "../types/messages";
 import { getMessageBus, type MessageBus } from "./message-bus";
 
+/**
+ * Signal extended with .loaded promise for hydration control
+ */
+type SignalWithLoaded<T> = Signal<T> & { loaded: Promise<void> };
+
+/**
+ * Signal extended with .loaded and .verify properties for verification tracking
+ */
+type SignalWithVerify<T> = Signal<T> & { loaded: Promise<void>; verify: T };
+
 type StateEntry<T> = {
   signal: Signal<T>;
   clock: number; // Lamport clock for causal ordering
@@ -99,7 +109,7 @@ export function $sharedState<T>(
   // Expose loaded promise for awaiting hydration
   const entry = stateRegistry.get(key);
   if (entry) {
-    (sig as any).loaded = entry.loaded;
+    (sig as SignalWithLoaded<T>).loaded = entry.loaded;
   }
 
   return sig as Signal<T> & { loaded: Promise<void> };
@@ -170,7 +180,7 @@ export function $persistedState<T>(
   // Expose loaded promise for awaiting hydration
   const entry = stateRegistry.get(key);
   if (entry) {
-    (sig as any).loaded = entry.loaded;
+    (sig as SignalWithLoaded<T>).loaded = entry.loaded;
   }
 
   return sig as Signal<T> & { loaded: Promise<void> };
@@ -252,8 +262,8 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   // Create verification mirror if requested
   if (options.verify) {
     // Create plain object mirror for verification
-    const mirror = JSON.parse(JSON.stringify(initialValue));
-    (sig as any).verify = mirror;
+    const mirror = JSON.parse(JSON.stringify(initialValue)) as T;
+    (sig as SignalWithVerify<T>).verify = mirror;
   }
 
   const entry: StateEntry<T> = {
@@ -304,8 +314,11 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       previousValue = value;
 
       // Update verification mirror if enabled
-      if (options.verify && (sig as any).verify) {
-        Object.assign((sig as any).verify, JSON.parse(JSON.stringify(value)));
+      if (options.verify) {
+        const verifySignal = sig as SignalWithVerify<T>;
+        if (verifySignal.verify) {
+          Object.assign(verifySignal.verify, JSON.parse(JSON.stringify(value)));
+        }
       }
 
       // Increment clock monotonically

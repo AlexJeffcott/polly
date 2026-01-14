@@ -90,7 +90,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   private port: ReturnType<ExtensionAdapters["runtime"]["connect"]> | null = null;
   private errorHandler: ErrorHandler;
   private userErrorHandlers: Array<(error: Error, bus: MessageBus<TMessage>) => void> = [];
-  private stateAccessor: (() => any) | null = null;
+  private stateAccessor: (() => unknown) | null = null;
   public messageListener:
     | ((
         message: unknown,
@@ -290,7 +290,7 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
    * }, { runtime: true });
    * ```
    */
-  setStateAccessor(accessor: () => any): void {
+  setStateAccessor(accessor: () => unknown): void {
     this.stateAccessor = accessor;
   }
 
@@ -626,7 +626,9 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       // Check runtime constraints before handler execution
       if (this.stateAccessor) {
         try {
-          const { checkPreconditions, isRuntimeConstraintsEnabled } = await import('./constraints.js');
+          const { checkPreconditions, isRuntimeConstraintsEnabled } = await import(
+            "./constraints.js"
+          );
           if (isRuntimeConstraintsEnabled()) {
             const currentState = this.stateAccessor();
             checkPreconditions(message.payload.type, currentState);
@@ -637,7 +639,12 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
             throw error;
           }
           // If import fails, log warning but continue (constraints not available)
-          if (error && typeof error === 'object' && 'code' in error && error.code === 'MODULE_NOT_FOUND') {
+          if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "MODULE_NOT_FOUND"
+          ) {
             // Constraints module not available - continue without checking
           } else {
             throw error;
@@ -655,14 +662,16 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       // Check postconditions after handler execution (optional)
       if (this.stateAccessor) {
         try {
-          const { checkPostconditions, isRuntimeConstraintsEnabled } = await import('./constraints.js');
+          const { checkPostconditions, isRuntimeConstraintsEnabled } = await import(
+            "./constraints.js"
+          );
           if (isRuntimeConstraintsEnabled()) {
             const currentState = this.stateAccessor();
             checkPostconditions(message.payload.type, currentState);
           }
         } catch (error) {
           // Postcondition failures should be logged but not block response
-          if (error instanceof Error && error.message.includes('Postcondition')) {
+          if (error instanceof Error && error.message.includes("Postcondition")) {
             console.error(`[${this.context}] Postcondition failed:`, error.message);
             // Continue - postcondition failures don't block the response
           }

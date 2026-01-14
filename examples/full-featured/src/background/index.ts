@@ -8,33 +8,37 @@
  * - Data persistence
  */
 
+import { validateShape } from "@fairfox/polly";
 import { getMessageBus } from "@fairfox/polly/message-bus";
 import { MessageRouter } from "@fairfox/polly/message-router";
 import { $sharedState } from "@fairfox/polly/state";
-import { validateShape } from "@fairfox/polly";
 import type { AllMessages, Bookmark, Settings } from "../shared/types/messages";
 // Import verification constraints (discovered via transitive import following)
 import "../../specs/constraints.js";
 
 // Application state with automatic persistence and validation
-const settings = $sharedState<Settings>("app-settings", {
-  theme: "auto",
-  autoSync: true,
-  debugMode: false,
-  notifications: true,
-  apiEndpoint: "",
-  refreshInterval: 60000,
-}, {
-  // Enhancement #4: Simple shape validation instead of manual type guards
-  validator: validateShape<Settings>({
-    theme: 'string',
-    autoSync: 'boolean',
-    debugMode: 'boolean',
-    notifications: 'boolean',
-    apiEndpoint: 'string',
-    refreshInterval: 'number'
-  })
-});
+const settings = $sharedState<Settings>(
+  "app-settings",
+  {
+    theme: "auto",
+    autoSync: true,
+    debugMode: false,
+    notifications: true,
+    apiEndpoint: "",
+    refreshInterval: 60000,
+  },
+  {
+    // Enhancement #4: Simple shape validation instead of manual type guards
+    validator: validateShape<Settings>({
+      theme: "string",
+      autoSync: "boolean",
+      debugMode: "boolean",
+      notifications: "boolean",
+      apiEndpoint: "string",
+      refreshInterval: "number",
+    }),
+  },
+);
 
 const bookmarks = $sharedState<Bookmark[]>("bookmarks", []);
 
@@ -45,11 +49,16 @@ const loginState = $sharedState<{ loggedIn: boolean; username?: string }>(
   {
     loggedIn: false,
   },
-  { verify: true } // Enable verification tracking
+  { verify: true }, // Enable verification tracking
 );
 
 // Enhancement #1: Export verification state - automatically syncs with loginState
-export const state = loginState.verify!;
+if (!loginState.verify) {
+  throw new Error(
+    "Verification mirror not created - ensure verify: true is set",
+  );
+}
+export const state = loginState.verify;
 
 // Note: State-level constraints are defined in specs/constraints.ts
 // They're automatically discovered via transitive import following

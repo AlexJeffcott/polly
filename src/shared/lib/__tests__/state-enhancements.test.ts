@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { $sharedState, $persistedState } from "../state";
+import { $persistedState, $sharedState } from "../state";
 
 describe("Enhancement #1: Verification Tracking (.verify property)", () => {
   beforeEach(() => {
