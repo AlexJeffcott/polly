@@ -109,6 +109,7 @@ export class DockerRunner {
       "tlc",
       "-workers",
       `${options?.workers || 1}`,
+      "-cleanup", // Delete state files after model checking to prevent disk space issues
       `${specName}.tla`,
     ];
 
