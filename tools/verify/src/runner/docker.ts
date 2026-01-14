@@ -99,6 +99,12 @@ export class DockerRunner {
       throw new Error(`Config file not found: ${cfgPath}`);
     }
 
+    // Clean up any leftover state files from previous interrupted runs
+    const statesDir = path.join(specDir, "states");
+    if (fs.existsSync(statesDir)) {
+      fs.rmSync(statesDir, { recursive: true, force: true });
+    }
+
     // Run TLC in Docker
     const args = [
       "run",
