@@ -1,10 +1,15 @@
 # State Management
 
-Reactive state primitives with automatic synchronization and persistence across extension contexts.
+Universal reactive state primitives with automatic synchronization and persistence across execution contexts.
 
 ## Overview
 
-Web extensions run in multiple isolated JavaScript contexts (background, popup, content scripts, etc.). The state primitives provide a unified API to share state across these contexts with automatic synchronization, persistence, and conflict resolution.
+Polly provides reactive state management that works seamlessly across different environments:
+- **Chrome Extensions**: Multiple isolated contexts (background, popup, content scripts, etc.)
+- **Web Applications & PWAs**: Multi-tab applications with cross-tab synchronization
+- **Node.js/Testing**: In-memory state for verification and testing
+
+The state primitives provide a unified API with automatic synchronization, persistence, and conflict resolution - the same code works everywhere with environment-specific optimizations.
 
 ## Quick Start
 
@@ -36,11 +41,12 @@ const isLoading = $state(false)
 The most common state primitive. Use this for application settings, user preferences, and any data that should be shared and survive extension reloads.
 
 **Features:**
-- ✅ Synced to all contexts in real-time via broadcast messages
-- ✅ Persisted to `chrome.storage.local`
+- ✅ Synced across all contexts in real-time via environment-appropriate transport
+- ✅ Persisted to storage (chrome.storage in extensions, IndexedDB in web apps)
 - ✅ Lamport clock for conflict resolution
 - ✅ Loads from storage on initialization
-- ⚠️ Not available in page scripts
+- ✅ Works in Chrome extensions AND web applications
+- ⚠️ Not available in page scripts (isolated page context)
 
 **Example:**
 ```typescript
@@ -169,28 +175,86 @@ async function submit() {
 
 ---
 
+## Universal Architecture
+
+Polly automatically detects your environment and uses the appropriate adapters for storage and synchronization:
+
+### Environment Detection
+
+| Environment | Storage | Sync Transport | Use Case |
+|------------|---------|----------------|----------|
+| **Chrome Extension** | `chrome.storage.local` | `chrome.runtime` messaging | Multi-context extensions |
+| **Web App / PWA** | IndexedDB | BroadcastChannel | Multi-tab web applications |
+| **Single-Tab Web App** | IndexedDB | None (NoOp) | Single-tab applications |
+| **Node.js / Testing** | In-memory | None (NoOp) | Verification & unit tests |
+
+**How it works:**
+
+```typescript
+// Same code, different environments:
+const settings = $sharedState('settings', { theme: 'dark' })
+
+// In Chrome extension:
+//   - Uses chrome.storage.local for persistence
+//   - Uses chrome.runtime.sendMessage for sync
+
+// In web app:
+//   - Uses IndexedDB for persistence
+//   - Uses BroadcastChannel for cross-tab sync
+
+// In Node.js tests:
+//   - Uses in-memory Map for storage
+//   - No sync (single process)
+```
+
+### Storage Adapters
+
+The framework automatically selects the right storage backend:
+
+1. **ChromeStorageAdapter**: Uses `chrome.storage.local` (extensions)
+2. **IndexedDBAdapter**: Uses IndexedDB (web apps/PWAs)
+3. **MemoryStorageAdapter**: Uses Map (testing/verification)
+
+### Sync Adapters
+
+Cross-context synchronization uses environment-appropriate transport:
+
+1. **ChromeRuntimeSyncAdapter**: Uses `chrome.runtime.sendMessage` (extensions)
+2. **BroadcastChannelSyncAdapter**: Uses BroadcastChannel API (web apps)
+3. **NoOpSyncAdapter**: No sync (single-context scenarios)
+
+**Why BroadcastChannel for web apps?**
+
+BroadcastChannel provides peer-to-peer messaging between tabs with minimal overhead. See [Architecture Decision](../src/shared/lib/sync-adapter.ts) for comparison with SharedWorker and rationale.
+
+### Custom Adapters
+
+You can provide custom adapters for specialized scenarios:
+
+```typescript
+import { $sharedState } from '@fairfox/polly/state'
+import { IndexedDBAdapter, BroadcastChannelSyncAdapter } from '@fairfox/polly/adapters'
+
+const settings = $sharedState('settings', defaultSettings, {
+  storage: new IndexedDBAdapter('my-db-name'),
+  sync: new BroadcastChannelSyncAdapter('my-channel'),
+})
+```
+
+---
+
 ## Context Availability
 
-| Primitive | Background | Popup | Options | DevTools | Content | Page |
-|-----------|-----------|-------|---------|----------|---------|------|
-| `$sharedState` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `$syncedState` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `$persistedState` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `$state` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Primitive | Background | Popup | Options | DevTools | Content | Web App | Page |
+|-----------|-----------|-------|---------|----------|---------|---------|------|
+| `$sharedState` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `$syncedState` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `$persistedState` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `$state` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 **Why not page scripts?**
 
-Page scripts run in the webpage's JavaScript context and don't have access to `chrome.storage`. They are execution contexts for content scripts, not independent contexts with their own state.
-
-If you try to use stateful primitives in a page script, you'll get an error:
-
-```typescript
-// ❌ Page context
-const settings = $sharedState('settings', {})
-// Error: $sharedState() is not available in page context.
-// Page scripts are execution contexts for content scripts and should not maintain state.
-// Use state in the content script instead, or use $state() for local-only state.
-```
+Page scripts run in the webpage's JavaScript context (when injected via `<script>` tag). They don't have access to extension APIs or reliable storage. Use content scripts for stateful operations instead.
 
 ---
 
@@ -218,27 +282,28 @@ settings.value = { theme: 'light' } // clock: 5 → 6
 - No timestamp dependency (immune to clock skew)
 - Eventually consistent
 
-### Storage + Messages
+### Storage + Sync Adapters
 
-State uses **two channels** for synchronization:
+State uses **two independent channels** for synchronization via the adapter pattern:
 
-1. **`chrome.storage.local`** - Persistent source of truth
-2. **Broadcast messages** - Real-time synchronization
+1. **Storage Adapter** - Persistent source of truth (chrome.storage, IndexedDB, or in-memory)
+2. **Sync Adapter** - Real-time synchronization (chrome.runtime, BroadcastChannel, or NoOp)
 
 ```
 Context A changes state
     ↓
-    ├─→ Write to chrome.storage (durability)
-    └─→ Broadcast message (real-time)
+    ├─→ Write to storage adapter (durability)
+    └─→ Broadcast via sync adapter (real-time)
         ↓
 Context B receives message
     └─→ Updates local signal instantly
 ```
 
 This hybrid approach provides:
-- **Real-time sync** via messages (no polling)
-- **Durability** via storage (survives crashes)
+- **Real-time sync** via environment-appropriate messaging (no polling)
+- **Durability** via environment-appropriate storage (survives crashes)
 - **Consistency** via Lamport clock (conflict resolution)
+- **Universality** via adapters (same code, different environments)
 
 ### Deep Equality
 
@@ -755,9 +820,11 @@ Create synced + persisted state.
 **Parameters:**
 - `key` - Unique identifier (e.g., `"app-settings"`)
 - `initialValue` - Default value if nothing in storage
+- `options.storage` - Optional custom StorageAdapter
+- `options.sync` - Optional custom SyncAdapter
 - `options.validator` - Optional runtime type guard
 - `options.debounceMs` - Optional debounce for storage writes
-- `options.bus` - Optional custom MessageBus (for testing)
+- `options.bus` - Optional custom MessageBus (deprecated, use adapters)
 
 **Returns:** Reactive Preact signal
 

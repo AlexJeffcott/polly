@@ -3,6 +3,8 @@
 import { effect, type Signal, signal } from "@preact/signals";
 import type { Context } from "../types/messages";
 import { getMessageBus, type MessageBus } from "./message-bus";
+import { createStorageAdapter, type StorageAdapter } from "./storage-adapter";
+import { createSyncAdapter, type SyncAdapter } from "./sync-adapter";
 
 /**
  * Signal extended with .loaded promise for hydration control
@@ -22,7 +24,14 @@ type StateEntry<T> = {
 };
 
 type StateOptions<T = unknown> = {
-  bus?: MessageBus; // Custom message bus (for testing)
+  // Legacy MessageBus support (deprecated, will be removed in v2.0)
+  bus?: MessageBus;
+
+  // New adapter system (recommended)
+  storage?: StorageAdapter; // Custom storage adapter
+  sync?: SyncAdapter; // Custom sync adapter
+
+  // Behavior options
   debounceMs?: number; // Debounce storage writes
   validator?: (value: unknown) => value is T; // Runtime type validation
   verify?: boolean; // Enable verification tracking (creates plain object mirror)
@@ -102,8 +111,8 @@ export function $sharedState<T>(
 ): Signal<T> & { loaded: Promise<void>; verify?: T } {
   const sig = createState(key, initialValue, {
     ...options,
-    sync: true,
-    persist: true,
+    enableSync: true,
+    enablePersist: true,
   });
 
   // Expose loaded promise for awaiting hydration
@@ -141,8 +150,8 @@ export function $syncedState<T>(
 ): Signal<T> {
   return createState(key, initialValue, {
     ...options,
-    sync: true,
-    persist: false,
+    enableSync: true,
+    enablePersist: false,
   });
 }
 
@@ -173,8 +182,8 @@ export function $persistedState<T>(
 ): Signal<T> & { loaded: Promise<void> } {
   const sig = createState(key, initialValue, {
     ...options,
-    sync: false,
-    persist: true,
+    enableSync: false,
+    enablePersist: true,
   });
 
   // Expose loaded promise for awaiting hydration
@@ -209,8 +218,8 @@ export function $state<T>(initialValue: T): Signal<T> {
 }
 
 type InternalStateOptions<T = unknown> = StateOptions<T> & {
-  sync: boolean;
-  persist: boolean;
+  enableSync: boolean; // Whether to enable sync (avoid collision with sync?: SyncAdapter)
+  enablePersist: boolean; // Whether to enable persistence
 };
 
 // Deep equality check to prevent redundant updates
@@ -233,6 +242,39 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
+/**
+ * Resolve storage and sync adapters with three-tier priority:
+ * 1. Explicit adapters from options (highest priority)
+ * 2. MessageBus adapters (legacy, deprecated)
+ * 3. Auto-detected adapters (default behavior)
+ */
+function resolveAdapters(
+  options: InternalStateOptions,
+  currentContext: Context
+): { storage: StorageAdapter | null; sync: SyncAdapter | null } {
+  // Priority 1: Explicit adapters (partial or full)
+  if (options.storage || options.sync) {
+    return {
+      storage: options.storage || (options.enablePersist ? createStorageAdapter() : null),
+      sync: options.sync || (options.enableSync ? createSyncAdapter() : null),
+    };
+  }
+
+  // Priority 2: MessageBus (legacy support)
+  if (options.bus) {
+    return {
+      storage: options.bus.adapters.storage,
+      sync: options.bus.adapters.sync,
+    };
+  }
+
+  // Priority 3: Auto-detect based on enableSync and enablePersist flags
+  return {
+    storage: options.enablePersist ? createStorageAdapter() : null,
+    sync: options.enableSync ? createSyncAdapter() : null,
+  };
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Core state management logic requires coordination of multiple concerns
 function createState<T>(key: string, initialValue: T, options: InternalStateOptions<T>): Signal<T> {
   // Return existing signal if already registered
@@ -241,21 +283,6 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   }
 
   const currentContext = getCurrentContext();
-
-  // Page scripts should not have stateful operations
-  // They are execution contexts for content scripts, not independent contexts
-  if (currentContext === "page" && (options.sync || options.persist)) {
-    const stateFn =
-      options.sync && options.persist
-        ? "$sharedState"
-        : options.persist
-          ? "$persistedState"
-          : "$syncedState";
-
-    throw new Error(
-      `[web-ext] ${stateFn}() is not available in page context.\nPage scripts are execution contexts for content scripts and should not maintain state.\nUse state in the content script instead, or use $state() for local-only state.`
-    );
-  }
 
   const sig = signal(initialValue);
 
@@ -273,18 +300,12 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
     updating: false,
   };
 
-  // Lazy bus initialization
-  let bus: MessageBus | null = null;
-  const getBus = () => {
-    if (!bus && typeof chrome !== "undefined") {
-      bus = options.bus || getMessageBus(currentContext);
-    }
-    return bus;
-  };
+  // Resolve adapters (explicit, MessageBus, or auto-detect)
+  const adapters = resolveAdapters(options, currentContext);
 
   // Load from storage if persist is enabled
-  if (options.persist) {
-    entry.loaded = loadFromStorage(key, sig, entry, getBus(), options.validator);
+  if (options.enablePersist && adapters.storage) {
+    entry.loaded = loadFromStorage(key, sig, entry, adapters.storage, options.validator);
   }
 
   // Watch for changes after initial load
@@ -326,13 +347,13 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
 
       const doUpdate = () => {
         // Persist to storage
-        if (options.persist) {
-          persistToStorage(key, value, entry.clock, getBus());
+        if (options.enablePersist && adapters.storage) {
+          persistToStorage(key, value, entry.clock, adapters.storage);
         }
 
         // Broadcast to other contexts
-        if (options.sync) {
-          broadcastUpdate(key, value, entry.clock, getBus());
+        if (options.enableSync && adapters.sync) {
+          broadcastUpdate(key, value, entry.clock, adapters.sync);
         }
       };
 
@@ -347,56 +368,43 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   });
 
   // Listen for updates from other contexts (only if sync enabled)
-  if (options.sync) {
-    const messageBus = getBus();
-    if (messageBus) {
-      // Auto-connect for contexts that need it (popup, options, devtools)
-      // Safe to call multiple times because:
-      // - getMessageBus() returns a singleton per context
-      // - connect() is idempotent (checks if port exists and returns early)
-      // Background doesn't need to connect (it's the hub)
-      // Content scripts connect explicitly when needed
-      if (
-        currentContext === "popup" ||
-        currentContext === "options" ||
-        currentContext === "devtools"
-      ) {
-        messageBus.connect(currentContext);
-      }
+  if (options.enableSync && adapters.sync) {
+    // Connect if needed (some adapters require explicit connection)
+    if (adapters.sync.connect) {
+      adapters.sync.connect();
+    }
 
-      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: State sync requires validation and conflict resolution
-      messageBus.on("STATE_SYNC", async (payload) => {
-        if (payload.key !== key) return undefined;
+    // Register sync message listener
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: State sync requires validation and conflict resolution
+    adapters.sync.onMessage<T>((message) => {
+      if (message.key !== key) return;
 
-        const oldClock = entry.clock;
+      const oldClock = entry.clock;
 
-        // Lamport clock rule: Always update to max(local, received)
-        // This maintains causal ordering even when rejecting updates
-        entry.clock = Math.max(entry.clock, payload.clock);
+      // Lamport clock rule: Always update to max(local, received)
+      // This maintains causal ordering even when rejecting updates
+      entry.clock = Math.max(entry.clock, message.clock);
 
-        // Only accept value updates if received clock is strictly greater than old local clock
-        // This ensures we only apply causally newer updates
-        if (payload.clock > oldClock) {
-          // Validate incoming value if validator provided
-          if (options.validator && !options.validator(payload.value)) {
-            console.warn(
-              `[web-ext] State "${key}": Received invalid value from sync (clock: ${payload.clock})`,
-              payload.value
-            );
-            return undefined;
-          }
-
-          // Skip redundant updates (deep equality check)
-          if (deepEqual(entry.signal.value, payload.value)) {
-            return undefined;
-          }
-
-          applyUpdate(entry, payload.value as T, payload.clock);
+      // Only accept value updates if received clock is strictly greater than old local clock
+      // This ensures we only apply causally newer updates
+      if (message.clock > oldClock) {
+        // Validate incoming value if validator provided
+        if (options.validator && !options.validator(message.value)) {
+          console.warn(
+            `[Polly] State "${key}": Received invalid value from sync (clock: ${message.clock})`,
+            message.value
+          );
+          return;
         }
 
-        return undefined;
-      });
-    }
+        // Skip redundant updates (deep equality check)
+        if (deepEqual(entry.signal.value, message.value)) {
+          return;
+        }
+
+        applyUpdate(entry, message.value as T, message.clock);
+      }
+    });
   }
 
   stateRegistry.set(key, entry as StateEntry<unknown>);
@@ -407,13 +415,11 @@ async function loadFromStorage<T>(
   key: string,
   sig: Signal<T>,
   entry: StateEntry<T>,
-  bus: MessageBus | null,
+  storage: StorageAdapter,
   validator?: (value: unknown) => value is T
 ): Promise<void> {
-  if (!bus) return;
-
   try {
-    const result = await bus.adapters.storage.get([key, `${key}:clock`]);
+    const result = await storage.get([key, `${key}:clock`]);
 
     if (result[key] !== undefined) {
       const storedValue = result[key];
@@ -424,7 +430,7 @@ async function loadFromStorage<T>(
           sig.value = storedValue;
         } else {
           console.warn(
-            `[web-ext] State "${key}": Stored value failed validation, using initial value`,
+            `[Polly] State "${key}": Stored value failed validation, using initial value`,
             storedValue
           );
         }
@@ -437,35 +443,30 @@ async function loadFromStorage<T>(
       entry.clock = result[`${key}:clock`] as number;
     }
   } catch (error) {
-    console.warn(`[web-ext] Failed to load state from storage: ${key}`, error);
+    console.warn(`[Polly] Failed to load state from storage: ${key}`, error);
   }
 }
 
-function persistToStorage<T>(key: string, value: T, clock: number, bus: MessageBus | null): void {
-  if (!bus) return;
-
+function persistToStorage<T>(key: string, value: T, clock: number, storage: StorageAdapter): void {
   try {
-    bus.adapters.storage.set({
+    storage.set({
       [key]: value,
       [`${key}:clock`]: clock,
     });
   } catch (error) {
-    console.warn(`Failed to persist state to storage: ${key}`, error);
+    console.warn(`[Polly] Failed to persist state to storage: ${key}`, error);
   }
 }
 
-function broadcastUpdate<T>(key: string, value: T, clock: number, bus: MessageBus | null): void {
-  if (!bus) return;
-
+function broadcastUpdate<T>(key: string, value: T, clock: number, sync: SyncAdapter): void {
   try {
-    bus.broadcast({
-      type: "STATE_SYNC",
+    sync.broadcast({
       key,
       value,
       clock,
     });
   } catch (error) {
-    console.warn(`Failed to broadcast state update: ${key}`, error);
+    console.warn(`[Polly] Failed to broadcast state update: ${key}`, error);
   }
 }
 

@@ -45,6 +45,7 @@ ${generateVerificationSection(context)}
 - **Performance**: How to optimize verification speed and state space exploration
 - **Debugging**: Interpreting counterexamples and fixing violations
 - **Configuration**: Understanding maxInFlight, bounds, and other verification parameters
+- **Universal State Management**: Using the same state code in Chrome extensions, web apps, and Node.js
 - **Elysia Integration**: Using Polly with Elysia/Bun servers for full-stack distributed systems verification
 - **Testing & Adapters**: Using mock adapters for testing and verification in Node.js environments
 
@@ -395,6 +396,126 @@ All context creation functions now follow the adapter pattern:
 - \`createContext(context, { adapters?, ... })\` ✓
 - \`getMessageBus(context, adapters?)\` ✓
 - \`new MessageBus(context, adapters?)\` ✓
+
+# Universal State Management
+
+Polly's state primitives (\`$sharedState\`, \`$syncedState\`, \`$persistedState\`, \`$state\`) now work universally across Chrome extensions, web applications/PWAs, and Node.js environments using an **adapter pattern**.
+
+## The Adapter System
+
+State management is decoupled into two independent concerns via adapters:
+
+1. **Storage Adapter** - Where state persists (chrome.storage, IndexedDB, or in-memory)
+2. **Sync Adapter** - How state synchronizes across contexts (chrome.runtime, BroadcastChannel, or NoOp)
+
+## Automatic Environment Detection
+
+The framework automatically detects the environment and selects appropriate adapters:
+
+| Environment | Storage | Sync Transport | Use Case |
+|------------|---------|----------------|----------|
+| **Chrome Extension** | \`chrome.storage.local\` | \`chrome.runtime\` messaging | Multi-context extensions |
+| **Web App / PWA** | IndexedDB | BroadcastChannel | Multi-tab web applications |
+| **Single-Tab Web App** | IndexedDB | None (NoOp) | Single-tab applications |
+| **Node.js / Testing** | In-memory Map | None (NoOp) | Verification & unit tests |
+
+**Example:**
+\`\`\`typescript
+// Same code works everywhere!
+import { $sharedState } from '@fairfox/polly/state';
+
+const settings = $sharedState('settings', { theme: 'dark' });
+
+// In Chrome extension:
+//   → Uses chrome.storage.local + chrome.runtime messaging
+// In web app:
+//   → Uses IndexedDB + BroadcastChannel
+// In Node.js test:
+//   → Uses in-memory Map + NoOp sync
+\`\`\`
+
+## Why BroadcastChannel for Web Apps?
+
+**Architecture Decision**: BroadcastChannel was chosen over SharedWorker for web app sync because:
+- Simpler API with no lifecycle management complexity
+- Decentralized (aligns with local-first/offline-first architecture)
+- Better browser support (especially Safari and mobile)
+- Perfect for message-passing with Lamport clock conflict resolution
+- No single point of failure
+
+SharedWorker could be added as an optional adapter in the future for use cases requiring:
+- Central coordination point for complex multi-tab workflows
+- Shared WebSocket connections (one connection for all tabs)
+- Heavy computation done once and shared across tabs
+- Persistent background work when tabs are closed
+
+See \`src/shared/lib/sync-adapter.ts\` for detailed architectural rationale.
+
+## Available Adapters
+
+### Storage Adapters
+- \`ChromeStorageAdapter\` - Uses \`chrome.storage.local\` (auto-detected in extensions)
+- \`IndexedDBAdapter\` - Uses IndexedDB (auto-detected in web apps)
+- \`MemoryStorageAdapter\` - Uses in-memory Map (auto-detected in Node.js)
+
+### Sync Adapters
+- \`ChromeRuntimeSyncAdapter\` - Uses \`chrome.runtime.sendMessage\` (auto-detected in extensions)
+- \`BroadcastChannelSyncAdapter\` - Uses BroadcastChannel API (auto-detected in web apps)
+- \`NoOpSyncAdapter\` - No synchronization (auto-detected for single-context scenarios)
+
+## Custom Adapters
+
+Users can provide custom adapters for specialized scenarios:
+
+\`\`\`typescript
+import { $sharedState } from '@fairfox/polly/state';
+import { IndexedDBAdapter, BroadcastChannelSyncAdapter } from '@fairfox/polly/adapters';
+
+const settings = $sharedState('settings', defaultSettings, {
+  storage: new IndexedDBAdapter('custom-db-name'),
+  sync: new BroadcastChannelSyncAdapter('custom-channel'),
+});
+\`\`\`
+
+## Key Features
+
+- **Write once, run anywhere**: Same state code works in extensions, web apps, and Node.js
+- **Environment-optimized**: Uses the best available APIs for each platform
+- **No conditional logic**: Framework handles detection and selection
+- **Testable**: Mock adapters enable testing without Chrome APIs
+- **Extensible**: Custom adapters for specialized use cases
+
+## Common Use Cases
+
+### Multi-Tab Web Application
+\`\`\`typescript
+// State automatically syncs across tabs using BroadcastChannel
+const todos = $sharedState('todos', []);
+\`\`\`
+
+### Chrome Extension
+\`\`\`typescript
+// State syncs across extension contexts using chrome.runtime
+const settings = $sharedState('settings', { theme: 'dark' });
+\`\`\`
+
+### Single-Tab Web App (PWA)
+\`\`\`typescript
+// State persists to IndexedDB but doesn't sync (no other tabs)
+const user = $sharedState('user', null, {
+  sync: new NoOpSyncAdapter() // Explicitly disable sync
+});
+\`\`\`
+
+### Node.js Testing
+\`\`\`typescript
+// State uses in-memory storage, no persistence or sync
+const mockState = $sharedState('test-state', defaultValue);
+\`\`\`
+
+## Migration from Chrome-Only
+
+Existing Chrome extension code requires **no changes** - the framework is backward compatible. Web apps can now use the same primitives that previously only worked in extensions.
 
 Begin by understanding their question and providing a clear, precise answer based on their project context.`;
 }

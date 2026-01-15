@@ -1,5 +1,5 @@
-// Application state using Polly's reactive state primitives
-// All state automatically persists to IndexedDB
+// Application state using Polly's universal state management
+// All state automatically persists to IndexedDB and syncs across tabs via BroadcastChannel
 
 import { $sharedState, $state } from "@fairfox/polly/state";
 import type { User, Workspace, Task, Comment, Activity } from "../../shared/types";

@@ -66,3 +66,8 @@ export * from "./runtime.adapter";
 export * from "./storage.adapter";
 export * from "./tabs.adapter";
 export * from "./window.adapter";
+
+// Re-export state management adapters
+export * from "../lib/storage-adapter";
+export * from "../lib/sync-adapter";
+export * from "../lib/adapter-factory";
