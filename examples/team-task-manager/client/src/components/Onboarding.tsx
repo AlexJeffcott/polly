@@ -27,10 +27,6 @@ export function Onboarding() {
     try {
       await createUser(name);
       setShowBackup(true);
-      setTimeout(() => {
-        setShowBackup(false);
-        setStep("create-workspace");
-      }, 5000);
     } catch (err: any) {
       setError(err.message);
     }
@@ -76,6 +72,18 @@ export function Onboarding() {
     URL.revokeObjectURL(url);
   };
 
+  const copyToClipboard = async () => {
+    if (!currentUser.value) return;
+
+    try {
+      const backup = exportUserKey(currentUser.value);
+      await navigator.clipboard.writeText(backup);
+      alert("Key copied to clipboard!");
+    } catch (err) {
+      alert("Failed to copy to clipboard. Please copy manually.");
+    }
+  };
+
   if (showBackup && currentUser.value) {
     return (
       <div class="onboarding">
@@ -108,11 +116,20 @@ export function Onboarding() {
             <pre>{exportUserKey(currentUser.value)}</pre>
           </div>
 
-          <button onClick={downloadBackup} class="primary">
-            Download Backup
+          <div class="actions">
+            <button onClick={copyToClipboard} class="primary">
+              Copy to Clipboard
+            </button>
+            <button onClick={downloadBackup} class="primary">
+              Download Backup
+            </button>
+          </div>
+
+          <button onClick={() => { setShowBackup(false); setStep("create-workspace"); }} class="primary" style={{ marginTop: '16px' }}>
+            Continue
           </button>
 
-          <button onClick={() => { setShowBackup(false); setStep("create-workspace"); }}>
+          <button onClick={() => { setShowBackup(false); setStep("create-workspace"); }} style={{ marginTop: '8px' }}>
             Skip (Not Recommended)
           </button>
         </div>
