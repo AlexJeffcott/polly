@@ -18,17 +18,22 @@ export function App() {
     const params = new URLSearchParams(window.location.search);
     const inviteCode = params.get("invite");
 
-    if (inviteCode && currentUser.value && !workspace.value) {
+    if (inviteCode && currentUser.value) {
       try {
         const invite = parseInviteLink(inviteCode);
-        joinWorkspace(invite.workspaceId, invite.workspaceName, invite.encryptedKey);
+
+        // Only join if it's a different workspace (or no workspace)
+        if (!workspace.value || workspace.value.id !== invite.workspaceId) {
+          joinWorkspace(invite.workspaceId, invite.workspaceName, invite.encryptedKey);
+        }
+
         // Clear invite from URL
         window.history.replaceState({}, "", window.location.pathname);
       } catch (error) {
         console.error("Failed to join workspace from invite:", error);
       }
     }
-  }, [currentUser.value]); // Re-run when user identity changes
+  }, [currentUser.value, workspace.value]); // Re-run when user or workspace changes
 
   // Set up WebSocket message handlers
   useEffect(() => {

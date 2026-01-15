@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import { currentUser } from "../state";
 import {
   createUser,
@@ -20,6 +20,13 @@ export function Onboarding() {
 
   // Check if there's an invite link in the URL
   const hasInvite = new URLSearchParams(window.location.search).has("invite");
+
+  // Update step when currentUser loads from IndexedDB
+  useEffect(() => {
+    if (currentUser.value && step === "welcome") {
+      setStep("create-workspace");
+    }
+  }, [currentUser.value]);
 
   const handleCreateUser = async () => {
     if (!name.trim()) {
