@@ -163,14 +163,18 @@ export class APIClient {
 
   // WebSocket for real-time updates
   connect(workspaceId: string, userId: string) {
+    console.log("[WS] connect() called with:", { workspaceId, userId });
+
     if (this.ws?.readyState === WebSocket.OPEN) {
+      console.log("[WS] Already connected, skipping");
       return;
     }
 
+    console.log("[WS] Connecting to:", WS_URL);
     this.ws = new WebSocket(WS_URL);
 
     this.ws.onopen = () => {
-      console.log("WebSocket connected");
+      console.log("[WS] WebSocket connected, sending join message");
       this.ws?.send(JSON.stringify({ type: "join", workspaceId, userId }));
     };
 
