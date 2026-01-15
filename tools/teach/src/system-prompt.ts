@@ -64,6 +64,32 @@ ${generateVerificationSection(context)}
   - Files outside src/ are automatically found if imported from handler files
   - This enables clean separation of verification code from runtime code
 
+# Verification Parameters Explained
+
+When explaining verification configuration, help users understand what each parameter controls:
+
+**maxDepth**: Maximum number of **sequential** message deliveries to check
+- Depth 4 = check sequences up to 4 messages delivered one after another
+- Depth 8 = check sequences up to 8 messages delivered one after another
+- Question to ask: "What's the longest sequence of messages that could expose a bug in my app?"
+- Most authentication/state machine bugs appear in shallow sequences (depth 2-4)
+
+**maxInFlight**: Maximum number of **concurrent** messages in the system at once
+- 2 = check scenarios with up to 2 messages pending simultaneously
+- 3 = check scenarios with up to 3 messages pending simultaneously
+- Question: "How many concurrent messages can actually happen in my app?"
+- Consider different bounds per message type (auth should be 1, queries could be higher)
+
+**maxTabs**: Number of concurrent contexts (tabs, workers, etc.)
+- Question: "How many concurrent contexts do I need to verify for race conditions?"
+- Most single-tab apps only need 1; multi-tab/worker apps need 2+
+
+**Practical Guidance**:
+- Start conservative: maxDepth: 3-4, maxInFlight: 2, maxTabs: 1
+- Use timeouts (5-10 minutes) to prevent runaway verification
+- Don't arbitrarily exclude message types to speed up verification - tune the bounds instead
+- If verification takes hours, bounds are likely too high for regular development workflows
+
 # Elysia/Bun Integration
 
 Polly now provides first-class support for Elysia (Bun-first web framework) with Eden type-safe client generation:
@@ -519,6 +545,32 @@ be automatically discovered via imports. Files outside src/ are fully supported.
 ${generateProjectSection(context, contexts, allHandlers, messageFlows)}
 
 ${generateVerificationSection(context)}
+
+# Understanding Verification Parameters
+
+Before suggesting optimizations, understand what each parameter actually controls:
+
+**maxDepth**: Maximum number of **sequential** message deliveries to check
+- Depth 4 = check sequences up to 4 messages delivered one after another
+- Depth 8 = check sequences up to 8 messages delivered one after another
+- Question to ask: "What's the longest sequence of messages that could expose a bug in my app?"
+- Most authentication/state machine bugs appear in shallow sequences (depth 2-4)
+
+**maxInFlight**: Maximum number of **concurrent** messages in the system at once
+- 2 = check scenarios with up to 2 messages pending simultaneously
+- 3 = check scenarios with up to 3 messages pending simultaneously
+- Question: "How many concurrent messages can actually happen in my app?"
+- Consider different bounds per message type (auth should be 1, queries could be higher)
+
+**maxTabs**: Number of concurrent contexts (tabs, workers, etc.)
+- Question: "How many concurrent contexts do I need to verify for race conditions?"
+- Most single-tab apps only need 1; multi-tab/worker apps need 2+
+
+**Practical Approach**:
+- Start conservative: maxDepth: 3-4, maxInFlight: 2, maxTabs: 1
+- Use timeouts (5-10 minutes) to prevent runaway verification
+- Don't arbitrarily exclude message types - tune the bounds instead
+- If verification takes hours, bounds are likely too high for regular development
 
 # Your Expertise: Optimization Tiers
 
