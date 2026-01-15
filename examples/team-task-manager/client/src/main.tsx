@@ -3,9 +3,9 @@ import { App } from "./App";
 import {
   registerServiceWorker,
   setupInstallPrompt,
-  setupOnlineListeners,
   requestPersistentStorage,
 } from "./pwa";
+import { setupNetworkListeners } from "./network";
 
 // Register service worker
 registerServiceWorker().then((registration) => {
@@ -20,8 +20,8 @@ setupInstallPrompt((prompt) => {
   // The install button will be shown in the UI when needed
 });
 
-// Setup online/offline listeners
-setupOnlineListeners(
+// Setup online/offline listeners using Polly patterns
+setupNetworkListeners(
   () => {
     console.log("Back online - syncing data...");
     // Trigger sync when back online

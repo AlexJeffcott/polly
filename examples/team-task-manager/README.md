@@ -277,6 +277,68 @@ open https://localhost:5173
 # Firefox: Debugger > Service Workers
 ```
 
+## Polly Framework Patterns
+
+This example uses Polly's patterns for state management and testing:
+
+### Network State Management
+
+```typescript
+// network.ts - Polly-style reactive signals
+import { signal, computed } from "@preact/signals-core";
+
+export const isOnline = signal(navigator.onLine);
+export const isSyncing = signal(false);
+export const pendingSync = signal(0);
+
+export const syncStatus = computed(() => {
+  if (!isOnline.value) {
+    return pendingSync.value > 0
+      ? `Offline - ${pendingSync.value} changes pending`
+      : "Offline";
+  }
+  if (isSyncing.value) {
+    return `Syncing ${pendingSync.value} changes...`;
+  }
+  return "Online";
+});
+```
+
+### Test Utilities
+
+```typescript
+// Tests use Polly's mock adapters
+import { createMockFetch } from "@fairfox/polly/test";
+
+test("API client works", async () => {
+  const mockFetch = createMockFetch();
+  global.fetch = mockFetch.fetch;
+
+  // Queue mock response
+  mockFetch._responses.push({
+    json: async () => ({ success: true }),
+  });
+
+  await api.createTask(...);
+
+  // Verify call was made
+  expect(mockFetch._calls.length).toBe(1);
+});
+```
+
+### State with Polly
+
+```typescript
+// Using Polly's $sharedState for persistence + sync
+import { $sharedState } from "@fairfox/polly/state";
+
+export const tasks = $sharedState<Task[]>("tasks", []);
+export const workspace = $sharedState<Workspace | null>("workspace", null);
+
+// Automatically persisted to IndexedDB
+// Automatically synced across contexts in Chrome extensions
+```
+
 ## Code Highlights
 
 ### Encryption Layer

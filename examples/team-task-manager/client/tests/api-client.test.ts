@@ -1,30 +1,38 @@
 // Tests for API client
-import { describe, test, expect, beforeEach, mock } from "bun:test";
+import { describe, test, expect, beforeEach } from "bun:test";
+import { createMockFetch } from "@fairfox/polly/test";
 import { APIClient } from "../src/api";
 
 describe("API Client", () => {
-  const mockFetch = mock(() => Promise.resolve({
-    json: () => Promise.resolve({ success: true }),
-  }));
+  let mockFetch: ReturnType<typeof createMockFetch>;
 
   beforeEach(() => {
-    mockFetch.mockClear();
-    global.fetch = mockFetch as any;
+    // Use Polly's mock fetch
+    mockFetch = createMockFetch();
+    global.fetch = mockFetch.fetch;
   });
 
   test("createWorkspace sends correct request", async () => {
     const api = new APIClient();
 
+    // Queue response
+    mockFetch._responses.push({
+      json: async () => ({ success: true }),
+      ok: true,
+      status: 200,
+    } as Response);
+
     await api.createWorkspace("workspace-1", "My Workspace", "user-1");
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0][0]).toContain("/api/workspaces");
+    // Check the call was made
+    expect(mockFetch._calls.length).toBe(1);
+    expect(mockFetch._calls[0].input.toString()).toContain("/api/workspaces");
 
-    const callArgs = mockFetch.mock.calls[0][1];
-    expect(callArgs.method).toBe("POST");
-    expect(callArgs.headers["Content-Type"]).toBe("application/json");
+    const callInit = mockFetch._calls[0].init;
+    expect(callInit?.method).toBe("POST");
+    expect(callInit?.headers?.["Content-Type"]).toBe("application/json");
 
-    const body = JSON.parse(callArgs.body);
+    const body = JSON.parse(callInit?.body as string);
     expect(body.id).toBe("workspace-1");
     expect(body.name).toBe("My Workspace");
     expect(body.creatorId).toBe("user-1");
@@ -33,21 +41,30 @@ describe("API Client", () => {
   test("getWorkspace sends GET request", async () => {
     const api = new APIClient();
 
+    // Queue response
+    mockFetch._responses.push({
+      json: async () => ({ success: true }),
+    } as Response);
+
     await api.getWorkspace("workspace-1");
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0][0]).toContain("/api/workspaces/workspace-1");
+    expect(mockFetch._calls.length).toBe(1);
+    expect(mockFetch._calls[0].input.toString()).toContain("/api/workspaces/workspace-1");
   });
 
   test("createTask sends encrypted data", async () => {
     const api = new APIClient();
 
+    mockFetch._responses.push({
+      json: async () => ({ success: true }),
+    } as Response);
+
     await api.createTask("task-1", "encrypted-data-base64", "user-1", "workspace-1");
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch._calls.length).toBe(1);
 
-    const callArgs = mockFetch.mock.calls[0][1];
-    const body = JSON.parse(callArgs.body);
+    const callInit = mockFetch._calls[0].init;
+    const body = JSON.parse(callInit?.body as string);
 
     expect(body.id).toBe("task-1");
     expect(body.encrypted).toBe("encrypted-data-base64");
@@ -58,15 +75,19 @@ describe("API Client", () => {
   test("updateTask sends encrypted update", async () => {
     const api = new APIClient();
 
+    mockFetch._responses.push({
+      json: async () => ({ success: true }),
+    } as Response);
+
     await api.updateTask("task-1", "new-encrypted-data", "workspace-1");
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0][0]).toContain("/api/tasks/task-1");
+    expect(mockFetch._calls.length).toBe(1);
+    expect(mockFetch._calls[0].input.toString()).toContain("/api/tasks/task-1");
 
-    const callArgs = mockFetch.mock.calls[0][1];
-    expect(callArgs.method).toBe("PATCH");
+    const callInit = mockFetch._calls[0].init;
+    expect(callInit?.method).toBe("PATCH");
 
-    const body = JSON.parse(callArgs.body);
+    const body = JSON.parse(callInit?.body as string);
     expect(body.encrypted).toBe("new-encrypted-data");
     expect(body.workspaceId).toBe("workspace-1");
   });
@@ -74,24 +95,25 @@ describe("API Client", () => {
   test("deleteTask sends DELETE request", async () => {
     const api = new APIClient();
 
+    mockFetch._responses.push({
+      json: async () => ({ success: true }),
+    } as Response);
+
     await api.deleteTask("task-1", "workspace-1");
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0][0]).toContain("/api/tasks/task-1");
+    expect(mockFetch._calls.length).toBe(1);
+    expect(mockFetch._calls[0].input.toString()).toContain("/api/tasks/task-1");
 
-    const callArgs = mockFetch.mock.calls[0][1];
-    expect(callArgs.method).toBe("DELETE");
+    const callInit = mockFetch._calls[0].init;
+    expect(callInit?.method).toBe("DELETE");
   });
 
   test("handles API errors", async () => {
-    const errorFetch = mock(() =>
-      Promise.resolve({
-        json: () => Promise.resolve({ error: "Not found" }),
-      })
-    );
-    global.fetch = errorFetch as any;
-
     const api = new APIClient();
+
+    mockFetch._responses.push({
+      json: async () => ({ error: "Not found" }),
+    } as Response);
 
     const response = await api.getWorkspace("invalid-id");
 
@@ -101,9 +123,13 @@ describe("API Client", () => {
   test("uses correct API URL from environment", async () => {
     const api = new APIClient();
 
+    mockFetch._responses.push({
+      json: async () => ({ success: true }),
+    } as Response);
+
     await api.createWorkspace("w1", "Test", "u1");
 
-    const calledUrl = mockFetch.mock.calls[0][0];
+    const calledUrl = mockFetch._calls[0].input.toString();
     // Should use HTTPS by default
     expect(calledUrl).toMatch(/^https:\/\/localhost:3000/);
   });

@@ -3,6 +3,7 @@ import { currentUser, workspace } from "./state";
 import { Onboarding } from "./components/Onboarding";
 import { WorkspaceView } from "./components/WorkspaceView";
 import { InstallPrompt } from "./components/InstallPrompt";
+import { NetworkStatus } from "./components/NetworkStatus";
 import { parseInviteLink, joinWorkspace } from "./workspace";
 import { api } from "./api";
 import {
@@ -68,6 +69,7 @@ export function App() {
     return (
       <>
         <Onboarding />
+        <NetworkStatus />
         <InstallPrompt />
       </>
     );
@@ -77,6 +79,7 @@ export function App() {
   return (
     <>
       <WorkspaceView />
+      <NetworkStatus />
       <InstallPrompt />
     </>
   );
