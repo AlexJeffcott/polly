@@ -138,6 +138,8 @@ const app = new Elysia()
       'POST /todos': {
         queue: true,
         optimistic: (body) => ({ id: -Date.now(), ...body }),
+        merge: 'replace',  // 'replace' | custom merge function
+        conflictResolution: 'last-write-wins',  // 'last-write-wins' | 'server-wins' | custom function
       },
     },
   }))
@@ -153,6 +155,30 @@ const app = new Elysia()
 - In development: Adds metadata to responses for hot-reload and debugging
 - In production: Pass-through (minimal overhead) - client effects are bundled at build time
 - Authorization and broadcasts work in both modes
+
+**Offline Behavior Configuration:**
+
+The \`offline\` config enables Progressive Web App capabilities:
+
+\`\`\`typescript
+offline: {
+  'POST /todos': {
+    queue: true,                          // Queue request when offline
+    optimistic: (body) => TResult,        // Immediate UI update with predicted result
+    merge: 'replace' | mergeFn,           // How to merge optimistic with server result
+    conflictResolution: 'last-write-wins' | 'server-wins' | resolveFn,
+  },
+}
+\`\`\`
+
+**Merge Strategies:**
+- \`'replace'\`: Replace optimistic result with server result (default)
+- \`(optimistic, server) => TResult\`: Custom merge logic
+
+**Conflict Resolution** (when multiple devices edit offline):
+- \`'last-write-wins'\`: Lamport clock determines winner
+- \`'server-wins'\`: Server state always takes precedence
+- \`(client, server) => TResult\`: Custom conflict resolution
 
 ## Client-Side Wrapper (\`@fairfox/polly/client\`)
 
