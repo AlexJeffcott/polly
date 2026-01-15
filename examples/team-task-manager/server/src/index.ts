@@ -287,34 +287,41 @@ const app = new Elysia()
   // WebSocket for real-time sync
   .ws("/ws", {
     open(ws) {
-      console.log("WebSocket connected");
+      console.log("[SERVER WS] WebSocket connection opened");
     },
 
     message(ws, message: any) {
-      const data = JSON.parse(message as string);
+      console.log("[SERVER WS] Received message:", message);
 
-      if (data.type === "join") {
-        // Register connection
-        const connId = crypto.randomUUID();
-        connections.set(connId, {
-          ws,
-          workspaceId: data.workspaceId,
-          userId: data.userId,
-        });
+      try {
+        const data = JSON.parse(message as string);
+        console.log("[SERVER WS] Parsed message type:", data.type);
 
-        // Store connection ID in ws data for cleanup
-        (ws as any).connId = connId;
-
-        activeWorkspaces.add(data.workspaceId);
-
-        ws.send(
-          JSON.stringify({
-            type: "joined",
+        if (data.type === "join") {
+          // Register connection
+          const connId = crypto.randomUUID();
+          connections.set(connId, {
+            ws,
             workspaceId: data.workspaceId,
-          })
-        );
+            userId: data.userId,
+          });
 
-        console.log(`User ${data.userId} joined workspace ${data.workspaceId}`);
+          // Store connection ID in ws data for cleanup
+          (ws as any).connId = connId;
+
+          activeWorkspaces.add(data.workspaceId);
+
+          console.log(`[SERVER WS] User ${data.userId.substring(0, 20)}... joined workspace ${data.workspaceId}`);
+          console.log(`[SERVER WS] Total connections: ${connections.size}`);
+
+          ws.send(
+            JSON.stringify({
+              type: "joined",
+              workspaceId: data.workspaceId,
+            })
+          );
+
+          console.log("[SERVER WS] Sent 'joined' confirmation");
       } else if (data.type === "leave") {
         // Remove connection
         const connId = (ws as any).connId;
@@ -334,20 +341,24 @@ const app = new Elysia()
             break;
           }
         }
+      } catch (error) {
+        console.error("[SERVER WS] Error handling message:", error);
       }
     },
 
-    close(ws) {
+    close(ws, code, reason) {
+      console.log("[SERVER WS] Connection closing, code:", code, "reason:", reason);
+
       // Remove connection
       const connId = (ws as any).connId;
       if (connId) {
         const conn = connections.get(connId);
         if (conn) {
-          console.log(`User ${conn.userId} left workspace ${conn.workspaceId}`);
+          console.log(`[SERVER WS] User ${conn.userId.substring(0, 20)}... left workspace ${conn.workspaceId}`);
         }
         connections.delete(connId);
       }
-      console.log("WebSocket disconnected");
+      console.log("[SERVER WS] WebSocket disconnected, total connections:", connections.size);
     },
   });
 
