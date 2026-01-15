@@ -61,7 +61,7 @@ export async function createTask(
     taskId: task.id,
     text: task.text,
     workspaceId: task.workspaceId,
-    workspaceKey: workspace.value.workspaceKey.substring(0, 20),
+    workspaceKeyType: typeof workspace.value.workspaceKey,
   });
 
   // Send to server
@@ -272,7 +272,7 @@ export async function handleIncomingTask(encryptedTask: any) {
     }
   } catch (error) {
     console.error("[TASK SYNC] Failed to decrypt incoming task:", error);
-    console.error("[TASK SYNC] Workspace key (first 20 chars):", workspace.value.workspaceKey.substring(0, 20));
+    console.error("[TASK SYNC] Workspace key type:", typeof workspace.value.workspaceKey);
   }
 }
 
