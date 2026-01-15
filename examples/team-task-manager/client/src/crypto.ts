@@ -99,17 +99,19 @@ export async function decrypt(
 
 export async function encryptText(
   text: string,
-  key: Uint8Array
+  key: string | Uint8Array
 ): Promise<Uint8Array> {
+  const keyBytes = typeof key === "string" ? base64ToBytes(key) : key;
   const encoder = new TextEncoder();
-  return encrypt(encoder.encode(text), key);
+  return encrypt(encoder.encode(text), keyBytes);
 }
 
 export async function decryptText(
   encrypted: Uint8Array,
-  key: Uint8Array
+  key: string | Uint8Array
 ): Promise<string> {
-  const decrypted = await decrypt(encrypted, key);
+  const keyBytes = typeof key === "string" ? base64ToBytes(key) : key;
+  const decrypted = await decrypt(encrypted, keyBytes);
   const decoder = new TextDecoder();
   return decoder.decode(decrypted);
 }

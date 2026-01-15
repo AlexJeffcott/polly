@@ -7,24 +7,24 @@ export type UserRole = "admin" | "member" | "viewer";
 export type User = {
   id: string; // Derived from public key
   name: string;
-  publicKey: Uint8Array;
-  privateKey: Uint8Array;
+  publicKey: string; // base64 encoded
+  privateKey: string; // base64 encoded
   avatar?: string;
 };
 
 export type WorkspaceMember = {
   userId: string;
   name: string;
-  publicKey: Uint8Array;
+  publicKey: string; // base64 encoded
   role: UserRole;
   joinedAt: number;
-  encryptedWorkspaceKey: Uint8Array; // Workspace key encrypted for this member
+  encryptedWorkspaceKey: string; // base64 encoded workspace key
 };
 
 export type Workspace = {
   id: string;
   name: string;
-  workspaceKey: Uint8Array; // Symmetric key for encrypting workspace data
+  workspaceKey: string; // base64 encoded symmetric key for encrypting workspace data
   members: WorkspaceMember[];
   maxUrgentTasks: number;
   createdAt: number;

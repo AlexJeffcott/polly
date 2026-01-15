@@ -20,8 +20,8 @@ export async function createUser(name: string): Promise<User> {
   const user: User = {
     id: bytesToHex(keypair.publicKey), // Public key as user ID
     name,
-    publicKey: keypair.publicKey,
-    privateKey: keypair.privateKey,
+    publicKey: bytesToBase64(keypair.publicKey),
+    privateKey: bytesToBase64(keypair.privateKey),
   };
 
   // Save to local state (auto-persists)
@@ -35,8 +35,8 @@ export function exportUserKey(user: User): string {
   const data = {
     id: user.id,
     name: user.name,
-    publicKey: bytesToBase64(user.publicKey),
-    privateKey: bytesToBase64(user.privateKey),
+    publicKey: user.publicKey,
+    privateKey: user.privateKey,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -47,8 +47,8 @@ export function importUserKey(exported: string): User {
   const user: User = {
     id: data.id,
     name: data.name,
-    publicKey: base64ToBytes(data.publicKey),
-    privateKey: base64ToBytes(data.privateKey),
+    publicKey: data.publicKey,
+    privateKey: data.privateKey,
   };
 
   currentUser.value = user;
@@ -62,7 +62,8 @@ export async function createWorkspace(name: string): Promise<Workspace> {
   }
 
   // Generate workspace key
-  const workspaceKey = await generateWorkspaceKey();
+  const workspaceKeyBytes = await generateWorkspaceKey();
+  const workspaceKey = bytesToBase64(workspaceKeyBytes);
   const workspaceId = crypto.randomUUID();
 
   const newWorkspace: Workspace = {
@@ -104,7 +105,7 @@ export async function createWorkspace(name: string): Promise<Workspace> {
 export async function joinWorkspace(
   workspaceId: string,
   workspaceName: string,
-  encryptedKey: Uint8Array
+  encryptedKey: string
 ): Promise<Workspace> {
   if (!currentUser.value) {
     throw new Error("No user logged in");
@@ -173,7 +174,7 @@ export function generateInviteLink(): string {
   const inviteData = {
     workspaceId: workspace.value.id,
     workspaceName: workspace.value.name,
-    encryptedKey: bytesToBase64(workspace.value.workspaceKey),
+    encryptedKey: workspace.value.workspaceKey,
   };
 
   const encoded = btoa(JSON.stringify(inviteData));
@@ -184,7 +185,7 @@ export function generateInviteLink(): string {
 export function parseInviteLink(inviteCode: string): {
   workspaceId: string;
   workspaceName: string;
-  encryptedKey: Uint8Array;
+  encryptedKey: string;
 } {
   const decoded = atob(inviteCode);
   const data = JSON.parse(decoded);
@@ -192,7 +193,7 @@ export function parseInviteLink(inviteCode: string): {
   return {
     workspaceId: data.workspaceId,
     workspaceName: data.workspaceName,
-    encryptedKey: base64ToBytes(data.encryptedKey),
+    encryptedKey: data.encryptedKey,
   };
 }
 

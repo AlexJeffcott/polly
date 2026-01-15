@@ -4,7 +4,7 @@
 import { $sharedState, $state } from "@fairfox/polly/state";
 import type { User, Workspace, Task, Comment, Activity } from "../../shared/types";
 
-// User identity (keypair stored locally)
+// User identity (keypair stored as base64 strings)
 export const currentUser = $sharedState<User | null>("currentUser", null);
 
 // All workspaces user has accessed
