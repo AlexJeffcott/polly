@@ -109,9 +109,6 @@ export async function joinWorkspace(
   // In production, you'd decrypt with your private key here
   const workspaceKey = encryptedKey;
 
-  // Fetch workspace metadata
-  const workspaceData = await api.getWorkspace(workspaceId);
-
   const newWorkspace: Workspace = {
     id: workspaceId,
     name: workspaceName,
@@ -127,48 +124,29 @@ export async function joinWorkspace(
       },
     ],
     maxUrgentTasks: 3,
-    createdAt: workspaceData.createdAt || Date.now(),
+    createdAt: Date.now(),
   };
-
-  // Add self as member on server
-  await api.addMember(workspaceId, currentUser.value.id);
 
   // Save locally
   workspace.value = newWorkspace;
 
-  // Fetch existing tasks and decrypt
-  await syncWorkspaceData();
-
-  // Connect WebSocket
+  // Connect WebSocket (will trigger peer sync automatically)
   api.connect(workspaceId, currentUser.value.id);
+
+  // Add self as member on server (just broadcasts to peers)
+  await api.addMember(workspaceId, currentUser.value.id);
+
+  // Request sync from peers (they will send us their data)
+  await requestPeerSync(workspaceId);
 
   return newWorkspace;
 }
 
-// Sync workspace data from server (decrypt all tasks)
-export async function syncWorkspaceData() {
-  if (!workspace.value) return;
+// Request sync from peers (they will send us their data via WebSocket)
+async function requestPeerSync(workspaceId: string) {
+  if (!currentUser.value) return;
 
-  // Fetch encrypted tasks
-  const tasksRes = await api.getTasks(workspace.value.id);
-  if (tasksRes.tasks) {
-    const decryptedTasks: Task[] = [];
-
-    for (const encTask of tasksRes.tasks) {
-      try {
-        const decrypted = await decryptText(
-          base64ToBytes(encTask.encrypted),
-          workspace.value.workspaceKey
-        );
-        const task = JSON.parse(decrypted);
-        decryptedTasks.push(task);
-      } catch (error) {
-        console.error("Failed to decrypt task:", error);
-      }
-    }
-
-    tasks.value = decryptedTasks;
-  }
+  await api.requestSync(workspaceId, currentUser.value.id);
 }
 
 // Generate invite link

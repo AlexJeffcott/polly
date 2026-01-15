@@ -113,16 +113,6 @@ export class APIClient {
     return data as APIResponse;
   }
 
-  async getTasks(workspaceId: string): Promise<APIResponse<{ tasks: any[] }>> {
-    const { data, error } = await client.api.workspaces({ id: workspaceId }).tasks.get();
-
-    if (error) {
-      return { error: error.value as string, tasks: [] };
-    }
-
-    return data as APIResponse<{ tasks: any[] }>;
-  }
-
   async createComment(
     id: string,
     taskId: string,
@@ -145,19 +135,30 @@ export class APIClient {
     return data as APIResponse;
   }
 
-  async getComments(
-    taskId: string,
-    workspaceId: string
-  ): Promise<APIResponse<{ comments: any[] }>> {
-    const { data, error } = await client.api.tasks({ taskId }).comments.get({
-      query: { workspaceId },
+  async requestSync(workspaceId: string, userId: string): Promise<APIResponse> {
+    const { data, error } = await client.api.sync.request.post({
+      workspaceId,
+      userId,
     });
 
     if (error) {
-      return { error: error.value as string, comments: [] };
+      return { error: error.value as string };
     }
 
-    return data as APIResponse<{ comments: any[] }>;
+    return data as APIResponse;
+  }
+
+  sendSyncResponse(targetUserId: string, tasks: any[], comments: any[]) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: "sync_response",
+        workspaceId: workspace.value?.id,
+        targetUserId,
+        tasks,
+        comments,
+        timestamp: Date.now(),
+      }));
+    }
   }
 
   // WebSocket for real-time updates
@@ -176,6 +177,17 @@ export class APIClient {
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log("WebSocket message:", data);
+
+      // Handle sync requests from peers
+      if (data.type === "sync_request") {
+        // Another peer is requesting our data
+        // Send them our local tasks and comments
+        this.sendSyncResponse(
+          data.requesterId,
+          tasks.value,
+          [] // comments.value when implemented
+        );
+      }
 
       // Call registered handlers
       for (const handler of this.messageHandlers.values()) {

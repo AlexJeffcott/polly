@@ -2,42 +2,18 @@ import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { polly } from "@fairfox/polly/elysia";
 
-// Zero-knowledge server - stores only encrypted blobs
-// The server has NO ability to read tasks, comments, or any user data
-
-type EncryptedTask = {
-  id: string;
-  encrypted: string; // Base64 encoded encrypted data
-  from: string; // Creator's public key
-  workspaceId: string;
-  timestamp: number;
-};
-
-type EncryptedComment = {
-  id: string;
-  taskId: string;
-  encrypted: string;
-  from: string;
-  timestamp: number;
-};
-
-type Workspace = {
-  id: string;
-  name: string; // Plaintext name for discovery
-  tasks: Map<string, EncryptedTask>;
-  comments: Map<string, EncryptedComment>;
-  members: Set<string>; // Public keys
-  createdAt: number;
-};
-
-// In-memory storage (ephemeral - resets on server restart)
-const workspaces = new Map<string, Workspace>();
+// Pure local-first server - NO DATA STORAGE
+// Server is a stateless message relay that broadcasts updates between clients
+// All data lives only in client IndexedDB
 
 // Connected clients for real-time sync
 const connections = new Map<
   string,
   { ws: any; workspaceId: string; userId: string }
 >();
+
+// Track active workspaces (just for connection management, no data)
+const activeWorkspaces = new Set<string>();
 
 const app = new Elysia()
   .use(cors())
@@ -109,44 +85,32 @@ const app = new Elysia()
         "POST /api/comments": {
           broadcast: true,
         },
-        "POST /api/workspaces/:id/members": {
-          broadcast: true,
-        },
       },
 
-      // Custom WebSocket path (different from app's existing /ws)
       websocketPath: "/polly/ws",
     })
   )
 
-  // Health check
-  .get("/", () => ({
-    message: "Team Task Manager - Zero-Knowledge Server",
-    version: "1.0.0",
-    encrypted: true,
-  }))
-
-  // Create workspace
+  // Create workspace (just track that it exists, no data storage)
   .post(
     "/api/workspaces",
     ({ body }) => {
-      const workspace: Workspace = {
-        id: body.id,
-        name: body.name,
-        tasks: new Map(),
-        comments: new Map(),
-        members: new Set([body.creatorId]),
-        createdAt: Date.now(),
-      };
+      activeWorkspaces.add(body.id);
 
-      workspaces.set(workspace.id, workspace);
+      // Broadcast to anyone watching this workspace
+      broadcastToWorkspace(body.id, {
+        type: "workspace_created",
+        workspaceId: body.id,
+        creatorId: body.creatorId,
+        timestamp: Date.now(),
+      });
 
       return {
         success: true,
         workspace: {
-          id: workspace.id,
-          name: workspace.name,
-          createdAt: workspace.createdAt,
+          id: body.id,
+          name: body.name,
+          createdAt: Date.now(),
         },
       };
     },
@@ -159,33 +123,27 @@ const app = new Elysia()
     }
   )
 
-  // Get workspace metadata (no encrypted data)
+  // Check if workspace exists (just checks active connections)
   .get("/api/workspaces/:id", ({ params }) => {
-    const workspace = workspaces.get(params.id);
-    if (!workspace) {
+    const hasConnections = Array.from(connections.values()).some(
+      (conn) => conn.workspaceId === params.id
+    );
+
+    if (!hasConnections && !activeWorkspaces.has(params.id)) {
       return { error: "Workspace not found" };
     }
 
     return {
-      id: workspace.id,
-      name: workspace.name,
-      memberCount: workspace.members.size,
-      taskCount: workspace.tasks.size,
-      createdAt: workspace.createdAt,
+      id: params.id,
+      active: hasConnections,
+      createdAt: Date.now(), // Not actually tracked, just return current time
     };
   })
 
-  // Add member to workspace
+  // Add member to workspace (broadcast only, no storage)
   .post(
     "/api/workspaces/:id/members",
     ({ params, body }) => {
-      const workspace = workspaces.get(params.id);
-      if (!workspace) {
-        return { error: "Workspace not found" };
-      }
-
-      workspace.members.add(body.userId);
-
       // Broadcast member joined to all connected clients
       broadcastToWorkspace(params.id, {
         type: "member_joined",
@@ -202,32 +160,23 @@ const app = new Elysia()
     }
   )
 
-  // Create encrypted task
+  // Relay encrypted task creation
   .post(
     "/api/tasks",
     ({ body }) => {
-      const workspace = workspaces.get(body.workspaceId);
-      if (!workspace) {
-        return { error: "Workspace not found" };
-      }
-
-      const task: EncryptedTask = {
-        id: body.id,
-        encrypted: body.encrypted,
-        from: body.from,
-        workspaceId: body.workspaceId,
-        timestamp: Date.now(),
-      };
-
-      workspace.tasks.set(task.id, task);
-
       // Broadcast encrypted task to all workspace members
       broadcastToWorkspace(body.workspaceId, {
         type: "task_created",
-        task,
+        task: {
+          id: body.id,
+          encrypted: body.encrypted,
+          from: body.from,
+          workspaceId: body.workspaceId,
+          timestamp: Date.now(),
+        },
       });
 
-      return { success: true, taskId: task.id };
+      return { success: true, taskId: body.id };
     },
     {
       body: t.Object({
@@ -239,32 +188,19 @@ const app = new Elysia()
     }
   )
 
-  // Update encrypted task
+  // Relay encrypted task update
   .patch(
     "/api/tasks/:id",
     ({ params, body }) => {
-      const workspace = workspaces.get(body.workspaceId);
-      if (!workspace) {
-        return { error: "Workspace not found" };
-      }
-
-      const existingTask = workspace.tasks.get(params.id);
-      if (!existingTask) {
-        return { error: "Task not found" };
-      }
-
-      const updatedTask: EncryptedTask = {
-        ...existingTask,
-        encrypted: body.encrypted,
-        timestamp: Date.now(),
-      };
-
-      workspace.tasks.set(params.id, updatedTask);
-
-      // Broadcast update
+      // Broadcast update to all workspace members
       broadcastToWorkspace(body.workspaceId, {
         type: "task_updated",
-        task: updatedTask,
+        task: {
+          id: params.id,
+          encrypted: body.encrypted,
+          workspaceId: body.workspaceId,
+          timestamp: Date.now(),
+        },
       });
 
       return { success: true };
@@ -277,28 +213,15 @@ const app = new Elysia()
     }
   )
 
-  // Delete task
+  // Relay task deletion
   .delete(
     "/api/tasks/:id",
     ({ params, body }) => {
-      const workspace = workspaces.get(body.workspaceId);
-      if (!workspace) {
-        return { error: "Workspace not found" };
-      }
-
-      workspace.tasks.delete(params.id);
-
-      // Also delete associated comments
-      for (const [commentId, comment] of workspace.comments) {
-        if (comment.taskId === params.id) {
-          workspace.comments.delete(commentId);
-        }
-      }
-
-      // Broadcast deletion
+      // Broadcast deletion to all workspace members
       broadcastToWorkspace(body.workspaceId, {
         type: "task_deleted",
         taskId: params.id,
+        timestamp: Date.now(),
       });
 
       return { success: true };
@@ -310,44 +233,23 @@ const app = new Elysia()
     }
   )
 
-  // Get all encrypted tasks for workspace
-  .get("/api/workspaces/:id/tasks", ({ params }) => {
-    const workspace = workspaces.get(params.id);
-    if (!workspace) {
-      return { error: "Workspace not found" };
-    }
-
-    return {
-      tasks: Array.from(workspace.tasks.values()),
-    };
-  })
-
-  // Create encrypted comment
+  // Relay encrypted comment creation
   .post(
     "/api/comments",
     ({ body }) => {
-      const workspace = workspaces.get(body.workspaceId);
-      if (!workspace) {
-        return { error: "Workspace not found" };
-      }
-
-      const comment: EncryptedComment = {
-        id: body.id,
-        taskId: body.taskId,
-        encrypted: body.encrypted,
-        from: body.from,
-        timestamp: Date.now(),
-      };
-
-      workspace.comments.set(comment.id, comment);
-
-      // Broadcast encrypted comment
+      // Broadcast encrypted comment to all workspace members
       broadcastToWorkspace(body.workspaceId, {
         type: "comment_added",
-        comment,
+        comment: {
+          id: body.id,
+          taskId: body.taskId,
+          encrypted: body.encrypted,
+          from: body.from,
+          timestamp: Date.now(),
+        },
       });
 
-      return { success: true, commentId: comment.id };
+      return { success: true, commentId: body.id };
     },
     {
       body: t.Object({
@@ -360,19 +262,27 @@ const app = new Elysia()
     }
   )
 
-  // Get encrypted comments for task
-  .get("/api/tasks/:taskId/comments", ({ params, query }) => {
-    const workspace = workspaces.get(query.workspaceId as string);
-    if (!workspace) {
-      return { error: "Workspace not found" };
+  // Request sync from peers (new peer joining workspace)
+  .post(
+    "/api/sync/request",
+    ({ body }) => {
+      // Broadcast sync request to all other connected clients in workspace
+      // They will respond with their data via WebSocket
+      broadcastToWorkspace(body.workspaceId, {
+        type: "sync_request",
+        requesterId: body.userId,
+        timestamp: Date.now(),
+      }, body.userId); // Exclude the requester
+
+      return { success: true };
+    },
+    {
+      body: t.Object({
+        workspaceId: t.String(),
+        userId: t.String(),
+      }),
     }
-
-    const comments = Array.from(workspace.comments.values()).filter(
-      (c) => c.taskId === params.taskId
-    );
-
-    return { comments };
-  })
+  )
 
   // WebSocket for real-time sync
   .ws("/ws", {
@@ -385,11 +295,17 @@ const app = new Elysia()
 
       if (data.type === "join") {
         // Register connection
-        connections.set(ws.data.id || crypto.randomUUID(), {
+        const connId = crypto.randomUUID();
+        connections.set(connId, {
           ws,
           workspaceId: data.workspaceId,
           userId: data.userId,
         });
+
+        // Store connection ID in ws data for cleanup
+        (ws as any).connId = connId;
+
+        activeWorkspaces.add(data.workspaceId);
 
         ws.send(
           JSON.stringify({
@@ -397,11 +313,24 @@ const app = new Elysia()
             workspaceId: data.workspaceId,
           })
         );
+
+        console.log(`User ${data.userId} joined workspace ${data.workspaceId}`);
       } else if (data.type === "leave") {
         // Remove connection
-        for (const [id, conn] of connections) {
-          if (conn.ws === ws) {
-            connections.delete(id);
+        const connId = (ws as any).connId;
+        if (connId) {
+          connections.delete(connId);
+        }
+      } else if (data.type === "sync_response") {
+        // A peer is responding to a sync request with their data
+        // Forward it to the requester
+        for (const [, conn] of connections) {
+          if (conn.workspaceId === data.workspaceId && conn.userId === data.targetUserId) {
+            try {
+              conn.ws.send(JSON.stringify(data));
+            } catch (error) {
+              console.error("Failed to send sync response:", error);
+            }
             break;
           }
         }
@@ -410,20 +339,22 @@ const app = new Elysia()
 
     close(ws) {
       // Remove connection
-      for (const [id, conn] of connections) {
-        if (conn.ws === ws) {
-          connections.delete(id);
-          break;
+      const connId = (ws as any).connId;
+      if (connId) {
+        const conn = connections.get(connId);
+        if (conn) {
+          console.log(`User ${conn.userId} left workspace ${conn.workspaceId}`);
         }
+        connections.delete(connId);
       }
       console.log("WebSocket disconnected");
     },
-  })
+  });
 
 // Helper function to broadcast to all workspace members
-function broadcastToWorkspace(workspaceId: string, data: any) {
+function broadcastToWorkspace(workspaceId: string, data: any, excludeUserId?: string) {
   for (const [, conn] of connections) {
-    if (conn.workspaceId === workspaceId) {
+    if (conn.workspaceId === workspaceId && conn.userId !== excludeUserId) {
       try {
         conn.ws.send(JSON.stringify(data));
       } catch (error) {
@@ -464,7 +395,8 @@ const hostname = app.server?.hostname ?? "localhost";
 console.log(
   `Team Task Manager server running at https://${hostname}:${port}`
 );
-console.log("Zero-knowledge mode: Server cannot decrypt any user data");
+console.log("Pure local-first mode: Server stores NO data, only relays messages");
+console.log("All data lives in client IndexedDB - server is a stateless message broker");
 console.log("HTTPS enabled");
 
 // Export app type for Eden treaty client
