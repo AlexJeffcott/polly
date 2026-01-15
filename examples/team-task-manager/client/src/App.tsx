@@ -2,6 +2,7 @@ import { useEffect } from "preact/hooks";
 import { currentUser, workspace } from "./state";
 import { Onboarding } from "./components/Onboarding";
 import { WorkspaceView } from "./components/WorkspaceView";
+import { InstallPrompt } from "./components/InstallPrompt";
 import { parseInviteLink, joinWorkspace } from "./workspace";
 import { api } from "./api";
 import {
@@ -64,9 +65,19 @@ export function App() {
 
   // Show onboarding if no user or no workspace
   if (!currentUser.value || !workspace.value) {
-    return <Onboarding />;
+    return (
+      <>
+        <Onboarding />
+        <InstallPrompt />
+      </>
+    );
   }
 
   // Show main workspace view
-  return <WorkspaceView />;
+  return (
+    <>
+      <WorkspaceView />
+      <InstallPrompt />
+    </>
+  );
 }

@@ -10,6 +10,8 @@ This example showcases advanced Polly patterns for building privacy-first collab
 - **💾 Local-First Architecture** - Works offline, syncs when online
 - **👥 Real-Time Collaboration** - Team members see changes instantly
 - **🔑 Key-as-Identity** - No traditional authentication needed
+- **📱 Multi-Device Sync** - Export/import your key to use on multiple devices
+- **📲 Progressive Web App** - Install on any device, full offline support
 - **⚡ Reactive State** - UI updates automatically with Polly's `$sharedState`
 - **🎯 Constraint Enforcement** - Business rules validated client + server side
 - **🦀 Rust WASM Crypto** - High-performance encryption in the browser
@@ -220,10 +222,60 @@ Open **https://localhost:5173** in your browser
    - Teammates see it appear in real-time
    - Try urgent tasks (max 3!)
 
-5. **Test Offline**
+5. **Multi-Device Sync**
+   - Click "Export Key" to download your identity
+   - Open app on another device/browser
+   - Click "Import Existing Key"
+   - Paste your key - all workspaces sync automatically!
+
+6. **Test Offline**
    - Disconnect network
    - Create tasks (stored locally)
    - Reconnect - tasks sync automatically!
+
+7. **Install as App (PWA)**
+   - Look for "Install App" prompt (bottom right)
+   - Or use browser menu: "Install Team Task Manager"
+   - App runs standalone with faster load times
+   - Full offline support with service worker
+
+## Progressive Web App Features
+
+This example is a fully-featured PWA with:
+
+### 📲 Installability
+- **One-click install** - Install prompt appears automatically
+- **Standalone mode** - Runs like a native app
+- **App shortcuts** - Quick access to common actions
+- **Works on all platforms** - Desktop, mobile, tablet
+
+### 🔄 Offline Support
+- **Service worker** - Caches app shell and assets
+- **Background sync** - Queues changes when offline
+- **Smart caching** - Cache-first for assets, network-first for API
+- **Persistent storage** - Data won't be evicted
+
+### ⚡ Performance
+- **Instant loading** - Loads from cache
+- **Smooth updates** - Background updates with user prompt
+- **Optimistic UI** - Updates appear immediately
+
+### 🔔 Notifications (Coming Soon)
+- Push notifications for task updates
+- Background updates when app is closed
+
+To test the PWA features:
+```bash
+# Start the app
+bun run dev
+
+# Open in browser
+open https://localhost:5173
+
+# Check PWA features in DevTools
+# Chrome: Application > Manifest / Service Workers
+# Firefox: Debugger > Service Workers
+```
 
 ## Code Highlights
 
@@ -290,6 +342,58 @@ useEffect(() => {
 }, []);
 ```
 
+### PWA Service Worker
+
+```typescript
+// Service worker automatically caches app assets
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+
+  // Cache-first strategy for app assets
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) {
+        // Return cached version immediately
+        return cachedResponse;
+      }
+
+      // Fetch from network and cache
+      return fetch(request).then((response) => {
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(request, response.clone());
+        });
+        return response;
+      });
+    })
+  );
+});
+```
+
+### Install Prompt
+
+```typescript
+// main.tsx - Set up install prompt
+setupInstallPrompt((prompt) => {
+  console.log("Install prompt is available");
+});
+
+// InstallPrompt component - Show install UI
+export function InstallPrompt() {
+  const handleInstall = async () => {
+    const result = await showInstallPrompt();
+    if (result === 'accepted') {
+      console.log('App installed!');
+    }
+  };
+
+  return (
+    <button onClick={handleInstall}>
+      📱 Install App
+    </button>
+  );
+}
+```
+
 ## What Makes This Special
 
 ### 1. **True Zero-Knowledge**
@@ -301,7 +405,14 @@ Server is stateless (stores in memory). Clients have all data locally. Server ju
 ### 3. **Offline-First**
 Works completely offline. Queues changes and syncs when reconnected. No loading spinners!
 
-### 4. **Production-Ready Patterns**
+### 4. **Progressive Web App**
+- Installable on any device (desktop, mobile, tablet)
+- Full offline support with service worker
+- Fast loading from cache
+- Persistent storage prevents data loss
+- Works like a native app
+
+### 5. **Production-Ready Patterns**
 - Optimistic updates
 - Conflict resolution
 - Error handling
@@ -309,11 +420,12 @@ Works completely offline. Queues changes and syncs when reconnected. No loading 
 - Activity feed
 - Role-based permissions
 
-### 5. **Modern Tech Stack**
+### 6. **Modern Tech Stack**
 - Rust WASM for crypto
 - Elysia + Bun for server
 - Preact for UI
 - Polly for state management
+- Service Worker for offline
 - Web Crypto API fallback
 
 ## Extending This Example
@@ -418,12 +530,10 @@ db.exec(`
 
 ## Future Enhancements
 
-- [ ] **Federation** - Connect multiple team servers
-- [ ] **Multi-device sync** - One identity across devices
 - [ ] **File attachments** - Encrypted file uploads
 - [ ] **Audit logs** - Cryptographically signed events
 - [ ] **Search** - Client-side encrypted search index
-- [ ] **Mobile apps** - React Native version
+- [ ] **Push notifications** - Real-time notifications when app is closed
 
 ## Learn More
 

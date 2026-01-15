@@ -83,24 +83,36 @@ async function buildApp() {
     }
   }
 
-  // Generate index.html
-  const html = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Team Task Manager</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="${mainJsPath}"></script>
-  </body>
-</html>`;
+  // Read and modify index.html to include the built JS file
+  const indexHtml = await Bun.file('./index.html').text();
+  const modifiedHtml = indexHtml.replace(
+    '<script type="module" src="/src/main.tsx"></script>',
+    `<script type="module" src="${mainJsPath}"></script>`
+  );
 
   buildCache.set('/', {
-    content: new TextEncoder().encode(html),
+    content: new TextEncoder().encode(modifiedHtml),
     type: 'text/html',
   });
+
+  // Cache static PWA files
+  const manifestFile = Bun.file('./manifest.json');
+  if (await manifestFile.exists()) {
+    const manifestContent = await manifestFile.arrayBuffer();
+    buildCache.set('/manifest.json', {
+      content: new Uint8Array(manifestContent),
+      type: 'application/manifest+json',
+    });
+  }
+
+  const serviceWorkerFile = Bun.file('./service-worker.js');
+  if (await serviceWorkerFile.exists()) {
+    const swContent = await serviceWorkerFile.arrayBuffer();
+    buildCache.set('/service-worker.js', {
+      content: new Uint8Array(swContent),
+      type: 'application/javascript',
+    });
+  }
 
   return true;
 }
@@ -157,7 +169,27 @@ const server = Bun.serve({
         'Cache-Control': 'no-cache, must-revalidate',
       };
 
+      // Add Service-Worker-Allowed header for service worker
+      if (path === '/service-worker.js') {
+        headers['Service-Worker-Allowed'] = '/';
+      }
+
       return new Response(artifact.content, { headers });
+    }
+
+    // Serve icon files (fallback to a simple SVG icon)
+    if (path.startsWith('/icons/') && path.endsWith('.png')) {
+      // For now, redirect missing icons to a placeholder
+      // In production, you'd generate proper icons
+      return new Response(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect fill="#4f46e5" width="512" height="512"/><text x="256" y="280" text-anchor="middle" font-size="240" fill="white">📋</text></svg>',
+        {
+          headers: {
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'public, max-age=3600',
+          },
+        }
+      );
     }
 
     // SPA fallback - serve index.html for all routes
