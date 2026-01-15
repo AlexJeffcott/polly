@@ -35,6 +35,19 @@ export function App() {
     }
   }, [currentUser.value, workspace.value]); // Re-run when user or workspace changes
 
+  // Connect WebSocket when workspace is available
+  useEffect(() => {
+    if (!workspace.value || !currentUser.value) return;
+
+    console.log("[APP] Workspace loaded, connecting WebSocket");
+    api.connect(workspace.value.id, currentUser.value.id);
+
+    return () => {
+      console.log("[APP] Workspace changed/unmounted, disconnecting WebSocket");
+      api.disconnect();
+    };
+  }, [workspace.value?.id, currentUser.value?.id]);
+
   // Set up WebSocket message handlers
   useEffect(() => {
     if (!workspace.value) return;
