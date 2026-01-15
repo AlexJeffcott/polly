@@ -219,7 +219,17 @@ export class APIClient {
 
   disconnect() {
     if (this.ws) {
-      this.ws.send(JSON.stringify({ type: "leave" }));
+      console.log("[WS] Disconnecting, current state:", this.ws.readyState);
+
+      // Only send leave message if connection is open
+      if (this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify({ type: "leave" }));
+        } catch (error) {
+          console.warn("[WS] Failed to send leave message:", error);
+        }
+      }
+
       this.ws.close();
       this.ws = null;
     }
