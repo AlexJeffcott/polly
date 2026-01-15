@@ -341,6 +341,7 @@ const app = new Elysia()
             break;
           }
         }
+      }
       } catch (error) {
         console.error("[SERVER WS] Error handling message:", error);
       }
