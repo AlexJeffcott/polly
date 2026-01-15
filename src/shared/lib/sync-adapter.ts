@@ -156,10 +156,8 @@ export class ChromeRuntimeSyncAdapter implements SyncAdapter {
 export class BroadcastChannelSyncAdapter implements SyncAdapter {
   private channel: BroadcastChannel | null = null;
   private listeners: Array<(message: StateSyncMessage<unknown>) => void> = [];
-  private channelName: string;
 
   constructor(channelName = "polly-sync") {
-    this.channelName = channelName;
 
     if (typeof BroadcastChannel !== "undefined") {
       this.channel = new BroadcastChannel(channelName);

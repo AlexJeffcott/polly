@@ -1,8 +1,7 @@
 // State primitives with optional sync and persistence
 
 import { effect, type Signal, signal } from "@preact/signals";
-import type { Context } from "../types/messages";
-import { getMessageBus, type MessageBus } from "./message-bus";
+import type { MessageBus } from "./message-bus";
 import { createStorageAdapter, type StorageAdapter } from "./storage-adapter";
 import { createSyncAdapter, type SyncAdapter } from "./sync-adapter";
 
@@ -38,46 +37,6 @@ type StateOptions<T = unknown> = {
 };
 
 const stateRegistry = new Map<string, StateEntry<unknown>>();
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Context detection requires multiple checks
-function getCurrentContext(): Context {
-  // Detect current context
-  if (typeof chrome !== "undefined") {
-    if (typeof chrome.devtools !== "undefined") {
-      return "devtools";
-    }
-    if (typeof chrome.runtime !== "undefined") {
-      try {
-        if (typeof self !== "undefined" && "ServiceWorkerGlobalScope" in self) {
-          return "background";
-        }
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: ServiceWorkerGlobalScope check may fail in some contexts
-      } catch {}
-    }
-  }
-
-  if (typeof window !== "undefined" && typeof document !== "undefined") {
-    if (typeof chrome === "undefined" || typeof chrome.runtime === "undefined") {
-      return "page";
-    }
-
-    // Distinguish popup/options/offscreen from content scripts by URL
-    if (
-      typeof window.location !== "undefined" &&
-      window.location.protocol === "chrome-extension:"
-    ) {
-      const path = window.location.pathname;
-      if (path.includes("/popup")) return "popup";
-      if (path.includes("/options")) return "options";
-      if (path.includes("/offscreen")) return "offscreen";
-      // Could also be a custom extension page, default to content
-    }
-
-    return "content";
-  }
-
-  return "background";
-}
 
 /**
  * Shared state: synced across all contexts AND persisted to storage
@@ -249,8 +208,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
  * 3. Auto-detected adapters (default behavior)
  */
 function resolveAdapters(
-  options: InternalStateOptions,
-  currentContext: Context
+  options: InternalStateOptions
 ): { storage: StorageAdapter | null; sync: SyncAdapter | null } {
   // Priority 1: Explicit adapters (partial or full)
   if (options.storage || options.sync) {
@@ -261,10 +219,11 @@ function resolveAdapters(
   }
 
   // Priority 2: MessageBus (legacy support)
+  // Note: MessageBus doesn't provide sync adapter, only Chrome storage
   if (options.bus) {
     return {
       storage: options.bus.adapters.storage,
-      sync: options.bus.adapters.sync,
+      sync: options.enableSync ? createSyncAdapter() : null,
     };
   }
 
@@ -281,8 +240,6 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   if (stateRegistry.has(key)) {
     return stateRegistry.get(key)?.signal as Signal<T>;
   }
-
-  const currentContext = getCurrentContext();
 
   const sig = signal(initialValue);
 
@@ -301,7 +258,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   };
 
   // Resolve adapters (explicit, MessageBus, or auto-detect)
-  const adapters = resolveAdapters(options, currentContext);
+  const adapters = resolveAdapters(options);
 
   // Load from storage if persist is enabled
   if (options.enablePersist && adapters.storage) {

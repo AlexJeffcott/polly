@@ -68,6 +68,30 @@ export * from "./tabs.adapter";
 export * from "./window.adapter";
 
 // Re-export state management adapters
-export * from "../lib/storage-adapter";
-export * from "../lib/sync-adapter";
-export * from "../lib/adapter-factory";
+// Note: Avoid duplicate StorageAdapter export - use named exports to prevent conflicts
+export {
+  type StorageAdapter as UniversalStorageAdapter,
+  ChromeStorageAdapter as UniversalChromeStorageAdapter,
+  IndexedDBAdapter,
+  MemoryStorageAdapter,
+  createStorageAdapter,
+} from "../lib/storage-adapter";
+
+export {
+  type SyncAdapter,
+  type StateSyncMessage,
+  ChromeRuntimeSyncAdapter,
+  BroadcastChannelSyncAdapter,
+  NoOpSyncAdapter,
+  createSyncAdapter,
+} from "../lib/sync-adapter";
+
+export {
+  type StateAdapters,
+  type AdapterOptions,
+  createStateAdapters,
+  createChromeAdapters as createChromeStateAdapters,
+  createWebAdapters,
+  createNodeAdapters,
+  createMockAdapters,
+} from "../lib/adapter-factory";
