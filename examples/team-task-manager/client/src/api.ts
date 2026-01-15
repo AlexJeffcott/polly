@@ -176,10 +176,11 @@ export class APIClient {
 
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log("WebSocket message:", data);
+      console.log("[WS] Received message:", data.type, data);
 
       // Handle sync requests from peers
       if (data.type === "sync_request") {
+        console.log("[WS] Peer requesting sync, sending our tasks");
         // Another peer is requesting our data
         // Send them our local tasks and comments
         this.sendSyncResponse(
@@ -190,6 +191,7 @@ export class APIClient {
       }
 
       // Call registered handlers
+      console.log("[WS] Calling", this.messageHandlers.size, "registered handlers");
       for (const handler of this.messageHandlers.values()) {
         handler(data);
       }

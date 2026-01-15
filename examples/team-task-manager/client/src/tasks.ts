@@ -57,6 +57,13 @@ export async function createTask(
     workspace.value.workspaceKey
   );
 
+  console.log("[TASK SYNC] Creating task:", {
+    taskId: task.id,
+    text: task.text,
+    workspaceId: task.workspaceId,
+    workspaceKey: workspace.value.workspaceKey.substring(0, 20),
+  });
+
   // Send to server
   await api.createTask(
     task.id,
@@ -64,6 +71,8 @@ export async function createTask(
     currentUser.value.id,
     workspace.value.id
   );
+
+  console.log("[TASK SYNC] Task sent to server");
 
   // Store locally (optimistic update)
   tasks.value = [...tasks.value, task];
@@ -228,7 +237,17 @@ export async function addComment(taskId: string, text: string): Promise<Comment>
 
 // Handle incoming encrypted task from WebSocket
 export async function handleIncomingTask(encryptedTask: any) {
-  if (!workspace.value) return;
+  if (!workspace.value) {
+    console.log("[TASK SYNC] No workspace, ignoring incoming task");
+    return;
+  }
+
+  console.log("[TASK SYNC] Received encrypted task:", {
+    taskId: encryptedTask.id,
+    workspaceId: encryptedTask.workspaceId,
+    currentWorkspaceId: workspace.value.id,
+    from: encryptedTask.from,
+  });
 
   try {
     const decrypted = await decryptText(
@@ -237,18 +256,23 @@ export async function handleIncomingTask(encryptedTask: any) {
     );
     const task: Task = JSON.parse(decrypted);
 
+    console.log("[TASK SYNC] Successfully decrypted task:", task.text);
+
     // Check if task already exists
     const existingIndex = tasks.value.findIndex((t) => t.id === task.id);
 
     if (existingIndex >= 0) {
+      console.log("[TASK SYNC] Updating existing task");
       // Update existing task
       tasks.value = tasks.value.map((t) => (t.id === task.id ? task : t));
     } else {
+      console.log("[TASK SYNC] Adding new task");
       // Add new task
       tasks.value = [...tasks.value, task];
     }
   } catch (error) {
-    console.error("Failed to decrypt incoming task:", error);
+    console.error("[TASK SYNC] Failed to decrypt incoming task:", error);
+    console.error("[TASK SYNC] Workspace key (first 20 chars):", workspace.value.workspaceKey.substring(0, 20));
   }
 }
 
