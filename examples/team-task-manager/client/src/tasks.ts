@@ -38,6 +38,7 @@ export async function createTask(
 
   const task: Task = {
     id: crypto.randomUUID(),
+    workspaceId: workspace.value.id,
     text,
     description: options.description,
     createdBy: currentUser.value.id,
@@ -194,6 +195,7 @@ export async function addComment(taskId: string, text: string): Promise<Comment>
 
   const comment: Comment = {
     id: crypto.randomUUID(),
+    workspaceId: workspace.value.id,
     taskId,
     authorId: currentUser.value.id,
     text,

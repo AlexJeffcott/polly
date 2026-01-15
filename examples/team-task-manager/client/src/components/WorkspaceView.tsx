@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { currentUser, workspace, tasks, resetState, getUrgentTasks } from "../state";
+import { currentUser, workspace, resetState, getUrgentTasks, getTasksForCurrentWorkspace } from "../state";
 import { createTask, updateTaskStatus, deleteTask, assignTask } from "../tasks";
 import { generateInviteLink, leaveWorkspace } from "../workspace";
 import type { Priority } from "../../../shared/types";
@@ -40,7 +40,8 @@ export function WorkspaceView() {
     setTimeout(() => setShowInvite(false), 3000);
   };
 
-  const filteredTasks = tasks.value.filter((task) => {
+  const workspaceTasks = getTasksForCurrentWorkspace();
+  const filteredTasks = workspaceTasks.filter((task) => {
     if (filter === "active") return task.status !== "done";
     if (filter === "done") return task.status === "done";
     return true;
@@ -118,19 +119,19 @@ export function WorkspaceView() {
             class={filter === "all" ? "active" : ""}
             onClick={() => setFilter("all")}
           >
-            All ({tasks.value.length})
+            All ({workspaceTasks.length})
           </button>
           <button
             class={filter === "active" ? "active" : ""}
             onClick={() => setFilter("active")}
           >
-            Active ({tasks.value.filter((t) => t.status !== "done").length})
+            Active ({workspaceTasks.filter((t) => t.status !== "done").length})
           </button>
           <button
             class={filter === "done" ? "active" : ""}
             onClick={() => setFilter("done")}
           >
-            Done ({tasks.value.filter((t) => t.status === "done").length})
+            Done ({workspaceTasks.filter((t) => t.status === "done").length})
           </button>
         </div>
 

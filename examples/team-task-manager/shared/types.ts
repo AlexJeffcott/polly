@@ -32,6 +32,7 @@ export type Workspace = {
 
 export type Task = {
   id: string;
+  workspaceId: string; // Which workspace this task belongs to
   text: string;
   description?: string;
   createdBy: string; // User ID
@@ -48,6 +49,7 @@ export type Task = {
 
 export type Comment = {
   id: string;
+  workspaceId: string; // Which workspace this comment belongs to
   taskId: string;
   authorId: string;
   text: string;

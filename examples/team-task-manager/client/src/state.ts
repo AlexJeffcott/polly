@@ -30,17 +30,27 @@ export const selectedTask = $state<Task | null>(null);
 export const showCreateTask = $state(false);
 export const showInviteModal = $state(false);
 
-// Computed values
+// Computed values - filter by current workspace
+export function getTasksForCurrentWorkspace(): Task[] {
+  if (!workspace.value) return [];
+  return tasks.value.filter((t) => t.workspaceId === workspace.value!.id);
+}
+
+export function getCommentsForCurrentWorkspace(): Comment[] {
+  if (!workspace.value) return [];
+  return comments.value.filter((c) => c.workspaceId === workspace.value!.id);
+}
+
 export function getTaskById(id: string): Task | undefined {
-  return tasks.value.find((t) => t.id === id);
+  return getTasksForCurrentWorkspace().find((t) => t.id === id);
 }
 
 export function getCommentsForTask(taskId: string): Comment[] {
-  return comments.value.filter((c) => c.taskId === taskId);
+  return getCommentsForCurrentWorkspace().filter((c) => c.taskId === taskId);
 }
 
 export function getUrgentTasks(): Task[] {
-  return tasks.value.filter((t) => t.priority === "urgent" && t.status !== "done");
+  return getTasksForCurrentWorkspace().filter((t) => t.priority === "urgent" && t.status !== "done");
 }
 
 export function canCreateUrgentTask(): boolean {

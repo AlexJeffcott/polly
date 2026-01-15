@@ -215,14 +215,13 @@ export async function switchWorkspace(workspaceId: string) {
   // Switch to new workspace
   workspace.value = targetWorkspace;
 
-  // Clear tasks and comments (will be loaded from IndexedDB or synced)
-  tasks.value = [];
-  comments.value = [];
+  // Don't clear tasks/comments - they're filtered by workspaceId in state helpers
+  // Tasks from all workspaces stay in IndexedDB for offline access
 
   // Connect WebSocket
   api.connect(workspaceId, currentUser.value.id);
 
-  // Request sync from peers
+  // Request sync from peers to get any new tasks for this workspace
   await requestPeerSync(workspaceId);
 }
 
