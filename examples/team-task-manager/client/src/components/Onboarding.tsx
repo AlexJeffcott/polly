@@ -88,19 +88,19 @@ export function Onboarding() {
           <div style={{ marginBottom: '16px', padding: '12px', background: '#f0f9ff', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
             <strong>What this key does:</strong>
             <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>Encrypts all your tasks and data on your device</li>
-              <li>Decrypts your data when you need it</li>
+              <li>Encrypts tasks before syncing to the server</li>
+              <li>Decrypts data received from the server</li>
               <li>Proves your identity without passwords</li>
             </ul>
             <br />
-            <strong>What you need to access your data:</strong>
+            <strong>Security model:</strong>
             <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>This key (keep it safe!)</li>
-              <li>Internet connection to sync with teammates</li>
+              <li>On your device: data stored in plaintext (protected by device encryption)</li>
+              <li>On the server: data stored encrypted (server cannot read it)</li>
             </ul>
             <br />
             <div style={{ color: '#b91c1c', fontWeight: 500 }}>
-              Without this key, your encrypted data is unrecoverable. Not even the server can decrypt it.
+              Without this key, you cannot decrypt data from the server. Your key = your access.
             </div>
           </div>
 
@@ -130,9 +130,10 @@ export function Onboarding() {
           <div style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6' }}>
             <strong>How it works:</strong>
             <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>Your data is encrypted on your device with your personal key</li>
-              <li>Encrypted data syncs to the server (server can't read it)</li>
-              <li>Your teammates can decrypt shared workspace data with their keys</li>
+              <li>Your data is stored decrypted on your device (protected by device security)</li>
+              <li>When syncing, data is encrypted before sending to the server</li>
+              <li>Server stores only encrypted data (server can't read it)</li>
+              <li>Your teammates decrypt shared workspace data with their keys</li>
               <li>Works offline - syncs when you're back online</li>
             </ol>
           </div>
@@ -175,13 +176,15 @@ export function Onboarding() {
           <div style={{ marginBottom: '16px', padding: '12px', background: '#eff6ff', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
             <strong>Your key will:</strong>
             <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>Encrypt all your data before it leaves your device</li>
+              <li>Encrypt your data before syncing to the server</li>
+              <li>Decrypt data from the server when you need it</li>
               <li>Sign your actions to prove authenticity</li>
-              <li>Allow you to decrypt your data on any device</li>
+              <li>Work on any device you import it to</li>
             </ul>
             <br />
             <div style={{ fontSize: '13px', color: '#64748b' }}>
-              The server only stores encrypted data. Only you (and teammates you share with) can read it.
+              On your device: data is stored decrypted (protected by device security like FileVault/BitLocker).
+              On the server: only encrypted data is stored - the server can't read it.
             </div>
           </div>
 
