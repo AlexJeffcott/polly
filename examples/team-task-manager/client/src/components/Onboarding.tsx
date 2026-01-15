@@ -18,6 +18,9 @@ export function Onboarding() {
   const [showBackup, setShowBackup] = useState(false);
   const [error, setError] = useState("");
 
+  // Check if there's an invite link in the URL
+  const hasInvite = new URLSearchParams(window.location.search).has("invite");
+
   const handleCreateUser = async () => {
     if (!name.trim()) {
       setError("Please enter your name");
@@ -144,6 +147,15 @@ export function Onboarding() {
           <h1>Team Task Manager</h1>
           <p class="subtitle">End-to-end encrypted, local-first task management</p>
 
+          {hasInvite && (
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#dbeafe', borderRadius: '8px', fontSize: '14px', border: '2px solid #3b82f6' }}>
+              <strong style={{ color: '#1e40af' }}>Workspace Invite Detected</strong>
+              <p style={{ margin: '4px 0 0 0', color: '#1e3a8a' }}>
+                Create a new identity or import an existing one to join the workspace.
+              </p>
+            </div>
+          )}
+
           <div style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6' }}>
             <strong>How it works:</strong>
             <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
@@ -190,6 +202,15 @@ export function Onboarding() {
           <h2>Create Your Identity</h2>
           <p>Your identity is a cryptographic keypair. No passwords needed.</p>
 
+          {hasInvite && (
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#dbeafe', borderRadius: '8px', fontSize: '14px', border: '2px solid #3b82f6' }}>
+              <strong style={{ color: '#1e40af' }}>Workspace Invite Detected</strong>
+              <p style={{ margin: '4px 0 0 0', color: '#1e3a8a' }}>
+                After creating your identity, you'll automatically join the workspace.
+              </p>
+            </div>
+          )}
+
           <div style={{ marginBottom: '16px', padding: '12px', background: '#eff6ff', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
             <strong>Your key will:</strong>
             <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
@@ -234,6 +255,15 @@ export function Onboarding() {
         <div class="onboarding-card">
           <h2>Import Your Key</h2>
           <p>Paste your backup key to restore your identity.</p>
+
+          {hasInvite && (
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#dbeafe', borderRadius: '8px', fontSize: '14px', border: '2px solid #3b82f6' }}>
+              <strong style={{ color: '#1e40af' }}>Workspace Invite Detected</strong>
+              <p style={{ margin: '4px 0 0 0', color: '#1e3a8a' }}>
+                After importing your identity, you'll automatically join the workspace.
+              </p>
+            </div>
+          )}
 
           <div style={{ marginBottom: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
             <strong>Restoring access:</strong>

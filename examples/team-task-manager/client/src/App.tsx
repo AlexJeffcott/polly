@@ -13,7 +13,7 @@ import {
 } from "./tasks";
 
 export function App() {
-  // Check for invite link on mount
+  // Check for invite link on mount and when user identity changes
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const inviteCode = params.get("invite");
@@ -28,7 +28,7 @@ export function App() {
         console.error("Failed to join workspace from invite:", error);
       }
     }
-  }, []);
+  }, [currentUser.value]); // Re-run when user identity changes
 
   // Set up WebSocket message handlers
   useEffect(() => {
