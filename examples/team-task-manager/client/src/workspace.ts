@@ -95,6 +95,7 @@ export async function createWorkspace(name: string): Promise<Workspace> {
     workspaces.value = [...workspaces.value, newWorkspace];
   }
 
+  console.log("[WORKSPACE] Calling api.connect after creating workspace");
   // Connect WebSocket
   api.connect(workspaceId, currentUser.value.id);
 
@@ -146,6 +147,7 @@ export async function joinWorkspace(
     );
   }
 
+  console.log("[WORKSPACE] Calling api.connect after joining workspace");
   // Connect WebSocket (will trigger peer sync automatically)
   api.connect(workspaceId, currentUser.value.id);
 
@@ -219,6 +221,7 @@ export async function switchWorkspace(workspaceId: string) {
   // Don't clear tasks/comments - they're filtered by workspaceId in state helpers
   // Tasks from all workspaces stay in IndexedDB for offline access
 
+  console.log("[WORKSPACE] Calling api.connect after switching workspace");
   // Connect WebSocket
   api.connect(workspaceId, currentUser.value.id);
 
