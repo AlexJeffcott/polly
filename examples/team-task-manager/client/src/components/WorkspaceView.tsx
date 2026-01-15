@@ -57,8 +57,12 @@ export function WorkspaceView() {
           </p>
         </div>
         <div class="header-actions">
-          <button onClick={handleInvite} class="secondary">
-            Invite
+          <button
+            onClick={handleInvite}
+            class="secondary"
+            title="Generate and copy an invite link to share with teammates"
+          >
+            Invite Teammate
           </button>
           <button onClick={handleLogout} class="secondary">
             Leave
@@ -67,8 +71,11 @@ export function WorkspaceView() {
       </header>
 
       {showInvite && (
-        <div class="notification">
-          Invite link copied to clipboard!
+        <div class="notification" style={{ padding: '16px', background: '#dcfce7', color: '#166534', borderRadius: '8px', marginBottom: '16px' }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Invite link copied to clipboard!</div>
+          <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+            Share this link with teammates. It contains the workspace key so they can decrypt and collaborate on tasks.
+          </div>
         </div>
       )}
 

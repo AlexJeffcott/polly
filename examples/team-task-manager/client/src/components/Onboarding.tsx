@@ -254,13 +254,21 @@ export function Onboarding() {
           <h2>Create Workspace</h2>
           <p>Workspaces keep your projects organized.</p>
 
+          <div style={{ marginBottom: '16px', padding: '12px', background: '#f0fdf4', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
+            <strong>Two ways to get started:</strong>
+            <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+              <li><strong>Create a new workspace</strong> - You'll be the admin and can invite others</li>
+              <li><strong>Join an existing workspace</strong> - Ask a teammate to click "Invite" in their workspace and share the link with you. The link contains the workspace key so you can decrypt the shared data.</li>
+            </ol>
+          </div>
+
           {error && <div class="error">{error}</div>}
 
           <input
             type="text"
             value={workspaceName}
             onInput={(e) => setWorkspaceName((e.target as HTMLInputElement).value)}
-            placeholder="Workspace name"
+            placeholder="Workspace name (e.g., Marketing Team, Project Alpha)"
             class="input"
           />
 
@@ -270,8 +278,8 @@ export function Onboarding() {
             </button>
           </div>
 
-          <div class="hint">
-            Or ask a teammate for an invite link
+          <div class="hint" style={{ marginTop: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px', fontSize: '13px' }}>
+            <strong>Have an invite link?</strong> Just paste it in your browser and you'll automatically join the workspace.
           </div>
         </div>
       </div>
