@@ -62,6 +62,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip chrome-extension and other non-http(s) URLs
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
   // Strategy for API calls: Network first, cache fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
