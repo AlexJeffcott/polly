@@ -10,17 +10,23 @@ describe("API Client", () => {
     // Use Polly's mock fetch
     mockFetch = createMockFetch();
     global.fetch = mockFetch.fetch;
+
+    // Default response with proper headers and methods for Eden treaty
+    const responseData = { success: true };
+    mockFetch._responses.push({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({ "Content-Type": "application/json" }),
+      json: async () => responseData,
+      text: async () => JSON.stringify(responseData),
+      blob: async () => new Blob([JSON.stringify(responseData)]),
+      arrayBuffer: async () => new TextEncoder().encode(JSON.stringify(responseData)).buffer,
+    } as Response);
   });
 
   test("createWorkspace sends correct request", async () => {
     const api = new APIClient();
-
-    // Queue response
-    mockFetch._responses.push({
-      json: async () => ({ success: true }),
-      ok: true,
-      status: 200,
-    } as Response);
 
     await api.createWorkspace("workspace-1", "My Workspace", "user-1");
 
@@ -30,7 +36,13 @@ describe("API Client", () => {
 
     const callInit = mockFetch._calls[0].init;
     expect(callInit?.method).toBe("POST");
-    expect(callInit?.headers?.["Content-Type"]).toBe("application/json");
+
+    // Headers can be a Headers object or plain object
+    // Note: Eden treaty uses lowercase header keys
+    const contentType = callInit?.headers instanceof Headers
+      ? callInit.headers.get("content-type")
+      : callInit?.headers?.["content-type"];
+    expect(contentType).toBe("application/json");
 
     const body = JSON.parse(callInit?.body as string);
     expect(body.id).toBe("workspace-1");
@@ -41,11 +53,6 @@ describe("API Client", () => {
   test("getWorkspace sends GET request", async () => {
     const api = new APIClient();
 
-    // Queue response
-    mockFetch._responses.push({
-      json: async () => ({ success: true }),
-    } as Response);
-
     await api.getWorkspace("workspace-1");
 
     expect(mockFetch._calls.length).toBe(1);
@@ -54,10 +61,6 @@ describe("API Client", () => {
 
   test("createTask sends encrypted data", async () => {
     const api = new APIClient();
-
-    mockFetch._responses.push({
-      json: async () => ({ success: true }),
-    } as Response);
 
     await api.createTask("task-1", "encrypted-data-base64", "user-1", "workspace-1");
 
@@ -75,10 +78,6 @@ describe("API Client", () => {
   test("updateTask sends encrypted update", async () => {
     const api = new APIClient();
 
-    mockFetch._responses.push({
-      json: async () => ({ success: true }),
-    } as Response);
-
     await api.updateTask("task-1", "new-encrypted-data", "workspace-1");
 
     expect(mockFetch._calls.length).toBe(1);
@@ -95,10 +94,6 @@ describe("API Client", () => {
   test("deleteTask sends DELETE request", async () => {
     const api = new APIClient();
 
-    mockFetch._responses.push({
-      json: async () => ({ success: true }),
-    } as Response);
-
     await api.deleteTask("task-1", "workspace-1");
 
     expect(mockFetch._calls.length).toBe(1);
@@ -109,11 +104,21 @@ describe("API Client", () => {
   });
 
   test("handles API errors", async () => {
-    const api = new APIClient();
-
+    // Clear default response and add error response
+    mockFetch._responses.length = 0;
+    const errorData = { error: "Not found" };
     mockFetch._responses.push({
-      json: async () => ({ error: "Not found" }),
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({ "Content-Type": "application/json" }),
+      json: async () => errorData,
+      text: async () => JSON.stringify(errorData),
+      blob: async () => new Blob([JSON.stringify(errorData)]),
+      arrayBuffer: async () => new TextEncoder().encode(JSON.stringify(errorData)).buffer,
     } as Response);
+
+    const api = new APIClient();
 
     const response = await api.getWorkspace("invalid-id");
 
@@ -122,10 +127,6 @@ describe("API Client", () => {
 
   test("uses correct API URL from environment", async () => {
     const api = new APIClient();
-
-    mockFetch._responses.push({
-      json: async () => ({ success: true }),
-    } as Response);
 
     await api.createWorkspace("w1", "Test", "u1");
 

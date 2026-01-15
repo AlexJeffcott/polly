@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
+import { polly } from "@fairfox/polly/elysia";
 
 // Zero-knowledge server - stores only encrypted blobs
 // The server has NO ability to read tasks, comments, or any user data
@@ -40,6 +41,83 @@ const connections = new Map<
 
 const app = new Elysia()
   .use(cors())
+
+  // Polly middleware for offline-first, real-time sync
+  .use(
+    polly({
+      // Offline configuration - queue mutations when offline
+      offline: {
+        // Workspaces
+        "POST /api/workspaces": {
+          queue: true,
+          optimistic: (body) => ({
+            success: true,
+            workspace: {
+              id: body.id,
+              name: body.name,
+              createdAt: Date.now(),
+            },
+          }),
+          merge: "replace",
+        },
+        "POST /api/workspaces/:id/members": {
+          queue: true,
+          merge: "replace",
+        },
+
+        // Tasks
+        "POST /api/tasks": {
+          queue: true,
+          optimistic: (body) => ({
+            success: true,
+            taskId: body.id,
+          }),
+          merge: "replace",
+        },
+        "PATCH /api/tasks/:id": {
+          queue: true,
+          merge: "replace",
+        },
+        "DELETE /api/tasks/:id": {
+          queue: true,
+          optimistic: () => ({ success: true }),
+          merge: "replace",
+        },
+
+        // Comments
+        "POST /api/comments": {
+          queue: true,
+          optimistic: (body) => ({
+            success: true,
+            commentId: body.id,
+          }),
+          merge: "replace",
+        },
+      },
+
+      // Effects - broadcast changes to all connected clients in the workspace
+      effects: {
+        "POST /api/tasks": {
+          broadcast: true,
+        },
+        "PATCH /api/tasks/:id": {
+          broadcast: true,
+        },
+        "DELETE /api/tasks/:id": {
+          broadcast: true,
+        },
+        "POST /api/comments": {
+          broadcast: true,
+        },
+        "POST /api/workspaces/:id/members": {
+          broadcast: true,
+        },
+      },
+
+      // Custom WebSocket path (different from app's existing /ws)
+      websocketPath: "/polly/ws",
+    })
+  )
 
   // Health check
   .get("/", () => ({
@@ -388,3 +466,6 @@ console.log(
 );
 console.log("🔒 Zero-knowledge mode: Server cannot decrypt any user data");
 console.log("🔐 HTTPS enabled");
+
+// Export app type for Eden treaty client
+export type App = typeof app;

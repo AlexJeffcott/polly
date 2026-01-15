@@ -1,15 +1,25 @@
-// API client for communicating with the zero-knowledge server
+// API client using Eden treaty for type-safe communication
+import { treaty } from "@elysiajs/eden";
+import type { App } from "../../server/src/index";
+import { currentUser, workspace, tasks } from "./state";
 
 // @ts-ignore - injected at build time
 const API_URL = process.env.API_URL || "https://localhost:3000";
 // @ts-ignore - injected at build time
 const WS_URL = process.env.WS_URL || "wss://localhost:3000/ws";
 
+// Create Eden treaty client with full type safety
+const client = treaty<App>(API_URL);
+
 export type APIResponse<T = any> = {
   success?: boolean;
   error?: string;
 } & T;
 
+/**
+ * API Client class wrapping Eden treaty
+ * Provides a clean interface matching our previous API while using treaty under the hood
+ */
 export class APIClient {
   private ws: WebSocket | null = null;
   private messageHandlers = new Map<string, (data: any) => void>();
@@ -19,26 +29,39 @@ export class APIClient {
     name: string,
     creatorId: string
   ): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/workspaces`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, creatorId }),
+    const { data, error } = await client.api.workspaces.post({
+      id,
+      name,
+      creatorId,
     });
-    return res.json();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async getWorkspace(id: string): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/workspaces/${id}`);
-    return res.json();
+    const { data, error } = await client.api.workspaces({ id }).get();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async addMember(workspaceId: string, userId: string): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/workspaces/${workspaceId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
+    const { data, error } = await client.api.workspaces({ id: workspaceId }).members.post({
+      userId,
     });
-    return res.json();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async createTask(
@@ -47,12 +70,18 @@ export class APIClient {
     from: string,
     workspaceId: string
   ): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, encrypted, from, workspaceId }),
+    const { data, error } = await client.api.tasks.post({
+      id,
+      encrypted,
+      from,
+      workspaceId,
     });
-    return res.json();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async updateTask(
@@ -60,26 +89,38 @@ export class APIClient {
     encrypted: string,
     workspaceId: string
   ): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ encrypted, workspaceId }),
+    const { data, error } = await client.api.tasks({ id: taskId }).patch({
+      encrypted,
+      workspaceId,
     });
-    return res.json();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async deleteTask(taskId: string, workspaceId: string): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/tasks/${taskId}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspaceId }),
+    const { data, error} = await client.api.tasks({ id: taskId }).delete({
+      workspaceId,
     });
-    return res.json();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async getTasks(workspaceId: string): Promise<APIResponse<{ tasks: any[] }>> {
-    const res = await fetch(`${API_URL}/api/workspaces/${workspaceId}/tasks`);
-    return res.json();
+    const { data, error } = await client.api.workspaces({ id: workspaceId }).tasks.get();
+
+    if (error) {
+      return { error: error.value as string, tasks: [] };
+    }
+
+    return data as APIResponse<{ tasks: any[] }>;
   }
 
   async createComment(
@@ -89,22 +130,34 @@ export class APIClient {
     from: string,
     workspaceId: string
   ): Promise<APIResponse> {
-    const res = await fetch(`${API_URL}/api/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, taskId, encrypted, from, workspaceId }),
+    const { data, error } = await client.api.comments.post({
+      id,
+      taskId,
+      encrypted,
+      from,
+      workspaceId,
     });
-    return res.json();
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
   }
 
   async getComments(
     taskId: string,
     workspaceId: string
   ): Promise<APIResponse<{ comments: any[] }>> {
-    const res = await fetch(
-      `${API_URL}/api/tasks/${taskId}/comments?workspaceId=${workspaceId}`
-    );
-    return res.json();
+    const { data, error } = await client.api.tasks({ taskId }).comments.get({
+      query: { workspaceId },
+    });
+
+    if (error) {
+      return { error: error.value as string, comments: [] };
+    }
+
+    return data as APIResponse<{ comments: any[] }>;
   }
 
   // WebSocket for real-time updates
@@ -155,4 +208,8 @@ export class APIClient {
   }
 }
 
+// Export singleton instance
 export const api = new APIClient();
+
+// Also export the underlying treaty client for advanced use
+export { client };

@@ -9,6 +9,7 @@
     "test:watch": "bun test --watch"
   },
   "dependencies": {
+    "@elysiajs/eden": "^1.4.6",
     "@fairfox/polly": "file:../../..",
     "@preact/signals": "^1.2.0",
     "preact": "^10.19.0"

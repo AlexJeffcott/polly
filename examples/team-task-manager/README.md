@@ -15,6 +15,7 @@ This example showcases advanced Polly patterns for building privacy-first collab
 - **⚡ Reactive State** - UI updates automatically with Polly's `$sharedState`
 - **🎯 Constraint Enforcement** - Business rules validated client + server side
 - **🦀 Rust WASM Crypto** - High-performance encryption in the browser
+- **🛡️ Eden Treaty + Polly** - Production-grade type-safe API with offline-first middleware
 
 ## Architecture Overview
 
@@ -277,6 +278,96 @@ open https://localhost:5173
 # Firefox: Debugger > Service Workers
 ```
 
+## Eden Treaty + Polly Middleware
+
+This example demonstrates production-grade patterns using Eden treaty for type-safe APIs and Polly middleware for offline-first behavior.
+
+### Server-Side Configuration
+
+```typescript
+import { Elysia } from "elysia";
+import { polly } from "@fairfox/polly/elysia";
+
+const app = new Elysia()
+  .use(
+    polly({
+      // Offline configuration - automatic queuing and optimistic updates
+      offline: {
+        "POST /api/tasks": {
+          queue: true,
+          optimistic: (body) => ({
+            success: true,
+            taskId: body.id,
+          }),
+          merge: "replace",
+        },
+        "PATCH /api/tasks/:id": {
+          queue: true,
+          merge: "replace",
+        },
+      },
+
+      // Effects - broadcast changes to connected clients
+      effects: {
+        "POST /api/tasks": {
+          broadcast: true,
+        },
+        "PATCH /api/tasks/:id": {
+          broadcast: true,
+        },
+      },
+
+      // Custom WebSocket path for real-time sync
+      websocketPath: "/polly/ws",
+    })
+  )
+
+  // Normal Elysia routes - no Polly annotations needed!
+  .post("/api/tasks", ({ body }) => {
+    // Your regular handler code
+    return { success: true, taskId: body.id };
+  });
+
+// Export type for Eden treaty client
+export type App = typeof app;
+```
+
+### Client-Side Usage
+
+```typescript
+import { treaty } from "@elysiajs/eden";
+import type { App } from "../../server/src/index";
+
+// Create type-safe client - types automatically inferred!
+const client = treaty<App>(API_URL);
+
+// Wrap in class for cleaner API
+export class APIClient {
+  async createTask(id: string, encrypted: string, from: string, workspaceId: string) {
+    const { data, error } = await client.api.tasks.post({
+      id,
+      encrypted,
+      from,
+      workspaceId,
+    });
+
+    if (error) {
+      return { error: error.value as string };
+    }
+
+    return data as APIResponse;
+  }
+}
+```
+
+### Key Benefits
+
+1. **Zero Type Duplication** - Eden generates types from Elysia automatically
+2. **Centralized Offline Config** - All offline behavior defined in middleware
+3. **Automatic Broadcasting** - Real-time updates configured declaratively
+4. **Optimistic Updates** - Server sends optimistic responses for offline queuing
+5. **Clean Separation** - Route handlers stay simple, Polly handles distributed systems concerns
+
 ## Polly Framework Patterns
 
 This example uses Polly's patterns for state management and testing:
@@ -483,12 +574,13 @@ Works completely offline. Queues changes and syncs when reconnected. No loading 
 - Role-based permissions
 
 ### 6. **Modern Tech Stack**
-- Rust WASM for crypto
-- Elysia + Bun for server
-- Preact for UI
-- Polly for state management
-- Service Worker for offline
-- Web Crypto API fallback
+- **Eden Treaty** - Type-safe end-to-end API (zero duplication)
+- **Polly Middleware** - Offline-first patterns with declarative config
+- **Rust WASM** - High-performance crypto in browser
+- **Elysia + Bun** - Fast, modern server runtime
+- **Preact** - Lightweight reactive UI
+- **Service Worker** - Full offline support
+- **$sharedState** - Automatic persistence and sync
 
 ## Extending This Example
 
