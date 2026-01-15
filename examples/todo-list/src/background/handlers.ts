@@ -2,7 +2,7 @@
 import { createBackground } from "@fairfox/polly/background";
 import type { TodoMessages } from "../shared/messages";
 import type { Todo } from "../shared/types";
-import { generateId, state } from "./state";
+import { generateId, user, todos, filter } from "./state";
 
 // Initialize background script with MessageRouter
 // IMPORTANT: Always use createBackground() in background scripts, NOT getMessageBus('background')
@@ -17,25 +17,29 @@ const bus = createBackground<TodoMessages>();
 bus.on("USER_LOGIN", (payload: { userId: string; name: string; role: "user" | "admin" }) => {
   // Preconditions
 
-  // State changes
-  state.user.loggedIn = true;
-  state.user.id = payload.userId;
-  state.user.name = payload.name;
-  state.user.role = payload.role;
+  // State changes - using reactive signals with automatic sync
+  user.value = {
+    loggedIn: true,
+    id: payload.userId,
+    name: payload.name,
+    role: payload.role,
+  };
 
   // Postconditions
 
-  return { success: true, user: state.user };
+  return { success: true, user: user.value };
 });
 
 bus.on("USER_LOGOUT", () => {
   // Precondition
 
-  // State changes
-  state.user.loggedIn = false;
-  state.user.id = null;
-  state.user.name = "Guest";
-  state.user.role = "guest";
+  // State changes - using reactive signals with automatic sync
+  user.value = {
+    loggedIn: false,
+    id: null,
+    name: "Guest",
+    role: "guest",
+  };
 
   // Postconditions
 
@@ -49,21 +53,21 @@ bus.on("USER_LOGOUT", () => {
 bus.on("TODO_ADD", (payload: { text: string }) => {
   // Preconditions
 
-  const _previousCount = state.todos.length;
+  const _previousCount = todos.value.length;
 
-  // State change
+  // State change - using reactive signals with automatic sync
   const newTodo: Todo = {
     id: generateId(),
     text: payload.text,
     completed: false,
     createdAt: Date.now(),
   };
-  state.todos.push(newTodo);
+  todos.value = [...todos.value, newTodo];
 
   // Postconditions
 
   // Check for duplicate IDs
-  const ids = state.todos.map((t) => t.id);
+  const ids = todos.value.map((t) => t.id);
   const _uniqueIds = new Set(ids);
 
   return { success: true, todo: newTodo };
@@ -71,17 +75,20 @@ bus.on("TODO_ADD", (payload: { text: string }) => {
 
 bus.on("TODO_TOGGLE", (payload: { id: string }) => {
   // Precondition
-  const todo = state.todos.find((t) => t.id === payload.id);
+  const todo = todos.value.find((t) => t.id === payload.id);
 
   if (todo) {
     const _previousCompleted = todo.completed;
 
-    // State change
-    todo.completed = !todo.completed;
+    // State change - using reactive signals with automatic sync
+    todos.value = todos.value.map((t) =>
+      t.id === payload.id ? { ...t, completed: !t.completed } : t
+    );
 
     // Postcondition
+    const updatedTodo = todos.value.find((t) => t.id === payload.id)!;
 
-    return { success: true, todo };
+    return { success: true, todo: updatedTodo };
   }
 
   return { success: false, error: "Todo not found" };
@@ -89,12 +96,12 @@ bus.on("TODO_TOGGLE", (payload: { id: string }) => {
 
 bus.on("TODO_REMOVE", (payload: { id: string }) => {
   // Precondition
-  const index = state.todos.findIndex((t) => t.id === payload.id);
+  const index = todos.value.findIndex((t) => t.id === payload.id);
 
-  const _previousCount = state.todos.length;
+  const _previousCount = todos.value.length;
 
-  // State change
-  state.todos.splice(index, 1);
+  // State change - using reactive signals with automatic sync
+  todos.value = todos.value.filter((t) => t.id !== payload.id);
 
   // Postconditions
 
@@ -102,11 +109,11 @@ bus.on("TODO_REMOVE", (payload: { id: string }) => {
 });
 
 bus.on("TODO_CLEAR_COMPLETED", () => {
-  const _previousCount = state.todos.length;
-  const completedCount = state.todos.filter((t) => t.completed).length;
+  const _previousCount = todos.value.length;
+  const completedCount = todos.value.filter((t) => t.completed).length;
 
-  // State change
-  state.todos = state.todos.filter((t) => !t.completed);
+  // State change - using reactive signals with automatic sync
+  todos.value = todos.value.filter((t) => !t.completed);
 
   // Postconditions
 
@@ -119,25 +126,25 @@ bus.on("TODO_CLEAR_COMPLETED", () => {
 
 bus.on("GET_STATE", () => {
   // Verification: ensure all todo IDs are unique
-  const ids = state.todos.map((t) => t.id);
+  const ids = todos.value.map((t) => t.id);
   const _uniqueIds = new Set(ids);
 
   // Return a deep copy to prevent reference sharing issues
   return {
-    user: { ...state.user },
-    todos: state.todos.map((t) => ({ ...t })),
-    filter: state.filter,
+    user: { ...user.value },
+    todos: todos.value.map((t) => ({ ...t })),
+    filter: filter.value,
   };
 });
 
 bus.on("GET_TODOS", (payload?: { filter?: "all" | "active" | "completed" }) => {
-  const filter = payload?.filter || "all";
+  const filterValue = payload?.filter || "all";
 
-  let filteredTodos = state.todos;
-  if (filter === "active") {
-    filteredTodos = state.todos.filter((t) => !t.completed);
-  } else if (filter === "completed") {
-    filteredTodos = state.todos.filter((t) => t.completed);
+  let filteredTodos = todos.value;
+  if (filterValue === "active") {
+    filteredTodos = todos.value.filter((t) => !t.completed);
+  } else if (filterValue === "completed") {
+    filteredTodos = todos.value.filter((t) => t.completed);
   }
 
   return { todos: filteredTodos };

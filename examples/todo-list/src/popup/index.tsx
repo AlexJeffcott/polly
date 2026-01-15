@@ -1,26 +1,21 @@
 import { getMessageBus } from "@fairfox/polly/message-bus";
 // Popup UI for todo list
 import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import type { TodoMessages } from "../shared/messages";
-import type { AppState, Todo } from "../shared/types";
+import type { Todo } from "../shared/types";
+import { user, todos } from "../background/state";
 import "./styles.css";
 
 const bus = getMessageBus<TodoMessages>("popup");
 
 function App() {
-  const [state, setState] = useState<AppState | null>(null);
+  // Use reactive state signals directly - they automatically sync!
   const [newTodoText, setNewTodoText] = useState("");
 
-  useEffect(() => {
-    // Load initial state
-    bus.send({ type: "GET_STATE" }, { target: "background" }).then((state) => {
-      if (state) setState(state);
-    });
-  }, []);
-
   const handleLogin = async () => {
-    const result = await bus.send(
+    // State automatically syncs - no need to manually update!
+    await bus.send(
       {
         type: "USER_LOGIN",
         userId: "user-123",
@@ -29,15 +24,11 @@ function App() {
       },
       { target: "background" }
     );
-    if (result?.success) {
-      setState((prev) => (prev ? { ...prev, user: result.user } : null));
-    }
   };
 
   const handleLogout = async () => {
+    // State automatically syncs - no need to manually update!
     await bus.send({ type: "USER_LOGOUT" }, { target: "background" });
-    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
-    if (newState) setState(newState);
   };
 
   const handleAddTodo = async (e: Event) => {
@@ -50,49 +41,41 @@ function App() {
     // Clear input immediately to prevent double submission
     setNewTodoText("");
 
+    // State automatically syncs - no need to manually update!
     const result = await bus.send({ type: "TODO_ADD", text }, { target: "background" });
-    if (result?.success) {
-      const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
-      if (newState) setState(newState);
-    } else {
+    if (!result?.success) {
       // Restore text if failed
       setNewTodoText(text);
     }
   };
 
   const handleToggleTodo = async (id: string) => {
+    // State automatically syncs - no need to manually update!
     await bus.send({ type: "TODO_TOGGLE", id }, { target: "background" });
-    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
-    if (newState) setState(newState);
   };
 
   const handleRemoveTodo = async (id: string) => {
+    // State automatically syncs - no need to manually update!
     await bus.send({ type: "TODO_REMOVE", id }, { target: "background" });
-    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
-    if (newState) setState(newState);
   };
 
   const handleClearCompleted = async () => {
+    // State automatically syncs - no need to manually update!
     await bus.send({ type: "TODO_CLEAR_COMPLETED" }, { target: "background" });
-    const newState = await bus.send({ type: "GET_STATE" }, { target: "background" });
-    if (newState) setState(newState);
   };
 
-  if (!state) {
-    return <div class="loading">Loading...</div>;
-  }
-
-  const activeTodos = state.todos.filter((t) => !t.completed);
-  const completedTodos = state.todos.filter((t) => t.completed);
+  // Access reactive state directly - it updates automatically!
+  const activeTodos = todos.value.filter((t) => !t.completed);
+  const completedTodos = todos.value.filter((t) => t.completed);
 
   return (
     <div class="app">
       <header>
         <h1>📝 Todo List</h1>
         <div class="user-info">
-          {state.user.loggedIn ? (
+          {user.value.loggedIn ? (
             <>
-              <span>👤 {state.user.name}</span>
+              <span>👤 {user.value.name}</span>
               <button type="button" onClick={handleLogout}>
                 Logout
               </button>
@@ -117,7 +100,7 @@ function App() {
       </form>
 
       <div class="todo-list">
-        {state.todos.length === 0 ? (
+        {todos.value.length === 0 ? (
           <p class="empty">No todos yet. Add one above!</p>
         ) : (
           <>
@@ -156,7 +139,7 @@ function App() {
 
       <div class="stats">
         <span>{activeTodos.length} active</span>
-        <span>{state.todos.length} / 100 total</span>
+        <span>{todos.value.length} / 100 total</span>
       </div>
     </div>
   );

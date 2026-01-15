@@ -1,16 +1,16 @@
 // Test to verify todo IDs are unique
 import { beforeEach, describe, expect, test } from "bun:test";
-import { generateId, state } from "../src/background/state";
+import { generateId, user, todos, filter } from "../src/background/state";
 
 beforeEach(() => {
-  state.user = {
+  user.value = {
     id: null,
     name: "Guest",
     role: "guest",
     loggedIn: false,
   };
-  state.todos = [];
-  state.filter = "all";
+  todos.value = [];
+  filter.value = "all";
 });
 
 describe("Todo ID Uniqueness", () => {
@@ -30,7 +30,7 @@ describe("Todo ID Uniqueness", () => {
   test("adding multiple todos results in unique IDs", () => {
     // Simulate adding multiple todos
     for (let i = 0; i < 10; i++) {
-      state.todos.push({
+      todos.value.push({
         id: generateId(),
         text: `Todo ${i}`,
         completed: false,
@@ -39,7 +39,7 @@ describe("Todo ID Uniqueness", () => {
     }
 
     // Check all IDs are unique
-    const ids = state.todos.map((t) => t.id);
+    const ids = todos.value.map((t) => t.id);
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(ids.length);
     expect(uniqueIds.size).toBe(10);
@@ -51,7 +51,7 @@ describe("Todo ID Uniqueness", () => {
     for (let i = 0; i < 5; i++) {
       promises.push(
         Promise.resolve().then(() => {
-          state.todos.push({
+          todos.value.push({
             id: generateId(),
             text: `Rapid todo ${i}`,
             completed: false,
@@ -64,20 +64,20 @@ describe("Todo ID Uniqueness", () => {
     await Promise.all(promises);
 
     // Verify no duplicates
-    expect(state.todos.length).toBe(5);
-    const ids = state.todos.map((t) => t.id);
+    expect(todos.value.length).toBe(5);
+    const ids = todos.value.map((t) => t.id);
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(5);
 
     // Also verify no duplicate text (each should be unique)
-    const texts = state.todos.map((t) => t.text);
+    const texts = todos.value.map((t) => t.text);
     expect(texts).toContain("Rapid todo 0");
     expect(texts).toContain("Rapid todo 4");
   });
 
   test("GET_STATE returns todos with unique IDs", () => {
     // Add some todos
-    state.todos = [
+    todos.value = [
       { id: "id-1", text: "Todo 1", completed: false, createdAt: Date.now() },
       { id: "id-2", text: "Todo 2", completed: false, createdAt: Date.now() },
       { id: "id-3", text: "Todo 3", completed: true, createdAt: Date.now() },
@@ -85,9 +85,9 @@ describe("Todo ID Uniqueness", () => {
 
     // Simulate GET_STATE response
     const stateResponse = {
-      user: state.user,
-      todos: state.todos,
-      filter: state.filter,
+      user: user.value,
+      todos: todos.value,
+      filter: filter.value,
     };
 
     // Verify uniqueness

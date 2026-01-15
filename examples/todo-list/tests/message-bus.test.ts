@@ -6,21 +6,21 @@
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createMockAdapters, type MockExtensionAdapters, waitFor } from "@fairfox/polly/test";
-import { generateId, state } from "../src/background/state";
+import { generateId, user, todos, filter } from "../src/background/state";
 
 describe("Todo Handler Logic with Mock Adapters", () => {
   let adapters: MockExtensionAdapters;
 
   beforeEach(() => {
     // Reset state
-    state.user = {
+    user.value = {
       id: null,
       name: "Guest",
       role: "guest",
       loggedIn: false,
     };
-    state.todos = [];
-    state.filter = "all";
+    todos.value = [];
+    filter.value = "all";
 
     // Create mock adapters
     adapters = createMockAdapters();
@@ -35,10 +35,10 @@ describe("Todo Handler Logic with Mock Adapters", () => {
       createdAt: Date.now(),
     };
 
-    state.todos.push(newTodo);
+    todos.value.push(newTodo);
 
-    expect(state.todos).toHaveLength(1);
-    expect(state.todos[0].text).toBe("Test todo");
+    expect(todos.value).toHaveLength(1);
+    expect(todos.value[0].text).toBe("Test todo");
   });
 
   test("can toggle todo completion", () => {
@@ -49,7 +49,7 @@ describe("Todo Handler Logic with Mock Adapters", () => {
       completed: false,
       createdAt: Date.now(),
     };
-    state.todos.push(todo);
+    todos.value.push(todo);
 
     // Toggle it
     todo.completed = !todo.completed;
@@ -59,23 +59,23 @@ describe("Todo Handler Logic with Mock Adapters", () => {
 
   test("can remove a todo", () => {
     // Add todos
-    state.todos.push(
+    todos.value.push(
       { id: "test-1", text: "Test 1", completed: false, createdAt: Date.now() },
       { id: "test-2", text: "Test 2", completed: false, createdAt: Date.now() }
     );
 
     // Remove one
-    const index = state.todos.findIndex((t) => t.id === "test-1");
-    state.todos.splice(index, 1);
+    const index = todos.value.findIndex((t) => t.id === "test-1");
+    todos.value.splice(index, 1);
 
-    expect(state.todos).toHaveLength(1);
-    expect(state.todos.find((t) => t.id === "test-1")).toBeUndefined();
+    expect(todos.value).toHaveLength(1);
+    expect(todos.value.find((t) => t.id === "test-1")).toBeUndefined();
   });
 
   test("respects 100 todo limit", () => {
     // Fill to 100
     for (let i = 0; i < 100; i++) {
-      state.todos.push({
+      todos.value.push({
         id: `todo-${i}`,
         text: `Todo ${i}`,
         completed: false,
@@ -84,19 +84,19 @@ describe("Todo Handler Logic with Mock Adapters", () => {
     }
 
     // Check limit
-    expect(state.todos.length >= 100).toBe(true);
-    expect(state.todos.length < 100).toBe(false); // Precondition fails
+    expect(todos.value.length >= 100).toBe(true);
+    expect(todos.value.length < 100).toBe(false); // Precondition fails
   });
 
   test("can use mock storage for persistence", async () => {
     // Store todos using mock storage
     await adapters.storage.set({
-      todos: state.todos,
+      todos: todos.value,
     });
 
     // Retrieve them
     const stored = await adapters.storage.get("todos");
-    expect(stored.todos).toEqual(state.todos);
+    expect(stored.todos).toEqual(todos.value);
   });
 
   test("can use waitFor utility", async () => {

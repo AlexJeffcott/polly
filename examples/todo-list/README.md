@@ -8,7 +8,8 @@ A complete, working todo list extension that demonstrates both **traditional tes
 - ✅ Add, toggle, and remove todos
 - ✅ Clear completed todos
 - ✅ 100 todo limit enforcement
-- ✅ Preact-based popup UI
+- ✅ **Reactive state with `$sharedState`** - automatic sync and persistence
+- ✅ Preact-based popup UI with automatic updates
 - ✅ Full unit test coverage
 - ✅ Formal verification with TLA+
 - ✅ **Framework double-execution prevention** (see below)
@@ -35,6 +36,75 @@ todo-list/
 │   ├── verify.config.ts       # Verification bounds
 │   └── output/                # Generated TLA+ specs
 └── manifest.json
+```
+
+## Reactive State Management
+
+This example uses Polly's reactive state primitives for automatic synchronization and persistence:
+
+```typescript
+// src/background/state.ts
+import { $sharedState } from "@fairfox/polly/state";
+
+// Reactive state - automatically syncs across contexts and persists to storage
+export const user = $sharedState<User>("user", {
+  id: null,
+  name: "Guest",
+  role: "guest",
+  loggedIn: false,
+});
+
+export const todos = $sharedState<Todo[]>("todos", []);
+```
+
+**Benefits:**
+- ✅ **Automatic synchronization** - State changes in background script instantly appear in popup
+- ✅ **Automatic persistence** - State survives browser restarts
+- ✅ **Reactive UI** - Components automatically re-render when state changes
+- ✅ **Type-safe** - Full TypeScript support with type inference
+- ✅ **No manual querying** - No need to call `GET_STATE` after every action
+
+### How It Works
+
+In the **background script**, handlers update state directly:
+
+```typescript
+bus.on("TODO_ADD", (payload) => {
+  const newTodo = { id: generateId(), text: payload.text, ... };
+  todos.value = [...todos.value, newTodo];  // Automatically syncs!
+  return { success: true, todo: newTodo };
+});
+```
+
+In the **popup UI**, components access state directly:
+
+```typescript
+function App() {
+  // State automatically updates - no manual fetching needed!
+  return (
+    <div>
+      <p>Total todos: {todos.value.length}</p>
+      {todos.value.map(todo => <TodoItem todo={todo} />)}
+    </div>
+  );
+}
+```
+
+**Old way (manual sync):**
+```typescript
+const handleAddTodo = async () => {
+  await bus.send({ type: "TODO_ADD", text });
+  const newState = await bus.send({ type: "GET_STATE" });  // ❌ Manual fetch
+  setState(newState);  // ❌ Manual update
+};
+```
+
+**New way (automatic sync):**
+```typescript
+const handleAddTodo = async () => {
+  await bus.send({ type: "TODO_ADD", text });
+  // ✅ State automatically syncs - UI updates automatically!
+};
 ```
 
 ## Running the Extension

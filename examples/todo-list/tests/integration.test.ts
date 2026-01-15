@@ -1,22 +1,22 @@
 // Integration test simulating popup → background flow
 import { beforeEach, describe, expect, test } from "bun:test";
-import { state } from "../src/background/state";
+import { user, todos, filter } from "../src/background/state";
 
 // Reset state before each test
 beforeEach(() => {
-  state.user = {
+  user.value = {
     id: null,
     name: "Guest",
     role: "guest",
     loggedIn: false,
   };
-  state.todos = [];
-  state.filter = "all";
+  todos.value = [];
+  filter.value = "all";
 });
 
 describe("Todo Add Flow", () => {
   test("adding a todo should result in exactly one todo", () => {
-    const initialCount = state.todos.length;
+    const initialCount = todos.value.length;
     expect(initialCount).toBe(0);
 
     // Simulate TODO_ADD handler being called
@@ -26,17 +26,17 @@ describe("Todo Add Flow", () => {
       completed: false,
       createdAt: Date.now(),
     };
-    state.todos.push(newTodo);
+    todos.value.push(newTodo);
 
     // Check that only one todo was added
-    expect(state.todos.length).toBe(1);
-    expect(state.todos[0].text).toBe("Test todo");
+    expect(todos.value.length).toBe(1);
+    expect(todos.value[0].text).toBe("Test todo");
 
     // Simulate GET_STATE handler being called
     const returnedState = {
-      user: state.user,
-      todos: state.todos,
-      filter: state.filter,
+      user: user.value,
+      todos: todos.value,
+      filter: filter.value,
     };
 
     // Verify GET_STATE returns exactly one todo
