@@ -44,7 +44,7 @@ async function buildApp() {
   });
 
   if (!result.success) {
-    console.error('❌ Build failed:');
+    console.error('ERROR: Build failed:');
     for (const log of result.logs) {
       console.error(log);
     }
@@ -126,7 +126,7 @@ async function checkCerts(): Promise<boolean> {
 // Check if SSL certificates exist BEFORE building
 const hasCerts = await checkCerts();
 if (!hasCerts) {
-  console.error("\n❌ SSL certificates not found!");
+  console.error("\nERROR: SSL certificates not found!");
   console.error("   This example requires HTTPS for E2EE to work properly.");
   console.error("");
   console.error("   Run the following command to generate certificates:");
@@ -209,6 +209,6 @@ const server = Bun.serve({
 
 const port = server.port;
 
-console.log(`\n🚀 Client server running at https://localhost:${port}`);
-console.log('🔐 HTTPS enabled');
+console.log(`\nClient server running at https://localhost:${port}`);
+console.log('HTTPS enabled');
 console.log('');

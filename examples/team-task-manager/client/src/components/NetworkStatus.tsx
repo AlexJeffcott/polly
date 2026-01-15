@@ -26,17 +26,6 @@ export function NetworkStatus() {
         animation: "slideIn 0.3s ease-out",
       }}
     >
-      {!isOnline.value && <span>⚠️</span>}
-      {isSyncing.value && (
-        <span
-          style={{
-            animation: "spin 1s linear infinite",
-            display: "inline-block",
-          }}
-        >
-          🔄
-        </span>
-      )}
       <span>{syncStatus.value}</span>
 
       <style>{`

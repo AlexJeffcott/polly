@@ -53,28 +53,28 @@ export function WorkspaceView() {
         <div>
           <h1>{workspace.value?.name}</h1>
           <p class="user-info">
-            👤 {currentUser.value?.name}
+            {currentUser.value?.name}
           </p>
         </div>
         <div class="header-actions">
           <button onClick={handleInvite} class="secondary">
-            👥 Invite
+            Invite
           </button>
           <button onClick={handleLogout} class="secondary">
-            ← Leave
+            Leave
           </button>
         </div>
       </header>
 
       {showInvite && (
         <div class="notification">
-          ✅ Invite link copied to clipboard!
+          Invite link copied to clipboard!
         </div>
       )}
 
       {urgentTasks.length >= (workspace.value?.maxUrgentTasks || 3) && (
         <div class="warning-banner">
-          ⚠️ Urgent task limit reached ({urgentTasks.length}/{workspace.value?.maxUrgentTasks}).
+          Urgent task limit reached ({urgentTasks.length}/{workspace.value?.maxUrgentTasks}).
           Complete or downgrade urgent tasks to create more.
         </div>
       )}
@@ -155,7 +155,7 @@ export function WorkspaceView() {
                       class="action-btn"
                       title="Mark as done"
                     >
-                      ✓
+                      Done
                     </button>
                   )}
                   <button
@@ -163,7 +163,7 @@ export function WorkspaceView() {
                     class="action-btn danger"
                     title="Delete"
                   >
-                    🗑
+                    Delete
                   </button>
                 </div>
               </div>
@@ -174,7 +174,7 @@ export function WorkspaceView() {
 
       <footer class="workspace-footer">
         <p>
-          🔒 End-to-end encrypted • Server cannot read your data
+          End-to-end encrypted • Server cannot read your data
         </p>
       </footer>
     </div>

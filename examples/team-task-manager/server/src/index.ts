@@ -440,7 +440,7 @@ const keyFile = Bun.file(`${CERTS_DIR}/key.pem`);
 const hasCerts = (await certFile.exists()) && (await keyFile.exists());
 
 if (!hasCerts) {
-  console.error("❌ SSL certificates not found!");
+  console.error("ERROR: SSL certificates not found!");
   console.error("   This example requires HTTPS for E2EE to work properly.");
   console.error("");
   console.error("   Run the following command to generate certificates:");
@@ -462,10 +462,10 @@ const port = app.server?.port ?? 3000;
 const hostname = app.server?.hostname ?? "localhost";
 
 console.log(
-  `🦊 Team Task Manager server running at https://${hostname}:${port}`
+  `Team Task Manager server running at https://${hostname}:${port}`
 );
-console.log("🔒 Zero-knowledge mode: Server cannot decrypt any user data");
-console.log("🔐 HTTPS enabled");
+console.log("Zero-knowledge mode: Server cannot decrypt any user data");
+console.log("HTTPS enabled");
 
 // Export app type for Eden treaty client
 export type App = typeof app;

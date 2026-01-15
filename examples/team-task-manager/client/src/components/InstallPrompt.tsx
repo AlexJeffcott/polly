@@ -88,7 +88,6 @@ export function InstallPrompt() {
       </button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-        <div style={{ fontSize: '32px' }}>📱</div>
         <div>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
             Install App

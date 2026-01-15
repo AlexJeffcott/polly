@@ -80,7 +80,7 @@ export function Onboarding() {
     return (
       <div class="onboarding">
         <div class="onboarding-card backup-card">
-          <h2>🔑 Backup Your Key</h2>
+          <h2>Backup Your Key</h2>
           <p class="warning">
             Your key is your identity. If you lose it, you lose access to all your data permanently.
           </p>
@@ -90,7 +90,7 @@ export function Onboarding() {
           </div>
 
           <button onClick={downloadBackup} class="primary">
-            📥 Download Backup
+            Download Backup
           </button>
 
           <button onClick={() => { setShowBackup(false); setStep("create-workspace"); }}>
@@ -105,22 +105,19 @@ export function Onboarding() {
     return (
       <div class="onboarding">
         <div class="onboarding-card">
-          <h1>🔐 Team Task Manager</h1>
+          <h1>Team Task Manager</h1>
           <p class="subtitle">End-to-end encrypted, local-first task management</p>
 
           <div class="features">
             <div class="feature">
-              <span class="icon">🔒</span>
               <h3>Zero-Knowledge</h3>
               <p>Server can't read your data</p>
             </div>
             <div class="feature">
-              <span class="icon">💾</span>
               <h3>Local-First</h3>
               <p>Works offline, syncs online</p>
             </div>
             <div class="feature">
-              <span class="icon">👥</span>
               <h3>Real-Time</h3>
               <p>Collaborate with your team</p>
             </div>
