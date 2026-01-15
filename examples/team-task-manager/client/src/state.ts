@@ -1,0 +1,102 @@
+// Application state using Polly's reactive state primitives
+// All state automatically persists to IndexedDB
+
+import { $sharedState, $state } from "@fairfox/polly/state";
+import type { User, Workspace, Task, Comment, Activity } from "../../shared/types";
+
+// User identity (keypair stored locally)
+export const currentUser = $sharedState<User | null>("currentUser", null);
+
+// Current workspace with decrypted workspace key
+export const workspace = $sharedState<Workspace | null>("workspace", null);
+
+// Tasks (decrypted locally)
+export const tasks = $sharedState<Task[]>("tasks", []);
+
+// Comments (decrypted locally)
+export const comments = $sharedState<Comment[]>("comments", []);
+
+// Activity feed
+export const activities = $sharedState<Activity[]>("activities", []);
+
+// Connection status
+export const isOnline = $state(true);
+
+// UI state (not persisted)
+export const selectedTask = $state<Task | null>(null);
+export const showCreateTask = $state(false);
+export const showInviteModal = $state(false);
+
+// Computed values
+export function getTaskById(id: string): Task | undefined {
+  return tasks.value.find((t) => t.id === id);
+}
+
+export function getCommentsForTask(taskId: string): Comment[] {
+  return comments.value.filter((c) => c.taskId === taskId);
+}
+
+export function getUrgentTasks(): Task[] {
+  return tasks.value.filter((t) => t.priority === "urgent" && t.status !== "done");
+}
+
+export function canCreateUrgentTask(): boolean {
+  if (!workspace.value) return false;
+  return getUrgentTasks().length < workspace.value.maxUrgentTasks;
+}
+
+export function canDeleteTask(taskId: string): boolean {
+  if (!currentUser.value || !workspace.value) return false;
+
+  const task = getTaskById(taskId);
+  if (!task) return false;
+
+  const member = workspace.value.members.find(
+    (m) => m.userId === currentUser.value!.id
+  );
+
+  if (!member) return false;
+
+  // Admins can delete any task, creators can delete their own
+  return member.role === "admin" || task.createdBy === currentUser.value.id;
+}
+
+export function canAssignTask(): boolean {
+  if (!currentUser.value || !workspace.value) return false;
+
+  const member = workspace.value.members.find(
+    (m) => m.userId === currentUser.value!.id
+  );
+
+  return member?.role !== "viewer";
+}
+
+export function canCompleteTask(taskId: string): boolean {
+  const task = getTaskById(taskId);
+  if (!task) return false;
+
+  // Check dependencies
+  const dependenciesMet = task.dependencies.every((depId) => {
+    const dep = getTaskById(depId);
+    return dep?.status === "done";
+  });
+
+  if (!dependenciesMet) return false;
+
+  // Check approval requirement
+  if (task.requiresApproval && !task.approvedBy) {
+    return false;
+  }
+
+  return true;
+}
+
+// Reset all state (for logout)
+export function resetState() {
+  currentUser.value = null;
+  workspace.value = null;
+  tasks.value = [];
+  comments.value = [];
+  activities.value = [];
+  selectedTask.value = null;
+}

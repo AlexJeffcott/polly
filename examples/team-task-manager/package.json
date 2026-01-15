@@ -1,0 +1,28 @@
+{
+  "name": "team-task-manager",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "setup:ssl": "bun scripts/setup-ssl.ts",
+    "dev:server": "cd server && bun run dev",
+    "dev:client": "cd client && bun run dev",
+    "dev": "bun run dev:server & bun run dev:client",
+    "build:crypto": "cd crypto && cargo build --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/team_task_crypto.wasm --out-dir ../client/src/crypto/pkg --target web",
+    "test": "bun run test:server && bun run test:client",
+    "test:server": "cd server && bun test",
+    "test:client": "cd client && bun test",
+    "test:watch": "bun run test:client --watch"
+  },
+  "keywords": [
+    "e2ee",
+    "local-first",
+    "collaboration",
+    "polly",
+    "wasm",
+    "rust"
+  ]
+}
