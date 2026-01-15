@@ -201,14 +201,18 @@ export class APIClient {
       }
     };
 
-    this.ws.onclose = () => {
-      console.log("WebSocket disconnected");
+    this.ws.onclose = (event) => {
+      console.log("[WS] WebSocket disconnected", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean
+      });
       // Reconnect after delay
       setTimeout(() => this.connect(workspaceId, userId), 2000);
     };
 
     this.ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("[WS] WebSocket error:", error);
     };
   }
 

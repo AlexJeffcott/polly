@@ -41,6 +41,10 @@ export function App() {
 
     const cleanup = api.onMessage("app", (data) => {
       switch (data.type) {
+        case "joined":
+          console.log("[APP] Successfully joined workspace:", data.workspaceId);
+          break;
+
         case "task_created":
         case "task_updated":
           if (data.task) {
