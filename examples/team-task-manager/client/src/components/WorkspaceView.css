@@ -64,6 +64,7 @@
   width: 100%;
   margin: 0 auto;
   padding: 40px 20px;
+  padding-bottom: 100px; /* Extra space for workspace switcher at bottom */
 }
 
 .create-task-section {

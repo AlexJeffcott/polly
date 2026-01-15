@@ -10,7 +10,7 @@ import {
   base64ToBytes,
   bytesToHex,
 } from "./crypto";
-import { currentUser, workspace, tasks, comments } from "./state";
+import { currentUser, workspace, workspaces, tasks, comments } from "./state";
 import { api } from "./api";
 
 // Create a new user identity
@@ -86,8 +86,13 @@ export async function createWorkspace(name: string): Promise<Workspace> {
   // Create on server
   await api.createWorkspace(workspaceId, name, currentUser.value.id);
 
-  // Save locally
+  // Save locally as active workspace
   workspace.value = newWorkspace;
+
+  // Add to workspaces list if not already there
+  if (!workspaces.value.find(w => w.id === workspaceId)) {
+    workspaces.value = [...workspaces.value, newWorkspace];
+  }
 
   // Connect WebSocket
   api.connect(workspaceId, currentUser.value.id);
@@ -127,8 +132,18 @@ export async function joinWorkspace(
     createdAt: Date.now(),
   };
 
-  // Save locally
+  // Save locally as active workspace
   workspace.value = newWorkspace;
+
+  // Add to workspaces list if not already there
+  if (!workspaces.value.find(w => w.id === workspaceId)) {
+    workspaces.value = [...workspaces.value, newWorkspace];
+  } else {
+    // Update existing workspace in list
+    workspaces.value = workspaces.value.map(w =>
+      w.id === workspaceId ? newWorkspace : w
+    );
+  }
 
   // Connect WebSocket (will trigger peer sync automatically)
   api.connect(workspaceId, currentUser.value.id);
@@ -179,6 +194,36 @@ export function parseInviteLink(inviteCode: string): {
     workspaceName: data.workspaceName,
     encryptedKey: base64ToBytes(data.encryptedKey),
   };
+}
+
+// Switch to a different workspace
+export async function switchWorkspace(workspaceId: string) {
+  if (!currentUser.value) {
+    throw new Error("No user logged in");
+  }
+
+  const targetWorkspace = workspaces.value.find(w => w.id === workspaceId);
+  if (!targetWorkspace) {
+    throw new Error("Workspace not found");
+  }
+
+  // Disconnect from current workspace
+  if (workspace.value) {
+    api.disconnect();
+  }
+
+  // Switch to new workspace
+  workspace.value = targetWorkspace;
+
+  // Clear tasks and comments (will be loaded from IndexedDB or synced)
+  tasks.value = [];
+  comments.value = [];
+
+  // Connect WebSocket
+  api.connect(workspaceId, currentUser.value.id);
+
+  // Request sync from peers
+  await requestPeerSync(workspaceId);
 }
 
 // Leave workspace

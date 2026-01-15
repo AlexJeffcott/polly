@@ -3,6 +3,7 @@ import { currentUser, workspace, tasks, resetState, getUrgentTasks } from "../st
 import { createTask, updateTaskStatus, deleteTask, assignTask } from "../tasks";
 import { generateInviteLink, leaveWorkspace } from "../workspace";
 import type { Priority } from "../../../shared/types";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import "./WorkspaceView.css";
 
 export function WorkspaceView() {
@@ -184,6 +185,8 @@ export function WorkspaceView() {
           End-to-end encrypted • Server cannot read your data
         </p>
       </footer>
+
+      <WorkspaceSwitcher />
     </div>
   );
 }

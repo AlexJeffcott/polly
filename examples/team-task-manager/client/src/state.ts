@@ -7,7 +7,10 @@ import type { User, Workspace, Task, Comment, Activity } from "../../shared/type
 // User identity (keypair stored locally)
 export const currentUser = $sharedState<User | null>("currentUser", null);
 
-// Current workspace with decrypted workspace key
+// All workspaces user has accessed
+export const workspaces = $sharedState<Workspace[]>("workspaces", []);
+
+// Current active workspace with decrypted workspace key
 export const workspace = $sharedState<Workspace | null>("workspace", null);
 
 // Tasks (decrypted locally)
@@ -94,6 +97,7 @@ export function canCompleteTask(taskId: string): boolean {
 // Reset all state (for logout)
 export function resetState() {
   currentUser.value = null;
+  workspaces.value = [];
   workspace.value = null;
   tasks.value = [];
   comments.value = [];
