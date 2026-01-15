@@ -165,8 +165,9 @@ export class APIClient {
   connect(workspaceId: string, userId: string) {
     console.log("[WS] connect() called with:", { workspaceId, userId });
 
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log("[WS] Already connected, skipping");
+    // Check if already connected or connecting
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
+      console.log("[WS] Already connected/connecting (state:", this.ws.readyState, "), skipping");
       return;
     }
 

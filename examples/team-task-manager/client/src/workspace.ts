@@ -95,9 +95,8 @@ export async function createWorkspace(name: string): Promise<Workspace> {
     workspaces.value = [...workspaces.value, newWorkspace];
   }
 
-  console.log("[WORKSPACE] Calling api.connect after creating workspace");
-  // Connect WebSocket
-  api.connect(workspaceId, currentUser.value.id);
+  // WebSocket connection is handled by App.tsx useEffect
+  // No need to connect here
 
   return newWorkspace;
 }
@@ -147,9 +146,8 @@ export async function joinWorkspace(
     );
   }
 
-  console.log("[WORKSPACE] Calling api.connect after joining workspace");
-  // Connect WebSocket (will trigger peer sync automatically)
-  api.connect(workspaceId, currentUser.value.id);
+  // WebSocket connection is handled by App.tsx useEffect
+  // No need to connect here
 
   // Add self as member on server (just broadcasts to peers)
   await api.addMember(workspaceId, currentUser.value.id);
@@ -221,9 +219,8 @@ export async function switchWorkspace(workspaceId: string) {
   // Don't clear tasks/comments - they're filtered by workspaceId in state helpers
   // Tasks from all workspaces stay in IndexedDB for offline access
 
-  console.log("[WORKSPACE] Calling api.connect after switching workspace");
-  // Connect WebSocket
-  api.connect(workspaceId, currentUser.value.id);
+  // WebSocket connection is handled by App.tsx useEffect
+  // The cleanup function will disconnect, then reconnect with new workspace
 
   // Request sync from peers to get any new tasks for this workspace
   await requestPeerSync(workspaceId);
