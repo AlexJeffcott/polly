@@ -57,8 +57,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip WebSocket connections
-  if (url.protocol === 'wss:' || url.protocol === 'ws:') {
+  // Skip WebSocket connections (check both protocol and path)
+  if (url.protocol === 'wss:' || url.protocol === 'ws:' || url.pathname.startsWith('/ws')) {
     return;
   }
 
