@@ -213,7 +213,8 @@ export class APIClient {
     };
 
     this.ws.onerror = (error) => {
-      console.error("[WS] WebSocket error:", error);
+      // Don't log as error since reconnection will handle it
+      console.warn("[WS] WebSocket error (will retry on close):", error);
     };
   }
 
