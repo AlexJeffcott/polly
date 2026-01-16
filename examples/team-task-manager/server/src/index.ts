@@ -294,7 +294,8 @@ const app = new Elysia()
       console.log("[SERVER WS] Received message:", message);
 
       try {
-        const data = JSON.parse(message as string);
+        // Elysia may already parse the message as an object
+        const data = typeof message === "string" ? JSON.parse(message) : message;
         console.log("[SERVER WS] Parsed message type:", data.type);
 
         if (data.type === "join") {
