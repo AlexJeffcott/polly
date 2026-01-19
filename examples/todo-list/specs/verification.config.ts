@@ -20,9 +20,13 @@ export default defineVerification({
   state: {
     // User state
     user: {
-      // User can be logged in or not
-      loggedIn: [true, false],
-      // User roles
+      // User can be logged in or not (start logged out)
+      loggedIn: [false, true],
+      // User ID (abstract - value doesn't matter for verification)
+      id: { abstract: true },
+      // User name (abstract - value doesn't matter for verification)
+      name: { abstract: true },
+      // User roles (start as guest)
       role: ["guest", "user", "admin"],
     },
 

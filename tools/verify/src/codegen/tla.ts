@@ -763,7 +763,8 @@ export class TLAGenerator {
       "maxLength" in fieldConfig ||
       "min" in fieldConfig ||
       "max" in fieldConfig ||
-      "maxSize" in fieldConfig
+      "maxSize" in fieldConfig ||
+      "abstract" in fieldConfig
     );
   }
 
@@ -1417,41 +1418,35 @@ export class TLAGenerator {
   /**
    * Emit state updates or UNCHANGED
    * @returns true if UNCHANGED was used (postconditions should be skipped)
+   *
+   * Emits actual state transitions when valid assignments are extracted:
+   * - user_loggedIn = true -> contextStates' = [contextStates EXCEPT ![ctx].user_loggedIn = TRUE]
+   *
+   * Falls back to UNCHANGED when no assignments are extracted (complex expressions,
+   * array operations, spreads, etc.)
    */
   private emitStateUpdates(
     validAssignments: Array<{ field: string; value: string | boolean | number | null }>,
     preconditions: Array<{ expression: string; message?: string }>
   ): boolean {
-    // For now, skip state assignment extraction and always use UNCHANGED
-    // This is because state assignment extraction doesn't correctly handle:
-    // 1. Signal state patterns (stateName.value = {...})
-    // 2. Nested field path to state field mapping
-    // The verification still works via requires()/ensures() conditions
-    //
-    // TODO: Fix state assignment extraction to properly map:
-    // - user.value = {loggedIn: true} -> contextStates[ctx].user_loggedIn = TRUE
-    // - todos.value = [...] -> contextStates[ctx].todos = ...
-    if (validAssignments.length === 0 || true) {
-      // Always use UNCHANGED for now
-      if (preconditions.length === 0) {
-        this.line("\\* No state changes in handler");
-      }
-      this.line("/\\ UNCHANGED contextStates");
-      return true; // Signal that UNCHANGED was used
+    // If we have valid assignments, emit actual state transitions
+    if (validAssignments.length > 0) {
+      // Build EXCEPT clause for all assignments
+      const exceptClauses = validAssignments.map((a) => {
+        const tlaValue = this.assignmentValueToTLA(a.value);
+        return `![ctx].${this.sanitizeFieldName(a.field)} = ${tlaValue}`;
+      });
+
+      this.line(`/\\ contextStates' = [contextStates EXCEPT ${exceptClauses.join(", ")}]`);
+      return false; // State was updated, not UNCHANGED
     }
 
-    // Always use single-line format for EXCEPT clauses to avoid indentation issues
-    const assignments = validAssignments
-      .filter((a) => a && a.value !== undefined)
-      .map((assignment) => {
-        const fieldName = this.sanitizeFieldName(assignment.field);
-        const value = this.assignmentValueToTLA(assignment.value);
-        return `![ctx].${fieldName} = ${value}`;
-      })
-      .join(", ");
-
-    this.line(`/\\ contextStates' = [contextStates EXCEPT ${assignments}]`);
-    return false; // State assignments used, not UNCHANGED
+    // No valid assignments - use UNCHANGED
+    if (preconditions.length === 0) {
+      this.line("\\* No state changes in handler");
+    }
+    this.line("/\\ UNCHANGED contextStates");
+    return true; // Signal that UNCHANGED was used
   }
 
   /**
@@ -1510,12 +1505,9 @@ export class TLAGenerator {
     // Pattern 2: stateName.value (without field) -> contextStates[ctx].stateName
     // e.g., todos.value -> contextStates[ctx].todos
     // This handles direct signal access where the signal name IS the state field
-    tla = tla.replace(
-      /([a-zA-Z_][a-zA-Z0-9_]*)\.value\b(?!\.)/g,
-      (_match, stateName) => {
-        return `${statePrefix}.${stateName}`;
-      }
-    );
+    tla = tla.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\.value\b(?!\.)/g, (_match, stateName) => {
+      return `${statePrefix}.${stateName}`;
+    });
 
     // Phase 2c: Replace state references with contextStates[ctx] or contextStates'[ctx]
     tla = tla.replace(/state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (_match, path) => {
@@ -2250,7 +2242,9 @@ export class TLAGenerator {
     );
     this.line("                                           pendingRequests[id]]");
     this.line("                    /\\ time' = time + 1");
-    this.line("                    /\\ \\E p \\in PayloadType : payload' = p  \\* Non-deterministic payload");
+    this.line(
+      "                    /\\ \\E p \\in PayloadType : payload' = p  \\* Non-deterministic payload"
+    );
     this.line("                    /\\ StateTransition(target, msg.msgType)");
     this.line("               ELSE \\* Port not connected - message fails");
     this.line(
@@ -2291,7 +2285,9 @@ export class TLAGenerator {
         "\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in 0..MaxTabId : \\E msgType \\in UserMessageTypes :"
       );
       this.indent++;
-      this.line("SendMessage(src, targetSet, tab, msgType) /\\ UNCHANGED <<contextStates, payload>>");
+      this.line(
+        "SendMessage(src, targetSet, tab, msgType) /\\ UNCHANGED <<contextStates, payload>>"
+      );
       this.indent--;
       this.line("\\/ \\E i \\in 1..Len(messages) : UserRouteMessage(i)");
       this.line("\\/ CompleteRouting /\\ UNCHANGED <<contextStates, payload>>");
@@ -2491,6 +2487,7 @@ export class TLAGenerator {
   ): string {
     // Try each type pattern in order
     const typeResult =
+      this.tryAbstractType(fieldConfig) ||
       this.tryBooleanType(fieldConfig) ||
       this.tryEnumType(fieldConfig) ||
       this.tryArrayType(fieldConfig) ||
@@ -2499,6 +2496,17 @@ export class TLAGenerator {
       this.tryMapType(fieldConfig);
 
     return typeResult || "Value";
+  }
+
+  /**
+   * Try to match abstract type pattern
+   * Abstract fields use the generic Value type for model checking
+   */
+  private tryAbstractType(fieldConfig: FieldConfig): string | null {
+    if ("abstract" in fieldConfig && fieldConfig.abstract === true) {
+      return "Value";
+    }
+    return null;
   }
 
   /**
@@ -2738,6 +2746,11 @@ export class TLAGenerator {
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Config type discrimination requires multiple conditionals
   private getInitialValue(fieldConfig: FieldConfig): string {
+    // Handle abstract fields - use value from bounded Value set
+    if ("abstract" in fieldConfig && fieldConfig.abstract === true) {
+      return '"v1"'; // Default value from Value set
+    }
+
     // Check for boolean array: [true, false]
     if (Array.isArray(fieldConfig)) {
       if (fieldConfig.length > 0 && typeof fieldConfig[0] === "boolean") {

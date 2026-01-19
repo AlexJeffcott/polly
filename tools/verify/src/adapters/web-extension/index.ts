@@ -266,7 +266,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
   }
 
   /**
-   * Recognize state mutation: state.field = value
+   * Recognize state mutation: state.field = value OR signalName.value = expression
    */
   recognizeStateUpdate(node: Node): StateAssignment | null {
     if (!Node.isBinaryExpression(node)) {
@@ -288,22 +288,72 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
 
     const fieldPath = this.getPropertyPath(left);
 
-    // Check if this is a state access
-    if (!fieldPath.startsWith("state.")) {
-      return null;
+    // Pattern 1: state.field = value (explicit state object)
+    if (fieldPath.startsWith("state.")) {
+      const field = fieldPath.substring(6); // Remove "state." prefix
+      const value = this.extractValue(right);
+
+      if (value === undefined) {
+        return null;
+      }
+
+      return {
+        field,
+        value,
+      };
     }
 
-    const field = fieldPath.substring(6); // Remove "state." prefix
-    const value = this.extractValue(right);
-
-    if (value === undefined) {
-      return null;
+    // Pattern 2: signalName.value = expression (signal pattern)
+    if (fieldPath.endsWith(".value")) {
+      const signalName = fieldPath.slice(0, -6); // Remove ".value" suffix
+      return this.extractSignalAssignment(signalName, right);
     }
 
-    return {
-      field,
-      value,
-    };
+    return null;
+  }
+
+  /**
+   * Extract state assignment from signal pattern: signalName.value = expression
+   * Handles both simple literals and object literal expressions
+   */
+  private extractSignalAssignment(signalName: string, right: Node): StateAssignment | null {
+    // Case 1: Simple literal assignment (e.g., user.value = true)
+    const simpleValue = this.extractValue(right);
+    if (simpleValue !== undefined) {
+      return { field: signalName, value: simpleValue };
+    }
+
+    // Case 2: Object literal - extract first extractable property as state field
+    // e.g., user.value = { loggedIn: true } -> user_loggedIn = true
+    if (Node.isObjectLiteralExpression(right)) {
+      return this.extractFirstObjectProperty(signalName, right);
+    }
+
+    // Can't extract complex expressions (arrays, spreads, function calls, etc.)
+    return null;
+  }
+
+  /**
+   * Extract first extractable property from object literal
+   */
+  private extractFirstObjectProperty(
+    signalName: string,
+    objectLiteral: import("ts-morph").ObjectLiteralExpression
+  ): StateAssignment | null {
+    for (const prop of objectLiteral.getProperties()) {
+      if (!Node.isPropertyAssignment(prop)) continue;
+
+      const propName = prop.getName();
+      const initializer = prop.getInitializer();
+      if (!initializer) continue;
+
+      const propValue = this.extractValue(initializer);
+      if (propValue === undefined) continue;
+
+      // Combine signal name with property: user + loggedIn -> user_loggedIn
+      return { field: `${signalName}_${propName}`, value: propValue };
+    }
+    return null;
   }
 
   /**

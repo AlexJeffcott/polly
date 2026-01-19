@@ -571,54 +571,74 @@ export class HandlerExtractor {
       return;
     }
 
-    // Pattern 2: someState.value.field = value (signal pattern)
-    const valueMatch = fieldPath.match(/\.value\.(.+)$/);
-    if (valueMatch?.[1]) {
-      const field = valueMatch[1];
+    // Pattern 2: someState.value.field = value (signal pattern with nested field)
+    // e.g., user.value.loggedIn = true → user_loggedIn = true
+    const valueFieldMatch = fieldPath.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\.value\.(.+)$/);
+    if (valueFieldMatch?.[1] && valueFieldMatch?.[2]) {
+      const signalName = valueFieldMatch[1];
+      const fieldName = valueFieldMatch[2];
       const value = this.extractValue(right);
       if (value !== undefined) {
-        assignments.push({ field, value });
+        assignments.push({ field: `${signalName}_${fieldName}`, value });
       }
       return;
     }
 
     // Pattern 3: someState.value = { object literal } (signal replacement)
+    // e.g., user.value = { loggedIn: true } → user_loggedIn = true
     if (fieldPath.endsWith(".value") && Node.isObjectLiteralExpression(right)) {
-      this.extractObjectLiteralAssignments(right, assignments);
+      const signalName = fieldPath.slice(0, -6); // Remove ".value" suffix
+      this.extractObjectLiteralAssignments(right, assignments, signalName);
     }
   }
 
   /**
    * Extract assignments from object literal properties
    * Used for: someState.value = { field1: value1, field2: value2 }
+   * @param signalName - Optional signal name prefix (e.g., "user" for user.value = {...})
    */
   private extractObjectLiteralAssignments(
     objectLiteral: Node,
-    assignments: StateAssignment[]
+    assignments: StateAssignment[],
+    signalName?: string
   ): void {
     if (!Node.isObjectLiteralExpression(objectLiteral)) return;
 
     for (const prop of objectLiteral.getProperties()) {
-      // Handle regular property assignments: { field: value }
-      if (Node.isPropertyAssignment(prop)) {
-        const name = prop.getName();
-        const initializer = prop.getInitializer();
+      this.extractPropertyAssignment(prop, assignments, signalName);
+    }
+  }
 
-        if (!name || !initializer) continue;
+  /**
+   * Extract a single property assignment from an object literal property
+   */
+  private extractPropertyAssignment(
+    prop: Node,
+    assignments: StateAssignment[],
+    signalName?: string
+  ): void {
+    // Handle regular property assignments: { field: value }
+    if (Node.isPropertyAssignment(prop)) {
+      const name = prop.getName();
+      const initializer = prop.getInitializer();
+      if (!name || !initializer) return;
 
-        const value = this.extractValue(initializer);
-        if (value !== undefined) {
-          assignments.push({ field: name, value });
-        }
-      }
+      const value = this.extractValue(initializer);
+      if (value === undefined) return;
 
-      // Handle shorthand properties: { field }
-      if (Node.isShorthandPropertyAssignment(prop)) {
-        const name = prop.getName();
-        // For shorthand, we can't extract the value statically
-        // but we know the field is being set
-        assignments.push({ field: name, value: "@" }); // Use @ as placeholder
-      }
+      // Prefix field name with signal name if provided (e.g., user_loggedIn)
+      const field = signalName ? `${signalName}_${name}` : name;
+      assignments.push({ field, value });
+      return;
+    }
+
+    // Handle shorthand properties: { field }
+    if (Node.isShorthandPropertyAssignment(prop)) {
+      const name = prop.getName();
+      // For shorthand, we can't extract the value statically
+      // but we know the field is being set
+      const field = signalName ? `${signalName}_${name}` : name;
+      assignments.push({ field, value: "@" }); // Use @ as placeholder
     }
   }
 
@@ -2295,20 +2315,22 @@ export class HandlerExtractor {
       // 2. authState.value.field = value  (field update)
       for (const varName of stateVarNames) {
         // Pattern 1: Full state replacement
+        // e.g., authState.value = { loggedIn: true } → authState_loggedIn = true
         if (path === `${varName}.value`) {
           const right = node.getRight();
           if (Node.isObjectLiteralExpression(right)) {
-            this.extractObjectLiteralAssignments(right, mutations);
+            this.extractObjectLiteralAssignments(right, mutations, varName);
           }
           break;
         }
 
         // Pattern 2: Field update
+        // e.g., authState.value.loggedIn = true → authState_loggedIn = true
         const fieldPrefix = `${varName}.value.`;
         if (path.startsWith(fieldPrefix)) {
-          const field = path.substring(fieldPrefix.length);
+          const fieldName = path.substring(fieldPrefix.length);
           const value = this.extractValue(node.getRight());
-          mutations.push({ field, value: value ?? "@" });
+          mutations.push({ field: `${varName}_${fieldName}`, value: value ?? "@" });
           break;
         }
       }
