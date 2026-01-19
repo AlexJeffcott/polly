@@ -254,6 +254,9 @@ export type MessageHandler = {
 
   /** Component relationships detected from this handler's code */
   relationships?: ComponentRelationship[];
+
+  /** Origin of this handler - used to prevent naming collisions in TLA+ generation */
+  origin?: "event" | "stateHandler";
 };
 
 // ─────────────────────────────────────────────────────────────────

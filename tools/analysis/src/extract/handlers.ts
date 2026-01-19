@@ -586,6 +586,7 @@ export class HandlerExtractor {
         line,
       },
       relationships,
+      origin: "event" as const,
     };
   }
 
@@ -1667,6 +1668,7 @@ export class HandlerExtractor {
               preconditions: [],
               postconditions: [],
               location: { file: filePath, line },
+              origin: "event" as const,
             });
           }
         }
@@ -2841,6 +2843,7 @@ export class HandlerExtractor {
           file: filePath,
           line: func.getStartLineNumber(),
         },
+        origin: "stateHandler" as const,
       });
     }
 
@@ -2879,6 +2882,7 @@ export class HandlerExtractor {
             file: filePath,
             line: decl.getStartLineNumber(),
           },
+          origin: "stateHandler" as const,
         });
       }
     }

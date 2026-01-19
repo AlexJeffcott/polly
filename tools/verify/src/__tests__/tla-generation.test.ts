@@ -597,4 +597,107 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.spec).toContain("count |-> 0");
     });
   });
+
+  // Issue #27: Naming collision between event handlers and state handlers
+  describe("Handler naming collisions (Issue #27)", () => {
+    test("Prevents naming collision between event and state handlers", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add handlers that would produce the same action name without collision prevention:
+      // - "connected" event → HandleConnected
+      // - "Connected" state handler (from handleConnected function) → HandleConnected
+      analysis.handlers = [
+        {
+          messageType: "connected",
+          node: "connection",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+          location: { file: "test.ts", line: 10 },
+          origin: "event" as const,
+        },
+        {
+          messageType: "Connected",
+          node: "connection",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+          location: { file: "test.ts", line: 20 },
+          origin: "stateHandler" as const,
+        },
+      ];
+
+      const config = {
+        state: {},
+        messages: { maxInFlight: 3, maxClients: 3 },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Both handlers should be generated with unique names
+      // Event handler keeps base name: HandleConnected
+      expect(tla.spec).toContain("HandleConnected(ctx)");
+      // State handler gets "Fn" prefix: HandleFnConnected
+      expect(tla.spec).toContain("HandleFnConnected(ctx)");
+
+      // Should have exactly two handler definitions (not duplicates)
+      const handleConnectedMatches = tla.spec.match(/HandleConnected\(ctx\) ==/g);
+      const handleFnConnectedMatches = tla.spec.match(/HandleFnConnected\(ctx\) ==/g);
+      expect(handleConnectedMatches?.length).toBe(1);
+      expect(handleFnConnectedMatches?.length).toBe(1);
+    });
+
+    test("No collision when handlers have different base action names", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add handlers with different base action names
+      analysis.handlers = [
+        {
+          messageType: "connected",
+          node: "connection",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+          location: { file: "test.ts", line: 10 },
+          origin: "event" as const,
+        },
+        {
+          messageType: "Disconnected",
+          node: "connection",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+          location: { file: "test.ts", line: 20 },
+          origin: "stateHandler" as const,
+        },
+      ];
+
+      const config = {
+        state: {},
+        messages: { maxInFlight: 3, maxClients: 3 },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // No collision, both use standard naming
+      expect(tla.spec).toContain("HandleConnected(ctx)");
+      expect(tla.spec).toContain("HandleDisconnected(ctx)");
+      // Should NOT have "Fn" prefix when no collision
+      expect(tla.spec).not.toContain("HandleFnDisconnected");
+    });
+  });
 });

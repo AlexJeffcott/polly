@@ -230,6 +230,9 @@ export type MessageHandler = {
     file: string;
     line: number;
   };
+
+  /** Origin of this handler - used to prevent naming collisions in TLA+ generation */
+  origin?: "event" | "stateHandler";
 };
 
 // ─────────────────────────────────────────────────────────────────

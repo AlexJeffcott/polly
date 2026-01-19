@@ -48,6 +48,8 @@ export class TLAGenerator {
   private extractedInvariants: Invariant[] = [];
   private temporalProperties: TemporalProperty[] = [];
   private symmetrySets: string[] = [];
+  // Map from messageType to resolved unique action name (handles collisions)
+  private resolvedActionNames: Map<string, string> = new Map();
 
   /**
    * Create TLA+ generator with optional validators and property generators
@@ -1135,8 +1137,11 @@ export class TLAGenerator {
       return;
     }
 
+    // Resolve action names before generation to handle naming collisions
+    this.resolveActionNamesForHandlers(validHandlers);
+
     const handlersByType = this.groupHandlersByType(validHandlers);
-    this.generateHandlerActions(handlersByType, config, analysis.stateConstraints);
+    this.generateHandlerActions(handlersByType, config, analysis.stateConstraints ?? []);
     this.generateStateTransitionDispatcher(handlersByType);
   }
 
@@ -1255,7 +1260,7 @@ export class TLAGenerator {
     for (let i = 0; i < messageTypes.length; i++) {
       const msgType = messageTypes[i];
       if (!msgType) continue;
-      const actionName = this.messageTypeToActionName(msgType);
+      const actionName = this.getResolvedActionName(msgType);
 
       if (i === 0) {
         this.line(`IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
@@ -1286,7 +1291,7 @@ export class TLAGenerator {
       message?: string;
     }>
   ): void {
-    const actionName = this.messageTypeToActionName(messageType);
+    const actionName = this.getResolvedActionName(messageType);
 
     this.line(`\\* Handler for ${messageType}`);
     this.line(`${actionName}(ctx) ==`);
@@ -2137,6 +2142,83 @@ export class TLAGenerator {
       .split("_")
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join("")}`;
+  }
+
+  /**
+   * Resolve action names for all handlers, detecting and handling collisions.
+   * When two different messageTypes would produce the same action name,
+   * use the origin to differentiate (e.g., HandleFnConnected for state handlers).
+   */
+  private resolveActionNamesForHandlers(handlers: MessageHandler[]): void {
+    this.resolvedActionNames.clear();
+    const actionNameToMessageTypes = this.groupHandlersByActionName(handlers);
+    this.resolveCollisions(actionNameToMessageTypes);
+  }
+
+  /**
+   * Group handlers by their base action name for collision detection.
+   */
+  private groupHandlersByActionName(
+    handlers: MessageHandler[]
+  ): Map<string, Array<{ messageType: string; origin?: "event" | "stateHandler" }>> {
+    const actionNameToMessageTypes = new Map<
+      string,
+      Array<{ messageType: string; origin?: "event" | "stateHandler" }>
+    >();
+
+    for (const handler of handlers) {
+      const baseActionName = this.messageTypeToActionName(handler.messageType);
+      if (!actionNameToMessageTypes.has(baseActionName)) {
+        actionNameToMessageTypes.set(baseActionName, []);
+      }
+      const existing = actionNameToMessageTypes.get(baseActionName);
+      if (existing && !existing.some((e) => e.messageType === handler.messageType)) {
+        existing.push({ messageType: handler.messageType, origin: handler.origin });
+      }
+    }
+
+    return actionNameToMessageTypes;
+  }
+
+  /**
+   * Resolve naming collisions by using origin to differentiate action names.
+   */
+  private resolveCollisions(
+    actionNameToMessageTypes: Map<
+      string,
+      Array<{ messageType: string; origin?: "event" | "stateHandler" }>
+    >
+  ): void {
+    for (const [baseActionName, messageTypes] of actionNameToMessageTypes.entries()) {
+      if (messageTypes.length === 1) {
+        const entry = messageTypes[0];
+        if (entry) {
+          this.resolvedActionNames.set(entry.messageType, baseActionName);
+        }
+        continue;
+      }
+      // Collision detected - use origin to differentiate
+      for (const entry of messageTypes) {
+        const resolvedName =
+          entry.origin === "stateHandler"
+            ? baseActionName.replace(/^Handle/, "HandleFn")
+            : baseActionName;
+        this.resolvedActionNames.set(entry.messageType, resolvedName);
+      }
+    }
+  }
+
+  /**
+   * Get the resolved action name for a message type.
+   * Must call resolveActionNamesForHandlers first.
+   */
+  private getResolvedActionName(messageType: string): string {
+    const resolved = this.resolvedActionNames.get(messageType);
+    if (resolved) {
+      return resolved;
+    }
+    // Fallback to base conversion if not pre-resolved
+    return this.messageTypeToActionName(messageType);
   }
 
   private assignmentValueToTLA(value: string | boolean | number | null): string {
