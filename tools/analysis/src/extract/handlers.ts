@@ -1,5 +1,63 @@
 // Handler extraction from TypeScript code
 // Extracts message handlers and their state mutations
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATE ASSIGNMENT EXTRACTION - SUPPORTED PATTERNS
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The following patterns are extracted and converted to TLA+ state transitions:
+//
+// OBJECTS:
+//   ✓ state.field = value                    → direct assignment
+//   ✓ signal.value.field = value             → signal nested field
+//   ✓ signal.value = { field: value }        → object literal
+//   ✓ signal.value = { ...signal.value, f }  → spread update (extracts changed fields)
+//
+// ARRAYS:
+//   ✓ [...arr, item]                         → Append(@, payload)
+//   ✓ [item, ...arr]                         → <<payload>> \o @
+//   ✓ arr.filter(...)                        → SelectSeq(@, LAMBDA t: TRUE)
+//   ✓ arr.map(...)                           → [i \in DOMAIN @ |-> @[i]]
+//   ✓ arr.slice(...)                         → SubSeq(@, 1, Len(@))
+//   ✓ arr.concat(...)                        → @ \o <<payload>>
+//   ✓ arr.reverse()                          → [i \in DOMAIN @ |-> @[Len(@) - i + 1]]
+//
+// SETS:
+//   ✓ new Set([...set, item])                → @ \union {payload}
+//   ✓ new Set([...set].filter(...))          → @ \ {payload}
+//   ✓ new Set()                              → {}
+//
+// MAPS:
+//   ✓ new Map([...map, [k, v]])              → [@ EXCEPT ![payload.key] = payload.value]
+//   ✓ new Map([...map].filter(...))          → [k \in DOMAIN @ \ {payload.key} |-> @[k]]
+//   ✓ new Map()                              → <<>>
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// UNSUPPORTED PATTERNS (will emit warnings)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// MUTATING METHODS (modify in place, don't return new value):
+//   ✗ arr.push(), arr.pop(), arr.shift(), arr.unshift(), arr.splice()
+//   ✗ arr.sort() with in-place mutation
+//   ✗ set.add(), set.delete(), set.clear()
+//   ✗ map.set(), map.delete(), map.clear()
+//
+// QUERY METHODS (return non-collection values):
+//   ✗ arr.find(), arr.findIndex(), arr.reduce()
+//   ✗ arr.some(), arr.every(), arr.includes(), arr.indexOf()
+//   ✗ set.has(), map.has(), map.get()
+//
+// COMPLEX EXPRESSIONS:
+//   ✗ Ternary expressions in assignments
+//   ✗ Function calls as values (except supported collection methods)
+//   ✗ Computed property names
+//   ✗ Dynamic field names
+//   ✗ Nested object updates beyond first level
+//   ✗ Object.assign(), Object.keys(), Object.values(), Object.entries()
+//
+// To request support for additional patterns, please open an issue at:
+// https://github.com/anthropics/polly/issues
+// ═══════════════════════════════════════════════════════════════════════════════
 
 import {
   type ArrowFunction,
@@ -28,11 +86,19 @@ import type {
 } from "../types";
 import { RelationshipExtractor } from "./relationships";
 
+export interface ExtractionWarning {
+  type: "unsupported_pattern";
+  pattern: string;
+  location: string;
+  suggestion: string;
+}
+
 export interface HandlerAnalysis {
   handlers: MessageHandler[];
   messageTypes: Set<string>;
   stateConstraints: StateConstraint[];
   verifiedStates: VerifiedStateInfo[];
+  warnings: ExtractionWarning[];
 }
 
 export class HandlerExtractor {
@@ -41,6 +107,7 @@ export class HandlerExtractor {
   private relationshipExtractor: RelationshipExtractor;
   private analyzedFiles: Set<string>; // Track files we've already analyzed
   private packageRoot: string; // Package directory (contains package.json)
+  private warnings: ExtractionWarning[]; // Warnings for unsupported patterns
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
@@ -49,8 +116,38 @@ export class HandlerExtractor {
     this.typeGuardCache = new WeakMap();
     this.relationshipExtractor = new RelationshipExtractor();
     this.analyzedFiles = new Set<string>();
+    this.warnings = [];
     // Find package root by looking for package.json from tsconfig location
     this.packageRoot = this.findPackageRoot(tsConfigPath);
+  }
+
+  /**
+   * Emit a warning for an unsupported pattern
+   */
+  private warnUnsupportedPattern(pattern: string, location: string, suggestion: string): void {
+    // Deduplicate warnings by pattern + location
+    const exists = this.warnings.some((w) => w.pattern === pattern && w.location === location);
+    if (!exists) {
+      this.warnings.push({
+        type: "unsupported_pattern",
+        pattern,
+        location,
+        suggestion,
+      });
+    }
+  }
+
+  /**
+   * Get a location string for a node
+   */
+  private getNodeLocation(node: Node): string {
+    const sourceFile = node.getSourceFile();
+    const lineAndCol = sourceFile.getLineAndColumnAtPos(node.getStart());
+    const filePath = sourceFile.getFilePath();
+    const relativePath = filePath.startsWith(this.packageRoot)
+      ? filePath.substring(this.packageRoot.length + 1)
+      : filePath;
+    return `${relativePath}:${lineAndCol.line}`;
   }
 
   /**
@@ -94,6 +191,7 @@ export class HandlerExtractor {
     const invalidMessageTypes = new Set<string>();
     const stateConstraints: StateConstraint[] = [];
     const verifiedStates: VerifiedStateInfo[] = [];
+    this.warnings = []; // Clear warnings from previous runs
 
     // Find all source files from tsconfig as potential entry points
     const allSourceFiles = this.project.getSourceFiles();
@@ -155,6 +253,7 @@ export class HandlerExtractor {
       messageTypes,
       stateConstraints,
       verifiedStates,
+      warnings: this.warnings,
     };
   }
 
@@ -566,7 +665,9 @@ export class HandlerExtractor {
     if (this.tryExtractSignalNestedFieldPattern(fieldPath, right, assignments)) return;
     if (this.tryExtractSignalObjectPattern(fieldPath, right, assignments)) return;
     if (this.tryExtractSignalArrayPattern(fieldPath, right, assignments)) return;
-    this.tryExtractSignalMethodPattern(fieldPath, right, assignments);
+    if (this.tryExtractSignalMethodPattern(fieldPath, right, assignments)) return;
+    if (this.tryExtractSetConstructorPattern(fieldPath, right, assignments)) return;
+    this.tryExtractMapConstructorPattern(fieldPath, right, assignments);
   }
 
   /** Pattern 1: state.field = value */
@@ -654,11 +755,266 @@ export class HandlerExtractor {
   ): boolean {
     if (!fieldPath.endsWith(".value") || !Node.isCallExpression(right)) return false;
     const signalName = fieldPath.slice(0, -6);
+
+    // Check for and warn about Set/Map direct method calls that mutate
+    this.checkForMutatingCollectionMethods(right);
+
     const methodAssignment = this.extractArrayMethodOperation(right, fieldPath, signalName);
     if (methodAssignment) {
       assignments.push(methodAssignment);
     }
     return true;
+  }
+
+  /** Check for mutating Set/Map methods and emit warnings */
+  private checkForMutatingCollectionMethods(callExpr: import("ts-morph").CallExpression): void {
+    const expression = callExpr.getExpression();
+    if (!Node.isPropertyAccessExpression(expression)) return;
+
+    const methodName = expression.getName();
+    const sourceExpr = expression.getExpression();
+
+    // Check for Set mutating methods
+    const setMethods = ["add", "delete", "clear"];
+    if (setMethods.includes(methodName)) {
+      // Try to determine if this is a Set operation by checking the source expression
+      const sourceText = sourceExpr.getText();
+      if (sourceText.includes("Set") || this.looksLikeSetOrMap(sourceExpr, "Set")) {
+        this.warnUnsupportedPattern(
+          `set.${methodName}()`,
+          this.getNodeLocation(callExpr),
+          `Set.${methodName}() mutates in place. Use: new Set([...set, item]) for add, new Set([...set].filter(...)) for delete.`
+        );
+      }
+    }
+
+    // Check for Map mutating methods
+    const mapMethods = ["set", "delete", "clear"];
+    if (mapMethods.includes(methodName)) {
+      const sourceText = sourceExpr.getText();
+      if (sourceText.includes("Map") || this.looksLikeSetOrMap(sourceExpr, "Map")) {
+        this.warnUnsupportedPattern(
+          `map.${methodName}()`,
+          this.getNodeLocation(callExpr),
+          `Map.${methodName}() mutates in place. Use: new Map([...map, [key, value]]) for set, new Map([...map].filter(...)) for delete.`
+        );
+      }
+    }
+  }
+
+  /** Heuristic check if an expression might be a Set or Map */
+  private looksLikeSetOrMap(expr: Node, collectionType: "Set" | "Map"): boolean {
+    const text = expr.getText().toLowerCase();
+    return text.includes(collectionType.toLowerCase());
+  }
+
+  /** Pattern 6: someState.value = new Set([...someState.value, item]) (Set operations) */
+  private tryExtractSetConstructorPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
+    if (!fieldPath.endsWith(".value") || !Node.isNewExpression(right)) return false;
+    const constructorExpr = right.getExpression();
+    if (!Node.isIdentifier(constructorExpr) || constructorExpr.getText() !== "Set") return false;
+
+    const signalName = fieldPath.slice(0, -6);
+    const setAssignment = this.extractSetOperation(right, fieldPath, signalName);
+    if (setAssignment) {
+      assignments.push(setAssignment);
+    }
+    return true;
+  }
+
+  /** Pattern 7: someState.value = new Map([...someState.value, [key, val]]) (Map operations) */
+  private tryExtractMapConstructorPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
+    if (!fieldPath.endsWith(".value") || !Node.isNewExpression(right)) return false;
+    const constructorExpr = right.getExpression();
+    if (!Node.isIdentifier(constructorExpr) || constructorExpr.getText() !== "Map") return false;
+
+    const signalName = fieldPath.slice(0, -6);
+    const mapAssignment = this.extractMapOperation(right, fieldPath, signalName);
+    if (mapAssignment) {
+      assignments.push(mapAssignment);
+    }
+    return true;
+  }
+
+  /** Extract Set operations from new Set(...) constructor */
+  private extractSetOperation(
+    newExpr: import("ts-morph").NewExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const args = newExpr.getArguments();
+
+    // new Set() - clear operation
+    if (args.length === 0) {
+      return { field: signalName, value: "{}" };
+    }
+
+    const firstArg = args[0];
+    if (!firstArg) return null;
+
+    // new Set([...set.value, item]) - add operation
+    if (Node.isArrayLiteralExpression(firstArg)) {
+      return this.extractSetArrayOperation(firstArg, fieldPath, signalName);
+    }
+
+    // new Set([...set.value].filter(...)) - delete operation via method chain
+    if (Node.isCallExpression(firstArg)) {
+      return this.extractSetMethodChainOperation(firstArg, fieldPath, signalName);
+    }
+
+    return null;
+  }
+
+  /** Extract Set operation from array literal: new Set([...set.value, item]) */
+  private extractSetArrayOperation(
+    arrayLiteral: import("ts-morph").ArrayLiteralExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const elements = arrayLiteral.getElements();
+    if (elements.length < 1) return null;
+
+    const firstElement = elements[0];
+    const lastElement = elements[elements.length - 1];
+
+    // Check for add: new Set([...set.value, item])
+    if (firstElement && Node.isSpreadElement(firstElement)) {
+      const spreadExpr = firstElement.getExpression();
+      if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
+        // Add operation: @ \union {payload}
+        return { field: signalName, value: "@ \\union {payload}" };
+      }
+    }
+
+    // Check for add at beginning: new Set([item, ...set.value])
+    if (lastElement && Node.isSpreadElement(lastElement)) {
+      const spreadExpr = lastElement.getExpression();
+      if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
+        return { field: signalName, value: "{payload} \\union @" };
+      }
+    }
+
+    return null;
+  }
+
+  /** Extract Set operation from method chain: new Set([...set.value].filter(...)) */
+  private extractSetMethodChainOperation(
+    callExpr: import("ts-morph").CallExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const expression = callExpr.getExpression();
+    if (!Node.isPropertyAccessExpression(expression)) return null;
+
+    const methodName = expression.getName();
+    const sourceExpr = expression.getExpression();
+
+    // Check for [...set.value].filter(...) pattern
+    if (methodName === "filter" && Node.isArrayLiteralExpression(sourceExpr)) {
+      const elements = sourceExpr.getElements();
+      if (elements.length === 1) {
+        const spreadEl = elements[0];
+        if (spreadEl && Node.isSpreadElement(spreadEl)) {
+          const spreadExpr = spreadEl.getExpression();
+          if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
+            // Delete operation: @ \ {payload}
+            return { field: signalName, value: "@ \\ {payload}" };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /** Extract Map operations from new Map(...) constructor */
+  private extractMapOperation(
+    newExpr: import("ts-morph").NewExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const args = newExpr.getArguments();
+
+    // new Map() - clear operation
+    if (args.length === 0) {
+      return { field: signalName, value: "<<>>" }; // Empty function in TLA+
+    }
+
+    const firstArg = args[0];
+    if (!firstArg) return null;
+
+    // new Map([...map.value, [key, value]]) - set operation
+    if (Node.isArrayLiteralExpression(firstArg)) {
+      return this.extractMapArrayOperation(firstArg, fieldPath, signalName);
+    }
+
+    // new Map([...map.value].filter(...)) - delete operation via method chain
+    if (Node.isCallExpression(firstArg)) {
+      return this.extractMapMethodChainOperation(firstArg, fieldPath, signalName);
+    }
+
+    return null;
+  }
+
+  /** Extract Map operation from array literal: new Map([...map.value, [key, val]]) */
+  private extractMapArrayOperation(
+    arrayLiteral: import("ts-morph").ArrayLiteralExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const elements = arrayLiteral.getElements();
+    if (elements.length < 1) return null;
+
+    const firstElement = elements[0];
+
+    // Check for set: new Map([...map.value, [key, value]])
+    if (firstElement && Node.isSpreadElement(firstElement)) {
+      const spreadExpr = firstElement.getExpression();
+      if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
+        // Set operation: [@ EXCEPT ![payload.key] = payload.value]
+        return { field: signalName, value: "[@ EXCEPT ![payload.key] = payload.value]" };
+      }
+    }
+
+    return null;
+  }
+
+  /** Extract Map operation from method chain: new Map([...map.value].filter(...)) */
+  private extractMapMethodChainOperation(
+    callExpr: import("ts-morph").CallExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const expression = callExpr.getExpression();
+    if (!Node.isPropertyAccessExpression(expression)) return null;
+
+    const methodName = expression.getName();
+    const sourceExpr = expression.getExpression();
+
+    // Check for [...map.value].filter(...) pattern
+    if (methodName === "filter" && Node.isArrayLiteralExpression(sourceExpr)) {
+      const elements = sourceExpr.getElements();
+      if (elements.length === 1) {
+        const spreadEl = elements[0];
+        if (spreadEl && Node.isSpreadElement(spreadEl)) {
+          const spreadExpr = spreadEl.getExpression();
+          if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
+            // Delete operation: restrict domain
+            return { field: signalName, value: "[k \\in DOMAIN @ \\ {payload.key} |-> @[k]]" };
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -701,7 +1057,55 @@ export class HandlerExtractor {
         return { field: signalName, value: "[i \\in DOMAIN @ |-> @[Len(@) - i + 1]]" };
 
       default:
+        // Warn about unsupported array methods
+        this.warnUnsupportedArrayMethod(methodName, callExpr);
         return null;
+    }
+  }
+
+  /** Warn about unsupported array methods */
+  private warnUnsupportedArrayMethod(methodName: string, node: Node): void {
+    const mutatingMethods = [
+      "push",
+      "pop",
+      "shift",
+      "unshift",
+      "splice",
+      "sort",
+      "fill",
+      "copyWithin",
+    ];
+    const queryMethods = [
+      "find",
+      "findIndex",
+      "reduce",
+      "reduceRight",
+      "some",
+      "every",
+      "includes",
+      "indexOf",
+      "lastIndexOf",
+    ];
+    const otherMethods = ["flat", "flatMap", "join", "toString", "toLocaleString"];
+
+    if (mutatingMethods.includes(methodName)) {
+      this.warnUnsupportedPattern(
+        `array.${methodName}()`,
+        this.getNodeLocation(node),
+        `'${methodName}' mutates in place. Use spread syntax: [...arr, item] for append, arr.filter() for removal.`
+      );
+    } else if (queryMethods.includes(methodName)) {
+      this.warnUnsupportedPattern(
+        `array.${methodName}()`,
+        this.getNodeLocation(node),
+        `'${methodName}' returns a single value, not a new array. State assignment won't be extracted.`
+      );
+    } else if (otherMethods.includes(methodName)) {
+      this.warnUnsupportedPattern(
+        `array.${methodName}()`,
+        this.getNodeLocation(node),
+        `'${methodName}' is not supported for state extraction. Consider using map/filter instead.`
+      );
     }
   }
 
