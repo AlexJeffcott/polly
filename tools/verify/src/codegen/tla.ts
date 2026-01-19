@@ -1458,7 +1458,19 @@ export class TLAGenerator {
       return expr;
     }
 
-    // Phase 2: Replace state references with contextStates[ctx] or contextStates'[ctx]
+    // Phase 2a: Replace single quotes with double quotes (TLA+ uses double quotes for strings)
+    tla = tla.replace(/'([^']+)'/g, '"$1"');
+
+    // Phase 2b: Replace signal state references (stateName.value.field) with contextStates[ctx].field
+    // This handles the verified state pattern: authState.value.isAuthenticated -> contextStates[ctx].isAuthenticated
+    tla = tla.replace(
+      /([a-zA-Z_][a-zA-Z0-9_]*)\.value\.([a-zA-Z_][a-zA-Z0-9_.]*)/g,
+      (_match, _stateName, path) => {
+        return `${statePrefix}.${this.sanitizeFieldName(path)}`;
+      }
+    );
+
+    // Phase 2c: Replace state references with contextStates[ctx] or contextStates'[ctx]
     tla = tla.replace(/state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (_match, path) => {
       return `${statePrefix}.${this.sanitizeFieldName(path)}`;
     });
