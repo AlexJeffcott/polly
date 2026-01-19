@@ -38,6 +38,7 @@ describe("Complex Expression Translation", () => {
           postconditions: [],
         },
       ],
+      stateConstraints: [],
     };
   });
 
@@ -73,7 +74,8 @@ describe("Complex Expression Translation", () => {
 
       const { spec } = await generator.generate(baseConfig, baseAnalysis);
 
-      expect(spec).toContain("IF contextStates[ctx].active THEN 'yes' ELSE 'no'");
+      // TLA+ uses double quotes for strings
+      expect(spec).toContain('IF contextStates[ctx].active THEN "yes" ELSE "no"');
     });
 
     test("translates ternary with state references in branches", async () => {
@@ -199,7 +201,8 @@ describe("Complex Expression Translation", () => {
 
       expect(spec).toContain("IF");
       expect(spec).toContain("NULL");
-      expect(spec).toContain("'guest'");
+      // TLA+ uses double quotes for strings
+      expect(spec).toContain('"guest"');
     });
 
     test("translates chained ternary", async () => {
@@ -294,8 +297,9 @@ describe("Complex Expression Translation", () => {
 
       const { spec } = await generator.generate(baseConfig, baseAnalysis);
 
+      // TLA+ uses double quotes for strings
       expect(spec).toContain(
-        "IF contextStates[ctx].user # NULL THEN contextStates[ctx].user ELSE 'guest'"
+        'IF contextStates[ctx].user # NULL THEN contextStates[ctx].user ELSE "guest"'
       );
     });
 
@@ -365,7 +369,8 @@ describe("Complex Expression Translation", () => {
 
       const { spec } = await generator.generate(baseConfig, baseAnalysis);
 
-      expect(spec).toContain("IF payload.user # NULL THEN payload.user ELSE 'guest'");
+      // TLA+ uses double quotes for strings
+      expect(spec).toContain('IF payload.user # NULL THEN payload.user ELSE "guest"');
     });
 
     test("translates nullish coalescing with null literal", async () => {
@@ -1034,6 +1039,146 @@ describe("Complex Expression Translation", () => {
       const { spec } = await generator.generate(baseConfig, baseAnalysis);
 
       expect(spec).toContain("# NULL");
+    });
+  });
+
+  // ============================================================================
+  // VERIFIED STATE SYNTAX CONVERSION (regression tests for Issue #27)
+  // ============================================================================
+
+  describe("Verified State Syntax Conversion", () => {
+    test("converts single quotes to double quotes for TLA+ strings", async () => {
+      baseConfig.state.status = { type: "enum", values: ["connected", "disconnected"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "connectionState.value.status === 'disconnected'",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // TLA+ uses double quotes for strings, not single quotes
+      expect(spec).toContain('"disconnected"');
+      expect(spec).not.toContain("'disconnected'");
+    });
+
+    test("converts stateName.value.field to contextStates[ctx].field in preconditions", async () => {
+      baseConfig.state.isAuthenticated = { type: "enum", values: ["true", "false"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "authState.value.isAuthenticated === false",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // Should convert signal state reference to TLA+ format
+      expect(spec).toContain("contextStates[ctx].isAuthenticated");
+      expect(spec).not.toContain("authState.value.isAuthenticated");
+    });
+
+    test("converts stateName.value.field to contextStates'[ctx].field in postconditions", async () => {
+      baseConfig.state.isAuthenticated = { type: "enum", values: ["true", "false"] };
+      baseAnalysis.handlers[0]!.postconditions = [
+        {
+          expression: "authState.value.isAuthenticated === true",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // Postconditions use primed state (contextStates')
+      expect(spec).toContain("contextStates'[ctx].isAuthenticated");
+      expect(spec).not.toContain("authState.value.isAuthenticated");
+    });
+
+    test("handles nested path in stateName.value.nested.path", async () => {
+      baseConfig.state.user_profile_name = { type: "enum", values: ["admin", "guest"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "userState.value.user.profile.name === 'admin'",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // Should handle nested paths and convert quotes
+      expect(spec).toContain("contextStates[ctx]");
+      expect(spec).toContain('"admin"');
+      expect(spec).not.toContain("userState.value");
+      expect(spec).not.toContain("'admin'");
+    });
+
+    test("handles multiple signal state references in same expression", async () => {
+      baseConfig.state.loggedIn = { type: "enum", values: ["true", "false"] };
+      baseConfig.state.role = { type: "enum", values: ["admin", "user", "guest"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "userState.value.loggedIn && authState.value.role === 'admin'",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // Both references should be converted
+      expect(spec).toContain("contextStates[ctx].loggedIn");
+      expect(spec).toContain("contextStates[ctx].role");
+      expect(spec).toContain('"admin"');
+      expect(spec).not.toContain("userState.value");
+      expect(spec).not.toContain("authState.value");
+    });
+
+    test("converts both single quotes and signal references together", async () => {
+      baseConfig.state.status = { type: "enum", values: ["connected", "disconnected", "pending"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression:
+            "connectionState.value.status !== 'connected' && connectionState.value.status !== 'pending'",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // Both conversions should apply
+      expect(spec).toContain("contextStates[ctx].status");
+      expect(spec).toContain('"connected"');
+      expect(spec).toContain('"pending"');
+      expect(spec).not.toContain("connectionState.value");
+      expect(spec).not.toContain("'connected'");
+      expect(spec).not.toContain("'pending'");
+    });
+
+    test("handles requires() extracted expression with signal state pattern", async () => {
+      baseConfig.state.isConnected = { type: "enum", values: ["true", "false"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        { expression: "networkState.value.isConnected === true", location: { line: 1, column: 1 } },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("contextStates[ctx].isConnected = TRUE");
+      expect(spec).not.toContain("networkState.value");
+    });
+
+    test("handles ensures() extracted expression with signal state pattern", async () => {
+      baseConfig.state.isConnected = { type: "enum", values: ["true", "false"] };
+      baseAnalysis.handlers[0]!.postconditions = [
+        {
+          expression: "networkState.value.isConnected === false",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("contextStates'[ctx].isConnected = FALSE");
+      expect(spec).not.toContain("networkState.value");
     });
   });
 });
