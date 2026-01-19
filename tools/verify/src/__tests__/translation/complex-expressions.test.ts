@@ -1180,5 +1180,198 @@ describe("Complex Expression Translation", () => {
       expect(spec).toContain("contextStates'[ctx].isConnected = FALSE");
       expect(spec).not.toContain("networkState.value");
     });
+
+    test("converts function parameter in comparison to payload reference", async () => {
+      baseConfig.state.items = { type: "array", maxLength: 10 };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "state.items.some((item) => item.id === targetId)",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // targetId should become payload.targetId
+      expect(spec).toContain("payload.targetId");
+      // item should remain as the quantified variable, not become payload.item
+      expect(spec).toContain("\\E item \\in");
+      expect(spec).not.toContain("payload.item");
+    });
+
+    test("preserves quantified variables in array operations", async () => {
+      baseConfig.state.operations = { type: "array", maxLength: 10 };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "state.operations.some((op) => op.status === 'queued')",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // op should be preserved as quantified variable
+      expect(spec).toContain("\\E op \\in");
+      expect(spec).toContain("op.status");
+      expect(spec).not.toContain("payload.op");
+    });
+
+    test("does not convert string literal content to payload", async () => {
+      baseConfig.state.status = { type: "enum", values: ["active", "inactive"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "state.status === 'active'",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // "active" should stay as string, not become payload.active
+      expect(spec).toContain('"active"');
+      expect(spec).not.toContain("payload.active");
+    });
+  });
+
+  // ============================================================================
+  // NULL CONSTANT (regression tests for Issue #27 follow-up)
+  // ============================================================================
+
+  describe("NULL Constant Definition", () => {
+    test("generates NULL constant in spec", async () => {
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // NULL should be declared as a constant
+      expect(spec).toContain("CONSTANTS");
+      expect(spec).toContain("NULL");
+    });
+
+    test("generates NULL in config file", async () => {
+      const { cfg } = await generator.generate(baseConfig, baseAnalysis);
+
+      // NULL should be assigned as model value in config
+      expect(cfg).toContain("NULL = NULL");
+    });
+  });
+
+  // ============================================================================
+  // VERIFICATION HELPER FUNCTIONS (hasLength, inRange, oneOf)
+  // ============================================================================
+
+  describe("Verification Helper Functions", () => {
+    test("translates hasLength with max constraint", async () => {
+      baseConfig.state.todos = { type: "array", maxLength: 100 };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "hasLength(todos.value, { max: 99 })",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // hasLength(arr, { max: 99 }) -> Len(arr) <= 99
+      expect(spec).toContain("Len(todos.value) <= 99");
+      expect(spec).not.toContain("hasLength");
+    });
+
+    test("translates hasLength with min constraint", async () => {
+      baseConfig.state.items = { type: "array", maxLength: 10 };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "hasLength(items.value, { min: 1 })",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // hasLength(arr, { min: 1 }) -> Len(arr) >= 1
+      expect(spec).toContain("Len(items.value) >= 1");
+      expect(spec).not.toContain("hasLength");
+    });
+
+    test("translates hasLength with min and max constraints", async () => {
+      baseConfig.state.data = { type: "array", maxLength: 50 };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "hasLength(data.value, { min: 5, max: 20 })",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // hasLength(arr, { min: 5, max: 20 }) -> Len(arr) >= 5 /\ Len(arr) <= 20
+      expect(spec).toContain("Len(data.value) >= 5");
+      expect(spec).toContain("Len(data.value) <= 20");
+      expect(spec).not.toContain("hasLength");
+    });
+
+    test("translates inRange helper function", async () => {
+      baseConfig.state.count = { type: "enum", values: ["0", "1", "2", "3", "4", "5"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "inRange(state.count, 0, 100)",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // inRange(value, 0, 100) -> value >= 0 /\ value <= 100
+      expect(spec).toContain("contextStates[ctx].count >= 0");
+      expect(spec).toContain("contextStates[ctx].count <= 100");
+      expect(spec).not.toContain("inRange");
+    });
+
+    test("translates oneOf helper function with string values", async () => {
+      baseConfig.state.role = { type: "enum", values: ["admin", "user", "guest"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: 'oneOf(state.role, ["admin", "user"])',
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // oneOf(value, ["admin", "user"]) -> value \in {"admin", "user"}
+      expect(spec).toContain('contextStates[ctx].role \\in {"admin", "user"}');
+      expect(spec).not.toContain("oneOf");
+    });
+
+    test("translates oneOf helper function with numeric values", async () => {
+      baseConfig.state.priority = { type: "enum", values: ["1", "2", "3"] };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "oneOf(state.priority, [1, 2, 3])",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // oneOf(value, [1, 2, 3]) -> value \in {1, 2, 3}
+      expect(spec).toContain("contextStates[ctx].priority \\in {1, 2, 3}");
+      expect(spec).not.toContain("oneOf");
+    });
+
+    test("translates hasLength with signal state reference", async () => {
+      baseConfig.state.todos = { type: "array", maxLength: 100 };
+      baseAnalysis.handlers[0]!.preconditions = [
+        {
+          expression: "hasLength(todoState.value.todos, { max: 99 })",
+          location: { line: 1, column: 1 },
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      // Should translate hasLength AND convert signal state reference
+      expect(spec).toContain("Len(contextStates[ctx].todos) <= 99");
+      expect(spec).not.toContain("hasLength");
+      expect(spec).not.toContain("todoState.value");
+    });
   });
 });

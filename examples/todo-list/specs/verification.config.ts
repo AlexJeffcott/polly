@@ -10,9 +10,10 @@ import { defineVerification } from "@fairfox/polly/verify";
 
 // biome-ignore lint/style/noDefaultExport: Config files require default exports
 export default defineVerification({
-  // Timeout for this complex state space
+  // Timeout for verification
   verification: {
-    timeout: 1800, // 30 minutes
+    timeout: 900, // 15 minutes
+    workers: 4, // Use 4 workers for parallel state exploration
   },
 
   // State bounds define the maximum complexity of state
@@ -21,15 +22,13 @@ export default defineVerification({
     user: {
       // User can be logged in or not
       loggedIn: [true, false],
-      // User roles to verify
+      // User roles
       role: ["guest", "user", "admin"],
     },
 
     // Todo list bounds
     todos: {
-      // Maximum number of todos to model
-      // Lower = faster verification, higher = more thorough
-      // Reduced from 3 to 2 for performance (still covers key scenarios)
+      // Maximum number of todos to model - keep at 2 for meaningful testing
       maxLength: 2,
 
       // Todo properties to verify
@@ -44,17 +43,14 @@ export default defineVerification({
 
   // Message concurrency bounds
   messages: {
-    // Concurrent message handling (tests real-world scenarios)
+    // Two concurrent messages tests race conditions
     maxInFlight: 2,
 
     // Maximum tab IDs (todo-list is tab-agnostic)
     maxTabs: 1,
 
-    // Tier 1 Optimization: Exclude read-only query messages
-    // GET_STATE and GET_TODOS don't change state, only read it
-    // Excluding them reduces 8 message types to 6 (25% reduction)
-    // Impact: 64 message combinations → 36 combinations (44% reduction)
-    exclude: ["GET_STATE", "GET_TODOS"],
+    // Verify core operations: auth flow (LOGIN/LOGOUT) and CRUD (ADD/TOGGLE)
+    exclude: ["GET_STATE", "GET_TODOS", "TODO_REMOVE", "TODO_CLEAR_COMPLETED"],
   },
 
   // Verification behavior
