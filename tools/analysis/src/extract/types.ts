@@ -46,6 +46,7 @@ export class TypeExtractor {
       postconditions: h.postconditions || [],
       location: h.location,
       relationships: h.relationships,
+      origin: h.origin,
     }));
 
     return {

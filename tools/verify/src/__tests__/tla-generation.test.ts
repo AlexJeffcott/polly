@@ -699,5 +699,45 @@ describe("TLA+ Spec Generation", () => {
       // Should NOT have "Fn" prefix when no collision
       expect(tla.spec).not.toContain("HandleFnDisconnected");
     });
+
+    test("Integration: real analysis pipeline preserves origin and prevents collisions", async () => {
+      const projectPath = path.join(fixturesDir, "naming-collision");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Verify that handlers have origin set
+      const eventHandlers = analysis.handlers.filter((h) => h.origin === "event");
+      const stateHandlers = analysis.handlers.filter((h) => h.origin === "stateHandler");
+
+      // Should have both types of handlers
+      expect(eventHandlers.length).toBeGreaterThan(0);
+      expect(stateHandlers.length).toBeGreaterThan(0);
+
+      const config = {
+        state: {},
+        messages: { maxInFlight: 3, maxClients: 3 },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should have unique handler names - no duplicate definitions
+      // Event handlers keep base name, state handlers get "Fn" prefix
+      const handleConnectedMatches = tla.spec.match(/HandleConnected\(ctx\) ==/g);
+      const handleFnConnectedMatches = tla.spec.match(/HandleFnConnected\(ctx\) ==/g);
+
+      // Each should appear exactly once (no duplicates)
+      expect(handleConnectedMatches?.length || 0).toBeLessThanOrEqual(1);
+      expect(handleFnConnectedMatches?.length || 0).toBeLessThanOrEqual(1);
+
+      // Combined, we should have 2 unique handlers for "connected"
+      const totalConnectedHandlers =
+        (handleConnectedMatches?.length || 0) + (handleFnConnectedMatches?.length || 0);
+      expect(totalConnectedHandlers).toBe(2);
+    });
   });
 });
