@@ -2,7 +2,7 @@
 import { createBackground } from "@fairfox/polly/background";
 import type { TodoMessages } from "../shared/messages";
 import type { Todo } from "../shared/types";
-import { generateId, user, todos, filter } from "./state";
+import { filter, generateId, todos, user } from "./state";
 
 // Initialize background script with MessageRouter
 // IMPORTANT: Always use createBackground() in background scripts, NOT getMessageBus('background')
@@ -86,7 +86,10 @@ bus.on("TODO_TOGGLE", (payload: { id: string }) => {
     );
 
     // Postcondition
-    const updatedTodo = todos.value.find((t) => t.id === payload.id)!;
+    const updatedTodo = todos.value.find((t) => t.id === payload.id);
+    if (!updatedTodo) {
+      return { success: false, error: "Todo not found after update" };
+    }
 
     return { success: true, todo: updatedTodo };
   }
@@ -96,7 +99,7 @@ bus.on("TODO_TOGGLE", (payload: { id: string }) => {
 
 bus.on("TODO_REMOVE", (payload: { id: string }) => {
   // Precondition
-  const index = todos.value.findIndex((t) => t.id === payload.id);
+  const _index = todos.value.findIndex((t) => t.id === payload.id);
 
   const _previousCount = todos.value.length;
 

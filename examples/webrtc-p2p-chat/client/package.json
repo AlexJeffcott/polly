@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@elysiajs/html": "^1.2.0",
-    "@fairfox/polly": "workspace:*",
+    "@fairfox/polly": "link:../..",
     "@preact/signals": "^2.5.1",
     "elysia": "^1.2.0",
     "preact": "^10.28.1",

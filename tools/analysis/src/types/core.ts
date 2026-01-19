@@ -109,6 +109,33 @@ export type FieldConfig =
 export type StateSchema = Record<string, FieldConfig>;
 
 // ─────────────────────────────────────────────────────────────────
+// Verified State Discovery (Issue #27)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Information about a $sharedState declaration with { verify: true }
+ *
+ * Used to discover functions that modify verified states and extract
+ * their state transitions for TLA+ generation.
+ */
+export type VerifiedStateInfo = {
+  /** State key (first argument to $sharedState) e.g., "auth" */
+  key: string;
+
+  /** Variable name holding the state signal e.g., "authState" */
+  variableName: string;
+
+  /** File where the state is declared */
+  filePath: string;
+
+  /** Line number of declaration */
+  line: number;
+
+  /** Field names extracted from initial value shape */
+  fields: string[];
+};
+
+// ─────────────────────────────────────────────────────────────────
 // State Mutations (Abstract)
 // ─────────────────────────────────────────────────────────────────
 
@@ -260,4 +287,6 @@ export type CodebaseAnalysis = {
   fields: FieldAnalysis[];
   handlers: MessageHandler[];
   stateConstraints: StateConstraint[];
+  /** Verified states discovered (Issue #27) */
+  verifiedStates?: VerifiedStateInfo[];
 };

@@ -111,11 +111,9 @@ export function createChromeAdapters(): StateAdapters {
 /**
  * Create adapters for web apps / PWAs
  */
-export function createWebAdapters(options: {
-  singleTab?: boolean;
-  channelName?: string;
-  dbName?: string;
-} = {}): StateAdapters {
+export function createWebAdapters(
+  options: { singleTab?: boolean; channelName?: string; dbName?: string } = {}
+): StateAdapters {
   const { IndexedDBAdapter } = require("./storage-adapter");
   const { BroadcastChannelSyncAdapter, NoOpSyncAdapter } = require("./sync-adapter");
 

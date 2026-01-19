@@ -24,6 +24,7 @@ import type {
   StateAssignment,
   StateConstraint,
   VerificationCondition,
+  VerifiedStateInfo,
 } from "../types";
 import { RelationshipExtractor } from "./relationships";
 
@@ -31,6 +32,7 @@ export interface HandlerAnalysis {
   handlers: MessageHandler[];
   messageTypes: Set<string>;
   stateConstraints: StateConstraint[];
+  verifiedStates: VerifiedStateInfo[];
 }
 
 export class HandlerExtractor {
@@ -85,11 +87,13 @@ export class HandlerExtractor {
    * 2. Follow imports recursively (within package boundary)
    * 3. Cache analyzed files to avoid re-processing
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handler extraction requires analyzing multiple patterns and file boundaries
   extractHandlers(): HandlerAnalysis {
     const handlers: MessageHandler[] = [];
     const messageTypes = new Set<string>();
     const invalidMessageTypes = new Set<string>();
     const stateConstraints: StateConstraint[] = [];
+    const verifiedStates: VerifiedStateInfo[] = [];
 
     // Find all source files from tsconfig as potential entry points
     const allSourceFiles = this.project.getSourceFiles();
@@ -105,8 +109,42 @@ export class HandlerExtractor {
         handlers,
         messageTypes,
         invalidMessageTypes,
-        stateConstraints
+        stateConstraints,
+        verifiedStates
       );
+    }
+
+    // Issue #27: Second pass - find functions that modify verified states
+    if (verifiedStates.length > 0) {
+      if (process.env["POLLY_DEBUG"]) {
+        console.log(
+          `[DEBUG] Found ${verifiedStates.length} verified state(s), scanning for mutating functions...`
+        );
+      }
+
+      for (const filePath of this.analyzedFiles) {
+        const sourceFile = this.project.getSourceFile(filePath);
+        if (!sourceFile) continue;
+
+        const mutatingHandlers = this.findStateMutatingFunctions(sourceFile, verifiedStates);
+
+        for (const handler of mutatingHandlers) {
+          // Avoid duplicates - check if handler already exists for this message type
+          const exists = handlers.some(
+            (h) =>
+              h.messageType === handler.messageType && h.location.file === handler.location.file
+          );
+
+          if (!exists) {
+            handlers.push(handler);
+            if (this.isValidTLAIdentifier(handler.messageType)) {
+              messageTypes.add(handler.messageType);
+            } else {
+              invalidMessageTypes.add(handler.messageType);
+            }
+          }
+        }
+      }
     }
 
     this.debugLogExtractionResults(handlers.length, invalidMessageTypes.size);
@@ -116,6 +154,7 @@ export class HandlerExtractor {
       handlers,
       messageTypes,
       stateConstraints,
+      verifiedStates,
     };
   }
 
@@ -132,7 +171,8 @@ export class HandlerExtractor {
     handlers: MessageHandler[],
     messageTypes: Set<string>,
     invalidMessageTypes: Set<string>,
-    stateConstraints: StateConstraint[]
+    stateConstraints: StateConstraint[],
+    verifiedStates: VerifiedStateInfo[]
   ): void {
     const filePath = sourceFile.getFilePath();
 
@@ -156,6 +196,10 @@ export class HandlerExtractor {
     // Extract state constraints from this file
     const fileConstraints = this.extractStateConstraintsFromFile(sourceFile);
     stateConstraints.push(...fileConstraints);
+
+    // Issue #27: Extract verified states from this file
+    const fileVerifiedStates = this.extractVerifiedStatesFromFile(sourceFile);
+    verifiedStates.push(...fileVerifiedStates);
 
     // Follow imports to discover more files (within package boundary only)
     const importDeclarations = sourceFile.getImportDeclarations();
@@ -184,7 +228,8 @@ export class HandlerExtractor {
           handlers,
           messageTypes,
           invalidMessageTypes,
-          stateConstraints
+          stateConstraints,
+          verifiedStates
         );
       } else if (process.env["POLLY_DEBUG"]) {
         // Log unresolved imports for debugging
@@ -528,7 +573,7 @@ export class HandlerExtractor {
 
     // Pattern 2: someState.value.field = value (signal pattern)
     const valueMatch = fieldPath.match(/\.value\.(.+)$/);
-    if (valueMatch && valueMatch[1]) {
+    if (valueMatch?.[1]) {
       const field = valueMatch[1];
       const value = this.extractValue(right);
       if (value !== undefined) {
@@ -622,7 +667,7 @@ export class HandlerExtractor {
 
     // Pattern 2: someState.value.field
     const valueMatch = fieldPath.match(/\.value\.(.+)$/);
-    if (valueMatch && valueMatch[1]) {
+    if (valueMatch?.[1]) {
       return valueMatch[1];
     }
 
@@ -1986,6 +2031,314 @@ export class HandlerExtractor {
     }
 
     return results;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Verified State Discovery (Issue #27)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Extract $sharedState declarations with { verify: true } from a source file
+   *
+   * Finds patterns like:
+   *   const authState = $sharedState('auth', initialState, { verify: true })
+   *   export const settings = $syncedState('settings', defaults, { verify: true })
+   */
+  extractVerifiedStatesFromFile(sourceFile: SourceFile): VerifiedStateInfo[] {
+    const verifiedStates: VerifiedStateInfo[] = [];
+    const filePath = sourceFile.getFilePath();
+
+    sourceFile.forEachDescendant((node) => {
+      if (!Node.isCallExpression(node)) return;
+
+      const stateInfo = this.recognizeVerifiedStateCall(node, filePath);
+      if (stateInfo) {
+        verifiedStates.push(stateInfo);
+      }
+    });
+
+    return verifiedStates;
+  }
+
+  /**
+   * Recognize a $sharedState/$syncedState/$persistedState call with verify: true
+   */
+  private recognizeVerifiedStateCall(node: Node, filePath: string): VerifiedStateInfo | null {
+    if (!Node.isCallExpression(node)) return null;
+
+    const expression = node.getExpression();
+    if (!Node.isIdentifier(expression)) return null;
+
+    const funcName = expression.getText();
+    // Match state primitives that support verification
+    if (!["$sharedState", "$syncedState", "$persistedState"].includes(funcName)) {
+      return null;
+    }
+
+    const args = node.getArguments();
+    if (args.length < 2) return null;
+
+    // Check for { verify: true } in options (3rd argument)
+    const optionsArg = args[2];
+    if (!optionsArg || !this.hasVerifyTrue(optionsArg)) return null;
+
+    // Extract state key (1st argument)
+    const keyArg = args[0];
+    if (!keyArg || !Node.isStringLiteral(keyArg)) return null;
+    const key = keyArg.getLiteralValue();
+
+    // Get variable name from parent declaration
+    const variableName = this.getVariableNameFromParent(node) || key;
+
+    // Extract field names from initial value (2nd argument)
+    const initialValueArg = args[1];
+    const fields = initialValueArg ? this.extractFieldNames(initialValueArg) : [];
+
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[DEBUG] Found verified state: ${variableName} (key: "${key}") with fields: [${fields.join(", ")}]`
+      );
+    }
+
+    return {
+      key,
+      variableName,
+      filePath,
+      line: node.getStartLineNumber(),
+      fields,
+    };
+  }
+
+  /**
+   * Check if an options object contains verify: true
+   */
+  private hasVerifyTrue(optionsNode: Node): boolean {
+    if (!Node.isObjectLiteralExpression(optionsNode)) return false;
+
+    for (const prop of optionsNode.getProperties()) {
+      if (!Node.isPropertyAssignment(prop)) continue;
+
+      const name = prop.getName();
+      if (name !== "verify") continue;
+
+      const initializer = prop.getInitializer();
+      if (initializer && initializer.getKind() === SyntaxKind.TrueKeyword) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Get variable name from parent VariableDeclaration
+   */
+  private getVariableNameFromParent(node: Node): string | null {
+    const parent = node.getParent();
+    if (Node.isVariableDeclaration(parent)) {
+      return parent.getName();
+    }
+    return null;
+  }
+
+  /**
+   * Extract field names from an initial value expression
+   * Handles object literals and identifier references
+   */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Field extraction requires traversing nested object structures
+  private extractFieldNames(node: Node): string[] {
+    const fields: string[] = [];
+
+    if (Node.isObjectLiteralExpression(node)) {
+      for (const prop of node.getProperties()) {
+        if (Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)) {
+          fields.push(prop.getName());
+        }
+      }
+    } else if (Node.isIdentifier(node)) {
+      // Try to resolve the identifier to its declaration
+      const definitions = node.getDefinitionNodes();
+      for (const def of definitions) {
+        if (Node.isVariableDeclaration(def)) {
+          const initializer = def.getInitializer();
+          if (initializer && Node.isObjectLiteralExpression(initializer)) {
+            return this.extractFieldNames(initializer);
+          }
+        }
+      }
+    }
+
+    return fields;
+  }
+
+  /**
+   * Find exported functions that modify verified state signals
+   *
+   * Looks for patterns:
+   *   - authState.value = { ... }
+   *   - authState.value.field = value
+   */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: State mutation detection requires complex AST pattern matching
+  findStateMutatingFunctions(
+    sourceFile: SourceFile,
+    verifiedStates: VerifiedStateInfo[]
+  ): MessageHandler[] {
+    const handlers: MessageHandler[] = [];
+    const stateVarNames = new Set(verifiedStates.map((s) => s.variableName));
+    const filePath = sourceFile.getFilePath();
+    const context = this.inferContext(filePath);
+
+    // Find all exported functions
+    for (const func of sourceFile.getFunctions()) {
+      if (!func.isExported()) continue;
+
+      const funcName = func.getName();
+      if (!funcName) continue;
+
+      // Check if function modifies any verified state
+      const assignments = this.findStateMutationsInFunction(func, stateVarNames);
+      if (assignments.length === 0) continue;
+
+      // Extract requires/ensures
+      const preconditions: VerificationCondition[] = [];
+      const postconditions: VerificationCondition[] = [];
+      this.extractVerificationConditions(func, preconditions, postconditions);
+
+      // Generate message type from function name
+      const messageType = this.functionNameToMessageType(funcName);
+
+      if (process.env["POLLY_DEBUG"]) {
+        console.log(
+          `[DEBUG] Found state-mutating function: ${funcName} → ${messageType} ` +
+            `(${assignments.length} assignments, ${preconditions.length} preconditions, ${postconditions.length} postconditions)`
+        );
+      }
+
+      handlers.push({
+        messageType,
+        node: context,
+        assignments,
+        preconditions,
+        postconditions,
+        location: {
+          file: filePath,
+          line: func.getStartLineNumber(),
+        },
+      });
+    }
+
+    // Also check exported variable declarations with arrow functions
+    for (const varStmt of sourceFile.getVariableStatements()) {
+      if (!varStmt.isExported()) continue;
+
+      for (const decl of varStmt.getDeclarations()) {
+        const initializer = decl.getInitializer();
+        if (!initializer) continue;
+        if (!Node.isArrowFunction(initializer) && !Node.isFunctionExpression(initializer)) continue;
+
+        const funcName = decl.getName();
+        if (!funcName) continue;
+
+        const assignments = this.findStateMutationsInFunction(initializer, stateVarNames);
+        if (assignments.length === 0) continue;
+
+        const preconditions: VerificationCondition[] = [];
+        const postconditions: VerificationCondition[] = [];
+        this.extractVerificationConditions(initializer, preconditions, postconditions);
+
+        const messageType = this.functionNameToMessageType(funcName);
+
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(`[DEBUG] Found state-mutating arrow function: ${funcName} → ${messageType}`);
+        }
+
+        handlers.push({
+          messageType,
+          node: context,
+          assignments,
+          preconditions,
+          postconditions,
+          location: {
+            file: filePath,
+            line: decl.getStartLineNumber(),
+          },
+        });
+      }
+    }
+
+    return handlers;
+  }
+
+  /**
+   * Find state mutations within a function that target verified state signals
+   */
+  private findStateMutationsInFunction(
+    func: FunctionDeclaration | ArrowFunction | FunctionExpression,
+    stateVarNames: Set<string>
+  ): StateAssignment[] {
+    const mutations: StateAssignment[] = [];
+
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: AST traversal for state mutations requires multiple pattern checks
+    func.forEachDescendant((node) => {
+      if (!Node.isBinaryExpression(node)) return;
+
+      const operator = node.getOperatorToken().getText();
+      if (operator !== "=") return;
+
+      const left = node.getLeft();
+      if (!Node.isPropertyAccessExpression(left)) return;
+
+      const path = this.getPropertyPath(left);
+
+      // Check for patterns:
+      // 1. authState.value = { ... }  (full replacement)
+      // 2. authState.value.field = value  (field update)
+      for (const varName of stateVarNames) {
+        // Pattern 1: Full state replacement
+        if (path === `${varName}.value`) {
+          const right = node.getRight();
+          if (Node.isObjectLiteralExpression(right)) {
+            this.extractObjectLiteralAssignments(right, mutations);
+          }
+          break;
+        }
+
+        // Pattern 2: Field update
+        const fieldPrefix = `${varName}.value.`;
+        if (path.startsWith(fieldPrefix)) {
+          const field = path.substring(fieldPrefix.length);
+          const value = this.extractValue(node.getRight());
+          mutations.push({ field, value: value ?? "@" });
+          break;
+        }
+      }
+    });
+
+    return mutations;
+  }
+
+  /**
+   * Convert function name to message type
+   * Examples:
+   *   handleAuthSuccess → AuthSuccess
+   *   handleLogout → Logout
+   *   setUserProfile → SetUserProfile
+   */
+  private functionNameToMessageType(funcName: string): string {
+    // Remove common handler prefixes
+    let name = funcName
+      .replace(/^handle/, "")
+      .replace(/^on/, "")
+      .replace(/^set/, "Set")
+      .replace(/^update/, "Update")
+      .replace(/^do/, "");
+
+    // Ensure first letter is uppercase
+    if (name.length > 0) {
+      name = name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    return name || funcName;
   }
 }
 

@@ -1,11 +1,11 @@
 // API client using Eden treaty for type-safe communication
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../../server/src/index";
-import { currentUser, workspace, tasks } from "./state";
+import { currentUser, tasks, workspace } from "./state";
 
-// @ts-ignore - injected at build time
+// @ts-expect-error - injected at build time
 const API_URL = process.env.API_URL || "https://localhost:3000";
-// @ts-ignore - injected at build time
+// @ts-expect-error - injected at build time
 const WS_URL = process.env.WS_URL || "wss://localhost:3000/ws";
 
 // Create Eden treaty client with full type safety
@@ -24,11 +24,7 @@ export class APIClient {
   private ws: WebSocket | null = null;
   private messageHandlers = new Map<string, (data: any) => void>();
 
-  async createWorkspace(
-    id: string,
-    name: string,
-    creatorId: string
-  ): Promise<APIResponse> {
+  async createWorkspace(id: string, name: string, creatorId: string): Promise<APIResponse> {
     const { data, error } = await client.api.workspaces.post({
       id,
       name,
@@ -84,11 +80,7 @@ export class APIClient {
     return data as APIResponse;
   }
 
-  async updateTask(
-    taskId: string,
-    encrypted: string,
-    workspaceId: string
-  ): Promise<APIResponse> {
+  async updateTask(taskId: string, encrypted: string, workspaceId: string): Promise<APIResponse> {
     const { data, error } = await client.api.tasks({ id: taskId }).patch({
       encrypted,
       workspaceId,
@@ -102,7 +94,7 @@ export class APIClient {
   }
 
   async deleteTask(taskId: string, workspaceId: string): Promise<APIResponse> {
-    const { data, error} = await client.api.tasks({ id: taskId }).delete({
+    const { data, error } = await client.api.tasks({ id: taskId }).delete({
       workspaceId,
     });
 
@@ -150,14 +142,16 @@ export class APIClient {
 
   sendSyncResponse(targetUserId: string, tasks: any[], comments: any[]) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: "sync_response",
-        workspaceId: workspace.value?.id,
-        targetUserId,
-        tasks,
-        comments,
-        timestamp: Date.now(),
-      }));
+      this.ws.send(
+        JSON.stringify({
+          type: "sync_response",
+          workspaceId: workspace.value?.id,
+          targetUserId,
+          tasks,
+          comments,
+          timestamp: Date.now(),
+        })
+      );
     }
   }
 
@@ -206,7 +200,7 @@ export class APIClient {
       console.log("[WS] WebSocket disconnected", {
         code: event.code,
         reason: event.reason,
-        wasClean: event.wasClean
+        wasClean: event.wasClean,
       });
       // Reconnect after delay
       setTimeout(() => this.connect(workspaceId, userId), 2000);

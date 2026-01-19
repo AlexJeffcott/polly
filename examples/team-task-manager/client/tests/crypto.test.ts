@@ -1,13 +1,13 @@
 // Tests for client-side cryptography functions
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
-  encryptText,
-  decryptText,
-  KeyPair,
-  bytesToBase64,
   base64ToBytes,
+  bytesToBase64,
   bytesToHex,
+  decryptText,
+  encryptText,
   hexToBytes,
+  KeyPair,
 } from "../src/crypto";
 
 describe("Base64 Encoding/Decoding", () => {

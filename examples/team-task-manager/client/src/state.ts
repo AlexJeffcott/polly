@@ -2,7 +2,7 @@
 // All state automatically persists to IndexedDB and syncs across tabs via BroadcastChannel
 
 import { $sharedState, $state } from "@fairfox/polly/state";
-import type { User, Workspace, Task, Comment, Activity } from "../../shared/types";
+import type { Activity, Comment, Task, User, Workspace } from "../../shared/types";
 
 // User identity (keypair stored as base64 strings)
 export const currentUser = $sharedState<User | null>("currentUser", null);
@@ -50,7 +50,9 @@ export function getCommentsForTask(taskId: string): Comment[] {
 }
 
 export function getUrgentTasks(): Task[] {
-  return getTasksForCurrentWorkspace().filter((t) => t.priority === "urgent" && t.status !== "done");
+  return getTasksForCurrentWorkspace().filter(
+    (t) => t.priority === "urgent" && t.status !== "done"
+  );
 }
 
 export function canCreateUrgentTask(): boolean {
@@ -64,9 +66,7 @@ export function canDeleteTask(taskId: string): boolean {
   const task = getTaskById(taskId);
   if (!task) return false;
 
-  const member = workspace.value.members.find(
-    (m) => m.userId === currentUser.value!.id
-  );
+  const member = workspace.value.members.find((m) => m.userId === currentUser.value!.id);
 
   if (!member) return false;
 
@@ -77,9 +77,7 @@ export function canDeleteTask(taskId: string): boolean {
 export function canAssignTask(): boolean {
   if (!currentUser.value || !workspace.value) return false;
 
-  const member = workspace.value.members.find(
-    (m) => m.userId === currentUser.value!.id
-  );
+  const member = workspace.value.members.find((m) => m.userId === currentUser.value!.id);
 
   return member?.role !== "viewer";
 }

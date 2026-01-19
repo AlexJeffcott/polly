@@ -28,7 +28,31 @@ A complete todo application demonstrating Polly's Elysia middleware integration 
 
 ---
 
-### 2. [Minimal](./minimal)
+### 2. [WebRTC P2P Chat](./webrtc-p2p-chat) - **NEW!** 🎉
+
+**Peer-to-peer chat with WebRTC data channels**
+
+A real-time chat application demonstrating direct browser-to-browser communication using WebRTC, with the server only handling signaling.
+
+**Features:**
+- Direct P2P messaging (server never sees content)
+- WebRTC data channels
+- Room-based chat
+- Connection status and latency monitoring
+- Polly reactive state for local UI management
+- Signaling server (Elysia + WebSocket)
+
+**Great for:**
+- Learning WebRTC fundamentals
+- Understanding P2P architectures
+- Building privacy-first applications
+- Low-latency real-time communication
+
+[View example →](./webrtc-p2p-chat)
+
+---
+
+### 3. [Minimal](./minimal)
 
 **Chrome extension starter**
 
@@ -47,7 +71,7 @@ The simplest possible Polly extension. Great starting point for understanding th
 
 ---
 
-### 3. [My Awesome Extension](./my-awesome-extension)
+### 4. [My Awesome Extension](./my-awesome-extension)
 
 **Chrome extension with popup UI**
 
@@ -66,7 +90,7 @@ A simple extension with background service worker and popup interface.
 
 ---
 
-### 4. [Todo List](./todo-list)
+### 5. [Todo List](./todo-list)
 
 **Chrome extension with formal verification**
 
@@ -78,16 +102,18 @@ A complete todo list extension with both traditional testing and TLA+ verificati
 - 100 todo limit enforcement
 - Unit tests + TLA+ verification
 - Framework double-execution prevention
+- **NEW:** Verified state discovery pattern (`{ verify: true }`)
 
 **Great for:**
 - Understanding formal verification
 - Learning TLA+ model checking
 - Building production extensions
 - Testing distributed state
+- Multi-tab PWAs and WebSocket apps (via verified state handlers)
 
 ---
 
-### 5. [Full Featured](./full-featured)
+### 6. [Full Featured](./full-featured)
 
 **Complete Chrome extension showcase**
 
@@ -120,6 +146,7 @@ bun run dev
 
 - **New to Polly?** Start with [Minimal](./minimal)
 - **Building a web app?** Check out [Elysia Todo App](./elysia-todo-app)
+- **Building P2P/WebRTC apps?** Try [WebRTC P2P Chat](./webrtc-p2p-chat)
 - **Building a Chrome extension?** Try [My Awesome Extension](./my-awesome-extension)
 - **Want to learn verification?** See [Todo List](./todo-list)
 - **Need a reference?** Look at [Full Featured](./full-featured)

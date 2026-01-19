@@ -1,4 +1,4 @@
-import { isOnline, syncStatus, pendingSync, isSyncing } from "../network";
+import { isOnline, isSyncing, pendingSync, syncStatus } from "../network";
 
 export function NetworkStatus() {
   // Don't show anything if online and not syncing

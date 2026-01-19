@@ -384,6 +384,88 @@ cursorPosition.value = { x: 12, y: 22 }
 - Improves performance
 - Messages still send immediately (sync not debounced)
 
+### Verify (TLA+ Verification)
+
+Enable automatic TLA+ state transition extraction for formal verification:
+
+```typescript
+const authState = $sharedState('auth', {
+  isAuthenticated: false,
+  userProfile: null,
+}, { verify: true })
+```
+
+When `verify: true` is set, the TLA+ generator will:
+
+1. **Discover the state signal** - Finds all `$sharedState`, `$syncedState`, and `$persistedState` declarations with verification enabled
+2. **Find state-modifying functions** - Automatically detects exported functions that modify the state
+3. **Extract verification conditions** - Pulls `requires()` and `ensures()` annotations from those functions
+4. **Generate TLA+ transitions** - Creates proper state transitions instead of `UNCHANGED contextStates`
+
+**Example with verification annotations:**
+
+```typescript
+import { requires, ensures } from '@fairfox/polly/verify'
+
+export const authState = $sharedState('auth', {
+  isAuthenticated: false,
+  userProfile: null,
+}, { verify: true })
+
+export function handleAuthSuccess(userProfile: UserProfile): void {
+  requires(!authState.value.isAuthenticated, 'Must not already be authenticated')
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: true,
+    userProfile,
+  }
+
+  ensures(authState.value.isAuthenticated, 'Must be authenticated after success')
+}
+
+export function handleLogout(): void {
+  requires(authState.value.isAuthenticated, 'Must be authenticated to logout')
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: false,
+    userProfile: null,
+  }
+
+  ensures(!authState.value.isAuthenticated, 'Must not be authenticated after logout')
+}
+```
+
+**Generated TLA+ (example):**
+
+```tla
+HandleAuthSuccess(ctx) ==
+  /\ contextStates[ctx].isAuthenticated = FALSE  \* requires
+  /\ contextStates' = [contextStates EXCEPT
+       ![ctx].isAuthenticated = TRUE,
+       ![ctx].userProfile = payload]
+  /\ contextStates'[ctx].isAuthenticated = TRUE  \* ensures
+
+HandleLogout(ctx) ==
+  /\ contextStates[ctx].isAuthenticated = TRUE   \* requires
+  /\ contextStates' = [contextStates EXCEPT
+       ![ctx].isAuthenticated = FALSE,
+       ![ctx].userProfile = NULL]
+  /\ contextStates'[ctx].isAuthenticated = FALSE \* ensures
+```
+
+**Function name to message type conversion:**
+- `handleAuthSuccess` → `AuthSuccess`
+- `handleLogout` → `Logout`
+- `setUserProfile` → `SetUserProfile`
+- `updateSettings` → `UpdateSettings`
+
+This pattern is ideal for:
+- **Multi-tab PWAs** with cross-tab state synchronization
+- **WebSocket applications** where state is modified by reactive effects
+- **Event-driven architectures** where handlers aren't registered via `messageBus.on()`
+
 ---
 
 ## Waiting for Hydration

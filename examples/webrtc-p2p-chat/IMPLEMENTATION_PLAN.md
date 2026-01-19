@@ -283,6 +283,15 @@ dataChannel.send(JSON.stringify({ type: 'chat_message', text: 'Hello!' }))
 export const peers = $syncedState<Peer[]>('peers', [])
 export const messages = $syncedState<ChatMessage[]>('messages', [])
 
+// IMPORTANT: Multi-tab design decision
+export const displayName = $syncedState<string>('displayName', '')  // Persisted
+export const peerId = $state<string>(crypto.randomUUID())            // Per-tab!
+
+// Why peerId is per-tab:
+// - Each browser tab = separate peer with unique WebRTC connections
+// - Allows multiple tabs to join the same room
+// - Prevents ID conflicts in signaling server
+
 // When peer connects:
 peers.value = [...peers.value, newPeer]  // UI auto-updates!
 

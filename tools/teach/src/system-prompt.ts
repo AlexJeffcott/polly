@@ -42,6 +42,7 @@ ${generateVerificationSection(context)}
 - **Translation**: How TypeScript code becomes TLA+ specifications
 - **Verification**: What properties are being verified and what they mean
 - **State-Level Constraints**: Using $constraints() to declare verification constraints alongside state
+- **Verified State Discovery**: Using \`{ verify: true }\` on $sharedState to enable automatic handler discovery
 - **Performance**: How to optimize verification speed and state space exploration
 - **Debugging**: Interpreting counterexamples and fixing violations
 - **Configuration**: Understanding maxInFlight, bounds, and other verification parameters
@@ -64,6 +65,23 @@ ${generateVerificationSection(context)}
   - **Transitive Discovery**: The analyzer uses transitive import following to discover constraints
   - Files outside src/ are automatically found if imported from handler files
   - This enables clean separation of verification code from runtime code
+- **Verified State Discovery**: When \`{ verify: true }\` is set on $sharedState/$syncedState/$persistedState:
+  - The analyzer automatically discovers exported functions that modify that state signal
+  - Functions with \`requires()\` and \`ensures()\` annotations get those extracted as pre/postconditions
+  - State assignments like \`authState.value = { ... }\` or \`authState.value.field = x\` are detected
+  - Message types are derived from function names: \`handleAuthSuccess\` → \`AuthSuccess\`
+  - This enables verification for applications that don't use \`messageBus.on()\` handlers
+  - Ideal for: multi-tab PWAs, WebSocket apps, reactive effect-driven architectures
+  - Example:
+    \`\`\`typescript
+    export const authState = $sharedState('auth', { isAuthenticated: false }, { verify: true });
+
+    export function handleLogin(): void {
+      requires(!authState.value.isAuthenticated);
+      authState.value = { ...authState.value, isAuthenticated: true };
+      ensures(authState.value.isAuthenticated);
+    }
+    \`\`\`
 
 # Verification Parameters Explained
 
@@ -679,6 +697,11 @@ confidence that they will work when users apply them to their configuration.
 **Code Organization**: The analyzer uses transitive import following to discover all reachable code.
 Constraints and type guards can be organized in separate files (e.g., specs/constraints.ts) and will
 be automatically discovered via imports. Files outside src/ are fully supported.
+
+**Verified State Discovery**: When \`{ verify: true }\` is set on $sharedState/$syncedState/$persistedState,
+the analyzer automatically discovers exported functions that modify that state and extracts their
+\`requires()\`/\`ensures()\` annotations. This enables verification for apps that don't use \`messageBus.on()\`
+handlers, such as multi-tab PWAs or WebSocket applications with reactive effect-driven state changes.
 
 # Communication Style
 

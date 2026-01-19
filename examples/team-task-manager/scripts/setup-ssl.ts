@@ -34,35 +34,35 @@ function promptUser(question: string): Promise<string> {
 
   return new Promise((resolve) => {
     const stdin = process.stdin;
-    stdin.setEncoding('utf8');
+    stdin.setEncoding("utf8");
     stdin.resume();
 
     const onData = (data: string) => {
       stdin.pause();
-      stdin.removeListener('data', onData);
+      stdin.removeListener("data", onData);
       resolve(data.trim().toLowerCase());
     };
 
-    stdin.on('data', onData);
+    stdin.on("data", onData);
   });
 }
 
 async function installMkcert(): Promise<boolean> {
   try {
-    console.log('Installing mkcert...');
+    console.log("Installing mkcert...");
     await Bun.$`brew install mkcert`;
-    console.log('Installing local CA...');
+    console.log("Installing local CA...");
     await Bun.$`mkcert -install`;
-    console.log('mkcert installed successfully');
+    console.log("mkcert installed successfully");
     return true;
   } catch (error) {
-    console.error('Failed to install mkcert:', error);
+    console.error("Failed to install mkcert:", error);
     return false;
   }
 }
 
 async function generateWithMkcert() {
-  console.log('Generating SSL certificates with mkcert...');
+  console.log("Generating SSL certificates with mkcert...");
 
   // Generate certificates for localhost
   await Bun.$`mkcert -key-file ${CLIENT_CERTS_DIR}/key.pem -cert-file ${CLIENT_CERTS_DIR}/cert.pem localhost 127.0.0.1 ::1 "*.localhost"`;
@@ -73,7 +73,7 @@ async function generateWithMkcert() {
 }
 
 async function generateWithOpenSSL() {
-  console.log('Generating self-signed SSL certificates with OpenSSL...');
+  console.log("Generating self-signed SSL certificates with OpenSSL...");
 
   const certConfig = `
 [req]
@@ -111,7 +111,7 @@ IP.2 = ::1
 }
 
 async function main() {
-  console.log('Team Task Manager - SSL Certificate Setup\n');
+  console.log("Team Task Manager - SSL Certificate Setup\n");
 
   // Check if certificates already exist
   const serverCertExists = await Bun.file(`${SERVER_CERTS_DIR}/cert.pem`).exists();
@@ -120,8 +120,8 @@ async function main() {
   const clientKeyExists = await Bun.file(`${CLIENT_CERTS_DIR}/key.pem`).exists();
 
   if (serverCertExists && serverKeyExists && clientCertExists && clientKeyExists) {
-    console.log('SSL certificates already exist');
-    console.log('   To regenerate, delete the cert files and run this script again\n');
+    console.log("SSL certificates already exist");
+    console.log("   To regenerate, delete the cert files and run this script again\n");
     process.exit(0);
   }
 
@@ -134,45 +134,45 @@ async function main() {
 
   // Offer to install mkcert if not available
   if (!hasMkcert) {
-    console.log('WARNING: mkcert not found');
-    console.log('   mkcert generates locally-trusted SSL certificates (no browser warnings)\n');
+    console.log("WARNING: mkcert not found");
+    console.log("   mkcert generates locally-trusted SSL certificates (no browser warnings)\n");
 
     const hasHomebrew = await checkHomebrewAvailable();
     if (hasHomebrew) {
-      const answer = await promptUser('   Install mkcert now? (Y/n): ');
-      if (answer === '' || answer === 'y' || answer === 'yes') {
+      const answer = await promptUser("   Install mkcert now? (Y/n): ");
+      if (answer === "" || answer === "y" || answer === "yes") {
         const installed = await installMkcert();
         if (installed) {
           hasMkcert = true;
         }
       }
     } else {
-      console.log('   Install mkcert manually: https://github.com/FiloSottile/mkcert\n');
+      console.log("   Install mkcert manually: https://github.com/FiloSottile/mkcert\n");
     }
   }
 
   // Generate certificates
   if (hasMkcert) {
     await generateWithMkcert();
-    console.log('SSL certificates generated with mkcert');
-    console.log('   Your browser will trust these certificates automatically\n');
+    console.log("SSL certificates generated with mkcert");
+    console.log("   Your browser will trust these certificates automatically\n");
   } else {
     await generateWithOpenSSL();
-    console.log('Self-signed SSL certificates generated');
-    console.log('\nWARNING: Browser Setup Required:');
-    console.log('   Your browser will show security warnings for self-signed certificates.');
-    console.log('   You can either:');
-    console.log('   1. Accept the warning and continue (not recommended for production)');
-    console.log('   2. Install mkcert for trusted certificates: brew install mkcert\n');
+    console.log("Self-signed SSL certificates generated");
+    console.log("\nWARNING: Browser Setup Required:");
+    console.log("   Your browser will show security warnings for self-signed certificates.");
+    console.log("   You can either:");
+    console.log("   1. Accept the warning and continue (not recommended for production)");
+    console.log("   2. Install mkcert for trusted certificates: brew install mkcert\n");
   }
 
-  console.log('Certificates saved to:');
+  console.log("Certificates saved to:");
   console.log(`   Server: ${SERVER_CERTS_DIR}/`);
   console.log(`   Client: ${CLIENT_CERTS_DIR}/\n`);
-  console.log('You can now run: bun run dev\n');
+  console.log("You can now run: bun run dev\n");
 }
 
 main().catch((error) => {
-  console.error('Setup failed:', error);
+  console.error("Setup failed:", error);
   process.exit(1);
 });

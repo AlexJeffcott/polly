@@ -1,6 +1,6 @@
 // Unit tests for todo list handlers
 import { beforeEach, describe, expect, test } from "bun:test";
-import { generateId, user, todos, filter } from "../src/background/state";
+import { filter, generateId, todos, user } from "../src/background/state";
 
 // Reset state before each test
 beforeEach(() => {

@@ -211,6 +211,27 @@ TLC will verify these assertions hold in **all possible execution paths**, inclu
 - Edge cases
 - Race conditions
 
+### Verified State Handlers
+
+For any application using Polly's state primitives (Chrome extensions, multi-tab PWAs, WebSocket apps, reactive architectures), you can enable TLA+ verification with `{ verify: true }`:
+
+```typescript
+// Enable verification discovery
+export const authState = $sharedState('auth', {
+  loggedIn: false,
+  userId: null,
+}, { verify: true });
+
+// Standalone functions are automatically discovered
+export function handleLogin(userId: string): void {
+  requires(!authState.value.loggedIn, 'Must not be logged in');
+  authState.value = { ...authState.value, loggedIn: true, userId };
+  ensures(authState.value.loggedIn, 'Must be logged in');
+}
+```
+
+This pattern works universally across all Polly applications. See [docs/STATE.md](../../docs/STATE.md#verify-tla-verification) for full documentation.
+
 ## Framework Double-Execution Prevention
 
 This example demonstrates the framework's built-in protection against double-execution bugs.

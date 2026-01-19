@@ -1,6 +1,6 @@
 import { workspace, workspaces } from "../state";
 import { switchWorkspace } from "../workspace";
-import "./WorkspaceSwitcher.css";
+import { Layout } from "./Layout";
 
 export function WorkspaceSwitcher() {
   if (workspaces.value.length <= 1) {
@@ -18,9 +18,14 @@ export function WorkspaceSwitcher() {
   };
 
   return (
-    <div class="workspace-switcher">
+    <Layout
+      columns="auto 1fr"
+      gap="var(--space-md)"
+      alignItems="center"
+      className="workspace-switcher"
+    >
       <div class="workspace-switcher-label">Workspaces:</div>
-      <div class="workspace-list">
+      <Layout autoFlow="column" gap="var(--space-sm)" style={{ overflow: "auto" }}>
         {workspaces.value.map((ws) => (
           <button
             key={ws.id}
@@ -30,7 +35,7 @@ export function WorkspaceSwitcher() {
             {ws.name}
           </button>
         ))}
-      </div>
-    </div>
+      </Layout>
+    </Layout>
   );
 }

@@ -2,7 +2,7 @@
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
@@ -11,17 +11,17 @@ let deferredPrompt: BeforeInstallPromptEvent | null = null;
  * Register the service worker
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) {
-    console.log('Service workers not supported');
+  if (!("serviceWorker" in navigator)) {
+    console.log("Service workers not supported");
     return null;
   }
 
   try {
-    const registration = await navigator.serviceWorker.register('/service-worker.js', {
-      scope: '/',
+    const registration = await navigator.serviceWorker.register("/service-worker.js", {
+      scope: "/",
     });
 
-    console.log('Service worker registered:', registration);
+    console.log("Service worker registered:", registration);
 
     // Check for updates periodically
     setInterval(() => {
@@ -29,18 +29,18 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     }, 60000); // Check every minute
 
     // Listen for updates
-    registration.addEventListener('updatefound', () => {
+    registration.addEventListener("updatefound", () => {
       const newWorker = registration.installing;
       if (!newWorker) return;
 
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+      newWorker.addEventListener("statechange", () => {
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
           // New service worker available
-          console.log('New service worker available');
+          console.log("New service worker available");
 
           // Notify user about update
-          if (confirm('A new version is available. Reload to update?')) {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          if (confirm("A new version is available. Reload to update?")) {
+            newWorker.postMessage({ type: "SKIP_WAITING" });
             window.location.reload();
           }
         }
@@ -49,7 +49,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
     return registration;
   } catch (error) {
-    console.error('Service worker registration failed:', error);
+    console.error("Service worker registration failed:", error);
     return null;
   }
 }
@@ -58,7 +58,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
  * Unregister the service worker (for development)
  */
 export async function unregisterServiceWorker(): Promise<boolean> {
-  if (!('serviceWorker' in navigator)) {
+  if (!("serviceWorker" in navigator)) {
     return false;
   }
 
@@ -69,7 +69,7 @@ export async function unregisterServiceWorker(): Promise<boolean> {
     }
     return false;
   } catch (error) {
-    console.error('Service worker unregistration failed:', error);
+    console.error("Service worker unregistration failed:", error);
     return false;
   }
 }
@@ -79,9 +79,9 @@ export async function unregisterServiceWorker(): Promise<boolean> {
  */
 export function isPWA(): boolean {
   return (
-    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as any).standalone === true ||
-    document.referrer.includes('android-app://')
+    document.referrer.includes("android-app://")
   );
 }
 
@@ -91,22 +91,22 @@ export function isPWA(): boolean {
 export function setupInstallPrompt(
   onPromptAvailable?: (prompt: BeforeInstallPromptEvent) => void
 ): void {
-  window.addEventListener('beforeinstallprompt', (e) => {
+  window.addEventListener("beforeinstallprompt", (e) => {
     // Prevent the mini-infobar from appearing
     e.preventDefault();
 
     // Stash the event so it can be triggered later
     deferredPrompt = e as BeforeInstallPromptEvent;
 
-    console.log('Install prompt available');
+    console.log("Install prompt available");
 
     if (onPromptAvailable) {
       onPromptAvailable(deferredPrompt);
     }
   });
 
-  window.addEventListener('appinstalled', () => {
-    console.log('PWA installed');
+  window.addEventListener("appinstalled", () => {
+    console.log("PWA installed");
     deferredPrompt = null;
   });
 }
@@ -114,9 +114,9 @@ export function setupInstallPrompt(
 /**
  * Show the install prompt
  */
-export async function showInstallPrompt(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
+export async function showInstallPrompt(): Promise<"accepted" | "dismissed" | "unavailable"> {
   if (!deferredPrompt) {
-    return 'unavailable';
+    return "unavailable";
   }
 
   try {
@@ -127,8 +127,8 @@ export async function showInstallPrompt(): Promise<'accepted' | 'dismissed' | 'u
 
     return choiceResult.outcome;
   } catch (error) {
-    console.error('Install prompt failed:', error);
-    return 'unavailable';
+    console.error("Install prompt failed:", error);
+    return "unavailable";
   }
 }
 
@@ -143,17 +143,17 @@ export function isInstallPromptAvailable(): boolean {
  * Request notification permission
  */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (!('Notification' in window)) {
-    console.log('Notifications not supported');
-    return 'denied';
+  if (!("Notification" in window)) {
+    console.log("Notifications not supported");
+    return "denied";
   }
 
-  if (Notification.permission === 'granted') {
-    return 'granted';
+  if (Notification.permission === "granted") {
+    return "granted";
   }
 
-  if (Notification.permission === 'denied') {
-    return 'denied';
+  if (Notification.permission === "denied") {
+    return "denied";
   }
 
   return await Notification.requestPermission();
@@ -166,7 +166,7 @@ export async function showNotification(
   title: string,
   options?: NotificationOptions
 ): Promise<void> {
-  if (!('serviceWorker' in navigator)) {
+  if (!("serviceWorker" in navigator)) {
     return;
   }
 
@@ -176,13 +176,13 @@ export async function showNotification(
   }
 
   const permission = await requestNotificationPermission();
-  if (permission !== 'granted') {
+  if (permission !== "granted") {
     return;
   }
 
   await registration.showNotification(title, {
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-72x72.png",
     ...options,
   });
 }
@@ -197,27 +197,24 @@ export function isOnline(): boolean {
 /**
  * Setup online/offline listeners
  */
-export function setupOnlineListeners(
-  onOnline?: () => void,
-  onOffline?: () => void
-): () => void {
+export function setupOnlineListeners(onOnline?: () => void, onOffline?: () => void): () => void {
   const handleOnline = () => {
-    console.log('App is online');
+    console.log("App is online");
     if (onOnline) onOnline();
   };
 
   const handleOffline = () => {
-    console.log('App is offline');
+    console.log("App is offline");
     if (onOffline) onOffline();
   };
 
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
 
   // Return cleanup function
   return () => {
-    window.removeEventListener('online', handleOnline);
-    window.removeEventListener('offline', handleOffline);
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
   };
 }
 
@@ -229,7 +226,7 @@ export async function getStorageEstimate(): Promise<{
   quota: number;
   percentage: number;
 } | null> {
-  if (!('storage' in navigator) || !('estimate' in navigator.storage)) {
+  if (!("storage" in navigator) || !("estimate" in navigator.storage)) {
     return null;
   }
 
@@ -241,7 +238,7 @@ export async function getStorageEstimate(): Promise<{
 
     return { usage, quota, percentage };
   } catch (error) {
-    console.error('Failed to get storage estimate:', error);
+    console.error("Failed to get storage estimate:", error);
     return null;
   }
 }
@@ -250,7 +247,7 @@ export async function getStorageEstimate(): Promise<{
  * Request persistent storage
  */
 export async function requestPersistentStorage(): Promise<boolean> {
-  if (!('storage' in navigator) || !('persist' in navigator.storage)) {
+  if (!("storage" in navigator) || !("persist" in navigator.storage)) {
     return false;
   }
 
@@ -262,7 +259,7 @@ export async function requestPersistentStorage(): Promise<boolean> {
 
     return await navigator.storage.persist();
   } catch (error) {
-    console.error('Failed to request persistent storage:', error);
+    console.error("Failed to request persistent storage:", error);
     return false;
   }
 }

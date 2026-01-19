@@ -1,16 +1,13 @@
-import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { polly } from "@fairfox/polly/elysia";
+import { Elysia, t } from "elysia";
 
 // Pure local-first server - NO DATA STORAGE
 // Server is a stateless message relay that broadcasts updates between clients
 // All data lives only in client IndexedDB
 
 // Connected clients for real-time sync
-const connections = new Map<
-  string,
-  { ws: any; workspaceId: string; userId: string }
->();
+const connections = new Map<string, { ws: any; workspaceId: string; userId: string }>();
 
 // Track active workspaces (just for connection management, no data)
 const activeWorkspaces = new Set<string>();
@@ -268,11 +265,15 @@ const app = new Elysia()
     ({ body }) => {
       // Broadcast sync request to all other connected clients in workspace
       // They will respond with their data via WebSocket
-      broadcastToWorkspace(body.workspaceId, {
-        type: "sync_request",
-        requesterId: body.userId,
-        timestamp: Date.now(),
-      }, body.userId); // Exclude the requester
+      broadcastToWorkspace(
+        body.workspaceId,
+        {
+          type: "sync_request",
+          requesterId: body.userId,
+          timestamp: Date.now(),
+        },
+        body.userId
+      ); // Exclude the requester
 
       return { success: true };
     },
@@ -312,7 +313,9 @@ const app = new Elysia()
 
           activeWorkspaces.add(data.workspaceId);
 
-          console.log(`[SERVER WS] User ${data.userId.substring(0, 20)}... joined workspace ${data.workspaceId}`);
+          console.log(
+            `[SERVER WS] User ${data.userId.substring(0, 20)}... joined workspace ${data.workspaceId}`
+          );
           console.log(`[SERVER WS] Total connections: ${connections.size}`);
 
           ws.send(
@@ -323,26 +326,26 @@ const app = new Elysia()
           );
 
           console.log("[SERVER WS] Sent 'joined' confirmation");
-      } else if (data.type === "leave") {
-        // Remove connection
-        const connId = (ws as any).connId;
-        if (connId) {
-          connections.delete(connId);
-        }
-      } else if (data.type === "sync_response") {
-        // A peer is responding to a sync request with their data
-        // Forward it to the requester
-        for (const [, conn] of connections) {
-          if (conn.workspaceId === data.workspaceId && conn.userId === data.targetUserId) {
-            try {
-              conn.ws.send(JSON.stringify(data));
-            } catch (error) {
-              console.error("Failed to send sync response:", error);
+        } else if (data.type === "leave") {
+          // Remove connection
+          const connId = (ws as any).connId;
+          if (connId) {
+            connections.delete(connId);
+          }
+        } else if (data.type === "sync_response") {
+          // A peer is responding to a sync request with their data
+          // Forward it to the requester
+          for (const [, conn] of connections) {
+            if (conn.workspaceId === data.workspaceId && conn.userId === data.targetUserId) {
+              try {
+                conn.ws.send(JSON.stringify(data));
+              } catch (error) {
+                console.error("Failed to send sync response:", error);
+              }
+              break;
             }
-            break;
           }
         }
-      }
       } catch (error) {
         console.error("[SERVER WS] Error handling message:", error);
       }
@@ -356,7 +359,9 @@ const app = new Elysia()
       if (connId) {
         const conn = connections.get(connId);
         if (conn) {
-          console.log(`[SERVER WS] User ${conn.userId.substring(0, 20)}... left workspace ${conn.workspaceId}`);
+          console.log(
+            `[SERVER WS] User ${conn.userId.substring(0, 20)}... left workspace ${conn.workspaceId}`
+          );
         }
         connections.delete(connId);
       }
@@ -405,9 +410,7 @@ app.listen({
 const port = app.server?.port ?? 3000;
 const hostname = app.server?.hostname ?? "localhost";
 
-console.log(
-  `Team Task Manager server running at https://${hostname}:${port}`
-);
+console.log(`Team Task Manager server running at https://${hostname}:${port}`);
 console.log("Pure local-first mode: Server stores NO data, only relays messages");
 console.log("All data lives in client IndexedDB - server is a stateless message broker");
 console.log("HTTPS enabled");

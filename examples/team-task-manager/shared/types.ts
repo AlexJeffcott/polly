@@ -59,7 +59,13 @@ export type Comment = {
 
 export type Activity = {
   id: string;
-  type: "task_created" | "task_updated" | "task_completed" | "task_assigned" | "comment_added" | "member_joined";
+  type:
+    | "task_created"
+    | "task_updated"
+    | "task_completed"
+    | "task_assigned"
+    | "comment_added"
+    | "member_joined";
   userId: string;
   taskId?: string;
   timestamp: number;

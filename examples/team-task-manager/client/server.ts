@@ -19,98 +19,98 @@ interface BuildArtifact {
 
 // Build the app
 async function buildApp() {
-  console.log('[BUILD] Starting build process...');
+  console.log("[BUILD] Starting build process...");
 
   // Build API URLs for client-side code (always HTTPS)
   const apiUrl = `https://localhost:${API_PORT}`;
   const wsUrl = `wss://localhost:${API_PORT}/ws`;
 
-  console.log('[BUILD] Building main app...');
+  console.log("[BUILD] Building main app...");
   const result = await Bun.build({
-    entrypoints: ['./src/main.tsx'],
-    target: 'browser',
+    entrypoints: ["./src/main.tsx"],
+    target: "browser",
     minify: false,
-    sourcemap: 'external',
+    sourcemap: "external",
     splitting: true,
     naming: {
-      entry: '[dir]/[name].[hash].[ext]',
-      chunk: '[dir]/[name].[hash].[ext]',
-      asset: '[dir]/[name].[hash].[ext]',
+      entry: "[dir]/[name].[hash].[ext]",
+      chunk: "[dir]/[name].[hash].[ext]",
+      asset: "[dir]/[name].[hash].[ext]",
     },
     define: {
-      'process.env.API_URL': JSON.stringify(apiUrl),
-      'process.env.WS_URL': JSON.stringify(wsUrl),
+      "process.env.API_URL": JSON.stringify(apiUrl),
+      "process.env.WS_URL": JSON.stringify(wsUrl),
     },
   });
 
   if (!result.success) {
-    console.error('ERROR: Build failed:');
+    console.error("ERROR: Build failed:");
     for (const log of result.logs) {
       console.error(log);
     }
     return false;
   }
 
-  console.log('[BUILD] Build completed');
+  console.log("[BUILD] Build completed");
 
   // Cache build outputs
   buildCache.clear();
 
   // Find the main JS file (has hash in name)
-  let mainJsPath = '';
+  let mainJsPath = "";
   for (const output of result.outputs) {
     const content = await output.arrayBuffer();
-    const path = output.path.split('/').pop() || '';
+    const path = output.path.split("/").pop() || "";
 
-    if (path.endsWith('.js')) {
-      if (path.includes('.') && !path.startsWith('chunk')) {
+    if (path.endsWith(".js")) {
+      if (path.includes(".") && !path.startsWith("chunk")) {
         mainJsPath = `/${path}`;
       }
       buildCache.set(`/${path}`, {
         content: new Uint8Array(content),
-        type: 'application/javascript',
+        type: "application/javascript",
       });
-    } else if (path.endsWith('.css')) {
+    } else if (path.endsWith(".css")) {
       buildCache.set(`/${path}`, {
         content: new Uint8Array(content),
-        type: 'text/css',
+        type: "text/css",
       });
-    } else if (path.endsWith('.map')) {
+    } else if (path.endsWith(".map")) {
       buildCache.set(`/${path}`, {
         content: new Uint8Array(content),
-        type: 'application/json',
+        type: "application/json",
       });
     }
   }
 
   // Read and modify index.html to include the built JS file
-  const indexHtml = await Bun.file('./index.html').text();
+  const indexHtml = await Bun.file("./index.html").text();
   const modifiedHtml = indexHtml.replace(
     '<script type="module" src="/src/main.tsx"></script>',
     `<script type="module" src="${mainJsPath}"></script>`
   );
 
-  buildCache.set('/', {
+  buildCache.set("/", {
     content: new TextEncoder().encode(modifiedHtml),
-    type: 'text/html',
+    type: "text/html",
   });
 
   // Cache static PWA files
-  const manifestFile = Bun.file('./manifest.json');
+  const manifestFile = Bun.file("./manifest.json");
   if (await manifestFile.exists()) {
     const manifestContent = await manifestFile.arrayBuffer();
-    buildCache.set('/manifest.json', {
+    buildCache.set("/manifest.json", {
       content: new Uint8Array(manifestContent),
-      type: 'application/manifest+json',
+      type: "application/manifest+json",
     });
   }
 
-  const serviceWorkerFile = Bun.file('./service-worker.js');
+  const serviceWorkerFile = Bun.file("./service-worker.js");
   if (await serviceWorkerFile.exists()) {
     const swContent = await serviceWorkerFile.arrayBuffer();
-    buildCache.set('/service-worker.js', {
+    buildCache.set("/service-worker.js", {
       content: new Uint8Array(swContent),
-      type: 'application/javascript',
+      type: "application/javascript",
     });
   }
 
@@ -157,58 +157,58 @@ const server = Bun.serve({
     let path = url.pathname;
 
     // Normalize root path
-    if (path === '/') {
-      path = '/';
+    if (path === "/") {
+      path = "/";
     }
 
     // Serve from build cache
     const artifact = buildCache.get(path);
     if (artifact) {
       const headers: Record<string, string> = {
-        'Content-Type': artifact.type,
-        'Cache-Control': 'no-cache, must-revalidate',
+        "Content-Type": artifact.type,
+        "Cache-Control": "no-cache, must-revalidate",
       };
 
       // Add Service-Worker-Allowed header for service worker
-      if (path === '/service-worker.js') {
-        headers['Service-Worker-Allowed'] = '/';
+      if (path === "/service-worker.js") {
+        headers["Service-Worker-Allowed"] = "/";
       }
 
       return new Response(artifact.content, { headers });
     }
 
     // Serve icon files (fallback to a simple SVG icon)
-    if (path.startsWith('/icons/') && path.endsWith('.png')) {
+    if (path.startsWith("/icons/") && path.endsWith(".png")) {
       // For now, redirect missing icons to a placeholder
       // In production, you'd generate proper icons
       return new Response(
         '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect fill="#4f46e5" width="512" height="512"/><text x="256" y="280" text-anchor="middle" font-size="240" fill="white">📋</text></svg>',
         {
           headers: {
-            'Content-Type': 'image/svg+xml',
-            'Cache-Control': 'public, max-age=3600',
+            "Content-Type": "image/svg+xml",
+            "Cache-Control": "public, max-age=3600",
           },
         }
       );
     }
 
     // SPA fallback - serve index.html for all routes
-    const indexArtifact = buildCache.get('/');
+    const indexArtifact = buildCache.get("/");
     if (indexArtifact) {
       return new Response(indexArtifact.content, {
         headers: {
-          'Content-Type': 'text/html',
-          'Cache-Control': 'no-cache, must-revalidate',
+          "Content-Type": "text/html",
+          "Cache-Control": "no-cache, must-revalidate",
         },
       });
     }
 
-    return new Response('Not Found', { status: 404 });
+    return new Response("Not Found", { status: 404 });
   },
 });
 
 const port = server.port;
 
 console.log(`\nClient server running at https://localhost:${port}`);
-console.log('HTTPS enabled');
-console.log('');
+console.log("HTTPS enabled");
+console.log("");

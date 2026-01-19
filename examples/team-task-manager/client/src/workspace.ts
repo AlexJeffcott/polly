@@ -1,17 +1,17 @@
 // Workspace management with encryption
 
-import type { User, Workspace, WorkspaceMember, Task } from "../../shared/types";
-import {
-  KeyPair,
-  generateWorkspaceKey,
-  encryptText,
-  decryptText,
-  bytesToBase64,
-  base64ToBytes,
-  bytesToHex,
-} from "./crypto";
-import { currentUser, workspace, workspaces, tasks, comments } from "./state";
+import type { Task, User, Workspace, WorkspaceMember } from "../../shared/types";
 import { api } from "./api";
+import {
+  base64ToBytes,
+  bytesToBase64,
+  bytesToHex,
+  decryptText,
+  encryptText,
+  generateWorkspaceKey,
+  KeyPair,
+} from "./crypto";
+import { comments, currentUser, tasks, workspace, workspaces } from "./state";
 
 // Create a new user identity
 export async function createUser(name: string): Promise<User> {
@@ -91,7 +91,7 @@ export async function createWorkspace(name: string): Promise<Workspace> {
   workspace.value = newWorkspace;
 
   // Add to workspaces list if not already there
-  if (!workspaces.value.find(w => w.id === workspaceId)) {
+  if (!workspaces.value.find((w) => w.id === workspaceId)) {
     workspaces.value = [...workspaces.value, newWorkspace];
   }
 
@@ -137,13 +137,11 @@ export async function joinWorkspace(
   workspace.value = newWorkspace;
 
   // Add to workspaces list if not already there
-  if (!workspaces.value.find(w => w.id === workspaceId)) {
-    workspaces.value = [...workspaces.value, newWorkspace];
-  } else {
+  if (workspaces.value.find((w) => w.id === workspaceId)) {
     // Update existing workspace in list
-    workspaces.value = workspaces.value.map(w =>
-      w.id === workspaceId ? newWorkspace : w
-    );
+    workspaces.value = workspaces.value.map((w) => (w.id === workspaceId ? newWorkspace : w));
+  } else {
+    workspaces.value = [...workspaces.value, newWorkspace];
   }
 
   // WebSocket connection is handled by App.tsx useEffect
@@ -203,7 +201,7 @@ export async function switchWorkspace(workspaceId: string) {
     throw new Error("No user logged in");
   }
 
-  const targetWorkspace = workspaces.value.find(w => w.id === workspaceId);
+  const targetWorkspace = workspaces.value.find((w) => w.id === workspaceId);
   if (!targetWorkspace) {
     throw new Error("Workspace not found");
   }

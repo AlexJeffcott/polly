@@ -1,6 +1,6 @@
 // Integration test simulating popup → background flow
 import { beforeEach, describe, expect, test } from "bun:test";
-import { user, todos, filter } from "../src/background/state";
+import { filter, todos, user } from "../src/background/state";
 
 // Reset state before each test
 beforeEach(() => {

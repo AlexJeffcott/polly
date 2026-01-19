@@ -1,16 +1,12 @@
 import { useEffect } from "preact/hooks";
-import { currentUser, workspace, tasks } from "./state";
-import { Onboarding } from "./components/Onboarding";
-import { WorkspaceView } from "./components/WorkspaceView";
+import { api } from "./api";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { NetworkStatus } from "./components/NetworkStatus";
-import { parseInviteLink, joinWorkspace } from "./workspace";
-import { api } from "./api";
-import {
-  handleIncomingTask,
-  handleIncomingComment,
-  handleTaskDeleted,
-} from "./tasks";
+import { Onboarding } from "./components/Onboarding";
+import { WorkspaceView } from "./components/WorkspaceView";
+import { currentUser, tasks, workspace } from "./state";
+import { handleIncomingComment, handleIncomingTask, handleTaskDeleted } from "./tasks";
+import { joinWorkspace, parseInviteLink } from "./workspace";
 
 export function App() {
   // Check for invite link on mount and when user identity changes

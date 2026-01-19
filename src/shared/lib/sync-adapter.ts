@@ -78,7 +78,9 @@ export class NoOpSyncAdapter implements SyncAdapter {
 
   onMessage<T>(_callback: (message: StateSyncMessage<T>) => void): () => void {
     // No-op: no messages will ever arrive
-    return () => {}; // Return empty cleanup function
+    return () => {
+      // Empty cleanup function - nothing to clean up for null adapter
+    };
   }
 }
 
@@ -95,7 +97,9 @@ export class ChromeRuntimeSyncAdapter implements SyncAdapter {
     if (typeof chrome !== "undefined" && chrome.runtime) {
       chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
         if (message.type === "STATE_SYNC") {
-          this.listeners.forEach((listener) => listener(message));
+          this.listeners.forEach((listener) => {
+            listener(message);
+          });
         }
       });
     }
@@ -124,7 +128,9 @@ export class ChromeRuntimeSyncAdapter implements SyncAdapter {
 
     // Return cleanup function
     return () => {
-      const index = this.listeners.indexOf(callback as (message: StateSyncMessage<unknown>) => void);
+      const index = this.listeners.indexOf(
+        callback as (message: StateSyncMessage<unknown>) => void
+      );
       if (index > -1) {
         this.listeners.splice(index, 1);
       }
@@ -158,13 +164,14 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
   private listeners: Array<(message: StateSyncMessage<unknown>) => void> = [];
 
   constructor(channelName = "polly-sync") {
-
     if (typeof BroadcastChannel !== "undefined") {
       this.channel = new BroadcastChannel(channelName);
 
       this.channel.onmessage = (event) => {
         if (event.data.type === "STATE_SYNC") {
-          this.listeners.forEach((listener) => listener(event.data));
+          this.listeners.forEach((listener) => {
+            listener(event.data);
+          });
         }
       };
     } else {
@@ -195,7 +202,9 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
 
     // Return cleanup function
     return () => {
-      const index = this.listeners.indexOf(callback as (message: StateSyncMessage<unknown>) => void);
+      const index = this.listeners.indexOf(
+        callback as (message: StateSyncMessage<unknown>) => void
+      );
       if (index > -1) {
         this.listeners.splice(index, 1);
       }

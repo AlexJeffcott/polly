@@ -1,5 +1,5 @@
-import { $syncedState, $state } from '@fairfox/polly/state';
-import type { Peer, ChatMessage, Room } from './types';
+import { $state, $syncedState } from "@fairfox/polly/state";
+import type { ChatMessage, Peer, Room } from "./types";
 
 /**
  * Polly State Management for WebRTC P2P Chat
@@ -10,17 +10,21 @@ import type { Peer, ChatMessage, Room } from './types';
  */
 
 // Current room (persisted locally)
-export const currentRoom = $syncedState<Room | null>('room', null);
+export const currentRoom = $syncedState<Room | null>("room", null);
 
-// User identity (persisted locally)
-export const displayName = $syncedState<string>('displayName', '');
-export const peerId = $syncedState<string>('peerId', crypto.randomUUID());
+// User identity
+// displayName persists so you don't have to re-enter it
+export const displayName = $syncedState<string>("displayName", "");
+
+// IMPORTANT: peerId must be ephemeral (per-tab) so multiple tabs don't conflict
+// Each browser tab = separate peer with unique ID
+export const peerId = $state<string>(crypto.randomUUID());
 
 // Peers in current room (synced across components, not persisted)
-export const peers = $syncedState<Peer[]>('peers', []);
+export const peers = $syncedState<Peer[]>("peers", []);
 
 // Chat messages (persisted locally)
-export const messages = $syncedState<ChatMessage[]>('messages', []);
+export const messages = $syncedState<ChatMessage[]>("messages", []);
 
 // Connection state (ephemeral - not persisted)
 export const isConnected = $state(false);

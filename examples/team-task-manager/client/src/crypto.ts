@@ -20,10 +20,7 @@ export class KeyPair {
     const publicKey = await crypto.subtle.exportKey("raw", key.publicKey);
     const privateKey = await crypto.subtle.exportKey("pkcs8", key.privateKey);
 
-    return new KeyPair(
-      new Uint8Array(publicKey),
-      new Uint8Array(privateKey)
-    );
+    return new KeyPair(new Uint8Array(publicKey), new Uint8Array(privateKey));
   }
 
   static fromBytes(publicKey: Uint8Array, privateKey: Uint8Array): KeyPair {
@@ -46,24 +43,13 @@ export async function generateWorkspaceKey(): Promise<Uint8Array> {
   return key;
 }
 
-export async function encrypt(
-  data: Uint8Array,
-  key: Uint8Array
-): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt"]
-  );
+export async function encrypt(data: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, [
+    "encrypt",
+  ]);
 
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    cryptoKey,
-    data
-  );
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
 
   // Prepend IV to ciphertext
   const result = new Uint8Array(iv.length + encrypted.byteLength);
@@ -73,34 +59,20 @@ export async function encrypt(
   return result;
 }
 
-export async function decrypt(
-  encrypted: Uint8Array,
-  key: Uint8Array
-): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "AES-GCM" },
-    false,
-    ["decrypt"]
-  );
+export async function decrypt(encrypted: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, [
+    "decrypt",
+  ]);
 
   const iv = encrypted.slice(0, 12);
   const ciphertext = encrypted.slice(12);
 
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    cryptoKey,
-    ciphertext
-  );
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, ciphertext);
 
   return new Uint8Array(decrypted);
 }
 
-export async function encryptText(
-  text: string,
-  key: string | Uint8Array
-): Promise<Uint8Array> {
+export async function encryptText(text: string, key: string | Uint8Array): Promise<Uint8Array> {
   const keyBytes = typeof key === "string" ? base64ToBytes(key) : key;
   const encoder = new TextEncoder();
   return encrypt(encoder.encode(text), keyBytes);

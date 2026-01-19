@@ -1,323 +1,155 @@
-import { useState, useEffect } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { currentUser } from "../state";
-import {
-  createUser,
-  importUserKey,
-  exportUserKey,
-  createWorkspace,
-} from "../workspace";
-import "./Onboarding.css";
+import { createUser, createWorkspace, importUserKey, parseInviteLink } from "../workspace";
+import { Button } from "./Button";
+import { Layout } from "./Layout";
+
+type Screen = "main" | "restore";
 
 export function Onboarding() {
-  const [step, setStep] = useState<"welcome" | "create-user" | "import-user" | "create-workspace">(
-    currentUser.value ? "create-workspace" : "welcome"
-  );
+  const [screen, setScreen] = useState<Screen>("main");
   const [name, setName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [importKey, setImportKey] = useState("");
-  const [showBackup, setShowBackup] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Check if there's an invite link in the URL
-  const hasInvite = new URLSearchParams(window.location.search).has("invite");
+  // Parse invite link if present
+  const invite = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inviteCode = params.get("invite");
+    if (!inviteCode) return null;
 
-  // Update step when currentUser loads from IndexedDB
-  useEffect(() => {
-    if (currentUser.value && step === "welcome") {
-      setStep("create-workspace");
+    try {
+      return parseInviteLink(inviteCode);
+    } catch {
+      return null;
     }
-  }, [currentUser.value]);
+  }, []);
 
-  const handleCreateUser = async () => {
+  // If user already exists (loaded from IndexedDB), just need workspace
+  const hasUser = !!currentUser.value;
+
+  // Auto-populate workspace name from invite
+  useEffect(() => {
+    if (invite && !workspaceName) {
+      setWorkspaceName(invite.workspaceName);
+    }
+  }, [invite]);
+
+  const handleGetStarted = async () => {
+    setError("");
+
     if (!name.trim()) {
       setError("Please enter your name");
       return;
     }
 
-    try {
-      await createUser(name);
-      setShowBackup(true);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleImportUser = () => {
-    if (!importKey.trim()) {
-      setError("Please paste your key");
+    // If not joining via invite, need workspace name
+    if (!invite && !workspaceName.trim()) {
+      setError("Please enter a workspace name");
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      importUserKey(importKey);
-      setStep("create-workspace");
+      // Create user identity (this auto-joins invite workspace via App.tsx effect)
+      await createUser(name);
+
+      // If no invite, create the workspace
+      if (!invite) {
+        await createWorkspace(workspaceName);
+      }
+      // If there IS an invite, App.tsx will handle joining automatically
     } catch (err: any) {
-      setError("Invalid key format");
+      setError(err.message);
+      setIsLoading(false);
     }
   };
 
   const handleCreateWorkspace = async () => {
+    setError("");
+
     if (!workspaceName.trim()) {
       setError("Please enter a workspace name");
       return;
     }
 
+    setIsLoading(true);
+
     try {
       await createWorkspace(workspaceName);
     } catch (err: any) {
       setError(err.message);
+      setIsLoading(false);
     }
   };
 
-  const downloadBackup = () => {
-    if (!currentUser.value) return;
+  const handleRestore = () => {
+    setError("");
 
-    const backup = exportUserKey(currentUser.value);
-    const blob = new Blob([backup], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `team-task-manager-key-${currentUser.value.id.slice(0, 8)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const copyToClipboard = async () => {
-    if (!currentUser.value) return;
+    if (!importKey.trim()) {
+      setError("Please paste your backup key");
+      return;
+    }
 
     try {
-      const backup = exportUserKey(currentUser.value);
-      await navigator.clipboard.writeText(backup);
-      alert("Key copied to clipboard!");
-    } catch (err) {
-      alert("Failed to copy to clipboard. Please copy manually.");
+      importUserKey(importKey);
+      // After import, if no workspace + no invite, show workspace creation
+      // If invite exists, App.tsx will auto-join
+      if (!invite) {
+        setScreen("main");
+      }
+    } catch (err: any) {
+      setError("Invalid key format. Please check and try again.");
     }
   };
 
-  if (showBackup && currentUser.value) {
+  // Restore key screen
+  if (screen === "restore") {
     return (
-      <div class="onboarding">
-        <div class="onboarding-card backup-card">
-          <h2>Backup Your Key</h2>
-          <p class="warning">
-            Your key is your identity. If you lose it, you lose access to all your data permanently.
-          </p>
-
-          <div style={{ marginBottom: '16px', padding: '12px', background: '#f0f9ff', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
-            <strong>What this key does:</strong>
-            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>Encrypts messages sent through the server relay</li>
-              <li>Decrypts messages received from teammates</li>
-              <li>Proves your identity without passwords</li>
-            </ul>
-            <br />
-            <strong>Security model:</strong>
-            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>On your device: ALL data stored locally (protected by device encryption)</li>
-              <li>On the server: NOTHING stored - server only relays encrypted messages</li>
-            </ul>
-            <br />
-            <div style={{ color: '#b91c1c', fontWeight: 500 }}>
-              Without this key, you lose access to your workspace. Your data lives on your device only.
-            </div>
-          </div>
-
-          <div class="backup-key">
-            <pre>{exportUserKey(currentUser.value)}</pre>
-          </div>
-
-          <div class="actions">
-            <button onClick={copyToClipboard} class="primary">
-              Copy to Clipboard
-            </button>
-            <button onClick={downloadBackup} class="primary">
-              Download Backup
-            </button>
-          </div>
-
-          <button onClick={() => { setShowBackup(false); setStep("create-workspace"); }} class="primary" style={{ marginTop: '16px' }}>
-            Continue
-          </button>
-
-          <button onClick={() => { setShowBackup(false); setStep("create-workspace"); }} style={{ marginTop: '8px' }}>
-            Skip (Not Recommended)
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "welcome") {
-    return (
-      <div class="onboarding">
+      <Layout justifyContent="center" alignContent="center" className="onboarding">
         <div class="onboarding-card">
-          <h1>Team Task Manager</h1>
-          <p class="subtitle">End-to-end encrypted, local-first task management</p>
-
-          {hasInvite && (
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#dbeafe', borderRadius: '8px', fontSize: '14px', border: '2px solid #3b82f6' }}>
-              <strong style={{ color: '#1e40af' }}>Workspace Invite Detected</strong>
-              <p style={{ margin: '4px 0 0 0', color: '#1e3a8a' }}>
-                Create a new identity or import an existing one to join the workspace.
-              </p>
-            </div>
-          )}
-
-          <div style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6' }}>
-            <strong>How it works:</strong>
-            <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>ALL data is stored only on your device in IndexedDB (no server storage)</li>
-              <li>When you create/update tasks, they're saved locally instantly</li>
-              <li>Server acts as a message relay - broadcasts updates to teammates</li>
-              <li>Server never stores your data (pure local-first architecture)</li>
-              <li>Works offline - syncs when you're back online via server relay</li>
-            </ol>
-          </div>
-
-          <div class="features">
-            <div class="feature">
-              <h3>Zero-Knowledge</h3>
-              <p>Server can't read your data</p>
-            </div>
-            <div class="feature">
-              <h3>Local-First</h3>
-              <p>Works offline, syncs online</p>
-            </div>
-            <div class="feature">
-              <h3>Real-Time</h3>
-              <p>Collaborate with your team</p>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button onClick={() => setStep("create-user")} class="primary">
-              Create Identity
-            </button>
-            <button onClick={() => setStep("import-user")}>
-              Import Key
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "create-user") {
-    return (
-      <div class="onboarding">
-        <div class="onboarding-card">
-          <h2>Create Your Identity</h2>
-          <p>Your identity is a cryptographic keypair. No passwords needed.</p>
-
-          {hasInvite && (
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#dbeafe', borderRadius: '8px', fontSize: '14px', border: '2px solid #3b82f6' }}>
-              <strong style={{ color: '#1e40af' }}>Workspace Invite Detected</strong>
-              <p style={{ margin: '4px 0 0 0', color: '#1e3a8a' }}>
-                After creating your identity, you'll automatically join the workspace.
-              </p>
-            </div>
-          )}
-
-          <div style={{ marginBottom: '16px', padding: '12px', background: '#eff6ff', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
-            <strong>Your key will:</strong>
-            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>Encrypt your data when relaying updates through the server</li>
-              <li>Decrypt updates received from teammates</li>
-              <li>Sign your actions to prove authenticity</li>
-              <li>Work on any device you import it to</li>
-            </ul>
-            <br />
-            <div style={{ fontSize: '13px', color: '#64748b' }}>
-              All data lives only on your device (protected by device encryption like FileVault/BitLocker).
-              The server stores NOTHING - it only relays encrypted messages between teammates.
-            </div>
-          </div>
-
-          {error && <div class="error">{error}</div>}
-
-          <input
-            type="text"
-            value={name}
-            onInput={(e) => setName((e.target as HTMLInputElement).value)}
-            placeholder="Your name"
-            class="input"
-          />
-
-          <div class="actions">
-            <button onClick={handleCreateUser} class="primary">
-              Generate Key
-            </button>
-            <button onClick={() => setStep("welcome")}>
-              Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "import-user") {
-    return (
-      <div class="onboarding">
-        <div class="onboarding-card">
-          <h2>Import Your Key</h2>
-          <p>Paste your backup key to restore your identity.</p>
-
-          {hasInvite && (
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#dbeafe', borderRadius: '8px', fontSize: '14px', border: '2px solid #3b82f6' }}>
-              <strong style={{ color: '#1e40af' }}>Workspace Invite Detected</strong>
-              <p style={{ margin: '4px 0 0 0', color: '#1e3a8a' }}>
-                After importing your identity, you'll automatically join the workspace.
-              </p>
-            </div>
-          )}
-
-          <div style={{ marginBottom: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
-            <strong>Restoring access:</strong>
-            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li>Your key unlocks all your encrypted data</li>
-              <li>You'll regain access to all workspaces you were part of</li>
-              <li>Works on any device - just import the same key</li>
-            </ul>
-          </div>
+          <h2>Restore Your Account</h2>
+          <p class="subtitle-small">Paste your backup key to continue</p>
 
           {error && <div class="error">{error}</div>}
 
           <textarea
             value={importKey}
             onInput={(e) => setImportKey((e.target as HTMLTextAreaElement).value)}
-            placeholder="Paste your key backup here..."
+            placeholder="Paste your backup key here..."
             class="input"
-            rows={8}
+            rows={6}
           />
 
-          <div class="actions">
-            <button onClick={handleImportUser} class="primary">
-              Import
-            </button>
-            <button onClick={() => setStep("welcome")}>
-              Back
-            </button>
-          </div>
+          <Button onPress={handleRestore} tier="primary" fullWidth>
+            Restore
+          </Button>
+
+          <Button
+            onPress={() => {
+              setScreen("main");
+              setError("");
+            }}
+            tier="tertiary"
+            fullWidth
+          >
+            Back
+          </Button>
         </div>
-      </div>
+      </Layout>
     );
   }
 
-  if (step === "create-workspace") {
+  // User exists but no workspace (and no invite to auto-join)
+  if (hasUser && !invite) {
     return (
-      <div class="onboarding">
+      <Layout justifyContent="center" alignContent="center" className="onboarding">
         <div class="onboarding-card">
-          <h2>Create Workspace</h2>
-          <p>Workspaces keep your projects organized.</p>
-
-          <div style={{ marginBottom: '16px', padding: '12px', background: '#f0fdf4', borderRadius: '8px', fontSize: '14px', lineHeight: '1.5' }}>
-            <strong>Two ways to get started:</strong>
-            <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-              <li><strong>Create a new workspace</strong> - You'll be the admin and can invite others</li>
-              <li><strong>Join an existing workspace</strong> - Ask a teammate to click "Invite" in their workspace and share the link with you. The link contains the workspace key so you can decrypt the shared data.</li>
-            </ol>
-          </div>
+          <h2>Create a Workspace</h2>
+          <p class="subtitle-small">Workspaces let you organize and share tasks</p>
 
           {error && <div class="error">{error}</div>}
 
@@ -325,23 +157,67 @@ export function Onboarding() {
             type="text"
             value={workspaceName}
             onInput={(e) => setWorkspaceName((e.target as HTMLInputElement).value)}
-            placeholder="Workspace name (e.g., Marketing Team, Project Alpha)"
+            placeholder="Workspace name"
             class="input"
+            onKeyDown={(e) => e.key === "Enter" && handleCreateWorkspace()}
           />
 
-          <div class="actions">
-            <button onClick={handleCreateWorkspace} class="primary">
-              Create Workspace
-            </button>
-          </div>
+          <Button onPress={handleCreateWorkspace} tier="primary" fullWidth disabled={isLoading}>
+            {isLoading ? "Creating..." : "Create Workspace"}
+          </Button>
 
-          <div class="hint" style={{ marginTop: '16px', padding: '12px', background: '#fef3c7', borderRadius: '8px', fontSize: '13px' }}>
-            <strong>Have an invite link?</strong> Just paste it in your browser and you'll automatically join the workspace.
-          </div>
+          <p class="hint-text">Have an invite link? Just paste it in your browser.</p>
         </div>
-      </div>
+      </Layout>
     );
   }
 
-  return null;
+  // Main screen: Get Started (with or without invite)
+  return (
+    <Layout justifyContent="center" alignContent="center" className="onboarding">
+      <div class="onboarding-card">
+        <h1>Team Task Manager</h1>
+        <p class="subtitle">Private task management for teams</p>
+
+        {invite && <div class="invite-badge">Joining "{invite.workspaceName}"</div>}
+
+        {error && <div class="error">{error}</div>}
+
+        <input
+          type="text"
+          value={name}
+          onInput={(e) => setName((e.target as HTMLInputElement).value)}
+          placeholder="Your name"
+          class="input"
+          onKeyDown={(e) =>
+            e.key === "Enter" && !invite && document.getElementById("workspace-input")?.focus()
+          }
+        />
+
+        {!invite && (
+          <input
+            id="workspace-input"
+            type="text"
+            value={workspaceName}
+            onInput={(e) => setWorkspaceName((e.target as HTMLInputElement).value)}
+            placeholder="Workspace name"
+            class="input"
+            onKeyDown={(e) => e.key === "Enter" && handleGetStarted()}
+          />
+        )}
+
+        <Button onPress={handleGetStarted} tier="primary" fullWidth disabled={isLoading}>
+          {isLoading ? "Setting up..." : invite ? "Join Workspace" : "Get Started"}
+        </Button>
+
+        <div class="footer-links">
+          <Button onPress={() => setScreen("restore")} tier="tertiary">
+            Restore from backup
+          </Button>
+        </div>
+
+        <p class="privacy-note">Your data stays on your device</p>
+      </div>
+    </Layout>
+  );
 }

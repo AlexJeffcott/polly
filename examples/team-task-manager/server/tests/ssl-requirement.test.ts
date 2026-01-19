@@ -1,7 +1,7 @@
 // Tests for SSL certificate requirement enforcement
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdir, writeFile, rm, rename } from "node:fs/promises";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const TEMP_CERTS_DIR = join(import.meta.dir, "../certs-test");
@@ -40,50 +40,50 @@ describe("SSL Certificate Requirement", () => {
         stderr: "pipe",
       });
 
-    // Read both stdout and stderr to check for error message
-    const decoder = new TextDecoder();
-    const stdoutChunks: string[] = [];
-    const stderrChunks: string[] = [];
+      // Read both stdout and stderr to check for error message
+      const decoder = new TextDecoder();
+      const stdoutChunks: string[] = [];
+      const stderrChunks: string[] = [];
 
-    const stdoutReader = proc.stdout.getReader();
-    const stderrReader = proc.stderr.getReader();
+      const stdoutReader = proc.stdout.getReader();
+      const stderrReader = proc.stderr.getReader();
 
-    // Read for a short time or until process exits
-    const timeout = setTimeout(() => {
-      proc.kill();
-    }, 2000);
+      // Read for a short time or until process exits
+      const timeout = setTimeout(() => {
+        proc.kill();
+      }, 2000);
 
-    try {
-      // Read both streams concurrently
-      await Promise.race([
-        (async () => {
-          while (true) {
-            const { done, value } = await stdoutReader.read();
-            if (done) break;
-            stdoutChunks.push(decoder.decode(value));
-          }
-        })(),
-        (async () => {
-          while (true) {
-            const { done, value } = await stderrReader.read();
-            if (done) break;
-            stderrChunks.push(decoder.decode(value));
-          }
-        })(),
-        proc.exited,
-      ]);
-    } catch (e) {
-      // Process was killed or stream closed
-    } finally {
-      clearTimeout(timeout);
-      proc.kill();
-    }
+      try {
+        // Read both streams concurrently
+        await Promise.race([
+          (async () => {
+            while (true) {
+              const { done, value } = await stdoutReader.read();
+              if (done) break;
+              stdoutChunks.push(decoder.decode(value));
+            }
+          })(),
+          (async () => {
+            while (true) {
+              const { done, value } = await stderrReader.read();
+              if (done) break;
+              stderrChunks.push(decoder.decode(value));
+            }
+          })(),
+          proc.exited,
+        ]);
+      } catch (e) {
+        // Process was killed or stream closed
+      } finally {
+        clearTimeout(timeout);
+        proc.kill();
+      }
 
-    const output = stdoutChunks.join("") + stderrChunks.join("");
-    const exitCode = await proc.exited;
+      const output = stdoutChunks.join("") + stderrChunks.join("");
+      const exitCode = await proc.exited;
 
-    // Should exit with error code (1 = normal exit, 143 = killed by us with timeout)
-    expect([1, 143]).toContain(exitCode);
+      // Should exit with error code (1 = normal exit, 143 = killed by us with timeout)
+      expect([1, 143]).toContain(exitCode);
 
       // Should have SSL error message in either stdout or stderr
       expect(output).toContain("SSL certificates not found");
@@ -149,7 +149,9 @@ describe("SSL Certificate Requirement", () => {
     // Note: This will fail with "FAKE CERT" but we're just testing
     // that it doesn't exit with the SSL missing error
     // In a real scenario, you'd mock the TLS setup or use real certs
-    expect(stdout.includes("SSL certificates not found") || stdout.includes("Team Task Manager server")).toBe(true);
+    expect(
+      stdout.includes("SSL certificates not found") || stdout.includes("Team Task Manager server")
+    ).toBe(true);
   });
 
   test("validates SSL certificate file existence", async () => {

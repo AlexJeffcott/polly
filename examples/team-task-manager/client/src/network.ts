@@ -1,13 +1,11 @@
 // Network state management using Polly patterns
-import { signal, computed } from "@preact/signals-core";
+import { computed, signal } from "@preact/signals-core";
 
 /**
  * Online/offline state - Polly-style reactive signal
  * Updates automatically when browser goes online/offline
  */
-export const isOnline = signal(
-  typeof navigator !== "undefined" ? navigator.onLine : true
-);
+export const isOnline = signal(typeof navigator !== "undefined" ? navigator.onLine : true);
 
 /**
  * Sync state - tracks whether we're currently syncing queued changes
@@ -26,9 +24,7 @@ export const pendingSync = signal(0);
  */
 export const syncStatus = computed(() => {
   if (!isOnline.value) {
-    return pendingSync.value > 0
-      ? `Offline - ${pendingSync.value} changes pending`
-      : "Offline";
+    return pendingSync.value > 0 ? `Offline - ${pendingSync.value} changes pending` : "Offline";
   }
 
   if (isSyncing.value) {
@@ -42,10 +38,7 @@ export const syncStatus = computed(() => {
  * Setup online/offline listeners
  * Call this once at app initialization
  */
-export function setupNetworkListeners(
-  onOnline?: () => void,
-  onOffline?: () => void
-) {
+export function setupNetworkListeners(onOnline?: () => void, onOffline?: () => void) {
   if (typeof window === "undefined") {
     return () => {};
   }

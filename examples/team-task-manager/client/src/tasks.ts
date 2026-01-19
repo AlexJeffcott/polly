@@ -1,18 +1,18 @@
 // Task management with encryption
 
-import type { Task, Comment, Priority, TaskStatus } from "../../shared/types";
-import { encryptText, decryptText, bytesToBase64, base64ToBytes } from "./crypto";
+import type { Comment, Priority, Task, TaskStatus } from "../../shared/types";
+import { api } from "./api";
+import { base64ToBytes, bytesToBase64, decryptText, encryptText } from "./crypto";
 import {
-  currentUser,
-  workspace,
-  tasks,
-  comments,
   activities,
+  canCompleteTask,
   canCreateUrgentTask,
   canDeleteTask,
-  canCompleteTask,
+  comments,
+  currentUser,
+  tasks,
+  workspace,
 } from "./state";
-import { api } from "./api";
 
 // Create a new task
 export async function createTask(
@@ -52,10 +52,7 @@ export async function createTask(
   };
 
   // Encrypt task
-  const encrypted = await encryptText(
-    JSON.stringify(task),
-    workspace.value.workspaceKey
-  );
+  const encrypted = await encryptText(JSON.stringify(task), workspace.value.workspaceKey);
 
   console.log("[TASK SYNC] Creating task:", {
     taskId: task.id,
@@ -65,12 +62,7 @@ export async function createTask(
   });
 
   // Send to server
-  await api.createTask(
-    task.id,
-    bytesToBase64(encrypted),
-    currentUser.value.id,
-    workspace.value.id
-  );
+  await api.createTask(task.id, bytesToBase64(encrypted), currentUser.value.id, workspace.value.id);
 
   console.log("[TASK SYNC] Task sent to server");
 
@@ -84,10 +76,7 @@ export async function createTask(
 }
 
 // Update task
-export async function updateTask(
-  taskId: string,
-  updates: Partial<Task>
-): Promise<Task> {
+export async function updateTask(taskId: string, updates: Partial<Task>): Promise<Task> {
   if (!currentUser.value || !workspace.value) {
     throw new Error("Not authenticated or no workspace");
   }
@@ -113,10 +102,7 @@ export async function updateTask(
   };
 
   // Encrypt updated task
-  const encrypted = await encryptText(
-    JSON.stringify(updatedTask),
-    workspace.value.workspaceKey
-  );
+  const encrypted = await encryptText(JSON.stringify(updatedTask), workspace.value.workspaceKey);
 
   // Send to server
   await api.updateTask(taskId, bytesToBase64(encrypted), workspace.value.id);
@@ -160,10 +146,7 @@ export async function assignTask(taskId: string, userId: string | null): Promise
 }
 
 // Update task status
-export async function updateTaskStatus(
-  taskId: string,
-  status: TaskStatus
-): Promise<void> {
+export async function updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
   if (status === "done" && !canCompleteTask(taskId)) {
     const task = tasks.value.find((t) => t.id === taskId);
     if (task?.requiresApproval && !task.approvedBy) {
@@ -212,10 +195,7 @@ export async function addComment(taskId: string, text: string): Promise<Comment>
   };
 
   // Encrypt comment
-  const encrypted = await encryptText(
-    JSON.stringify(comment),
-    workspace.value.workspaceKey
-  );
+  const encrypted = await encryptText(JSON.stringify(comment), workspace.value.workspaceKey);
 
   // Send to server
   await api.createComment(
@@ -304,7 +284,13 @@ export function handleTaskDeleted(taskId: string) {
 
 // Add activity
 function addActivity(
-  type: "task_created" | "task_updated" | "task_completed" | "task_assigned" | "comment_added" | "member_joined",
+  type:
+    | "task_created"
+    | "task_updated"
+    | "task_completed"
+    | "task_assigned"
+    | "comment_added"
+    | "member_joined",
   userId: string,
   taskId?: string,
   metadata?: Record<string, any>

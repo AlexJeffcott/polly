@@ -2,9 +2,9 @@ import { getMessageBus } from "@fairfox/polly/message-bus";
 // Popup UI for todo list
 import { render } from "preact";
 import { useState } from "preact/hooks";
+import { todos, user } from "../background/state";
 import type { TodoMessages } from "../shared/messages";
 import type { Todo } from "../shared/types";
-import { user, todos } from "../background/state";
 import "./styles.css";
 
 const bus = getMessageBus<TodoMessages>("popup");

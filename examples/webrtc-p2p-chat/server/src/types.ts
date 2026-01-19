@@ -9,21 +9,21 @@
 // Messages sent between client and server for WebRTC signaling
 export type SignalingMessage =
   // Room management
-  | { type: 'join_room'; roomId: string; peerId: string; displayName: string }
-  | { type: 'leave_room'; roomId: string; peerId: string }
+  | { type: "join_room"; roomId: string; peerId: string; displayName: string }
+  | { type: "leave_room"; roomId: string; peerId: string }
 
   // Peer discovery
-  | { type: 'room_joined'; roomId: string; peers: PeerInfo[] }
-  | { type: 'peer_joined'; peer: PeerInfo }
-  | { type: 'peer_left'; peerId: string }
+  | { type: "room_joined"; roomId: string; peers: PeerInfo[] }
+  | { type: "peer_joined"; peer: PeerInfo }
+  | { type: "peer_left"; peerId: string }
 
   // WebRTC signaling (SDP offer/answer exchange)
-  | { type: 'offer'; from: string; to: string; offer: RTCSessionDescriptionInit }
-  | { type: 'answer'; from: string; to: string; answer: RTCSessionDescriptionInit }
-  | { type: 'ice_candidate'; from: string; to: string; candidate: RTCIceCandidateInit }
+  | { type: "offer"; from: string; to: string; offer: RTCSessionDescriptionInit }
+  | { type: "answer"; from: string; to: string; answer: RTCSessionDescriptionInit }
+  | { type: "ice_candidate"; from: string; to: string; candidate: RTCIceCandidateInit }
 
   // Connection events
-  | { type: 'connection_failed'; peerId: string; error: string }
+  | { type: "connection_failed"; peerId: string; error: string };
 
 export interface PeerInfo {
   id: string;

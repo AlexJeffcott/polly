@@ -207,9 +207,10 @@ function deepEqual(a: unknown, b: unknown): boolean {
  * 2. MessageBus adapters (legacy, deprecated)
  * 3. Auto-detected adapters (default behavior)
  */
-function resolveAdapters(
-  options: InternalStateOptions
-): { storage: StorageAdapter | null; sync: SyncAdapter | null } {
+function resolveAdapters(options: InternalStateOptions): {
+  storage: StorageAdapter | null;
+  sync: SyncAdapter | null;
+} {
   // Priority 1: Explicit adapters (partial or full)
   if (options.storage || options.sync) {
     return {
@@ -234,7 +235,6 @@ function resolveAdapters(
   };
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Core state management logic requires coordination of multiple concerns
 function createState<T>(key: string, initialValue: T, options: InternalStateOptions<T>): Signal<T> {
   // Return existing signal if already registered
   if (stateRegistry.has(key)) {
@@ -332,7 +332,6 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
     }
 
     // Register sync message listener
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: State sync requires validation and conflict resolution
     adapters.sync.onMessage<T>((message) => {
       if (message.key !== key) return;
 

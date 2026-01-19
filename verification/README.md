@@ -6,7 +6,7 @@ This directory contains verification configuration for formally verifying the we
 
 ## Overview
 
-The verification system extracts message handlers from your codebase, analyzes their state transitions, and generates TLA+ specifications that can be model-checked with TLC to find concurrency bugs, race conditions, and invariant violations.
+The verification system extracts state handlers from your codebase, analyzes their state transitions, and generates TLA+ specifications that can be model-checked with TLC to find concurrency bugs, race conditions, and invariant violations.
 
 ## Directory Structure
 
@@ -26,25 +26,63 @@ verification/
 
 ### 1. Add Verification Primitives to Your Handlers
 
-Use `requires()` and `ensures()` to specify preconditions and postconditions:
+Use `{ verify: true }` on your state declarations to enable TLA+ verification:
 
 ```typescript
+import { $sharedState } from '@fairfox/polly/state'
 import { requires, ensures } from '@verify/primitives'
 
-messageBus.on("USER_LOGIN", (payload) => {
-  // Preconditions - what must be true before
-  requires(state.user.loggedIn === false, "User must not be logged in")
-  requires(payload.userId !== null, "User ID must be provided")
+// Enable verification discovery for this state
+export const authState = $sharedState('auth', {
+  isAuthenticated: false,
+  userProfile: null,
+}, { verify: true })
 
-  // State changes
-  state.user.loggedIn = true
-  state.user.id = payload.userId
+// Standalone functions are automatically discovered
+export function handleAuthSuccess(userProfile: UserProfile): void {
+  requires(!authState.value.isAuthenticated, 'Must not already be authenticated')
 
-  // Postconditions - what must be true after
-  ensures(state.user.loggedIn === true, "User must be logged in")
-  ensures(state.user.id === payload.userId, "User ID must match")
-})
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: true,
+    userProfile,
+  }
+
+  ensures(authState.value.isAuthenticated, 'Must be authenticated after success')
+}
+
+export function handleLogout(): void {
+  requires(authState.value.isAuthenticated, 'Must be authenticated to logout')
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: false,
+    userProfile: null,
+  }
+
+  ensures(!authState.value.isAuthenticated, 'Must not be authenticated after logout')
+}
 ```
+
+The TLA+ generator will:
+1. Find all `$sharedState`/`$syncedState`/`$persistedState` declarations with `{ verify: true }`
+2. Discover exported functions that modify those states
+3. Extract `requires()`/`ensures()` annotations
+4. Generate proper TLA+ state transitions
+
+Function names are converted to message types:
+- `handleAuthSuccess` → `AuthSuccess`
+- `handleLogout` → `Logout`
+- `setUserProfile` → `SetUserProfile`
+- `onError` → `Error`
+- `updateCounter` → `UpdateCounter`
+
+This pattern works universally across:
+- Chrome extensions
+- Multi-tab PWAs
+- WebSocket applications
+- Reactive effect-driven architectures
+- Any application using Polly's state primitives
 
 ### 2. Configure Verification Bounds
 
@@ -78,7 +116,7 @@ bun verify.ts
 ```
 
 This will:
-1. Extract all message handlers
+1. Extract all state handlers with `{ verify: true }`
 2. Parse verification primitives
 3. Generate TLA+ specification in `output/UserApp.tla`
 4. Generate TLC config in `output/UserApp.cfg`

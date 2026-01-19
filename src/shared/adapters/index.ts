@@ -57,6 +57,32 @@ export function createChromeAdapters(
   };
 }
 
+export {
+  type AdapterOptions,
+  createChromeAdapters as createChromeStateAdapters,
+  createMockAdapters,
+  createNodeAdapters,
+  createStateAdapters,
+  createWebAdapters,
+  type StateAdapters,
+} from "../lib/adapter-factory";
+// Re-export state management adapters
+// Note: Avoid duplicate StorageAdapter export - use named exports to prevent conflicts
+export {
+  ChromeStorageAdapter as UniversalChromeStorageAdapter,
+  createStorageAdapter,
+  IndexedDBAdapter,
+  MemoryStorageAdapter,
+  type StorageAdapter as UniversalStorageAdapter,
+} from "../lib/storage-adapter";
+export {
+  BroadcastChannelSyncAdapter,
+  ChromeRuntimeSyncAdapter,
+  createSyncAdapter,
+  NoOpSyncAdapter,
+  type StateSyncMessage,
+  type SyncAdapter,
+} from "../lib/sync-adapter";
 export * from "./context-menus.adapter";
 export * from "./fetch.adapter";
 export * from "./logger.adapter";
@@ -66,32 +92,3 @@ export * from "./runtime.adapter";
 export * from "./storage.adapter";
 export * from "./tabs.adapter";
 export * from "./window.adapter";
-
-// Re-export state management adapters
-// Note: Avoid duplicate StorageAdapter export - use named exports to prevent conflicts
-export {
-  type StorageAdapter as UniversalStorageAdapter,
-  ChromeStorageAdapter as UniversalChromeStorageAdapter,
-  IndexedDBAdapter,
-  MemoryStorageAdapter,
-  createStorageAdapter,
-} from "../lib/storage-adapter";
-
-export {
-  type SyncAdapter,
-  type StateSyncMessage,
-  ChromeRuntimeSyncAdapter,
-  BroadcastChannelSyncAdapter,
-  NoOpSyncAdapter,
-  createSyncAdapter,
-} from "../lib/sync-adapter";
-
-export {
-  type StateAdapters,
-  type AdapterOptions,
-  createStateAdapters,
-  createChromeAdapters as createChromeStateAdapters,
-  createWebAdapters,
-  createNodeAdapters,
-  createMockAdapters,
-} from "../lib/adapter-factory";

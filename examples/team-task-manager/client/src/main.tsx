@@ -1,11 +1,8 @@
 import { render } from "preact";
 import { App } from "./App";
-import {
-  registerServiceWorker,
-  setupInstallPrompt,
-  requestPersistentStorage,
-} from "./pwa";
+import "./styles.css";
 import { setupNetworkListeners } from "./network";
+import { registerServiceWorker, requestPersistentStorage, setupInstallPrompt } from "./pwa";
 
 // Register service worker
 registerServiceWorker().then((registration) => {

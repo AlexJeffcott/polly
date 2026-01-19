@@ -1,7 +1,7 @@
 // Tests for workspace and user management
-import { describe, test, expect, beforeEach } from "bun:test";
-import { currentUser, workspace, tasks, resetState } from "../src/state";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { bytesToHex } from "../src/crypto";
+import { currentUser, resetState, tasks, workspace } from "../src/state";
 
 // Mock crypto.randomUUID
 const originalRandomUUID = crypto.randomUUID;

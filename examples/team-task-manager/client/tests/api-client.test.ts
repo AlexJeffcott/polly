@@ -1,5 +1,5 @@
 // Tests for API client
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { createMockFetch } from "@fairfox/polly/test";
 import { APIClient } from "../src/api";
 
@@ -39,9 +39,10 @@ describe("API Client", () => {
 
     // Headers can be a Headers object or plain object
     // Note: Eden treaty uses lowercase header keys
-    const contentType = callInit?.headers instanceof Headers
-      ? callInit.headers.get("content-type")
-      : callInit?.headers?.["content-type"];
+    const contentType =
+      callInit?.headers instanceof Headers
+        ? callInit.headers.get("content-type")
+        : callInit?.headers?.["content-type"];
     expect(contentType).toBe("application/json");
 
     const body = JSON.parse(callInit?.body as string);

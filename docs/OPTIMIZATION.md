@@ -29,6 +29,82 @@ These optimizations make controlled trade-offs, limiting exploration depth or en
 
 ## Tier 1 Optimizations
 
+### 0. Verified State Discovery (New in Issue #27)
+
+**Impact**: Enables verification for applications that don't use `messageBus.on()` handlers
+
+**Problem**: Many modern applications (multi-tab PWAs, WebSocket apps, reactive effect-driven architectures) modify state through standalone functions rather than message bus handlers. The TLA+ generator previously only extracted state transitions from `messageBus.on()` handlers, producing `UNCHANGED contextStates` for other patterns.
+
+**Solution**: Use `{ verify: true }` on your `$sharedState` declarations to enable automatic discovery of state-modifying functions.
+
+**Configuration**:
+
+```typescript
+// Define state with verification enabled
+export const authState = $sharedState('auth', {
+  isAuthenticated: false,
+  userProfile: null,
+}, { verify: true });
+
+// Standalone handler functions are automatically discovered
+export function handleAuthSuccess(userProfile: UserProfile): void {
+  requires(!authState.value.isAuthenticated, 'Must not already be authenticated');
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: true,
+    userProfile,
+  };
+
+  ensures(authState.value.isAuthenticated, 'Must be authenticated after success');
+}
+
+export function handleLogout(): void {
+  requires(authState.value.isAuthenticated, 'Must be authenticated to logout');
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: false,
+    userProfile: null,
+  };
+
+  ensures(!authState.value.isAuthenticated, 'Must not be authenticated after logout');
+}
+```
+
+**Generated TLA+**:
+```tla
+HandleAuthSuccess(ctx) ==
+  /\ contextStates[ctx].isAuthenticated = FALSE  \* requires
+  /\ contextStates' = [contextStates EXCEPT
+       ![ctx].isAuthenticated = TRUE,
+       ![ctx].userProfile = payload]
+  /\ contextStates'[ctx].isAuthenticated = TRUE  \* ensures
+
+HandleLogout(ctx) ==
+  /\ contextStates[ctx].isAuthenticated = TRUE   \* requires
+  /\ contextStates' = [contextStates EXCEPT
+       ![ctx].isAuthenticated = FALSE,
+       ![ctx].userProfile = NULL]
+  /\ contextStates'[ctx].isAuthenticated = FALSE \* ensures
+```
+
+**When to use**:
+- Multi-tab PWAs with cross-tab state synchronization
+- WebSocket applications where state is modified by reactive effects
+- Event-driven architectures where handlers aren't registered via `messageBus.on()`
+- Any application where you want to verify state transitions outside the message bus pattern
+
+**Function name to message type conversion**:
+- `handleAuthSuccess` → `AuthSuccess`
+- `handleLogout` → `Logout`
+- `setUserProfile` → `SetUserProfile`
+- `updateSettings` → `UpdateSettings`
+
+**Reference**: See [Issue #27](https://github.com/AlexJeffcott/polly/issues/27) for the original feature request.
+
+---
+
 ### 1. Message Type Filtering
 
 **Impact**: Can reduce message types by 80-90%
@@ -543,9 +619,11 @@ Here are typical results from applying optimizations:
 ## Related Documentation
 
 - [Issue #12: Message Type Filtering](https://github.com/fairfoxai/polly/issues/12) - Original feature request
+- [Issue #27: Verified State Discovery](https://github.com/AlexJeffcott/polly/issues/27) - Standalone handler discovery
 - [TLA+ Symmetry Sets](https://lamport.azurewebsites.net/tla/advanced-examples.html) - TLC documentation on symmetry
 - [Verification Configuration Reference](./VERIFICATION.md) - Complete config schema
 - [Teaching Command](./TEACH-COMMAND-DESIGN.md) - Using the AI assistant
+- [State Management](./STATE.md) - The `verify: true` option for state primitives
 
 ---
 
