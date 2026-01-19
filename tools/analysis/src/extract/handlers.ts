@@ -561,35 +561,228 @@ export class HandlerExtractor {
 
     const fieldPath = this.getPropertyPath(left);
 
-    // Pattern 1: state.field = value (original pattern)
-    if (fieldPath.startsWith("state.")) {
-      const field = fieldPath.substring(6);
-      const value = this.extractValue(right);
-      if (value !== undefined) {
-        assignments.push({ field, value });
-      }
-      return;
-    }
+    // Try each pattern in order
+    if (this.tryExtractStateFieldPattern(fieldPath, right, assignments)) return;
+    if (this.tryExtractSignalNestedFieldPattern(fieldPath, right, assignments)) return;
+    if (this.tryExtractSignalObjectPattern(fieldPath, right, assignments)) return;
+    if (this.tryExtractSignalArrayPattern(fieldPath, right, assignments)) return;
+    this.tryExtractSignalMethodPattern(fieldPath, right, assignments);
+  }
 
-    // Pattern 2: someState.value.field = value (signal pattern with nested field)
-    // e.g., user.value.loggedIn = true → user_loggedIn = true
+  /** Pattern 1: state.field = value */
+  private tryExtractStateFieldPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
+    if (!fieldPath.startsWith("state.")) return false;
+    const field = fieldPath.substring(6);
+    const value = this.extractValue(right);
+    if (value !== undefined) {
+      assignments.push({ field, value });
+    }
+    return true;
+  }
+
+  /** Pattern 2: someState.value.field = value (signal pattern with nested field) */
+  private tryExtractSignalNestedFieldPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
     const valueFieldMatch = fieldPath.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\.value\.(.+)$/);
-    if (valueFieldMatch?.[1] && valueFieldMatch?.[2]) {
-      const signalName = valueFieldMatch[1];
-      const fieldName = valueFieldMatch[2];
-      const value = this.extractValue(right);
-      if (value !== undefined) {
-        assignments.push({ field: `${signalName}_${fieldName}`, value });
-      }
-      return;
+    if (!valueFieldMatch?.[1] || !valueFieldMatch?.[2]) return false;
+    const signalName = valueFieldMatch[1];
+    const fieldName = valueFieldMatch[2];
+    const value = this.extractValue(right);
+    if (value !== undefined) {
+      assignments.push({ field: `${signalName}_${fieldName}`, value });
     }
+    return true;
+  }
 
-    // Pattern 3: someState.value = { object literal } (signal replacement)
-    // e.g., user.value = { loggedIn: true } → user_loggedIn = true
-    if (fieldPath.endsWith(".value") && Node.isObjectLiteralExpression(right)) {
-      const signalName = fieldPath.slice(0, -6); // Remove ".value" suffix
+  /** Pattern 3: someState.value = { object literal } (signal replacement or spread update) */
+  private tryExtractSignalObjectPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
+    if (!fieldPath.endsWith(".value") || !Node.isObjectLiteralExpression(right)) return false;
+    const signalName = fieldPath.slice(0, -6);
+    if (this.isSpreadUpdatePattern(right, fieldPath)) {
+      this.extractSpreadUpdateAssignments(right, assignments, signalName);
+    } else {
       this.extractObjectLiteralAssignments(right, assignments, signalName);
     }
+    return true;
+  }
+
+  /** Check if object literal is a spread update pattern: { ...existing, field: value } */
+  private isSpreadUpdatePattern(
+    objectLiteral: import("ts-morph").ObjectLiteralExpression,
+    fieldPath: string
+  ): boolean {
+    const properties = objectLiteral.getProperties();
+    if (properties.length === 0) return false;
+    const firstProp = properties[0];
+    if (!firstProp || !Node.isSpreadAssignment(firstProp)) return false;
+    const spreadExpr = firstProp.getExpression();
+    if (!spreadExpr) return false;
+    return this.getPropertyPath(spreadExpr) === fieldPath;
+  }
+
+  /** Pattern 4: someState.value = [...someState.value, item] (array spread) */
+  private tryExtractSignalArrayPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
+    if (!fieldPath.endsWith(".value") || !Node.isArrayLiteralExpression(right)) return false;
+    const signalName = fieldPath.slice(0, -6);
+    const arrayAssignment = this.extractArraySpreadOperation(right, fieldPath, signalName);
+    if (arrayAssignment) {
+      assignments.push(arrayAssignment);
+    }
+    return true;
+  }
+
+  /** Pattern 5: someState.value = someState.value.filter(...) or .map(...) (array methods) */
+  private tryExtractSignalMethodPattern(
+    fieldPath: string,
+    right: Node,
+    assignments: StateAssignment[]
+  ): boolean {
+    if (!fieldPath.endsWith(".value") || !Node.isCallExpression(right)) return false;
+    const signalName = fieldPath.slice(0, -6);
+    const methodAssignment = this.extractArrayMethodOperation(right, fieldPath, signalName);
+    if (methodAssignment) {
+      assignments.push(methodAssignment);
+    }
+    return true;
+  }
+
+  /**
+   * Extract array method operations: arr.filter(...), arr.map(...)
+   */
+  private extractArrayMethodOperation(
+    callExpr: import("ts-morph").CallExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const expression = callExpr.getExpression();
+    if (!Node.isPropertyAccessExpression(expression)) return null;
+
+    const methodName = expression.getName();
+    const sourceExpr = expression.getExpression();
+    const sourcePath = this.getPropertyPath(sourceExpr);
+
+    // Check if source matches target (e.g., todos.value = todos.value.filter(...))
+    if (sourcePath !== fieldPath) return null;
+
+    switch (methodName) {
+      case "filter":
+        // Abstract filter - we can't parse the predicate, so model as non-deterministic removal
+        return { field: signalName, value: "SelectSeq(@, LAMBDA t: TRUE)" };
+
+      case "map":
+        // Abstract map - model as identity transformation (elements may change)
+        return { field: signalName, value: "[i \\in DOMAIN @ |-> @[i]]" };
+
+      case "slice":
+        // Slice returns a subsequence
+        return { field: signalName, value: "SubSeq(@, 1, Len(@))" };
+
+      case "concat":
+        // Concat appends another sequence
+        return { field: signalName, value: "@ \\o <<payload>>" };
+
+      case "reverse":
+        // Reverse the sequence
+        return { field: signalName, value: "[i \\in DOMAIN @ |-> @[Len(@) - i + 1]]" };
+
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Extract assignments from spread update pattern: { ...existing, field: value }
+   * Only extracts the explicitly set properties, not the spread
+   */
+  private extractSpreadUpdateAssignments(
+    objectLiteral: import("ts-morph").ObjectLiteralExpression,
+    assignments: StateAssignment[],
+    signalName: string
+  ): void {
+    for (const prop of objectLiteral.getProperties()) {
+      // Skip spread assignments (they preserve existing values)
+      if (Node.isSpreadAssignment(prop)) continue;
+
+      // Extract regular property assignments
+      this.extractPropertyAssignment(prop, assignments, signalName);
+    }
+  }
+
+  /**
+   * Extract array spread operations: [...arr, item] or [item, ...arr]
+   */
+  private extractArraySpreadOperation(
+    arrayLiteral: import("ts-morph").ArrayLiteralExpression,
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const elements = arrayLiteral.getElements();
+    if (elements.length < 1) return null;
+
+    // Try append pattern first, then prepend
+    return (
+      this.tryExtractAppendOperation(elements, fieldPath, signalName) ??
+      this.tryExtractPrependOperation(elements, fieldPath, signalName)
+    );
+  }
+
+  /** Extract append operation: [...arr, item] or [...arr, item1, item2] */
+  private tryExtractAppendOperation(
+    elements: Node[],
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    const firstElement = elements[0];
+    if (!firstElement || !Node.isSpreadElement(firstElement)) return null;
+
+    const spreadExpr = firstElement.getExpression();
+    if (!spreadExpr || this.getPropertyPath(spreadExpr) !== fieldPath) return null;
+
+    if (elements.length === 2) {
+      return { field: signalName, value: "Append(@, payload)" };
+    }
+    const placeholders = Array(elements.length - 1)
+      .fill("payload")
+      .join(", ");
+    return { field: signalName, value: `@ \\o <<${placeholders}>>` };
+  }
+
+  /** Extract prepend operation: [item, ...arr] or [item1, item2, ...arr] */
+  private tryExtractPrependOperation(
+    elements: Node[],
+    fieldPath: string,
+    signalName: string
+  ): StateAssignment | null {
+    if (elements.length < 2) return null;
+
+    const lastElement = elements[elements.length - 1];
+    if (!lastElement || !Node.isSpreadElement(lastElement)) return null;
+
+    const spreadExpr = lastElement.getExpression();
+    if (!spreadExpr || this.getPropertyPath(spreadExpr) !== fieldPath) return null;
+
+    if (elements.length === 2) {
+      return { field: signalName, value: "<<payload>> \\o @" };
+    }
+    const placeholders = Array(elements.length - 1)
+      .fill("payload")
+      .join(", ");
+    return { field: signalName, value: `<<${placeholders}>> \\o @` };
   }
 
   /**
