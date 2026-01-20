@@ -1,15 +1,28 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../index";
 
-// Note: In a real test, you'd start the server or use a test instance
-// For now, this demonstrates the test structure
+// These tests require a running server at localhost:3000
+// They are integration tests that should be run separately with a running server
+// Skip if server is not available
 
-describe("Todo API", () => {
+let serverAvailable = false;
+
+beforeAll(async () => {
+  try {
+    const response = await fetch("http://localhost:3000", {
+      signal: AbortSignal.timeout(1000),
+    });
+    serverAvailable = response.ok || response.status < 500;
+  } catch {
+    serverAvailable = false;
+  }
+});
+
+describe.skipIf(() => !serverAvailable)("Todo API (requires running server)", () => {
   let api: ReturnType<typeof treaty<App>>;
 
   beforeEach(() => {
-    // In real tests, start test server instance here
     api = treaty<App>("http://localhost:3000");
   });
 

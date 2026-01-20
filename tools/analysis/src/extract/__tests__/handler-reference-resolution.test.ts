@@ -434,7 +434,8 @@ bus.on("connect", async () => {
     expect(authHandler?.assignments.length).toBeGreaterThan(0);
 
     // Should extract authenticated field from object spread
-    const authAssignment = authHandler?.assignments.find((a) => a.field === "authenticated");
+    // Field names are prefixed with signal name for TLA+ verification
+    const authAssignment = authHandler?.assignments.find((a) => a.field === "connectionState_authenticated");
     expect(authAssignment).toBeDefined();
     expect(authAssignment?.value).toBe(true);
   });
@@ -484,7 +485,8 @@ bus.on("increment", async () => {
     const authHandler = result.handlers.find((h) => h.messageType === "authenticate");
     expect(authHandler).toBeDefined();
     expect(authHandler?.assignments.length).toBeGreaterThan(0);
-    expect(authHandler?.assignments[0]?.field).toBe("authenticated");
+    // Field names are prefixed with signal name for TLA+ verification
+    expect(authHandler?.assignments[0]?.field).toBe("connectionState_authenticated");
     expect(authHandler?.assignments[0]?.value).toBe(true);
 
     // Find increment handler with unary operator on nested property

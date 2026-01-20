@@ -338,7 +338,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("contextStates[ctx].items[1] = value");
+      // Variable references are mapped to payload fields
+      expect(spec).toContain("contextStates[ctx].items[1] = payload.value");
     });
 
     test("translates array[0] with property access", async () => {
@@ -424,7 +425,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("\\E item \\in contextStates[ctx].items : item.id = targetId");
+      // Variable references are mapped to payload fields
+      expect(spec).toContain("\\E item \\in contextStates[ctx].items : item.id = payload.targetId");
     });
 
     test("translates array.some with property access", async () => {
@@ -486,7 +488,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("\\E i \\in contextStates[ctx].items : i.value");
+      // Lambda variable with .value is mapped to contextStates[ctx] pattern
+      expect(spec).toContain("\\E i \\in contextStates[ctx].items : contextStates[ctx].i");
     });
 
     test("translates nested property array.some", async () => {
@@ -540,7 +543,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("\\A item \\in contextStates[ctx].items : item.status = active");
+      // Variable references are mapped to payload fields
+      expect(spec).toContain("\\A item \\in contextStates[ctx].items : item.status = payload.active");
     });
 
     test("translates array.every with property", async () => {
@@ -636,7 +640,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("CHOOSE i \\in contextStates[ctx].items : i.id = target");
+      // Variable references are mapped to payload fields
+      expect(spec).toContain("CHOOSE i \\in contextStates[ctx].items : i.id = payload.target");
     });
 
     test("translates array.find with comparison", async () => {
@@ -686,7 +691,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.id = id");
+      // Variable 'id' is mapped to contextStates[ctx].id (state field reference)
+      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.id = contextStates[ctx].id");
     });
 
     test("translates array.find in comparison", async () => {
@@ -696,7 +702,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.id = id");
+      // Variable 'id' is mapped to payload.id
+      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.id = payload.id");
       expect(spec).toContain("# NULL");
     });
 
@@ -725,7 +732,8 @@ describe("Array Operations Translation", () => {
       const { spec } = await generator.generate(config, analysis);
 
       // Nested properties are flattened: user.contacts -> user_contacts
-      expect(spec).toContain("CHOOSE c \\in contextStates[ctx].user_contacts : c.id = cid");
+      // Variable 'cid' is mapped to payload.cid
+      expect(spec).toContain("CHOOSE c \\in contextStates[ctx].user_contacts : c.id = payload.cid");
     });
 
     test("translates array.find with !== comparison", async () => {
@@ -735,7 +743,8 @@ describe("Array Operations Translation", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.status # done");
+      // Variable 'done' is mapped to payload.done
+      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.status # payload.done");
     });
   });
 

@@ -83,6 +83,7 @@ export class DockerRunner {
     options?: {
       workers?: number;
       timeout?: number;
+      maxDepth?: number;
     }
   ): Promise<TLCResult> {
     // Ensure spec file exists
@@ -116,8 +117,14 @@ export class DockerRunner {
       "-workers",
       `${options?.workers || 1}`,
       "-cleanup", // Delete state files after model checking to prevent disk space issues
-      `${specName}.tla`,
     ];
+
+    // Add depth limit if maxDepth is configured (bounded model checking)
+    if (options?.maxDepth !== undefined && options.maxDepth > 0) {
+      args.push("-depth", `${options.maxDepth}`);
+    }
+
+    args.push(`${specName}.tla`);
 
     const result = await this.runCommand("docker", args, {
       timeout: options?.timeout,

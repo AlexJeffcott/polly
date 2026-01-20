@@ -157,7 +157,8 @@ function internalHelper(): void {
     const authSuccessHandler = result.handlers.find((h) => h.messageType === "AuthSuccess");
     expect(authSuccessHandler).toBeDefined();
     expect(authSuccessHandler?.assignments.length).toBeGreaterThan(0);
-    expect(authSuccessHandler?.assignments.some((a) => a.field === "isAuthenticated")).toBe(true);
+    // Field names are prefixed with signal name for TLA+ verification
+    expect(authSuccessHandler?.assignments.some((a) => a.field === "authState_isAuthenticated")).toBe(true);
 
     // Check Logout handler
     const logoutHandler = result.handlers.find((h) => h.messageType === "Logout");
@@ -329,11 +330,13 @@ export function handleActivate(): void {
 
     const setNameHandler = result.handlers.find((h) => h.messageType === "SetName");
     expect(setNameHandler).toBeDefined();
-    expect(setNameHandler?.assignments.some((a) => a.field === "name")).toBe(true);
+    // Field names are prefixed with signal name for TLA+ verification
+    expect(setNameHandler?.assignments.some((a) => a.field === "state_name")).toBe(true);
 
     const activateHandler = result.handlers.find((h) => h.messageType === "Activate");
     expect(activateHandler).toBeDefined();
-    expect(activateHandler?.assignments.some((a) => a.field === "active" && a.value === true)).toBe(
+    // Field names are prefixed with signal name for TLA+ verification
+    expect(activateHandler?.assignments.some((a) => a.field === "state_active" && a.value === true)).toBe(
       true
     );
   });

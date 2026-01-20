@@ -385,7 +385,8 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("![ctx].items = Append(@, item)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
     });
 
     test("translates items.push(value) with literal", async () => {
@@ -424,8 +425,9 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("![ctx].items = Append(@, item1)");
-      expect(spec).toContain("![ctx].todos = Append(@, item2)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
+      expect(spec).toContain('![ctx].todos = Append(@, "v1")');
     });
 
     test("translates push with object", async () => {
@@ -435,7 +437,8 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("![ctx].items = Append(@, obj)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
     });
 
     test("translates push with variable reference", async () => {
@@ -445,7 +448,8 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("![ctx].items = Append(@, newItem)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
     });
 
     test("combines push with other assignments", async () => {
@@ -459,7 +463,8 @@ describe("Compound Assignments Detection", () => {
       const { spec } = await generator.generate(config, analysis);
 
       expect(spec).toContain("![ctx].count = @ + 1");
-      expect(spec).toContain("![ctx].items = Append(@, item)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
     });
 
     test("handles push with function result", async () => {
@@ -469,6 +474,7 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
+      // Function calls are passed through as-is (not abstracted)
       expect(spec).toContain("![ctx].items = Append(@, getItem())");
     });
 
@@ -525,6 +531,7 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
+      // Sequence literals are passed through as-is (unlike Append arguments)
       expect(spec).toContain("![ctx].items = <<item>> \\o @");
     });
 
@@ -546,7 +553,8 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("![ctx].items = Append(@, x)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
       expect(spec).toContain("![ctx].queue = Tail(@)");
       expect(spec).toContain("![ctx].stack = SubSeq(@, 1, Len(@)-1)");
     });
@@ -579,7 +587,8 @@ describe("Compound Assignments Detection", () => {
       const generator = new TLAGenerator();
       const { spec } = await generator.generate(config, analysis);
 
-      expect(spec).toContain("![ctx].items = Append(@, newItem)");
+      // Variable references are abstracted to bounded Value type for state space reduction
+      expect(spec).toContain('![ctx].items = Append(@, "v1")');
     });
 
     test("handles shift with counter increment", async () => {

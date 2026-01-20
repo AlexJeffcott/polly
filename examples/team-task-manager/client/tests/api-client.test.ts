@@ -139,8 +139,13 @@ describe("API Client", () => {
 
 describe("WebSocket Connection", () => {
   test("constructs WebSocket with correct URL", () => {
-    // Mock WebSocket
+    // Mock WebSocket with static properties
     const mockWS = class {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
       constructor(public url: string) {}
       send() {}
       close() {}
@@ -160,6 +165,11 @@ describe("WebSocket Connection", () => {
 
   test("can connect to WebSocket without errors", () => {
     const mockWS = class {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
       onopen: (() => void) | null = null;
       onmessage: ((evt: any) => void) | null = null;
       onerror: ((evt: any) => void) | null = null;

@@ -289,6 +289,17 @@ function getWorkers(config: UnifiedVerificationConfig): number {
   return config.verification?.workers ?? 1;
 }
 
+/**
+ * Get maxDepth from config for bounded model checking (Tier 2)
+ */
+function getMaxDepth(config: UnifiedVerificationConfig): number | undefined {
+  // maxDepth is only available in legacy config format with tier2 settings
+  if ("tier2" in config && config.tier2?.boundedExploration?.maxDepth) {
+    return config.tier2.boundedExploration.maxDepth;
+  }
+  return undefined;
+}
+
 async function runFullVerification(configPath: string) {
   // Load config
   const config = await loadVerificationConfig(configPath);
@@ -309,9 +320,10 @@ async function runFullVerification(configPath: string) {
   // Setup and run Docker
   const docker = await setupDocker();
 
-  // Determine timeout and workers from config
+  // Determine timeout, workers, and maxDepth from config
   const timeoutSeconds = getTimeout(config);
   const workers = getWorkers(config);
+  const maxDepth = getMaxDepth(config);
 
   // Run TLC
   console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
@@ -325,11 +337,15 @@ async function runFullVerification(configPath: string) {
         : `${timeoutSeconds} seconds`;
     console.log(color(`   Timeout: ${timeoutLabel}`, COLORS.gray));
   }
+  if (maxDepth !== undefined) {
+    console.log(color(`   Max depth: ${maxDepth}`, COLORS.gray));
+  }
   console.log();
 
   const result = await docker.runTLC(specPath, {
     workers,
     timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
+    maxDepth,
   });
 
   // Display results
