@@ -1,4 +1,4 @@
-import { describe, expect, mock, spyOn, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import * as fs from "node:fs";
 import { DockerRunner } from "../../runner/docker";
 
@@ -20,7 +20,9 @@ describe("DockerRunner", () => {
 
       // Mock fs.existsSync to return true for spec and cfg files
       const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {});
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
 
       try {
         await docker.runTLC("/path/to/spec.tla", {
@@ -57,7 +59,9 @@ describe("DockerRunner", () => {
       );
 
       const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {});
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
 
       try {
         await docker.runTLC("/path/to/spec.tla", {
@@ -86,7 +90,9 @@ describe("DockerRunner", () => {
       );
 
       const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {});
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
 
       try {
         await docker.runTLC("/path/to/spec.tla", {
@@ -116,7 +122,9 @@ describe("DockerRunner", () => {
       );
 
       const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {});
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
 
       try {
         await docker.runTLC("/path/to/spec.tla", {

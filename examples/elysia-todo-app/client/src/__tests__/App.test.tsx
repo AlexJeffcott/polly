@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 
 // These tests require @fairfox/polly to be properly linked via workspace
 // When running from the root polly project, the workspace linking may not work

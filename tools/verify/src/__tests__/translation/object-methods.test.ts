@@ -404,7 +404,9 @@ describe("Object/Array Method Translation", () => {
       const { spec } = await generator.generate(baseConfig, baseAnalysis);
 
       // Variable references get mapped through state mapper
-      expect(spec).toContain("CHOOSE i \\in contextStates[ctx].items : i.id = payload.contextStates[ctx].targetId");
+      expect(spec).toContain(
+        "CHOOSE i \\in contextStates[ctx].items : i.id = payload.contextStates[ctx].targetId"
+      );
     });
   });
 

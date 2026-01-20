@@ -544,7 +544,9 @@ describe("Array Operations Translation", () => {
       const { spec } = await generator.generate(config, analysis);
 
       // Variable references are mapped to payload fields
-      expect(spec).toContain("\\A item \\in contextStates[ctx].items : item.status = payload.active");
+      expect(spec).toContain(
+        "\\A item \\in contextStates[ctx].items : item.status = payload.active"
+      );
     });
 
     test("translates array.every with property", async () => {
@@ -692,7 +694,9 @@ describe("Array Operations Translation", () => {
       const { spec } = await generator.generate(config, analysis);
 
       // Variable 'id' is mapped to contextStates[ctx].id (state field reference)
-      expect(spec).toContain("CHOOSE x \\in contextStates[ctx].items : x.id = contextStates[ctx].id");
+      expect(spec).toContain(
+        "CHOOSE x \\in contextStates[ctx].items : x.id = contextStates[ctx].id"
+      );
     });
 
     test("translates array.find in comparison", async () => {

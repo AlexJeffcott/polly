@@ -462,15 +462,13 @@ export class TLAGenerator {
       for (let i = 0; i < this.tabCount; i++) {
         lines.push(`  Tab${i} = Tab${i}`);
       }
+    } else if ("maxTabs" in messages && messages.maxTabs !== undefined) {
+      // Standard integer-based tabs with explicit maxTabs
+      lines.push(`  MaxTabId = ${messages.maxTabs}`);
+    } else if (hasProjectConstant) {
+      lines.push("  MaxTabId = 0");
     } else {
-      // Standard integer-based tabs
-      if ("maxTabs" in messages && messages.maxTabs !== undefined) {
-        lines.push(`  MaxTabId = ${messages.maxTabs}`);
-      } else if (hasProjectConstant) {
-        lines.push("  MaxTabId = 0");
-      } else {
-        lines.push("  MaxTabId = 1");
-      }
+      lines.push("  MaxTabId = 1");
     }
 
     lines.push("  TimeoutLimit = 3");

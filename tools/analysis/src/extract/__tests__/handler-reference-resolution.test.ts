@@ -435,7 +435,9 @@ bus.on("connect", async () => {
 
     // Should extract authenticated field from object spread
     // Field names are prefixed with signal name for TLA+ verification
-    const authAssignment = authHandler?.assignments.find((a) => a.field === "connectionState_authenticated");
+    const authAssignment = authHandler?.assignments.find(
+      (a) => a.field === "connectionState_authenticated"
+    );
     expect(authAssignment).toBeDefined();
     expect(authAssignment?.value).toBe(true);
   });
