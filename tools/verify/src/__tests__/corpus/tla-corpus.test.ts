@@ -320,7 +320,7 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
   test("handles all supported project types", async () => {
     const projectTypes = [
       { messages: { maxInFlight: 3, maxClients: 2 }, expectedConstant: "MaxClients" },
-      { messages: { maxInFlight: 3, maxTabs: 1 }, expectedConstant: "MaxTabId" },
+      { messages: { maxInFlight: 3, maxTabs: 1 }, expectedConstant: "Tabs" },
       { messages: { maxInFlight: 3, maxContexts: 3 }, expectedConstant: "MaxContexts" },
       { messages: { maxInFlight: 3, maxRenderers: 2 }, expectedConstant: "MaxRenderers" },
       {

@@ -456,19 +456,23 @@ export class TLAGenerator {
       hasProjectConstant = true;
     }
 
-    // Handle tab constants - either model values for symmetry or MaxTabId integer
+    // Handle tab constants - either model values for symmetry or integer set
     if (this.tabSymmetryEnabled) {
       // Tab symmetry: use model value assignments
       for (let i = 0; i < this.tabCount; i++) {
         lines.push(`  Tab${i} = Tab${i}`);
       }
+      // Define Tabs as the set of model values
+      const tabValues = Array.from({ length: this.tabCount }, (_, i) => `Tab${i}`).join(", ");
+      lines.push(`  Tabs = {${tabValues}}`);
     } else if ("maxTabs" in messages && messages.maxTabs !== undefined) {
       // Standard integer-based tabs with explicit maxTabs
-      lines.push(`  MaxTabId = ${messages.maxTabs}`);
+      const tabValues = Array.from({ length: messages.maxTabs + 1 }, (_, i) => i).join(", ");
+      lines.push(`  Tabs = {${tabValues}}`);
     } else if (hasProjectConstant) {
-      lines.push("  MaxTabId = 0");
+      lines.push("  Tabs = {0}");
     } else {
-      lines.push("  MaxTabId = 1");
+      lines.push("  Tabs = {0, 1}");
     }
 
     lines.push("  TimeoutLimit = 3");
@@ -585,7 +589,7 @@ export class TLAGenerator {
   }
 
   private addConstants(config: VerificationConfig): void {
-    // MessageRouter already defines: Contexts, MaxMessages, MaxTabId, TimeoutLimit
+    // MessageRouter already defines: Contexts, MaxMessages, Tabs, TimeoutLimit
     // We add application-specific constants and per-message bounds constants
     // NULL is always needed for null/undefined value representation
 
@@ -2440,10 +2444,9 @@ export class TLAGenerator {
         "\\/ \\E c \\in Contexts : DisconnectPort(c) /\\ UNCHANGED <<contextStates, payload>>"
       );
 
-      // Use Tabs set when tab symmetry is enabled, otherwise use 0..MaxTabId
-      const tabSet = this.tabSymmetryEnabled ? "Tabs" : "0..MaxTabId";
+      // Always use Tabs set (defined in config as integers or model values for symmetry)
       this.line(
-        `\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in ${tabSet} : \\E msgType \\in UserMessageTypes :`
+        "\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in Tabs : \\E msgType \\in UserMessageTypes :"
       );
       this.indent++;
       this.line(

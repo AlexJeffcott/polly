@@ -79,7 +79,7 @@ describe("TLA+ Spec Generation", () => {
     expect(tla.cfg).toMatch(/MaxClients\s*=\s*5/);
   });
 
-  test("Chrome extension spec declares MaxTabId constant", async () => {
+  test("Chrome extension spec declares Tabs constant", async () => {
     const projectPath = path.join(fixturesDir, "websocket-server");
     const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
@@ -96,9 +96,9 @@ describe("TLA+ Spec Generation", () => {
 
     const tla = await generateTLA(config, analysis);
 
-    // Should declare MaxTabId constant in .cfg file
-    expect(tla.cfg).toContain("MaxTabId");
-    expect(tla.cfg).toMatch(/MaxTabId\s*=\s*2/);
+    // Should declare Tabs constant in .cfg file as integer set {0, 1, 2}
+    expect(tla.cfg).toContain("Tabs");
+    expect(tla.cfg).toMatch(/Tabs\s*=\s*\{0,\s*1,\s*2\}/);
   });
 
   test("Generated spec includes all message types", async () => {
@@ -210,8 +210,8 @@ describe("TLA+ Spec Generation", () => {
     expect(tla.cfg).toContain("MaxContexts");
     expect(tla.cfg).toMatch(/MaxContexts\s*=\s*4/);
 
-    // MaxTabId is present (required by MessageRouter.tla) but set to 0 (unused)
-    expect(tla.cfg).toContain("MaxTabId = 0");
+    // Tabs is present (required by MessageRouter.tla) but set to single element (unused)
+    expect(tla.cfg).toContain("Tabs = {0}");
 
     // Should NOT have WebSocket-specific constants
     expect(tla.cfg).not.toContain("MaxClients");
@@ -779,6 +779,9 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.cfg).toContain("Tab1 = Tab1");
       expect(tla.cfg).toContain("Tab2 = Tab2");
 
+      // Config should have Tabs defined as set of model values
+      expect(tla.cfg).toMatch(/Tabs\s*=\s*\{Tab0,\s*Tab1,\s*Tab2\}/);
+
       // Config should NOT have MaxTabId when tabSymmetry is enabled
       expect(tla.cfg).not.toContain("MaxTabId");
     });
@@ -897,7 +900,7 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.cfg).toContain("SYMMETRY TabSymmetry");
     });
 
-    test("disabled by default (uses integer MaxTabId)", async () => {
+    test("disabled by default (uses integer Tabs set)", async () => {
       const projectPath = path.join(fixturesDir, "websocket-server");
       const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
@@ -918,10 +921,10 @@ describe("TLA+ Spec Generation", () => {
 
       const tla = await generateTLA(config, analysis);
 
-      // Should use MaxTabId integer approach
-      expect(tla.cfg).toContain("MaxTabId = 2");
+      // Should use Tabs integer set approach
+      expect(tla.cfg).toMatch(/Tabs\s*=\s*\{0,\s*1,\s*2\}/);
 
-      // Should NOT have Tab model values
+      // Should NOT have Tab model values or symmetry definitions
       expect(tla.spec).not.toContain("Tabs ==");
       expect(tla.spec).not.toContain("TabSymmetry ==");
       expect(tla.cfg).not.toContain("Tab0 = Tab0");

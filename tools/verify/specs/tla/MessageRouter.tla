@@ -19,7 +19,7 @@ EXTENDS Integers, Sequences, FiniteSets, TLC
 CONSTANTS
     Contexts,           \* Set of all contexts: {"background", "content", "popup", ...}
     MaxMessages,        \* Bound on number of messages (for model checking)
-    MaxTabId,           \* Maximum tab ID
+    Tabs,               \* Set of tab identifiers (integers or model values for symmetry)
     TimeoutLimit        \* Message timeout threshold
 
 VARIABLES
@@ -156,7 +156,7 @@ TimeoutMessage(msgIndex) ==
 Next ==
     \/ \E c \in Contexts : ConnectPort(c)
     \/ \E c \in Contexts : DisconnectPort(c)
-    \/ \E src \in Contexts : \E targetSet \in (SUBSET Contexts \ {{}}) : \E tab \in 0..MaxTabId : \E msgType \in {"msg1", "msg2"} : SendMessage(src, targetSet, tab, msgType)
+    \/ \E src \in Contexts : \E targetSet \in (SUBSET Contexts \ {{}}) : \E tab \in Tabs : \E msgType \in {"msg1", "msg2"} : SendMessage(src, targetSet, tab, msgType)
     \/ \E i \in 1..Len(messages) : RouteMessage(i)
     \/ CompleteRouting
     \/ \E i \in 1..Len(messages) : TimeoutMessage(i)

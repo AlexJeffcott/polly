@@ -216,8 +216,8 @@ describe("Property-Based Testing: TLA+ Generation", () => {
           expect(result.cfg).toContain("MaxClients");
         }
 
-        // MaxTabId should always be present
-        expect(result.cfg).toMatch(/MaxTabId\s*=\s*\d+/);
+        // Tabs should always be present (as integer set or model values)
+        expect(result.cfg).toMatch(/Tabs\s*=\s*\{/);
       }),
       { numRuns: 50, timeout: 30000 }
     );
