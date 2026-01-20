@@ -76,6 +76,7 @@ export type MessageConfig = {
   include?: string[]; // Only verify these message types
   exclude?: string[]; // Exclude these message types (mutually exclusive with include)
   symmetry?: string[][]; // Groups of symmetric message types [[type1, type2], [type3, type4]]
+  tabSymmetry?: boolean; // Enable tab symmetry reduction using model values
   perMessageBounds?: Record<string, number>; // Different maxInFlight per message type
 };
 

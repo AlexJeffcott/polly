@@ -50,6 +50,9 @@ export class TLAGenerator {
   private symmetrySets: string[] = [];
   // Map from messageType to resolved unique action name (handles collisions)
   private resolvedActionNames: Map<string, string> = new Map();
+  // Tab symmetry state
+  private tabSymmetryEnabled: boolean = false;
+  private tabCount: number = 0;
 
   /**
    * Create TLA+ generator with optional validators and property generators
@@ -360,6 +363,7 @@ export class TLAGenerator {
     this.addExtends();
     this.addConstants(config);
     this.addMessageTypes(config, analysis);
+    this.addTabSymmetry(config);
     this.addStateType(config, analysis);
     this.addVariables();
 
@@ -452,13 +456,21 @@ export class TLAGenerator {
       hasProjectConstant = true;
     }
 
-    // Handle MaxTabId
-    if ("maxTabs" in messages && messages.maxTabs !== undefined) {
-      lines.push(`  MaxTabId = ${messages.maxTabs}`);
-    } else if (hasProjectConstant) {
-      lines.push("  MaxTabId = 0");
+    // Handle tab constants - either model values for symmetry or MaxTabId integer
+    if (this.tabSymmetryEnabled) {
+      // Tab symmetry: use model value assignments
+      for (let i = 0; i < this.tabCount; i++) {
+        lines.push(`  Tab${i} = Tab${i}`);
+      }
     } else {
-      lines.push("  MaxTabId = 1");
+      // Standard integer-based tabs
+      if ("maxTabs" in messages && messages.maxTabs !== undefined) {
+        lines.push(`  MaxTabId = ${messages.maxTabs}`);
+      } else if (hasProjectConstant) {
+        lines.push("  MaxTabId = 0");
+      } else {
+        lines.push("  MaxTabId = 1");
+      }
     }
 
     lines.push("  TimeoutLimit = 3");
@@ -996,6 +1008,72 @@ export class TLAGenerator {
     this.symmetrySets = ["Symmetry"];
 
     this.line("");
+  }
+
+  /**
+   * Add tab symmetry definitions for Tier 1 optimization
+   *
+   * When tabSymmetry is enabled, tabs are represented as model values instead of integers.
+   * This enables TLC's symmetry optimization to reduce state space significantly.
+   *
+   * Generates:
+   *   CONSTANTS Tab0, Tab1, ... (in spec)
+   *   Tabs == {Tab0, Tab1, ...}
+   *   TabSymmetry == Permutations(Tabs)
+   *
+   * If combined with message symmetry, also generates:
+   *   AllSymmetry == Symmetry \cup TabSymmetry
+   */
+  private addTabSymmetry(config: VerificationConfig): void {
+    if (!config.messages.tabSymmetry) {
+      return;
+    }
+
+    const maxTabs = config.messages.maxTabs ?? 1;
+    this.tabCount = maxTabs + 1; // 0..maxTabs = maxTabs+1 values
+    this.tabSymmetryEnabled = true;
+
+    this.line("\\* Tab symmetry constants for state space reduction (Tier 1 optimization)");
+    this.line("CONSTANTS");
+    this.indent++;
+
+    // Generate Tab0, Tab1, ..., TabN constants
+    const tabConstants: string[] = [];
+    for (let i = 0; i <= maxTabs; i++) {
+      tabConstants.push(`Tab${i}`);
+    }
+    this.line(tabConstants.join(", "));
+    this.indent--;
+    this.line("");
+
+    // Generate Tabs set
+    this.line(`Tabs == {${tabConstants.join(", ")}}`);
+    this.line("");
+
+    // Generate TabSymmetry permutations
+    this.line("TabSymmetry == Permutations(Tabs)");
+    this.line("");
+
+    // Check if we need to combine with message symmetry
+    const hasMessageSymmetry = this.symmetrySets.length > 0 && this.symmetrySets[0] === "Symmetry";
+
+    if (hasMessageSymmetry) {
+      // Combine both symmetries using union
+      this.line("\\* Combined symmetry: message types and tabs");
+      this.line("AllSymmetry == Symmetry \\cup TabSymmetry");
+      this.line("");
+      // Update symmetrySets to use the combined set
+      this.symmetrySets = ["AllSymmetry"];
+      console.log(
+        `[INFO] [TLAGenerator] Combined symmetry: message symmetry + ${this.tabCount} tabs as model values`
+      );
+    } else {
+      // Tab symmetry only
+      this.symmetrySets = ["TabSymmetry"];
+      console.log(
+        `[INFO] [TLAGenerator] Tab symmetry enabled: ${this.tabCount} tabs as model values`
+      );
+    }
   }
 
   private addVariables(): void {
@@ -2363,8 +2441,11 @@ export class TLAGenerator {
       this.line(
         "\\/ \\E c \\in Contexts : DisconnectPort(c) /\\ UNCHANGED <<contextStates, payload>>"
       );
+
+      // Use Tabs set when tab symmetry is enabled, otherwise use 0..MaxTabId
+      const tabSet = this.tabSymmetryEnabled ? "Tabs" : "0..MaxTabId";
       this.line(
-        "\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in 0..MaxTabId : \\E msgType \\in UserMessageTypes :"
+        `\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in ${tabSet} : \\E msgType \\in UserMessageTypes :`
       );
       this.indent++;
       this.line(

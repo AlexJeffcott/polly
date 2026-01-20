@@ -740,4 +740,222 @@ describe("TLA+ Spec Generation", () => {
       expect(totalConnectedHandlers).toBe(2);
     });
   });
+
+  // Issue #29: Tab symmetry reduction
+  describe("Tab symmetry reduction (Issue #29)", () => {
+    test("generates model value constants when tabSymmetry enabled", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 2,
+          tabSymmetry: true,
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should have Tab0, Tab1, Tab2 constants in spec
+      expect(tla.spec).toContain("CONSTANTS");
+      expect(tla.spec).toMatch(/Tab0,\s*Tab1,\s*Tab2/);
+
+      // Should have Tabs set definition
+      expect(tla.spec).toContain("Tabs == {Tab0, Tab1, Tab2}");
+
+      // Should have TabSymmetry permutations
+      expect(tla.spec).toContain("TabSymmetry == Permutations(Tabs)");
+
+      // Config should have model value assignments
+      expect(tla.cfg).toContain("Tab0 = Tab0");
+      expect(tla.cfg).toContain("Tab1 = Tab1");
+      expect(tla.cfg).toContain("Tab2 = Tab2");
+
+      // Config should NOT have MaxTabId when tabSymmetry is enabled
+      expect(tla.cfg).not.toContain("MaxTabId");
+    });
+
+    test("uses Tabs set instead of 0..MaxTabId in UserNext", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add a handler to trigger the full UserNext generation
+      analysis.handlers = [
+        {
+          messageType: "test",
+          node: "background",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+          location: { file: "test.ts", line: 1 },
+          origin: "event" as const,
+        },
+      ];
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 2,
+          tabSymmetry: true,
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should use "tab \\in Tabs" instead of "tab \\in 0..MaxTabId"
+      expect(tla.spec).toContain("\\E tab \\in Tabs :");
+      expect(tla.spec).not.toContain("\\E tab \\in 0..MaxTabId");
+    });
+
+    test("combines with message symmetry correctly (AllSymmetry)", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      // Add symmetric message types
+      analysis.messageTypes = ["subscribe", "unsubscribe"];
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 2,
+          tabSymmetry: true,
+          symmetry: [["subscribe", "unsubscribe"]],
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should have message symmetry
+      expect(tla.spec).toContain("Symmetry == Permutations(SymmetrySet1)");
+
+      // Should have tab symmetry
+      expect(tla.spec).toContain("TabSymmetry == Permutations(Tabs)");
+
+      // Should have combined symmetry
+      expect(tla.spec).toContain("AllSymmetry == Symmetry \\cup TabSymmetry");
+
+      // Config should use AllSymmetry
+      expect(tla.cfg).toContain("SYMMETRY AllSymmetry");
+
+      // Should have exactly ONE SYMMETRY declaration
+      const symmetryMatches = tla.cfg.match(/^SYMMETRY\s+/gm);
+      expect(symmetryMatches).toBeTruthy();
+      expect(symmetryMatches?.length).toBe(1);
+    });
+
+    test("tab symmetry only generates TabSymmetry (no AllSymmetry)", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 2,
+          tabSymmetry: true,
+          // No message symmetry
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should have TabSymmetry
+      expect(tla.spec).toContain("TabSymmetry == Permutations(Tabs)");
+
+      // Should NOT have combined AllSymmetry (no message symmetry)
+      expect(tla.spec).not.toContain("AllSymmetry");
+
+      // Config should use TabSymmetry directly
+      expect(tla.cfg).toContain("SYMMETRY TabSymmetry");
+    });
+
+    test("disabled by default (uses integer MaxTabId)", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          maxTabs: 2,
+          // tabSymmetry not set (defaults to false)
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should use MaxTabId integer approach
+      expect(tla.cfg).toContain("MaxTabId = 2");
+
+      // Should NOT have Tab model values
+      expect(tla.spec).not.toContain("Tabs ==");
+      expect(tla.spec).not.toContain("TabSymmetry ==");
+      expect(tla.cfg).not.toContain("Tab0 = Tab0");
+    });
+
+    test("defaults to 1 tab when maxTabs not specified", async () => {
+      const projectPath = path.join(fixturesDir, "websocket-server");
+      const tsConfigPath = path.join(projectPath, "tsconfig.json");
+
+      const analysis = await analyzeCodebase({
+        tsConfigPath,
+      });
+
+      const config = {
+        state: {},
+        messages: {
+          maxInFlight: 3,
+          tabSymmetry: true,
+          // maxTabs not specified, should default to 1
+        },
+        onBuild: "warn" as const,
+        onRelease: "error" as const,
+      };
+
+      const tla = await generateTLA(config, analysis);
+
+      // Should have Tab0, Tab1 (0..1 = 2 values)
+      expect(tla.spec).toMatch(/Tab0,\s*Tab1\b/);
+      expect(tla.spec).toContain("Tabs == {Tab0, Tab1}");
+
+      // Config should have 2 tab constants
+      expect(tla.cfg).toContain("Tab0 = Tab0");
+      expect(tla.cfg).toContain("Tab1 = Tab1");
+      expect(tla.cfg).not.toContain("Tab2");
+    });
+  });
 });

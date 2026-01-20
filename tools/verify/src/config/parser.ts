@@ -404,6 +404,29 @@ export class ConfigValidator {
         }
       }
     }
+
+    // Validate tabSymmetry
+    if (messages.tabSymmetry !== undefined) {
+      if (typeof messages.tabSymmetry !== "boolean") {
+        this.issues.push({
+          type: "invalid_value",
+          severity: "error",
+          field: "messages.tabSymmetry",
+          message: "tabSymmetry must be a boolean",
+          suggestion: "Use true or false",
+        });
+      }
+
+      if (messages.tabSymmetry && (messages.maxTabs === undefined || messages.maxTabs === null)) {
+        this.issues.push({
+          type: "invalid_value",
+          severity: "warning",
+          field: "messages.tabSymmetry",
+          message: "tabSymmetry enabled but maxTabs not set",
+          suggestion: "Set maxTabs to define the number of tabs for symmetry reduction",
+        });
+      }
+    }
   }
 
   private validateVerificationOptions(
