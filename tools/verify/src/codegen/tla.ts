@@ -1048,9 +1048,7 @@ export class TLAGenerator {
     this.indent--;
     this.line("");
 
-    // Generate Tabs set
-    this.line(`Tabs == {${tabConstants.join(", ")}}`);
-    this.line("");
+    // Note: Tabs is a CONSTANT in MessageRouter.tla, assigned via config file as {Tab0, Tab1, ...}
 
     // Generate TabSymmetry permutations
     this.line("TabSymmetry == Permutations(Tabs)");

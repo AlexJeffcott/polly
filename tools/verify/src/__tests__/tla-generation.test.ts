@@ -768,8 +768,8 @@ describe("TLA+ Spec Generation", () => {
       expect(tla.spec).toContain("CONSTANTS");
       expect(tla.spec).toMatch(/Tab0,\s*Tab1,\s*Tab2/);
 
-      // Should have Tabs set definition
-      expect(tla.spec).toContain("Tabs == {Tab0, Tab1, Tab2}");
+      // Tabs is a CONSTANT in MessageRouter.tla, assigned via config (not defined in spec)
+      expect(tla.spec).not.toContain("Tabs ==");
 
       // Should have TabSymmetry permutations
       expect(tla.spec).toContain("TabSymmetry == Permutations(Tabs)");
@@ -953,7 +953,8 @@ describe("TLA+ Spec Generation", () => {
 
       // Should have Tab0, Tab1 (0..1 = 2 values)
       expect(tla.spec).toMatch(/Tab0,\s*Tab1\b/);
-      expect(tla.spec).toContain("Tabs == {Tab0, Tab1}");
+      // Tabs is assigned in config, not defined in spec
+      expect(tla.cfg).toMatch(/Tabs\s*=\s*\{Tab0,\s*Tab1\}/);
 
       // Config should have 2 tab constants
       expect(tla.cfg).toContain("Tab0 = Tab0");

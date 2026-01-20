@@ -423,6 +423,8 @@ With current bounds (`verify.config.ts`):
 - Users: 4 (guest + 3 users)
 - Todos: Up to 100
 - Messages: Up to 3 in flight
-- Tabs: 1
+- Tabs: 3 (with symmetry reduction)
+
+**Tab Symmetry Optimization:** The config enables `tabSymmetry: true` which represents tabs as model values (`Tab0`, `Tab1`, `Tab2`) instead of integers. TLC's symmetry reduction treats permutations of tabs as equivalent, significantly reducing the state space.
 
 TLC explores ~millions of states in seconds!

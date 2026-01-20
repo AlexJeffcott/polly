@@ -16,7 +16,8 @@ export const verificationConfig: VerificationConfig = {
 
   messages: {
     maxInFlight: 3, // Test with up to 3 concurrent messages
-    maxTabs: 1, // Single tab for simplicity
+    maxTabs: 2, // Multiple tabs
+    tabSymmetry: true, // Enable symmetry reduction for state space optimization
   },
 
   onBuild: "warn",
