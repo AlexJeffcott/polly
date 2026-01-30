@@ -1,8 +1,8 @@
 # @fairfox/polly
 
-**Multi-execution-context framework with reactive state and cross-context messaging.**
+**Runtime-agnostic framework for reactive state and cross-context messaging.**
 
-Build Chrome extensions, PWAs, and worker-based applications with automatic state synchronization, reactive UI updates, and type-safe messaging.
+Build applications that run anywhere — Chrome extensions, PWAs, CLI tools, server processes, or edge workers — with automatic state synchronization, reactive updates, and type-safe messaging. The core has zero browser dependencies; all platform APIs are abstracted behind adapters.
 
 ## Why Polly?
 
@@ -24,10 +24,78 @@ Managing state and communication between these contexts is painful:
 
 - ✅ **Reactive state** - UI updates automatically with Preact Signals
 - ✅ **Auto-syncing** - State syncs across all contexts instantly with conflict resolution
-- ✅ **Persistence** - Optional automatic persistence to chrome.storage or localStorage
+- ✅ **Persistence** - Optional automatic persistence to chrome.storage, IndexedDB, or custom storage
 - ✅ **Type-safe messaging** - Request/response pattern with full TypeScript support
-- ✅ **Built for testing** - DOM-based E2E tests without mocking
+- ✅ **Built for testing** - Full mock adapters, no browser required
 - ✅ **Distributed consistency** - Lamport clocks prevent race conditions
+- ✅ **Runtime-agnostic** - Core has zero browser dependencies, runs anywhere
+
+## Architecture: Adapters All the Way Down
+
+Polly's core is completely decoupled from platform APIs through an adapter pattern:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Application Core                          │
+│              (State + Handlers + Business Logic)             │
+│                                                              │
+│   - Zero browser dependencies                                │
+│   - Same code runs everywhere                                │
+│   - Fully testable without mocking platform APIs             │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                    Adapter Interfaces
+                            │
+        ┌───────────────────┼───────────────────┐
+        ↓                   ↓                   ↓
+  ┌───────────┐      ┌───────────┐      ┌───────────┐
+  │  Browser  │      │ Extension │      │   Node    │
+  │           │      │           │      │ Bun/Deno  │
+  │ IndexedDB │      │  chrome.  │      │           │
+  │ Broadcast │      │  storage  │      │   File/   │
+  │  Channel  │      │  runtime  │      │  SQLite   │
+  └───────────┘      └───────────┘      └───────────┘
+```
+
+### Adapter Interfaces
+
+| Interface | Purpose | Implementations |
+|-----------|---------|-----------------|
+| `StorageAdapter` | Data persistence | `ChromeStorageAdapter`, `IndexedDBAdapter`, `MemoryStorageAdapter` |
+| `SyncAdapter` | Cross-context sync | `ChromeRuntimeSyncAdapter`, `BroadcastChannelSyncAdapter`, `NoOpSyncAdapter` |
+| `FetchAdapter` | HTTP requests | `BrowserFetchAdapter` (or native `fetch` in Node 18+/Bun/Deno) |
+| `RuntimeAdapter` | Extension messaging | `ChromeRuntimeAdapter` |
+
+### Running in Different Environments
+
+**Browser/PWA:**
+```typescript
+import { createWebAdapters } from '@fairfox/polly/adapters'
+const adapters = createWebAdapters() // Uses IndexedDB + BroadcastChannel
+```
+
+**Chrome Extension:**
+```typescript
+import { createChromeAdapters } from '@fairfox/polly/adapters'
+const adapters = createChromeAdapters() // Uses chrome.storage + chrome.runtime
+```
+
+**Node/Bun/Deno CLI:**
+```typescript
+import { createNodeAdapters } from '@fairfox/polly/adapters'
+const adapters = createNodeAdapters({
+  storage: new FileStorageAdapter('./data.json'), // or SQLite, Redis, etc.
+  sync: new NoOpSyncAdapter(), // or IPC, Redis pub/sub, etc.
+})
+```
+
+**Testing:**
+```typescript
+import { createMockAdapters } from '@fairfox/polly/test'
+const mocks = createMockAdapters() // In-memory, fully controllable
+```
+
+The adapter factory auto-detects your environment, so most of the time you don't need to configure anything.
 
 ## Installation
 
@@ -775,6 +843,81 @@ Check out the [examples](https://github.com/AlexJeffcott/polly/tree/main/package
 - **full-featured** - Complete example with all features
 - **todo-list** - Real-world CRUD application
 
+### Headless Core Pattern (CLI, Server, etc.)
+
+Polly excels at the "stores ARE the application" pattern — a headless core that can be rendered by any interface:
+
+```typescript
+// core/state.ts - Your application state (runs anywhere)
+import { $state, $syncedState } from '@fairfox/polly/state'
+
+export const todos = $syncedState('todos', [])
+export const filter = $state<'all' | 'active' | 'completed'>('all')
+
+// core/actions.ts - Your business logic (runs anywhere)
+export const addTodo = (text: string) => {
+  todos.value = [...todos.value, { id: Date.now(), text, completed: false }]
+}
+
+export const toggleTodo = (id: number) => {
+  todos.value = todos.value.map(t =>
+    t.id === id ? { ...t, completed: !t.completed } : t
+  )
+}
+
+export const filteredTodos = () => {
+  switch (filter.value) {
+    case 'active': return todos.value.filter(t => !t.completed)
+    case 'completed': return todos.value.filter(t => t.completed)
+    default: return todos.value
+  }
+}
+```
+
+```typescript
+// renderers/cli.ts - CLI renderer (Bun/Node)
+import { effect } from '@preact/signals'
+import { todos, addTodo, toggleTodo, filteredTodos } from '../core'
+
+// React to state changes
+effect(() => {
+  console.clear()
+  console.log('=== Todo List ===')
+  filteredTodos().forEach((t, i) => {
+    console.log(`${i + 1}. [${t.completed ? 'x' : ' '}] ${t.text}`)
+  })
+})
+
+// CLI commands
+process.stdin.on('data', (data) => {
+  const input = data.toString().trim()
+  if (input.startsWith('add ')) addTodo(input.slice(4))
+  if (input.startsWith('toggle ')) toggleTodo(Number(input.slice(7)))
+})
+```
+
+```typescript
+// renderers/web.tsx - Web renderer (Preact)
+import { render } from 'preact'
+import { todos, addTodo, toggleTodo, filteredTodos } from '../core'
+
+function App() {
+  return (
+    <ul>
+      {filteredTodos().map(t => (
+        <li key={t.id} onClick={() => toggleTodo(t.id)}>
+          {t.completed ? '✓' : '○'} {t.text}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+render(<App />, document.getElementById('root')!)
+```
+
+Same state, same logic, different renderers. The core is fully testable without any DOM or browser APIs.
+
 ## API Reference
 
 ### State
@@ -871,9 +1014,17 @@ Built on [Preact Signals](https://preactjs.com/guide/v10/signals/):
 
 ## Requirements
 
-- **Bun** 1.3+ (for building)
+**For building:**
+- **Bun** 1.3+ or **Node** 18+
 - **TypeScript** 5.0+ (recommended)
-- **Chrome** 88+ (for Chrome extensions)
+
+**Runtime environments:**
+- **Browser**: Chrome 88+, Firefox 89+, Safari 15+, Edge 88+
+- **Chrome extensions**: Manifest V3
+- **Node.js**: 18+ (for native `fetch`)
+- **Bun**: 1.0+
+- **Deno**: 1.28+
+- **Edge workers**: Cloudflare Workers, Vercel Edge, etc.
 
 ## License
 
