@@ -101,6 +101,7 @@ export type MessageTypeDefinition = {
 export type FieldConfig =
   | { maxLength: number | null }
   | { min: number | null; max: number | null }
+  | { type: "number"; min?: number; max?: number }
   | { type: "enum"; values: string[] }
   | { values: string[] | null; abstract?: boolean }
   | { maxSize: number | null; valueType?: unknown }
@@ -257,6 +258,9 @@ export type MessageHandler = {
 
   /** Origin of this handler - used to prevent naming collisions in TLA+ generation */
   origin?: "event" | "stateHandler";
+
+  /** Parameter names of the handler function (for payload tracing) */
+  parameters?: string[];
 };
 
 // ─────────────────────────────────────────────────────────────────

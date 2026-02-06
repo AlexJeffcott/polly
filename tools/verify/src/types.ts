@@ -57,6 +57,7 @@ export type FieldConfig =
   | { type: "boolean" }
   | { type: "array"; maxLength?: number | null; initial?: unknown[] }
   | { type: "string"; initial?: string }
+  | { type: "number"; min?: number; max?: number }
   | { maxLength: number | null }
   | { min: number | null; max: number | null }
   | { type: "enum"; values: string[] }

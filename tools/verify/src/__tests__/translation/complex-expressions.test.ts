@@ -1389,4 +1389,153 @@ describe("Complex Expression Translation", () => {
       expect(spec).not.toContain("todoState.value");
     });
   });
+
+  // ============================================================================
+  // NUMERIC TYPE (Issue #31)
+  // ============================================================================
+
+  describe("Numeric Type", () => {
+    test("{ type: 'number', min: 0, max: 10 } generates integer range in state type", async () => {
+      baseConfig.state = {
+        count: { type: "number", min: 0, max: 10 },
+      };
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("count: 0..10");
+    });
+
+    test("defaults to 0..100 when bounds omitted", async () => {
+      baseConfig.state = {
+        score: { type: "number" },
+      };
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("score: 0..100");
+    });
+
+    test("initial value uses min bound", async () => {
+      baseConfig.state = {
+        count: { type: "number", min: 5, max: 10 },
+      };
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("count |-> 5");
+    });
+
+    test("initial value defaults to 0 when min omitted", async () => {
+      baseConfig.state = {
+        count: { type: "number", max: 10 },
+      };
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("count |-> 0");
+    });
+
+    test("numeric comparison works with number-typed field", async () => {
+      baseConfig.state = {
+        count: { type: "number", min: 0, max: 10 },
+      };
+      baseAnalysis.handlers[0]!.preconditions = [
+        { expression: "state.count > 0", location: { line: 1, column: 1 } },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("contextStates[ctx].count > 0");
+    });
+  });
+
+  // ============================================================================
+  // PARAMETER REFERENCES (Issue #31)
+  // ============================================================================
+
+  describe("Parameter References", () => {
+    test("PayloadType includes handler parameter names", async () => {
+      baseAnalysis.handlers = [
+        {
+          messageType: "SET_STATUS",
+          assignments: [{ field: "status", value: "param:status" }],
+          preconditions: [],
+          postconditions: [],
+          parameters: ["status"],
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("status: Value");
+      expect(spec).toContain("PayloadType ==");
+    });
+
+    test("boolean parameter gets BOOLEAN type in PayloadType", async () => {
+      baseAnalysis.handlers = [
+        {
+          messageType: "SET_ONLINE",
+          assignments: [{ field: "active", value: "param:isOnline" }],
+          preconditions: [],
+          postconditions: [],
+          parameters: ["isOnline"],
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("isOnline: BOOLEAN");
+    });
+
+    test("param: assignment resolves to payload reference", async () => {
+      baseAnalysis.handlers = [
+        {
+          messageType: "SET_ONLINE",
+          assignments: [{ field: "active", value: "param:isOnline" }],
+          preconditions: [],
+          postconditions: [],
+          parameters: ["isOnline"],
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("payload.isOnline");
+    });
+
+    test("excluded params (state, msg) are not added to PayloadType", async () => {
+      baseAnalysis.handlers = [
+        {
+          messageType: "UPDATE",
+          assignments: [{ field: "count", value: true }],
+          preconditions: [],
+          postconditions: [],
+          parameters: ["state", "msg", "data"],
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("data: Value");
+      // Default fields should still be present
+      expect(spec).toContain("id: Value");
+    });
+
+    test("default payload fields preserved when no handler params", async () => {
+      baseAnalysis.handlers = [
+        {
+          messageType: "test",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+        },
+      ];
+
+      const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+      expect(spec).toContain("id: Value");
+      expect(spec).toContain("text: Value");
+      expect(spec).toContain("userId: Value");
+    });
+  });
 });

@@ -108,6 +108,7 @@ export class HandlerExtractor {
   private analyzedFiles: Set<string>; // Track files we've already analyzed
   private packageRoot: string; // Package directory (contains package.json)
   private warnings: ExtractionWarning[]; // Warnings for unsupported patterns
+  private currentFunctionParams: string[] = []; // Current handler's parameter names
 
   constructor(tsConfigPath: string) {
     this.project = new Project({
@@ -135,6 +136,15 @@ export class HandlerExtractor {
         suggestion,
       });
     }
+  }
+
+  /**
+   * Extract parameter names from a function
+   */
+  private extractParameterNames(
+    func: ArrowFunction | FunctionExpression | FunctionDeclaration
+  ): string[] {
+    return func.getParameters().map((p) => p.getName());
   }
 
   /**
@@ -547,7 +557,11 @@ export class HandlerExtractor {
       actualHandler = this.resolveFunctionReference(handlerArg);
     }
 
+    let parameters: string[] | undefined;
+
     if (actualHandler) {
+      this.currentFunctionParams = this.extractParameterNames(actualHandler);
+      parameters = this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
       this.extractAssignments(actualHandler, assignments);
       this.extractVerificationConditions(actualHandler, preconditions, postconditions);
 
@@ -555,6 +569,7 @@ export class HandlerExtractor {
       if (Node.isArrowFunction(actualHandler) || Node.isFunctionExpression(actualHandler)) {
         this.checkAsyncMutations(actualHandler, messageType);
       }
+      this.currentFunctionParams = [];
     }
 
     const line = callExpr.getStartLineNumber();
@@ -587,6 +602,7 @@ export class HandlerExtractor {
       },
       relationships,
       origin: "event" as const,
+      parameters,
     };
   }
 
@@ -1233,10 +1249,15 @@ export class HandlerExtractor {
     // Handle shorthand properties: { field }
     if (Node.isShorthandPropertyAssignment(prop)) {
       const name = prop.getName();
-      // For shorthand, we can't extract the value statically
-      // but we know the field is being set
       const field = signalName ? `${signalName}_${name}` : name;
-      assignments.push({ field, value: "@" }); // Use @ as placeholder
+      // If the identifier matches a function parameter, trace it to payload
+      if (this.currentFunctionParams.includes(name)) {
+        assignments.push({ field, value: `param:${name}` });
+      } else {
+        // For shorthand, we can't extract the value statically
+        // but we know the field is being set
+        assignments.push({ field, value: "@" }); // Use @ as placeholder
+      }
     }
   }
 
@@ -2815,8 +2836,12 @@ export class HandlerExtractor {
       if (!funcName) continue;
 
       // Check if function modifies any verified state
+      this.currentFunctionParams = this.extractParameterNames(func);
       const assignments = this.findStateMutationsInFunction(func, stateVarNames);
-      if (assignments.length === 0) continue;
+      if (assignments.length === 0) {
+        this.currentFunctionParams = [];
+        continue;
+      }
 
       // Extract requires/ensures
       const preconditions: VerificationCondition[] = [];
@@ -2825,6 +2850,9 @@ export class HandlerExtractor {
 
       // Generate message type from function name
       const messageType = this.functionNameToMessageType(funcName);
+
+      const parameters = this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
+      this.currentFunctionParams = [];
 
       if (process.env["POLLY_DEBUG"]) {
         console.log(
@@ -2844,6 +2872,7 @@ export class HandlerExtractor {
           line: func.getStartLineNumber(),
         },
         origin: "stateHandler" as const,
+        parameters,
       });
     }
 
@@ -2859,14 +2888,21 @@ export class HandlerExtractor {
         const funcName = decl.getName();
         if (!funcName) continue;
 
+        this.currentFunctionParams = this.extractParameterNames(initializer);
         const assignments = this.findStateMutationsInFunction(initializer, stateVarNames);
-        if (assignments.length === 0) continue;
+        if (assignments.length === 0) {
+          this.currentFunctionParams = [];
+          continue;
+        }
 
         const preconditions: VerificationCondition[] = [];
         const postconditions: VerificationCondition[] = [];
         this.extractVerificationConditions(initializer, preconditions, postconditions);
 
         const messageType = this.functionNameToMessageType(funcName);
+
+        const arrowParams = this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
+        this.currentFunctionParams = [];
 
         if (process.env["POLLY_DEBUG"]) {
           console.log(`[DEBUG] Found state-mutating arrow function: ${funcName} → ${messageType}`);
@@ -2883,6 +2919,7 @@ export class HandlerExtractor {
             line: decl.getStartLineNumber(),
           },
           origin: "stateHandler" as const,
+          parameters: arrowParams,
         });
       }
     }

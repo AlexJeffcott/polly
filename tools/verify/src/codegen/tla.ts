@@ -1107,11 +1107,14 @@ export class TLAGenerator {
     this.line("]");
     this.line("");
 
-    // Payload type definition - simplified to essential fields used by handlers
-    // Reducing fields from 6 to 3 cuts state space from 2^6=64 to 2^3=8
-    this.line("\\* Payload modeled with essential fields only (id, text, userId)");
-    this.line("\\* Other fields (name, role, filter) use same Value type at runtime");
-    this.line("PayloadType == [id: Value, text: Value, userId: Value]");
+    // Payload type definition - includes handler parameter names for tracing
+    const payloadFields = this.collectPayloadFields(_analysis);
+    const boolPattern = /^(is|has|should|can|will|did)[A-Z]/;
+    const payloadFieldDefs = payloadFields
+      .map((f) => `${this.sanitizeFieldName(f)}: ${boolPattern.test(f) ? "BOOLEAN" : "Value"}`)
+      .join(", ");
+    this.line(`\\* Payload modeled with fields: ${payloadFields.join(", ")}`);
+    this.line(`PayloadType == [${payloadFieldDefs}]`);
     this.line("");
 
     // Init extends MessageRouter's Init
@@ -1123,6 +1126,19 @@ export class TLAGenerator {
     this.line("/\\ payload \\in PayloadType  \\* Non-deterministic initial payload");
     this.indent--;
     this.line("");
+  }
+
+  private collectPayloadFields(analysis: CodebaseAnalysis): string[] {
+    const EXCLUDED = new Set(["state", "msg", "message", "event", "ctx", "context"]);
+    const fields = new Set(["id", "text", "userId"]); // keep defaults
+    for (const handler of analysis.handlers) {
+      if (handler.parameters) {
+        for (const param of handler.parameters) {
+          if (!EXCLUDED.has(param)) fields.add(param);
+        }
+      }
+    }
+    return Array.from(fields);
   }
 
   private collectInitialStateFields(
@@ -2310,6 +2326,11 @@ export class TLAGenerator {
       return "NULL"; // Will need to handle this based on type
     }
     if (typeof value === "string") {
+      // Handle parameter references from shorthand property assignments
+      if (value.startsWith("param:")) {
+        const paramName = value.substring(6);
+        return `payload.${this.sanitizeFieldName(paramName)}`;
+      }
       // Check if this is already a TLA+ expression (compound operator or array mutation)
       // These contain @ (current value reference) or TLA+ operators
       if (this.isTLAExpression(value)) {
@@ -2653,6 +2674,7 @@ export class TLAGenerator {
       this.tryBooleanType(fieldConfig) ||
       this.tryEnumType(fieldConfig) ||
       this.tryArrayType(fieldConfig) ||
+      this.tryExplicitNumberType(fieldConfig) ||
       this.tryNumberType(fieldConfig) ||
       this.tryStringType(fieldConfig) ||
       this.tryMapType(fieldConfig);
@@ -2710,6 +2732,18 @@ export class TLAGenerator {
   private tryArrayType(fieldConfig: FieldConfig): string | null {
     if ("maxLength" in fieldConfig) {
       return "Seq(Value)";
+    }
+    return null;
+  }
+
+  /**
+   * Try to match explicit number type: { type: "number", min?, max? }
+   */
+  private tryExplicitNumberType(fieldConfig: FieldConfig): string | null {
+    if ("type" in fieldConfig && fieldConfig.type === "number") {
+      const min = "min" in fieldConfig && fieldConfig.min != null ? fieldConfig.min : 0;
+      const max = "max" in fieldConfig && fieldConfig.max != null ? fieldConfig.max : 100;
+      return `${min}..${max}`;
     }
     return null;
   }
@@ -2938,6 +2972,10 @@ export class TLAGenerator {
       // Handle string type
       if (fieldConfig.type === "string") {
         return '""'; // Empty string
+      }
+      // Handle explicit number type
+      if (fieldConfig.type === "number") {
+        return String("min" in fieldConfig && fieldConfig.min != null ? fieldConfig.min : 0);
       }
     }
 
