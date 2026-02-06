@@ -2,6 +2,7 @@
 // Demonstrates Polly Verify for server-side apps via verified state discovery
 import { defineVerification } from "@fairfox/polly/verify";
 
+// biome-ignore lint/style/noDefaultExport: verification configs use default export by convention
 export default defineVerification({
   state: {
     // Auth state (discovered via { verify: true } on $sharedState in state.ts)

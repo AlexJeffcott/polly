@@ -1,7 +1,7 @@
 // Verified state-mutating functions wrapping existing task logic
 // Demonstrates requires/ensures, parameter tracing, and role constraints
-import type { Priority } from "../../shared/types";
 import { ensures, requires } from "@fairfox/polly/verify";
+import type { Priority } from "../../shared/types";
 import {
   canCompleteTask,
   canDeleteTask,
@@ -19,9 +19,9 @@ export function verifyCreateTask(text: string, priority: Priority, assignedTo: s
   if (priority === "urgent") {
     requires(
       urgentTaskCount.value < (workspace.value?.maxUrgentTasks ?? 0),
-      "Cannot exceed urgent task limit",
+      "Cannot exceed urgent task limit"
     );
-    urgentTaskCount.value = urgentTaskCount.value + 1;
+    urgentTaskCount.value += 1;
   }
 
   ensures(tasks.value !== null, "Tasks must exist after create");

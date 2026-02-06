@@ -515,6 +515,7 @@ export class HandlerExtractor {
   /**
    * Extract handler details from a .on() call expression
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: handler extraction requires branching logic
   private extractHandler(
     callExpr: CallExpression,
     context: string,
@@ -561,7 +562,8 @@ export class HandlerExtractor {
 
     if (actualHandler) {
       this.currentFunctionParams = this.extractParameterNames(actualHandler);
-      parameters = this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
+      parameters =
+        this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
       this.extractAssignments(actualHandler, assignments);
       this.extractVerificationConditions(actualHandler, preconditions, postconditions);
 
@@ -2851,7 +2853,8 @@ export class HandlerExtractor {
       // Generate message type from function name
       const messageType = this.functionNameToMessageType(funcName);
 
-      const parameters = this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
+      const parameters =
+        this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
       this.currentFunctionParams = [];
 
       if (process.env["POLLY_DEBUG"]) {
@@ -2901,7 +2904,8 @@ export class HandlerExtractor {
 
         const messageType = this.functionNameToMessageType(funcName);
 
-        const arrowParams = this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
+        const arrowParams =
+          this.currentFunctionParams.length > 0 ? [...this.currentFunctionParams] : undefined;
         this.currentFunctionParams = [];
 
         if (process.env["POLLY_DEBUG"]) {

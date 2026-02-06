@@ -2,6 +2,7 @@
 // Demonstrates verification for real-time connection state management
 import { defineVerification } from "@fairfox/polly/verify";
 
+// biome-ignore lint/style/noDefaultExport: verification configs use default export by convention
 export default defineVerification({
   state: {
     // Verified peer count (exercises { type: "number" })

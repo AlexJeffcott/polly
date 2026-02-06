@@ -20,11 +20,11 @@ export function logout() {
   ensures(authState.value.loggedIn === false, "Must be logged out after logout");
 }
 
-export function addTodo(text: string) {
+export function addTodo(_text: string) {
   requires(authState.value.loggedIn === true, "Must be logged in to add todos");
   requires(todoCount.value < 100, "Cannot exceed 100 todos");
 
-  todoCount.value = todoCount.value + 1;
+  todoCount.value += 1;
 
   ensures(todoCount.value > 0, "Todo count must be positive after add");
 }
@@ -32,5 +32,5 @@ export function addTodo(text: string) {
 export function removeTodo() {
   requires(todoCount.value > 0, "Must have todos to remove");
 
-  todoCount.value = todoCount.value - 1;
+  todoCount.value -= 1;
 }

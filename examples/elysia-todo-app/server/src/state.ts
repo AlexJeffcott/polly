@@ -5,7 +5,7 @@ import { $sharedState } from "@fairfox/polly/state";
 export const authState = $sharedState(
   "auth",
   { loggedIn: false, userId: null as string | null },
-  { verify: true },
+  { verify: true }
 );
 
 // Todo count (exercises { type: "number" } verification)

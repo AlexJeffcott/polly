@@ -29,7 +29,7 @@ export function peerConnected(isOnline: boolean) {
   requires(currentRoom.value !== null, "Must be in a room for peer events");
 
   if (isOnline) {
-    peerCount.value = peerCount.value + 1;
+    peerCount.value += 1;
   } else {
     peerCount.value = Math.max(0, peerCount.value - 1);
   }

@@ -2,6 +2,7 @@
 // Richest domain model: { type: "number" }, enums, role constraints, parameter tracing
 import { defineVerification } from "@fairfox/polly/verify";
 
+// biome-ignore lint/style/noDefaultExport: verification configs use default export by convention
 export default defineVerification({
   state: {
     // Verified urgent task count (exercises { type: "number" })
