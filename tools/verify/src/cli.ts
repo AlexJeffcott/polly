@@ -3,6 +3,11 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  estimateStateSpace,
+  feasibilityLabel,
+  type StateSpaceEstimate,
+} from "./analysis/state-space-estimator";
 import { generateConfig } from "./codegen/config";
 import { validateConfig } from "./config/parser";
 import type { UnifiedVerificationConfig } from "./config/types";
@@ -34,6 +39,11 @@ async function main() {
     case "--validate":
     case "validate":
       await validateCommand();
+      break;
+
+    case "--estimate":
+    case "estimate":
+      await estimateCommand();
       break;
 
     case "--help":
@@ -172,6 +182,97 @@ async function validateCommand() {
 
   console.log(color("Configuration incomplete. Please fix the errors above.\n", COLORS.red));
   process.exit(1);
+}
+
+async function estimateCommand() {
+  const configPath = path.join(process.cwd(), "specs", "verification.config.ts");
+
+  console.log(color("\n📊 Estimating state space...\n", COLORS.blue));
+
+  // Validate config first
+  const validation = validateConfig(configPath);
+  if (!validation.valid) {
+    const errors = validation.issues.filter((i) => i.severity === "error");
+    console.log(color(`❌ Configuration incomplete (${errors.length} error(s))\n`, COLORS.red));
+    for (const error of errors.slice(0, 3)) {
+      console.log(color(`   • ${error.message}`, COLORS.red));
+    }
+    console.log("\n   Run 'polly verify --validate' to see all issues");
+    process.exit(1);
+  }
+
+  // Load config
+  const config = await loadVerificationConfig(configPath);
+
+  // Analyze codebase
+  const analysis = await runCodebaseAnalysis();
+
+  // Estimate
+  const estimate = estimateStateSpace(
+    config as import("./config/types").UnifiedVerificationConfig,
+    analysis as import("./core/model").CodebaseAnalysis
+  );
+
+  displayEstimate(estimate);
+}
+
+function displayEstimate(estimate: StateSpaceEstimate): void {
+  console.log(color("State space estimate:\n", COLORS.blue));
+
+  // Fields table
+  console.log(color("  Fields:", COLORS.blue));
+  for (const field of estimate.fields) {
+    const name = field.name.padEnd(28);
+    const kind = field.kind.padEnd(18);
+    const card =
+      field.cardinality === "unbounded"
+        ? color("(excluded — unbounded)", COLORS.yellow)
+        : `${field.cardinality} values`;
+    console.log(`    ${name} ${kind} ${card}`);
+  }
+
+  console.log();
+  console.log(`  Field combinations:     ${color(String(estimate.fieldProduct), COLORS.green)}`);
+  console.log(`  Handlers:               ${estimate.handlerCount}`);
+  console.log(`  Max in-flight:          ${estimate.maxInFlight}`);
+  console.log(
+    `  Contexts:               ${estimate.contextCount} (${estimate.contextCount - 1} tab${estimate.contextCount - 1 !== 1 ? "s" : ""} + background)`
+  );
+  console.log(`  Interleaving factor:    ${estimate.interleavingFactor}`);
+
+  console.log();
+  console.log(
+    `  Estimated states:       ${color(`~${estimate.estimatedStates.toLocaleString()}`, COLORS.green)}`
+  );
+
+  // Feasibility
+  const feasColor =
+    estimate.feasibility === "trivial" || estimate.feasibility === "feasible"
+      ? COLORS.green
+      : estimate.feasibility === "slow"
+        ? COLORS.yellow
+        : COLORS.red;
+  console.log();
+  console.log(`  Assessment: ${color(feasibilityLabel(estimate.feasibility), feasColor)}`);
+
+  // Warnings
+  if (estimate.warnings.length > 0) {
+    console.log();
+    for (const w of estimate.warnings) {
+      console.log(color(`  ⚠️  ${w}`, COLORS.yellow));
+    }
+  }
+
+  // Suggestions
+  if (estimate.suggestions.length > 0) {
+    console.log();
+    console.log(color("  Suggestions:", COLORS.blue));
+    for (const s of estimate.suggestions) {
+      console.log(color(`    • ${s}`, COLORS.gray));
+    }
+  }
+
+  console.log();
 }
 
 function displayValidationErrors(
@@ -584,6 +685,9 @@ ${color("Commands:", COLORS.blue)}
 
   ${color("bun verify --validate", COLORS.green)}
     Validate existing configuration without running verification
+
+  ${color("bun verify --estimate", COLORS.green)}
+    Estimate state space without running TLC
 
   ${color("bun verify --help", COLORS.green)}
     Show this help message
