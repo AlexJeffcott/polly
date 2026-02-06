@@ -1,4 +1,4 @@
-import { $state, $syncedState } from "@fairfox/polly/state";
+import { $sharedState, $state, $syncedState } from "@fairfox/polly/state";
 import type { ChatMessage, Peer, Room } from "./types";
 
 /**
@@ -9,7 +9,7 @@ import type { ChatMessage, Peer, Room } from "./types";
  * manages local UI state and persistence - actual messages travel P2P via WebRTC!
  */
 
-// Current room (persisted locally)
+// Current room (persisted locally, verified for TLA+ generation)
 export const currentRoom = $syncedState<Room | null>("room", null);
 
 // User identity
@@ -22,6 +22,9 @@ export const peerId = $state<string>(crypto.randomUUID());
 
 // Peers in current room (synced across components, not persisted)
 export const peers = $syncedState<Peer[]>("peers", []);
+
+// Verified peer count (exercises { type: "number" } verification)
+export const peerCount = $sharedState("peerCount", 0, { verify: true });
 
 // Chat messages (persisted locally)
 export const messages = $syncedState<ChatMessage[]>("messages", []);

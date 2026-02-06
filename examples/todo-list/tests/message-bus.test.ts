@@ -32,6 +32,7 @@ describe("Todo Handler Logic with Mock Adapters", () => {
       id: generateId(),
       text: "Test todo",
       completed: false,
+      priority: "medium" as const,
       createdAt: Date.now(),
     };
 
@@ -47,6 +48,7 @@ describe("Todo Handler Logic with Mock Adapters", () => {
       id: "test-1",
       text: "Test todo",
       completed: false,
+      priority: "medium" as const,
       createdAt: Date.now(),
     };
     todos.value.push(todo);
@@ -60,8 +62,8 @@ describe("Todo Handler Logic with Mock Adapters", () => {
   test("can remove a todo", () => {
     // Add todos
     todos.value.push(
-      { id: "test-1", text: "Test 1", completed: false, createdAt: Date.now() },
-      { id: "test-2", text: "Test 2", completed: false, createdAt: Date.now() }
+      { id: "test-1", text: "Test 1", completed: false, priority: "medium", createdAt: Date.now() },
+      { id: "test-2", text: "Test 2", completed: false, priority: "medium", createdAt: Date.now() }
     );
 
     // Remove one
@@ -79,6 +81,7 @@ describe("Todo Handler Logic with Mock Adapters", () => {
         id: `todo-${i}`,
         text: `Todo ${i}`,
         completed: false,
+        priority: "medium",
         createdAt: Date.now(),
       });
     }

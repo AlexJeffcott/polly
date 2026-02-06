@@ -71,26 +71,7 @@ The simplest possible Polly extension. Great starting point for understanding th
 
 ---
 
-### 4. [My Awesome Extension](./my-awesome-extension)
-
-**Chrome extension with popup UI**
-
-A simple extension with background service worker and popup interface.
-
-**Features:**
-- Background/popup architecture
-- Reactive UI with Preact
-- Cross-context messaging
-- State persistence
-
-**Great for:**
-- Learning Chrome extension architecture
-- Building simple extensions
-- Understanding context boundaries
-
----
-
-### 5. [Todo List](./todo-list)
+### 4. [Todo List](./todo-list)
 
 **Chrome extension with formal verification**
 
@@ -113,7 +94,7 @@ A complete todo list extension with both traditional testing and TLA+ verificati
 
 ---
 
-### 6. [Full Featured](./full-featured)
+### 5. [Full Featured](./full-featured)
 
 **Complete Chrome extension showcase**
 
@@ -147,7 +128,6 @@ bun run dev
 - **New to Polly?** Start with [Minimal](./minimal)
 - **Building a web app?** Check out [Elysia Todo App](./elysia-todo-app)
 - **Building P2P/WebRTC apps?** Try [WebRTC P2P Chat](./webrtc-p2p-chat)
-- **Building a Chrome extension?** Try [My Awesome Extension](./my-awesome-extension)
 - **Want to learn verification?** See [Todo List](./todo-list)
 - **Need a reference?** Look at [Full Featured](./full-featured)
 

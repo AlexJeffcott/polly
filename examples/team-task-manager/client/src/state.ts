@@ -10,17 +10,20 @@ export const currentUser = $sharedState<User | null>("currentUser", null);
 // All workspaces user has accessed
 export const workspaces = $sharedState<Workspace[]>("workspaces", []);
 
-// Current active workspace with decrypted workspace key
-export const workspace = $sharedState<Workspace | null>("workspace", null);
+// Current active workspace with decrypted workspace key (verified for TLA+ generation)
+export const workspace = $sharedState<Workspace | null>("workspace", null, { verify: true });
 
-// Tasks (decrypted locally)
-export const tasks = $sharedState<Task[]>("tasks", []);
+// Tasks (decrypted locally, verified for TLA+ generation)
+export const tasks = $sharedState<Task[]>("tasks", [], { verify: true });
 
 // Comments (decrypted locally)
 export const comments = $sharedState<Comment[]>("comments", []);
 
 // Activity feed
 export const activities = $sharedState<Activity[]>("activities", []);
+
+// Verified urgent task count (exercises { type: "number" } verification)
+export const urgentTaskCount = $sharedState("urgentTaskCount", 0, { verify: true });
 
 // Connection status
 export const isOnline = $state(true);

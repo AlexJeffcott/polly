@@ -15,7 +15,11 @@ export type TodoMessages =
     >
   // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
   | Message<"USER_LOGOUT", {}, { success: true }>
-  | Message<"TODO_ADD", { text: string }, { success: true; todo: Todo }>
+  | Message<
+      "TODO_ADD",
+      { text: string; priority: "low" | "medium" | "high" },
+      { success: true; todo: Todo }
+    >
   | Message<
       "TODO_TOGGLE",
       { id: string },
@@ -24,6 +28,7 @@ export type TodoMessages =
   | Message<"TODO_REMOVE", { id: string }, { success: true }>
   // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
   | Message<"TODO_CLEAR_COMPLETED", {}, { success: true; removed: number }>
+  | Message<"TODO_SET_LIMIT", { limit: number }, { success: true }>
   // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
   | Message<"GET_STATE", {}, AppState>
   | Message<"GET_TODOS", { filter?: "all" | "active" | "completed" }, { todos: Todo[] }>;

@@ -24,6 +24,7 @@ describe("Todo Add Flow", () => {
       id: "test-1",
       text: "Test todo",
       completed: false,
+      priority: "medium" as const,
       createdAt: Date.now(),
     };
     todos.value.push(newTodo);

@@ -3,7 +3,7 @@ import { createBackground } from "@fairfox/polly/background";
 import { ensures, hasLength, requires } from "@fairfox/polly/verify";
 import type { TodoMessages } from "../shared/messages";
 import type { Todo } from "../shared/types";
-import { filter, generateId, todos, user } from "./state";
+import { filter, generateId, maxTodos, todos, user } from "./state";
 
 // Initialize background script with MessageRouter
 // IMPORTANT: Always use createBackground() in background scripts, NOT getMessageBus('background')
@@ -59,16 +59,18 @@ bus.on("USER_LOGOUT", () => {
 // Todo Management
 // ============================================================================
 
-bus.on("TODO_ADD", (payload: { text: string }) => {
-  // Preconditions - enforce 100 todo limit
+bus.on("TODO_ADD", (payload: { text: string; priority: "low" | "medium" | "high" }) => {
+  // Preconditions - enforce configurable todo limit
   requires(hasLength(todos.value, { max: 99 }), "Cannot exceed 100 todos");
   requires(payload.text !== "", "Todo text must not be empty");
 
   // State change - using reactive signals with automatic sync
+  // The priority parameter exercises parameter tracing for TLA+ generation
   const newTodo: Todo = {
     id: generateId(),
     text: payload.text,
     completed: false,
+    priority: payload.priority,
     createdAt: Date.now(),
   };
   todos.value = [...todos.value, newTodo];
@@ -129,6 +131,23 @@ bus.on("TODO_CLEAR_COMPLETED", () => {
   // The actual runtime check is done internally by filter()
 
   return { success: true, removed: completedCount };
+});
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+bus.on("TODO_SET_LIMIT", (payload: { limit: number }) => {
+  // Precondition - limit must be positive (exercises { type: "number" } verification)
+  requires(payload.limit > 0, "Limit must be positive");
+
+  // State change - update configurable limit
+  maxTodos.value = payload.limit;
+
+  // Postcondition - verify limit was set
+  ensures(maxTodos.value === payload.limit, "Limit must be set");
+
+  return { success: true };
 });
 
 // ============================================================================

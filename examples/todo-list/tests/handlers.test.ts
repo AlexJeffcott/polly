@@ -61,6 +61,7 @@ describe("Todo Management", () => {
       id: generateId(),
       text: "Test todo",
       completed: false,
+      priority: "medium",
       createdAt: Date.now(),
     });
 
@@ -75,6 +76,7 @@ describe("Todo Management", () => {
       id: "test-1",
       text: "Test todo",
       completed: false,
+      priority: "medium",
       createdAt: Date.now(),
     });
 
@@ -94,8 +96,8 @@ describe("Todo Management", () => {
   test("can remove todo", () => {
     // Setup: add todos
     todos.value.push(
-      { id: "test-1", text: "Test 1", completed: false, createdAt: Date.now() },
-      { id: "test-2", text: "Test 2", completed: false, createdAt: Date.now() }
+      { id: "test-1", text: "Test 1", completed: false, priority: "medium", createdAt: Date.now() },
+      { id: "test-2", text: "Test 2", completed: false, priority: "medium", createdAt: Date.now() }
     );
 
     const previousCount = todos.value.length;
@@ -111,9 +113,9 @@ describe("Todo Management", () => {
   test("can clear completed todos", () => {
     // Setup: add mixed todos
     todos.value.push(
-      { id: "test-1", text: "Test 1", completed: true, createdAt: Date.now() },
-      { id: "test-2", text: "Test 2", completed: false, createdAt: Date.now() },
-      { id: "test-3", text: "Test 3", completed: true, createdAt: Date.now() }
+      { id: "test-1", text: "Test 1", completed: true, priority: "medium", createdAt: Date.now() },
+      { id: "test-2", text: "Test 2", completed: false, priority: "medium", createdAt: Date.now() },
+      { id: "test-3", text: "Test 3", completed: true, priority: "medium", createdAt: Date.now() }
     );
 
     const previousCount = todos.value.length;
@@ -133,6 +135,7 @@ describe("Todo Management", () => {
         id: `todo-${i}`,
         text: `Todo ${i}`,
         completed: false,
+        priority: "medium",
         createdAt: Date.now(),
       });
     }

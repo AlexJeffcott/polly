@@ -12,6 +12,7 @@ import { validateShape } from "@fairfox/polly";
 import { getMessageBus } from "@fairfox/polly/message-bus";
 import { MessageRouter } from "@fairfox/polly/message-router";
 import { $sharedState } from "@fairfox/polly/state";
+import { ensures, requires } from "@fairfox/polly/verify";
 import type { AllMessages, Bookmark, Settings } from "../shared/types/messages";
 // Import verification constraints (discovered via transitive import following)
 import "../../specs/constraints.js";
@@ -41,6 +42,9 @@ const settings = $sharedState<Settings>(
 );
 
 const bookmarks = $sharedState<Bookmark[]>("bookmarks", []);
+
+// Verified numeric state for bookmark count (exercises { type: "number" } verification)
+const bookmarkCount = $sharedState("bookmarkCount", 0, { verify: true });
 
 // Enhancement #1: Unified state with verification tracking
 // The .verify property provides a plain object mirror for verification
@@ -101,6 +105,12 @@ bus.on("USER_LOGIN", async (payload) => {
   // Update login state - verification mirror (state) auto-syncs via .verify property
   loginState.value = { loggedIn: true, username };
 
+  // Postcondition - verify login state was updated
+  ensures(
+    loginState.value.loggedIn === true,
+    "User must be logged in after login",
+  );
+
   return {
     success: true,
     user: { username },
@@ -109,14 +119,18 @@ bus.on("USER_LOGIN", async (payload) => {
 
 bus.on("USER_LOGOUT", async () => {
   // Precondition: must be logged in to logout
-  if (!loginState.value.loggedIn) {
-    throw new Error("Cannot logout - not logged in");
-  }
+  requires(loginState.value.loggedIn === true, "Must be logged in to logout");
 
   await bus.adapters.storage.remove(["user"]);
 
   // Update login state - verification mirror (state) auto-syncs via .verify property
   loginState.value = { loggedIn: false };
+
+  // Postcondition - verify logout state
+  ensures(
+    loginState.value.loggedIn === false,
+    "User must be logged out after logout",
+  );
 
   return { success: true };
 });
@@ -124,9 +138,10 @@ bus.on("USER_LOGOUT", async () => {
 // Bookmark management
 bus.on("BOOKMARK_ADD", async (payload) => {
   // Precondition: must be logged in to add bookmarks
-  if (!loginState.value.loggedIn) {
-    throw new Error("Cannot add bookmark - not logged in");
-  }
+  requires(
+    loginState.value.loggedIn === true,
+    "Must be logged in to add bookmarks",
+  );
 
   const { url, title } = payload;
 
@@ -139,7 +154,10 @@ bus.on("BOOKMARK_ADD", async (payload) => {
 
   const current = bookmarks.value || [];
   bookmarks.value = [...current, bookmark];
+  bookmarkCount.value = bookmarks.value.length;
   // Note: $sharedState automatically persists to storage
+
+  ensures(bookmarkCount.value > 0, "Bookmark count must be positive after add");
 
   return { success: true, bookmark };
 });
@@ -149,6 +167,7 @@ bus.on("BOOKMARK_REMOVE", async (payload) => {
 
   const current = bookmarks.value || [];
   bookmarks.value = current.filter((b) => b.id !== id);
+  bookmarkCount.value = bookmarks.value.length;
   // Note: $sharedState automatically persists to storage
 
   return { success: true };
@@ -182,9 +201,10 @@ bus.on("TAB_OPEN", async (payload) => {
 // Settings management
 bus.on("SETTINGS_UPDATE", async (payload) => {
   // Precondition: must be logged in to update settings
-  if (!loginState.value.loggedIn) {
-    throw new Error("Cannot update settings - not logged in");
-  }
+  requires(
+    loginState.value.loggedIn === true,
+    "Must be logged in to update settings",
+  );
 
   const { type, ...updates } = payload;
   settings.value = { ...settings.value, ...updates };

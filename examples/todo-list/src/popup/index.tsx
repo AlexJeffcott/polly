@@ -42,7 +42,10 @@ function App() {
     setNewTodoText("");
 
     // State automatically syncs - no need to manually update!
-    const result = await bus.send({ type: "TODO_ADD", text }, { target: "background" });
+    const result = await bus.send(
+      { type: "TODO_ADD", text, priority: "medium" },
+      { target: "background" }
+    );
     if (!result?.success) {
       // Restore text if failed
       setNewTodoText(text);

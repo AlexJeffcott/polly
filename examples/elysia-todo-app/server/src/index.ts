@@ -3,6 +3,7 @@ import { $serverState, $syncedState } from "@fairfox/polly";
 import { polly } from "@fairfox/polly/elysia";
 import { signal } from "@preact/signals-core";
 import { Elysia, t } from "elysia";
+import { addTodo, login, logout, removeTodo } from "./handlers";
 
 // Simple in-memory database
 interface Todo {
@@ -124,6 +125,8 @@ const app = new Elysia()
       if (!user) {
         throw new Error("User not found");
       }
+      // Track auth state for verification
+      login(user.username);
       return { user, token: "demo-token" };
     },
     {
@@ -134,6 +137,8 @@ const app = new Elysia()
   )
 
   .post("/auth/logout", () => {
+    // Track auth state for verification
+    logout();
     return { success: true };
   })
 
@@ -145,6 +150,9 @@ const app = new Elysia()
   .post(
     "/todos",
     ({ body, pollyState }) => {
+      // Track todo count for verification
+      addTodo(body.text);
+
       const todo: Todo = {
         id: pollyState.server.db.value.nextTodoId++,
         text: body.text,
@@ -203,6 +211,9 @@ const app = new Elysia()
 
       todos.splice(index, 1);
       pollyState.server.db.value.todos.value = [...todos];
+
+      // Track todo count for verification
+      removeTodo();
 
       return { success: true };
     },

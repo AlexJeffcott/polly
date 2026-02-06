@@ -1,7 +1,8 @@
 // Verification configuration for todo-list example
-import type { VerificationConfig } from "@fairfox/polly-verify";
+// Flagship example: exercises EVERY verification feature
+import { defineVerification } from "@fairfox/polly/verify";
 
-export const verificationConfig: VerificationConfig = {
+export const verificationConfig = defineVerification({
   state: {
     // User state
     "user.loggedIn": { type: "boolean" },
@@ -12,14 +13,39 @@ export const verificationConfig: VerificationConfig = {
     // Todo state
     todos: { maxLength: 100 },
     filter: { type: "enum", values: ["all", "active", "completed"] },
+
+    // Numeric state (exercises { type: "number" } verification — Issue #31)
+    maxTodos: { type: "number", min: 1, max: 100 },
+
+    // Priority enum (exercises parameter tracing for dynamic payload values)
+    "todo.priority": { type: "enum", values: ["low", "medium", "high"] },
   },
 
   messages: {
-    maxInFlight: 3, // Test with up to 3 concurrent messages
-    maxTabs: 2, // Multiple tabs
-    tabSymmetry: true, // Enable symmetry reduction for state space optimization
+    maxInFlight: 3,
+    maxTabs: 2,
+    tabSymmetry: true,
+
+    // Per-message bounds (Tier 1 optimization)
+    perMessageBounds: {
+      USER_LOGIN: 1,
+      USER_LOGOUT: 1,
+      TODO_ADD: 2,
+      TODO_SET_LIMIT: 1,
+    },
+  },
+
+  // Tier 2 optimizations
+  tier2: {
+    temporalConstraints: [
+      {
+        before: "USER_LOGIN",
+        after: "USER_LOGOUT",
+        description: "Must login before logout",
+      },
+    ],
   },
 
   onBuild: "warn",
   onRelease: "error",
-};
+});

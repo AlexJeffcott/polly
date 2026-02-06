@@ -14,6 +14,9 @@ export const todos = $sharedState<Todo[]>("todos", []);
 
 export const filter = $sharedState<"all" | "active" | "completed">("filter", "all");
 
+// Configurable todo limit (exercises { type: "number" } verification)
+export const maxTodos = $sharedState<number>("maxTodos", 50);
+
 // Helper to generate IDs
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

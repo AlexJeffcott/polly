@@ -34,6 +34,7 @@ describe("Todo ID Uniqueness", () => {
         id: generateId(),
         text: `Todo ${i}`,
         completed: false,
+        priority: "medium",
         createdAt: Date.now(),
       });
     }
@@ -55,6 +56,7 @@ describe("Todo ID Uniqueness", () => {
             id: generateId(),
             text: `Rapid todo ${i}`,
             completed: false,
+            priority: "medium",
             createdAt: Date.now(),
           });
         })
@@ -78,9 +80,9 @@ describe("Todo ID Uniqueness", () => {
   test("GET_STATE returns todos with unique IDs", () => {
     // Add some todos
     todos.value = [
-      { id: "id-1", text: "Todo 1", completed: false, createdAt: Date.now() },
-      { id: "id-2", text: "Todo 2", completed: false, createdAt: Date.now() },
-      { id: "id-3", text: "Todo 3", completed: true, createdAt: Date.now() },
+      { id: "id-1", text: "Todo 1", completed: false, priority: "medium", createdAt: Date.now() },
+      { id: "id-2", text: "Todo 2", completed: false, priority: "medium", createdAt: Date.now() },
+      { id: "id-3", text: "Todo 3", completed: true, priority: "medium", createdAt: Date.now() },
     ];
 
     // Simulate GET_STATE response

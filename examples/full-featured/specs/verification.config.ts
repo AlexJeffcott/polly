@@ -7,6 +7,8 @@ export default defineVerification({
     // Track login state for temporal constraint enforcement
     // First value is initial state (logged out)
     loggedIn: [false, true],
+    // Verified numeric state for bookmark count (exercises { type: "number" })
+    bookmarkCount: { type: "number", min: 0, max: 20 },
   },
 
   messages: {
