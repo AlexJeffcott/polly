@@ -93,6 +93,31 @@ export function hasLength(array: unknown[], constraint: { min?: number; max?: nu
   return true;
 }
 
+/**
+ * Declare a global state constraint that prunes structurally impossible states.
+ *
+ * In production: No-op (compiled away)
+ * In verification: Translated to TLC CONSTRAINT clause, discarding states
+ * that violate the predicate from the exploration queue entirely.
+ *
+ * Unlike `invariant()` (which checks but still explores), `stateConstraint()`
+ * prevents the model checker from ever reaching the pruned states.
+ *
+ * @example
+ * stateConstraint("LeaderRequiresConnection", () =>
+ *   !connectionState.value.isLeader || connectionState.value.status === "connected"
+ * )
+ */
+export function stateConstraint(
+  name: string,
+  predicate: () => boolean,
+  options?: { message?: string }
+): void {
+  void name;
+  void predicate;
+  void options;
+}
+
 // Re-export for convenience
 export const verify = {
   requires,
@@ -101,4 +126,5 @@ export const verify = {
   inRange,
   oneOf,
   hasLength,
+  stateConstraint,
 };

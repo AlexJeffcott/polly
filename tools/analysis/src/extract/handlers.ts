@@ -78,6 +78,7 @@ import {
 } from "ts-morph";
 import type {
   ComponentRelationship,
+  GlobalStateConstraint,
   MessageHandler,
   StateAssignment,
   StateConstraint,
@@ -97,6 +98,7 @@ export interface HandlerAnalysis {
   handlers: MessageHandler[];
   messageTypes: Set<string>;
   stateConstraints: StateConstraint[];
+  globalStateConstraints: GlobalStateConstraint[];
   verifiedStates: VerifiedStateInfo[];
   warnings: ExtractionWarning[];
 }
@@ -200,6 +202,7 @@ export class HandlerExtractor {
     const messageTypes = new Set<string>();
     const invalidMessageTypes = new Set<string>();
     const stateConstraints: StateConstraint[] = [];
+    const globalStateConstraints: GlobalStateConstraint[] = [];
     const verifiedStates: VerifiedStateInfo[] = [];
     this.warnings = []; // Clear warnings from previous runs
 
@@ -218,6 +221,7 @@ export class HandlerExtractor {
         messageTypes,
         invalidMessageTypes,
         stateConstraints,
+        globalStateConstraints,
         verifiedStates
       );
     }
@@ -262,6 +266,7 @@ export class HandlerExtractor {
       handlers,
       messageTypes,
       stateConstraints,
+      globalStateConstraints,
       verifiedStates,
       warnings: this.warnings,
     };
@@ -281,6 +286,7 @@ export class HandlerExtractor {
     messageTypes: Set<string>,
     invalidMessageTypes: Set<string>,
     stateConstraints: StateConstraint[],
+    globalStateConstraints: GlobalStateConstraint[],
     verifiedStates: VerifiedStateInfo[]
   ): void {
     const filePath = sourceFile.getFilePath();
@@ -305,6 +311,10 @@ export class HandlerExtractor {
     // Extract state constraints from this file
     const fileConstraints = this.extractStateConstraintsFromFile(sourceFile);
     stateConstraints.push(...fileConstraints);
+
+    // Extract global state constraints (stateConstraint() calls)
+    const fileGlobalConstraints = this.extractGlobalStateConstraintsFromFile(sourceFile);
+    globalStateConstraints.push(...fileGlobalConstraints);
 
     // Issue #27: Extract verified states from this file
     const fileVerifiedStates = this.extractVerifiedStatesFromFile(sourceFile);
@@ -338,6 +348,7 @@ export class HandlerExtractor {
           messageTypes,
           invalidMessageTypes,
           stateConstraints,
+          globalStateConstraints,
           verifiedStates
         );
       } else if (process.env["POLLY_DEBUG"]) {
@@ -2581,6 +2592,109 @@ export class HandlerExtractor {
     });
 
     return constraints;
+  }
+
+  /**
+   * Extract global state constraints (stateConstraint() calls) from a source file
+   */
+  private extractGlobalStateConstraintsFromFile(sourceFile: SourceFile): GlobalStateConstraint[] {
+    const constraints: GlobalStateConstraint[] = [];
+    const filePath = sourceFile.getFilePath();
+
+    sourceFile.forEachDescendant((node) => {
+      const constraint = this.recognizeGlobalStateConstraint(node, filePath);
+      if (constraint) {
+        constraints.push(constraint);
+      }
+    });
+
+    return constraints;
+  }
+
+  /**
+   * Recognize a stateConstraint() call and extract the constraint definition
+   */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals
+  private recognizeGlobalStateConstraint(
+    node: Node,
+    filePath: string
+  ): GlobalStateConstraint | null {
+    if (!Node.isCallExpression(node)) {
+      return null;
+    }
+
+    const expression = node.getExpression();
+    if (!Node.isIdentifier(expression)) {
+      return null;
+    }
+
+    const functionName = expression.getText();
+    if (functionName !== "stateConstraint") {
+      return null;
+    }
+
+    const args = node.getArguments();
+    if (args.length < 2) {
+      return null;
+    }
+
+    // Arg 0: string literal → name
+    const nameArg = args[0];
+    if (!Node.isStringLiteral(nameArg)) {
+      return null;
+    }
+    const name = nameArg.getLiteralValue();
+
+    // Arg 1: arrow function → extract body expression
+    const predicateArg = args[1];
+    if (!Node.isArrowFunction(predicateArg)) {
+      return null;
+    }
+
+    const body = predicateArg.getBody();
+    let expressionText: string;
+
+    if (Node.isBlock(body)) {
+      // Block body: find return statement
+      const returnStatement = body.getStatements().find((s) => Node.isReturnStatement(s));
+      if (!returnStatement || !Node.isReturnStatement(returnStatement)) {
+        return null;
+      }
+      const returnExpr = returnStatement.getExpression();
+      if (!returnExpr) {
+        return null;
+      }
+      expressionText = returnExpr.getText();
+    } else {
+      // Expression body
+      expressionText = body.getText();
+    }
+
+    // Arg 2 (optional): object literal with message property
+    let message: string | undefined;
+    if (args.length >= 3) {
+      const optionsArg = args[2];
+      if (Node.isObjectLiteralExpression(optionsArg)) {
+        for (const prop of optionsArg.getProperties()) {
+          if (Node.isPropertyAssignment(prop) && prop.getName() === "message") {
+            const value = prop.getInitializer();
+            if (value && Node.isStringLiteral(value)) {
+              message = value.getLiteralValue();
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      name,
+      expression: expressionText,
+      message,
+      location: {
+        file: filePath,
+        line: node.getStartLineNumber(),
+      },
+    };
   }
 
   /**

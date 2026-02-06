@@ -67,6 +67,7 @@ export {
   invariant,
   oneOf,
   requires,
+  stateConstraint,
   verify,
 } from "./core/primitives";
 // Also re-export from old location for backward compatibility

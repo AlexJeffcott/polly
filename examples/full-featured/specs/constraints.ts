@@ -12,7 +12,27 @@
  * - Doesn't pollute runtime code with verification details
  */
 
-import { $constraints } from "@fairfox/polly/verify";
+import { $constraints, stateConstraint } from "@fairfox/polly/verify";
+
+// Type declarations for state references used in stateConstraint() predicates.
+// These are never called at runtime — the verification engine extracts the
+// expression text from the AST and translates it to TLA+.
+declare const bookmarkCount: { value: number };
+declare const loginState: { value: { loggedIn: boolean; username?: string } };
+
+/**
+ * Global state constraint: bookmarks require login
+ *
+ * Prunes structurally impossible states from the model checker's
+ * exploration queue. Unlike invariant() (which checks but still explores),
+ * stateConstraint() discards states entirely, dramatically reducing
+ * the state space for correlated fields.
+ */
+stateConstraint(
+  "BookmarksRequireLogin",
+  () => bookmarkCount.value <= 0 || loginState.value.loggedIn === true,
+  { message: "Cannot have bookmarks without being logged in" },
+);
 
 /**
  * Authentication constraints

@@ -165,6 +165,32 @@ export type StateConstraint = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// Global State Constraints (CONSTRAINT clause)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * A global state constraint that prunes structurally impossible states.
+ * Maps to the TLC CONSTRAINT clause, discarding states from the
+ * exploration queue entirely (unlike invariants which check but still explore).
+ */
+export type GlobalStateConstraint = {
+  /** User-provided name for the constraint */
+  name: string;
+
+  /** The arrow function body as raw string */
+  expression: string;
+
+  /** Optional error message */
+  message?: string;
+
+  /** Source location */
+  location: {
+    file: string;
+    line: number;
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────
 // State Mutations (Abstract)
 // ─────────────────────────────────────────────────────────────────
 
@@ -306,4 +332,6 @@ export type CodebaseAnalysis = {
   fields: FieldAnalysis[];
   handlers: MessageHandler[];
   stateConstraints: StateConstraint[];
+  /** Global state constraints for TLC CONSTRAINT clause */
+  globalStateConstraints?: GlobalStateConstraint[];
 };

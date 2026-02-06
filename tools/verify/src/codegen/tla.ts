@@ -2599,7 +2599,7 @@ export class TLAGenerator {
     }
 
     this.line("\\* State constraint to bound state space");
-    this.addStateConstraint(config);
+    this.addStateConstraint(config, _analysis);
 
     this.line("=============================================================================");
   }
@@ -2649,15 +2649,17 @@ export class TLAGenerator {
   }
 
   /**
-   * Generate StateConstraint with per-message bounds support (Tier 1 optimization)
-   * and bounded exploration (Tier 2 optimization)
+   * Generate StateConstraint with per-message bounds support (Tier 1 optimization),
+   * bounded exploration (Tier 2 optimization), and user-defined state constraints
    */
-  private addStateConstraint(config: VerificationConfig): void {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multiple constraint types require nested conditionals
+  private addStateConstraint(config: VerificationConfig, analysis: CodebaseAnalysis): void {
     const hasPerMessageBounds =
       config.messages.perMessageBounds && Object.keys(config.messages.perMessageBounds).length > 0;
     const hasBoundedExploration = config.tier2?.boundedExploration?.maxDepth !== undefined;
+    const hasUserConstraints = (analysis.globalStateConstraints?.length ?? 0) > 0;
 
-    const needsConjunction = hasPerMessageBounds || hasBoundedExploration;
+    const needsConjunction = hasPerMessageBounds || hasBoundedExploration || hasUserConstraints;
 
     this.line("StateConstraint ==");
     this.indent++;
@@ -2682,6 +2684,15 @@ export class TLAGenerator {
           `/\\ TLCGet("level") <= ${config.tier2.boundedExploration.maxDepth} \\* Tier 2: Bounded exploration`
         );
       }
+
+      // User-defined state constraints (stateConstraint() calls)
+      if (hasUserConstraints && analysis.globalStateConstraints) {
+        for (const constraint of analysis.globalStateConstraints) {
+          const tlaExpr = this.tsExpressionToTLA(constraint.expression, false);
+          this.line(`\\* ${constraint.name}${constraint.message ? `: ${constraint.message}` : ""}`);
+          this.line(`/\\ \\A ctx \\in Contexts : (${tlaExpr})`);
+        }
+      }
     } else {
       // Simple global bound only
       this.line("Len(messages) <= MaxMessages");
@@ -2694,6 +2705,13 @@ export class TLAGenerator {
     if (hasBoundedExploration && config.tier2?.boundedExploration?.maxDepth) {
       console.log(
         `[INFO] [TLAGenerator] Tier 2: Bounded exploration with maxDepth = ${config.tier2.boundedExploration.maxDepth}`
+      );
+    }
+
+    // Log user-defined state constraints
+    if (hasUserConstraints && analysis.globalStateConstraints) {
+      console.log(
+        `[INFO] [TLAGenerator] ${analysis.globalStateConstraints.length} user-defined state constraint(s) added to CONSTRAINT clause`
       );
     }
   }

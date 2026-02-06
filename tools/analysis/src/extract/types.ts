@@ -55,6 +55,7 @@ export class TypeExtractor {
       fields,
       handlers: completeHandlers,
       stateConstraints: handlerAnalysis.stateConstraints,
+      globalStateConstraints: handlerAnalysis.globalStateConstraints,
     };
   }
 
