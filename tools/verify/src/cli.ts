@@ -3,6 +3,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type ValidationResult, validateExpressions } from "./analysis/expression-validator";
 import {
   estimateStateSpace,
   feasibilityLabel,
@@ -207,11 +208,16 @@ async function estimateCommand() {
   // Analyze codebase
   const analysis = await runCodebaseAnalysis();
 
+  // Validate expressions
+  const typedConfig = config as import("./config/types").UnifiedVerificationConfig;
+  const typedAnalysis = analysis as import("./core/model").CodebaseAnalysis;
+  const exprValidation = validateExpressions(typedAnalysis.handlers, typedConfig.state);
+  if (exprValidation.warnings.length > 0) {
+    displayExpressionWarnings(exprValidation);
+  }
+
   // Estimate
-  const estimate = estimateStateSpace(
-    config as import("./config/types").UnifiedVerificationConfig,
-    analysis as import("./core/model").CodebaseAnalysis
-  );
+  const estimate = estimateStateSpace(typedConfig, typedAnalysis);
 
   displayEstimate(estimate);
 }
@@ -317,6 +323,20 @@ function displayValidationWarnings(
   }
 }
 
+function displayExpressionWarnings(result: ValidationResult): void {
+  if (result.warnings.length === 0) return;
+
+  console.log(color(`⚠️  Found ${result.warnCount} expression warning(s):\n`, COLORS.yellow));
+
+  for (const w of result.warnings) {
+    console.log(color(`   ⚠  ${w.message}`, COLORS.yellow));
+    console.log(color(`      ${w.expression}`, COLORS.gray));
+    console.log(color(`      at ${w.location.file}:${w.location.line}`, COLORS.gray));
+    console.log(color(`      → ${w.suggestion}`, COLORS.yellow));
+    console.log();
+  }
+}
+
 async function verifyCommand() {
   const configPath = path.join(process.cwd(), "specs", "verification.config.ts");
 
@@ -407,6 +427,14 @@ async function runFullVerification(configPath: string) {
 
   // Analyze codebase
   const analysis = await runCodebaseAnalysis();
+
+  // Validate expressions
+  const typedConfig = config as UnifiedVerificationConfig;
+  const typedAnalysis = analysis as import("./core/model").CodebaseAnalysis;
+  const exprValidation = validateExpressions(typedAnalysis.handlers, typedConfig.state);
+  if (exprValidation.warnings.length > 0) {
+    displayExpressionWarnings(exprValidation);
+  }
 
   // Generate TLA+ specs
   const { specPath, specDir } = await generateAndWriteTLASpecs(config, analysis);
