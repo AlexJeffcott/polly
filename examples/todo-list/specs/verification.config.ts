@@ -44,6 +44,9 @@ export const verificationConfig = defineVerification({
         description: "Must login before logout",
       },
     ],
+    boundedExploration: {
+      maxDepth: 15,
+    },
   },
 
   onBuild: "warn",

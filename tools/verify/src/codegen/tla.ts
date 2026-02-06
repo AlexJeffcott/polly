@@ -1114,11 +1114,10 @@ export class TLAGenerator {
 
     // Payload type definition - includes handler parameter names for tracing
     const payloadFields = this.collectPayloadFields(_analysis);
-    const boolPattern = /^(is|has|should|can|will|did)[A-Z]/;
     const payloadFieldDefs = payloadFields
-      .map((f) => `${this.sanitizeFieldName(f)}: ${boolPattern.test(f) ? "BOOLEAN" : "Value"}`)
+      .map((f) => `${this.sanitizeFieldName(f.name)}: ${f.type}`)
       .join(", ");
-    this.line(`\\* Payload modeled with fields: ${payloadFields.join(", ")}`);
+    this.line(`\\* Payload modeled with fields: ${payloadFields.map((f) => f.name).join(", ")}`);
     this.line(`PayloadType == [${payloadFieldDefs}]`);
     this.line("");
 
@@ -1133,30 +1132,53 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private collectPayloadFields(analysis: CodebaseAnalysis): string[] {
-    const EXCLUDED = new Set(["state", "msg", "message", "event", "ctx", "context"]);
-    const fields = new Set(["id", "text", "userId"]); // keep defaults
-    for (const handler of analysis.handlers) {
-      if (handler.parameters) {
-        for (const param of handler.parameters) {
-          if (!EXCLUDED.has(param)) fields.add(param);
-        }
-      }
-      this.extractPayloadRefsFromHandler(handler, fields);
-    }
-    return Array.from(fields);
+  private static readonly PAYLOAD_EXCLUDED = new Set([
+    "state",
+    "msg",
+    "message",
+    "event",
+    "ctx",
+    "context",
+  ]);
+  private static readonly BOOL_PARAM_PATTERN = /^(is|has|should|can|will|did)[A-Z]/;
+  private static readonly NUMERIC_PAYLOAD_PATTERN =
+    /payload\.([a-zA-Z_][a-zA-Z0-9_]*)\s*[><=!]+\s*\d/;
+  private static readonly PAYLOAD_REF_PATTERN = /payload\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+
+  private static inferFieldType(name: string): "Value" | "BOOLEAN" {
+    return TLAGenerator.BOOL_PARAM_PATTERN.test(name) ? "BOOLEAN" : "Value";
   }
 
-  /** Extract payload.xxx field references from handler conditions and assignments */
-  private extractPayloadRefsFromHandler(
-    handler: {
-      preconditions?: VerificationCondition[];
-      postconditions?: VerificationCondition[];
-      assignments?: StateAssignment[];
-    },
-    fields: Set<string>
+  private collectPayloadFields(
+    analysis: CodebaseAnalysis
+  ): { name: string; type: "Value" | "BOOLEAN" | "0..2" }[] {
+    const fields = new Map<string, "Value" | "BOOLEAN" | "0..2">();
+    for (const f of ["id", "text", "userId"]) fields.set(f, "Value");
+    for (const handler of analysis.handlers) {
+      this.addHandlerParams(handler.parameters, fields);
+      this.addPayloadRefsFromHandler(handler, fields);
+    }
+    return Array.from(fields.entries()).map(([name, type]) => ({ name, type }));
+  }
+
+  private addHandlerParams(
+    params: string[] | undefined,
+    fields: Map<string, "Value" | "BOOLEAN" | "0..2">
   ): void {
-    const pattern = /payload\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+    if (!params) return;
+    for (const param of params) {
+      if (!TLAGenerator.PAYLOAD_EXCLUDED.has(param) && !fields.has(param)) {
+        fields.set(param, TLAGenerator.inferFieldType(param));
+      }
+    }
+  }
+
+  /** Collect condition/assignment text strings from a handler */
+  private collectHandlerTexts(handler: {
+    preconditions?: VerificationCondition[];
+    postconditions?: VerificationCondition[];
+    assignments?: StateAssignment[];
+  }): string[] {
     const texts: string[] = [];
     for (const c of [...(handler.preconditions ?? []), ...(handler.postconditions ?? [])]) {
       texts.push(typeof c === "string" ? c : (c.expression ?? ""));
@@ -1164,9 +1186,23 @@ export class TLAGenerator {
     for (const a of handler.assignments ?? []) {
       if (typeof a.value === "string") texts.push(a.value);
     }
-    for (const text of texts) {
-      for (const m of text.matchAll(pattern)) {
-        fields.add(m[1]);
+    return texts;
+  }
+
+  /** Extract payload.xxx field references from handler conditions and assignments */
+  private addPayloadRefsFromHandler(
+    handler: {
+      preconditions?: VerificationCondition[];
+      postconditions?: VerificationCondition[];
+      assignments?: StateAssignment[];
+    },
+    fields: Map<string, "Value" | "BOOLEAN" | "0..2">
+  ): void {
+    for (const text of this.collectHandlerTexts(handler)) {
+      const numMatch = TLAGenerator.NUMERIC_PAYLOAD_PATTERN.exec(text);
+      if (numMatch) fields.set(numMatch[1], "0..2");
+      for (const m of text.matchAll(TLAGenerator.PAYLOAD_REF_PATTERN)) {
+        if (!fields.has(m[1])) fields.set(m[1], TLAGenerator.inferFieldType(m[1]));
       }
     }
   }
