@@ -837,11 +837,14 @@ function LoginButton() {
 
 ## Examples
 
-Check out the [examples](https://github.com/AlexJeffcott/polly/tree/main/packages/examples) directory:
+Check out the [examples](https://github.com/AlexJeffcott/polly/tree/main/examples) directory:
 
 - **minimal** - Dead simple counter (best starting point)
-- **full-featured** - Complete example with all features
-- **todo-list** - Real-world CRUD application
+- **todo-list** - CRUD app with formal verification and `requires()`/`ensures()`
+- **full-featured** - Complete Chrome extension with all features
+- **elysia-todo-app** - Full-stack web app with Elysia + Bun
+- **webrtc-p2p-chat** - Peer-to-peer chat with WebRTC data channels
+- **team-task-manager** - Collaborative task management with role constraints
 
 ### Headless Core Pattern (CLI, Server, etc.)
 
@@ -1032,4 +1035,4 @@ MIT © 2024
 
 ---
 
-**[Examples](https://github.com/AlexJeffcott/polly/tree/main/packages/examples)** · **[GitHub](https://github.com/AlexJeffcott/polly)** · **[Issues](https://github.com/AlexJeffcott/polly/issues)**
+**[Examples](https://github.com/AlexJeffcott/polly/tree/main/examples)** · **[GitHub](https://github.com/AlexJeffcott/polly)** · **[Issues](https://github.com/AlexJeffcott/polly/issues)**

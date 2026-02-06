@@ -14,7 +14,7 @@ The state primitives provide a unified API with automatic synchronization, persi
 ## Quick Start
 
 ```typescript
-import { $sharedState, $syncedState, $persistedState, $state } from '@/shared/lib/state'
+import { $sharedState, $syncedState, $persistedState, $state } from '@fairfox/polly/state'
 
 // Synced + Persisted (most common)
 const settings = $sharedState('app-settings', {
@@ -905,6 +905,7 @@ Create synced + persisted state.
 - `options.storage` - Optional custom StorageAdapter
 - `options.sync` - Optional custom SyncAdapter
 - `options.validator` - Optional runtime type guard
+- `options.verify` - Optional boolean; when `true`, creates a `.verify` plain-object mirror for TLA+ verification
 - `options.debounceMs` - Optional debounce for storage writes
 - `options.bus` - Optional custom MessageBus (deprecated, use adapters)
 

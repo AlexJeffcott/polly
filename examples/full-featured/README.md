@@ -61,12 +61,15 @@ function Popup() {
 
 ```typescript
 // src/background/index.ts
-import { getMessageBus } from '@fairfox/polly/message-bus'
+import { createBackground } from '@fairfox/polly/background'
+import { requires, ensures } from '@fairfox/polly/verify'
 
-const bus = getMessageBus('background')
+const { bus } = createBackground<AllMessages>()
 
 bus.on('MY_CUSTOM_MESSAGE', async (payload) => {
+  requires(/* precondition */, 'Precondition description')
   // Handle message
+  ensures(/* postcondition */, 'Postcondition description')
   return { success: true }
 })
 ```

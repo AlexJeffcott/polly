@@ -113,6 +113,27 @@ The most comprehensive example showing all Polly features.
 
 ---
 
+### 6. [Team Task Manager](./team-task-manager)
+
+**Collaborative task management with role constraints**
+
+A multi-user task management application demonstrating Polly's state management with role-based access control and formal verification.
+
+**Features:**
+- Workspace and task state with `{ verify: true }`
+- Role-based authorization (owner, admin, member)
+- Urgent task count tracking (`{ type: "number" }`)
+- `$constraints()` for workspace-gated operations
+- Parameter tracing for task priority
+
+**Great for:**
+- Role-based access patterns
+- Complex domain modeling with verification
+- Understanding `$constraints()` usage
+- Team collaboration patterns
+
+---
+
 ## Quick Start
 
 Each example has its own README with detailed instructions. Generally:
@@ -130,6 +151,7 @@ bun run dev
 - **Building P2P/WebRTC apps?** Try [WebRTC P2P Chat](./webrtc-p2p-chat)
 - **Want to learn verification?** See [Todo List](./todo-list)
 - **Need a reference?** Look at [Full Featured](./full-featured)
+- **Building team tools?** See [Team Task Manager](./team-task-manager)
 
 ## Contributing Examples
 

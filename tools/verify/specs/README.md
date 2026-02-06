@@ -1,6 +1,6 @@
 # Verification Specifications
 
-This directory contains formal specifications and verification configurations for the `@fairfox/polly-verify` package.
+This directory contains formal specifications and verification configurations for `@fairfox/polly`.
 
 ## Contents
 
@@ -40,5 +40,5 @@ tlc MessageRouter.tla -config MessageRouter.cfg
 
 ## See Also
 - [Verify Package Documentation](../README.md)
-- [WebSocket Example](../examples/websocket-app/README.md)
 - [TLA+ Specifications](./tla/README.md)
+- [Examples](../../../examples/) - See todo-list and full-featured for verification in action

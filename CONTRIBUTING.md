@@ -46,14 +46,19 @@ Polly (πολύς - "many") is a multi-execution-context framework for building 
 
 ```
 polly/
-├── packages/
-│   ├── web-ext/           # Main framework (to be renamed to 'polly')
+├── src/                   # Main framework source
+├── tools/
 │   ├── verify/            # Formal verification tool
 │   ├── visualize/         # Architecture visualization tool
-│   ├── analysis/          # Static analysis
-│   ├── tests/             # Integration tests
-│   └── examples/          # Example applications (Chrome extensions, PWAs, etc.)
-├── scripts/               # Build and setup scripts
+│   └── analysis/          # Static analysis
+├── examples/              # Example applications (Chrome extensions, web apps, etc.)
+│   ├── minimal/           # Simplest starting point
+│   ├── todo-list/         # CRUD with formal verification
+│   ├── full-featured/     # Complete Chrome extension showcase
+│   ├── elysia-todo-app/   # Full-stack web app (Elysia + Bun)
+│   ├── webrtc-p2p-chat/   # P2P chat with WebRTC
+│   └── team-task-manager/ # Collaborative task management
+├── docs/                  # Documentation
 └── specs/                 # TLA+ specifications
 ```
 
@@ -155,7 +160,7 @@ bun run build:prod
 Test your changes with the example extensions:
 
 ```bash
-cd packages/examples/full-featured
+cd examples/full-featured
 bun install
 bun run build
 ```
@@ -354,7 +359,7 @@ bun run tla:down
 ### Formal Verification Tool
 
 ```bash
-cd packages/examples/full-featured
+cd examples/full-featured
 bun run verify              # Run verification
 bun run verify --setup      # Generate config
 ```

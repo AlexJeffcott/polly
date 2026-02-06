@@ -314,7 +314,7 @@ These tests document:
 
 ### Learn More
 
-See the [Background Setup Guide](../../polly/docs/BACKGROUND_SETUP.md) for complete documentation.
+See the [Background Setup Guide](../../docs/BACKGROUND_SETUP.md) for complete documentation.
 
 ---
 

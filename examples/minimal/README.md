@@ -86,6 +86,6 @@ Change the counter in one place → **instantly appears everywhere!**
 
 ## Next Steps
 
-- See `examples/typed-messages/` for type-safe message passing
-- See `examples/with-content-script/` for injecting into web pages
+- See [todo-list](../todo-list/) for CRUD operations with formal verification
+- See [full-featured](../full-featured/) for a complete Chrome extension showcase
 - Read the [full documentation](../../docs/) for all features
