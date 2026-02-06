@@ -50,7 +50,6 @@ const libResult = await Bun.build({
     "tools/test/src/index.ts",
     "tools/test/src/test-utils.ts",
     "tools/test/src/adapters/index.ts",
-    "tools/teach/src/index.ts",
   ],
   outdir: DIST_DIR,
   target: "browser",
@@ -88,7 +87,6 @@ const toolsResult = await Bun.build({
     "tools/init/src/cli.ts",
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
-    "tools/teach/src/cli.ts",
     "tools/test/src/cli.ts",
     "scripts/build-extension.ts",
   ],
@@ -161,7 +159,6 @@ try {
       "src/**/*",
       "tools/verify/src/config.ts",
       "tools/test/src/**/*",
-      "tools/teach/src/index.ts",
     ],
     exclude: [
       "src/content/**/*",

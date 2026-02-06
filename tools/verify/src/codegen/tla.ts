@@ -5,7 +5,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { MessageHandler } from "../core/model";
 import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
-import type { CodebaseAnalysis, VerificationConfig } from "../types";
+import type {
+  CodebaseAnalysis,
+  StateAssignment,
+  VerificationCondition,
+  VerificationConfig,
+} from "../types";
 import { type Invariant, InvariantExtractor, InvariantGenerator } from "./invariants";
 import type { RoundTripResult, RoundTripValidator } from "./round-trip";
 import { type TemporalProperty, TemporalPropertyGenerator, TemporalTLAGenerator } from "./temporal";
@@ -1137,8 +1142,33 @@ export class TLAGenerator {
           if (!EXCLUDED.has(param)) fields.add(param);
         }
       }
+      this.extractPayloadRefsFromHandler(handler, fields);
     }
     return Array.from(fields);
+  }
+
+  /** Extract payload.xxx field references from handler conditions and assignments */
+  private extractPayloadRefsFromHandler(
+    handler: {
+      preconditions?: VerificationCondition[];
+      postconditions?: VerificationCondition[];
+      assignments?: StateAssignment[];
+    },
+    fields: Set<string>
+  ): void {
+    const pattern = /payload\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+    const texts: string[] = [];
+    for (const c of [...(handler.preconditions ?? []), ...(handler.postconditions ?? [])]) {
+      texts.push(typeof c === "string" ? c : (c.expression ?? ""));
+    }
+    for (const a of handler.assignments ?? []) {
+      if (typeof a.value === "string") texts.push(a.value);
+    }
+    for (const text of texts) {
+      for (const m of text.matchAll(pattern)) {
+        fields.add(m[1]);
+      }
+    }
   }
 
   private collectInitialStateFields(

@@ -187,7 +187,6 @@ This preserves independent group semantics (elements within each group are inter
 
 ### Verification in Polly
 
-- [Polly Optimization Guide](./OPTIMIZATION.md) - Tier 1 & Tier 2 optimizations
 - [Polly Architecture](./ARCHITECTURE.md) - How Polly generates TLA+ specs
 - [Issue #16: Multiple Symmetry Groups](https://github.com/AlexJeffcott/polly/issues/16) - TLA+ limitation handling
 

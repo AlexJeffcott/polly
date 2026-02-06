@@ -79,15 +79,7 @@ Build system and tooling:
 
 ## Verification & Formal Methods
 
-### [OPTIMIZATION.md](./OPTIMIZATION.md)
-TLA+ verification optimization guide:
-- Tier 1 optimizations (zero precision loss)
-- Tier 2 optimizations (controlled approximations)
-- Message filtering and symmetry reduction
-- Per-message bounds and temporal constraints
-- Performance impact and best practices
-
-### [TLA_RESOURCES.md](./TLA_RESOURCES.md) ⭐ NEW
+### [TLA_RESOURCES.md](./TLA_RESOURCES.md)
 Comprehensive TLA+ learning resources:
 - Official documentation and tools
 - Interactive tutorials and courses
@@ -105,7 +97,7 @@ Comprehensive TLA+ learning resources:
 5. **Message passing?** Study [MESSAGING.md](./MESSAGING.md)
 6. **Error handling?** See [ERRORS.md](./ERRORS.md)
 7. **Logging?** Check [LOGGING.md](./LOGGING.md)
-8. **Verification & TLA+?** See [OPTIMIZATION.md](./OPTIMIZATION.md) and [TLA_RESOURCES.md](./TLA_RESOURCES.md)
+8. **Verification & TLA+?** See [TLA_RESOURCES.md](./TLA_RESOURCES.md)
 
 ## Key Achievements
 

@@ -18,7 +18,6 @@
  *   polly test [args]                Run tests (requires bun test)
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
- *   polly teach                      Interactive teaching session
  *   polly help                       Show help
  *
  * Project Types (init --type):
@@ -121,13 +120,6 @@ async function dev() {
  * Verify command - delegate to @fairfox/web-ext-verify
  */
 async function verify() {
-  // Check if --optimize flag is present
-  if (commandArgs.includes("--optimize")) {
-    // Delegate to teach with optimization mode
-    await verifyOptimize();
-    return;
-  }
-
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/verify/src/cli.js`;
   const monorepoCli = `${__dirname}/../../verify/src/cli.ts`;
@@ -144,29 +136,6 @@ async function verify() {
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
     throw new Error(`Verification failed with exit code ${exitCode}`);
-  }
-}
-
-/**
- * Verify optimize command - delegate to teach with optimization context
- */
-async function verifyOptimize() {
-  // Check if bundled (published) or in monorepo
-  const bundledCli = `${__dirname}/../tools/teach/src/cli.js`;
-  const monorepoCli = `${__dirname}/../tools/teach/src/cli.ts`;
-  const teachCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
-
-  const proc = Bun.spawn(["bun", teachCli, "--mode=optimize"], {
-    cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-    env: process.env,
-  });
-
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    throw new Error(`Optimization session failed with exit code ${exitCode}`);
   }
 }
 
@@ -190,29 +159,6 @@ async function visualize() {
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
     throw new Error(`Visualization failed with exit code ${exitCode}`);
-  }
-}
-
-/**
- * Teach command - delegate to @fairfox/polly-teach
- */
-async function teach() {
-  // Check if bundled (published) or in monorepo
-  const bundledCli = `${__dirname}/../tools/teach/src/cli.js`;
-  const monorepoCli = `${__dirname}/../tools/teach/src/cli.ts`;
-  const teachCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
-
-  const proc = Bun.spawn(["bun", teachCli, ...commandArgs], {
-    cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-    env: process.env,
-  });
-
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    throw new Error(`Teaching session failed with exit code ${exitCode}`);
   }
 }
 
@@ -379,9 +325,6 @@ async function main() {
         break;
       case "visualize":
         await visualize();
-        break;
-      case "teach":
-        await teach();
         break;
       case "help":
       case "--help":

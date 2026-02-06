@@ -54,10 +54,6 @@
       "import": "./dist/tools/test/src/index.js",
       "types": "./dist/tools/test/src/index.d.ts"
     },
-    "./teach": {
-      "import": "./dist/tools/teach/src/index.js",
-      "types": "./dist/tools/teach/src/index.d.ts"
-    },
     "./elysia": {
       "import": "./dist/src/elysia/index.js",
       "types": "./dist/src/elysia/index.d.ts"
@@ -110,7 +106,6 @@
     "bun": ">=1.2.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
     "@preact/signals": "^2.5.1",
     "preact": "^10.28.1",
     "serialize-javascript": "^6.0.2",
