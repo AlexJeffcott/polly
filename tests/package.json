@@ -1,0 +1,23 @@
+{
+  "name": "@fairfox/polly-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Test suite for @fairfox/polly",
+  "scripts": {
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:all": "bun test",
+    "build:full-featured": "bun run ../scripts/build-user-extension.ts ../examples/full-featured",
+    "build:full-featured:prod": "bun run ../scripts/build-user-extension.ts ../examples/full-featured --prod"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/bun": "^1.3.5",
+    "@types/chrome": "^0.1.32",
+    "@types/node": "^25.0.3",
+    "puppeteer": "^24.34.0",
+    "typescript": "^5.9.3"
+  }
+}

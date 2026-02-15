@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Todo List Example",
+  "version": "1.0.0",
+  "description": "A todo list extension demonstrating verification primitives",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Todo List"
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

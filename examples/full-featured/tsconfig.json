@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["chrome", "bun"],
+    "paths": {
+      "@fairfox/polly": ["../../src/index.ts"],
+      "@fairfox/polly/state": ["../../src/shared/lib/state.ts"],
+      "@fairfox/polly/message-bus": ["../../src/shared/lib/message-bus.ts"],
+      "@fairfox/polly/message-router": ["../../src/background/message-router.ts"],
+      "@fairfox/polly/background": ["../../src/background/index.ts"],
+      "@fairfox/polly/adapters": ["../../src/shared/adapters/index.ts"],
+      "@fairfox/polly/errors": ["../../src/shared/lib/errors.ts"],
+      "@fairfox/polly/types": ["../../src/shared/types/messages.ts"],
+      "@fairfox/polly/test": ["../../tools/test/src/index.ts"],
+      "@fairfox/polly/verify": ["../../tools/verify/src/config.ts"],
+      "@/*": ["../../src/*"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*", "specs/**/*"]
+}

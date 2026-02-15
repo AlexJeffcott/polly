@@ -1,0 +1,19 @@
+{
+  "name": "team-task-manager-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.0.0",
+    "@fairfox/polly": "file:../../..",
+    "elysia": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Full-Featured Example",
+  "version": "0.1.0",
+  "description": "Demonstrates real-world extension patterns: authentication, bookmarks, tab management, and settings",
+  "permissions": ["storage", "tabs", "activeTab"],
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html"
+}

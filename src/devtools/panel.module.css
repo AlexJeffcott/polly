@@ -1,0 +1,176 @@
+/* DevTools panel styles */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #333;
+  background: #f5f5f5;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.version {
+  font-size: 12px;
+  color: #666;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+section {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e0e0e0;
+}
+
+section h2 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+section h3 {
+  margin: 12px 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: "Courier New", monospace;
+}
+
+input:focus {
+  outline: none;
+  border-color: #4285f4;
+}
+
+button {
+  padding: 8px 16px;
+  background: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+button:hover {
+  background: #3367d6;
+}
+
+button:active {
+  background: #2851a3;
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.results li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.results li:last-child {
+  border-bottom: none;
+}
+
+.results code {
+  font-family: "Courier New", monospace;
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.results .text {
+  flex: 1;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.actions-section button {
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.logs {
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+}
+
+.log-entry {
+  padding: 4px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.settings-section div {
+  margin-bottom: 8px;
+}

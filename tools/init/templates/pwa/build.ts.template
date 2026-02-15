@@ -1,0 +1,56 @@
+/**
+ * Build script for PWA
+ * Uses Bun's built-in bundler
+ */
+
+import { cpSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+
+const distDir = "./dist";
+
+// Clean dist directory
+console.log("🧹 Cleaning dist directory...");
+rmSync(distDir, { recursive: true, force: true });
+mkdirSync(distDir, { recursive: true });
+
+// Copy static files
+console.log("📋 Copying static files...");
+cpSync("./public", distDir, { recursive: true, force: true });
+cpSync("./index.html", join(distDir, "index.html"));
+
+// Build main application
+console.log("📦 Building main application...");
+await Bun.build({
+	entrypoints: ["./src/main.ts"],
+	outdir: join(distDir, "src"),
+	format: "esm",
+	minify: true,
+	sourcemap: "external",
+	target: "browser",
+});
+
+// Build service worker
+console.log("⚙️  Building service worker...");
+await Bun.build({
+	entrypoints: ["./src/service-worker.ts"],
+	outdir: join(distDir, "src"),
+	format: "esm",
+	minify: true,
+	sourcemap: "external",
+	target: "browser",
+});
+
+// Build shared worker
+console.log("👥 Building shared worker...");
+await Bun.build({
+	entrypoints: ["./src/shared-worker.ts"],
+	outdir: join(distDir, "src"),
+	format: "esm",
+	minify: true,
+	sourcemap: "external",
+	target: "browser",
+});
+
+console.log("✅ Build complete!");
+console.log(`\n📦 Output: ${distDir}/`);
+console.log("\n💡 To serve: bun run serve");

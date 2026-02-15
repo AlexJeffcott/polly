@@ -1,0 +1,30 @@
+{
+  "name": "minimal-example",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "polly check",
+    "build": "polly build",
+    "build:prod": "polly build --prod",
+    "test": "polly test",
+    "test:all": "polly lint && polly typecheck && polly test && polly verify",
+    "typecheck": "polly typecheck",
+    "lint": "polly lint",
+    "lint:fix": "polly lint --fix",
+    "format": "polly format",
+    "verify": "polly verify",
+    "verify:setup": "polly verify --setup",
+    "visualize": "polly visualize",
+    "visualize:export": "polly visualize --export",
+    "visualize:serve": "polly visualize --serve"
+  },
+  "dependencies": {
+    "@fairfox/polly": "link:../..",
+    "preact": "^10.28.1",
+    "@preact/signals": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.32",
+    "typescript": "^5.9.3"
+  }
+}

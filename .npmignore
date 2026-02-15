@@ -1,0 +1,47 @@
+# Source files (only dist/ should be published)
+src/
+cli/
+scripts/
+examples/
+
+# Build and config files
+build.ts
+build-lib.ts
+tsconfig.json
+biome.json
+.env
+.env.example
+bun-env.d.ts
+
+# Documentation that's not needed in npm
+docs/
+verification/
+tests/
+
+# Development files
+node_modules/
+.cache/
+.DS_Store
+*.log
+*.tmp
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+
+# Misc
+playwright-report/
+test-results/

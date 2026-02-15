@@ -1,0 +1,107 @@
+import { test, expect } from '@playwright/test'
+
+/**
+ * E2E workflow tests
+ *
+ * These tests demonstrate the expected workflows once the extension is loaded.
+ * To run these tests with a real extension, you would need to:
+ *
+ * 1. Launch Chrome with the extension loaded
+ * 2. Navigate to test pages
+ * 3. Interact with extension UI
+ * 4. Verify cross-context communication
+ */
+
+test.describe('Extension Workflows', () => {
+  test.skip('DOM query workflow', async ({ page }) => {
+    // This would test:
+    // 1. Content script loads
+    // 2. DevTools panel queries DOM
+    // 3. Results are displayed in panel
+    // 4. All contexts stay synchronized
+  })
+
+  test.skip('API request workflow', async ({ page }) => {
+    // This would test:
+    // 1. Content script triggers API request
+    // 2. Background makes the request (no CORS)
+    // 3. Response is returned to content
+    // 4. Signal updates broadcast to all contexts
+  })
+
+  test.skip('Settings synchronization workflow', async ({ page }) => {
+    // This would test:
+    // 1. Open popup
+    // 2. Change setting
+    // 3. Verify setting persists to storage
+    // 4. Verify all contexts receive update
+    // 5. Open options page
+    // 6. Verify setting is reflected
+  })
+
+  test.skip('Clipboard workflow', async ({ page }) => {
+    // This would test:
+    // 1. Trigger clipboard write from content
+    // 2. Background creates offscreen document
+    // 3. Offscreen writes to clipboard
+    // 4. Success response returns to content
+  })
+
+  test.skip('Context menu workflow', async ({ page }) => {
+    // This would test:
+    // 1. Right-click on page
+    // 2. Extension menu item appears
+    // 3. Click menu item
+    // 4. Background handles click
+    // 5. Action broadcasts to relevant contexts
+  })
+
+  test.skip('Page script injection workflow', async ({ page }) => {
+    // This would test:
+    // 1. Content script loads
+    // 2. Page script is injected
+    // 3. Page script can access window objects
+    // 4. Communication via window.postMessage works
+    // 5. Content script relays to background
+  })
+
+  test.skip('Multi-tab isolation workflow', async ({ page, context }) => {
+    // This would test:
+    // 1. Open multiple tabs
+    // 2. Each has independent content script
+    // 3. DevTools for each tab connects separately
+    // 4. Tab-specific messages route correctly
+    // 5. Broadcasts reach all tabs
+  })
+
+  test.skip('Signal synchronization workflow', async ({ page }) => {
+    // This would test:
+    // 1. Update signal in one context
+    // 2. Verify broadcast to all contexts
+    // 3. Verify dual protection prevents loops
+    // 4. Verify deep equality prevents redundant updates
+    // 5. Verify persistence to storage
+  })
+})
+
+test.describe('Error Handling', () => {
+  test.skip('handles missing tab gracefully', async ({ page }) => {
+    // Test sending message to non-existent tab
+  })
+
+  test.skip('handles disconnected port gracefully', async ({ page }) => {
+    // Test message to disconnected port
+  })
+
+  test.skip('handles timeout gracefully', async ({ page }) => {
+    // Test message timeout
+  })
+
+  test.skip('handles API errors gracefully', async ({ page }) => {
+    // Test API request failure
+  })
+
+  test.skip('handles clipboard permission denial', async ({ page }) => {
+    // Test clipboard operation when permission denied
+  })
+})

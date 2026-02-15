@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Minimal Example",
+  "version": "1.0.0",
+  "description": "Dead simple @fairfox/polly example",
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "permissions": []
+}

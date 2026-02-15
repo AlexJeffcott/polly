@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+bun.lock
+
+# Build outputs
+client/dist/
+server/dist/
+
+# SSL certificates (generated locally)
+*/certs/
+*/certs-*/
+
+# Rust build artifacts
+crypto/target/
+crypto/Cargo.lock

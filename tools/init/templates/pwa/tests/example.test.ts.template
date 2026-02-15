@@ -1,0 +1,94 @@
+/**
+ * Example tests for {{PROJECT_NAME}}
+ *
+ * This file demonstrates how to test Polly applications using
+ * the @fairfox/polly/test utilities.
+ */
+
+import { describe, expect, test, beforeEach } from "bun:test";
+import { createMockAdapters, waitFor, type MockExtensionAdapters } from "@fairfox/polly/test";
+import { MessageBus } from "@fairfox/polly/message-bus";
+
+describe("Message Bus Setup", () => {
+  let adapters: MockExtensionAdapters;
+  let bus: MessageBus;
+
+  beforeEach(() => {
+    // Create mock adapters for testing
+    adapters = createMockAdapters();
+    bus = new MessageBus("background", adapters);
+  });
+
+  test("can create message bus with mock adapters", () => {
+    expect(bus).toBeDefined();
+    expect(bus.context).toBe("background");
+  });
+
+  test("can register and call message handler", async () => {
+    // Register a handler
+    bus.on("PING", async (payload) => {
+      return { pong: true, timestamp: payload.timestamp };
+    });
+
+    // Send a message and get response
+    const response = await bus.send({
+      type: "PING",
+      timestamp: Date.now(),
+    });
+
+    expect(response.pong).toBe(true);
+    expect(response.timestamp).toBeDefined();
+  });
+
+  test("handlers can access mock adapters", async () => {
+    // Create a handler that uses storage
+    bus.on("SAVE_DATA", async (payload) => {
+      await adapters.storage.set({ data: payload.value });
+      return { success: true };
+    });
+
+    // Call the handler
+    await bus.send({
+      type: "SAVE_DATA",
+      value: "test data",
+    });
+
+    // Verify storage was called
+    const stored = await adapters.storage.get("data");
+    expect(stored.data).toBe("test data");
+  });
+});
+
+describe("State Management", () => {
+  test("can test state changes", () => {
+    // Example state object
+    const state = {
+      count: 0,
+      items: [] as string[],
+    };
+
+    // Simulate state changes
+    state.count++;
+    state.items.push("item1");
+
+    expect(state.count).toBe(1);
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]).toBe("item1");
+  });
+});
+
+describe("Async Operations", () => {
+  test("can wait for async operations", async () => {
+    let completed = false;
+
+    // Simulate async operation
+    setTimeout(() => {
+      completed = true;
+    }, 50);
+
+    // Wait for it
+    await waitFor(60);
+
+    expect(completed).toBe(true);
+  });
+});

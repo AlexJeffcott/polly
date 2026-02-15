@@ -1,0 +1,336 @@
+// ═══════════════════════════════════════════════════════════════
+// Core Analysis Model (Domain-Agnostic)
+// ═══════════════════════════════════════════════════════════════
+//
+// This module defines abstract types for analyzing message-passing systems.
+// These types are independent of the specific domain (web extensions,
+// actors, event buses, etc.).
+
+// ─────────────────────────────────────────────────────────────────
+// Type System (Universal)
+// ─────────────────────────────────────────────────────────────────
+
+export type TypeKind =
+  | "boolean"
+  | "string"
+  | "number"
+  | "enum"
+  | "array"
+  | "object"
+  | "map"
+  | "set"
+  | "union"
+  | "null"
+  | "unknown";
+
+export type TypeInfo = {
+  name: string;
+  kind: TypeKind;
+  nullable: boolean;
+  elementType?: TypeInfo; // For arrays, sets
+  valueType?: TypeInfo; // For maps
+  properties?: Record<string, TypeInfo>; // For objects
+  enumValues?: string[]; // For enums
+  unionTypes?: TypeInfo[]; // For unions
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Node System (Abstract)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * A node represents an entity in the system that can send/receive messages.
+ *
+ * Examples:
+ * - Web extension: "background", "content", "popup"
+ * - Actor system: Individual actor instances
+ * - Event bus: Emitters/listeners
+ * - Worker threads: Main thread + worker instances
+ */
+export type NodeDefinition = {
+  /** Unique identifier for this node */
+  id: string;
+
+  /** Type of node (adapter-specific) */
+  type: string;
+
+  /** Which nodes can this send messages to? */
+  canSendTo: string[];
+
+  /** Which nodes can send messages to this? */
+  canReceiveFrom: string[];
+
+  /** Optional: Additional metadata */
+  metadata?: Record<string, unknown>;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Message Types (Abstract)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Defines a type of message that flows through the system
+ */
+export type MessageTypeDefinition = {
+  /** Name/identifier of the message type */
+  name: string;
+
+  /** Schema of the message payload */
+  payload: TypeInfo;
+
+  /** Routing constraints */
+  routing: {
+    /** Which node types can send this message? */
+    from: string[];
+
+    /** Which node types can receive this message? */
+    to: string[];
+  };
+
+  /** Optional: Expected response type */
+  response?: TypeInfo;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// State Schema (Abstract)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Configuration for a state field
+ */
+export type FieldConfig =
+  | { maxLength: number | null }
+  | { min: number | null; max: number | null }
+  | { type: "number"; min?: number; max?: number }
+  | { type: "enum"; values: string[] }
+  | { values: string[] | null; abstract?: boolean }
+  | { maxSize: number | null; valueType?: unknown }
+  | { abstract: boolean };
+
+export type StateSchema = Record<string, FieldConfig>;
+
+// ─────────────────────────────────────────────────────────────────
+// Verified State Discovery (Issue #27)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Information about a $sharedState declaration with { verify: true }
+ *
+ * Used to discover functions that modify verified states and extract
+ * their state transitions for TLA+ generation.
+ */
+export type VerifiedStateInfo = {
+  /** State key (first argument to $sharedState) e.g., "auth" */
+  key: string;
+
+  /** Variable name holding the state signal e.g., "authState" */
+  variableName: string;
+
+  /** File where the state is declared */
+  filePath: string;
+
+  /** Line number of declaration */
+  line: number;
+
+  /** Field names extracted from initial value shape */
+  fields: string[];
+};
+
+// ─────────────────────────────────────────────────────────────────
+// State Mutations (Abstract)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Represents an assignment to a state field
+ */
+export type StateAssignment = {
+  /** Field path (e.g., "user.loggedIn") */
+  field: string;
+
+  /** The assigned value */
+  value: string | boolean | number | null;
+
+  /** Optional condition guard */
+  conditional?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Verification Conditions (Abstract)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * A verification condition (precondition or postcondition)
+ */
+export type VerificationCondition = {
+  /** The condition expression as a string */
+  expression: string;
+
+  /** Optional error message */
+  message?: string;
+
+  /** Source location */
+  location: {
+    line: number;
+    column: number;
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────
+// State-Level Constraints (Declarative)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Constraint declared at the state level.
+ * These are automatically wired to message handlers by the parser.
+ */
+export type StateConstraint = {
+  /** State field this constraint applies to */
+  field: string;
+
+  /** Message type this constraint applies to */
+  messageType: string;
+
+  /** Precondition expression (e.g., "loggedIn === true") */
+  requires?: string;
+
+  /** Postcondition expression */
+  ensures?: string;
+
+  /** Optional error message */
+  message?: string;
+
+  /** Source location */
+  location: {
+    file: string;
+    line: number;
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Global State Constraints (CONSTRAINT clause)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * A global state constraint that prunes structurally impossible states.
+ * Maps to the TLC CONSTRAINT clause, discarding states from the
+ * exploration queue entirely (unlike invariants which check but still explore).
+ */
+export type GlobalStateConstraint = {
+  /** User-provided name for the constraint */
+  name: string;
+
+  /** The arrow function body as raw string */
+  expression: string;
+
+  /** Optional error message */
+  message?: string;
+
+  /** Source location */
+  location: {
+    file: string;
+    line: number;
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Message Handler (Abstract)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Component relationship detected from code analysis
+ */
+export type ComponentRelationship = {
+  /** Source component */
+  from: string;
+  /** Target component */
+  to: string;
+  /** Description of the relationship */
+  description: string;
+  /** Technology/method used */
+  technology?: string;
+  /** Confidence level */
+  confidence: "high" | "medium" | "low";
+  /** Evidence supporting this detection */
+  evidence: string[];
+};
+
+/**
+ * Represents a message handler extracted from code
+ */
+export type MessageHandler = {
+  /** Which message type does this handle? */
+  messageType: string;
+
+  /** Which node handles this message? */
+  node: string;
+
+  /** State assignments made by this handler */
+  assignments: StateAssignment[];
+
+  /** Preconditions (requires() calls) */
+  preconditions: VerificationCondition[];
+
+  /** Postconditions (ensures() calls) */
+  postconditions: VerificationCondition[];
+
+  /** Source location */
+  location: {
+    file: string;
+    line: number;
+  };
+
+  /** Component relationships detected from this handler's code */
+  relationships?: ComponentRelationship[];
+
+  /** Origin of this handler - used to prevent naming collisions in TLA+ generation */
+  origin?: "event" | "stateHandler";
+
+  /** Parameter names of the handler function (for payload tracing) */
+  parameters?: string[];
+
+  /** Kind of handler: message-based or REST endpoint */
+  handlerKind?: "message" | "rest";
+
+  /** HTTP method for REST handlers (e.g., "GET", "POST") */
+  httpMethod?: string;
+
+  /** Route path for REST handlers (e.g., "/todos", "/auth/login") */
+  routePath?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Confidence Levels (Universal)
+// ─────────────────────────────────────────────────────────────────
+
+export type Confidence = "high" | "medium" | "low";
+
+export type FieldAnalysis = {
+  path: string;
+  type: TypeInfo;
+  confidence: Confidence;
+  evidence: string[];
+  suggestions: string[];
+  bounds?: {
+    min?: number;
+    max?: number;
+    maxLength?: number;
+    maxSize?: number;
+    values?: string[];
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Codebase Analysis Result
+// ─────────────────────────────────────────────────────────────────
+
+export type CodebaseAnalysis = {
+  stateType: TypeInfo | null;
+  messageTypes: string[];
+  fields: FieldAnalysis[];
+  handlers: MessageHandler[];
+  stateConstraints: StateConstraint[];
+  /** Global state constraints for TLC CONSTRAINT clause */
+  globalStateConstraints?: GlobalStateConstraint[];
+  /** Verified states discovered (Issue #27) */
+  verifiedStates?: VerifiedStateInfo[];
+};

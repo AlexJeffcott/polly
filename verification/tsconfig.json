@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@atoms": ["src/ui/atoms/index"],
+      "@atoms/*": ["src/ui/atoms/*"],
+      "@molecules": ["src/ui/molecules/index"],
+      "@molecules/*": ["src/ui/molecules/*"],
+      "@pages": ["src/ui/pages/index"],
+      "@pages/*": ["src/ui/pages/*"]
+    }
+  },
+  "include": ["./**/*", "../src/**/*"]
+}

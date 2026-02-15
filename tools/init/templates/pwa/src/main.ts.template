@@ -1,0 +1,133 @@
+/**
+ * Main Application Context
+ * Coordinates between Service Worker and Shared Worker
+ */
+
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/src/service-worker.ts', {
+        type: 'module'
+      })
+      console.log('Service Worker registered:', registration.scope)
+      updateStatus('sw-status', '✓ Active')
+    } catch (error) {
+      console.error('Service Worker registration failed:', error)
+      updateStatus('sw-status', '✗ Failed')
+    }
+  })
+
+  // Listen for messages from Service Worker
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    console.log('Message from Service Worker:', event.data)
+    addMessage(`[SW] ${JSON.stringify(event.data)}`)
+  })
+}
+
+// Initialize Shared Worker
+let sharedWorker: SharedWorker | null = null
+let messageCount = 0
+
+if (typeof SharedWorker !== 'undefined') {
+  sharedWorker = new SharedWorker(
+    new URL('./shared-worker.ts', import.meta.url),
+    { type: 'module', name: 'polly-shared-worker' }
+  )
+
+  sharedWorker.port.start()
+
+  // Listen for messages from Shared Worker
+  sharedWorker.port.addEventListener('message', (event) => {
+    console.log('Message from Shared Worker:', event.data)
+    addMessage(`[Shared] ${JSON.stringify(event.data)}`)
+    messageCount++
+    updateMessageCount()
+  })
+
+  updateStatus('shared-worker-status', '✓ Connected')
+} else {
+  updateStatus('shared-worker-status', '✗ Not Supported')
+}
+
+// UI Event Handlers
+document.getElementById('ping-sw')?.addEventListener('click', async () => {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'PING',
+      timestamp: Date.now()
+    })
+    addMessage('[Main] Sent PING to Service Worker')
+  } else {
+    addMessage('[Main] Service Worker not active')
+  }
+})
+
+document.getElementById('ping-shared')?.addEventListener('click', () => {
+  if (sharedWorker) {
+    sharedWorker.port.postMessage({
+      type: 'PING',
+      timestamp: Date.now()
+    })
+    addMessage('[Main] Sent PING to Shared Worker')
+  } else {
+    addMessage('[Main] Shared Worker not available')
+  }
+})
+
+document.getElementById('broadcast')?.addEventListener('click', () => {
+  const message = {
+    type: 'BROADCAST',
+    data: 'Hello from main context',
+    timestamp: Date.now()
+  }
+
+  // Send to both workers
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage(message)
+  }
+
+  if (sharedWorker) {
+    sharedWorker.port.postMessage(message)
+  }
+
+  addMessage('[Main] Broadcast sent to all workers')
+})
+
+// UI Helper Functions
+function updateStatus(elementId: string, status: string) {
+  const element = document.getElementById(elementId)
+  if (element) {
+    element.textContent = status
+  }
+}
+
+function updateMessageCount() {
+  const element = document.getElementById('message-count')
+  if (element) {
+    element.textContent = messageCount.toString()
+  }
+}
+
+function addMessage(text: string) {
+  const messagesDiv = document.getElementById('messages')
+  if (!messagesDiv) return
+
+  const messageDiv = document.createElement('div')
+  messageDiv.className = 'message'
+
+  const time = new Date().toLocaleTimeString()
+  messageDiv.innerHTML = `<span class="message-time">${time}</span>${text}`
+
+  messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild)
+
+  // Keep only last 20 messages
+  while (messagesDiv.children.length > 20) {
+    messagesDiv.removeChild(messagesDiv.lastChild!)
+  }
+}
+
+// Initial message
+addMessage('[Main] Application initialized')
+
+console.log('{{PROJECT_NAME}} initialized')

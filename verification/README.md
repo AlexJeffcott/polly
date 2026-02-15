@@ -1,0 +1,284 @@
+# Formal Verification
+
+This directory contains verification configuration for formally verifying the web extension framework using TLA+ model checking.
+
+**Note:** For a complete, working example with verification, see `examples/todo-list/`.
+
+## Overview
+
+The verification system extracts state handlers from your codebase, analyzes their state transitions, and generates TLA+ specifications that can be model-checked with TLC to find concurrency bugs, race conditions, and invariant violations.
+
+## Directory Structure
+
+```
+verification/
+├── README.md              # This file
+├── tsconfig.json          # TypeScript config for verification
+├── verify.config.ts       # Verification configuration
+├── verify.ts              # Verification script (run this!)
+├── handlers-example.ts    # Example handlers with verification primitives
+└── output/                # Generated TLA+ specs (gitignored)
+    ├── UserApp.tla        # TLA+ specification
+    └── UserApp.cfg        # TLC configuration
+```
+
+## Usage
+
+### 1. Add Verification Primitives to Your Handlers
+
+Use `{ verify: true }` on your state declarations to enable TLA+ verification:
+
+```typescript
+import { $sharedState } from '@fairfox/polly/state'
+import { requires, ensures } from '@verify/primitives'
+
+// Enable verification discovery for this state
+export const authState = $sharedState('auth', {
+  isAuthenticated: false,
+  userProfile: null,
+}, { verify: true })
+
+// Standalone functions are automatically discovered
+export function handleAuthSuccess(userProfile: UserProfile): void {
+  requires(!authState.value.isAuthenticated, 'Must not already be authenticated')
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: true,
+    userProfile,
+  }
+
+  ensures(authState.value.isAuthenticated, 'Must be authenticated after success')
+}
+
+export function handleLogout(): void {
+  requires(authState.value.isAuthenticated, 'Must be authenticated to logout')
+
+  authState.value = {
+    ...authState.value,
+    isAuthenticated: false,
+    userProfile: null,
+  }
+
+  ensures(!authState.value.isAuthenticated, 'Must not be authenticated after logout')
+}
+```
+
+The TLA+ generator will:
+1. Find all `$sharedState`/`$syncedState`/`$persistedState` declarations with `{ verify: true }`
+2. Discover exported functions that modify those states
+3. Extract `requires()`/`ensures()` annotations
+4. Generate proper TLA+ state transitions
+
+Function names are converted to message types:
+- `handleAuthSuccess` → `AuthSuccess`
+- `handleLogout` → `Logout`
+- `setUserProfile` → `SetUserProfile`
+- `onError` → `Error`
+- `updateCounter` → `UpdateCounter`
+
+This pattern works universally across:
+- Chrome extensions
+- Multi-tab PWAs
+- WebSocket applications
+- Reactive effect-driven architectures
+- Any application using Polly's state primitives
+
+### 2. Configure Verification Bounds
+
+Edit `verify.config.ts` to specify state bounds and verification settings:
+
+```typescript
+export const verificationConfig: VerificationConfig = {
+  state: {
+    'user.loggedIn': { type: 'boolean' },
+    'user.role': { type: 'enum', values: ['guest', 'user', 'admin'] },
+    'todoCount': { min: 0, max: 100 },
+  },
+
+  messages: {
+    maxInFlight: 3,  // Max concurrent messages
+    maxTabs: 1,      // Max tab IDs to verify
+  },
+
+  onBuild: 'warn',
+  onRelease: 'error',
+}
+```
+
+### 3. Generate TLA+ Specification
+
+From the verification directory:
+
+```bash
+cd packages/polly/verification
+bun verify.ts
+```
+
+This will:
+1. Extract all state handlers with `{ verify: true }`
+2. Parse verification primitives
+3. Generate TLA+ specification in `output/UserApp.tla`
+4. Generate TLC config in `output/UserApp.cfg`
+
+### 4. Run Model Checker
+
+#### Option A: Using Docker (Recommended)
+
+The verification CLI uses Docker to run TLC model checking. Docker ensures you have the correct TLC version (2.19) without installing Java or TLA+ tools manually.
+
+**First-time setup:**
+```bash
+# The CLI will automatically build the Docker image on first run
+# Or build manually:
+docker build -f node_modules/@fairfox/polly/tools/verify/Dockerfile \
+  -t polly-tla:latest \
+  node_modules/@fairfox/polly/tools/verify
+```
+
+**When to rebuild the Docker image:**
+- After upgrading Polly to a new version
+- If you see TLC version errors (e.g., "TLCGet should be a nonnegative integer")
+- After a long time without using verification (old cached image)
+
+**Check your current TLC version:**
+```bash
+docker run --rm polly-tla:latest -version
+```
+
+You should see: `TLC2 Version 2.19 of Day Month Year` (2024 or later)
+
+**Run verification with Docker:**
+```bash
+cd verification/output
+docker run --rm -v $(pwd):/work polly-tla:latest tlc UserApp.tla -config UserApp.cfg
+```
+
+#### Option B: Using TLA+ Toolbox Directly
+
+With TLA+ Toolbox installed:
+
+```bash
+cd verification/output
+tlc UserApp.tla -config UserApp.cfg
+```
+
+TLC will exhaustively explore all possible execution paths and report any violations of:
+- Type safety
+- Preconditions (requires)
+- Postconditions (ensures)
+- Message routing invariants
+
+## Verification Primitives
+
+### `requires(condition, message?)`
+
+Specifies a precondition that must hold when the handler executes.
+
+```typescript
+requires(state.count < 100, "Cannot exceed limit")
+```
+
+### `ensures(condition, message?)`
+
+Specifies a postcondition that must hold after the handler completes.
+
+```typescript
+ensures(state.count > 0, "Count must be positive")
+```
+
+### `invariant(name, condition)`
+
+Specifies a global invariant that must always hold (not yet implemented).
+
+```typescript
+invariant("NonNegativeCount", () => state.count >= 0)
+```
+
+## Helper Functions
+
+### `inRange(value, min, max)`
+
+Checks if a value is within bounds:
+
+```typescript
+requires(inRange(state.count, 0, 100), "Count out of range")
+```
+
+### `oneOf(value, allowed)`
+
+Checks if a value is in an allowed set:
+
+```typescript
+requires(oneOf(state.role, ['admin', 'user']), "Invalid role")
+```
+
+### `hasLength(array, constraint)`
+
+Checks array length constraints:
+
+```typescript
+requires(hasLength(state.items, { max: 100 }), "Too many items")
+```
+
+## Tips
+
+1. **Start Small** - Add verification to a few critical handlers first
+2. **Use Examples** - See `handlers-example.ts` for patterns
+3. **Iterate** - Run verification frequently during development
+4. **Read Output** - TLC error traces show the exact sequence of events that leads to a violation
+5. **Tune Bounds** - Reduce state space by carefully choosing bounds in `verify.config.ts`
+
+## Common Issues
+
+### "TLCGet should be a nonnegative integer" (Docker)
+
+This error means you have an old cached Docker image with TLC 2.13 (from 2018) which doesn't support modern TLC features.
+
+**Solution:**
+```bash
+# Rebuild the Docker image to get TLC 2.19
+docker build -f node_modules/@fairfox/polly/tools/verify/Dockerfile \
+  -t polly-tla:latest \
+  node_modules/@fairfox/polly/tools/verify
+
+# Verify the version
+docker run --rm polly-tla:latest -version
+# Should show: TLC2 Version 2.19 (2024)
+```
+
+### "Error: more than one input files: tlc and UserApp.tla" (Docker)
+
+This was a bug in older versions of Polly where the Docker ENTRYPOINT didn't handle the "tlc" command correctly. Upgrade to Polly v0.12.4+ and rebuild the Docker image.
+
+### "State space too large"
+
+Reduce bounds in `verify.config.ts`:
+- Lower `maxInFlight`
+- Lower `maxTabs`
+- Reduce enum/string value sets
+- Use smaller numeric ranges
+
+### "Postcondition violated"
+
+The TLC trace will show:
+1. Initial state
+2. Sequence of messages
+3. State after each message
+4. The exact assertion that failed
+
+Use this to debug your handler logic.
+
+### "Deadlock detected"
+
+All processes are waiting for each other. Check for:
+- Missing message handlers
+- Circular dependencies in message flows
+- Incorrect port connection logic
+
+## Next Steps
+
+- Add verification primitives to critical handlers
+- Run verification on pull requests
+- Integrate with CI/CD
+- Use TLC's simulation mode for faster feedback during development

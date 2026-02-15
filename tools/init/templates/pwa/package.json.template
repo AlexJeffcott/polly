@@ -1,0 +1,25 @@
+{
+  "name": "{{PROJECT_NAME}}",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/main.ts",
+    "build": "bun build.ts",
+    "serve": "bun --hot server.ts",
+    "test": "bun test",
+    "typecheck": "bun tsc --noEmit",
+    "verify": "polly verify",
+    "verify:setup": "polly verify --setup",
+    "visualize": "polly visualize",
+    "visualize:export": "polly visualize --export",
+    "visualize:serve": "polly visualize --serve",
+    "teach": "polly teach"
+  },
+  "dependencies": {
+    "@fairfox/polly": "^0.7.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/bun": "^1.3.5"
+  }
+}

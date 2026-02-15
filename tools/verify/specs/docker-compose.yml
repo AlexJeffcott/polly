@@ -1,0 +1,9 @@
+services:
+  tla:
+    build: .
+    container_name: web-ext-tla
+    volumes:
+      - ./tla:/specs
+    working_dir: /specs
+    stdin_open: true
+    tty: true
