@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { $persistedState, $sharedState, $state, $syncedState, clearStateRegistry } from "./state";
+import { $persistedState, $sharedState, $state, $syncedState, clearStateRegistry } from "../state";
 
 describe("State Primitives", () => {
   beforeEach(() => {

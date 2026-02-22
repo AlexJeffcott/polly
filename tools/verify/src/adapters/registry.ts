@@ -75,6 +75,19 @@ export const ADAPTER_REGISTRY: Record<ProjectType, AdapterFactory> = {
   },
 
   /**
+   * Monorepo: Falls back to generic detection across workspace packages
+   * Monorepos are detected by presence of workspace configuration
+   */
+  monorepo: (tsConfigPath: string) => {
+    return new EventBusAdapter({
+      tsConfigPath,
+      maxInFlight: 5,
+      maxEmitters: 3,
+      emitterPattern: /emitter|bus|events|dispatch|publish/i,
+    });
+  },
+
+  /**
    * Generic TypeScript Project: Falls back to detection-based adapter selection
    * Tries to auto-detect the best adapter based on code patterns
    */
@@ -134,6 +147,7 @@ export function getAdapterName(projectType: ProjectType): string {
     "websocket-app": "websocket",
     pwa: "web-extension",
     electron: "event-bus",
+    monorepo: "event-bus",
     generic: "event-bus (auto-detected)",
   };
 

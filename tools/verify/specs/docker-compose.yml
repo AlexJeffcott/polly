@@ -1,7 +1,7 @@
 services:
   tla:
     build: .
-    container_name: web-ext-tla
+    container_name: polly-tla-dev
     volumes:
       - ./tla:/specs
     working_dir: /specs

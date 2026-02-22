@@ -924,7 +924,7 @@ export * from './logger.adapter'
 
 ## Mock Adapters for Testing
 
-Mock adapters live in `tests/helpers/adapters/` and mirror the structure of `src/shared/adapters/`.
+Mock adapters live in `tools/test/src/adapters/` and mirror the structure of `src/shared/adapters/`.
 
 **Key Principles:**
 - Mock interfaces **extend** production adapter interfaces
@@ -935,7 +935,7 @@ Mock adapters live in `tests/helpers/adapters/` and mirror the structure of `src
 ### Mock Structure
 
 ```
-tests/helpers/adapters/
+tools/test/src/adapters/
 ├── index.ts              # Main exports with createMockAdapters()
 ├── runtime.mock.ts       # MockRuntime extends RuntimeAdapter
 ├── storage.mock.ts       # MockStorageArea extends StorageAdapter
@@ -950,7 +950,7 @@ tests/helpers/adapters/
 ### Example: Mock Runtime Adapter
 
 ```typescript
-// tests/helpers/adapters/runtime.mock.ts
+// tools/test/src/adapters/runtime.mock.ts
 
 import type { RuntimeAdapter, PortAdapter, MessageSender } from '@/shared/adapters/runtime.adapter'
 
@@ -999,7 +999,7 @@ export function createMockRuntime(): MockRuntime {
 ### Example: Mock Fetch Adapter
 
 ```typescript
-// tests/helpers/adapters/fetch.mock.ts
+// tools/test/src/adapters/fetch.mock.ts
 
 import type { FetchAdapter } from '@/shared/adapters/fetch.adapter'
 
@@ -1035,7 +1035,7 @@ export function createMockFetch(): MockFetch {
 ### Example: Mock Logger Adapter
 
 ```typescript
-// tests/helpers/adapters/logger.mock.ts
+// tools/test/src/adapters/logger.mock.ts
 
 import type { LoggerAdapter, LogLevel } from '@/shared/adapters/logger.adapter'
 
@@ -1108,7 +1108,7 @@ export function createMockLogger(options?: { silent?: boolean }): MockLogger {
 **Simple usage with `createMockAdapters()`:**
 
 ```typescript
-import { createMockAdapters } from '../helpers/adapters'
+import { createMockAdapters } from '@fairfox/polly/test'
 import { MessageBus } from '@/shared/lib/message-bus'
 
 test('Simple test', () => {
@@ -1129,7 +1129,7 @@ import {
   type MockRuntime,
   type MockFetch,
   type MockLogger,
-} from '../helpers/adapters'
+} from '@fairfox/polly/test'
 import type { ExtensionAdapters } from '@/shared/adapters'
 
 test('Advanced test', async () => {

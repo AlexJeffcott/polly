@@ -27,23 +27,27 @@ This extension achieves 100% type safety and comprehensive test coverage through
 
 ```
 tests/
-├── helpers/
-│   ├── adapters/           # Mock implementations mirror src/shared/adapters/
-│   │   ├── index.ts        # Main exports with createMockAdapters()
-│   │   ├── runtime.mock.ts
-│   │   ├── storage.mock.ts
-│   │   ├── tabs.mock.ts
-│   │   ├── window.mock.ts
-│   │   ├── offscreen.mock.ts
-│   │   ├── context-menus.mock.ts
-│   │   └── fetch.mock.ts
-│   └── test-utils.ts       # Shared test utilities
 ├── unit/
 │   ├── *.test.ts           # Unit tests (isolated functionality)
 │   └── contexts/
 │       └── content.test.ts
 └── integration/
-    └── cross-context.test.ts  # Integration tests (multiple components)
+    ├── cross-context.test.ts         # Cross-context communication tests
+    ├── centralized-logging.test.ts   # LogStore integration tests
+    └── real-world-logging-scenarios.test.ts
+
+tools/test/src/
+├── adapters/               # Mock implementations mirror src/shared/adapters/
+│   ├── index.ts            # Main exports with createMockAdapters()
+│   ├── runtime.mock.ts
+│   ├── storage.mock.ts
+│   ├── tabs.mock.ts
+│   ├── window.mock.ts
+│   ├── offscreen.mock.ts
+│   ├── context-menus.mock.ts
+│   ├── fetch.mock.ts
+│   └── logger.mock.ts
+└── test-utils.ts           # Shared test utilities
 ```
 
 ### Import Patterns
@@ -53,7 +57,7 @@ tests/
 ```typescript
 // ✅ Good - path alias
 import { MessageBus } from '@/shared/lib/message-bus'
-import { createMockAdapters } from '../helpers/adapters'
+import { createMockAdapters } from '@fairfox/polly/test'
 
 // ❌ Bad - relative paths
 import { MessageBus } from '../../src/shared/lib/message-bus'
@@ -83,7 +87,7 @@ export interface MockRuntime extends RuntimeAdapter {
 When you don't need access to mock internals:
 
 ```typescript
-import { createMockAdapters } from '../helpers/adapters'
+import { createMockAdapters } from '@fairfox/polly/test'
 
 test('Simple test', async () => {
   const adapters = createMockAdapters()
@@ -108,7 +112,7 @@ import {
   createMockFetch,
   createMockLogger,
   type MockRuntime,
-} from '../helpers/adapters'
+} from '@fairfox/polly/test'
 import type { ExtensionAdapters } from '@/shared/adapters'
 
 test('Complex test', () => {
@@ -158,7 +162,7 @@ createMockChrome(): MockChrome            // Chrome-like API grouping
 The `MockLogger` adapter is unique in that it captures all log calls for assertions and remains silent by default to avoid test output noise:
 
 ```typescript
-import { createMockLogger, type MockLogger } from '../helpers/adapters'
+import { createMockLogger, type MockLogger } from '@fairfox/polly/test'
 
 test('Verify logging behavior', () => {
   const mockLogger = createMockLogger({ silent: true })
@@ -254,7 +258,7 @@ All background services accept optional `MessageBus` or adapters:
 ```typescript
 import { ApiClient } from '@/background/api-client'
 import { MessageBus } from '@/shared/lib/message-bus'
-import { createMockFetch, type MockFetch } from '../helpers/adapters'
+import { createMockFetch, type MockFetch } from '@fairfox/polly/test'
 
 let mockFetch: MockFetch
 let bus: MessageBus
@@ -351,7 +355,7 @@ Access mock runtime internals to simulate port connections:
 
 ```typescript
 import { MessageRouter } from '@/background/message-router'
-import { createMockRuntime, createMockPort, type MockRuntime } from '../helpers/adapters'
+import { createMockRuntime, createMockPort, type MockRuntime } from '@fairfox/polly/test'
 
 let mockRuntime: MockRuntime
 let router: MessageRouter
@@ -400,7 +404,7 @@ import {
   createMockRuntime,
   createMockPort,
   type MockRuntime,
-} from '../helpers/adapters'
+} from '@fairfox/polly/test'
 
 // Helper function to simulate port connections
 function simulatePortConnection(
@@ -751,7 +755,7 @@ exclude = [
 
 ## Coverage
 
-Current test coverage: **126 tests, 100% passing**
+Current test coverage: **all tests passing**
 
 - ✅ Unit tests for all adapters
 - ✅ Unit tests for message bus

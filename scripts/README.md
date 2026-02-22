@@ -72,11 +72,8 @@ In your code, import framework primitives:
 
 ```typescript
 // Import framework state primitives
-import { $sharedState, $syncedState } from '@fairfox/web-ext/state'
-import { getMessageBus } from '@fairfox/web-ext/message-bus'
-
-// Or if framework is in parent directory:
-import { $sharedState } from '../../../src/shared/lib/state'
+import { $sharedState, $syncedState } from '@fairfox/polly/state'
+import { getMessageBus } from '@fairfox/polly/message-bus'
 ```
 
 The build script handles bundling everything together!

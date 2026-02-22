@@ -122,7 +122,7 @@ async function dev() {
 async function verify() {
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/verify/src/cli.js`;
-  const monorepoCli = `${__dirname}/../../verify/src/cli.ts`;
+  const monorepoCli = `${__dirname}/../tools/verify/src/cli.ts`;
   const verifyCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
   const proc = Bun.spawn(["bun", verifyCli, ...commandArgs], {
@@ -145,7 +145,7 @@ async function verify() {
 async function visualize() {
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/visualize/src/cli.js`;
-  const monorepoCli = `${__dirname}/../../visualize/src/cli.ts`;
+  const monorepoCli = `${__dirname}/../tools/visualize/src/cli.ts`;
   const visualizeCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
   const proc = Bun.spawn(["bun", visualizeCli, ...commandArgs], {
@@ -284,10 +284,29 @@ async function init() {
 }
 
 /**
- * Help command
+ * Help command — prints usage from the docstring at the top of this file
  */
 function help() {
-  // Help is shown automatically via commander
+  console.log(`Polly CLI — multi-execution-context framework
+
+Usage:
+  polly init [name] [--type=TYPE]  Create a new project
+  polly check                      Run all checks (typecheck, lint, test, build)
+  polly build [options]            Build the project
+  polly dev                        Build with watch mode
+  polly typecheck                  Type check your code
+  polly lint [--fix]               Lint your code
+  polly format                     Format your code
+  polly test [args]                Run tests
+  polly verify [args]              Run formal verification
+  polly visualize [args]           Generate architecture diagrams
+  polly help                       Show this help
+
+Options:
+  --prod              Build for production (minified)
+  --config <path>     Path to config file (default: polly.config.ts)
+  --fix               Auto-fix lint/format issues
+  --type=TYPE         Project type for init command (pwa, extension, websocket, generic)`);
 }
 
 /**

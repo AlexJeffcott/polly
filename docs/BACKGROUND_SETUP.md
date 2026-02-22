@@ -6,7 +6,7 @@ In your background script, use `createBackground()` to initialize the message bu
 
 ```typescript
 // src/background/index.ts
-import { createBackground } from '@fairfox/web-ext/background'
+import { createBackground } from '@fairfox/polly/background'
 
 const bus = createBackground()
 
@@ -110,7 +110,7 @@ use createBackground() instead of getMessageBus().
 
 ```typescript
 // src/background/index.ts
-import { createBackground } from '@fairfox/web-ext/background'
+import { createBackground } from '@fairfox/polly/background'
 
 // Call once at startup
 const bus = createBackground()
@@ -142,7 +142,7 @@ When testing background handlers, ensure you reset the MessageRouter singleton:
 
 ```typescript
 import { test, expect, beforeEach } from 'bun:test'
-import { MessageRouter } from '@fairfox/web-ext/background'
+import { MessageRouter } from '@fairfox/polly/background'
 
 beforeEach(() => {
   // Reset singleton for each test

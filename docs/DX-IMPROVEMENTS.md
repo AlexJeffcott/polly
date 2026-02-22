@@ -1,6 +1,6 @@
 # Developer Experience Improvements
 
-This document outlines the DX improvements made to the web-ext framework based on analyzing the example extension usage patterns.
+This document outlines the DX improvements made to the Polly framework based on analyzing the example extension usage patterns.
 
 ## Summary of Improvements
 
