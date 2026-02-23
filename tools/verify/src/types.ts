@@ -70,9 +70,9 @@ export type FieldConfig =
   | { maxLength: number | null }
   | { min: number | null; max: number | null }
   | { type: "enum"; values: string[] }
-  | { values: string[] | null; abstract?: boolean }
+  | { values: string[] | null; abstract?: boolean; nullable?: boolean }
   | { maxSize: number | null; valueType?: string }
-  | { abstract: boolean };
+  | { abstract: boolean; nullable?: boolean };
 
 export type MessageConfig = {
   maxInFlight: number | null;

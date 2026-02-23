@@ -5,9 +5,10 @@ import { defineVerification } from "@fairfox/polly/verify";
 // biome-ignore lint/style/noDefaultExport: verification configs use default export by convention
 export default defineVerification({
   state: {
-    // Auth state (discovered via { verify: true } on $sharedState in state.ts)
-    auth_loggedIn: { type: "boolean" },
-    auth_userId: { values: ["user1", "user2"], abstract: true },
+    // Auth state — field names must match what handler extraction generates
+    // from authState.value.loggedIn / authState.value.userId
+    authState_loggedIn: { type: "boolean" },
+    authState_userId: { values: ["user1", "user2"], abstract: true, nullable: true },
 
     // Todo count (exercises { type: "number" } verification)
     todoCount: { type: "number", min: 0, max: 100 },

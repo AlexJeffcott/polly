@@ -1553,18 +1553,21 @@ export class TLAGenerator {
   ): boolean {
     if (assignment.value !== null) return true;
 
-    // Check if null can be mapped to a valid value
     const fieldConfig = state[assignment.field];
-    return !!(
-      fieldConfig &&
-      typeof fieldConfig === "object" &&
-      "values" in fieldConfig &&
-      fieldConfig.values
-    );
+    if (!fieldConfig || typeof fieldConfig !== "object") return false;
+
+    // Abstract or nullable fields: null maps to TLA+ NULL
+    if ("abstract" in fieldConfig && fieldConfig.abstract) return true;
+    if ("nullable" in fieldConfig && fieldConfig.nullable) return true;
+
+    // Non-abstract fields with values: map null to last value (legacy behaviour)
+    return !!("values" in fieldConfig && fieldConfig.values);
   }
 
   /**
-   * Map null assignment to a valid value if possible
+   * Map null assignment to a valid value if possible.
+   * Abstract and nullable fields preserve null (becomes TLA+ NULL).
+   * Non-abstract enum fields map null to the last declared value (legacy).
    */
   private mapNullAssignment(
     assignment: { field: string; value: string | boolean | number | null },
@@ -1573,12 +1576,14 @@ export class TLAGenerator {
     if (assignment.value !== null) return assignment;
 
     const fieldConfig = state[assignment.field];
-    if (
-      fieldConfig &&
-      typeof fieldConfig === "object" &&
-      "values" in fieldConfig &&
-      fieldConfig.values
-    ) {
+    if (!fieldConfig || typeof fieldConfig !== "object") return assignment;
+
+    // Abstract or nullable fields: preserve null → TLA+ NULL
+    if ("abstract" in fieldConfig && fieldConfig.abstract) return assignment;
+    if ("nullable" in fieldConfig && fieldConfig.nullable) return assignment;
+
+    // Non-abstract fields with values: map null to last value (legacy)
+    if ("values" in fieldConfig && fieldConfig.values) {
       const nullValue = fieldConfig.values[fieldConfig.values.length - 1];
       return { ...assignment, value: nullValue };
     }
@@ -2860,10 +2865,14 @@ export class TLAGenerator {
 
   /**
    * Try to match abstract type pattern
-   * Abstract fields use the generic Value type for model checking
+   * Abstract fields use the generic Value type for model checking.
+   * Nullable abstract fields include NULL in the union.
    */
   private tryAbstractType(fieldConfig: FieldConfig): string | null {
     if ("abstract" in fieldConfig && fieldConfig.abstract === true) {
+      if ("nullable" in fieldConfig && fieldConfig.nullable === true) {
+        return "Value \\union {NULL}";
+      }
       return "Value";
     }
     return null;
@@ -3120,6 +3129,9 @@ export class TLAGenerator {
   private getInitialValue(fieldConfig: FieldConfig): string {
     // Handle abstract fields - use value from bounded Value set
     if ("abstract" in fieldConfig && fieldConfig.abstract === true) {
+      if ("nullable" in fieldConfig && fieldConfig.nullable === true) {
+        return "NULL"; // Nullable abstract fields start as NULL
+      }
       return '"v1"'; // Default value from Value set
     }
 
