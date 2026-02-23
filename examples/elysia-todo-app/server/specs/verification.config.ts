@@ -13,6 +13,9 @@ export default defineVerification({
     todoCount: { type: "number", min: 0, max: 100 },
 
     // $resource async lifecycle fields (todos resource)
+    // These model the client-side fetch lifecycle for TLA+ verification.
+    // The three synthetic handlers (todos_FetchStart/Success/Error) are
+    // auto-discovered when $resource is in the analyzed tsconfig scope.
     todos_status: { type: "enum", values: ["idle", "loading", "success", "error"] },
     todos_error: { type: "boolean" },
   },
@@ -20,15 +23,6 @@ export default defineVerification({
   messages: {
     maxInFlight: 2,
     maxTabs: 1,
-    include: [
-      "login",
-      "logout",
-      "addTodo",
-      "removeTodo",
-      "todos_FetchStart",
-      "todos_FetchSuccess",
-      "todos_FetchError",
-    ],
   },
 
   onBuild: "warn",
