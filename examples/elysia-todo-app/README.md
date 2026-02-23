@@ -7,6 +7,7 @@ A complete full-stack todo application demonstrating Polly's Elysia middleware i
 - ✅ **Real-time sync** - WebSocket broadcast keeps all clients in sync
 - ✅ **Authorization** - Route-level auth rules
 - ✅ **Client effects** - Declarative client-side state updates
+- ✅ **Async resources** - `$resource` for tracked async data fetching
 - ✅ **Production-ready** - Minimal overhead with pass-through middleware
 
 ## Why This Matters
@@ -105,6 +106,24 @@ The `verify` command generates a TLA+ specification from your Polly middleware c
 - **Broadcast Delivery**: Updates reach all connected clients
 
 See `server/specs/verification.config.ts` for configuration.
+
+### `$resource` — Async Data Fetching
+
+The client uses `$resource` to fetch todos when the logged-in user changes:
+
+```typescript
+const todosResource = $resource("todos", {
+  source: () => ({ userId: clientState.user.value?.id ?? null }),
+  fetcher: async ({ userId }) => {
+    if (userId === null) return [];
+    const res = await fetch("http://localhost:3000/todos");
+    return await res.json();
+  },
+  initialValue: [],
+});
+```
+
+Signal reads inside `source` are fully tracked. The `fetcher` is async and receives the source output — it never reads signals directly, avoiding the broken-tracking problem that occurs when `computed()` or `effect()` hits an `await` boundary. For verification, each `$resource` emits three synthetic handlers (`todos_FetchStart`, `todos_FetchSuccess`, `todos_FetchError`) that model the fetch lifecycle as a state machine.
 
 ## Features to Try
 

@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { api, clientState } from "./api";
+import { todosResource } from "./todosResource";
 import "./App.css";
 
 export function App() {
@@ -69,7 +70,11 @@ export function App() {
           <span class={api.$polly.state.isOnline.value ? "online" : "offline"}>
             {api.$polly.state.isOnline.value ? "🟢 Online" : "🔴 Offline"}
           </span>
-          {api.$polly.state.isSyncing.value && <span>⏳ Syncing...</span>}
+          {todosResource.status.value === "loading" && <span>Loading todos...</span>}
+          {todosResource.error.value && (
+            <span class="offline">Error: {todosResource.error.value.message}</span>
+          )}
+          {api.$polly.state.isSyncing.value && <span>Syncing...</span>}
           {api.$polly.state.queuedRequests.value.length > 0 && (
             <span class="queue">📋 {api.$polly.state.queuedRequests.value.length} queued</span>
           )}

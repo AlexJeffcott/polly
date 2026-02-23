@@ -326,6 +326,22 @@ export type FieldAnalysis = {
   };
 };
 
+export type VerifiedStateInfo = {
+  key: string;
+  variableName: string;
+  filePath: string;
+  line: number;
+  fields: string[];
+};
+
+export type ResourceInfo = {
+  name: string;
+  variableName: string;
+  filePath: string;
+  line: number;
+  sourceSignals: string[];
+};
+
 export type CodebaseAnalysis = {
   stateType: TypeInfo | null;
   messageTypes: string[];
@@ -334,4 +350,8 @@ export type CodebaseAnalysis = {
   stateConstraints: StateConstraint[];
   /** Global state constraints for TLC CONSTRAINT clause */
   globalStateConstraints?: GlobalStateConstraint[];
+  /** Verified states discovered (Issue #27) */
+  verifiedStates?: VerifiedStateInfo[];
+  /** Resources discovered ($resource calls) */
+  resources?: ResourceInfo[];
 };

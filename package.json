@@ -22,6 +22,10 @@
       "import": "./dist/src/shared/lib/state.js",
       "types": "./dist/shared/lib/state.d.ts"
     },
+    "./resource": {
+      "import": "./dist/src/shared/lib/resource.js",
+      "types": "./dist/shared/lib/resource.d.ts"
+    },
     "./message-bus": {
       "import": "./dist/src/shared/lib/message-bus.js",
       "types": "./dist/shared/lib/message-bus.d.ts"

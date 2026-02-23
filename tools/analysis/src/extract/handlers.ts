@@ -80,6 +80,7 @@ import type {
   ComponentRelationship,
   GlobalStateConstraint,
   MessageHandler,
+  ResourceInfo,
   StateAssignment,
   StateConstraint,
   VerificationCondition,
@@ -100,6 +101,7 @@ export interface HandlerAnalysis {
   stateConstraints: StateConstraint[];
   globalStateConstraints: GlobalStateConstraint[];
   verifiedStates: VerifiedStateInfo[];
+  resources: ResourceInfo[];
   warnings: ExtractionWarning[];
 }
 
@@ -206,6 +208,7 @@ export class HandlerExtractor {
     const stateConstraints: StateConstraint[] = [];
     const globalStateConstraints: GlobalStateConstraint[] = [];
     const verifiedStates: VerifiedStateInfo[] = [];
+    const resources: ResourceInfo[] = [];
     this.warnings = []; // Clear warnings from previous runs
 
     // Find all source files from tsconfig as potential entry points
@@ -224,7 +227,8 @@ export class HandlerExtractor {
         invalidMessageTypes,
         stateConstraints,
         globalStateConstraints,
-        verifiedStates
+        verifiedStates,
+        resources
       );
     }
 
@@ -270,6 +274,7 @@ export class HandlerExtractor {
       stateConstraints,
       globalStateConstraints,
       verifiedStates,
+      resources,
       warnings: this.warnings,
     };
   }
@@ -289,7 +294,8 @@ export class HandlerExtractor {
     invalidMessageTypes: Set<string>,
     stateConstraints: StateConstraint[],
     globalStateConstraints: GlobalStateConstraint[],
-    verifiedStates: VerifiedStateInfo[]
+    verifiedStates: VerifiedStateInfo[],
+    resources: ResourceInfo[]
   ): void {
     const filePath = sourceFile.getFilePath();
 
@@ -322,6 +328,22 @@ export class HandlerExtractor {
     const fileVerifiedStates = this.extractVerifiedStatesFromFile(sourceFile);
     verifiedStates.push(...fileVerifiedStates);
 
+    // Extract $resource() calls and emit synthetic handlers
+    const fileResources = this.extractResourcesFromFile(sourceFile, filePath);
+    for (const resource of fileResources) {
+      resources.push(resource);
+      const context = this.inferContext(filePath);
+      const syntheticHandlers = this.createResourceHandlers(resource, context);
+      for (const handler of syntheticHandlers) {
+        handlers.push(handler);
+        if (this.isValidTLAIdentifier(handler.messageType)) {
+          messageTypes.add(handler.messageType);
+        } else {
+          invalidMessageTypes.add(handler.messageType);
+        }
+      }
+    }
+
     // Follow imports to discover more files (within package boundary only)
     const importDeclarations = sourceFile.getImportDeclarations();
     for (const importDecl of importDeclarations) {
@@ -351,7 +373,8 @@ export class HandlerExtractor {
           invalidMessageTypes,
           stateConstraints,
           globalStateConstraints,
-          verifiedStates
+          verifiedStates,
+          resources
         );
       } else if (process.env["POLLY_DEBUG"]) {
         // Log unresolved imports for debugging
@@ -3448,6 +3471,172 @@ export class HandlerExtractor {
     }
 
     return name || funcName;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // $resource() Discovery
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Extract $resource() calls from a source file.
+   *
+   * Recognizes: const todos = $resource("todos", { source, fetcher, initialValue })
+   */
+  private extractResourcesFromFile(sourceFile: SourceFile, filePath: string): ResourceInfo[] {
+    const resources: ResourceInfo[] = [];
+
+    sourceFile.forEachDescendant((node) => {
+      if (!Node.isCallExpression(node)) return;
+
+      const resource = this.extractResourcePattern(node, filePath);
+      if (resource) {
+        resources.push(resource);
+      }
+    });
+
+    return resources;
+  }
+
+  /**
+   * Match a $resource() call and extract its metadata.
+   */
+  private extractResourcePattern(node: CallExpression, filePath: string): ResourceInfo | null {
+    const expression = node.getExpression();
+    if (!Node.isIdentifier(expression)) return null;
+    if (expression.getText() !== "$resource") return null;
+
+    const args = node.getArguments();
+    if (args.length < 2) return null;
+
+    // First arg: resource name (string literal)
+    const nameArg = args[0];
+    if (!nameArg || !Node.isStringLiteral(nameArg)) return null;
+    const name = nameArg.getLiteralValue();
+
+    // Second arg: options object with source, fetcher, initialValue
+    const optionsArg = args[1];
+    if (!optionsArg || !Node.isObjectLiteralExpression(optionsArg)) return null;
+
+    // Extract source signal reads
+    const sourceSignals = this.extractResourceSourceReads(optionsArg);
+
+    // Get variable name from parent declaration
+    const variableName = this.getVariableNameFromParent(node) || name;
+
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[DEBUG] Found $resource: ${variableName} (name: "${name}") with source signals: [${sourceSignals.join(", ")}]`
+      );
+    }
+
+    return {
+      name,
+      variableName,
+      filePath,
+      line: node.getStartLineNumber(),
+      sourceSignals,
+    };
+  }
+
+  /**
+   * Walk the source() function in a $resource options object to find .value reads.
+   *
+   * Looks for patterns like:
+   *   source: () => ({ userId: authState.value.userId })
+   * Extracts signal field names: ["authState_userId"]
+   */
+  private extractResourceSourceReads(optionsObj: ObjectLiteralExpression): string[] {
+    const signals: string[] = [];
+
+    const sourceProp = optionsObj.getProperty("source");
+    if (!sourceProp || !Node.isPropertyAssignment(sourceProp)) return signals;
+
+    const sourceInit = sourceProp.getInitializer();
+    if (!sourceInit) return signals;
+
+    // Walk the source function body looking for .value reads
+    sourceInit.forEachDescendant((node) => {
+      if (!Node.isPropertyAccessExpression(node)) return;
+
+      const text = node.getText();
+      // Match: signal.value.field or signal.value
+      const match = text.match(/^(\w+)\.value(?:\.(\w+))?$/);
+      if (match) {
+        const signalName = match[1];
+        const fieldName = match[2];
+        if (fieldName) {
+          signals.push(`${signalName}_${fieldName}`);
+        } else {
+          signals.push(signalName);
+        }
+      }
+    });
+
+    return signals;
+  }
+
+  /**
+   * Create three synthetic MessageHandler entries for a $resource:
+   *   - {name}_FetchStart: source available, status != loading → status = loading
+   *   - {name}_FetchSuccess: status == loading → status = success, error = false
+   *   - {name}_FetchError: status == loading → status = error, error = true
+   */
+  private createResourceHandlers(resource: ResourceInfo, context: string): MessageHandler[] {
+    const { name, filePath, line } = resource;
+    const location = { file: filePath, line };
+
+    const fetchStart: MessageHandler = {
+      messageType: `${name}_FetchStart`,
+      node: context,
+      assignments: [
+        { field: `${name}_status`, value: "loading" },
+        { field: `${name}_error`, value: false },
+      ],
+      preconditions: [
+        {
+          expression: `${name}_status !== "loading"`,
+          location: { line, column: 0 },
+        },
+      ],
+      postconditions: [],
+      location,
+    };
+
+    const fetchSuccess: MessageHandler = {
+      messageType: `${name}_FetchSuccess`,
+      node: context,
+      assignments: [
+        { field: `${name}_status`, value: "success" },
+        { field: `${name}_error`, value: false },
+      ],
+      preconditions: [
+        {
+          expression: `${name}_status === "loading"`,
+          location: { line, column: 0 },
+        },
+      ],
+      postconditions: [],
+      location,
+    };
+
+    const fetchError: MessageHandler = {
+      messageType: `${name}_FetchError`,
+      node: context,
+      assignments: [
+        { field: `${name}_status`, value: "error" },
+        { field: `${name}_error`, value: true },
+      ],
+      preconditions: [
+        {
+          expression: `${name}_status === "loading"`,
+          location: { line, column: 0 },
+        },
+      ],
+      postconditions: [],
+      location,
+    };
+
+    return [fetchStart, fetchSuccess, fetchError];
   }
 }
 

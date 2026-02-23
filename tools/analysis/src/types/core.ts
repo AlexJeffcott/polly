@@ -323,6 +323,33 @@ export type FieldAnalysis = {
 // Codebase Analysis Result
 // ─────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────
+// Resource Discovery ($resource calls)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Information about a $resource() call discovered during extraction.
+ *
+ * Each resource produces three synthetic MessageHandler entries
+ * (FetchStart, FetchSuccess, FetchError) for TLA+ verification.
+ */
+export type ResourceInfo = {
+  /** Resource name (first argument to $resource) */
+  name: string;
+
+  /** Variable name holding the resource object */
+  variableName: string;
+
+  /** File where the resource is declared */
+  filePath: string;
+
+  /** Line number of declaration */
+  line: number;
+
+  /** Signal field names read inside the source() function */
+  sourceSignals: string[];
+};
+
 export type CodebaseAnalysis = {
   stateType: TypeInfo | null;
   messageTypes: string[];
@@ -333,4 +360,6 @@ export type CodebaseAnalysis = {
   globalStateConstraints?: GlobalStateConstraint[];
   /** Verified states discovered (Issue #27) */
   verifiedStates?: VerifiedStateInfo[];
+  /** Resources discovered ($resource calls) */
+  resources?: ResourceInfo[];
 };

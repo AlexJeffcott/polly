@@ -56,6 +56,8 @@ export class TypeExtractor {
       handlers: completeHandlers,
       stateConstraints: handlerAnalysis.stateConstraints,
       globalStateConstraints: handlerAnalysis.globalStateConstraints,
+      verifiedStates: handlerAnalysis.verifiedStates,
+      resources: handlerAnalysis.resources,
     };
   }
 

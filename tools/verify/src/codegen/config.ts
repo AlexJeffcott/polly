@@ -1,7 +1,7 @@
 // Configuration file generator with smart comments
 
 import type { ProjectType } from "../../../analysis/src/types/architecture";
-import type { CodebaseAnalysis, FieldAnalysis, TypeInfo } from "../types";
+import type { CodebaseAnalysis, FieldAnalysis, ResourceInfo, TypeInfo } from "../types";
 
 export class ConfigGenerator {
   private lines: string[] = [];
@@ -16,7 +16,7 @@ export class ConfigGenerator {
     this.addHeader();
     this.addImports();
     this.addExport();
-    this.addStateConfig(analysis.fields);
+    this.addStateConfig(analysis.fields, analysis.resources);
     this.addMessagesConfig();
     this.addBehaviorConfig();
     this.closeExport();
@@ -88,7 +88,7 @@ export class ConfigGenerator {
     this.line("})");
   }
 
-  private addStateConfig(fields: FieldAnalysis[]): void {
+  private addStateConfig(fields: FieldAnalysis[], resources?: ResourceInfo[]): void {
     this.line("state: {");
     this.indent++;
 
@@ -102,6 +102,22 @@ export class ConfigGenerator {
       }
 
       this.addFieldConfig(field);
+    }
+
+    // Auto-generate resource state fields
+    if (resources && resources.length > 0) {
+      if (fields.length > 0) {
+        this.line("");
+      }
+      this.line("// ─── $resource async lifecycle fields (auto-generated) ───");
+      for (const resource of resources) {
+        this.line("");
+        this.line(`// ${resource.name}: fetch lifecycle status`);
+        this.line(
+          `"${resource.name}_status": { type: "enum", values: ["idle", "loading", "success", "error"] },`
+        );
+        this.line(`"${resource.name}_error": { type: "boolean" },`);
+      }
     }
 
     this.indent--;

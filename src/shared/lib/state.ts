@@ -182,7 +182,7 @@ type InternalStateOptions<T = unknown> = StateOptions<T> & {
 };
 
 // Deep equality check to prevent redundant updates
-function deepEqual(a: unknown, b: unknown): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a == null || b == null) return false;
   if (typeof a !== "object" || typeof b !== "object") return false;

@@ -39,6 +39,9 @@ export {
 } from "./shared/lib/errors";
 // Messaging
 export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
+export type { Resource, ResourceOptions, ResourceStatus } from "./shared/lib/resource";
+// Async resource primitive
+export { $resource } from "./shared/lib/resource";
 // State management
 export { $persistedState, $sharedState, $state, $syncedState } from "./shared/lib/state";
 export type { TestCase, TestSuite } from "./shared/lib/test-helpers";

@@ -31,6 +31,7 @@ const libResult = await Bun.build({
 
     // Individual module exports
     "src/shared/lib/state.ts",
+    "src/shared/lib/resource.ts",
     "src/shared/lib/message-bus.ts",
     "src/shared/lib/errors.ts",
     "src/shared/lib/context-helpers.ts",

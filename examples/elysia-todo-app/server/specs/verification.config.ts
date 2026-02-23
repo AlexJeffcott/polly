@@ -11,11 +11,24 @@ export default defineVerification({
 
     // Todo count (exercises { type: "number" } verification)
     todoCount: { type: "number", min: 0, max: 100 },
+
+    // $resource async lifecycle fields (todos resource)
+    todos_status: { type: "enum", values: ["idle", "loading", "success", "error"] },
+    todos_error: { type: "boolean" },
   },
 
   messages: {
     maxInFlight: 2,
     maxTabs: 1,
+    include: [
+      "login",
+      "logout",
+      "addTodo",
+      "removeTodo",
+      "todos_FetchStart",
+      "todos_FetchSuccess",
+      "todos_FetchError",
+    ],
   },
 
   onBuild: "warn",

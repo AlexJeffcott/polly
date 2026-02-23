@@ -7,6 +7,7 @@ export type {
   Context,
   FieldAnalysis,
   MessageHandler,
+  ResourceInfo,
   StateAssignment,
   TypeInfo,
   TypeKind,
