@@ -9,8 +9,7 @@
     "build": "echo 'No build step for server'",
     "test": "bun test",
     "typecheck": "bun tsc --noEmit",
-    "verify": "bun run src/verify.ts",
-    "verify:gen": "bun run src/verify.ts"
+    "verify": "polly verify"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",

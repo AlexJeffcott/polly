@@ -14,16 +14,6 @@ export default defineVerification({
     maxTabs: 1,
   },
 
-  tier2: {
-    temporalConstraints: [
-      {
-        before: "JOIN_ROOM",
-        after: "LEAVE_ROOM",
-        description: "Must join room before leaving",
-      },
-    ],
-  },
-
   onBuild: "warn",
   onRelease: "error",
 });

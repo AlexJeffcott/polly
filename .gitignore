@@ -7,9 +7,11 @@ dist
 *.tgz
 
 # verification output
-packages/web-ext/verification/output
-packages/todo-list/verification/output
+**/verification/output/
 **/specs/tla/generated/
+
+# generated architecture visualizations
+**/docs/site/
 
 # code coverage
 coverage

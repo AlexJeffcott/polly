@@ -5,8 +5,7 @@
   "type": "module",
   "workspaces": [
     "server",
-    "client",
-    "shared"
+    "client"
   ],
   "scripts": {
     "dev": "bun run --filter server dev & bun run --filter client dev",
@@ -19,8 +18,7 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "bun run --filter server typecheck && bun run --filter client typecheck",
-    "verify": "bun run --filter server verify",
-    "verify:gen": "bun run --filter server verify:gen"
+    "verify": "bun run --filter server verify"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",

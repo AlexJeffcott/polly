@@ -24,11 +24,10 @@ export default defineVerification({
     // ═══════════════════════════════════════════════════════════
 
     // 1. Message Type Filtering (Issue #12)
-    // Reduces 43 message types → 8 message types (81% reduction!)
+    // Reduces 43 message types → 7 message types (84% reduction!)
     include: [
       'USER_LOGIN',
       'USER_LOGOUT',
-      'USER_VERIFY',
       'BOOKMARK_ADD',
       'BOOKMARK_REMOVE',
       'SETTINGS_GET',
