@@ -1,111 +1,80 @@
 # Full-Featured Example
 
-This extension demonstrates how to build a production-ready extension with the @fairfox/polly framework.
+Production Chrome extension with all framework features: `$sharedState` with verification mirrors, `$constraints`, settings management, and bookmarks.
 
-## Structure
+## What it demonstrates
 
-```
-full-featured/
-├── src/
-│   ├── background/        # Background script with custom handlers
-│   ├── popup/             # Popup UI with test interface
-│   ├── options/           # Options UI with test interface
-│   └── shared/
-│       ├── state/         # Custom state using framework primitives
-│       └── types/         # Custom types
-├── manifest.json          # Extension manifest
-├── web-ext.config.ts      # Build configuration
-└── package.json           # Dependencies and scripts
-```
+- `$sharedState` with `{ verify: true }` for TLA+ state discovery
+- `$constraints()` for handler-level preconditions
+- `stateConstraint()` to prune impossible verification states
+- Settings, bookmarks, login/logout, tab management
+- Verification with temporal constraints and bounded exploration
 
-## Usage Pattern
-
-### 1. Install Framework
+## Quick start
 
 ```bash
-bun add @fairfox/polly
-```
-
-### 2. Import Framework Primitives
-
-```typescript
-// src/shared/state/my-state.ts
-import { $sharedState, $syncedState } from '@fairfox/polly/state'
-
-export const counter = $sharedState('counter', 0)
-export const message = $syncedState('message', '')
-```
-
-### 3. Use in Components
-
-```typescript
-// src/popup/index.tsx
-import { getMessageBus } from '@fairfox/polly/message-bus'
-import { counter } from '../shared/state/my-state'
-
-const bus = getMessageBus('popup')
-
-function Popup() {
-  return (
-    <div>
-      <div>Count: {counter.value}</div>
-      <button onClick={() => counter.value++}>
-        Increment
-      </button>
-    </div>
-  )
-}
-```
-
-### 4. Add Message Handlers
-
-```typescript
-// src/background/index.ts
-import { createBackground } from '@fairfox/polly/background'
-import { requires, ensures } from '@fairfox/polly/verify'
-
-const { bus } = createBackground<AllMessages>()
-
-bus.on('MY_CUSTOM_MESSAGE', async (payload) => {
-  requires(/* precondition */, 'Precondition description')
-  // Handle message
-  ensures(/* postcondition */, 'Postcondition description')
-  return { success: true }
-})
-```
-
-### 5. Build
-
-```bash
-bun run build        # Development build
-bun run build:prod   # Production build
-```
-
-## What This Demonstrates
-
-This example extension demonstrates:
-
-- ✅ Framework can be used as a package
-- ✅ CLI tool works correctly
-- ✅ Imports resolve properly
-- ✅ State primitives work
-- ✅ Message bus works
-- ✅ Cross-context sync works
-- ✅ Persistence works
-- ✅ Reactivity works
-
-## Building
-
-```bash
-# From full-featured directory
+bun install
 bun run build
-
-# Or from framework root
-bun run build:full-featured
 ```
 
-Output goes to `dist/` directory, ready to load in Chrome.
+Load in Chrome:
+1. Go to `chrome://extensions`, enable Developer mode
+2. Click "Load unpacked", select `dist/`
+3. Click the extension icon
 
-## Testing
+Run all checks:
 
-The Playwright tests load this built extension and validate all features work.
+```bash
+bun run test:all
+```
+
+## Key patterns
+
+### Verified shared state
+
+Passing `{ verify: true }` creates a plain object mirror that `polly verify` can discover:
+
+```typescript
+export const loginState = $sharedState("loginState", { loggedIn: false, username: null }, { verify: true });
+export const bookmarkCount = $sharedState("bookmarkCount", 0, { verify: true });
+```
+
+### Handler contracts
+
+```typescript
+bus.on("BOOKMARK_ADD", async (payload: { url: string; title: string }) => {
+  requires(loginState.value.loggedIn === true, "Must be logged in");
+
+  bookmarks.value = [...bookmarks.value, { url: payload.url, title: payload.title }];
+  bookmarkCount.value = bookmarks.value.length;
+
+  ensures(bookmarkCount.value > 0, "Must have at least one bookmark");
+});
+```
+
+### State constraints
+
+```typescript
+// specs/constraints.ts
+stateConstraint("BookmarksRequireLogin", "state.loggedIn === true || state.bookmarkCount === 0");
+```
+
+This tells TLC to skip states where bookmarks exist but nobody is logged in — impossible at runtime, and pruning them speeds up verification.
+
+## File structure
+
+```
+src/
+  background/index.ts       All handlers: login, bookmarks, settings, tabs
+  shared/types/messages.ts  Message type definitions
+specs/
+  verification.config.ts    Verification bounds with temporal constraints
+  constraints.ts            $constraints and stateConstraint definitions
+tests/                      Unit tests
+docs/architecture.dsl       Structurizr architecture diagram
+```
+
+## Next steps
+
+- [minimal](../minimal/) — stripped-down version to understand the basics
+- [elysia-todo-app](../elysia-todo-app/) — full-stack web app with server-side Polly middleware

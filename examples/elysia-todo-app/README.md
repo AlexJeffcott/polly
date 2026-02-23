@@ -1,115 +1,58 @@
-# Polly + Elysia Todo App Example
+# Elysia Todo App Example
 
-A complete full-stack todo application demonstrating Polly's Elysia middleware integration. This example shows how to build distributed web applications with:
+Full-stack todo app with Elysia + Bun. Offline-first, real-time sync via WebSocket, type-safe end-to-end with Eden, and `$resource` for async data fetching.
 
-- ✅ **Zero type duplication** - Eden infers types from Elysia automatically
-- ✅ **Offline-first** - Automatic request queueing when offline
-- ✅ **Real-time sync** - WebSocket broadcast keeps all clients in sync
-- ✅ **Authorization** - Route-level auth rules
-- ✅ **Client effects** - Declarative client-side state updates
-- ✅ **Async resources** - `$resource` for tracked async data fetching
-- ✅ **Production-ready** - Minimal overhead with pass-through middleware
+## What it demonstrates
 
-## Why This Matters
+- Polly Elysia middleware: authorization, client effects, offline queueing, WebSocket broadcast
+- `$resource` for tracked async fetching with automatic re-fetch on dependency change
+- `$sharedState` with `{ verify: true }` for server-side handler verification
+- `requires()` / `ensures()` on state-mutating functions
+- Zero type duplication — Eden infers client types from the Elysia server
 
-Modern SPAs are **distributed systems** facing classic problems:
-- **CAP theorem** - Must choose consistency vs availability during network partitions
-- **Network unreliability** - The first fallacy of distributed computing
-- **Cache invalidation** - "One of the two hard things in computer science"
-- **Eventual consistency** - State sync across client/server
-- **Conflict resolution** - When multiple devices edit offline
-
-The Polly Elysia integration makes these concerns **explicit and verifiable**.
-
-## Project Structure
-
-```
-elysia-todo-app/
-├── server/               # Elysia API server with Polly middleware
-│   └── src/
-│       └── index.ts      # Server with polly() middleware
-├── client/               # Preact frontend with Eden + Polly wrapper
-│   └── src/
-│       ├── api.ts        # createPollyClient() wrapper
-│       ├── App.tsx       # Todo UI component
-│       ├── client.tsx    # Client entry point
-│       └── server.tsx    # Dev server (serves client on :5173)
-└── package.json          # Workspace root
-```
-
-## Installation
-
-From the example root:
+## Quick start
 
 ```bash
 bun install
-```
-
-## Running the App
-
-### Start Both Server and Client (Development)
-
-```bash
 bun run dev
 ```
 
-This starts:
-- API server on `http://localhost:3000`
-- Client dev server on `http://localhost:5173`
+This starts the API server on `http://localhost:3000` and the client on `http://localhost:5173`.
 
-### Or Run Separately
+Open multiple tabs, log in with any username, and add todos — they sync instantly across all tabs.
 
-**Terminal 1 - API Server:**
-```bash
-cd server
-bun run dev
+## Server: Polly middleware
+
+The middleware declares authorization, effects, and offline behaviour alongside your routes:
+
+```typescript
+const app = new Elysia()
+  .use(polly({
+    state: {
+      client: { todos: $syncedState("todos", []), user: $syncedState("user", null) },
+      server: { db: $serverState("db", database) },
+    },
+    effects: {
+      "POST /todos": {
+        client: ({ result, state }) => {
+          state.client.todos.value = [...state.client.todos.value, result];
+        },
+        broadcast: true,
+      },
+    },
+    authorization: {
+      "POST /todos": ({ state }) => state.client.user.value !== null,
+    },
+    offline: {
+      "POST /todos": { queue: true, optimistic: (body) => ({ id: -Date.now(), ...body }) },
+    },
+  }))
+  .post("/todos", handler, { body: t.Object({ text: t.String() }) });
 ```
 
-**Terminal 2 - Client:**
-```bash
-cd client
-bun run dev
-```
+## Client: `$resource`
 
-## Development Commands
-
-From the root directory:
-
-```bash
-# Development
-bun run dev              # Start both server and client
-bun run start            # Production start (server only)
-
-# Testing
-bun test                 # Run all tests
-bun run test:server      # Run server tests only
-bun run test:client      # Run client tests only
-
-# Code Quality
-bun run lint             # Check code with Biome
-bun run lint:fix         # Fix linting issues automatically
-bun run format           # Format code with Biome
-bun run typecheck        # Type check all packages
-
-# Verification (Formal Methods)
-bun run verify           # Generate TLA+ spec and verify
-bun run verify:gen       # Generate TLA+ spec only
-```
-
-### What Gets Verified?
-
-The `verify` command generates a TLA+ specification from your Polly middleware configuration and checks:
-
-- **Authorization Enforcement**: Unauthenticated users cannot modify todos
-- **No Lost Updates**: All operations eventually reach the server
-- **Eventual Consistency**: All online clients eventually have the same state
-- **Broadcast Delivery**: Updates reach all connected clients
-
-See `server/specs/verification.config.ts` for configuration.
-
-### `$resource` — Async Data Fetching
-
-The client uses `$resource` to fetch todos when the logged-in user changes:
+`$resource` fetches data and re-fetches automatically when its dependencies change:
 
 ```typescript
 const todosResource = $resource("todos", {
@@ -117,224 +60,51 @@ const todosResource = $resource("todos", {
   fetcher: async ({ userId }) => {
     if (userId === null) return [];
     const res = await fetch("http://localhost:3000/todos");
-    return await res.json();
+    return res.json();
   },
   initialValue: [],
 });
 ```
 
-Signal reads inside `source` are fully tracked. The `fetcher` is async and receives the source output — it never reads signals directly, avoiding the broken-tracking problem that occurs when `computed()` or `effect()` hits an `await` boundary. For verification, each `$resource` emits three synthetic handlers (`todos_FetchStart`, `todos_FetchSuccess`, `todos_FetchError`) that model the fetch lifecycle as a state machine.
+Signal reads inside `source` are tracked. The `fetcher` is async and receives the source output — it never reads signals directly, which avoids the broken-tracking problem when `computed()` hits an `await` boundary.
 
-## Features to Try
+For verification, each `$resource` emits synthetic handlers (`todos_FetchStart`, `todos_FetchSuccess`, `todos_FetchError`) that model the fetch lifecycle as a state machine.
 
-### 1. Real-Time Synchronization
+## Verification
 
-1. Open `http://localhost:5173` in **multiple browser tabs/windows**
-2. Login with username `demo`
-3. Add/toggle/delete todos in one tab
-4. **Watch them instantly sync to all other tabs!**
-
-This demonstrates:
-- WebSocket broadcast from server
-- Automatic state synchronization across clients
-- Lamport clock ordering
-
-### 2. Offline Support
-
-1. Open DevTools → Network tab
-2. Select "Offline" mode
-3. Try adding/editing/deleting todos
-4. Notice: requests are queued (shown in UI)
-5. Go back online → **queued requests automatically replay!**
-
-This demonstrates:
-- Automatic offline detection
-- Request queueing with optimistic updates
-- Retry on reconnection
-
-### 3. Authorization
-
-1. Try to add a todo without logging in
-2. Notice: server returns `403 Unauthorized`
-3. Login → now todo operations work
-
-This demonstrates:
-- Route-level authorization rules
-- Authorization enforced before handlers run
-
-### 4. Client Effects
-
-1. Add a todo
-2. **No manual state update code needed!**
-3. Client state automatically updates via `effects` config
-
-This demonstrates:
-- Declarative client-side effects
-- Separation of "what happens" from "how to update UI"
-
-## How It Works
-
-### Server: Polly Middleware
+State-mutating functions use contracts:
 
 ```typescript
-const app = new Elysia()
-  .use(polly({
-    state: {
-      client: { todos: $syncedState('todos', []) },
-      server: { db: $serverState('db', database) },
-    },
-    effects: {
-      'POST /todos': {
-        client: ({ result, state }) => {
-          state.client.todos.value = [...state.client.todos.value, result];
-        },
-        broadcast: true,  // Notify all connected clients
-      },
-    },
-    authorization: {
-      'POST /todos': ({ state }) => state.client.user.value !== null,
-    },
-    offline: {
-      'POST /todos': {
-        queue: true,
-        optimistic: (body) => ({ id: -Date.now(), ...body }),
-      },
-    },
-  }))
-  .post('/todos', handler, { body: t.Object({ text: t.String() }) });
+export function addTodo(text: string) {
+  requires(authState.value.loggedIn === true, "Must be logged in");
+  requires(todoCount.value < 100, "Todo limit not reached");
+  todoCount.value++;
+  ensures(todoCount.value > 0, "Must have at least one todo");
+}
 ```
 
-**Key points:**
-- **Route pattern matching**: `'POST /todos'`, `'GET /todos/:id'`, `'/todos/*'`
-- **Client effects**: Functions that update client state after server operations
-- **Broadcast**: WebSocket notification to all connected clients
-- **Authorization**: Rules checked before handler execution
-- **Offline config**: Queue + optimistic updates
+Run `bun run verify` from the root to generate and check the TLA+ specification.
 
-### Client: Eden + Polly Wrapper
-
-```typescript
-export const api = createPollyClient<typeof app>('http://localhost:3000', {
-  state: clientState,
-  websocket: true,
-});
-
-// Use it (types inferred from server!)
-await api.todos.post({ text: 'Buy milk' });
-
-// Access Polly features
-console.log(api.$polly.state.isOnline.value);
-console.log(api.$polly.state.queuedRequests.value);
-api.$polly.sync();  // Manually sync queued requests
-```
-
-**Key points:**
-- **Zero duplication**: Types come from server via `typeof app`
-- **Offline queue**: Automatic with retry on reconnection
-- **WebSocket**: Real-time updates from server
-- **State access**: `$polly.state` for connection status and queue
-
-## Development vs Production
-
-### Development Mode
-
-- Middleware adds metadata to responses for debugging
-- Client effects serialized from server for hot-reload
-- TLA+ generation enabled for verification
-- WebSocket enabled by default
-
-### Production Mode
-
-- Middleware is minimal (authorization + broadcast only)
-- Client effects are bundled at build time (no serialization)
-- Zero overhead from metadata
-- WebSocket optional
-
-## Testing Distributed Systems Properties
-
-### Eventual Consistency
-
-1. Go offline in one tab
-2. Add 3 todos
-3. Go online → should sync to server
-4. Check other tabs → todos should appear
-
-**Property**: All online clients eventually have the same state
-
-### Authorization Enforcement
-
-1. Logout
-2. Try to add todo → should fail
-3. Login → should work
-
-**Property**: Unauthorized requests never reach handlers
-
-### No Lost Updates
-
-1. Open 2 tabs
-2. Go offline in both
-3. Add different todos in each
-4. Go online in both
-5. Check server → both todos should exist
-
-**Property**: No updates are lost even with concurrent offline edits
-
-## Next Steps
-
-- **Add TLA+ verification**: Enable `tlaGeneration: true` and verify properties formally
-- **Implement CRDTs**: Use Polly's CRDT support for automatic conflict resolution
-- **Add persistence**: Connect to a real database (Postgres, SQLite, etc.)
-- **Deploy**: Build production bundles and deploy to Fly.io, Railway, etc.
-
-## Architecture Diagram
+## File structure
 
 ```
-┌─────────────────────────────────────────┐
-│          Browser (Client)               │
-│  ┌────────────────────────────────────┐ │
-│  │ Eden Treaty Client                 │ │ ← Types from server!
-│  └──────────┬─────────────────────────┘ │
-│             │                            │
-│  ┌──────────▼─────────────────────────┐ │
-│  │ Polly Wrapper                      │ │
-│  │  - Offline queue                   │ │
-│  │  - WebSocket connection            │ │
-│  │  - Lamport clock sync              │ │
-│  └──────────┬─────────────────────────┘ │
-│             │                            │
-│  ┌──────────▼─────────────────────────┐ │
-│  │ Client State ($syncedState)        │ │
-│  │  - todos                           │ │
-│  │  - user                            │ │
-│  └────────────────────────────────────┘ │
-└─────────────────┬───────────────────────┘
-                  │
-        HTTP / WebSocket
-                  │
-┌─────────────────▼───────────────────────┐
-│       Elysia Server (Bun)               │
-│  ┌────────────────────────────────────┐ │
-│  │ Elysia Routes                      │ │ ← Normal routes!
-│  └──────────┬─────────────────────────┘ │
-│             │                            │
-│  ┌──────────▼─────────────────────────┐ │
-│  │ Polly Middleware                   │ │
-│  │  - Authorization                   │ │
-│  │  - Client effects                  │ │
-│  │  - WebSocket broadcast             │ │
-│  │  - Offline metadata                │ │
-│  └──────────┬─────────────────────────┘ │
-│             │                            │
-│  ┌──────────▼─────────────────────────┐ │
-│  │ Server State ($serverState)        │ │
-│  │  - db (in-memory)                  │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+server/
+  src/
+    index.ts                Elysia server with polly() middleware
+    state.ts                $sharedState with { verify: true }
+    handlers.ts             State mutations with requires/ensures
+  specs/
+    verification.config.ts  TLA+ verification bounds
+client/
+  src/
+    App.tsx                 Preact todo UI
+    api.ts                  createPollyClient wrapping Eden
+    todosResource.ts        $resource for async todo fetching
+    client.tsx              Browser entry point
+    server.tsx              SSR dev server
 ```
 
-## Learn More
+## Next steps
 
-- [Polly Documentation](https://github.com/AlexJeffcott/polly)
-- [Elysia Documentation](https://elysiajs.com/)
-- [Eden Documentation](https://elysiajs.com/eden/overview.html)
-- [Distributed Systems Research](../../spa-distributed-systems-research.md)
+- [webrtc-p2p-chat](../webrtc-p2p-chat/) — peer-to-peer with no server data flow
+- [team-task-manager](../team-task-manager/) — end-to-end encryption and local-first collaboration
