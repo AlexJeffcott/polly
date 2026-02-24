@@ -206,6 +206,17 @@ polly verify            Run formal verification
 polly visualize         Generate architecture diagrams (Structurizr DSL)
 ```
 
+## Use with Claude Code
+
+This repo ships with a [Claude Code skill](.claude/skills) that knows the full Polly API, verification patterns, and best practices. Install the skill in your project to let Claude help you integrate Polly:
+
+```bash
+# From your project directory
+claude install-skill /path/to/polly/.claude/skills
+```
+
+Then ask Claude things like "How would Polly fit into this project?" or "Add verification to my handlers" and it will have full context on the framework.
+
 ## Licence
 
 MIT
