@@ -255,13 +255,13 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
       const handler = this.recognizeMessageHandler(node);
       if (handler) {
         // Override node with context inferred from file path if available
-        if (contextFromPath !== "unknown") {
+        if (contextFromPath === "unknown") {
+          handlers.push(handler);
+        } else {
           handlers.push({
             ...handler,
             node: contextFromPath,
           });
-        } else {
-          handlers.push(handler);
         }
       }
     });

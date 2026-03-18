@@ -164,7 +164,9 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
   private listeners: Array<(message: StateSyncMessage<unknown>) => void> = [];
 
   constructor(channelName = "polly-sync") {
-    if (typeof BroadcastChannel !== "undefined") {
+    if (typeof BroadcastChannel === "undefined") {
+      console.warn("[SyncAdapter] BroadcastChannel not available");
+    } else {
       this.channel = new BroadcastChannel(channelName);
 
       this.channel.onmessage = (event) => {
@@ -174,8 +176,6 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
           });
         }
       };
-    } else {
-      console.warn("[SyncAdapter] BroadcastChannel not available");
     }
   }
 

@@ -357,10 +357,10 @@ describe("isRuntimeConstraintsEnabled", () => {
       expect(isRuntimeConstraintsEnabled()).toBe(true);
 
       // Restore
-      if (original !== undefined) {
-        process.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
-      } else {
+      if (original === undefined) {
         process.env["POLLY_RUNTIME_CONSTRAINTS"] = undefined;
+      } else {
+        process.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
       }
     }
   });
@@ -374,10 +374,10 @@ describe("isRuntimeConstraintsEnabled", () => {
       expect(isRuntimeConstraintsEnabled()).toBe(true);
 
       // Restore
-      if (original !== undefined) {
-        Bun.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
-      } else {
+      if (original === undefined) {
         Bun.env["POLLY_RUNTIME_CONSTRAINTS"] = undefined;
+      } else {
+        Bun.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
       }
     }
   });
@@ -390,10 +390,10 @@ describe("isRuntimeConstraintsEnabled", () => {
       expect(isRuntimeConstraintsEnabled()).toBe(false);
 
       // Restore
-      if (original !== undefined) {
-        process.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
-      } else {
+      if (original === undefined) {
         process.env["POLLY_RUNTIME_CONSTRAINTS"] = undefined;
+      } else {
+        process.env["POLLY_RUNTIME_CONSTRAINTS"] = original;
       }
     }
   });

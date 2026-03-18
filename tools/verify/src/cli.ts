@@ -242,7 +242,7 @@ function displayEstimate(estimate: StateSpaceEstimate): void {
   console.log(`  Handlers:               ${estimate.handlerCount}`);
   console.log(`  Max in-flight:          ${estimate.maxInFlight}`);
   console.log(
-    `  Contexts:               ${estimate.contextCount} (${estimate.contextCount - 1} tab${estimate.contextCount - 1 !== 1 ? "s" : ""} + background)`
+    `  Contexts:               ${estimate.contextCount} (${estimate.contextCount - 1} tab${estimate.contextCount - 1 === 1 ? "" : "s"} + background)`
   );
   console.log(`  Interleaving factor:    ${estimate.interleavingFactor}`);
 
@@ -648,7 +648,7 @@ function displayCompositionalReport(
   for (const r of results) {
     const status = r.success ? color("✓", COLORS.green) : color("✗", COLORS.red);
     const name = r.name.padEnd(20);
-    const handlers = `${r.handlerCount} handler${r.handlerCount !== 1 ? "s" : ""}`;
+    const handlers = `${r.handlerCount} handler${r.handlerCount === 1 ? "" : "s"}`;
     const states = `${r.stateCount} states`;
     const time = `${r.elapsed.toFixed(1)}s`;
     console.log(`  ${status} ${name} ${handlers.padEnd(14)} ${states.padEnd(14)} ${time}`);

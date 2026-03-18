@@ -92,14 +92,14 @@ export function createPollyClient<T extends Record<string, unknown>>(
 
   // Client state
   const clientState: ClientState = {
-    isOnline: signal(typeof navigator !== "undefined" ? navigator.onLine : true),
+    isOnline: signal(typeof navigator === "undefined" ? true : navigator.onLine),
     isSyncing: signal(false),
     queuedRequests: signal<QueuedRequest[]>([]),
   };
 
   // WebSocket connection for real-time updates (opt-in in prod)
   let ws: WebSocket | null = null;
-  const shouldUseWebSocket = options.websocket !== undefined ? options.websocket : isDev;
+  const shouldUseWebSocket = options.websocket === undefined ? isDev : options.websocket;
 
   if (shouldUseWebSocket && typeof WebSocket !== "undefined") {
     const wsPath = options.websocketPath || "/polly/ws";

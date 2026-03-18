@@ -158,16 +158,14 @@ self.addEventListener("sync", (event) => {
     event.waitUntil(
       // The sync logic will be handled by the app itself
       // Service worker just triggers the event
-      self.clients
-        .matchAll()
-        .then((clients) => {
-          clients.forEach((client) => {
-            client.postMessage({
-              type: "SYNC_REQUESTED",
-              tag: event.tag,
-            });
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: "SYNC_REQUESTED",
+            tag: event.tag,
           });
-        })
+        });
+      })
     );
   }
 });

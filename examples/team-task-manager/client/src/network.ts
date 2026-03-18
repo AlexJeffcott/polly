@@ -5,7 +5,7 @@ import { computed, signal } from "@preact/signals-core";
  * Online/offline state - Polly-style reactive signal
  * Updates automatically when browser goes online/offline
  */
-export const isOnline = signal(typeof navigator !== "undefined" ? navigator.onLine : true);
+export const isOnline = signal(typeof navigator === "undefined" ? true : navigator.onLine);
 
 /**
  * Sync state - tracks whether we're currently syncing queued changes

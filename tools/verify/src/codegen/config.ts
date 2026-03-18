@@ -290,8 +290,8 @@ export class ConfigGenerator {
 
   private generateNumberFieldConfig(field: FieldAnalysis): string {
     if (field.bounds?.min !== undefined && field.bounds?.max !== undefined) {
-      const minStr = field.bounds.min !== null ? field.bounds.min : "/* CONFIGURE */";
-      const maxStr = field.bounds.max !== null ? field.bounds.max : "/* CONFIGURE */";
+      const minStr = field.bounds.min === null ? "/* CONFIGURE */" : field.bounds.min;
+      const maxStr = field.bounds.max === null ? "/* CONFIGURE */" : field.bounds.max;
 
       if (field.confidence === "high") {
         return `{ min: ${minStr}, max: ${maxStr} }`;

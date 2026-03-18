@@ -30,7 +30,10 @@ export function ShareInvite({ roomId }: Props) {
   };
 
   const handleShare = async () => {
-    if (navigator.share !== undefined) {
+    if (navigator.share === undefined) {
+      // Fallback to copy
+      handleCopyLink();
+    } else {
       try {
         await navigator.share({
           title: "Join my chat room",
@@ -43,9 +46,6 @@ export function ShareInvite({ roomId }: Props) {
           console.error("Share failed:", error);
         }
       }
-    } else {
-      // Fallback to copy
-      handleCopyLink();
     }
   };
 

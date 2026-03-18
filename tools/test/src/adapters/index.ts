@@ -64,27 +64,26 @@ export function createMockAdapters(): MockExtensionAdapters {
   };
 }
 
-// Re-export individual mock factories and types for convenience
-export {
-  createMockRuntime,
-  createMockPort,
-  createMockStorageArea,
-  createMockTabs,
-  createMockWindow,
-  createMockOffscreen,
-  createMockContextMenus,
-  createMockFetch,
-  createMockLogger,
-};
-
 export type {
-  MockRuntime,
-  MockPort,
-  MockStorageArea,
-  MockTabs,
-  MockWindow,
-  MockOffscreen,
   MockContextMenus,
   MockFetch,
   MockLogger,
+  MockOffscreen,
+  MockPort,
+  MockRuntime,
+  MockStorageArea,
+  MockTabs,
+  MockWindow,
+};
+// Re-export individual mock factories and types for convenience
+export {
+  createMockContextMenus,
+  createMockFetch,
+  createMockLogger,
+  createMockOffscreen,
+  createMockPort,
+  createMockRuntime,
+  createMockStorageArea,
+  createMockTabs,
+  createMockWindow,
 };
