@@ -107,6 +107,7 @@
     "@types/ws": "^8.18.1",
     "elysia": "^1.4.28",
     "fast-check": "^3.23.2",
+    "tweetnacl": "^1.0.3",
     "typescript": "^5.9.3"
   },
   "engines": {
@@ -128,7 +129,8 @@
     "@automerge/automerge-repo-network-websocket": ">= 2.5.0",
     "@automerge/automerge-repo-storage-indexeddb": ">= 2.5.0",
     "@automerge/automerge-repo-storage-nodefs": ">= 2.5.0",
-    "ws": ">= 8.0.0"
+    "ws": ">= 8.0.0",
+    "tweetnacl": ">= 1.0.0"
   },
   "peerDependenciesMeta": {
     "elysia": {
@@ -150,6 +152,9 @@
       "optional": true
     },
     "ws": {
+      "optional": true
+    },
+    "tweetnacl": {
       "optional": true
     }
   },

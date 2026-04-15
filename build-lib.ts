@@ -72,6 +72,7 @@ const libResult = await Bun.build({
     "@automerge/automerge-repo-storage-indexeddb",
     "@automerge/automerge-repo-storage-nodefs",
     "ws",
+    "tweetnacl",
   ],
 });
 

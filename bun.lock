@@ -23,6 +23,7 @@
         "@types/ws": "^8.18.1",
         "elysia": "^1.4.28",
         "fast-check": "^3.23.2",
+        "tweetnacl": "^1.0.3",
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
@@ -35,6 +36,7 @@
         "elysia": ">= 1.4.0",
         "preact": "^10.28.1",
         "typescript": "^5.9.3",
+        "ws": ">= 8.0.0",
       },
       "optionalPeers": [
         "@automerge/automerge-repo",
@@ -43,6 +45,7 @@
         "@automerge/automerge-repo-storage-nodefs",
         "@elysiajs/eden",
         "elysia",
+        "ws",
       ],
     },
     "tests": {
@@ -294,6 +297,8 @@
     "token-types": ["token-types@6.1.2", "", { "dependencies": { "@borewit/text-codec": "^0.2.1", "@tokenizer/token": "^0.3.0", "ieee754": "^1.2.1" } }, "sha512-dRXchy+C0IgK8WPC6xvCHFRIWYUbqqdEIKPaKo/AcTUNzwLTK6AH7RjdLWsEZcAN/TBdtfUw3PYEgPr5VPr6ww=="],
 
     "ts-morph": ["ts-morph@21.0.1", "", { "dependencies": { "@ts-morph/common": "~0.22.0", "code-block-writer": "^12.0.0" } }, "sha512-dbDtVdEAncKctzrVZ+Nr7kHpHkv+0JDJb2MjjpBaj8bFeCkePU9rHfMklmhuLFnpeq/EJZk2IhStY6NzqgjOkg=="],
+
+    "tweetnacl": ["tweetnacl@1.0.3", "", {}, "sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw=="],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
