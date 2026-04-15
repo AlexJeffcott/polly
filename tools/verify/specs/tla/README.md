@@ -1,6 +1,28 @@
-# TLA+ Formal Specification for MessageRouter
+# TLA+ Formal Specifications for Polly
 
-This directory contains formal specifications for the web extension's message routing system using TLA+ (Temporal Logic of Actions).
+This directory contains formal specifications for Polly's distributed
+protocols using TLA+ (Temporal Logic of Actions). There are three specs:
+
+- **MessageRouter.tla** — the original message-routing spec for the web
+  extension's cross-context message bus. Single-writer, routing-focused,
+  verifies loop-freedom and eventual delivery.
+
+- **PeerState.tla** — the RFC-041 Phase 1 protocol for `$peerState`, the
+  middle resilience tier where the server participates as a full peer on
+  the data path. Multi-writer, set-oriented, verifies strong eventual
+  convergence and recovery after server data loss. See the header comment
+  in the file for the full property list.
+
+- **MeshState.tla** — the RFC-041 Phase 2 protocol for `$meshState`, the
+  strongest resilience tier where the server is not on the data path.
+  Extends PeerState with signed operations, per-peer access sets, and
+  key revocation. Verifies signature soundness (a peer never observes
+  an op from outside its access set), revocation convergence (once a
+  peer is revoked, honest peers drop its future ops), and no-fabrication
+  (every op in any replica has a known producer).
+
+Each spec has a companion `.cfg` file with the small bounded constants
+TLC uses when model-checking the spec exhaustively.
 
 ## What is This?
 
@@ -51,8 +73,10 @@ bun run tla:down     # Stop container
 # Start the TLA+ container
 docker-compose -f specs/docker-compose.yml up -d
 
-# Run the model checker
+# Run the model checker against each spec
 docker-compose -f specs/docker-compose.yml exec tla tlc MessageRouter.tla
+docker-compose -f specs/docker-compose.yml exec tla tlc PeerState.tla
+docker-compose -f specs/docker-compose.yml exec tla tlc MeshState.tla
 
 # Interactive shell (for exploring)
 docker-compose -f specs/docker-compose.yml exec tla sh
