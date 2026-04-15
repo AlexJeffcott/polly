@@ -78,6 +78,17 @@ export { MigrationError, migratePrimitive } from "./shared/lib/migrate-primitive
 // peerState primitive kind, key→DocumentId mapping per Repo, and the
 // deferred-crypto encrypt/sign options that throw at runtime until Phase 2.
 export type {
+  CreatePeerStateClientOptions,
+  PeerRelayConnectionState,
+  PeerStateClient,
+} from "./shared/lib/peer-relay-adapter";
+export { createPeerStateClient } from "./shared/lib/peer-relay-adapter";
+export type {
+  CreatePeerRepoServerOptions,
+  PeerRepoServer,
+} from "./shared/lib/peer-repo-server";
+export { createPeerRepoServer } from "./shared/lib/peer-repo-server";
+export type {
   PeerCounterOptions,
   PeerListOptions,
   PeerStateOptions,
