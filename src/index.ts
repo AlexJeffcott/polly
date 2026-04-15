@@ -97,6 +97,11 @@ export {
   DEFAULT_MESH_KEY_ID,
   MeshNetworkAdapter,
 } from "./shared/lib/mesh-network-adapter";
+export type {
+  MeshSignalingClientOptions,
+  SignalingMessage as MeshSignalingMessage,
+} from "./shared/lib/mesh-signaling-client";
+export { MeshSignalingClient } from "./shared/lib/mesh-signaling-client";
 export type { MeshStateOptions } from "./shared/lib/mesh-state";
 export {
   $meshCounter,
@@ -106,6 +111,8 @@ export {
   configureMeshState,
   resetMeshState,
 } from "./shared/lib/mesh-state";
+export type { MeshWebRTCAdapterOptions } from "./shared/lib/mesh-webrtc-adapter";
+export { DEFAULT_ICE_SERVERS, MeshWebRTCAdapter } from "./shared/lib/mesh-webrtc-adapter";
 // Messaging
 export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
 export type { MigratableState } from "./shared/lib/migrate-primitive";
