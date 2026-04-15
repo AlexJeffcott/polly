@@ -123,6 +123,7 @@ function makeKeyring(
     identity,
     knownPeers,
     documentKeys: new Map([[DEFAULT_MESH_KEY_ID, documentKey]]),
+    revokedPeers: new Set(),
   };
 }
 

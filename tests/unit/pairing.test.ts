@@ -25,6 +25,7 @@ function makeKeyring(): MeshKeyring {
     identity: generateSigningKeyPair(),
     knownPeers: new Map(),
     documentKeys: new Map(),
+    revokedPeers: new Set(),
   };
 }
 
@@ -313,6 +314,7 @@ describe("end-to-end pairing scenario", () => {
       identity: receiverIdentity,
       knownPeers: new Map(),
       documentKeys: new Map(),
+      revokedPeers: new Set(),
     };
 
     const decoded = decodePairingToken(wireString);

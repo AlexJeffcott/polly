@@ -162,6 +162,20 @@ export type { Resource, ResourceOptions, ResourceStatus } from "./shared/lib/res
 // Async resource primitive
 export { $resource } from "./shared/lib/resource";
 export type {
+  CreateRevocationOptions,
+  RevocationRecord,
+} from "./shared/lib/revocation";
+export {
+  applyRevocation,
+  createRevocation,
+  decodeRevocation,
+  encodeRevocation,
+  REVOCATION_MAGIC,
+  REVOCATION_RECORD_VERSION,
+  RevocationError,
+  revokePeerLocally,
+} from "./shared/lib/revocation";
+export type {
   Migration,
   Migrations,
   OpVersionCheck,

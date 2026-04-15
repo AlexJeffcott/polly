@@ -186,5 +186,8 @@
   "bugs": {
     "url": "https://github.com/AlexJeffcott/polly/issues"
   },
-  "homepage": "https://github.com/AlexJeffcott/polly#readme"
+  "homepage": "https://github.com/AlexJeffcott/polly#readme",
+  "trustedDependencies": [
+    "node-datachannel"
+  ]
 }

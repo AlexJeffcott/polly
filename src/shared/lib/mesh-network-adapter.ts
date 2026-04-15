@@ -67,8 +67,9 @@ export const DEFAULT_MESH_KEY_ID = "polly-mesh-default";
 
 /**
  * A mesh keyring holds the local peer's signing identity, the public keys
- * of every peer the local node will accept messages from, and the symmetric
- * encryption keys for documents the local node has access to.
+ * of every peer the local node will accept messages from, the symmetric
+ * encryption keys for documents the local node has access to, and the set
+ * of peers whose keys have been revoked.
  */
 export interface MeshKeyring {
   /** The local peer's signing keypair. The secret never leaves this
@@ -80,6 +81,12 @@ export interface MeshKeyring {
   /** Map from document key id (typically the documentId, or the well-known
    * default for the single-key first cut) to the symmetric encryption key. */
   documentKeys: Map<string, Uint8Array>;
+  /** Set of peer ids whose keys have been revoked. The mesh adapter drops
+   * incoming messages from any peer in this set, even if the peer is still
+   * present in {@link knownPeers}. Revocation is applied via the revocation
+   * module; the set is kept separate from knownPeers so that an application
+   * can audit who was once authorised without losing the revocation record. */
+  revokedPeers: Set<string>;
 }
 
 /**
@@ -197,6 +204,13 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     try {
       signed = decodeSignedEnvelope(message.data);
     } catch {
+      return undefined;
+    }
+
+    // Drop messages from peers whose keys have been revoked, even if the
+    // public key is still present in knownPeers. The revocation set is the
+    // authoritative "this peer is no longer trusted" marker.
+    if (this.keyring.revokedPeers.has(signed.senderId)) {
       return undefined;
     }
 

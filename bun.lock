@@ -1,6 +1,6 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
+  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "@fairfox/web-ext-monorepo",
@@ -35,6 +35,7 @@
         "@preact/signals": "^2.5.1",
         "elysia": ">= 1.4.0",
         "preact": "^10.28.1",
+        "tweetnacl": ">= 1.0.0",
         "typescript": "^5.9.3",
         "ws": ">= 8.0.0",
       },
@@ -45,6 +46,7 @@
         "@automerge/automerge-repo-storage-nodefs",
         "@elysiajs/eden",
         "elysia",
+        "tweetnacl",
         "ws",
       ],
     },
