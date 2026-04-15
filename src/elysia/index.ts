@@ -42,6 +42,11 @@
 
 export { type PeerRepoPluginOptions, peerRepo } from "./peer-repo-plugin";
 export { polly } from "./plugin";
+export {
+  type SignalingMessage,
+  type SignalingServerOptions,
+  signalingServer,
+} from "./signaling-server-plugin";
 export type {
   AuthorizationContext,
   AuthorizationHandler,
