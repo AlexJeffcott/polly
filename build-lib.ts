@@ -67,6 +67,8 @@ const libResult = await Bun.build({
     "elysia",
     "@elysiajs/eden",
     "serialize-javascript",
+    "@automerge/automerge-repo",
+    "@automerge/automerge-repo-storage-indexeddb",
   ],
 });
 
