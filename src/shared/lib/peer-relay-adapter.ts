@@ -58,8 +58,9 @@ export interface PeerStateClient {
   connectionState: Signal<PeerRelayConnectionState>;
   /** The underlying network adapter, exposed for advanced use. */
   adapter: WebSocketClientAdapter;
-  /** Disconnect from the relay and tear down the Repo. */
-  close: () => void;
+  /** Disconnect from the relay and tear down the Repo. Awaiting the
+   * returned promise drains the Repo's subsystems cleanly. */
+  close: () => Promise<void>;
 }
 
 /**
@@ -96,8 +97,13 @@ export function createPeerStateClient(options: CreatePeerStateClientOptions): Pe
     repo,
     connectionState,
     adapter,
-    close: () => {
-      adapter.disconnect();
+    // Delegate to repo.shutdown() rather than calling adapter.disconnect()
+    // directly. Automerge-Repo's WebSocketClientAdapter has an internal
+    // assertion that fires if disconnect() is called twice, and the Repo's
+    // shutdown also iterates network adapters and disconnects each. Routing
+    // tear-down through shutdown() means there is one disconnect path.
+    close: async () => {
+      await repo.shutdown();
     },
   };
 }
