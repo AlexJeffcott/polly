@@ -40,6 +40,7 @@
  * ```
  */
 
+export { type PeerRepoPluginOptions, peerRepo } from "./peer-repo-plugin";
 export { polly } from "./plugin";
 export type {
   AuthorizationContext,
