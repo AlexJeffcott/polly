@@ -207,6 +207,77 @@ describe("encodeRevocation and decodeRevocation", () => {
     expect((caught as RevocationError).code).toBe("unknown-issuer");
   });
 
+  test("accepts any known peer's revocation when revocationAuthority is undefined", () => {
+    const issuer = generateSigningKeyPair();
+    const receiver = generateSigningKeyPair();
+    const record = createRevocation({
+      issuer,
+      issuerPeerId: "peer-alice",
+      revokedPeerId: "peer-mallory",
+    });
+    const encoded = encodeRevocation(record, issuer);
+
+    const receiverKeyring = makeKeyring({
+      identity: receiver,
+      knownPeers: new Map([["peer-alice", issuer.publicKey]]),
+    });
+    // revocationAuthority is undefined on the default keyring — first-cut
+    // behaviour: any known signer is trusted to revoke.
+    const decoded = decodeRevocation(encoded, receiverKeyring);
+    expect(decoded.revokedPeerId).toBe("peer-mallory");
+  });
+
+  test("accepts the issuer's revocation when revocationAuthority contains them", () => {
+    const admin = generateSigningKeyPair();
+    const receiver = generateSigningKeyPair();
+    const record = createRevocation({
+      issuer: admin,
+      issuerPeerId: "peer-admin",
+      revokedPeerId: "peer-mallory",
+    });
+    const encoded = encodeRevocation(record, admin);
+
+    const receiverKeyring = makeKeyring({
+      identity: receiver,
+      knownPeers: new Map([["peer-admin", admin.publicKey]]),
+    });
+    receiverKeyring.revocationAuthority = new Set(["peer-admin"]);
+
+    const decoded = decodeRevocation(encoded, receiverKeyring);
+    expect(decoded.revokedPeerId).toBe("peer-mallory");
+  });
+
+  test("rejects an issuer outside the revocationAuthority set", () => {
+    const admin = generateSigningKeyPair();
+    const random = generateSigningKeyPair();
+    const receiver = generateSigningKeyPair();
+    const record = createRevocation({
+      issuer: random,
+      issuerPeerId: "peer-random",
+      revokedPeerId: "peer-mallory",
+    });
+    const encoded = encodeRevocation(record, random);
+
+    const receiverKeyring = makeKeyring({
+      identity: receiver,
+      knownPeers: new Map([
+        ["peer-admin", admin.publicKey],
+        ["peer-random", random.publicKey],
+      ]),
+    });
+    // Only the admin is authorised to issue revocations.
+    receiverKeyring.revocationAuthority = new Set(["peer-admin"]);
+
+    let caught: unknown;
+    try {
+      decodeRevocation(encoded, receiverKeyring);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(RevocationError);
+    expect((caught as RevocationError).code).toBe("unauthorised-issuer");
+  });
+
   test("decodeRevocation throws on a tampered payload", () => {
     const issuer = generateSigningKeyPair();
     const receiver = generateSigningKeyPair();

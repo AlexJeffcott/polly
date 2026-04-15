@@ -87,6 +87,13 @@ export interface MeshKeyring {
    * module; the set is kept separate from knownPeers so that an application
    * can audit who was once authorised without losing the revocation record. */
   revokedPeers: Set<string>;
+  /** Optional set of peer ids authorised to issue revocations. When present
+   * and non-empty, `decodeRevocation` accepts a signed record only if the
+   * issuer is in this set. When undefined or empty, any signed revocation
+   * from a known peer is accepted (the Phase 2 first-cut default). This
+   * field layers a "who can revoke whom" check on top of the signature
+   * layer without breaking existing callers. */
+  revocationAuthority?: Set<string>;
 }
 
 /**

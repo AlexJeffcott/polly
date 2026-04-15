@@ -76,6 +76,7 @@ export interface RevocationRecord {
 export class RevocationError extends Error {
   readonly code:
     | "unknown-issuer"
+    | "unauthorised-issuer"
     | "signature-invalid"
     | "truncated"
     | "wrong-magic"
@@ -295,6 +296,13 @@ export function encodeRevocation(record: RevocationRecord, issuer: SigningKeyPai
  * key (because Polly does not have a global PKI). If the issuer is
  * unknown, the caller receives `unknown-issuer` and can decide whether
  * to cache the revocation for later verification or drop it outright.
+ *
+ * Authorisation: when the keyring has a non-empty
+ * {@link MeshKeyring.revocationAuthority} set, only issuers inside that
+ * set can have their revocations accepted. An issuer outside the set
+ * produces `unauthorised-issuer`. When the authority set is undefined
+ * or empty, any signed revocation from a known peer is accepted — that
+ * is the Phase 2 first-cut default, preserved for backward compatibility.
  */
 export function decodeRevocation(bytes: Uint8Array, keyring: MeshKeyring): RevocationRecord {
   const envelope = decodeSignedEnvelope(bytes);
@@ -303,6 +311,16 @@ export function decodeRevocation(bytes: Uint8Array, keyring: MeshKeyring): Revoc
     throw new RevocationError(
       `Revocation issuer ${envelope.senderId} is not in the local keyring.`,
       "unknown-issuer"
+    );
+  }
+  if (
+    keyring.revocationAuthority !== undefined &&
+    keyring.revocationAuthority.size > 0 &&
+    !keyring.revocationAuthority.has(envelope.senderId)
+  ) {
+    throw new RevocationError(
+      `Revocation issuer ${envelope.senderId} is not in the keyring's revocation authority set.`,
+      "unauthorised-issuer"
     );
   }
   let payloadBytes: Uint8Array;
