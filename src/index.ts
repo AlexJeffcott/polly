@@ -74,6 +74,23 @@ export {
 export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
 export type { MigratableState } from "./shared/lib/migrate-primitive";
 export { MigrationError, migratePrimitive } from "./shared/lib/migrate-primitive";
+// Phase 1 — $peerState wrappers around the base $crdt* family with the
+// peerState primitive kind, key→DocumentId mapping per Repo, and the
+// deferred-crypto encrypt/sign options that throw at runtime until Phase 2.
+export type {
+  PeerCounterOptions,
+  PeerListOptions,
+  PeerStateOptions,
+  PeerTextOptions,
+} from "./shared/lib/peer-state";
+export {
+  $peerCounter,
+  $peerList,
+  $peerState,
+  $peerText,
+  configurePeerState,
+  resetPeerState,
+} from "./shared/lib/peer-state";
 export type { PrimitiveKind } from "./shared/lib/primitive-registry";
 export { PrimitiveCollisionError } from "./shared/lib/primitive-registry";
 export type { Resource, ResourceOptions, ResourceStatus } from "./shared/lib/resource";
