@@ -110,6 +110,24 @@ export {
 export { getMessageBus, MessageBus } from "./shared/lib/message-bus";
 export type { MigratableState } from "./shared/lib/migrate-primitive";
 export { MigrationError, migratePrimitive } from "./shared/lib/migrate-primitive";
+export type {
+  CreatePairingTokenOptions,
+  PairingToken,
+} from "./shared/lib/pairing";
+export {
+  applyPairingToken,
+  createPairingToken,
+  createPairingTokenWithFreshIdentity,
+  DEFAULT_PAIRING_TTL_MS,
+  decodePairingToken,
+  encodePairingToken,
+  isPairingTokenExpired,
+  PAIRING_NONCE_BYTES,
+  PAIRING_TOKEN_VERSION,
+  PairingError,
+  parsePairingToken,
+  serialisePairingToken,
+} from "./shared/lib/pairing";
 // Phase 1 — $peerState wrappers around the base $crdt* family with the
 // peerState primitive kind, key→DocumentId mapping per Repo, and the
 // deferred-crypto encrypt/sign options that throw at runtime until Phase 2.
