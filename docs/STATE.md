@@ -11,6 +11,29 @@ Polly provides reactive state management that works seamlessly across different 
 
 The state primitives provide a unified API with automatic synchronization, persistence, and conflict resolution - the same code works everywhere with environment-specific optimizations.
 
+## Picking a primitive — resilience tiers
+
+Polly offers three families of synced state primitives, ordered by how resilient the data is to server loss. RFC-041 documents the design in detail ([`docs/RFC-041-choosing.md`](./RFC-041-choosing.md)); this section is the short guide.
+
+| Resilience tier | Primitive family | Server's role | Use when |
+|---|---|---|---|
+| **Weakest** | `$sharedState` | Source of truth | The server owns this data. Lose the server without backups and lose the data. |
+| **Middle** | `$peerState` | Full peer on the data path | Every device is a backup. Server-side cron and HTTP handlers can read and mutate document contents. |
+| **Strongest** | `$meshState` | Not on the data path | The application functions with zero server uptime. Every operation is signed and end-to-end encrypted. |
+
+Three questions to decide:
+
+1. **Is the server the source of truth for this data?**
+   Yes → `$sharedState`. Existing primitive, unchanged. Server is authoritative, Lamport-clocked LWW conflict resolution, resilience is whatever the server's backup story is.
+
+2. **Should the application keep working if the server is permanently gone?**
+   Yes → `$meshState`. Every device holds a full CRDT replica, operations flow peer-to-peer through a signed + encrypted mesh, and any server (if present) is just a signalling helper.
+
+3. **Somewhere in between — every device is a backup, but the server stays on the data path so cron and HTTP handlers can operate on document contents?**
+   → `$peerState`. Middle tier. CRDT merging through Automerge, any client can rehydrate the server after data loss, and cron jobs on the server read and mutate document contents the same way clients do.
+
+Mixing primitives in one application is expected. A typical app uses `$sharedState` for public settings, `$peerState` for collaborative working documents, and `$meshState` for personal notes the server must not see. Polly enforces the mixing rules so the three families can't collide on the same logical key.
+
 ## Quick Start
 
 ```typescript
@@ -172,6 +195,170 @@ async function submit() {
   }
 }
 ```
+
+---
+
+## Peer-first primitives (`$peerState` and `$meshState`)
+
+The peer-first families are the two upper resilience tiers from the table above. Both are CRDT-backed via Automerge-Repo, both share the same signal-shaped call site as the existing primitives, and both are designed to land in the same application alongside `$sharedState` without collision.
+
+### `$peerState(key, initialValue, options?)`
+
+Peer-replicated state where every device — including the server — holds a full Automerge replica. The server participates in the sync protocol like any other peer, which means server-side cron, HTTP handlers, and background jobs can open document handles on the server's `Repo` and mutate them. If the server loses its storage volume, any reconnecting client with intact history repopulates it through normal sync.
+
+```typescript
+import {
+  configurePeerState,
+  createPeerStateClient,
+  $peerState,
+  $peerText,
+  $peerCounter,
+  $peerList,
+} from '@fairfox/polly'
+
+// On startup, wire the $peerState family to a real relay transport.
+const client = createPeerStateClient({ url: 'wss://yourapp.com/polly/peer' })
+configurePeerState(client.repo)
+
+// Signal surface matches the existing primitives.
+const settings = $peerState<Settings>('settings', { theme: 'dark' })
+const draft = $peerText('draft', '')
+const visits = $peerCounter('visits', 0)
+const todos = $peerList<Todo>('todos', [])
+
+await settings.loaded
+settings.value = { theme: 'light' }
+```
+
+The server side runs a Polly peer-relay factory:
+
+```typescript
+import { createPeerRepoServer } from '@fairfox/polly'
+
+const server = await createPeerRepoServer({
+  port: 3030,
+  storagePath: './data/polly-peer',
+})
+
+// Cron, HTTP handlers, etc. open handles on server.repo directly.
+const handle = await server.repo.find(someDocumentId)
+handle.change(doc => { doc.count += 1 })
+```
+
+Or hosted alongside an Elysia app via the lifecycle plugin:
+
+```typescript
+import { Elysia } from 'elysia'
+import { peerRepo } from '@fairfox/polly/elysia'
+
+const app = new Elysia()
+  .use(peerRepo({ port: 3030, storagePath: './data/polly-peer' }))
+  .listen(8080)
+```
+
+The four `$peer*` variants map directly to the specialised CRDT shapes: `$peerText` uses Automerge's text splicing for concurrent character-level edits, `$peerCounter` uses a commutative counter, `$peerList` is a list with insert/remove semantics (the Phase 0 cut uses naive replacement; proper list diffing lands in Phase 1.1).
+
+**Optional**: `{ encrypt: true }` makes the server hold ciphertext only (you lose cron-on-content but gain privacy-from-server); `{ sign: true }` adds per-op Ed25519 signatures for Byzantine defence. Both wire up to the shared crypto machinery from the `$meshState` family below.
+
+See [`docs/RFC-041-peer-first.md`](./RFC-041-peer-first.md) for the full design and [`tools/verify/specs/tla/PeerState.tla`](../tools/verify/specs/tla/PeerState.tla) for the formal protocol spec.
+
+### `$meshState(key, initialValue, options?)`
+
+Peer-replicated state with **no server on the data path**. Clients hold full replicas and exchange operations through signed, end-to-end encrypted messages that travel directly between peers. The application keeps working if the server is permanently gone.
+
+```typescript
+import {
+  configureMeshState,
+  $meshState,
+  $meshText,
+  $meshCounter,
+  $meshList,
+  MeshNetworkAdapter,
+} from '@fairfox/polly'
+import { Repo } from '@automerge/automerge-repo'
+
+// MeshNetworkAdapter wraps any base NetworkAdapter with sign-then-encrypt
+// envelopes. The keyring holds this device's signing identity, the public
+// keys of authorised peers, the document encryption keys, and the set of
+// revoked peers. All four are populated during pairing.
+const repo = new Repo({
+  network: [new MeshNetworkAdapter({ base: yourBaseAdapter, keyring })],
+})
+configureMeshState(repo)
+
+const notes = $meshState<Notes>('notes', { entries: [] })
+await notes.loaded
+notes.value = { entries: ['private thoughts'] }
+```
+
+**First-time key exchange** (pairing): the issuer generates a token and displays it as a QR code; the receiver scans, decodes, and applies it to a fresh keyring. The token carries the issuer's Ed25519 signing public key, the shared document encryption key, a TTL (10 minutes by default), and a nonce.
+
+```typescript
+import {
+  createPairingTokenWithFreshIdentity,
+  encodePairingToken,
+  decodePairingToken,
+  applyPairingToken,
+  DEFAULT_MESH_KEY_ID,
+} from '@fairfox/polly'
+
+// Issuer device
+const { identity, token } = createPairingTokenWithFreshIdentity({
+  issuerPeerId: 'device-A',
+  documentKeyId: DEFAULT_MESH_KEY_ID,
+})
+const qrString = encodePairingToken(token)
+// Display qrString as a QR code
+
+// Receiver device
+const decoded = decodePairingToken(scannedQrString)
+applyPairingToken(decoded, receiverKeyring)
+// receiverKeyring now has the issuer's public key and the document key
+```
+
+**Revoking a compromised peer**: either one-line local revocation or a signed revocation record that can be broadcast to every device.
+
+```typescript
+import {
+  revokePeerLocally,
+  createRevocation,
+  encodeRevocation,
+  decodeRevocation,
+  applyRevocation,
+} from '@fairfox/polly'
+
+// Local-only revocation (this device stops trusting the peer).
+revokePeerLocally('compromised-peer-id', keyring)
+
+// Transportable revocation (every device that applies it stops trusting
+// the peer). Signed by the issuer; verified against the issuer's
+// public key on receipt.
+const record = createRevocation({
+  issuer: issuerKeypair,
+  issuerPeerId: 'device-A',
+  revokedPeerId: 'compromised-peer-id',
+  reason: 'lost at conference',
+})
+const bytes = encodeRevocation(record, issuerKeypair)
+// Broadcast bytes over any channel. On the receiver side:
+const verified = decodeRevocation(bytes, receiverKeyring)
+applyRevocation(verified, receiverKeyring)
+```
+
+**WebRTC discovery** happens via a stateless signalling server. Mount it on any Elysia app:
+
+```typescript
+import { Elysia } from 'elysia'
+import { signalingServer } from '@fairfox/polly/elysia'
+
+const app = new Elysia()
+  .use(signalingServer({ path: '/polly/signaling' }))
+  .listen(8080)
+```
+
+The four `$mesh*` variants mirror the `$peer*` family: `$meshState`, `$meshText`, `$meshCounter`, `$meshList`. Signing and encryption are mandatory for the mesh primitives — they are not options the way they are on `$peerState`. Server-side code **cannot** import `$meshState`: the primitive has no server-side implementation, and an accidental import is a type error.
+
+See [`docs/RFC-041-peer-first-webrtc.md`](./RFC-041-peer-first-webrtc.md) for the full design and [`tools/verify/specs/tla/MeshState.tla`](../tools/verify/specs/tla/MeshState.tla) for the formal protocol spec.
 
 ---
 
