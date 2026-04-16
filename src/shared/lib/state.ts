@@ -77,10 +77,10 @@ export function $sharedState<T>(
   // Expose loaded promise for awaiting hydration
   const entry = stateRegistry.get(key);
   if (entry) {
-    (sig as SignalWithLoaded<T>).loaded = entry.loaded;
+    (sig as unknown as SignalWithLoaded<T>).loaded = entry.loaded;
   }
 
-  return sig as Signal<T> & { loaded: Promise<void> };
+  return sig as unknown as Signal<T> & { loaded: Promise<void> };
 }
 
 /**
@@ -148,10 +148,10 @@ export function $persistedState<T>(
   // Expose loaded promise for awaiting hydration
   const entry = stateRegistry.get(key);
   if (entry) {
-    (sig as SignalWithLoaded<T>).loaded = entry.loaded;
+    (sig as unknown as SignalWithLoaded<T>).loaded = entry.loaded;
   }
 
-  return sig as Signal<T> & { loaded: Promise<void> };
+  return sig as unknown as Signal<T> & { loaded: Promise<void> };
 }
 
 /**
@@ -194,7 +194,12 @@ export function deepEqual(a: unknown, b: unknown): boolean {
 
   for (const key of keysA) {
     if (!keysB.includes(key)) return false;
-    if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
+    if (
+      !deepEqual(
+        (a as unknown as Record<string, unknown>)[key],
+        (b as unknown as Record<string, unknown>)[key]
+      )
+    )
       return false;
   }
 
@@ -238,7 +243,7 @@ function resolveAdapters(options: InternalStateOptions): {
 function createState<T>(key: string, initialValue: T, options: InternalStateOptions<T>): Signal<T> {
   // Return existing signal if already registered
   if (stateRegistry.has(key)) {
-    return stateRegistry.get(key)?.signal as Signal<T>;
+    return stateRegistry.get(key)?.signal as unknown as Signal<T>;
   }
 
   const sig = signal(initialValue);
@@ -247,7 +252,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   if (options.verify) {
     // Create plain object mirror for verification
     const mirror = JSON.parse(JSON.stringify(initialValue)) as T;
-    (sig as SignalWithVerify<T>).verify = mirror;
+    (sig as unknown as SignalWithVerify<T>).verify = mirror;
   }
 
   const entry: StateEntry<T> = {
@@ -293,7 +298,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
 
       // Update verification mirror if enabled
       if (options.verify) {
-        const verifySignal = sig as SignalWithVerify<T>;
+        const verifySignal = sig as unknown as SignalWithVerify<T>;
         if (verifySignal.verify) {
           Object.assign(verifySignal.verify, JSON.parse(JSON.stringify(value)));
         }
@@ -358,12 +363,12 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
           return;
         }
 
-        applyUpdate(entry, message.value as T, message.clock);
+        applyUpdate(entry, message.value as unknown as T, message.clock);
       }
     });
   }
 
-  stateRegistry.set(key, entry as StateEntry<unknown>);
+  stateRegistry.set(key, entry as unknown as StateEntry<unknown>);
   return sig;
 }
 
@@ -391,12 +396,12 @@ async function loadFromStorage<T>(
           );
         }
       } else {
-        sig.value = storedValue as T;
+        sig.value = storedValue as unknown as T;
       }
     }
 
     if (result[`${key}:clock`] !== undefined) {
-      entry.clock = result[`${key}:clock`] as number;
+      entry.clock = result[`${key}:clock`] as unknown as number;
     }
   } catch (error) {
     console.warn(`[Polly] Failed to load state from storage: ${key}`, error);
@@ -438,7 +443,7 @@ function applyUpdate<T>(entry: StateEntry<T>, value: T, clock: number): void {
  */
 export function getStateByKey<T>(key: string): Signal<T> | undefined {
   const entry = stateRegistry.get(key);
-  return entry?.signal as Signal<T> | undefined;
+  return entry?.signal as unknown as Signal<T> | undefined;
 }
 
 /**

@@ -51,7 +51,7 @@ describe("PrimitiveRegistry", () => {
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(PrimitiveCollisionError);
-      const collision = err as PrimitiveCollisionError;
+      const collision = err as unknown as PrimitiveCollisionError;
       expect(collision.key).toBe("notes");
     }
   });
@@ -62,7 +62,7 @@ describe("PrimitiveRegistry", () => {
       registry.register("notes", "meshState");
       throw new Error("should have thrown");
     } catch (err) {
-      const collision = err as PrimitiveCollisionError;
+      const collision = err as unknown as PrimitiveCollisionError;
       expect(collision.firstPrimitive).toBe("peerState");
       expect(collision.secondPrimitive).toBe("meshState");
     }
@@ -74,7 +74,7 @@ describe("PrimitiveRegistry", () => {
       registry.register("notes", "meshState", "src/two.ts:20");
       throw new Error("should have thrown");
     } catch (err) {
-      const collision = err as PrimitiveCollisionError;
+      const collision = err as unknown as PrimitiveCollisionError;
       expect(collision.firstCallSite).toBe("src/one.ts:10");
       expect(collision.secondCallSite).toBe("src/two.ts:20");
       expect(collision.message).toContain("src/one.ts:10");
@@ -91,7 +91,7 @@ describe("PrimitiveRegistry", () => {
       registry.register("x", "meshState");
       throw new Error("should have thrown");
     } catch (err) {
-      expect((err as Error).name).toBe("PrimitiveCollisionError");
+      expect((err as unknown as Error).name).toBe("PrimitiveCollisionError");
     }
   });
 

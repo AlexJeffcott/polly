@@ -60,7 +60,7 @@ export function expect<T>(actual: T) {
       }
     },
     toBeGreaterThan(expected: number) {
-      if ((actual as number) <= expected) {
+      if ((actual as unknown as number) <= expected) {
         throw new Error(`Expected ${actual} > ${expected}`);
       }
     },

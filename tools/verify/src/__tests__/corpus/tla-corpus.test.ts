@@ -339,7 +339,7 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
     for (const projectType of projectTypes) {
       const config: VerificationConfig = {
         state: {},
-        messages: projectType.messages as any,
+        messages: projectType.messages as unknown as any,
         onBuild: "warn",
         onRelease: "error",
       };

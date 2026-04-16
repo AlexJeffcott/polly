@@ -153,7 +153,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     // channel opens, the adapter emits 'peer-candidate' and the Repo's
     // NetworkSubsystem learns about the peer.
     for (const remotePeerId of this.knownPeerIds) {
-      if (remotePeerId !== (peerId as string) && !this.slots.has(remotePeerId)) {
+      if (remotePeerId !== (peerId as unknown as string) && !this.slots.has(remotePeerId)) {
         this.createInitiatingSlot(remotePeerId);
       }
     }
@@ -177,7 +177,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * queued until the data channel is open.
    */
   send(message: Message): void {
-    const targetId = message.targetId as string;
+    const targetId = message.targetId as unknown as string;
     const bytes = this.serialiseMessage(message);
     let slot = this.slots.get(targetId);
     if (!slot) {
@@ -199,7 +199,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * method.
    */
   handleSignal(fromPeerId: string, rawPayload: unknown): void {
-    const payload = rawPayload as SignalingPayload;
+    const payload = rawPayload as unknown as SignalingPayload;
     if (!payload || typeof payload !== "object" || !("kind" in payload)) {
       return;
     }
@@ -240,7 +240,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       // peer-id ordering: the lexicographically lower id yields its own
       // offer and accepts the incoming one. The higher id ignores the
       // incoming offer and waits for the answer to its own.
-      const localId = this.peerId as string;
+      const localId = this.peerId as unknown as string;
       if (localId > fromPeerId) {
         return;
       }
@@ -299,12 +299,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       const state = connection.connectionState;
       if (state === "connected") {
         this.emit("peer-candidate", {
-          peerId: peerId as PeerId,
+          peerId: peerId as unknown as PeerId,
           peerMetadata: {},
         });
       } else if (state === "disconnected" || state === "failed" || state === "closed") {
         this.slots.delete(peerId);
-        this.emit("peer-disconnected", { peerId: peerId as PeerId });
+        this.emit("peer-disconnected", { peerId: peerId as unknown as PeerId });
       }
     };
   }
@@ -389,6 +389,6 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
     const header = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
     const data = bytes.slice(4 + headerLen);
-    return { ...header, data } as Message;
+    return { ...header, data } as unknown as Message;
   }
 }

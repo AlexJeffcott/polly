@@ -52,7 +52,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
     // Chrome's listener signature uses void | boolean, ours uses undefined | boolean
     // These are compatible - undefined is assignable to void for return types
     chrome.runtime.onMessage.addListener(
-      wrappedCallback as (
+      wrappedCallback as unknown as (
         message: unknown,
         sender: chrome.runtime.MessageSender,
         sendResponse: (response?: unknown) => void
@@ -80,7 +80,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
     if (wrappedCallback) {
       // Type-safe cast: wrappedCallback is stored with compatible signature
       chrome.runtime.onMessage.removeListener(
-        wrappedCallback as (
+        wrappedCallback as unknown as (
           message: unknown,
           sender: chrome.runtime.MessageSender,
           sendResponse: (response?: unknown) => void

@@ -105,8 +105,8 @@ function createSpecialisedPrimitive<V, D extends VersionedDoc>(
       const targetVersion = config.schemaVersion;
       const migrations = config.migrations ?? {};
       handle.change((doc) => {
-        runMigrations(doc as Record<string, unknown>, targetVersion, migrations);
-        setDocVersion(doc as Record<string, unknown>, targetVersion);
+        runMigrations(doc as unknown as Record<string, unknown>, targetVersion, migrations);
+        setDocVersion(doc as unknown as Record<string, unknown>, targetVersion);
       });
     }
 
@@ -153,7 +153,7 @@ function createSpecialisedPrimitive<V, D extends VersionedDoc>(
     },
     loaded,
     get handle() {
-      return currentHandle as DocHandle<unknown> | undefined;
+      return currentHandle as unknown as DocHandle<unknown> | undefined;
     },
   };
 }
@@ -196,7 +196,7 @@ export function $crdtText(
     applyWrite: (doc, value) => {
       if (doc.text === undefined) {
         // First write — seed the field. Subsequent writes will use updateText.
-        (doc as TextDoc).text = value;
+        (doc as unknown as TextDoc).text = value;
       } else {
         updateText(doc, ["text"], value);
       }
@@ -253,7 +253,7 @@ export function $crdtCounter(
     applyWrite: (doc, value) => {
       const existing = doc.count;
       if (existing === undefined) {
-        (doc as CounterDoc).count = new Counter(value);
+        (doc as unknown as CounterDoc).count = new Counter(value);
       } else {
         const delta = value - existing.value;
         if (delta !== 0) {
@@ -309,7 +309,7 @@ export function $crdtList<T>(
     applyWrite: (doc, value) => {
       // Phase 0 naive replacement; see the function-level docstring for the
       // refinement plan.
-      (doc as ListDoc<T>).items = [...value];
+      (doc as unknown as ListDoc<T>).items = [...value];
     },
     schemaVersion: options.schemaVersion,
     migrations: options.migrations,

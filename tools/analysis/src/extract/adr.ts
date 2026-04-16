@@ -141,7 +141,7 @@ export class ADRExtractor {
 
     const status = statusMatch[1]?.toLowerCase();
     if (status && ["proposed", "accepted", "deprecated", "superseded"].includes(status)) {
-      return status as ADRStatus;
+      return status as unknown as ADRStatus;
     }
 
     return "accepted";

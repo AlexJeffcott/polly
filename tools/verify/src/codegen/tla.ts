@@ -776,7 +776,7 @@ export class TLAGenerator {
       }
 
       const nestedPath = `${prefix}_${key}`;
-      this.collectNestedFields(nestedPath, value as FieldConfig, config, stateFields);
+      this.collectNestedFields(nestedPath, value as unknown as FieldConfig, config, stateFields);
     }
   }
 
@@ -1267,7 +1267,7 @@ export class TLAGenerator {
       }
 
       const nestedPath = `${prefix}_${key}`;
-      this.collectNestedInitialValues(nestedPath, value as FieldConfig, fields);
+      this.collectNestedInitialValues(nestedPath, value as unknown as FieldConfig, fields);
     }
   }
 
@@ -3046,7 +3046,7 @@ export class TLAGenerator {
         typeInfo.unionTypes.find((t) => t.kind !== "null") || typeInfo.unionTypes[0];
       return this.getInitialValueFromAnalysis({
         ...fieldAnalysis,
-        type: firstType as FieldAnalysis["type"],
+        type: firstType as unknown as FieldAnalysis["type"],
       });
     }
     return "NULL";
@@ -3258,7 +3258,7 @@ export async function generateSubsystemTLA(
   // Build filtered config
   const filteredConfig: VerificationConfig = {
     ...config,
-    state: filteredState as VerificationConfig["state"],
+    state: filteredState as unknown as VerificationConfig["state"],
     messages: filteredMessages,
     subsystems: undefined, // don't recurse
   };

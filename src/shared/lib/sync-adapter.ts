@@ -124,12 +124,12 @@ export class ChromeRuntimeSyncAdapter implements SyncAdapter {
   }
 
   onMessage<T>(callback: (message: StateSyncMessage<T>) => void): () => void {
-    this.listeners.push(callback as (message: StateSyncMessage<unknown>) => void);
+    this.listeners.push(callback as unknown as (message: StateSyncMessage<unknown>) => void);
 
     // Return cleanup function
     return () => {
       const index = this.listeners.indexOf(
-        callback as (message: StateSyncMessage<unknown>) => void
+        callback as unknown as (message: StateSyncMessage<unknown>) => void
       );
       if (index > -1) {
         this.listeners.splice(index, 1);
@@ -198,12 +198,12 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
   }
 
   onMessage<T>(callback: (message: StateSyncMessage<T>) => void): () => void {
-    this.listeners.push(callback as (message: StateSyncMessage<unknown>) => void);
+    this.listeners.push(callback as unknown as (message: StateSyncMessage<unknown>) => void);
 
     // Return cleanup function
     return () => {
       const index = this.listeners.indexOf(
-        callback as (message: StateSyncMessage<unknown>) => void
+        callback as unknown as (message: StateSyncMessage<unknown>) => void
       );
       if (index > -1) {
         this.listeners.splice(index, 1);

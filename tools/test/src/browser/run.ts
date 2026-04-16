@@ -171,7 +171,7 @@ for (const testFile of testFiles) {
 
   const results = await page.evaluate(
     () =>
-      (window as unknown as Record<string, unknown>)["__testResults"] as Array<{
+      (window as unknown as Record<string, unknown>)["__testResults"] as unknown as Array<{
         name: string;
         passed: boolean;
         error?: string;

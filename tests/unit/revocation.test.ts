@@ -204,7 +204,7 @@ describe("encodeRevocation and decodeRevocation", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(RevocationError);
-    expect((caught as RevocationError).code).toBe("unknown-issuer");
+    expect((caught as unknown as RevocationError).code).toBe("unknown-issuer");
   });
 
   test("accepts any known peer's revocation when revocationAuthority is undefined", () => {
@@ -275,7 +275,7 @@ describe("encodeRevocation and decodeRevocation", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(RevocationError);
-    expect((caught as RevocationError).code).toBe("unauthorised-issuer");
+    expect((caught as unknown as RevocationError).code).toBe("unauthorised-issuer");
   });
 
   test("decodeRevocation throws on a tampered payload", () => {
@@ -306,7 +306,7 @@ describe("encodeRevocation and decodeRevocation", () => {
     expect(caught).toBeInstanceOf(RevocationError);
     // Tampering anywhere in the signed payload produces either a signature
     // failure or a structural parse error; both are acceptable outcomes.
-    const code = (caught as RevocationError).code;
+    const code = (caught as unknown as RevocationError).code;
     expect([
       "signature-invalid",
       "truncated",
@@ -400,8 +400,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
 
     // Wait for base-adapter peer discovery.
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
@@ -441,8 +441,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -479,8 +479,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 

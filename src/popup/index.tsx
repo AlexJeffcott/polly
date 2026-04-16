@@ -80,7 +80,7 @@ function Popup() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  debugMode: (e.target as HTMLInputElement).checked,
+                  debugMode: (e.target as unknown as HTMLInputElement).checked,
                 };
               }}
             />
@@ -94,7 +94,7 @@ function Popup() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  notifications: (e.target as HTMLInputElement).checked,
+                  notifications: (e.target as unknown as HTMLInputElement).checked,
                 };
               }}
             />
@@ -109,7 +109,10 @@ function Popup() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  theme: (e.target as HTMLSelectElement).value as "light" | "dark" | "auto",
+                  theme: (e.target as unknown as HTMLSelectElement).value as unknown as
+                    | "light"
+                    | "dark"
+                    | "auto",
                 };
               }}
             >

@@ -63,8 +63,8 @@ export function peerRepo(options: PeerRepoPluginOptions) {
     options.healthPath === false ? null : (options.healthPath ?? "/polly/peer/health");
 
   let app = new Elysia({ name: "polly-peer-repo" })
-    .decorate("pollyPeerRepo", null as PeerRepoServer["repo"] | null)
-    .decorate("pollyPeerServer", null as PeerRepoServer | null)
+    .decorate("pollyPeerRepo", null as unknown as PeerRepoServer["repo"] | null)
+    .decorate("pollyPeerServer", null as unknown as PeerRepoServer | null)
     .onStart(async () => {
       server = await createPeerRepoServer(options);
       // Decorate after construction so handlers see the live Repo. Elysia's

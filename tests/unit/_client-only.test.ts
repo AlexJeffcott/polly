@@ -26,7 +26,7 @@ describe("client-only exclusion prototype", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    const message = (caught as Error).message;
+    const message = (caught as unknown as Error).message;
     expect(message).toMatch(/client-only/i);
     expect(message).toMatch(/_client-only\.ts/);
     expect(message).toMatch(/plan risk #4/);

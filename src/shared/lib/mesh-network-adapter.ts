@@ -214,7 +214,7 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       senderId: message.senderId,
       targetId: message.targetId,
       data: signedBytes,
-    } as Message;
+    } as unknown as Message;
   }
 
   /**
@@ -329,5 +329,5 @@ function deserialiseMessage(bytes: Uint8Array): Message {
   }
   const header = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
   const data = bytes.slice(4 + headerLen);
-  return { ...header, data } as Message;
+  return { ...header, data } as unknown as Message;
 }

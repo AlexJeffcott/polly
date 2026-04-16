@@ -191,11 +191,11 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
 
     const repoA = new Repo({
       network: [adapterA],
-      peerId: "peer-a" as PeerId,
+      peerId: "peer-a" as unknown as PeerId,
     });
     const repoB = new Repo({
       network: [adapterB],
-      peerId: "peer-b" as PeerId,
+      peerId: "peer-b" as unknown as PeerId,
     });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
@@ -225,8 +225,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -256,8 +256,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 

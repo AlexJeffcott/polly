@@ -25,14 +25,14 @@ export function createMockStorageArea(): MockStorageArea {
             result[key] = data.get(key);
           }
         }
-        return result as T;
+        return result as unknown as T;
       }
       // Object with defaults
       const result: Record<string, unknown> = {};
       for (const [key, defaultValue] of Object.entries(keys)) {
         result[key] = data.has(key) ? data.get(key) : defaultValue;
       }
-      return result as T;
+      return result as unknown as T;
     },
     set: async (items) => {
       for (const [key, value] of Object.entries(items)) {

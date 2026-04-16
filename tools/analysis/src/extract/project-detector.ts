@@ -116,13 +116,15 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const background = manifest["background"] as Record<string, unknown> | undefined;
+    const background = manifest["background"] as unknown as Record<string, unknown> | undefined;
     if (!background) return;
 
     const file =
-      (background["service_worker"] as string | undefined) ||
-      ((background["scripts"] as string[] | undefined)?.[0] as string | undefined) ||
-      (background["page"] as string | undefined);
+      (background["service_worker"] as unknown as string | undefined) ||
+      ((background["scripts"] as unknown as string[] | undefined)?.[0] as unknown as
+        | string
+        | undefined) ||
+      (background["page"] as unknown as string | undefined);
     if (file) {
       entryPoints["background"] = this.findSourceFile(file);
     }
@@ -135,13 +137,17 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const contentScripts = manifest["content_scripts"] as Record<string, unknown>[] | undefined;
+    const contentScripts = manifest["content_scripts"] as unknown as
+      | Record<string, unknown>[]
+      | undefined;
     if (!contentScripts || contentScripts.length === 0) return;
 
     const firstScriptObj = contentScripts[0];
     if (!firstScriptObj) return;
 
-    const firstScript = (firstScriptObj["js"] as string[] | undefined)?.[0] as string | undefined;
+    const firstScript = (firstScriptObj["js"] as unknown as string[] | undefined)?.[0] as unknown as
+      | string
+      | undefined;
     if (firstScript) {
       entryPoints["content"] = this.findSourceFile(firstScript);
     }
@@ -154,11 +160,13 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const action = manifest["action"] as Record<string, unknown> | undefined;
-    const browserAction = manifest["browser_action"] as Record<string, unknown> | undefined;
+    const action = manifest["action"] as unknown as Record<string, unknown> | undefined;
+    const browserAction = manifest["browser_action"] as unknown as
+      | Record<string, unknown>
+      | undefined;
     const popup =
-      (action?.["default_popup"] as string | undefined) ||
-      (browserAction?.["default_popup"] as string | undefined);
+      (action?.["default_popup"] as unknown as string | undefined) ||
+      (browserAction?.["default_popup"] as unknown as string | undefined);
     if (!popup) return;
 
     const jsFile = this.findAssociatedJS(path.join(this.projectRoot, popup));
@@ -174,10 +182,10 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const optionsUi = manifest["options_ui"] as Record<string, unknown> | undefined;
+    const optionsUi = manifest["options_ui"] as unknown as Record<string, unknown> | undefined;
     const options =
-      (optionsUi?.["page"] as string | undefined) ||
-      (manifest["options_page"] as string | undefined);
+      (optionsUi?.["page"] as unknown as string | undefined) ||
+      (manifest["options_page"] as unknown as string | undefined);
     if (!options) return;
 
     const jsFile = this.findAssociatedJS(path.join(this.projectRoot, options));
@@ -249,7 +257,7 @@ export class ProjectDetector {
 
     // Main process
     const mainCandidates = [
-      packageJson["main"] as string | undefined,
+      packageJson["main"] as unknown as string | undefined,
       "src/main/index.ts",
       "src/electron/main.ts",
       "electron/main.ts",
@@ -288,9 +296,9 @@ export class ProjectDetector {
         renderer: "Renderer Process",
       },
       metadata: {
-        name: packageJson["name"] as string | undefined,
-        version: packageJson["version"] as string | undefined,
-        description: packageJson["description"] as string | undefined,
+        name: packageJson["name"] as unknown as string | undefined,
+        version: packageJson["version"] as unknown as string | undefined,
+        description: packageJson["description"] as unknown as string | undefined,
       },
     };
   }
@@ -365,9 +373,9 @@ export class ProjectDetector {
               client: "Client",
             },
       metadata: {
-        name: packageJson["name"] as string | undefined,
-        version: packageJson["version"] as string | undefined,
-        description: packageJson["description"] as string | undefined,
+        name: packageJson["name"] as unknown as string | undefined,
+        version: packageJson["version"] as unknown as string | undefined,
+        description: packageJson["description"] as unknown as string | undefined,
       },
     };
   }
@@ -688,8 +696,8 @@ export class ProjectDetector {
     const workspacesRaw = packageJson.workspaces;
     const patterns: string[] = Array.isArray(workspacesRaw)
       ? workspacesRaw
-      : Array.isArray((workspacesRaw as Record<string, unknown>)?.packages)
-        ? ((workspacesRaw as Record<string, unknown>).packages as string[])
+      : Array.isArray((workspacesRaw as unknown as Record<string, unknown>)?.packages)
+        ? ((workspacesRaw as unknown as Record<string, unknown>).packages as unknown as string[])
         : [];
 
     if (patterns.length === 0) return null;
@@ -716,7 +724,7 @@ export class ProjectDetector {
         continue;
       }
 
-      const pkgName = (wsPkg.name as string) || path.basename(wsDir);
+      const pkgName = (wsPkg.name as unknown as string) || path.basename(wsDir);
       const context = this.inferContextFromPackageName(pkgName);
 
       // Score server candidates relative to this workspace
@@ -783,9 +791,9 @@ export class ProjectDetector {
       contextMapping,
       workspacePackages,
       metadata: {
-        name: packageJson.name as string | undefined,
-        version: packageJson.version as string | undefined,
-        description: packageJson.description as string | undefined,
+        name: packageJson.name as unknown as string | undefined,
+        version: packageJson.version as unknown as string | undefined,
+        description: packageJson.description as unknown as string | undefined,
       },
     };
   }

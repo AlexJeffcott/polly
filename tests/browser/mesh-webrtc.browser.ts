@@ -96,8 +96,8 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
     const meshB = new MeshNetworkAdapter({ base: webrtcB, keyring: bKeyring });
 
     // Build Repos.
-    const repoA = new Repo({ network: [meshA], peerId: "peer-a" as PeerId });
-    const repoB = new Repo({ network: [meshB], peerId: "peer-b" as PeerId });
+    const repoA = new Repo({ network: [meshA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [meshB], peerId: "peer-b" as unknown as PeerId });
 
     // Wait for the WebRTC peer connection to establish.
     console.log("[test] waiting for peer connection");

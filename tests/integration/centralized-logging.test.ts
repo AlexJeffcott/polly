@@ -503,7 +503,7 @@ test("Integration - Context metadata is preserved in logs", async () => {
   if (!log.context?.metadata || typeof log.context.metadata !== "object") {
     throw new Error("Invalid metadata");
   }
-  const metadata = log.context.metadata as Record<string, unknown>;
+  const metadata = log.context.metadata as unknown as Record<string, unknown>;
   expect(metadata.page).toBe("settings");
 });
 

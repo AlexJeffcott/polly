@@ -63,7 +63,10 @@ function Options() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  theme: (e.target as HTMLSelectElement).value as "light" | "dark" | "auto",
+                  theme: (e.target as unknown as HTMLSelectElement).value as unknown as
+                    | "light"
+                    | "dark"
+                    | "auto",
                 };
               }}
             >
@@ -86,7 +89,7 @@ function Options() {
                 onChange={(e) => {
                   settings.value = {
                     ...settings.value,
-                    autoSync: (e.target as HTMLInputElement).checked,
+                    autoSync: (e.target as unknown as HTMLInputElement).checked,
                   };
                 }}
               />
@@ -105,7 +108,7 @@ function Options() {
                 onChange={(e) => {
                   settings.value = {
                     ...settings.value,
-                    notifications: (e.target as HTMLInputElement).checked,
+                    notifications: (e.target as unknown as HTMLInputElement).checked,
                   };
                 }}
               />
@@ -126,7 +129,7 @@ function Options() {
                 onChange={(e) => {
                   settings.value = {
                     ...settings.value,
-                    debugMode: (e.target as HTMLInputElement).checked,
+                    debugMode: (e.target as unknown as HTMLInputElement).checked,
                   };
                 }}
               />
@@ -144,7 +147,7 @@ function Options() {
               onInput={(e) => {
                 settings.value = {
                   ...settings.value,
-                  apiEndpoint: (e.target as HTMLInputElement).value,
+                  apiEndpoint: (e.target as unknown as HTMLInputElement).value,
                 };
               }}
               placeholder="https://api.example.com"
@@ -162,7 +165,7 @@ function Options() {
                 settings.value = {
                   ...settings.value,
                   refreshInterval:
-                    Number.parseInt((e.target as HTMLInputElement).value, 10) || 60000,
+                    Number.parseInt((e.target as unknown as HTMLInputElement).value, 10) || 60000,
                 };
               }}
               min="1000"

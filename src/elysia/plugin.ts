@@ -153,7 +153,7 @@ export function polly(config: PollyConfig = {}) {
       // @ts-expect-error - Elysia WebSocket types from optional peer dependency
       message(ws, message) {
         // Handle client state updates
-        const data = JSON.parse(message as string);
+        const data = JSON.parse(message as unknown as string);
 
         if (data.type === "state-update") {
           const clientId = ws.data.headers?.["x-client-id"];

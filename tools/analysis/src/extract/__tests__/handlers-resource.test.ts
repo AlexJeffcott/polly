@@ -56,7 +56,7 @@ describe("HandlerExtractor - $resource Discovery", () => {
       testFile,
       `
 function $resource<TSource, TData>(name: string, options: any) {
-  return {} as any;
+  return {} as unknown as any;
 }
 const signal = { value: { userId: "abc" } };
 
@@ -94,7 +94,7 @@ const todosResource = $resource("todos", {
       testFile,
       `
 function $resource<TSource, TData>(name: string, options: any) {
-  return {} as any;
+  return {} as unknown as any;
 }
 
 const myResource = $resource("items", {
@@ -126,7 +126,7 @@ const myResource = $resource("items", {
       testFile,
       `
 function $resource<TSource, TData>(name: string, options: any) {
-  return {} as any;
+  return {} as unknown as any;
 }
 
 const myResource = $resource("items", {
@@ -158,7 +158,7 @@ const myResource = $resource("items", {
       testFile,
       `
 function $resource<TSource, TData>(name: string, options: any) {
-  return {} as any;
+  return {} as unknown as any;
 }
 
 const myResource = $resource("items", {
@@ -190,7 +190,7 @@ const myResource = $resource("items", {
       testFile,
       `
 function $resource<TSource, TData>(name: string, options: any) {
-  return {} as any;
+  return {} as unknown as any;
 }
 const authState = { value: { userId: "abc", role: "admin" } };
 const settings = { value: "dark" };
@@ -259,7 +259,7 @@ const res = createResource("data", {
       testFile,
       `
 function $resource<TSource, TData>(name: string, options: any) {
-  return {} as any;
+  return {} as unknown as any;
 }
 
 const myResource = $resource("items", {

@@ -16,7 +16,7 @@ async function main() {
   // Parse arguments
   const projectName = args[0] || "my-project";
   const typeArg = args.find((arg) => arg.startsWith("--type="))?.split("=")[1] || "extension";
-  const projectType = typeArg as ProjectType;
+  const projectType = typeArg as unknown as ProjectType;
 
   // Validate project name
   const validation = validateProjectName(projectName);

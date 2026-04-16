@@ -17,5 +17,5 @@ export const currentTab = $syncedState<number | null>("current-tab", null);
 // Local to each context (not synced) - use regular signal
 export const uiState = signal({
   sidebarOpen: false,
-  selectedPanel: "main" as "main" | "settings" | "debug",
+  selectedPanel: "main" as unknown as "main" | "settings" | "debug",
 });

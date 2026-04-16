@@ -98,7 +98,9 @@ describe("$peerState end-to-end over the relay transport", () => {
     // Wait for the document to land on the server.
     await waitFor(async () => {
       try {
-        const sh = await server.repo.find<Notes>(notes.handle?.documentId ?? ("" as never));
+        const sh = await server.repo.find<Notes>(
+          notes.handle?.documentId ?? ("" as unknown as never)
+        );
         return sh.doc().title === "published";
       } catch {
         return false;

@@ -30,8 +30,8 @@ beforeEach(() => {
   MessageRouter.resetInstance();
 
   adapters = createMockAdapters();
-  mockLogger = adapters.logger as MockLogger;
-  mockRuntime = adapters.runtime as MockRuntime;
+  mockLogger = adapters.logger as unknown as MockLogger;
+  mockRuntime = adapters.runtime as unknown as MockRuntime;
   bus = new MessageBus("background", adapters);
   new LogStore(bus);
 });

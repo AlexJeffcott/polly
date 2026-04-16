@@ -283,7 +283,7 @@ export class ConfigValidator {
   }
 
   private validateArrayBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
-    const maxLength = (fieldConfig as { maxLength?: number | null }).maxLength;
+    const maxLength = (fieldConfig as unknown as { maxLength?: number | null }).maxLength;
     if (maxLength === null) return;
 
     if (maxLength < 0) {
@@ -308,8 +308,8 @@ export class ConfigValidator {
   }
 
   private validateNumberBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
-    const min = (fieldConfig as { min?: number | null }).min;
-    const max = (fieldConfig as { max?: number | null }).max;
+    const min = (fieldConfig as unknown as { min?: number | null }).min;
+    const max = (fieldConfig as unknown as { max?: number | null }).max;
 
     if (min !== null && max !== null && min > max) {
       this.issues.push({
@@ -333,7 +333,7 @@ export class ConfigValidator {
   }
 
   private validateMapSetBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
-    const maxSize = (fieldConfig as { maxSize?: number | null }).maxSize;
+    const maxSize = (fieldConfig as unknown as { maxSize?: number | null }).maxSize;
     if (maxSize === null) return;
 
     if (maxSize < 0) {

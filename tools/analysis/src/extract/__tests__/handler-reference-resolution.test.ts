@@ -130,7 +130,7 @@ bus.on("authenticate", handleAuthenticate);
       `
 const state = {
   count: 0,
-  items: [] as string[],
+  items: [] as unknown as string[],
 };
 
 export const handlers = {
@@ -320,7 +320,7 @@ bus.on("activate", handleActivate);
 const state = {
   count: 0,
   authenticated: false,
-  items: [] as string[],
+  items: [] as unknown as string[],
 };
 
 export const handlers = {
@@ -373,7 +373,7 @@ const connectionState = {
   value: {
     authenticated: false,
     connected: false,
-    user: null as { userId: number; handle: string } | null,
+    user: null as unknown as { userId: number; handle: string } | null,
   }
 };
 
@@ -381,7 +381,7 @@ const connectionState = {
 const state = {
   authenticated: false,
   connected: false,
-  user: null as { userId: number; handle: string } | null,
+  user: null as unknown as { userId: number; handle: string } | null,
 };
 
 const bus = {

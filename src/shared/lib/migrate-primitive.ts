@@ -135,7 +135,7 @@ export async function migratePrimitive<Source, Destination>(
   destination: MigratableState<Destination>,
   transform: (value: Source) => Destination
 ): Promise<void> {
-  if ((source as unknown) === (destination as unknown)) {
+  if ((source as unknown as unknown) === (destination as unknown as unknown)) {
     throw new MigrationError(
       `Cannot migrate a primitive to itself: "${source.key}" under ${source.primitive}.`,
       "same-primitive-instance",

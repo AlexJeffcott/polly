@@ -117,7 +117,7 @@ describe("signalingServer plugin", () => {
       payload: { sdp: "v=0\r\n…" },
     });
 
-    const received = (await waitForMessage(bob)) as {
+    const received = (await waitForMessage(bob)) as unknown as {
       type: string;
       peerId: string;
       targetPeerId: string;
@@ -151,7 +151,7 @@ describe("signalingServer plugin", () => {
       payload: {},
     });
 
-    const reply = (await waitForMessage(carol)) as { type: string; reason: string };
+    const reply = (await waitForMessage(carol)) as unknown as { type: string; reason: string };
     expect(reply.type).toBe("error");
     expect(reply.reason).toBe("not-joined");
 
@@ -179,7 +179,7 @@ describe("signalingServer plugin", () => {
       payload: { ice: "candidate" },
     });
 
-    const reply = (await waitForMessage(dave)) as {
+    const reply = (await waitForMessage(dave)) as unknown as {
       type: string;
       reason: string;
       targetPeerId: string;
@@ -216,7 +216,7 @@ describe("signalingServer plugin", () => {
       payload: { evil: true },
     });
 
-    const received = (await waitForMessage(frank)) as { peerId: string };
+    const received = (await waitForMessage(frank)) as unknown as { peerId: string };
     // Server replaces with the authenticated peer id.
     expect(received.peerId).toBe("peer-eve");
 
@@ -254,7 +254,7 @@ describe("signalingServer plugin", () => {
       payload: {},
     });
 
-    const reply = (await waitForMessage(grace)) as { type: string; reason: string };
+    const reply = (await waitForMessage(grace)) as unknown as { type: string; reason: string };
     expect(reply.type).toBe("error");
     expect(reply.reason).toBe("unknown-target");
 

@@ -78,14 +78,16 @@ export class AdapterDetector {
       if (best.type === "web-extension") {
         suggestedAdapter = new WebExtensionAdapter({
           tsConfigPath:
-            (this.project.getCompilerOptions()["configFilePath"] as string) || "tsconfig.json",
+            (this.project.getCompilerOptions()["configFilePath"] as unknown as string) ||
+            "tsconfig.json",
           maxInFlight: 6,
           maxTabs: 2,
         });
       } else if (best.type === "event-bus") {
         suggestedAdapter = new EventBusAdapter({
           tsConfigPath:
-            (this.project.getCompilerOptions()["configFilePath"] as string) || "tsconfig.json",
+            (this.project.getCompilerOptions()["configFilePath"] as unknown as string) ||
+            "tsconfig.json",
           maxInFlight: 5,
         });
       }

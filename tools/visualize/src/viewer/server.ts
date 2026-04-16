@@ -42,7 +42,7 @@ export class ViewerServer {
     const dsl = fs.readFileSync(dslPath, "utf-8");
 
     // Use Bun's server (dynamically accessed to avoid TS errors during build)
-    const BunGlobal = (globalThis as typeof globalThis & { Bun: typeof Bun }).Bun;
+    const BunGlobal = (globalThis as unknown as typeof globalThis & { Bun: typeof Bun }).Bun;
     if (!BunGlobal) {
       throw new Error("Bun runtime is required to run the viewer");
     }

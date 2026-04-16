@@ -247,7 +247,7 @@ describe("Error Message Quality", () => {
       } catch (error) {
         // Pre-validation should catch invalid field name before generation
         expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain("invalid-field");
+        expect((error as unknown as Error).message).toContain("invalid-field");
       }
     });
 

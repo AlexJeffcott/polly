@@ -52,17 +52,17 @@ export class ManifestParser {
     const manifest = this.manifestData;
 
     return {
-      name: (manifest["name"] as string) || "Unknown Extension",
-      version: (manifest["version"] as string) || "0.0.0",
-      description: manifest["description"] as string | undefined,
-      manifestVersion: (manifest["manifest_version"] as number) || 2,
+      name: (manifest["name"] as unknown as string) || "Unknown Extension",
+      version: (manifest["version"] as unknown as string) || "0.0.0",
+      description: manifest["description"] as unknown as string | undefined,
+      manifestVersion: (manifest["manifest_version"] as unknown as number) || 2,
       background: this.parseBackground(),
       contentScripts: this.parseContentScripts(),
       popup: this.parsePopup(),
       options: this.parseOptions(),
       devtools: this.parseDevtools(),
-      permissions: (manifest["permissions"] as string[]) || [],
-      hostPermissions: (manifest["host_permissions"] as string[]) || [],
+      permissions: (manifest["permissions"] as unknown as string[]) || [],
+      hostPermissions: (manifest["host_permissions"] as unknown as string[]) || [],
     };
   }
 
@@ -144,14 +144,14 @@ export class ManifestParser {
   private parseBackground(): ManifestInfo["background"] {
     if (!this.manifestData) return undefined;
 
-    const bg = this.manifestData["background"] as Record<string, unknown> | undefined;
+    const bg = this.manifestData["background"] as unknown as Record<string, unknown> | undefined;
     if (!bg) return undefined;
 
     // Manifest V3 - service worker
     if (bg["service_worker"]) {
       return {
         type: "service_worker",
-        files: [bg["service_worker"] as string],
+        files: [bg["service_worker"] as unknown as string],
       };
     }
 
@@ -159,7 +159,7 @@ export class ManifestParser {
     if (bg["scripts"]) {
       return {
         type: "script",
-        files: bg["scripts"] as string[],
+        files: bg["scripts"] as unknown as string[],
       };
     }
 
@@ -167,7 +167,7 @@ export class ManifestParser {
     if (bg["page"]) {
       return {
         type: "script",
-        files: [bg["page"] as string],
+        files: [bg["page"] as unknown as string],
       };
     }
 
@@ -184,9 +184,9 @@ export class ManifestParser {
     if (!cs || !Array.isArray(cs)) return undefined;
 
     return cs.map((script: Record<string, unknown>) => ({
-      matches: (script["matches"] as string[]) || [],
-      js: (script["js"] as string[]) || [],
-      css: script["css"] as string[] | undefined,
+      matches: (script["matches"] as unknown as string[]) || [],
+      js: (script["js"] as unknown as string[]) || [],
+      css: script["css"] as unknown as string[] | undefined,
     }));
   }
 
@@ -197,13 +197,13 @@ export class ManifestParser {
     if (!this.manifestData) return undefined;
 
     const action =
-      (this.manifestData["action"] as Record<string, unknown> | undefined) ||
-      (this.manifestData["browser_action"] as Record<string, unknown> | undefined);
+      (this.manifestData["action"] as unknown as Record<string, unknown> | undefined) ||
+      (this.manifestData["browser_action"] as unknown as Record<string, unknown> | undefined);
     if (!action) return undefined;
 
     if (action["default_popup"]) {
       return {
-        html: action["default_popup"] as string,
+        html: action["default_popup"] as unknown as string,
         default: true,
       };
     }
@@ -227,10 +227,10 @@ export class ManifestParser {
       };
     }
 
-    const optionsObj = options as Record<string, unknown>;
+    const optionsObj = options as unknown as Record<string, unknown>;
     return {
-      page: optionsObj["page"] as string,
-      openInTab: optionsObj["open_in_tab"] as boolean,
+      page: optionsObj["page"] as unknown as string,
+      openInTab: optionsObj["open_in_tab"] as unknown as boolean,
     };
   }
 
@@ -244,7 +244,7 @@ export class ManifestParser {
     if (!devtools) return undefined;
 
     return {
-      page: devtools as string,
+      page: devtools as unknown as string,
     };
   }
 

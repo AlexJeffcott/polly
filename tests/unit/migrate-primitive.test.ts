@@ -62,7 +62,7 @@ describe("migratePrimitive", () => {
 
   test("copies the transformed value from source to destination", async () => {
     const source = makeState("notes", "sharedState", { items: [1, 2, 3] });
-    const dest = makeState("notes", "meshState", { entries: [] as number[] });
+    const dest = makeState("notes", "meshState", { entries: [] as unknown as number[] });
     await migratePrimitive(source, dest, (v) => ({ entries: v.items }));
     expect(dest.value).toEqual({ entries: [1, 2, 3] });
   });
@@ -113,7 +113,7 @@ describe("migratePrimitive", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(MigrationError);
-    const error = caught as MigrationError;
+    const error = caught as unknown as MigrationError;
     expect(error.code).toBe("already-migrated");
     expect(error.key).toBe("notes");
     expect(error.primitive).toBe("sharedState");
@@ -130,7 +130,7 @@ describe("migratePrimitive", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(MigrationError);
-    const error = caught as MigrationError;
+    const error = caught as unknown as MigrationError;
     expect(error.code).toBe("same-primitive-instance");
   });
 

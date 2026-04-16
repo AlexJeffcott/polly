@@ -8,10 +8,10 @@ export class ChromeWindowAdapter implements WindowAdapter {
   }
 
   addEventListener(type: "message", listener: (event: MessageEvent) => void): void {
-    window.addEventListener(type, listener as EventListener);
+    window.addEventListener(type, listener as unknown as EventListener);
   }
 
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void {
-    window.removeEventListener(type, listener as EventListener);
+    window.removeEventListener(type, listener as unknown as EventListener);
   }
 }

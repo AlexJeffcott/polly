@@ -209,8 +209,8 @@ async function estimateCommand() {
   const analysis = await runCodebaseAnalysis();
 
   // Validate expressions
-  const typedConfig = config as import("./config/types").UnifiedVerificationConfig;
-  const typedAnalysis = analysis as import("./core/model").CodebaseAnalysis;
+  const typedConfig = config as unknown as import("./config/types").UnifiedVerificationConfig;
+  const typedAnalysis = analysis as unknown as import("./core/model").CodebaseAnalysis;
   const exprValidation = validateExpressions(typedAnalysis.handlers, typedConfig.state);
   if (exprValidation.warnings.length > 0) {
     displayExpressionWarnings(exprValidation);
@@ -429,8 +429,8 @@ async function runFullVerification(configPath: string) {
   const analysis = await runCodebaseAnalysis();
 
   // Validate expressions
-  const typedConfig = config as UnifiedVerificationConfig;
-  const typedAnalysis = analysis as import("./core/model").CodebaseAnalysis;
+  const typedConfig = config as unknown as UnifiedVerificationConfig;
+  const typedAnalysis = analysis as unknown as import("./core/model").CodebaseAnalysis;
   const exprValidation = validateExpressions(typedAnalysis.handlers, typedConfig.state);
   if (exprValidation.warnings.length > 0) {
     displayExpressionWarnings(exprValidation);
@@ -461,7 +461,7 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
   const docker = await setupDocker();
 
   // Determine timeout, workers, and maxDepth from config
-  const typedConfig = config as UnifiedVerificationConfig;
+  const typedConfig = config as unknown as UnifiedVerificationConfig;
   const timeoutSeconds = getTimeout(typedConfig);
   const workers = getWorkers(typedConfig);
   const maxDepth = getMaxDepth(typedConfig);
@@ -498,7 +498,10 @@ async function runSubsystemVerification(
   config: UnifiedVerificationConfig,
   analysis: import("./core/model").CodebaseAnalysis
 ) {
-  const subsystems = config.subsystems as Record<string, { state: string[]; handlers: string[] }>;
+  const subsystems = config.subsystems as unknown as Record<
+    string,
+    { state: string[]; handlers: string[] }
+  >;
   const subsystemNames = Object.keys(subsystems);
 
   console.log(

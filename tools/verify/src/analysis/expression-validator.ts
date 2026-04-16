@@ -116,7 +116,7 @@ function resolveConfigEntry(
 
 function isArrayLike(configEntry: unknown): boolean {
   if (configEntry && typeof configEntry === "object") {
-    const obj = configEntry as Record<string, unknown>;
+    const obj = configEntry as unknown as Record<string, unknown>;
     if (obj.type === "array") return true;
     if ("maxLength" in obj) return true;
     if ("maxSize" in obj) return true;
@@ -129,7 +129,7 @@ function isNullable(configEntry: unknown): boolean {
     return configEntry.includes(null);
   }
   if (configEntry && typeof configEntry === "object") {
-    const obj = configEntry as Record<string, unknown>;
+    const obj = configEntry as unknown as Record<string, unknown>;
     // { abstract: true } allows extra values including null-like
     if (obj.abstract === true) return true;
     // { values: [...] } — check if null is in the values array

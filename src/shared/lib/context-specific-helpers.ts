@@ -152,7 +152,7 @@ export function createDevToolsHelpers(): DevToolsHelpers {
           if (error) {
             reject(new Error(error.isException ? error.value : "Execution error"));
           } else {
-            resolve(result as T);
+            resolve(result as unknown as T);
           }
         });
       });

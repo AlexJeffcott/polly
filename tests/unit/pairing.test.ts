@@ -153,7 +153,7 @@ describe("applyPairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as PairingError).code).toBe("expired");
+    expect((caught as unknown as PairingError).code).toBe("expired");
     // Keyring is unchanged on failure.
     expect(keyring.knownPeers.size).toBe(0);
     expect(keyring.documentKeys.size).toBe(0);
@@ -224,7 +224,7 @@ describe("serialisePairingToken and parsePairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as PairingError).code).toBe("wrong-magic");
+    expect((caught as unknown as PairingError).code).toBe("wrong-magic");
   });
 
   test("parse throws on an unknown version", () => {
@@ -244,7 +244,7 @@ describe("serialisePairingToken and parsePairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as PairingError).code).toBe("unknown-version");
+    expect((caught as unknown as PairingError).code).toBe("unknown-version");
   });
 
   test("parse throws on a truncated blob", () => {
@@ -263,7 +263,7 @@ describe("serialisePairingToken and parsePairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as PairingError).code).toBe("truncated");
+    expect((caught as unknown as PairingError).code).toBe("truncated");
   });
 });
 

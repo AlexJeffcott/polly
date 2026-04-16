@@ -104,7 +104,7 @@ function Panel() {
               type="text"
               value={selectedSelector.value}
               onInput={(e) => {
-                selectedSelector.value = (e.target as HTMLInputElement).value;
+                selectedSelector.value = (e.target as unknown as HTMLInputElement).value;
               }}
               placeholder="CSS selector"
               disabled={isQuerying.value}

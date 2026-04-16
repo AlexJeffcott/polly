@@ -1658,7 +1658,7 @@ export class HandlerExtractor {
     }
     if (operator && typeof operator === "object" && "getText" in operator) {
       // It's a Node with getText method
-      return (operator as { getText(): string }).getText();
+      return (operator as unknown as { getText(): string }).getText();
     }
     return null;
   }
@@ -2193,7 +2193,13 @@ export class HandlerExtractor {
       const typeGuards = this.getOrComputeTypeGuards(sourceFile);
 
       this.debugLogTypeGuards(sourceFile, typeGuards);
-      this.processIfElseChain(ifNode as IfStatement, typeGuards, context, filePath, handlers);
+      this.processIfElseChain(
+        ifNode as unknown as IfStatement,
+        typeGuards,
+        context,
+        filePath,
+        handlers
+      );
     } catch (error) {
       this.debugLogError(error);
     }
@@ -2286,7 +2292,7 @@ export class HandlerExtractor {
     filePath: string
   ): MessageHandler | null {
     try {
-      const ifStmt = ifNode as IfStatement;
+      const ifStmt = ifNode as unknown as IfStatement;
       const condition = ifStmt.getExpression();
 
       // Pattern 1: Type guard function call — if (isSubscribe(msg))

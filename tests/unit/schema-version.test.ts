@@ -165,7 +165,7 @@ describe("runMigrations", () => {
     try {
       runMigrations(doc, 3, {});
     } catch (err) {
-      const error = err as SchemaVersionError;
+      const error = err as unknown as SchemaVersionError;
       expect(error.code).toBe("doc-ahead-of-app");
       expect(error.docVersion).toBe(5);
       expect(error.targetVersion).toBe(3);
@@ -192,7 +192,7 @@ describe("runMigrations", () => {
     try {
       runMigrations({}, 3, migrations);
     } catch (err) {
-      const error = err as SchemaVersionError;
+      const error = err as unknown as SchemaVersionError;
       expect(error.code).toBe("missing-migration");
       expect(error.missingVersion).toBe(2);
     }
@@ -212,7 +212,7 @@ describe("runMigrations", () => {
     try {
       runMigrations({}, 2, migrations);
     } catch (err) {
-      const error = err as SchemaVersionError;
+      const error = err as unknown as SchemaVersionError;
       expect(error.missingVersion).toBe(1);
     }
   });
@@ -272,7 +272,7 @@ describe("assertOpVersion", () => {
     try {
       assertOpVersion(2, 3);
     } catch (err) {
-      const error = err as SchemaVersionError;
+      const error = err as unknown as SchemaVersionError;
       expect(error.code).toBe("op-older-than-doc");
       expect(error.opVersion).toBe(2);
       expect(error.docVersion).toBe(3);
@@ -284,7 +284,7 @@ describe("assertOpVersion", () => {
     try {
       assertOpVersion(4, 3);
     } catch (err) {
-      const error = err as SchemaVersionError;
+      const error = err as unknown as SchemaVersionError;
       expect(error.code).toBe("op-newer-than-doc");
     }
   });

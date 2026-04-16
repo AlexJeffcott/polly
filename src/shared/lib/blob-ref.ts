@@ -55,7 +55,7 @@ export type BlobRef = {
  */
 export function isBlobRef(value: unknown): value is BlobRef {
   if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
+  const v = value as unknown as Record<string, unknown>;
   return (
     typeof v["hash"] === "string" &&
     /^[0-9a-f]{64}$/.test(v["hash"]) &&

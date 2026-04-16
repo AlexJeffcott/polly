@@ -244,7 +244,7 @@ async function serveCommand(args: string[]) {
     console.log();
 
     // Start Bun's static file server
-    const BunGlobal = (globalThis as { Bun?: typeof Bun }).Bun;
+    const BunGlobal = (globalThis as unknown as { Bun?: typeof Bun }).Bun;
     if (!BunGlobal) {
       throw new Error("Bun runtime is required to run the server");
     }

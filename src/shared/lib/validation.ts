@@ -74,7 +74,7 @@ export function validateShape<T>(shape: ShapeDefinition): (value: unknown) => va
   return (value: unknown): value is T => {
     if (typeof value !== "object" || value === null) return false;
 
-    const obj = value as Record<string, unknown>;
+    const obj = value as unknown as Record<string, unknown>;
 
     for (const [key, type] of Object.entries(shape)) {
       if (!(key in obj)) return false;
@@ -105,7 +105,7 @@ export function validateEnum<T extends string | number>(
   allowed: readonly T[]
 ): (value: unknown) => value is T {
   return (value: unknown): value is T => {
-    return allowed.includes(value as T);
+    return allowed.includes(value as unknown as T);
   };
 }
 

@@ -111,7 +111,7 @@ export class SchemaVersionError extends Error {
  */
 export function getDocVersion(doc: unknown): number {
   if (typeof doc !== "object" || doc === null) return 0;
-  const record = doc as Record<string, unknown>;
+  const record = doc as unknown as Record<string, unknown>;
   const value = record[SCHEMA_VERSION_FIELD];
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 }

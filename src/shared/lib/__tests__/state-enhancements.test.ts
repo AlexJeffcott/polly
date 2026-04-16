@@ -154,7 +154,7 @@ describe("Enhancement #5: Exposed .loaded Promise", () => {
 
   test("can use loaded promise to coordinate initialization", async () => {
     const settings = $sharedState("settings-init", { theme: "dark", count: 0 });
-    const bookmarks = $sharedState("bookmarks-init", [] as string[]);
+    const bookmarks = $sharedState("bookmarks-init", [] as unknown as string[]);
 
     // Wait for both to load
     await Promise.all([settings.loaded, bookmarks.loaded]);
@@ -169,7 +169,7 @@ describe("Integration: verify + loaded", () => {
   test("should work together for verification patterns", async () => {
     const loginState = $sharedState(
       "login-integration",
-      { loggedIn: false, username: undefined as string | undefined },
+      { loggedIn: false, username: undefined as unknown as string | undefined },
       { verify: true }
     );
 

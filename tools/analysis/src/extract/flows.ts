@@ -389,7 +389,7 @@ export class FlowAnalyzer {
 
     // Look for JSDoc comments - use type guard to check if node supports JSDoc
     // biome-ignore lint/suspicious/noExplicitAny: Type guard for dynamic JSDoc support
-    const nodeAny = targetNode as any;
+    const nodeAny = targetNode as unknown as any;
     if (!("getJsDocs" in nodeAny) || typeof nodeAny.getJsDocs !== "function") {
       return {};
     }

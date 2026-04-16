@@ -259,9 +259,9 @@ export class TypeExtractor {
     // Check if type has conditional type method before calling
     if (
       // biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability
-      typeof (type as any).isConditionalType === "function" &&
+      typeof (type as unknown as any).isConditionalType === "function" &&
       // biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability
-      (type as any).isConditionalType()
+      (type as unknown as any).isConditionalType()
     ) {
       return this.extractFromConditionalType(type, warnings);
     }

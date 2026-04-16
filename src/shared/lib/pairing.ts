@@ -299,7 +299,7 @@ export function parsePairingToken(bytes: Uint8Array): PairingToken {
   if (bytes.length < offset + 1) {
     throw new PairingError("Pairing token truncated at version.", "truncated");
   }
-  const version = bytes[offset] as number;
+  const version = bytes[offset] as unknown as number;
   offset += 1;
   if (version !== PAIRING_TOKEN_VERSION) {
     throw new PairingError(

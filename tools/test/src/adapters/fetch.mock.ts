@@ -25,7 +25,7 @@ export function createMockFetch(): MockFetch {
         formData: async () => new FormData(),
       };
 
-      return mockResponse as Response;
+      return mockResponse as unknown as Response;
     },
     _responses: responses,
     _calls: calls,

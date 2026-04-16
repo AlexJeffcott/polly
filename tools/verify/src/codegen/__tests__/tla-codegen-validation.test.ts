@@ -148,7 +148,9 @@ describe("TLA+ Code Generation Validation", () => {
     const generator = new TLAGenerator();
 
     // Access the private method via type assertion for testing
-    const messageTypeToActionName = (generator as any).messageTypeToActionName.bind(generator);
+    const messageTypeToActionName = (generator as unknown as any).messageTypeToActionName.bind(
+      generator
+    );
 
     // Valid identifiers should work (converted to PascalCase)
     expect(messageTypeToActionName("query")).toBe("HandleQuery");

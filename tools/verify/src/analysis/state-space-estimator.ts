@@ -95,7 +95,7 @@ function fieldCardinality(name: string, value: unknown): FieldEstimate {
     return { name, cardinality: "unbounded", kind: "unknown" };
   }
 
-  const obj = value as Record<string, unknown>;
+  const obj = value as unknown as Record<string, unknown>;
 
   return (
     typedFieldCardinality(name, obj) ??
@@ -117,7 +117,7 @@ function permutations(n: number, k: number): number {
 
 function getHandlerCount(config: UnifiedVerificationConfig, analysis: CodebaseAnalysis): number {
   if (isLegacyConfig(config)) {
-    const msgs = config.messages as LegacyVerificationConfig["messages"] & {
+    const msgs = config.messages as unknown as LegacyVerificationConfig["messages"] & {
       include?: string[];
       exclude?: string[];
     };
@@ -136,7 +136,7 @@ function getMaxInFlight(config: UnifiedVerificationConfig): number {
     return config.messages.maxInFlight ?? 1;
   }
   if (isAdapterConfig(config)) {
-    return (config as AdapterVerificationConfig).bounds?.maxInFlight ?? 1;
+    return (config as unknown as AdapterVerificationConfig).bounds?.maxInFlight ?? 1;
   }
   return 1;
 }
@@ -172,7 +172,7 @@ export function estimateStateSpace(
   config: UnifiedVerificationConfig,
   analysis: CodebaseAnalysis
 ): StateSpaceEstimate {
-  const state = config.state as Record<string, unknown>;
+  const state = config.state as unknown as Record<string, unknown>;
   const fields: FieldEstimate[] = [];
   const warnings: string[] = [];
   const suggestions: string[] = [];
@@ -187,7 +187,7 @@ export function estimateStateSpace(
 
   const fieldProduct =
     boundedFields.length > 0
-      ? boundedFields.reduce((acc, f) => acc * (f.cardinality as number), 1)
+      ? boundedFields.reduce((acc, f) => acc * (f.cardinality as unknown as number), 1)
       : 1;
 
   if (unboundedFields.length > 0) {
@@ -221,7 +221,7 @@ export function estimateStateSpace(
   }
 
   for (const f of boundedFields) {
-    if ((f.cardinality as number) > 50) {
+    if ((f.cardinality as unknown as number) > 50) {
       suggestions.push(`Consider reducing bounds for field "${f.name}" (${f.cardinality} values)`);
     }
   }

@@ -48,7 +48,7 @@ describe("$crdtText", () => {
     await text.loaded;
     text.value = "first write";
     await Promise.resolve();
-    expect((text.handle as DocHandle<TextDoc>).doc().text).toBe("first write");
+    expect((text.handle as unknown as DocHandle<TextDoc>).doc().text).toBe("first write");
   });
 
   test("subsequent writes preserve text via updateText splices", async () => {
@@ -63,7 +63,7 @@ describe("$crdtText", () => {
     await Promise.resolve();
     text.value = "axdef";
     await Promise.resolve();
-    expect((text.handle as DocHandle<TextDoc>).doc().text).toBe("axdef");
+    expect((text.handle as unknown as DocHandle<TextDoc>).doc().text).toBe("axdef");
   });
 
   test("remote changes propagate back to the signal", async () => {
@@ -72,7 +72,7 @@ describe("$crdtText", () => {
       getHandle: async () => repo.create<TextDoc>({ text: "initial" }),
     });
     await text.loaded;
-    (text.handle as DocHandle<TextDoc>).change((doc) => {
+    (text.handle as unknown as DocHandle<TextDoc>).change((doc) => {
       doc.text = "from-remote";
     });
     await Promise.resolve();
@@ -97,7 +97,7 @@ describe("$crdtCounter", () => {
     await counter.loaded;
     counter.value = 5;
     await Promise.resolve();
-    const doc = (counter.handle as DocHandle<CounterDoc>).doc();
+    const doc = (counter.handle as unknown as DocHandle<CounterDoc>).doc();
     expect(doc.count?.value).toBe(5);
   });
 
@@ -113,7 +113,7 @@ describe("$crdtCounter", () => {
     await Promise.resolve();
     counter.value = 3;
     await Promise.resolve();
-    const doc = (counter.handle as DocHandle<CounterDoc>).doc();
+    const doc = (counter.handle as unknown as DocHandle<CounterDoc>).doc();
     expect(doc.count?.value).toBe(3);
   });
 
@@ -130,7 +130,7 @@ describe("$crdtCounter", () => {
     counter.value += 1;
     await Promise.resolve();
     expect(counter.value).toBe(3);
-    const doc = (counter.handle as DocHandle<CounterDoc>).doc();
+    const doc = (counter.handle as unknown as DocHandle<CounterDoc>).doc();
     expect(doc.count?.value).toBe(3);
   });
 
@@ -143,7 +143,7 @@ describe("$crdtCounter", () => {
     counter.value = 10;
     await Promise.resolve();
 
-    (counter.handle as DocHandle<CounterDoc>).change((doc) => {
+    (counter.handle as unknown as DocHandle<CounterDoc>).change((doc) => {
       doc.count?.increment(5);
     });
     await Promise.resolve();
@@ -168,7 +168,7 @@ describe("$crdtList", () => {
     await todos.loaded;
     todos.value = [1, 2, 3];
     await Promise.resolve();
-    const doc = (todos.handle as DocHandle<ListDoc<number>>).doc();
+    const doc = (todos.handle as unknown as DocHandle<ListDoc<number>>).doc();
     expect([...(doc.items ?? [])]).toEqual([1, 2, 3]);
   });
 
@@ -207,7 +207,7 @@ describe("$crdtList", () => {
     });
     await todos.loaded;
     expect(todos.value).toEqual([1, 2]);
-    (todos.handle as DocHandle<ListDoc<number>>).change((doc) => {
+    (todos.handle as unknown as DocHandle<ListDoc<number>>).change((doc) => {
       doc.items = [...(doc.items ?? []), 3];
     });
     await Promise.resolve();

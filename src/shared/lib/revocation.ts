@@ -221,7 +221,7 @@ function parseRevocationPayload(bytes: Uint8Array): RevocationRecord {
   if (bytes.length < offset + 1) {
     throw new RevocationError("Revocation record truncated at version.", "truncated");
   }
-  const version = bytes[offset] as number;
+  const version = bytes[offset] as unknown as number;
   offset += 1;
   if (version !== REVOCATION_RECORD_VERSION) {
     throw new RevocationError(`Unknown revocation record version: ${version}.`, "unknown-version");

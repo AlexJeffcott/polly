@@ -32,7 +32,7 @@ export class IndexedDBAdapter implements StorageAdapter {
       request.onsuccess = () => resolve(request.result);
 
       request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
+        const db = (event.target as unknown as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(this.storeName)) {
           db.createObjectStore(this.storeName);
         }
@@ -58,7 +58,7 @@ export class IndexedDBAdapter implements StorageAdapter {
               request.onerror = () => reject(request.error);
               request.onsuccess = () => {
                 if (request.result !== undefined) {
-                  result[key] = request.result as T;
+                  result[key] = request.result as unknown as T;
                 }
                 resolve();
               };
@@ -169,7 +169,7 @@ export class MemoryStorageAdapter implements StorageAdapter {
     for (const key of keys) {
       const value = this.storage.get(key);
       if (value !== undefined) {
-        result[key] = value as T;
+        result[key] = value as unknown as T;
       }
     }
     return result;

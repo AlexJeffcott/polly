@@ -120,10 +120,10 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
       const targetVersion = options.schemaVersion;
       const migrations = options.migrations ?? {};
       handle.change((doc) => {
-        runMigrations(doc as Record<string, unknown>, targetVersion, migrations);
+        runMigrations(doc as unknown as Record<string, unknown>, targetVersion, migrations);
         // runMigrations stamps the version on every intermediate step; make
         // sure the final value is recorded even when no migrations ran.
-        setDocVersion(doc as Record<string, unknown>, targetVersion);
+        setDocVersion(doc as unknown as Record<string, unknown>, targetVersion);
       });
     }
 
@@ -158,7 +158,7 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
       updating = true;
       try {
         currentHandle.change((doc) => {
-          applyTopLevel(doc as Record<string, unknown>, value);
+          applyTopLevel(doc as unknown as Record<string, unknown>, value);
         });
       } finally {
         updating = false;
@@ -204,6 +204,6 @@ function cloneDoc<T>(doc: T): T {
 function applyTopLevel<T extends VersionedDoc>(doc: Record<string, unknown>, value: T): void {
   for (const key of Object.keys(value)) {
     if (key === SCHEMA_VERSION_FIELD) continue;
-    doc[key] = (value as Record<string, unknown>)[key];
+    doc[key] = (value as unknown as Record<string, unknown>)[key];
   }
 }

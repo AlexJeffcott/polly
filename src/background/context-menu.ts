@@ -95,7 +95,7 @@ export class ContextMenuManager {
       // Broadcast the click event to all contexts
       this.bus.broadcast({
         type: "CONTEXT_MENU_CLICKED",
-        menuId: info.menuItemId as string,
+        menuId: info.menuItemId as unknown as string,
         info,
         tabId: tab.id,
       });
@@ -107,7 +107,7 @@ export class ContextMenuManager {
         await this.bus.adapters.contextMenus.create({
           id: payload.id,
           title: payload.title,
-          contexts: payload.contexts as [
+          contexts: payload.contexts as unknown as [
             chrome.contextMenus.ContextType,
             ...chrome.contextMenus.ContextType[],
           ],

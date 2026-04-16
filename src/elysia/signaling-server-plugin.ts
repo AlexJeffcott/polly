@@ -101,31 +101,31 @@ export function signalingServer(options: SignalingServerOptions = {}) {
   // signalingServer() call needs its own closure-captured peer map.
   const parseMessage = (raw: unknown): SignalingMessage | undefined => {
     try {
-      return typeof raw === "string" ? JSON.parse(raw) : (raw as SignalingMessage);
+      return typeof raw === "string" ? JSON.parse(raw) : (raw as unknown as SignalingMessage);
     } catch {
       return undefined;
     }
   };
 
   const handleJoin = (ws: unknown, peerId: string): void => {
-    peerSockets.set(peerId, ws as { send: (m: unknown) => void });
-    const wsWithData = ws as { data: Record<string, unknown> };
+    peerSockets.set(peerId, ws as unknown as { send: (m: unknown) => void });
+    const wsWithData = ws as unknown as { data: Record<string, unknown> };
     wsWithData.data.peerId = peerId;
   };
 
   const sendUnknownTarget = (ws: unknown, targetPeerId: string): void => {
-    (ws as { send: (m: unknown) => void }).send({
+    (ws as unknown as { send: (m: unknown) => void }).send({
       type: "error",
       reason: "unknown-target",
       targetPeerId,
-    } as SignalingMessage);
+    } as unknown as SignalingMessage);
   };
 
   /** Look up a target socket and confirm it is still open. */
   const findOpenTarget = (targetPeerId: string): { send: (msg: unknown) => void } | undefined => {
     const target = peerSockets.get(targetPeerId);
     if (!target) return undefined;
-    const readyState = (target as { readyState?: number }).readyState;
+    const readyState = (target as unknown as { readyState?: number }).readyState;
     const OPEN = 1;
     if (readyState !== undefined && readyState !== OPEN) {
       peerSockets.delete(targetPeerId);
@@ -135,10 +135,13 @@ export function signalingServer(options: SignalingServerOptions = {}) {
   };
 
   const handleSignal = (ws: unknown, msg: Extract<SignalingMessage, { type: "signal" }>): void => {
-    const wsWithData = ws as { data: Record<string, unknown>; send: (m: unknown) => void };
-    const senderId = wsWithData.data.peerId as string | undefined;
+    const wsWithData = ws as unknown as {
+      data: Record<string, unknown>;
+      send: (m: unknown) => void;
+    };
+    const senderId = wsWithData.data.peerId as unknown as string | undefined;
     if (!senderId) {
-      wsWithData.send({ type: "error", reason: "not-joined" } as SignalingMessage);
+      wsWithData.send({ type: "error", reason: "not-joined" } as unknown as SignalingMessage);
       return;
     }
     const target = findOpenTarget(msg.targetPeerId);
@@ -164,7 +167,7 @@ export function signalingServer(options: SignalingServerOptions = {}) {
     message(ws, raw) {
       const msg = parseMessage(raw);
       if (!msg) {
-        ws.send({ type: "error", reason: "malformed" } as SignalingMessage);
+        ws.send({ type: "error", reason: "malformed" } as unknown as SignalingMessage);
         return;
       }
       if (msg.type === "join") {
@@ -175,11 +178,13 @@ export function signalingServer(options: SignalingServerOptions = {}) {
         handleSignal(ws, msg);
         return;
       }
-      ws.send({ type: "error", reason: "malformed" } as SignalingMessage);
+      ws.send({ type: "error", reason: "malformed" } as unknown as SignalingMessage);
     },
 
     close(ws) {
-      const peerId = (ws.data as Record<string, unknown>).peerId as string | undefined;
+      const peerId = (ws.data as unknown as Record<string, unknown>).peerId as unknown as
+        | string
+        | undefined;
       if (peerId) {
         // Only delete the entry if it still points at *this* socket, so a
         // stale close after a reconnect does not evict the new socket.
