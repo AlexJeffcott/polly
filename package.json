@@ -107,6 +107,7 @@
     "@types/ws": "^8.18.1",
     "elysia": "^1.4.28",
     "fast-check": "^3.23.2",
+    "puppeteer": "^24.41.0",
     "tweetnacl": "^1.0.3",
     "typescript": "^5.9.3"
   },
