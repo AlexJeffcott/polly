@@ -60,11 +60,25 @@ Docs live at `https://github.com/AlexJeffcott/polly/tree/main/docs`.
 - Verified `urgentTaskCount` with `{ type: "number" }`
 - Key files: `client/src/handlers.ts`, `client/specs/constraints.ts`, `client/specs/verification.config.ts`
 
+**"How do I set up peer-first state?"** → `elysia-todo-app/` (for $peerState server setup) or `webrtc-p2p-chat/` (for $meshState WebRTC setup)
+- $peerState with createPeerRepoServer / peerRepo Elysia plugin
+- $meshState with MeshNetworkAdapter, MeshWebRTCAdapter, signalling server
+- Key exchange with createPairingToken / applyPairingToken
+- Device revocation with createRevocation / applyRevocation
+
+**"How do I add quality checks to my project?"**
+- Import `checkNoAsCasting` from `@fairfox/polly/quality`
+- Browser test harness from `@fairfox/polly/test/browser`
+- Run browser tests with `bun tools/test/src/browser/run.ts tests/browser`
+
 ## Key Documentation Files
 
 | Doc | URL Path | Covers |
 |-----|----------|--------|
 | Root README | `README.md` | Overview, quick start, all examples listed |
-| State Guide | `docs/STATE.md` | Complete state primitives API, patterns, conflict resolution |
+| State Guide | `docs/STATE.md` | Complete state primitives API, patterns, conflict resolution, peer-first tiers |
 | Background Setup | `docs/BACKGROUND_SETUP.md` | `createBackground()` vs `getMessageBus()`, why it matters |
+| Peer-First RFC | `docs/RFC-041-peer-first.md` | $peerState and $meshState design, Automerge integration |
+| Choosing a Tier | `docs/RFC-041-choosing.md` | Decision tree for $sharedState vs $peerState vs $meshState |
+| WebRTC RFC | `docs/RFC-041-peer-first-webrtc.md` | $meshState WebRTC transport, signalling, encryption |
 | Verify Specs | `tools/verify/specs/README.md` | TLA+ specifications, Docker setup for TLC |

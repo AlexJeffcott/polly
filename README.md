@@ -1,6 +1,6 @@
 # @fairfox/polly
 
-Reactive state for multi-context apps, with formal verification.
+Reactive state for multi-context apps — from single-process signals to peer-to-peer encrypted mesh — with formal verification.
 
 ## The pitch
 
@@ -85,6 +85,45 @@ todos.data;   // Signal<Todo[]>
 todos.status; // Signal<"idle" | "loading" | "success" | "error">
 todos.refetch();
 ```
+
+## Peer-first state (v0.21.0)
+
+The four primitives above keep state consistent inside a single deployment. But some applications need state that survives the server going away, or state that the server never sees at all. Polly now offers three resilience tiers, each a distinct primitive family:
+
+| Tier | Primitive | Server's role | Resilience |
+|------|-----------|---------------|------------|
+| Weakest | `$sharedState` | Source of truth | Server backups |
+| Middle | `$peerState` | Full peer on the data path | Any device can rehydrate the server |
+| Strongest | `$meshState` | Not on the data path | App works with zero server uptime |
+
+**`$peerState`** — every device holds a full [Automerge](https://automerge.org/) CRDT replica. The server holds one too, so cron and HTTP handlers can read and mutate documents. If the server loses its storage, any reconnecting client repopulates it through the normal sync protocol.
+
+```typescript
+import { createPeerStateClient, configurePeerState, $peerState } from "@fairfox/polly";
+
+const client = createPeerStateClient({ url: "wss://yourapp.com/polly/peer" });
+configurePeerState(client.repo);
+
+const settings = $peerState("settings", { theme: "dark" });
+await settings.loaded;
+settings.value = { theme: "light" }; // syncs to every peer
+```
+
+**`$meshState`** — peers exchange operations directly over WebRTC data channels, signed with Ed25519 and encrypted with XSalsa20-Poly1305. No server sees the data. A small stateless signalling server helps peers find each other; removing it does not affect running connections.
+
+```typescript
+import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from "@fairfox/polly";
+
+const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] });
+configureMeshState(repo);
+
+const notes = $meshState("notes", { entries: [] });
+// Operations flow peer-to-peer, signed and encrypted
+```
+
+First-time key exchange between devices uses a pairing token displayed as a QR code. Compromised devices are revoked via signed revocation records that propagate to every peer.
+
+The three tiers coexist in one application — public settings in `$sharedState`, collaborative documents in `$peerState`, private notes in `$meshState`. See [docs/STATE.md](docs/STATE.md) for the full decision tree and [docs/RFC-041-choosing.md](docs/RFC-041-choosing.md) for the design rationale.
 
 ## Verification that plugs in
 
@@ -206,16 +245,57 @@ polly verify            Run formal verification
 polly visualize         Generate architecture diagrams (Structurizr DSL)
 ```
 
+## Quality tooling
+
+Polly ships conformance checks and a browser test harness that consuming applications can adopt directly.
+
+**No-as-casting check.** Bans TypeScript `as` type assertions codebase-wide (only `as const` and the explicit escape hatch `as unknown as` are allowed). Violations include pattern-specific fix advice. Import it programmatically:
+
+```typescript
+import { checkNoAsCasting } from "@fairfox/polly/quality";
+
+const result = await checkNoAsCasting({ rootDir: process.cwd() });
+if (result.violations.length > 0) {
+  result.print();
+  process.exit(1);
+}
+```
+
+**Browser test harness.** A Puppeteer-based harness for testing browser-only code (WebRTC adapters, Preact components, anything needing real DOM). Bundles each test file with Bun.build, serves on an ephemeral port, and collects results:
+
+```typescript
+import { describe, test, expect, done, flush, cleanup } from "@fairfox/polly/test/browser";
+
+describe("my component", () => {
+  test("renders", async () => {
+    render(<MyComponent />, app);
+    await flush();
+    expect(app.querySelector("h1")).toHaveTextContent("Hello");
+    cleanup(app);
+  });
+});
+
+done();
+```
+
+Run with `bun tools/test/src/browser/run.ts tests/browser`.
+
 ## Use with Claude Code
 
-This repo ships with a [Claude Code skill](.claude/skills) that knows the full Polly API, verification patterns, and best practices. Install the skill in your project to let Claude help you integrate Polly:
+This repo ships with a [Claude Code skill](.claude/skills) that covers the full Polly API — state primitives, peer-first and mesh state, verification, quality tooling, and the browser test harness. Install it in your project so Claude can help you integrate Polly with full context:
 
 ```bash
 # From your project directory
 claude install-skill /path/to/polly/.claude/skills
 ```
 
-Then ask Claude things like "How would Polly fit into this project?" or "Add verification to my handlers" and it will have full context on the framework.
+Then ask Claude things like:
+- "How would Polly fit into this project?"
+- "Add verification to my handlers"
+- "Set up $peerState with an Elysia server"
+- "Wire up the no-as-casting conformance check in CI"
+
+If you maintain your own Claude Code skills, consider adding Polly's state-tier decision tree and verification patterns to your project-specific skill so Claude can recommend the right primitive for each piece of state.
 
 ## Licence
 

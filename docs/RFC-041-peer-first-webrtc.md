@@ -61,7 +61,7 @@ The framework translates each `access` declaration into two things underneath: a
 
 The two new primitives serve two distinct resilience tiers. `$peerState` keeps the server on the data path so that cron and HTTP handlers can operate on document contents; the cost is that the server must be trusted and running. `$meshState` removes the server from the data path entirely; the cost is that server-side compute on the data is not possible, and dedicated cron peers have to be run separately if scheduled work is needed.
 
-Four properties follow from `$meshState`'s trust model, and each is a property `$peerState` cannot offer at its defaults (although `$peerState` with `encrypt: true` and `sign: true` gains some of them at the cost of giving up server-side compute).
+Four properties follow from `$meshState`'s trust model, and each is a property `$peerState` cannot offer.
 
 **No server on the data path.** `$peerState`'s relay is a full replica, but it is the only replica every client talks to, and when it is unreachable, no client reaches any other client. `$meshState` never has a replica on the server, so the server's reachability is irrelevant to the data plane — two clients that can reach each other will sync, regardless of what the signalling endpoint is doing.
 
@@ -103,7 +103,7 @@ An optional always-on peer participates in the mesh as an ordinary client. It ho
 
 ## TLA+ verification
 
-The TLA+ specification for `$meshState` is a superset of the specification for `$peerState`. It covers every convergence, recovery, and migration property of the sibling primitive and adds three more. This is why shipping both primitives in one release is cheaper than shipping either alone across two milestones — the hard verification work happens once, and `$peerState` is the subset that does not require signing, encryption, or revocation (except when it opts in through `sign: true` or `encrypt: true`, which reuse the same verified code paths).
+The TLA+ specification for `$meshState` is a superset of the specification for `$peerState`. It covers every convergence, recovery, and migration property of the sibling primitive and adds three more. This is why shipping both primitives in one release is cheaper than shipping either alone across two milestones — the hard verification work happens once, and `$peerState` is the subset that does not require encryption or revocation (it offers optional `sign: true`, which reuses the same verified signing code paths).
 
 The spec models N peers, each with a keypair and a local replica, a signalling layer that routes connection setup without observing data, pairwise data channels between peers, an access set per document containing public keys, signed operations, and the shared migration protocol. Properties to verify:
 
@@ -138,7 +138,7 @@ The primitive surface shares its shape with `$peerState` — same signal ergonom
 3. `signalingServer` Elysia plugin exposing a stateless WebSocket route for SDP and ICE exchange.
 4. Optional always-on cron peer container with Polly plus a small cron runner, deployable anywhere, provisioned only with the keys for documents it is authorised to read.
 5. Signing and verification for every op, backed by the shared crypto machinery that `$peerState`'s `sign: true` option also uses.
-6. End-to-end document encryption with per-document symmetric keys, backed by the same shared crypto machinery that `$peerState`'s `encrypt: true` option uses.
+6. End-to-end document encryption with per-document symmetric keys. `$peerState` does not offer encryption (it would prevent the server from parsing sync messages); encryption is exclusive to `$meshState`.
 7. Pairing, rotation, and revocation flows exposed as Polly primitives with a reference UI.
 8. TLA+ specification covering the seven properties above, with TLC model-checking configuration.
 

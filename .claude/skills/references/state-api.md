@@ -7,6 +7,8 @@
 - [$persistedState](#persistedstate)
 - [$state](#state)
 - [$serverState](#serverstate)
+- [$peerState](#peerstate)
+- [$meshState](#meshstate)
 - [$resource](#resource)
 - [Verification Mirror](#verification-mirror)
 
@@ -19,6 +21,8 @@
 | `$persistedState` | No | Yes | Local-only persistent (draft text, scroll position) |
 | `$state` | No | No | Component-local ephemeral signals |
 | `$serverState` | Yes | Yes | Server-side state (Elysia, Node.js) |
+| `$peerState` | Yes (CRDT) | Yes | Server as peer; any device can rehydrate server |
+| `$meshState` | Yes (CRDT) | Yes | Peer-to-peer only; server never sees data |
 | `$resource` | No | No | Async data fetching with automatic re-fetch |
 
 ## $sharedState
@@ -98,6 +102,77 @@ For server-side apps (Elysia, Node.js). Same API as `$sharedState`.
 import { $serverState } from '@fairfox/polly/state'
 const authState = $serverState('auth', { loggedIn: false, userId: null }, { verify: true })
 ```
+
+## $peerState
+
+Automerge CRDT-backed state where every device (including the server) holds a full replica. If the server loses storage, any reconnecting client repopulates it through the normal Automerge sync protocol.
+
+```typescript
+import { createPeerStateClient, configurePeerState, $peerState } from '@fairfox/polly'
+
+// Client setup
+const client = createPeerStateClient({ url: 'wss://yourapp.com/polly/peer' })
+configurePeerState(client.repo)
+
+const settings = $peerState('settings', { theme: 'dark' })
+await settings.loaded
+settings.value = { theme: 'light' } // syncs to all peers via Automerge
+```
+
+**Options on `createPeerStateClient`:**
+- `url` — WebSocket URL of the peer repo server
+- `sign` — When `true`, wraps the transport with MeshNetworkAdapter in sign-only mode (Ed25519, no encryption). Server can still parse sync messages.
+- `keyring` — MeshKeyring for signing identity and known peers
+
+**Server setup:**
+```typescript
+import { createPeerRepoServer } from '@fairfox/polly'
+
+const server = await createPeerRepoServer({ port: 3001, storagePath: './data' })
+// server.repo is a full Automerge Repo — read/write docs from cron jobs, HTTP handlers, etc.
+```
+
+Or as an Elysia plugin:
+```typescript
+import { peerRepo } from '@fairfox/polly/elysia'
+app.use(peerRepo())
+// Access via context: pollyPeerRepo (Repo) and pollyPeerServer (server handle)
+```
+
+**Specialised variants:** `$peerText` (Automerge text), `$peerCounter` (Counter with delta), `$peerList` (array).
+
+## $meshState
+
+Automerge CRDT-backed state where peers exchange operations directly over WebRTC data channels. All operations are signed with Ed25519 and encrypted with XSalsa20-Poly1305. No server sees the data. A stateless signalling server helps peers discover each other.
+
+```typescript
+import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly'
+
+const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] })
+configureMeshState(repo)
+
+const notes = $meshState('notes', { entries: [] })
+// Operations flow peer-to-peer, signed and encrypted
+```
+
+**MeshKeyring interface:**
+- `identity` — local peer ID
+- `knownPeers` — Map of peerId → Ed25519 public key
+- `documentKeys` — Map of keyId → symmetric document key
+- `revokedPeers` — Set of revoked peer IDs
+- `revocationAuthority?` — Ed25519 public key that can issue revocations
+
+**Key exchange:** `createPairingToken()` / `applyPairingToken()` — base64-encoded binary token containing Ed25519 pubkey + symmetric doc key. Display as QR code for first-time device pairing.
+
+**Revocation:** `createRevocation()` / `applyRevocation()` — signed revocation records that propagate to every peer. `revokePeerLocally()` for immediate local removal.
+
+**Signalling server (Elysia):**
+```typescript
+import { signalingServer } from '@fairfox/polly/elysia'
+app.use(signalingServer())
+```
+
+**Specialised variants:** `$meshText`, `$meshCounter`, `$meshList`.
 
 ## $resource
 

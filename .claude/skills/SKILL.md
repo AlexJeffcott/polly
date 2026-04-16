@@ -1,11 +1,11 @@
 ---
 name: polly
-description: Expert guide for the @fairfox/polly framework covering state management, async resources, formal verification (TLA+), and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification), verification configs, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, verification setup, TLA+ model checking, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
+description: Expert guide for the @fairfox/polly framework covering state management, peer-first/mesh state (CRDTs, WebRTC, encryption), async resources, formal verification (TLA+), quality tooling, and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState, $peerState, $meshState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification), quality checks (no-as-casting), browser test harness, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, peer-first/mesh state setup, Automerge CRDTs, WebRTC data channels, verification setup, TLA+ model checking, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
 ---
 
-# Polly Expert (up to v0.20.0)
+# Polly Expert (up to v0.21.0)
 
-Maximize usage of the @fairfox/polly framework's state management, async resources, and formal verification features. This skill covers the Polly framework up to and including version 0.20.0.
+Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, and formal verification features. This skill covers the Polly framework up to and including version 0.21.0.
 
 ## Quick Reference
 
@@ -16,6 +16,16 @@ import { $resource } from '@fairfox/polly'
 import { requires, ensures, $constraints, stateConstraint, defineVerification } from '@fairfox/polly/verify'
 import { createBackground } from '@fairfox/polly/background'
 import { validateShape } from '@fairfox/polly'
+
+// Peer-first state (v0.21.0)
+import { $peerState, $peerText, $peerCounter, configurePeerState, createPeerStateClient } from '@fairfox/polly'
+import { $meshState, $meshText, $meshCounter, configureMeshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly'
+
+// Quality tooling (v0.21.0)
+import { checkNoAsCasting, isLineClean, suggestFix } from '@fairfox/polly/quality'
+
+// Browser test harness (v0.21.0)
+import { describe, test, expect, done, flush, cleanup } from '@fairfox/polly/test/browser'
 ```
 
 ## Workflow
@@ -49,6 +59,121 @@ Scan for these issues in order of impact:
 14. **No `verification.timeout`** - Add `verification: { timeout: 300 }` to prevent runaway TLC runs on large state spaces
 15. **Async fetch with signal reads after `await`** - Replace with `$resource` to separate sync tracking from async work
 16. **Manual loading/error state for fetches** - `$resource` provides `status` and `error` signals automatically
+
+## Peer-First State (v0.21.0)
+
+Polly offers three resilience tiers for state that needs to survive server loss or bypass the server entirely.
+
+| Tier | Primitive | Server's role | Resilience |
+|------|-----------|---------------|------------|
+| Weakest | `$sharedState` | Source of truth | Server backups |
+| Middle | `$peerState` | Full peer on the data path | Any device can rehydrate the server |
+| Strongest | `$meshState` | Not on the data path | App works with zero server uptime |
+
+### $peerState — Server as a peer
+
+Every device holds a full Automerge CRDT replica. The server holds one too, so cron and HTTP handlers can read and mutate documents. If the server loses its storage, any reconnecting client repopulates it.
+
+```typescript
+import { createPeerStateClient, configurePeerState, $peerState } from '@fairfox/polly'
+
+const client = createPeerStateClient({ url: 'wss://yourapp.com/polly/peer' })
+configurePeerState(client.repo)
+
+const settings = $peerState('settings', { theme: 'dark' })
+await settings.loaded
+settings.value = { theme: 'light' } // syncs to every peer
+```
+
+**Options:**
+- `sign: true` on `createPeerStateClient` — enables Ed25519 signing via MeshNetworkAdapter in sign-only mode (no encryption). The server can still parse Automerge sync messages.
+
+**Server setup:**
+```typescript
+import { createPeerRepoServer } from '@fairfox/polly'
+// or as Elysia plugin:
+import { peerRepo } from '@fairfox/polly/elysia'
+```
+
+### $meshState — No server on the data path
+
+Peers exchange operations directly over WebRTC data channels, signed with Ed25519 and encrypted with XSalsa20-Poly1305. A small stateless signalling server helps peers find each other; removing it does not affect running connections.
+
+```typescript
+import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly'
+
+const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] })
+configureMeshState(repo)
+
+const notes = $meshState('notes', { entries: [] })
+```
+
+**Key exchange:** First-time pairing uses `createPairingToken` / `applyPairingToken` (displayed as QR code). Compromised devices are revoked via `createRevocation` / `applyRevocation`.
+
+**Signalling server:**
+```typescript
+import { signalingServer } from '@fairfox/polly/elysia'
+```
+
+### Choosing a resilience tier
+
+| Need | Use |
+|------|-----|
+| Server is source of truth, simple setup | `$sharedState` |
+| Server participates but clients can recover it | `$peerState` |
+| Server never sees the data | `$meshState` |
+| Mix in one app | Yes — public settings in `$sharedState`, collaborative docs in `$peerState`, private notes in `$meshState` |
+
+See `docs/STATE.md` for the full decision tree and `docs/RFC-041-choosing.md` for design rationale.
+
+### Specialised CRDT primitives
+
+Each tier has specialised variants for common Automerge types:
+
+| Primitive | What it does |
+|-----------|-------------|
+| `$peerText` / `$meshText` | Automerge text (updateText) |
+| `$peerCounter` / `$meshCounter` | Automerge Counter (increment with delta) |
+| `$peerList` / `$meshList` | Automerge list (array replacement) |
+
+## Quality Tooling (v0.21.0)
+
+### No-as-casting conformance check
+
+Bans TypeScript `as` type assertions codebase-wide. Only `as const` and the explicit escape hatch `as unknown as` are allowed. Violations include pattern-specific fix advice.
+
+```typescript
+import { checkNoAsCasting } from '@fairfox/polly/quality'
+
+const result = await checkNoAsCasting({ rootDir: process.cwd() })
+if (result.violations.length > 0) {
+  result.print()
+  process.exit(1)
+}
+```
+
+### Browser test harness
+
+Puppeteer-based harness for testing browser-only code (WebRTC adapters, Preact components, anything needing real DOM). Bundles each test file with Bun.build, serves on an ephemeral port, and collects results.
+
+```typescript
+import { describe, test, expect, done, flush, cleanup } from '@fairfox/polly/test/browser'
+
+describe('my component', () => {
+  test('renders', async () => {
+    render(<MyComponent />, app)
+    await flush()
+    expect(app.querySelector('h1')).toHaveTextContent('Hello')
+    cleanup(app)
+  })
+})
+
+done()
+```
+
+Run with `bun tools/test/src/browser/run.ts tests/browser`.
+
+**Matchers:** toBe, toEqual, toContain, toBeTruthy, toBeFalsy, toBeNull, toBeDefined, toBeUndefined, toBeGreaterThan, toHaveLength, toExist, toHaveTextContent, toBeChecked, toBeDisabled, toHaveValue, toHaveAttribute. All support `.not`.
 
 ## Anti-Patterns
 
@@ -480,4 +605,7 @@ Handlers accessing `loginState.value.loggedIn` generate TLA+ field `loginState_l
 - Examples: `https://github.com/AlexJeffcott/polly/tree/main/examples`
 - State docs: `https://github.com/AlexJeffcott/polly/tree/main/docs/STATE.md`
 - Background setup: `https://github.com/AlexJeffcott/polly/tree/main/docs/BACKGROUND_SETUP.md`
+- Peer-first RFC: `https://github.com/AlexJeffcott/polly/tree/main/docs/RFC-041-peer-first.md`
+- Choosing a tier: `https://github.com/AlexJeffcott/polly/tree/main/docs/RFC-041-choosing.md`
+- WebRTC mesh RFC: `https://github.com/AlexJeffcott/polly/tree/main/docs/RFC-041-peer-first-webrtc.md`
 - Root README: `https://github.com/AlexJeffcott/polly/tree/main/README.md`
