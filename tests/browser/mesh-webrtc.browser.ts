@@ -61,6 +61,7 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
     const webrtcA = new MeshWebRTCAdapter({
       signaling: null as unknown as MeshSignalingClient, // wired below
       peerId: "peer-a",
+      knownPeerIds: ["peer-b"],
     });
 
     const signalingA = new MeshSignalingClient({
@@ -75,6 +76,7 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
     const webrtcB = new MeshWebRTCAdapter({
       signaling: null as unknown as MeshSignalingClient,
       peerId: "peer-b",
+      knownPeerIds: ["peer-a"],
     });
 
     const signalingB = new MeshSignalingClient({

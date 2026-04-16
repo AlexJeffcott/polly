@@ -19,10 +19,34 @@
  * export; see mesh-webrtc.browser.ts for the pattern.
  */
 
-import { Glob } from "bun";
+import { type BunPlugin, Glob } from "bun";
 import { Elysia } from "elysia";
 import puppeteer from "puppeteer";
 import { signalingServer } from "../../src/elysia/signaling-server-plugin";
+
+/**
+ * Bun bundler plugin that redirects @automerge/automerge to the base64
+ * variant. The default browser condition resolves to fullfat_bundler.js
+ * which does `import * as wasm from "./automerge_wasm_bg.wasm"` — a
+ * static .wasm import that Bun.build can't wire up correctly (the WASM
+ * exports resolve to undefined). The base64 variant embeds the WASM as
+ * a base64 string and calls initSync() at import time — pure JS, no
+ * .wasm file reference, works in any browser without special loader
+ * support.
+ */
+const automergeBase64Path = new URL(
+  "../../node_modules/@automerge/automerge/dist/mjs/entrypoints/fullfat_base64.js",
+  import.meta.url
+).pathname;
+
+const automergeBase64Plugin: BunPlugin = {
+  name: "automerge-base64",
+  setup(build) {
+    build.onResolve({ filter: /^@automerge\/automerge(\/slim)?$/ }, () => {
+      return { path: automergeBase64Path };
+    });
+  },
+};
 
 const filter = process.argv[2] ?? "";
 const headless = process.env["HEADLESS"] !== "false";
@@ -76,6 +100,7 @@ for (const testFile of testFiles) {
     format: "esm",
     minify: false,
     sourcemap: "inline",
+    plugins: [automergeBase64Plugin],
     define: {
       "process.env.SIGNALING_URL": JSON.stringify(
         `ws://127.0.0.1:${signalingPort}/polly/signaling`

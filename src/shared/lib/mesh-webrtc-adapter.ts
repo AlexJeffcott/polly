@@ -70,6 +70,13 @@ export interface MeshWebRTCAdapterOptions {
   /** The local peer id. Must match the peer id the signalling client
    * registered with. */
   peerId: string;
+  /** Peer ids to connect to on startup. When `connect()` is called, the
+   * adapter iterates this list and initiates a WebRTC connection to each
+   * one by sending an SDP offer through the signalling channel. Peers
+   * not in this list can still connect by sending an offer *to* this
+   * adapter. The natural source for this list is the keyring's
+   * knownPeers map keys. */
+  knownPeerIds?: string[];
   /** Optional ICE server list override. Defaults to {@link DEFAULT_ICE_SERVERS}. */
   iceServers?: RTCIceServer[];
   /** Optional data channel label. Defaults to "polly-mesh". Applications
@@ -104,6 +111,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   readonly signaling: MeshSignalingClient;
   readonly iceServers: RTCIceServer[];
   readonly dataChannelLabel: string;
+  readonly knownPeerIds: string[];
   private readonly slots = new Map<string, PeerSlot>();
   private ready = false;
   private readyResolver: (() => void) | undefined;
@@ -113,6 +121,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.signaling = options.signaling;
     this.iceServers = options.iceServers ?? DEFAULT_ICE_SERVERS;
     this.dataChannelLabel = options.dataChannelLabel ?? "polly-mesh";
+    this.knownPeerIds = options.knownPeerIds ?? [];
   }
 
   isReady(): boolean {
@@ -136,15 +145,18 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     if (peerMetadata !== undefined) {
       this.peerMetadata = peerMetadata;
     }
-    // The signalling client's onSignal is set at construction time, but
-    // the caller may have constructed it with a stub callback that only
-    // now becomes meaningful. We cannot re-assign the callback on a
-    // readonly field, so the expected pattern is: caller constructs the
-    // signalling client with an onSignal that forwards to
-    // adapter.handleSignal — the adapter exposes handleSignal publicly
-    // for exactly this wiring. See the module docstring example.
     this.ready = true;
     this.readyResolver?.();
+
+    // Initiate WebRTC connections to every known peer. This is the
+    // discovery step: once the SDP exchange completes and the data
+    // channel opens, the adapter emits 'peer-candidate' and the Repo's
+    // NetworkSubsystem learns about the peer.
+    for (const remotePeerId of this.knownPeerIds) {
+      if (remotePeerId !== (peerId as string) && !this.slots.has(remotePeerId)) {
+        this.createInitiatingSlot(remotePeerId);
+      }
+    }
   }
 
   disconnect(): void {
@@ -222,9 +234,21 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   }
 
   private async handleOffer(fromPeerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
-    // Receiving an offer means the remote peer is initiating a connection
-    // to us. Build a fresh RTCPeerConnection, wait for the remote's data
-    // channel via ondatachannel, and produce an answer.
+    const existing = this.slots.get(fromPeerId);
+    if (existing) {
+      // Glare: we already initiated a connection to this peer. Resolve by
+      // peer-id ordering: the lexicographically lower id yields its own
+      // offer and accepts the incoming one. The higher id ignores the
+      // incoming offer and waits for the answer to its own.
+      const localId = this.peerId as string;
+      if (localId > fromPeerId) {
+        return;
+      }
+      existing.channel?.close();
+      existing.connection.close();
+      this.slots.delete(fromPeerId);
+    }
+
     const connection = new RTCPeerConnection({ iceServers: this.iceServers });
     const slot: PeerSlot = { connection, channel: undefined, pendingSends: [] };
     this.slots.set(fromPeerId, slot);
