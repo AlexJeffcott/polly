@@ -18,7 +18,7 @@ This document designs `$peerState`, the middle tier in the resilience ordering. 
 
 That direct access is the reason to pick `$peerState` over its stronger sibling `$meshState`. Cron jobs, HTTP handlers, scheduled jobs, aggregation, search indexing, summarisation, backup pipelines — anything that needs to read or mutate a document from server-side code — all work naturally because the server participates in the data plane. A nightly cron that rebalances chores, a search endpoint that scans across documents, a webhook handler that updates state on an external trigger, an AI summarisation job that reads a conversation and writes a summary: all of these are ordinary Polly code running inside the Elysia app, operating on document handles just as client code does.
 
-The cost of server-side compute is that the server must be trusted to see document contents. For data where that trust is wrong — personal notes, drafts, anything whose threat model includes the Polly infrastructure itself — `$meshState` is the right choice. `$peerState` also offers `encrypt: true` and `sign: true` options for applications that want the server to hold ciphertext or want per-operation signatures for audit and Byzantine defence, but these trade off the server-side compute capability in proportion to what they lock out. The defaults are plaintext and unsigned, matching the common-case collaborative-app workload.
+The cost of server-side compute is that the server must be trusted to see document contents. For data where that trust is wrong — personal notes, drafts, anything whose threat model includes the Polly infrastructure itself — `$meshState` is the right choice. `$peerState` offers a `sign: true` option for applications that want per-operation signatures for audit and Byzantine defence without sacrificing server-side compute. Encryption is not offered on `$peerState` because it would prevent the server from parsing Automerge sync messages, degrading it from a full peer to a dumb byte relay — which is exactly what `$meshState` already is. Applications that want encrypted state should use `$meshState`. The default is plaintext and unsigned, matching the common-case collaborative-app workload.
 
 ## What Polly must hide
 
@@ -39,7 +39,6 @@ Options:
 
 ```typescript
 const notes = $peerState<Notes>("notes", defaults, {
-  encrypt: true,   // server holds ciphertext; cron on contents no longer works
   sign: true,      // every op carries an Ed25519 signature; Byzantine defence
   access: {
     read:  identity => identity.userId === ownerId,
@@ -50,7 +49,7 @@ const notes = $peerState<Notes>("notes", defaults, {
 })
 ```
 
-`encrypt` and `sign` are orthogonal flags that compose. Setting `encrypt: true` means the server stores only ciphertext and can no longer read or mutate document contents from server-side code — any cron or HTTP handler that touches the document must be refactored into a dedicated client peer or migrated to `$meshState`. Setting `sign: true` adds per-operation signature verification, which defends against a compromised client pushing malicious writes that the relay would otherwise broadcast unchecked. Neither option is on by default, because the common case is a collaborative app that trusts the Polly infrastructure and does not need Byzantine tolerance.
+`sign: true` adds per-operation Ed25519 signature verification, which defends against a compromised client pushing malicious writes that the relay would otherwise broadcast unchecked. The option is off by default because the common case is a collaborative app that trusts the Polly infrastructure and does not need Byzantine tolerance. Signing is enabled at the transport level via `createPeerStateClient({ sign: true, keyring: ... })` and validated at the primitive level — setting `sign: true` on a primitive whose Repo does not have signing enabled throws a clear error directing the developer to the transport configuration.
 
 ## Library choice
 
@@ -105,7 +104,7 @@ The framework translates the `access` object into a share policy and enforces it
 
 With `sign: true`, the authorisation API is extended: the `access` object can name a set of public keys and the server additionally verifies every incoming op against that set before broadcasting. A compromised client that pushes unsigned or wrongly-signed ops is rejected at the server. Verification is also performed on receipt by other clients as defence in depth.
 
-With `encrypt: true`, document contents are encrypted client-side with a per-document symmetric key that the server never holds. The server stores ciphertext and continues to enforce the share policy at the op level, but it cannot read document contents even if it wanted to. Server-side code that opens a `DocHandle` on an encrypted document sees only ciphertext and must not attempt to mutate it. This option exists for applications that want `$peerState`'s relay-based resilience plus server-blind storage; it is deliberately the narrow case, because the broader server-blind answer is `$meshState`.
+Encryption is not offered on `$peerState`. Encrypting sync messages would prevent the server from parsing them as Automerge protocol, which means the server could no longer maintain its own replica, run cron, or serve HTTP handlers — it would degenerate into a dumb message relay, which is exactly the role `$meshState`'s signalling server already fills. Applications whose threat model requires the server not to see document contents should use `$meshState`, which is designed for that posture from the ground up.
 
 ## Schema evolution
 
@@ -131,13 +130,13 @@ The spec models N replicas, each holding a document at some schema version, a se
 - **Recovery convergence.** After a server data loss event, provided at least one replica retains full history and has not compacted, every reconnecting replica eventually observes the union of all replicas' histories.
 - **Compaction safety.** A replica may only drop op history whose presence at the server is confirmed; compacted replicas cannot lose ops that existed only on the server.
 
-The `sign: true` and `encrypt: true` options do not add to this spec. Their properties — signature soundness, revocation convergence, privacy soundness — are covered by the `$meshState` TLA+ spec, because the underlying machinery is the same code path. A `$peerState` document with `sign: true` is verified against the same properties as a `$meshState` document with respect to the crypto layer; the difference is in which other properties apply (recovery convergence differs between the two transports).
+The `sign: true` option does not add new properties to this spec. Signature soundness, revocation convergence, and the other signing properties are covered by the `$meshState` TLA+ spec, because the underlying signing machinery is the same code path (`MeshNetworkAdapter` in sign-only mode). A `$peerState` document with `sign: true` is verified against the same signing properties as a `$meshState` document; the difference is in the transport-level properties (recovery convergence differs between relay and mesh).
 
 Each property is a real failure mode if Polly gets the protocol wrong. Each is the kind of guarantee the developer inherits by writing `$peerState` and reading `.value`, which is the whole point.
 
 ## First milestone
 
-1. `$peerState`, `$peerText`, `$peerCounter`, `$peerList` primitives with the API shape above. No escape hatches. `encrypt` and `sign` options defined in the type but wired to the crypto machinery built alongside `$meshState`.
+1. `$peerState`, `$peerText`, `$peerCounter`, `$peerList` primitives with the API shape above. No escape hatches. `sign` option wired to the `MeshNetworkAdapter` sign-only mode via `createPeerStateClient`.
 2. `PeerRelayAdapter` implementing the new `CrdtNetworkAdapter` interface, wrapping `WebSocketClientAdapter`.
 3. `peerRepo` Elysia plugin exposing `/polly/peer`, hosting a server-side `Repo` with `NodeFSStorageAdapter` and Litestream.
 4. Declarative `access` option compiling to a share-policy enforcement layer.
@@ -145,7 +144,7 @@ Each property is a real failure mode if Polly gets the protocol wrong. Each is t
 6. TLA+ specification covering the five properties above, with TLC model-checking configuration, as part of the same milestone as the code.
 7. Compaction operation with the precondition invariant verified by the TLA+ spec.
 
-Out of scope for this primitive: any actual blob storage or large-file sync (see the follow-up RFC), tab-to-tab `BroadcastChannel` sync, and migration of existing `$sharedState` consumers. The `$meshState` primitive is a coordinated sibling milestone in [RFC-041-peer-first-webrtc.md](./RFC-041-peer-first-webrtc.md); it ships alongside this one, and the shared crypto machinery it builds is what powers the `encrypt`/`sign` options here.
+Out of scope for this primitive: any actual blob storage or large-file sync (see the follow-up RFC), tab-to-tab `BroadcastChannel` sync, and migration of existing `$sharedState` consumers. The `$meshState` primitive is a coordinated sibling milestone in [RFC-041-peer-first-webrtc.md](./RFC-041-peer-first-webrtc.md); it ships alongside this one, and the shared crypto machinery it builds is what powers the `sign` option here.
 
 ## Open questions
 

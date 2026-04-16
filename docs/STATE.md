@@ -258,7 +258,7 @@ const app = new Elysia()
 
 The four `$peer*` variants map directly to the specialised CRDT shapes: `$peerText` uses Automerge's text splicing for concurrent character-level edits, `$peerCounter` uses a commutative counter, `$peerList` is a list with insert/remove semantics (the Phase 0 cut uses naive replacement; proper list diffing lands in Phase 1.1).
 
-**Optional**: `{ encrypt: true }` makes the server hold ciphertext only (you lose cron-on-content but gain privacy-from-server); `{ sign: true }` adds per-op Ed25519 signatures for Byzantine defence. Both wire up to the shared crypto machinery from the `$meshState` family below.
+**Optional**: `{ sign: true }` adds per-op Ed25519 signatures for Byzantine defence — a compromised client cannot push unsigned writes through the relay. Signing is enabled at the transport level via `createPeerStateClient({ sign: true, keyring: ... })`. Encryption is not offered on `$peerState` because it would prevent the server from parsing Automerge sync messages; applications that need encrypted state should use `$meshState` below.
 
 See [`docs/RFC-041-peer-first.md`](./RFC-041-peer-first.md) for the full design and [`tools/verify/specs/tla/PeerState.tla`](../tools/verify/specs/tla/PeerState.tla) for the formal protocol spec.
 
@@ -356,7 +356,7 @@ const app = new Elysia()
   .listen(8080)
 ```
 
-The four `$mesh*` variants mirror the `$peer*` family: `$meshState`, `$meshText`, `$meshCounter`, `$meshList`. Signing and encryption are mandatory for the mesh primitives — they are not options the way they are on `$peerState`. Server-side code **cannot** import `$meshState`: the primitive has no server-side implementation, and an accidental import is a type error.
+The four `$mesh*` variants mirror the `$peer*` family: `$meshState`, `$meshText`, `$meshCounter`, `$meshList`. Signing and encryption are mandatory for the mesh primitives. `$peerState` offers signing as an option but does not offer encryption; `$meshState` always does both. Server-side code **cannot** import `$meshState`: the primitive has no server-side implementation, and an accidental import is a type error.
 
 See [`docs/RFC-041-peer-first-webrtc.md`](./RFC-041-peer-first-webrtc.md) for the full design and [`tools/verify/specs/tla/MeshState.tla`](../tools/verify/specs/tla/MeshState.tla) for the formal protocol spec.
 
