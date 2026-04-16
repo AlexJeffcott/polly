@@ -117,6 +117,49 @@ export function isLineClean(line: string): boolean {
   return false;
 }
 
+/**
+ * Suggest a concrete fix for a specific violation pattern. Returns a short
+ * advice string, or undefined if no pattern-specific advice applies.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Pattern-matching advice is a linear chain of if-returns.
+function suggestFix(line: string): string | undefined {
+  if (line.includes("JSON.parse")) {
+    return "Use a validation function or type guard to parse and validate the result.";
+  }
+  if (
+    line.includes("as HTMLInputElement") ||
+    line.includes("as HTMLTextAreaElement") ||
+    line.includes("as HTMLButtonElement")
+  ) {
+    return "Use instanceof: if (el instanceof HTMLInputElement) { el.value ... }";
+  }
+  if (line.includes("as HTMLElement") || line.includes("as Element")) {
+    return "Use instanceof: if (el instanceof HTMLElement) { ... }";
+  }
+  if (line.includes(".doc()") && line.includes("as ")) {
+    return "Type the DocHandle generic: repo.find<MyType>(id) returns DocHandle<MyType>.";
+  }
+  if (
+    line.includes("Record<string, unknown>") &&
+    (line.includes("window") || line.includes("globalThis"))
+  ) {
+    return "Extract a type guard: function getGlobalProp(name: string): unknown { ... }";
+  }
+  if (line.includes("Record<string, unknown>")) {
+    return "Use a type guard function that narrows the unknown value to the target shape.";
+  }
+  if (line.includes("as PeerId") || line.includes("as DocumentId")) {
+    return "Use the library's branded-type constructor if available, or centralise the cast in a factory.";
+  }
+  if (line.includes("as string") || line.includes("as number") || line.includes("as boolean")) {
+    return "Narrow with typeof: if (typeof x === 'string') { ... }";
+  }
+  if (line.includes("as any")) {
+    return "Replace 'any' with 'unknown' and add a type guard or validation at the boundary.";
+  }
+  return undefined;
+}
+
 async function main(): Promise<void> {
   const rootDir = process.cwd();
   const glob = new Glob("**/*.{ts,tsx}");
@@ -151,7 +194,12 @@ async function main(): Promise<void> {
   console.log(`[no-as-casting] ❌ ${violations.length} violation(s) found:\n`);
   for (const v of violations) {
     console.log(`  ${v.file}:${v.line}`);
-    console.log(`    ${v.content}\n`);
+    console.log(`    ${v.content}`);
+    const advice = suggestFix(v.content);
+    if (advice) {
+      console.log(`    💡 ${advice}`);
+    }
+    console.log();
   }
   console.log("[no-as-casting] Use type guards, validation, or fix the types at the source.");
   console.log('[no-as-casting] Only "as const" and "as unknown as" are allowed.');

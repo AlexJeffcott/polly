@@ -30,4 +30,4 @@
  * server for WebRTC tests starts automatically.
  */
 
-export { describe, done, expect, test, waitFor } from "./harness";
+export { cleanup, describe, done, expect, flush, test, waitFor } from "./harness";
