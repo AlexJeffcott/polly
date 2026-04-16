@@ -12,50 +12,6 @@
  * ```
  */
 
-// Mesh state wrappers
-export type { MeshStateOptions } from "./shared/lib/mesh-state";
-export {
-  $meshCounter,
-  $meshList,
-  $meshState,
-  $meshText,
-  configureMeshState,
-  resetMeshState,
-} from "./shared/lib/mesh-state";
-
-// Mesh network adapter (sign-then-encrypt envelopes over any base adapter)
-export type {
-  MeshKeyring,
-  MeshNetworkAdapterOptions,
-} from "./shared/lib/mesh-network-adapter";
-export {
-  DEFAULT_MESH_KEY_ID,
-  MeshNetworkAdapter,
-} from "./shared/lib/mesh-network-adapter";
-
-// Mesh WebRTC adapter
-export type { MeshWebRTCAdapterOptions } from "./shared/lib/mesh-webrtc-adapter";
-export { DEFAULT_ICE_SERVERS, MeshWebRTCAdapter } from "./shared/lib/mesh-webrtc-adapter";
-
-// Mesh signaling client
-export type {
-  MeshSignalingClientOptions,
-  SignalingMessage as MeshSignalingMessage,
-} from "./shared/lib/mesh-signaling-client";
-export { MeshSignalingClient } from "./shared/lib/mesh-signaling-client";
-
-// Cryptographic primitives (signing + encryption)
-export type { SignedEnvelope, SigningKeyPair } from "./shared/lib/signing";
-export {
-  generateSigningKeyPair,
-  PUBLIC_KEY_BYTES as SIGNING_PUBLIC_KEY_BYTES,
-  SECRET_KEY_BYTES as SIGNING_SECRET_KEY_BYTES,
-  SIGNATURE_BYTES as SIGNING_SIGNATURE_BYTES,
-  SigningError,
-  sign,
-  signingKeyPairFromSecret,
-  verify,
-} from "./shared/lib/signing";
 export type {
   EncryptedEnvelope,
   SealedBytes,
@@ -71,6 +27,34 @@ export {
   TAG_BYTES as ENCRYPTION_TAG_BYTES,
 } from "./shared/lib/encryption";
 
+// Mesh network adapter (sign-then-encrypt envelopes over any base adapter)
+export type {
+  MeshKeyring,
+  MeshNetworkAdapterOptions,
+} from "./shared/lib/mesh-network-adapter";
+export {
+  DEFAULT_MESH_KEY_ID,
+  MeshNetworkAdapter,
+} from "./shared/lib/mesh-network-adapter";
+// Mesh signaling client
+export type {
+  MeshSignalingClientOptions,
+  SignalingMessage as MeshSignalingMessage,
+} from "./shared/lib/mesh-signaling-client";
+export { MeshSignalingClient } from "./shared/lib/mesh-signaling-client";
+// Mesh state wrappers
+export type { MeshStateOptions } from "./shared/lib/mesh-state";
+export {
+  $meshCounter,
+  $meshList,
+  $meshState,
+  $meshText,
+  configureMeshState,
+  resetMeshState,
+} from "./shared/lib/mesh-state";
+// Mesh WebRTC adapter
+export type { MeshWebRTCAdapterOptions } from "./shared/lib/mesh-webrtc-adapter";
+export { DEFAULT_ICE_SERVERS, MeshWebRTCAdapter } from "./shared/lib/mesh-webrtc-adapter";
 // Pairing and revocation (depend on signing/encryption)
 export type {
   CreatePairingTokenOptions,
@@ -104,3 +88,15 @@ export {
   RevocationError,
   revokePeerLocally,
 } from "./shared/lib/revocation";
+// Cryptographic primitives (signing + encryption)
+export type { SignedEnvelope, SigningKeyPair } from "./shared/lib/signing";
+export {
+  generateSigningKeyPair,
+  PUBLIC_KEY_BYTES as SIGNING_PUBLIC_KEY_BYTES,
+  SECRET_KEY_BYTES as SIGNING_SECRET_KEY_BYTES,
+  SIGNATURE_BYTES as SIGNING_SIGNATURE_BYTES,
+  SigningError,
+  sign,
+  signingKeyPairFromSecret,
+  verify,
+} from "./shared/lib/signing";

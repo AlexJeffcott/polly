@@ -25,7 +25,22 @@ export type {
 export { $crdtCounter, $crdtList, $crdtText } from "./shared/lib/crdt-specialised";
 export type { CrdtPrimitive, CrdtStateOptions } from "./shared/lib/crdt-state";
 export { $crdtState } from "./shared/lib/crdt-state";
+// Migration support (needed for CRDT schema versioning)
+export type { MigratableState } from "./shared/lib/migrate-primitive";
+export { MigrationError, migratePrimitive } from "./shared/lib/migrate-primitive";
 
+// Relay adapter and server
+export type {
+  CreatePeerStateClientOptions,
+  PeerRelayConnectionState,
+  PeerStateClient,
+} from "./shared/lib/peer-relay-adapter";
+export { createPeerStateClient } from "./shared/lib/peer-relay-adapter";
+export type {
+  CreatePeerRepoServerOptions,
+  PeerRepoServer,
+} from "./shared/lib/peer-repo-server";
+export { createPeerRepoServer } from "./shared/lib/peer-repo-server";
 // Peer-state wrappers (key→DocumentId mapping per Repo, relay transport)
 export type {
   PeerCounterOptions,
@@ -41,27 +56,9 @@ export {
   configurePeerState,
   resetPeerState,
 } from "./shared/lib/peer-state";
-
-// Relay adapter and server
-export type {
-  CreatePeerStateClientOptions,
-  PeerRelayConnectionState,
-  PeerStateClient,
-} from "./shared/lib/peer-relay-adapter";
-export { createPeerStateClient } from "./shared/lib/peer-relay-adapter";
-export type {
-  CreatePeerRepoServerOptions,
-  PeerRepoServer,
-} from "./shared/lib/peer-repo-server";
-export { createPeerRepoServer } from "./shared/lib/peer-repo-server";
-
 // Primitive registry (needed for CRDT primitive kinds)
 export type { PrimitiveKind } from "./shared/lib/primitive-registry";
 export { PrimitiveCollisionError } from "./shared/lib/primitive-registry";
-
-// Migration support (needed for CRDT schema versioning)
-export type { MigratableState } from "./shared/lib/migrate-primitive";
-export { MigrationError, migratePrimitive } from "./shared/lib/migrate-primitive";
 export type {
   Migration,
   Migrations,

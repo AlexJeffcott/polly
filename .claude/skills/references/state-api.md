@@ -108,7 +108,7 @@ const authState = $serverState('auth', { loggedIn: false, userId: null }, { veri
 Automerge CRDT-backed state where every device (including the server) holds a full replica. If the server loses storage, any reconnecting client repopulates it through the normal Automerge sync protocol.
 
 ```typescript
-import { createPeerStateClient, configurePeerState, $peerState } from '@fairfox/polly'
+import { createPeerStateClient, configurePeerState, $peerState } from '@fairfox/polly/peer'
 
 // Client setup
 const client = createPeerStateClient({ url: 'wss://yourapp.com/polly/peer' })
@@ -126,7 +126,7 @@ settings.value = { theme: 'light' } // syncs to all peers via Automerge
 
 **Server setup:**
 ```typescript
-import { createPeerRepoServer } from '@fairfox/polly'
+import { createPeerRepoServer } from '@fairfox/polly/peer'
 
 const server = await createPeerRepoServer({ port: 3001, storagePath: './data' })
 // server.repo is a full Automerge Repo — read/write docs from cron jobs, HTTP handlers, etc.
@@ -146,7 +146,7 @@ app.use(peerRepo())
 Automerge CRDT-backed state where peers exchange operations directly over WebRTC data channels. All operations are signed with Ed25519 and encrypted with XSalsa20-Poly1305. No server sees the data. A stateless signalling server helps peers discover each other.
 
 ```typescript
-import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly'
+import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly/mesh'
 
 const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] })
 configureMeshState(repo)

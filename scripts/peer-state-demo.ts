@@ -38,7 +38,7 @@ import {
   createPeerStateClient,
   resetPeerState,
   type VersionedDoc,
-} from "@/index";
+} from "@/peer";
 
 type Notes = VersionedDoc & {
   title: string;

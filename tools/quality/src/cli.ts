@@ -19,12 +19,7 @@ function getFlag(name: string): string | undefined {
 }
 
 const rootDir = getFlag("root") ?? process.cwd();
-const exclude = getFlag("exclude")?.split(",") ?? [
-  "node_modules",
-  "dist",
-  ".git",
-  ".bun",
-];
+const exclude = getFlag("exclude")?.split(",") ?? ["node_modules", "dist", ".git", ".bun"];
 const filePatterns = getFlag("pattern");
 
 const result = await checkNoAsCasting({

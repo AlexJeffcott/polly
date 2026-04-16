@@ -3,7 +3,7 @@ name: polly
 description: Expert guide for the @fairfox/polly framework covering state management, peer-first/mesh state (CRDTs, WebRTC, encryption), async resources, formal verification (TLA+), quality tooling, and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState, $peerState, $meshState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification), quality checks (no-as-casting), browser test harness, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, peer-first/mesh state setup, Automerge CRDTs, WebRTC data channels, verification setup, TLA+ model checking, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
 ---
 
-# Polly Expert (up to v0.21.0)
+# Polly Expert (up to v0.22.0)
 
 Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, and formal verification features. This skill covers the Polly framework up to and including version 0.21.0.
 
@@ -17,14 +17,14 @@ import { requires, ensures, $constraints, stateConstraint, defineVerification } 
 import { createBackground } from '@fairfox/polly/background'
 import { validateShape } from '@fairfox/polly'
 
-// Peer-first state (v0.21.0)
-import { $peerState, $peerText, $peerCounter, configurePeerState, createPeerStateClient } from '@fairfox/polly'
-import { $meshState, $meshText, $meshCounter, configureMeshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly'
+// Peer-first state (v0.22.0)
+import { $peerState, $peerText, $peerCounter, configurePeerState, createPeerStateClient } from '@fairfox/polly/peer'
+import { $meshState, $meshText, $meshCounter, configureMeshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly/mesh'
 
-// Quality tooling (v0.21.0)
+// Quality tooling (v0.22.0)
 import { checkNoAsCasting, isLineClean, suggestFix } from '@fairfox/polly/quality'
 
-// Browser test harness (v0.21.0)
+// Browser test harness (v0.22.0)
 import { describe, test, expect, done, flush, cleanup } from '@fairfox/polly/test/browser'
 ```
 
@@ -60,7 +60,7 @@ Scan for these issues in order of impact:
 15. **Async fetch with signal reads after `await`** - Replace with `$resource` to separate sync tracking from async work
 16. **Manual loading/error state for fetches** - `$resource` provides `status` and `error` signals automatically
 
-## Peer-First State (v0.21.0)
+## Peer-First State (v0.22.0)
 
 Polly offers three resilience tiers for state that needs to survive server loss or bypass the server entirely.
 
@@ -75,7 +75,7 @@ Polly offers three resilience tiers for state that needs to survive server loss 
 Every device holds a full Automerge CRDT replica. The server holds one too, so cron and HTTP handlers can read and mutate documents. If the server loses its storage, any reconnecting client repopulates it.
 
 ```typescript
-import { createPeerStateClient, configurePeerState, $peerState } from '@fairfox/polly'
+import { createPeerStateClient, configurePeerState, $peerState } from '@fairfox/polly/peer'
 
 const client = createPeerStateClient({ url: 'wss://yourapp.com/polly/peer' })
 configurePeerState(client.repo)
@@ -90,7 +90,7 @@ settings.value = { theme: 'light' } // syncs to every peer
 
 **Server setup:**
 ```typescript
-import { createPeerRepoServer } from '@fairfox/polly'
+import { createPeerRepoServer } from '@fairfox/polly/peer'
 // or as Elysia plugin:
 import { peerRepo } from '@fairfox/polly/elysia'
 ```
@@ -100,7 +100,7 @@ import { peerRepo } from '@fairfox/polly/elysia'
 Peers exchange operations directly over WebRTC data channels, signed with Ed25519 and encrypted with XSalsa20-Poly1305. A small stateless signalling server helps peers find each other; removing it does not affect running connections.
 
 ```typescript
-import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly'
+import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly/mesh'
 
 const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] })
 configureMeshState(repo)
@@ -136,7 +136,7 @@ Each tier has specialised variants for common Automerge types:
 | `$peerCounter` / `$meshCounter` | Automerge Counter (increment with delta) |
 | `$peerList` / `$meshList` | Automerge list (array replacement) |
 
-## Quality Tooling (v0.21.0)
+## Quality Tooling (v0.22.0)
 
 ### No-as-casting conformance check
 
