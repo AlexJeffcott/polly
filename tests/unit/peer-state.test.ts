@@ -17,14 +17,30 @@ type Notes = VersionedDoc & {
   body: string;
 };
 
+const activeRepos: Repo[] = [];
+
+function trackRepo(repo?: Repo): Repo {
+  const r = repo ?? new Repo();
+  activeRepos.push(r);
+  return r;
+}
+
 beforeEach(() => {
-  configurePeerState(new Repo());
+  configurePeerState(trackRepo());
 });
 
-afterEach(() => {
+afterEach(async () => {
   primitiveRegistry.clear();
   migrationRegistry.clear();
   resetPeerState();
+  for (const repo of activeRepos) {
+    try {
+      await repo.shutdown();
+    } catch {
+      // best effort
+    }
+  }
+  activeRepos.length = 0;
 });
 
 describe("$peerState — construction", () => {
@@ -56,7 +72,7 @@ describe("$peerState — repo configuration", () => {
 
   test("accepts a per-call repo override", () => {
     resetPeerState();
-    const repo = new Repo();
+    const repo = trackRepo();
     const prim = $peerState<Notes>("notes-5", { title: "override", body: "" }, { repo });
     expect(prim.value.title).toBe("override");
   });
@@ -70,7 +86,7 @@ describe("$peerState — sign option", () => {
   });
 
   test("accepts sign: true when the Repo was configured with signing", () => {
-    const repo = new Repo();
+    const repo = trackRepo();
     configurePeerState(repo, { signEnabled: true });
     expect(() =>
       $peerState<Notes>("notes-7", { title: "", body: "" }, { sign: true })
@@ -135,7 +151,7 @@ describe("$peerText / $peerCounter / $peerList", () => {
 
 describe("$peerState — key→DocumentId mapping", () => {
   test("two primitives sharing a key on the same Repo find the same document", async () => {
-    const repo = new Repo();
+    const repo = trackRepo();
     configurePeerState(repo);
 
     const a = $peerState<Notes>("shared-doc", { title: "first", body: "" });

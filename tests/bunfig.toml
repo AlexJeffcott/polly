@@ -2,6 +2,7 @@
 env = "BUN_PUBLIC_*"
 
 [test]
+preload = ["./setup.ts"]
 exclude = [
   "tests/e2e/**/*.spec.ts",
   "**/framework-validation/**"

@@ -86,8 +86,10 @@ class LoopbackAdapter extends NetworkAdapter {
     this.emit("close");
   }
   send(message: Message): void {
-    if (!this.partner) return;
-    queueMicrotask(() => this.partner?.emit("message", message));
+    if (!this.partner || !this.#ready) return;
+    queueMicrotask(() => {
+      if (this.#ready) this.partner?.emit("message", message);
+    });
   }
 }
 
@@ -415,6 +417,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     await new Promise((r) => setTimeout(r, 250));
     expect(repoB.handles[handleA.documentId]).toBeUndefined();
 
+    loopA.disconnect();
+    loopB.disconnect();
     await repoA.shutdown();
     await repoB.shutdown();
   });
@@ -453,6 +457,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     await waitFor(() => handleB.doc().title === "from-honest-a");
     expect(handleB.doc().title).toBe("from-honest-a");
 
+    loopA.disconnect();
+    loopB.disconnect();
     await repoA.shutdown();
     await repoB.shutdown();
   });
@@ -503,6 +509,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     // B's view of the document should still be the pre-revocation value.
     expect(handleB.doc().title).toBe("before-revocation");
 
+    loopA.disconnect();
+    loopB.disconnect();
     await repoA.shutdown();
     await repoB.shutdown();
   });

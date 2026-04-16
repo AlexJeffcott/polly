@@ -46,15 +46,31 @@ type Notes = VersionedDoc & {
   body: string;
 };
 
+const activeRepos: Repo[] = [];
+
+function trackRepo(): Repo {
+  const repo = new Repo();
+  activeRepos.push(repo);
+  return repo;
+}
+
 beforeEach(() => {
   primitiveRegistry.clear();
   migrationRegistry.clear();
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetMeshState();
   primitiveRegistry.clear();
   migrationRegistry.clear();
+  for (const repo of activeRepos) {
+    try {
+      await repo.shutdown();
+    } catch {
+      // best effort
+    }
+  }
+  activeRepos.length = 0;
 });
 
 /**
@@ -98,10 +114,10 @@ class LoopbackAdapter extends NetworkAdapter {
   }
 
   send(message: Message): void {
-    if (!this.partner) return;
+    if (!this.partner || !this.#ready) return;
     // Deliver on the next microtask to mimic a real network's async send.
     queueMicrotask(() => {
-      this.partner?.emit("message", message);
+      if (this.#ready) this.partner?.emit("message", message);
     });
   }
 }
@@ -141,14 +157,14 @@ async function waitFor(
 
 describe("$meshState — construction with a local Repo", () => {
   test("registers the key as meshState", () => {
-    const repo = new Repo();
+    const repo = trackRepo();
     configureMeshState(repo);
     $meshState<Notes>("notes-1", { title: "", body: "" });
     expect(primitiveRegistry.kindOf("notes-1")).toBe("meshState");
   });
 
   test("exposes the initial value synchronously", () => {
-    const repo = new Repo();
+    const repo = trackRepo();
     configureMeshState(repo);
     const prim = $meshState<Notes>("notes-2", { title: "from init", body: "" });
     expect(prim.value).toEqual({ title: "from init", body: "" });
@@ -161,7 +177,7 @@ describe("$meshState — construction with a local Repo", () => {
   });
 
   test("$meshText / $meshCounter / $meshList all register as meshState", async () => {
-    const repo = new Repo();
+    const repo = trackRepo();
     configureMeshState(repo);
     const text = $meshText("text-key", "");
     const counter = $meshCounter("counter-key", 0);
@@ -208,6 +224,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     await waitFor(() => handleB.doc().title === "encrypted");
     expect(handleB.doc().body).toBe("secret body");
 
+    loopA.disconnect();
+    loopB.disconnect();
     await repoA.shutdown();
     await repoB.shutdown();
   });
@@ -239,6 +257,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const handlesOnB = repoB.handles[handleA.documentId];
     expect(handlesOnB).toBeUndefined();
 
+    loopA.disconnect();
+    loopB.disconnect();
     await repoA.shutdown();
     await repoB.shutdown();
   });
@@ -268,6 +288,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const handlesOnB = repoB.handles[handleA.documentId];
     expect(handlesOnB).toBeUndefined();
 
+    loopA.disconnect();
+    loopB.disconnect();
     await repoA.shutdown();
     await repoB.shutdown();
   });

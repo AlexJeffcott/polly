@@ -14,9 +14,13 @@ const noopMigration = () => {
   /* intentionally empty — marks a version transition with no shape change */
 };
 
+const activeRepos: Repo[] = [];
+
 function makeRepo(): Repo {
   // No storage adapter and no network adapters — pure in-memory repo.
-  return new Repo();
+  const repo = new Repo();
+  activeRepos.push(repo);
+  return repo;
 }
 
 function makeOptions<T extends VersionedDoc>(
@@ -34,9 +38,17 @@ function makeOptions<T extends VersionedDoc>(
   };
 }
 
-afterEach(() => {
+afterEach(async () => {
   primitiveRegistry.clear();
   migrationRegistry.clear();
+  for (const repo of activeRepos) {
+    try {
+      await repo.shutdown();
+    } catch {
+      // best effort
+    }
+  }
+  activeRepos.length = 0;
 });
 
 describe("$crdtState — construction", () => {

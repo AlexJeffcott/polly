@@ -30,6 +30,8 @@ export interface CheckResult {
 export interface CheckOptions {
   rootDir: string;
   exclude?: string[];
+  excludePackages?: string[];
+  excludeFiles?: string[];
   filePatterns?: string;
 }
 
@@ -43,20 +45,24 @@ export function isLineClean(line: string): boolean {
 
   const trimmed = line.trim();
 
+  // Full-line comments
   if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
     return true;
   }
 
+  // as const (literal narrowing)
   if (line.match(/\bas const\b/)) {
     const withoutAsConst = line.replace(/\bas const\b/g, "");
     if (!withoutAsConst.includes(" as ")) return true;
   }
 
+  // as unknown as (explicit escape hatch)
   if (line.includes(" as unknown as ") || line.trimEnd().endsWith("as unknown as")) {
     const withoutEscapeHatch = line.replace(/\bas unknown as\b/g, "");
     if (!withoutEscapeHatch.includes(" as ")) return true;
   }
 
+  // Import/export renames
   if (
     line.match(/\b(import|export)\s+.*\s+as\s+\w+/) ||
     line.match(/\b(import|export)\s+\*\s+as\s+\w+/) ||
@@ -67,29 +73,88 @@ export function isLineClean(line: string): boolean {
     return true;
   }
 
+  // Property declarations: as= or as: or as,
   if (line.match(/\bas\s*[=:,]/)) return true;
-  if (line.match(/\)\s+as\s+\w+/)) return true;
 
-  const idx = line.indexOf(" as ");
-  if (idx >= 0) {
-    const before = line.substring(0, idx);
-    const singleQuotes = (before.match(/'/g) ?? []).length;
-    const doubleQuotes = (before.match(/"/g) ?? []).length;
-    const backticks = (before.match(/`/g) ?? []).length;
-    if (singleQuotes % 2 === 1 || doubleQuotes % 2 === 1 || backticks % 2 === 1) {
-      return true;
-    }
-  }
+  // String literal detection: count quotes before each ` as ` occurrence.
+  // If any quote type has an odd count, the ` as ` is inside a string.
+  if (everyAsInsideString(line)) return true;
 
+  // JSX text: ` as ` between > and < with no code syntax around it
+  if (isJsxText(trimmed)) return true;
+
+  // Plain text heuristic: indented line with no code syntax characters
+  // before ` as ` — catches multiline JSX text and template literal bodies.
+  if (isPlainText(trimmed)) return true;
+
+  // Inline comment: ` as ` appears only after //
   const commentIdx = line.indexOf("//");
   if (commentIdx >= 0 && line.indexOf(" as ", commentIdx) >= 0) {
     const beforeComment = line.substring(0, commentIdx);
     if (!beforeComment.includes(" as ")) return true;
   }
 
+  // SQL alias: `) as column_name`
+  if (line.match(/"\)\s+as\s+\w+"/)) return true;
+
   if (line.includes(" satisfies ")) return true;
 
   return false;
+}
+
+/**
+ * Returns true when every ` as ` occurrence in the line falls inside a
+ * string literal (single-quoted, double-quoted, or backtick).
+ */
+function everyAsInsideString(line: string): boolean {
+  let searchFrom = 0;
+  while (true) {
+    const idx = line.indexOf(" as ", searchFrom);
+    if (idx < 0) return true; // no more ` as ` to check
+    const before = line.substring(0, idx);
+    const singleQuotes = (before.match(/'/g) ?? []).length;
+    const doubleQuotes = (before.match(/"/g) ?? []).length;
+    const backticks = (before.match(/`/g) ?? []).length;
+    if (singleQuotes % 2 === 0 && doubleQuotes % 2 === 0 && backticks % 2 === 0) {
+      return false; // this ` as ` is outside any string
+    }
+    searchFrom = idx + 4;
+  }
+}
+
+/**
+ * Detects JSX text content — ` as ` appearing between > and < with no
+ * code-like syntax around it (no braces, semicolons, equals signs).
+ */
+function isJsxText(trimmed: string): boolean {
+  // Classic JSX text: starts after > or is plain text ending before <
+  if (trimmed.match(/^[^{};=()]*\bas\b[^{};=()]*$/)) {
+    // No code syntax at all — could be JSX text or template literal body.
+    // Reject if it looks like a type assertion (word ` as ` TypeName pattern
+    // where TypeName starts with uppercase, or is a known TS type).
+    if (
+      !trimmed.match(/\bas\s+[A-Z]\w*/) &&
+      !trimmed.match(/\bas\s+(string|number|boolean|any|unknown|never)\b/)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Heuristic for plain text in template literals or JSX: the line has no
+ * code-like characters before ` as ` — no `=`, `{`, `}`, `:`, `;`, `(`.
+ */
+function isPlainText(trimmed: string): boolean {
+  const idx = trimmed.indexOf(" as ");
+  if (idx < 0) return false;
+  const before = trimmed.substring(0, idx);
+  // If nothing before ` as ` looks like code, it's probably prose.
+  return (
+    !before.match(/[={}:;(]/) &&
+    !before.match(/\b(const|let|var|type|interface|function|return|await)\b/)
+  );
 }
 
 /**
@@ -134,6 +199,52 @@ export function suggestFix(line: string): string | undefined {
   return undefined;
 }
 
+function isFileExcluded(
+  relative: string,
+  excludeDirs: Set<string>,
+  excludePackages: Set<string>,
+  excludeFiles: Set<string>
+): boolean {
+  const segments = relative.split("/");
+  if (segments.some((s) => excludeDirs.has(s))) return true;
+  if (excludePackages.size > 0 && segments.some((s) => excludePackages.has(s))) return true;
+  const basename = segments[segments.length - 1] ?? "";
+  return excludeFiles.has(basename) || excludeFiles.has(relative);
+}
+
+function findViolations(relative: string, content: string): Violation[] {
+  const results: Violation[] = [];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (!isLineClean(line)) {
+      results.push({
+        file: relative,
+        line: i + 1,
+        content: line.trim(),
+        advice: suggestFix(line.trim()),
+      });
+    }
+  }
+  return results;
+}
+
+function printViolations(violations: Violation[]): void {
+  if (violations.length === 0) {
+    console.log("[no-as-casting] ✅ No violations found.");
+    return;
+  }
+  console.log(`[no-as-casting] ❌ ${violations.length} violation(s) found:\n`);
+  for (const v of violations) {
+    console.log(`  ${v.file}:${v.line}`);
+    console.log(`    ${v.content}`);
+    if (v.advice) console.log(`    💡 ${v.advice}`);
+    console.log();
+  }
+  console.log("[no-as-casting] Use type guards, validation, or fix the types at the source.");
+  console.log('[no-as-casting] Only "as const" and "as unknown as" are allowed.');
+}
+
 /**
  * Run the no-as-casting check against a directory. Returns a result
  * object with the violations and a print function for CLI output.
@@ -141,47 +252,18 @@ export function suggestFix(line: string): string | undefined {
 export async function checkNoAsCasting(options: CheckOptions): Promise<CheckResult> {
   const rootDir = options.rootDir;
   const excludeDirs = new Set(options.exclude ?? ["node_modules", "dist", ".git", ".bun"]);
+  const excludePackages = new Set(options.excludePackages ?? []);
+  const excludeFiles = new Set(options.excludeFiles ?? []);
   const pattern = options.filePatterns ?? "**/*.{ts,tsx}";
   const glob = new Glob(pattern);
   const violations: Violation[] = [];
 
   for await (const file of glob.scan({ cwd: rootDir, absolute: true })) {
     const relative = file.replace(`${rootDir}/`, "");
-    const segments = relative.split("/");
-    if (segments.some((s) => excludeDirs.has(s))) continue;
-
+    if (isFileExcluded(relative, excludeDirs, excludePackages, excludeFiles)) continue;
     const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i] ?? "";
-      if (!isLineClean(line)) {
-        violations.push({
-          file: relative,
-          line: i + 1,
-          content: line.trim(),
-          advice: suggestFix(line.trim()),
-        });
-      }
-    }
+    violations.push(...findViolations(relative, content));
   }
 
-  return {
-    violations,
-    print() {
-      if (violations.length === 0) {
-        console.log("[no-as-casting] ✅ No violations found.");
-        return;
-      }
-      console.log(`[no-as-casting] ❌ ${violations.length} violation(s) found:\n`);
-      for (const v of violations) {
-        console.log(`  ${v.file}:${v.line}`);
-        console.log(`    ${v.content}`);
-        if (v.advice) console.log(`    💡 ${v.advice}`);
-        console.log();
-      }
-      console.log("[no-as-casting] Use type guards, validation, or fix the types at the source.");
-      console.log('[no-as-casting] Only "as const" and "as unknown as" are allowed.');
-    },
-  };
+  return { violations, print: () => printViolations(violations) };
 }

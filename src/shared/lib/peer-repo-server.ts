@@ -149,7 +149,13 @@ export async function createPeerRepoServer(
           // best effort
         }
       }
-      void repo.shutdown();
+      try {
+        await repo.shutdown();
+      } catch {
+        // best effort — automerge-repo's xstate DocHandle machine can
+        // throw "Cycle detected" during teardown when sync messages are
+        // still in flight.
+      }
       try {
         wss.close();
       } catch {
