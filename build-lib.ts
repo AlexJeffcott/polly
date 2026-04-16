@@ -51,6 +51,7 @@ const libResult = await Bun.build({
     "tools/test/src/index.ts",
     "tools/test/src/test-utils.ts",
     "tools/test/src/browser/index.ts",
+    "tools/quality/src/index.ts",
     "tools/test/src/adapters/index.ts",
   ],
   outdir: DIST_DIR,
@@ -74,6 +75,8 @@ const libResult = await Bun.build({
     "@automerge/automerge-repo-storage-nodefs",
     "ws",
     "tweetnacl",
+    "bun",
+    "puppeteer",
   ],
 });
 

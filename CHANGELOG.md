@@ -5,6 +5,312 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-04-16
+
+### Added
+
+#### Peer-first state primitives (RFC-041)
+
+Polly now offers three resilience tiers for synced state, ordered by how resilient the data is to server loss. Applications pick per piece of data; all three coexist in one codebase.
+
+**`$peerState` — server as a full peer on the data path.** Every device holds a full Automerge CRDT replica, the server included. Server-side cron, HTTP handlers, and scheduled jobs can open document handles and mutate contents. Any device loss — including the server — is recoverable from any reconnecting client's local history.
+
+```typescript
+import {
+  createPeerStateClient,
+  configurePeerState,
+  $peerState,
+  $peerText,
+  $peerCounter,
+  $peerList,
+} from "@fairfox/polly";
+
+const client = createPeerStateClient({ url: "wss://yourapp.com/polly/peer" });
+configurePeerState(client.repo);
+
+const settings = $peerState("settings", { theme: "dark" });
+const draft = $peerText("draft", "");
+const visits = $peerCounter("visits", 0);
+const todos = $peerList("todos", []);
+
+await settings.loaded;
+settings.value = { theme: "light" }; // syncs to server and all peers
+```
+
+Server side:
+
+```typescript
+import { createPeerRepoServer } from "@fairfox/polly";
+
+const server = await createPeerRepoServer({
+  port: 3030,
+  storagePath: "./data/polly-peer",
+});
+
+// Cron jobs mutate documents the same way clients do.
+const handle = await server.repo.find(someDocumentId);
+handle.change(doc => { doc.count += 1 });
+```
+
+Or hosted alongside Elysia:
+
+```typescript
+import { Elysia } from "elysia";
+import { peerRepo } from "@fairfox/polly/elysia";
+
+const app = new Elysia()
+  .use(peerRepo({ port: 3030, storagePath: "./data/polly-peer" }))
+  .get("/stats", ({ pollyPeerRepo }) => ({
+    peers: pollyPeerRepo.peers.length,
+  }))
+  .listen(8080);
+```
+
+**`$meshState` — server off the data path entirely.** Peers hold full replicas and exchange operations through signed, end-to-end encrypted WebRTC data channels. The application functions with zero server uptime. A small stateless signalling server helps peers find each other; removing it does not affect running connections.
+
+```typescript
+import {
+  configureMeshState,
+  $meshState,
+  MeshNetworkAdapter,
+  MeshWebRTCAdapter,
+  MeshSignalingClient,
+} from "@fairfox/polly";
+
+const signalingClient = new MeshSignalingClient({
+  url: "wss://yourapp.com/polly/signaling",
+  peerId: "device-A",
+  onSignal: (from, payload) => webrtcAdapter.handleSignal(from, payload),
+});
+
+const webrtcAdapter = new MeshWebRTCAdapter({
+  signaling: signalingClient,
+  peerId: "device-A",
+  knownPeerIds: ["device-B"],
+});
+
+const meshAdapter = new MeshNetworkAdapter({
+  base: webrtcAdapter,
+  keyring,
+});
+
+const repo = new Repo({ network: [meshAdapter] });
+configureMeshState(repo);
+
+const notes = $meshState("notes", { entries: [] });
+// Operations flow peer-to-peer, signed and encrypted
+```
+
+#### Cryptographic layer
+
+Ed25519 signing and XSalsa20-Poly1305 authenticated encryption via tweetnacl. Every `$meshState` operation is signed by the originating peer and encrypted under a per-document symmetric key before it leaves the device.
+
+**Pairing.** First-time key exchange between devices uses a one-way pairing token: the issuer generates a token containing their signing public key, the shared document encryption key, a TTL, and a nonce. The token is base64-encoded for QR-code or copy-paste display.
+
+```typescript
+import {
+  createPairingTokenWithFreshIdentity,
+  encodePairingToken,
+  decodePairingToken,
+  applyPairingToken,
+} from "@fairfox/polly";
+
+// Issuer side
+const { identity, token } = createPairingTokenWithFreshIdentity({
+  issuerPeerId: "device-A",
+  documentKeyId: DEFAULT_MESH_KEY_ID,
+});
+const qrString = encodePairingToken(token);
+
+// Receiver side
+const decoded = decodePairingToken(scannedQrString);
+applyPairingToken(decoded, receiverKeyring);
+```
+
+**Revocation.** A compromised peer can be kicked out via a signed revocation record that propagates to every device. The `MeshNetworkAdapter` drops all further messages from revoked peers. An optional `revocationAuthority` set on the keyring restricts who is allowed to issue revocations.
+
+```typescript
+import { createRevocation, encodeRevocation, revokePeerLocally } from "@fairfox/polly";
+
+// Local-only revocation
+revokePeerLocally("compromised-peer", keyring);
+
+// Transportable revocation (signed, broadcast to all peers)
+const record = createRevocation({
+  issuer: keypair,
+  issuerPeerId: "admin",
+  revokedPeerId: "compromised-peer",
+  reason: "lost at conference",
+});
+const bytes = encodeRevocation(record, keypair);
+```
+
+**Signing on `$peerState`.** The `sign: true` option adds per-operation Ed25519 signatures to the relay transport without preventing the server from reading document contents. This gives Byzantine defence (a compromised client cannot push unsigned writes) while keeping server-side compute functional.
+
+```typescript
+const client = createPeerStateClient({
+  url: "wss://yourapp.com/polly/peer",
+  sign: true,
+  keyring: { identity, knownPeers, documentKeys: new Map(), revokedPeers: new Set() },
+});
+configurePeerState(client.repo, { signEnabled: true });
+```
+
+#### Signalling server
+
+An Elysia plugin that relays SDP/ICE messages between `$meshState` peers for WebRTC connection setup. Stateless — it holds no document data, no encryption keys, and no replicas.
+
+```typescript
+import { Elysia } from "elysia";
+import { signalingServer } from "@fairfox/polly/elysia";
+
+const app = new Elysia()
+  .use(signalingServer({ path: "/polly/signaling" }))
+  .listen(8080);
+```
+
+The server replaces the sender's claimed peer id with the authenticated join id on every relayed signal, preventing impersonation. Peers whose sockets have closed are evicted from the routing table on the next send attempt.
+
+#### Browser test harness
+
+A Puppeteer-based harness shipped as `@fairfox/polly/test/browser` for testing browser-only modules (WebRTC adapters, Preact components, anything that needs real DOM or native WebSocket). The runner bundles each `.browser.ts` file with Bun.build, serves it on an ephemeral port, and collects results via `window.__testResults`.
+
+```typescript
+import { describe, test, expect, done, flush, cleanup, waitFor } from "@fairfox/polly/test/browser";
+
+const app = document.getElementById("app")!;
+
+describe("my feature", () => {
+  test("renders correctly", async () => {
+    render(<MyComponent />, app);
+    await flush();
+    expect(app.querySelector("h1")).toHaveTextContent("Hello");
+    expect(app.querySelector("input")).toHaveValue("default");
+    expect(app.querySelector("button")).not.toBeDisabled();
+    cleanup(app);
+  });
+});
+
+done();
+```
+
+Run with:
+
+```bash
+bun tools/test/src/browser/run.ts tests/browser
+HEADLESS=false bun tools/test/src/browser/run.ts tests/browser  # visible
+```
+
+Matchers: `toBe`, `toEqual`, `toContain`, `toBeTruthy`, `toBeFalsy`, `toBeNull`, `toBeDefined`, `toBeUndefined`, `toBeGreaterThan`, `toHaveLength`, `toExist`, `toHaveTextContent`, `toBeChecked`, `toBeDisabled`, `toHaveValue`, `toHaveAttribute`, plus `.not` variants. Helpers: `flush(ms?)`, `cleanup(container)`, `waitFor(predicate, timeout, interval)`.
+
+The runner includes an internal Bun bundler plugin that redirects Automerge to its base64 WASM variant, solving the `.wasm` import issue under `Bun.build({ target: "browser" })`.
+
+#### Quality tooling
+
+**No-as-casting conformance check.** Bans all TypeScript type assertions (`as Type`) except `as const` and the explicit escape hatch `as unknown as`. Includes pattern-specific fix advice:
+
+```
+src/foo.ts:42
+  const el = e.target as HTMLInputElement;
+  💡 Use instanceof: if (el instanceof HTMLInputElement) { el.value ... }
+```
+
+Run with `bun scripts/check-no-as-casting.ts`. A companion codemod (`bun scripts/fix-as-casting.ts`) converts all violations to `as unknown as` for one-time migration.
+
+The check is exported as `@fairfox/polly/quality` so consuming applications can adopt the same rule without copying files:
+
+```typescript
+import { checkNoAsCasting } from "@fairfox/polly/quality";
+
+const result = await checkNoAsCasting({
+  rootDir: process.cwd(),
+  exclude: ["node_modules", "dist"],
+});
+
+if (result.violations.length > 0) {
+  result.print(); // prints violations with pattern-specific fix advice
+  process.exit(1);
+}
+```
+
+The export includes `isLineClean` (per-line check), `suggestFix` (pattern-specific advice), and `checkNoAsCasting` (full directory scan with results). Applications wire it into CI, pre-commit hooks, or their own conformance scripts.
+
+The browser test harness (`@fairfox/polly/test/browser`) and the quality checks (`@fairfox/polly/quality`) together give consuming applications the same quality tooling that Polly itself uses.
+
+#### TLA+ formal specifications
+
+Two new TLA+ specs alongside the existing `MessageRouter.tla`:
+
+- **PeerState.tla** — models the relay protocol with N replicas, a server replica with persistent storage, op exchange, and server data loss recovery. Verifies strong eventual convergence, recovery convergence, and no-fabrication.
+- **MeshState.tla** — extends PeerState with signed operations, per-peer access sets, and revocation. Verifies signature soundness, revocation convergence, and no-forged-delivery.
+
+Run with `docker-compose exec tla tlc PeerState.tla` or `tlc MeshState.tla`.
+
+#### Foundation modules
+
+- **BlobRef** — content-addressed reference type for future blob-storage RFC. SHA-256 hash, type guard, async factory.
+- **PrimitiveRegistry** — runtime namespace collision detection across primitive families. Throws `PrimitiveCollisionError` naming both call sites.
+- **Access** — declarative read/write authorisation types with predicate factories (`anyone`, `nobody`, `onlyPeer`, `anyOfPeers`) and compositors (`and`, `or`, `not`).
+- **SchemaVersion** — reserved `__schemaVersion` field on documents, migration runner with contiguity checks, op-version compatibility check for sync-time rejection.
+- **MigratePrimitive** — one-way cross-family data migration with a `migrationRegistry` that prevents re-hydration of moved sources.
+
+### Deployment guidance
+
+#### `$peerState` relay server on Railway
+
+The relay server is a single Elysia process that hosts an Automerge-Repo `Repo` with `WebSocketServerAdapter` and `NodeFSStorageAdapter`. Deploy it on Railway (or any platform that supports persistent volumes and WebSocket connections):
+
+1. **Process.** One Bun process running `createPeerRepoServer({ port, storagePath })` or the `peerRepo` Elysia plugin.
+2. **Storage.** Persistent volume mounted at `storagePath`. Automerge documents are stored as files by `NodeFSStorageAdapter`. Stream the volume to S3 via [Litestream](https://litestream.io/) for disaster recovery.
+3. **Port.** A single WebSocket endpoint (default `/polly/peer`). TLS termination is handled by the platform.
+4. **Recovery.** If the server loses its volume, deploy a fresh instance. The first client to reconnect pushes its full Automerge history; subsequent clients converge. No manual restore step needed.
+5. **Cron.** Server-side code opens document handles on the `Repo` and mutates them the same way clients do. Changes propagate to connected clients through the same sync protocol.
+
+#### `$meshState` signalling server
+
+The signalling server is a stateless Elysia WebSocket route. It holds no data and no keys.
+
+1. **Process.** One Bun process running the `signalingServer` Elysia plugin. Can share a process with the relay server or any other Elysia routes.
+2. **Storage.** None. The server is stateless.
+3. **Port.** A single WebSocket endpoint (default `/polly/signaling`). Can be deployed on Railway, Cloudflare Workers, Fly.io, a Pi, or anywhere that terminates WebSocket.
+4. **Replacement.** Losing the signalling server does not affect existing peer-to-peer connections. New connections are blocked until a replacement is deployed, but data is safe on every peer's local storage.
+
+#### `$meshState` optional cron peer
+
+A dedicated always-on peer that participates in the mesh as an ordinary client and happens never to sleep:
+
+1. **Process.** A separate Bun/Node process running the same Polly client code as browsers. Has its own device keypair provisioned via the pairing flow.
+2. **Storage.** Local Automerge replica (IndexedDB via `IndexedDBStorageAdapter` or NodeFS).
+3. **Deployment.** Railway, VPS, Pi, Tailnet, laptop — anywhere. It is not on the critical path for client-to-client sync.
+4. **Keys.** Provisioned via `applyPairingToken` the same way any other device is. Only holds keys for documents it is authorised to access.
+
+#### Client-side persistence
+
+Browsers use `IndexedDBStorageAdapter` from `@automerge/automerge-repo-storage-indexeddb` for local Automerge document persistence. Documents survive page reloads, browser restarts, and offline periods. Storage is per-origin.
+
+### Changed
+
+- `PeerStateOptions` no longer has an `encrypt` field. Encryption prevents the server from parsing Automerge sync messages, which degrades the relay to a dumb byte forwarder — the same role `$meshState` already fills. Applications that want encrypted state use `$meshState`.
+- `MeshKeyring` now requires a `revokedPeers: Set<string>` field.
+- `MeshKeyring` accepts an optional `revocationAuthority?: Set<string>` for restricting who can issue revocations.
+- `configurePeerState` accepts an optional second argument `{ signEnabled?: boolean }` for tracking signing-enabled Repos.
+- All `as Type` assertions across the codebase have been replaced with `as unknown as Type` (the conformance-check escape hatch) or eliminated. New code must not use `as Type`.
+
+### Dependencies
+
+New optional peer dependencies (applications that use only `$sharedState` do not install them):
+
+- `@automerge/automerge-repo` >= 2.5.0
+- `@automerge/automerge-repo-network-websocket` >= 2.5.0
+- `@automerge/automerge-repo-storage-indexeddb` >= 2.5.0
+- `@automerge/automerge-repo-storage-nodefs` >= 2.5.0
+- `tweetnacl` >= 1.0.0
+- `ws` >= 8.0.0
+
+New dev dependency: `puppeteer` (for the browser test harness).
+
+All Automerge and crypto packages are externalised in the Polly build. The Polly bundle itself ships zero WASM or crypto bytes; applications bring them via their own bundler.
+
 ## [0.9.0] - 2025-12-30
 
 ### Added

@@ -62,6 +62,10 @@
       "import": "./dist/tools/test/src/browser/index.js",
       "types": "./dist/tools/test/src/browser/index.d.ts"
     },
+    "./quality": {
+      "import": "./dist/tools/quality/src/index.js",
+      "types": "./dist/tools/quality/src/index.d.ts"
+    },
     "./elysia": {
       "import": "./dist/src/elysia/index.js",
       "types": "./dist/src/elysia/index.d.ts"

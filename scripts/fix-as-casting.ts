@@ -26,7 +26,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { Glob } from "bun";
 
 // Import the clean-check from the conformance script.
-import { isLineClean } from "./check-no-as-casting";
+import { isLineClean } from "../tools/quality/src/no-as-casting";
 
 const EXCLUDED_DIRS = new Set(["node_modules", "dist", ".git", ".bun", "examples"]);
 const dryRun = process.env["DRY_RUN"] === "true";
