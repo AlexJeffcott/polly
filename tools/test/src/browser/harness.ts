@@ -93,8 +93,8 @@ export async function done(): Promise<void> {
     }
   }
 
-  (window as unknown as Record<string, unknown>).__testResults = results;
-  (window as unknown as Record<string, unknown>).__done = true;
+  (window as unknown as Record<string, unknown>)["__testResults"] = results;
+  (window as unknown as Record<string, unknown>)["__done"] = true;
 }
 
 /**

@@ -1,43 +1,45 @@
 #!/usr/bin/env bun
+
 /**
- * Browser test runner for Polly's browser-only modules.
+ * Browser test runner for Polly applications.
  *
- * Adapted from lingua's tests/browser/run.ts. Finds all *.browser.ts files
- * in tests/browser/, bundles each with Bun.build, serves the bundle on an
- * ephemeral port, opens a Puppeteer page, and polls window.__done for
- * results. Prints pass/fail per test and exits non-zero if any test failed.
+ * Finds all *.browser.ts files in a given directory, bundles each with
+ * Bun.build for the browser target (with an internal Automerge WASM fix),
+ * serves the bundle on an ephemeral port, opens a Puppeteer page, and
+ * polls window.__done for results. Prints pass/fail per test and exits
+ * non-zero if any test failed.
  *
- * Usage:
+ * A signalling server for WebRTC tests starts automatically on a random
+ * port. The URL is injected into the bundle via process.env.SIGNALING_URL.
  *
- *   bun tests/browser/run.ts                    # run all browser tests
- *   bun tests/browser/run.ts mesh-webrtc        # filter by filename
- *   HEADLESS=false bun tests/browser/run.ts     # visible browser
+ * Usage (from project root):
  *
- * The runner also starts any server-side infrastructure the test needs
- * (e.g. a signalling server for WebRTC tests) before launching the
- * browser. Test files declare their server-side needs via a conventional
- * export; see mesh-webrtc.browser.ts for the pattern.
+ *   bun tools/test/src/browser/run.ts [testDir] [filter]
+ *
+ * Examples:
+ *
+ *   bun tools/test/src/browser/run.ts tests/browser
+ *   bun tools/test/src/browser/run.ts tests/browser mesh-webrtc
+ *   HEADLESS=false bun tools/test/src/browser/run.ts tests/browser
+ *
+ * When invoked without a testDir, defaults to tests/browser relative to cwd.
  */
 
+import { resolve } from "node:path";
 import { type BunPlugin, Glob } from "bun";
 import { Elysia } from "elysia";
 import puppeteer from "puppeteer";
-import { signalingServer } from "../../src/elysia/signaling-server-plugin";
+import { signalingServer } from "../../../../src/elysia/signaling-server-plugin";
 
-/**
- * Bun bundler plugin that redirects @automerge/automerge to the base64
- * variant. The default browser condition resolves to fullfat_bundler.js
- * which does `import * as wasm from "./automerge_wasm_bg.wasm"` — a
- * static .wasm import that Bun.build can't wire up correctly (the WASM
- * exports resolve to undefined). The base64 variant embeds the WASM as
- * a base64 string and calls initSync() at import time — pure JS, no
- * .wasm file reference, works in any browser without special loader
- * support.
- */
-const automergeBase64Path = new URL(
-  "../../node_modules/@automerge/automerge/dist/mjs/entrypoints/fullfat_base64.js",
-  import.meta.url
-).pathname;
+// ─── Automerge WASM fix ───────────────────────────────────────────────────
+// Bun.build's target: "browser" picks Automerge's fullfat_bundler.js which
+// does a static .wasm import that Bun can't wire up. Redirect to the
+// base64 variant which embeds the WASM as a string and self-initialises.
+
+const automergeBase64Path = resolve(
+  process.cwd(),
+  "node_modules/@automerge/automerge/dist/mjs/entrypoints/fullfat_base64.js"
+);
 
 const automergeBase64Plugin: BunPlugin = {
   name: "automerge-base64",
@@ -48,9 +50,11 @@ const automergeBase64Plugin: BunPlugin = {
   },
 };
 
-const filter = process.argv[2] ?? "";
+// ─── Argument parsing ──────────────────────────────────────────────────────
+
+const testDir = resolve(process.cwd(), process.argv[2] ?? "tests/browser");
+const filter = process.argv[3] ?? "";
 const headless = process.env["HEADLESS"] !== "false";
-const testDir = import.meta.dir;
 
 const glob = new Glob("**/*.browser.ts");
 const testFiles: string[] = [];
@@ -69,7 +73,6 @@ console.log(`[browser-runner] found ${testFiles.length} test file(s)`);
 
 // ─── Start server-side infrastructure ──────────────────────────────────────
 
-// Signalling server for WebRTC tests. All browser tests share it.
 const signalingPort = 39000 + Math.floor(Math.random() * 1000);
 const signalingApp = new Elysia()
   .use(signalingServer({ path: "/polly/signaling" }))
@@ -90,10 +93,6 @@ for (const testFile of testFiles) {
   const shortName = testFile.replace(`${testDir}/`, "");
   console.log(`\n[browser-runner] running ${shortName}`);
 
-  // Bundle the test file with Bun.build. The output is a single ESM chunk
-  // that includes the harness, the Polly modules under test, and tweetnacl.
-  // External deps that don't exist in browsers (Node builtins, ws, etc.)
-  // are excluded; the test file must not import them.
   const buildResult = await Bun.build({
     entrypoints: [testFile],
     target: "browser",
@@ -109,7 +108,7 @@ for (const testFile of testFiles) {
   });
 
   if (!buildResult.success) {
-    console.log(`  ❌ build failed:`);
+    console.log("  ❌ build failed:");
     for (const log of buildResult.logs) {
       console.log(`     ${log}`);
     }
@@ -119,12 +118,11 @@ for (const testFile of testFiles) {
 
   const jsText = await buildResult.outputs[0]?.text();
   if (!jsText) {
-    console.log(`  ❌ build produced no output`);
+    console.log("  ❌ build produced no output");
     totalFailed += 1;
     continue;
   }
 
-  // Serve the bundle on an ephemeral port.
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body>
@@ -152,14 +150,12 @@ for (const testFile of testFiles) {
 
   await page.goto(`http://127.0.0.1:${server.port}/`, { waitUntil: "domcontentloaded" });
 
-  // Poll for completion. The harness sets window.__done = true when all
-  // tests have run.
   const timeout = 15_000;
   const deadline = Date.now() + timeout;
   let finished = false;
   while (Date.now() < deadline) {
     finished = await page.evaluate(
-      () => (window as unknown as Record<string, unknown>).__done === true
+      () => (window as unknown as Record<string, unknown>)["__done"] === true
     );
     if (finished) break;
     await new Promise((r) => setTimeout(r, 100));
@@ -173,10 +169,9 @@ for (const testFile of testFiles) {
     continue;
   }
 
-  // Collect results.
   const results = await page.evaluate(
     () =>
-      (window as unknown as Record<string, unknown>).__testResults as Array<{
+      (window as unknown as Record<string, unknown>)["__testResults"] as Array<{
         name: string;
         passed: boolean;
         error?: string;

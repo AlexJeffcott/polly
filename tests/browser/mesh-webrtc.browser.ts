@@ -23,7 +23,7 @@ import {
 import { MeshSignalingClient } from "../../src/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "../../src/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "../../src/shared/lib/signing";
-import { describe, done, expect, test, waitFor } from "./harness";
+import { describe, done, expect, test, waitFor } from "../../tools/test/src/browser/harness";
 
 // The signalling URL is injected by the runner via Bun.build define.
 const SIGNALING_URL = process.env.SIGNALING_URL ?? "ws://127.0.0.1:39000/polly/signaling";
