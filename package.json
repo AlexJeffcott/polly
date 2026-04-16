@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -62,9 +62,13 @@
       "import": "./dist/tools/test/src/browser/index.js",
       "types": "./dist/tools/test/src/browser/index.d.ts"
     },
-    "./quality": {
-      "import": "./dist/tools/quality/src/index.js",
-      "types": "./dist/tools/quality/src/index.d.ts"
+    "./peer": {
+      "import": "./dist/src/peer.js",
+      "types": "./dist/src/peer.d.ts"
+    },
+    "./mesh": {
+      "import": "./dist/src/mesh.js",
+      "types": "./dist/src/mesh.d.ts"
     },
     "./elysia": {
       "import": "./dist/src/elysia/index.js",

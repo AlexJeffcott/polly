@@ -42,6 +42,10 @@ const libResult = await Bun.build({
     "src/background/index.ts",
     "src/background/message-router.ts",
 
+    // Peer-first and mesh state (isolated subpath exports)
+    "src/peer.ts",
+    "src/mesh.ts",
+
     // Elysia integration
     "src/elysia/index.ts",
     "src/client/index.ts",
@@ -51,7 +55,6 @@ const libResult = await Bun.build({
     "tools/test/src/index.ts",
     "tools/test/src/test-utils.ts",
     "tools/test/src/browser/index.ts",
-    "tools/quality/src/index.ts",
     "tools/test/src/adapters/index.ts",
   ],
   outdir: DIST_DIR,
@@ -99,6 +102,7 @@ const toolsResult = await Bun.build({
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
     "tools/test/src/cli.ts",
+    "tools/quality/src/cli.ts",
     "scripts/build-extension.ts",
   ],
   outdir: DIST_DIR,
@@ -110,7 +114,7 @@ const toolsResult = await Bun.build({
   naming: {
     entry: "[dir]/[name].[ext]",
   },
-  external: ["ts-morph", "bun:*", "node:*"],
+  external: ["ts-morph", "bun", "bun:*", "node:*"],
 });
 
 if (!toolsResult.success) {

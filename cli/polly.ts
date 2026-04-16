@@ -18,6 +18,7 @@
  *   polly test [args]                Run tests (requires bun test)
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
+ *   polly quality [args]             Run quality conformance checks
  *   polly help                       Show help
  *
  * Project Types (init --type):
@@ -163,6 +164,28 @@ async function visualize() {
 }
 
 /**
+ * Quality command - delegate to @fairfox/polly-quality
+ */
+async function quality() {
+  const bundledCli = `${__dirname}/../tools/quality/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/quality/src/cli.ts`;
+  const qualityCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  const proc = Bun.spawn(["bun", qualityCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Quality checks failed with exit code ${exitCode}`);
+  }
+}
+
+/**
  * Typecheck command - run TypeScript type checking
  */
 async function typecheck() {
@@ -300,6 +323,7 @@ Usage:
   polly test [args]                Run tests
   polly verify [args]              Run formal verification
   polly visualize [args]           Generate architecture diagrams
+  polly quality [args]             Run quality conformance checks
   polly help                       Show this help
 
 Options:
@@ -344,6 +368,9 @@ async function main() {
         break;
       case "visualize":
         await visualize();
+        break;
+      case "quality":
+        await quality();
         break;
       case "help":
       case "--help":
