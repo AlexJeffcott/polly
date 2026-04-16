@@ -26,9 +26,10 @@
  * ```
  */
 
-import { Repo } from "@automerge/automerge-repo";
+import { type NetworkAdapterInterface, Repo } from "@automerge/automerge-repo";
 import { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { type Signal, signal } from "@preact/signals";
+import { type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";
 
 export type PeerRelayConnectionState = "connecting" | "connected" | "disconnected";
 
@@ -47,6 +48,15 @@ export interface CreatePeerStateClientOptions {
       ? S
       : never
     : never;
+  /** Enable Ed25519 signing on every sync message. Adds Byzantine defence:
+   * a compromised client cannot push unsigned writes through the relay.
+   * Requires a keyring with the local peer's signing identity and the
+   * public keys of peers whose ops should be accepted. The server can
+   * still read and mutate document contents because the payload is
+   * signed, not encrypted. */
+  sign?: boolean;
+  /** Keyring for the signing layer. Required when `sign` is true. */
+  keyring?: MeshKeyring;
 }
 
 export interface PeerStateClient {
@@ -58,6 +68,9 @@ export interface PeerStateClient {
   connectionState: Signal<PeerRelayConnectionState>;
   /** The underlying network adapter, exposed for advanced use. */
   adapter: WebSocketClientAdapter;
+  /** True if the client was constructed with `sign: true`. Used by
+   * $peerState primitives to validate per-primitive sign options. */
+  signEnabled: boolean;
   /** Disconnect from the relay and tear down the Repo. Awaiting the
    * returned promise drains the Repo's subsystems cleanly. */
   close: () => Promise<void>;
@@ -72,6 +85,12 @@ export interface PeerStateClient {
  * state somewhere visible.
  */
 export function createPeerStateClient(options: CreatePeerStateClientOptions): PeerStateClient {
+  if (options.sign && !options.keyring) {
+    throw new Error(
+      "Polly createPeerStateClient: { sign: true } requires a keyring. Pass { keyring: { identity, knownPeers, documentKeys: new Map(), revokedPeers: new Set() } } to enable signing."
+    );
+  }
+
   const adapter = new WebSocketClientAdapter(options.url, options.retryInterval);
   const connectionState = signal<PeerRelayConnectionState>("connecting");
 
@@ -88,8 +107,21 @@ export function createPeerStateClient(options: CreatePeerStateClientOptions): Pe
     connectionState.value = "disconnected";
   });
 
+  // When signing is enabled, wrap the WebSocket adapter with a sign-only
+  // MeshNetworkAdapter. This signs every outgoing message but does NOT
+  // encrypt, so the relay server can still parse Automerge sync messages
+  // and participate as a full peer (cron, HTTP handlers, etc.).
+  const networkAdapter: NetworkAdapterInterface =
+    options.sign && options.keyring
+      ? new MeshNetworkAdapter({
+          base: adapter,
+          keyring: options.keyring,
+          encryptionEnabled: false,
+        })
+      : adapter;
+
   const repo = new Repo({
-    network: [adapter],
+    network: [networkAdapter],
     ...(options.storage !== undefined && { storage: options.storage }),
   });
 
@@ -97,11 +129,7 @@ export function createPeerStateClient(options: CreatePeerStateClientOptions): Pe
     repo,
     connectionState,
     adapter,
-    // Delegate to repo.shutdown() rather than calling adapter.disconnect()
-    // directly. Automerge-Repo's WebSocketClientAdapter has an internal
-    // assertion that fires if disconnect() is called twice, and the Repo's
-    // shutdown also iterates network adapters and disconnects each. Routing
-    // tear-down through shutdown() means there is one disconnect path.
+    signEnabled: options.sign === true,
     close: async () => {
       await repo.shutdown();
     },

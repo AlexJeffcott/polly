@@ -108,6 +108,14 @@ export interface MeshNetworkAdapterOptions {
    * with `identity.secretKey` and verifies every incoming message against
    * the public keys in `knownPeers`. */
   keyring: MeshKeyring;
+  /** When false, the adapter signs but does not encrypt. Outgoing messages
+   * carry a signature envelope but the payload is plaintext; incoming
+   * messages are verified against the sender's public key without a
+   * decryption step. This mode is used by $peerState's `sign: true`
+   * option, where the server must still be able to parse Automerge sync
+   * messages. Defaults to true (encrypt + sign, the full $meshState
+   * posture). */
+  encryptionEnabled?: boolean;
 }
 
 /**
@@ -123,11 +131,13 @@ export interface MeshNetworkAdapterOptions {
 export class MeshNetworkAdapter extends NetworkAdapter {
   readonly base: NetworkAdapter;
   readonly keyring: MeshKeyring;
+  readonly encryptionEnabled: boolean;
 
   constructor(options: MeshNetworkAdapterOptions) {
     super();
     this.base = options.base;
     this.keyring = options.keyring;
+    this.encryptionEnabled = options.encryptionEnabled ?? true;
 
     // Forward lifecycle and peer events from the base adapter.
     this.base.on("close", () => this.emit("close"));
@@ -180,16 +190,23 @@ export class MeshNetworkAdapter extends NetworkAdapter {
    * and target ids and the crypto blob in the `data` field.
    */
   private wrap(message: Message): Message {
-    const docKey = this.keyring.documentKeys.get(DEFAULT_MESH_KEY_ID);
-    if (!docKey) {
-      throw new Error(
-        `MeshNetworkAdapter: missing document encryption key under id "${DEFAULT_MESH_KEY_ID}". Provision the key in the keyring before sending.`
-      );
-    }
     const serialised = serialiseMessage(message);
-    const encrypted = sealEncryptedEnvelope(serialised, DEFAULT_MESH_KEY_ID, docKey);
-    const encryptedBytes = encodeEncryptedEnvelope(encrypted);
-    const signed = signEnvelope(encryptedBytes, message.senderId, this.keyring.identity.secretKey);
+
+    let payloadToSign: Uint8Array;
+    if (this.encryptionEnabled) {
+      const docKey = this.keyring.documentKeys.get(DEFAULT_MESH_KEY_ID);
+      if (!docKey) {
+        throw new Error(
+          `MeshNetworkAdapter: missing document encryption key under id "${DEFAULT_MESH_KEY_ID}". Provision the key in the keyring before sending.`
+        );
+      }
+      const encrypted = sealEncryptedEnvelope(serialised, DEFAULT_MESH_KEY_ID, docKey);
+      payloadToSign = encodeEncryptedEnvelope(encrypted);
+    } else {
+      payloadToSign = serialised;
+    }
+
+    const signed = signEnvelope(payloadToSign, message.senderId, this.keyring.identity.secretKey);
     const signedBytes = encodeSignedEnvelope(signed);
 
     return {
@@ -226,16 +243,22 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       return undefined;
     }
 
-    let encryptedBytes: Uint8Array;
+    let verifiedPayload: Uint8Array;
     try {
-      encryptedBytes = openSignedEnvelope(signed, senderKey);
+      verifiedPayload = openSignedEnvelope(signed, senderKey);
     } catch {
       return undefined;
     }
 
+    if (!this.encryptionEnabled) {
+      // Sign-only mode: the verified payload IS the serialised message.
+      return deserialiseMessage(verifiedPayload);
+    }
+
+    // Full encrypt+sign mode: unwrap the encryption envelope.
     let encrypted: ReturnType<typeof decodeEncryptedEnvelope>;
     try {
-      encrypted = decodeEncryptedEnvelope(encryptedBytes);
+      encrypted = decodeEncryptedEnvelope(verifiedPayload);
     } catch {
       return undefined;
     }

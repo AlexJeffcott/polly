@@ -18,11 +18,13 @@
  *      and records the mapping. On subsequent constructions of the same key,
  *      the factory looks up the existing DocumentId and finds the handle.
  *
- *   3. The `encrypt` and `sign` option fields are accepted in the type
- *      contract but throw at runtime if either is set. The Phase 2 crypto
- *      layer will wire them up; until then, a Phase 1 application that
- *      reaches for them gets a clear runtime error rather than silently
- *      degraded behaviour.
+ *   3. The `sign` option field validates that the configured Repo was
+ *      created with signing enabled (via createPeerStateClient with
+ *      `sign: true`). Signing adds Byzantine defence at the transport
+ *      level without preventing the server from reading document
+ *      contents. Encryption is not offered on $peerState because it
+ *      would prevent the server from participating as an Automerge
+ *      peer; applications that want encrypted state should use $meshState.
  *
  * The Repo itself is supplied by the application via {@link configurePeerState}
  * or per-call via the `repo` option. There is no transport in this Phase 1
@@ -51,13 +53,11 @@ export interface PeerStateOptions<T> {
   /** Override the default Repo for this primitive. Useful for tests and for
    * applications that maintain multiple Repos (rare). */
   repo?: Repo;
-  /** Encrypt document contents at rest and on the wire. Defined in the type
-   * for forward compatibility but throws at runtime in Phase 1; the Phase 2
-   * crypto layer will wire it up. */
-  encrypt?: boolean;
-  /** Sign every operation with the originating peer's key. Defined in the
-   * type for forward compatibility but throws at runtime in Phase 1; the
-   * Phase 2 crypto layer will wire it up. */
+  /** Request per-op Ed25519 signing for this primitive. Signing is a
+   * transport-level concern: pass `sign: true` to `createPeerStateClient`
+   * to enable it for all primitives on that Repo. Passing `sign: true`
+   * here validates that the configured Repo was created with signing
+   * enabled and throws if it was not. */
   sign?: boolean;
   /** Schema version target for the application. Migrations run on load. */
   schemaVersion?: number;
@@ -74,6 +74,8 @@ export interface PeerStateOptions<T> {
 
 /** Internal: per-Repo key → DocumentId map. Cleared by configurePeerState. */
 const keyMapsByRepo = new WeakMap<Repo, Map<string, DocumentId>>();
+/** Internal: set of Repos configured with signing enabled. */
+const signingEnabledRepos = new WeakSet<Repo>();
 let defaultRepo: Repo | undefined;
 
 /**
@@ -85,9 +87,12 @@ let defaultRepo: Repo | undefined;
  * Repo configured for the relay transport. Tests call it before each scenario
  * with an in-memory Repo.
  */
-export function configurePeerState(repo: Repo): void {
+export function configurePeerState(repo: Repo, options?: { signEnabled?: boolean }): void {
   defaultRepo = repo;
   keyMapsByRepo.set(repo, new Map());
+  if (options?.signEnabled) {
+    signingEnabledRepos.add(repo);
+  }
 }
 
 /**
@@ -117,15 +122,13 @@ function getKeyMap(repo: Repo): Map<string, DocumentId> {
   return map;
 }
 
-function assertCryptoNotRequested(options: PeerStateOptions<unknown>): void {
-  if (options.encrypt) {
+function validateSignOption(options: PeerStateOptions<unknown>, repo: Repo): void {
+  if (!options.sign) return;
+  if (!signingEnabledRepos.has(repo)) {
     throw new Error(
-      "Polly $peerState: { encrypt: true } is declared for forward compatibility but the Phase 2 crypto layer is not yet shipped. Remove the option or wait for the crypto release."
-    );
-  }
-  if (options.sign) {
-    throw new Error(
-      "Polly $peerState: { sign: true } is declared for forward compatibility but the Phase 2 crypto layer is not yet shipped. Remove the option or wait for the crypto release."
+      "Polly $peerState: { sign: true } was passed to the primitive but the configured Repo does not have signing enabled. " +
+        "Pass { sign: true, keyring: ... } to createPeerStateClient to enable signing at the transport level, " +
+        "then call configurePeerState(client.repo, { signEnabled: true })."
     );
   }
 }
@@ -173,8 +176,8 @@ export function $peerState<T extends VersionedDoc>(
   initialValue: T,
   options: PeerStateOptions<T> = {}
 ): CrdtPrimitive<T> {
-  assertCryptoNotRequested(options);
   const repo = resolveRepo(options.repo);
+  validateSignOption(options, repo);
   return $crdtState<T>({
     key,
     primitive: "peerState",
@@ -199,8 +202,8 @@ export function $peerText(
   initialValue: string,
   options: PeerTextOptions = {}
 ): SpecialisedPrimitive<string> {
-  assertCryptoNotRequested(options);
   const repo = resolveRepo(options.repo);
+  validateSignOption(options, repo);
   return $crdtText(key, initialValue, {
     primitive: "peerState",
     getHandle: buildHandleFactory<TextDoc>(repo, key, { text: initialValue }),
@@ -224,8 +227,8 @@ export function $peerCounter(
   initialValue: number,
   options: PeerCounterOptions = {}
 ): SpecialisedPrimitive<number> {
-  assertCryptoNotRequested(options);
   const repo = resolveRepo(options.repo);
+  validateSignOption(options, repo);
   return $crdtCounter(key, initialValue, {
     primitive: "peerState",
     getHandle: buildHandleFactory<CounterDoc>(repo, key, {}),
@@ -249,8 +252,8 @@ export function $peerList<T>(
   initialValue: T[],
   options: PeerListOptions = {}
 ): SpecialisedPrimitive<T[]> {
-  assertCryptoNotRequested(options);
   const repo = resolveRepo(options.repo);
+  validateSignOption(options, repo);
   return $crdtList<T>(key, initialValue, {
     primitive: "peerState",
     getHandle: buildHandleFactory<ListDoc<T>>(repo, key, { items: initialValue }),

@@ -62,17 +62,26 @@ describe("$peerState — repo configuration", () => {
   });
 });
 
-describe("$peerState — encrypt/sign deferral", () => {
-  test("throws on { encrypt: true }", () => {
-    expect(() => $peerState<Notes>("notes-6", { title: "", body: "" }, { encrypt: true })).toThrow(
-      /Phase 2 crypto layer/
+describe("$peerState — sign option", () => {
+  test("throws when sign: true but the Repo was not configured with signing", () => {
+    expect(() => $peerState<Notes>("notes-6", { title: "", body: "" }, { sign: true })).toThrow(
+      /signing enabled/i
     );
   });
 
-  test("throws on { sign: true }", () => {
-    expect(() => $peerState<Notes>("notes-7", { title: "", body: "" }, { sign: true })).toThrow(
-      /Phase 2 crypto layer/
-    );
+  test("accepts sign: true when the Repo was configured with signing", () => {
+    const repo = new Repo();
+    configurePeerState(repo, { signEnabled: true });
+    expect(() =>
+      $peerState<Notes>("notes-7", { title: "", body: "" }, { sign: true })
+    ).not.toThrow();
+  });
+
+  test("sign: false or omitted works on any Repo", () => {
+    expect(() => $peerState<Notes>("notes-8-nosign", { title: "", body: "" })).not.toThrow();
+    expect(() =>
+      $peerState<Notes>("notes-9-signfalse", { title: "", body: "" }, { sign: false })
+    ).not.toThrow();
   });
 });
 
@@ -117,10 +126,10 @@ describe("$peerText / $peerCounter / $peerList", () => {
     expect(primitiveRegistry.kindOf("list-1")).toBe("peerState");
   });
 
-  test("specialised variants throw on encrypt/sign", () => {
-    expect(() => $peerText("t", "", { encrypt: true })).toThrow();
-    expect(() => $peerCounter("c", 0, { sign: true })).toThrow();
-    expect(() => $peerList<string>("l", [], { encrypt: true })).toThrow();
+  test("specialised variants throw on sign: true without signing-enabled Repo", () => {
+    expect(() => $peerText("t", "", { sign: true })).toThrow(/signing enabled/i);
+    expect(() => $peerCounter("c", 0, { sign: true })).toThrow(/signing enabled/i);
+    expect(() => $peerList<string>("l", [], { sign: true })).toThrow(/signing enabled/i);
   });
 });
 
