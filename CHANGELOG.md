@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.1] - 2026-04-17
+
+### Fixed
+
+- `@fairfox/polly/elysia` no longer forces a static import of
+  `@automerge/automerge-repo`, `@automerge/automerge-repo-network-websocket`,
+  `@automerge/automerge-repo-storage-nodefs`, and `ws` through its barrel.
+  The `createPeerRepoServer` factory now pulls those peer-state dependencies
+  dynamically inside the function body, so Elysia apps that use only the
+  non-peer surface (the `polly()` plugin) evaluate the module without the
+  peer packages installed. Apps that actually build a peer-relay server
+  still need the packages — they're loaded when `createPeerRepoServer` runs
+  — and the public type surface is unchanged.
+
 ## [0.25.0] - 2026-04-17
 
 ### Added
