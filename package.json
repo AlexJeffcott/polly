@@ -89,7 +89,14 @@
     "./actions": {
       "import": "./dist/src/actions/index.js",
       "types": "./dist/src/actions/index.d.ts"
-    }
+    },
+    "./ui": {
+      "import": "./dist/src/polly-ui/index.js",
+      "types": "./dist/src/polly-ui/index.d.ts"
+    },
+    "./ui/styles.css": "./dist/src/polly-ui/styles.css",
+    "./ui/theme.css": "./dist/src/polly-ui/theme.css",
+    "./ui/components.css": "./dist/src/polly-ui/index.css"
   },
   "files": [
     "dist",

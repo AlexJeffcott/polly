@@ -173,10 +173,8 @@ describe("installEventDelegation — keyboard", () => {
     );
     await flush();
 
-    // installEventDelegation's Escape path uses the DOM-based closeTopOverlay
-    // (dispatches `overlay:close` on the last [data-overlay-id] element).
-    // To also exercise the registry, we close via registry API directly:
-    closeTopOverlay();
+    // installEventDelegation's Escape path calls closeTopOverlay on the
+    // registry; 'b' is the top so its onClose fires and 'a' is preserved.
     expect(closedB).toBe(1);
     expect(closedA).toBe(0);
 

@@ -1,0 +1,45 @@
+@layer polly-components {
+  .root {
+    inline-size: 100%;
+    box-sizing: border-box;
+    padding: var(--polly-space-sm) var(--polly-space-md);
+    font: inherit;
+    font-family: var(--polly-font-sans);
+    color: var(--polly-text);
+    line-height: var(--polly-line-height-base);
+    border: var(--polly-border-width-default) solid transparent;
+    border-radius: var(--polly-radius-md);
+    min-block-size: calc(
+      1.5em + 2 * var(--polly-space-sm) + 2 * var(--polly-border-width-default)
+    );
+  }
+
+  .view {
+    cursor: text;
+    background: transparent;
+    white-space: pre-wrap;
+    word-break: break-word;
+    transition: background var(--polly-motion-fast) ease,
+      border-color var(--polly-motion-fast) ease;
+  }
+  .view:hover {
+    background: var(--polly-surface-sunken);
+    border-color: var(--polly-border);
+  }
+
+  .edit {
+    background: var(--polly-surface);
+    border-color: var(--polly-border);
+  }
+
+  .placeholder {
+    color: var(--polly-text-muted);
+    font-style: italic;
+  }
+
+  .root[data-variant="multi"] {
+    field-sizing: content;
+    max-block-size: 40em;
+    resize: vertical;
+  }
+}

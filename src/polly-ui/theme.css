@@ -1,0 +1,163 @@
+/**
+ * @fairfox/polly/ui — default theme.
+ *
+ * Semantic tokens only. Consumers redefine these variables to re-theme
+ * the primitives without touching structure or accessibility. Both the
+ * light palette (the :root defaults) and the dark palette (under
+ * prefers-color-scheme: dark) meet WCAG AA contrast against their
+ * respective surfaces — 4.5:1 for body text, 3:1 for non-text UI.
+ *
+ * Consumers can force a mode regardless of system preference by setting
+ * data-polly-theme="dark" or data-polly-theme="light" on any ancestor
+ * element (styles.css reads this and overrides prefers-color-scheme).
+ */
+
+@layer polly-defaults {
+  :root {
+    /* Surfaces */
+    --polly-surface: #ffffff;
+    --polly-surface-raised: #ffffff;
+    --polly-surface-sunken: #f4f5f7;
+
+    /* Borders */
+    --polly-border: #d9dbe0;
+    --polly-border-strong: #9fa3ab;
+
+    /* Text */
+    --polly-text: #111418;
+    --polly-text-muted: #5a5f67;
+
+    /* Accent */
+    --polly-accent: #2451b5;
+    --polly-accent-contrast: #ffffff;
+
+    /* Feedback */
+    --polly-danger: #b3261e;
+    --polly-danger-contrast: #ffffff;
+    --polly-success: #1f6f43;
+    --polly-warning: #8a5a00;
+
+    /* Focus */
+    --polly-focus-ring: #2451b5;
+
+    /* Space */
+    --polly-space-xs: 4px;
+    --polly-space-sm: 8px;
+    --polly-space-md: 12px;
+    --polly-space-lg: 16px;
+    --polly-space-xl: 24px;
+
+    /* Radius */
+    --polly-radius-sm: 4px;
+    --polly-radius-md: 8px;
+    --polly-radius-lg: 12px;
+
+    /* Motion */
+    --polly-motion-fast: 120ms;
+    --polly-motion-base: 200ms;
+    --polly-motion-slow: 320ms;
+
+    /* Typography */
+    --polly-font-sans: system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    --polly-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco,
+      "Cascadia Mono", monospace;
+    --polly-text-sm: 0.875em;
+    --polly-text-md: 1em;
+    --polly-text-lg: 1.125em;
+    --polly-text-xl: 1.375em;
+    --polly-weight-normal: 400;
+    --polly-weight-medium: 500;
+    --polly-weight-bold: 700;
+    --polly-line-height-tight: 1.25;
+    --polly-line-height-base: 1.5;
+
+    /* Z-index scale */
+    --polly-z-base: 0;
+    --polly-z-raised: 10;
+    --polly-z-overlay: 1000;
+    --polly-z-toast: 2000;
+
+    /* Opacity */
+    --polly-opacity-disabled: 0.55;
+
+    /* Border widths */
+    --polly-border-width-default: 1px;
+    --polly-border-width-medium: 2px;
+    --polly-border-width-thick: 4px;
+
+    /* Shadows */
+    --polly-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+    --polly-shadow-md: 0 4px 12px rgb(0 0 0 / 0.1);
+    --polly-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --polly-surface: #14171c;
+      --polly-surface-raised: #1c2027;
+      --polly-surface-sunken: #0f1216;
+
+      --polly-border: #30353d;
+      --polly-border-strong: #5a6069;
+
+      --polly-text: #eef0f3;
+      --polly-text-muted: #a7adb5;
+
+      --polly-accent: #6c95ff;
+      --polly-accent-contrast: #0b1020;
+
+      --polly-danger: #ff8680;
+      --polly-danger-contrast: #0b1020;
+      --polly-success: #63c18a;
+      --polly-warning: #f2c269;
+
+      --polly-focus-ring: #6c95ff;
+
+      --polly-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+      --polly-shadow-md: 0 4px 12px rgb(0 0 0 / 0.6);
+      --polly-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.7);
+    }
+  }
+
+  /* Explicit mode override — wins over prefers-color-scheme. */
+  [data-polly-theme="light"] {
+    --polly-surface: #ffffff;
+    --polly-surface-raised: #ffffff;
+    --polly-surface-sunken: #f4f5f7;
+    --polly-border: #d9dbe0;
+    --polly-border-strong: #9fa3ab;
+    --polly-text: #111418;
+    --polly-text-muted: #5a5f67;
+    --polly-accent: #2451b5;
+    --polly-accent-contrast: #ffffff;
+    --polly-danger: #b3261e;
+    --polly-danger-contrast: #ffffff;
+    --polly-success: #1f6f43;
+    --polly-warning: #8a5a00;
+    --polly-focus-ring: #2451b5;
+    --polly-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+    --polly-shadow-md: 0 4px 12px rgb(0 0 0 / 0.1);
+    --polly-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.16);
+  }
+
+  [data-polly-theme="dark"] {
+    --polly-surface: #14171c;
+    --polly-surface-raised: #1c2027;
+    --polly-surface-sunken: #0f1216;
+    --polly-border: #30353d;
+    --polly-border-strong: #5a6069;
+    --polly-text: #eef0f3;
+    --polly-text-muted: #a7adb5;
+    --polly-accent: #6c95ff;
+    --polly-accent-contrast: #0b1020;
+    --polly-danger: #ff8680;
+    --polly-danger-contrast: #0b1020;
+    --polly-success: #63c18a;
+    --polly-warning: #f2c269;
+    --polly-focus-ring: #6c95ff;
+    --polly-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+    --polly-shadow-md: 0 4px 12px rgb(0 0 0 / 0.6);
+    --polly-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.7);
+  }
+}

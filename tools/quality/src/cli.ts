@@ -26,6 +26,7 @@ import {
   checkCssVars,
   checkNoAsCasting,
 } from "./index";
+import { logger } from "./logger";
 
 const args = process.argv.slice(2);
 
@@ -125,8 +126,8 @@ switch (subcommand) {
     exitCode = await runAll();
     break;
   default:
-    console.error(`Unknown quality subcommand: ${subcommand}`);
-    console.error(
+    logger.error(`Unknown quality subcommand: ${subcommand}`);
+    logger.error(
       "Expected one of: no-as-casting, css, css-quality, css-layout, css-vars, css-unused",
     );
     exitCode = 2;

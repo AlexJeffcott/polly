@@ -1,0 +1,10 @@
+@layer polly-components {
+  .form {
+    inline-size: 100%;
+  }
+
+  .form[aria-busy="true"] {
+    opacity: var(--polly-opacity-disabled);
+    pointer-events: none;
+  }
+}

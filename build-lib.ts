@@ -54,6 +54,9 @@ const libResult = await Bun.build({
     // Actions subpath (event delegation, action registry, form primitive)
     "src/actions/index.ts",
 
+    // UI primitives subpath
+    "src/polly-ui/index.ts",
+
     // Tool exports
     "tools/verify/src/config.ts",
     "tools/test/src/index.ts",
@@ -148,6 +151,16 @@ mkdirSync(templatesDestDir, { recursive: true });
 cpSync(templatesSourceDir, templatesDestDir, { recursive: true });
 
 console.log("✅ Templates copied");
+console.log("🔨 Copying UI stylesheets...");
+
+const pollyUiSrc = join("src", "polly-ui");
+const pollyUiDest = join(DIST_DIR, "src", "polly-ui");
+mkdirSync(pollyUiDest, { recursive: true });
+for (const file of ["styles.css", "theme.css"]) {
+  await Bun.write(join(pollyUiDest, file), await Bun.file(join(pollyUiSrc, file)).text());
+}
+
+console.log("✅ UI stylesheets copied");
 console.log("🔨 Copying specs for verification tool...");
 
 // Copy MessageRouter.tla specs to dist so verify CLI can find them

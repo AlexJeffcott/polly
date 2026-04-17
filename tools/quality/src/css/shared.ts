@@ -9,6 +9,7 @@
 import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { logger } from "../logger.ts";
 
 export type CssViolation = {
   file: string;
@@ -105,9 +106,9 @@ export function makeResult(kind: string, rootDir: string, violations: CssViolati
     print() {
       for (const line of formatViolations(kind, violations, rootDir)) {
         if (line.startsWith("❌")) {
-          console.error(line);
+          logger.error(line);
         } else {
-          console.log(line);
+          logger.log(line);
         }
       }
     },

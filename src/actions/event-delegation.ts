@@ -7,9 +7,13 @@
  *
  * Forms are skipped on click — a `<form data-action="...">` responds to
  * submit only, so clicks on form children don't bubble into its action.
- * Escape closes the topmost overlay. Enter/Space on non-interactive elements
- * with `data-action` fire the action (Space is prevented to stop page scroll).
+ * Escape closes the topmost overlay by calling the overlay registry.
+ * Enter/Space on non-interactive elements with `data-action` fire the
+ * action (Space is prevented to stop page scroll). Click outside any
+ * `[data-overlay-id]` element also pops the top overlay.
  */
+
+import { closeTopOverlay as closeTopRegistryOverlay } from "./overlay.ts";
 
 /** Elements that natively fire click on Enter/Space. */
 export const INTERACTIVE_TAGS = new Set(["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA"]);
@@ -89,6 +93,7 @@ export function resolveAction(event: Event): ActionDispatch | null {
  */
 export function installEventDelegation(
   onDispatch: (dispatch: ActionDispatch) => void,
+  options: { onEscape?: () => void; onOutsideOverlayClick?: () => void } = {},
 ): () => void {
   const handleActionEvent = (event: Event) => {
     const dispatch = resolveAction(event);
@@ -97,7 +102,12 @@ export function installEventDelegation(
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
-      closeTopOverlay();
+      if (options.onEscape) {
+        options.onEscape();
+      } else {
+        closeTopRegistryOverlay();
+        closeTopOverlay();
+      }
       return;
     }
     if (event.key === "Enter" || event.key === " ") {
@@ -115,7 +125,13 @@ export function installEventDelegation(
   const handleMouseDown = (event: MouseEvent) => {
     if (!(event.target instanceof Element)) return;
     const clickedOverlay = event.target.closest("[data-overlay-id]");
-    if (!clickedOverlay) closeTopOverlay();
+    if (clickedOverlay) return;
+    if (options.onOutsideOverlayClick) {
+      options.onOutsideOverlayClick();
+    } else {
+      closeTopRegistryOverlay();
+      closeTopOverlay();
+    }
   };
 
   for (const eventType of ACTION_EVENT_TYPES) {

@@ -14,6 +14,7 @@
 
 import { readFileSync } from "node:fs";
 import { Glob } from "bun";
+import { logger } from "./logger";
 
 export interface Violation {
   file: string;
@@ -240,18 +241,18 @@ function findViolations(relative: string, content: string): Violation[] {
 
 function printViolations(violations: Violation[]): void {
   if (violations.length === 0) {
-    console.log("[no-as-casting] ✅ No violations found.");
+    logger.log("[no-as-casting] ✅ No violations found.");
     return;
   }
-  console.log(`[no-as-casting] ❌ ${violations.length} violation(s) found:\n`);
+  logger.log(`[no-as-casting] ❌ ${violations.length} violation(s) found:\n`);
   for (const v of violations) {
-    console.log(`  ${v.file}:${v.line}`);
-    console.log(`    ${v.content}`);
-    if (v.advice) console.log(`    💡 ${v.advice}`);
-    console.log();
+    logger.log(`  ${v.file}:${v.line}`);
+    logger.log(`    ${v.content}`);
+    if (v.advice) logger.log(`    💡 ${v.advice}`);
+    logger.log("");
   }
-  console.log("[no-as-casting] Use type guards, validation, or fix the types at the source.");
-  console.log('[no-as-casting] Only "as const" and "as unknown as" are allowed.');
+  logger.log("[no-as-casting] Use type guards, validation, or fix the types at the source.");
+  logger.log('[no-as-casting] Only "as const" and "as unknown as" are allowed.');
 }
 
 /**

@@ -48,3 +48,8 @@ export {
 export { checkCssVars, type CssVarsOptions } from "./css/check-vars.ts";
 export { checkCssUnused, type CssUnusedOptions } from "./css/check-unused.ts";
 export type { CssCheckResult, CssViolation } from "./css/shared.ts";
+export {
+  logger,
+  type QualityLogger,
+  resetLogger,
+} from "./logger.ts";
