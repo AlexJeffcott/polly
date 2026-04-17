@@ -18,7 +18,8 @@
       "!**/build*.ts",
       "!**/examples/**/docs",
       "!**/*.min.js",
-      "!**/*.min.css"
+      "!**/*.min.css",
+      "!**/.claude/worktrees/**"
     ]
   },
   "linter": {
