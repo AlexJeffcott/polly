@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.2] - 2026-04-17
+
+### Changed
+
+- Reshaped `recipes/` from folder-per-recipe to file-per-recipe. Each
+  recipe is now a single Markdown code-along that answers a goal in
+  the user's voice — prose with focused snippets, not a full
+  implementation you copy. The previous `recipes/actions-driven-app/`
+  directory is replaced by `recipes/actions-driven-app.md`; two new
+  recipes, `recipes/mesh-only-cloudflare.md` and
+  `recipes/mesh-pi-peer.md`, cover deployment shapes on free Cloudflare
+  and an always-on Raspberry Pi peer respectively. `recipes/README.md`
+  now documents what a recipe is, what it is not, and how to propose
+  one.
+
 ## [0.25.1] - 2026-04-17
 
 ### Fixed
