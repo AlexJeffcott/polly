@@ -31,7 +31,7 @@ export function compareImages(
   baselinePath: string,
   actualPath: string,
   diffPath: string,
-  options: VisualCompareOptions = {},
+  options: VisualCompareOptions = {}
 ): VisualCompareResult {
   const threshold = options.threshold ?? 0.1;
   const mismatchRatio = options.mismatchRatio ?? 0.001;
@@ -42,20 +42,16 @@ export function compareImages(
 
   if (baseline.width !== actual.width || baseline.height !== actual.height) {
     throw new Error(
-      `Image dimensions differ: baseline ${baseline.width}x${baseline.height}, actual ${actual.width}x${actual.height}`,
+      `Image dimensions differ: baseline ${baseline.width}x${baseline.height}, actual ${actual.width}x${actual.height}`
     );
   }
 
   const { width, height } = baseline;
   const diff = new PNG({ width, height });
-  const diffPixels = pixelmatch(
-    baseline.data,
-    actual.data,
-    diff.data,
-    width,
-    height,
-    { threshold, includeAA },
-  );
+  const diffPixels = pixelmatch(baseline.data, actual.data, diff.data, width, height, {
+    threshold,
+    includeAA,
+  });
 
   const totalPixels = width * height;
   const ratio = diffPixels / totalPixels;

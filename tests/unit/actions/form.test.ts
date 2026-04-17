@@ -169,8 +169,7 @@ test("guard closes form when predicate turns false while open", () => {
   const form = createForm<TeamValues, TestStores>({
     name: "team",
     initialValues: { name: "", description: "" },
-    guard: ({ stores: s }) =>
-      s.teams.value.some((t) => t.id === s.modalEntityId.value),
+    guard: ({ stores: s }) => s.teams.value.some((t) => t.id === s.modalEntityId.value),
     onSubmit: async () => {},
   });
   form.bindStores(() => stores);

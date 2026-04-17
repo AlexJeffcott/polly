@@ -22,10 +22,9 @@ export type ActionFormProps<TValues extends Record<string, string>, TStores> = {
   "aria-labelledby"?: string;
 };
 
-export function ActionForm<
-  TValues extends Record<string, string>,
-  TStores,
->(props: ActionFormProps<TValues, TStores>): JSX.Element {
+export function ActionForm<TValues extends Record<string, string>, TStores>(
+  props: ActionFormProps<TValues, TStores>
+): JSX.Element {
   const { form, children, className, id } = props;
   const combined = className ? `${classes["form"]} ${className}` : classes["form"];
   return (

@@ -23,20 +23,16 @@ const FOCUSABLE_SELECTOR = [
 ].join(",");
 
 function getFocusable(root: HTMLElement): HTMLElement[] {
-  const nodes = Array.from(
-    root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-  );
+  const nodes = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
   return nodes.filter(
-    (el) =>
-      !el.hasAttribute("disabled") &&
-      el.getAttribute("aria-hidden") !== "true",
+    (el) => !el.hasAttribute("disabled") && el.getAttribute("aria-hidden") !== "true"
   );
 }
 
 export function installFocusTrap(root: HTMLElement): () => void {
-  const previousActive = (document.activeElement instanceof HTMLElement
-    ? document.activeElement
-    : null) as HTMLElement | null;
+  const previousActive = (
+    document.activeElement instanceof HTMLElement ? document.activeElement : null
+  ) as HTMLElement | null;
 
   // Move focus into the root if it's not already.
   const focusable = getFocusable(root);
@@ -61,11 +57,9 @@ export function installFocusTrap(root: HTMLElement): () => void {
         event.preventDefault();
         lastItem.focus();
       }
-    } else {
-      if (active === lastItem) {
-        event.preventDefault();
-        firstItem.focus();
-      }
+    } else if (active === lastItem) {
+      event.preventDefault();
+      firstItem.focus();
     }
   }
 

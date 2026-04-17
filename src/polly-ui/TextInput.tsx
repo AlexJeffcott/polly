@@ -51,16 +51,10 @@ export function TextInput(props: TextInputProps): JSX.Element {
   });
 
   const controlled = isSignal(props.value);
-  const stringValue = controlled
-    ? (props.value as Signal<string>).value
-    : undefined;
-  const defaultValue = controlled
-    ? undefined
-    : (props.value as string | undefined) ?? "";
+  const stringValue = controlled ? (props.value as Signal<string>).value : undefined;
+  const defaultValue = controlled ? undefined : ((props.value as string | undefined) ?? "");
 
-  const className = props.className
-    ? `${classes["input"]} ${props.className}`
-    : classes["input"];
+  const className = props.className ? `${classes["input"]} ${props.className}` : classes["input"];
 
   if (variant === "multi") {
     return (
@@ -69,13 +63,13 @@ export function TextInput(props: TextInputProps): JSX.Element {
         class={className}
         data-polly-input-variant="multi"
         rows={props.rows}
+        // biome-ignore lint/a11y/noAutofocus: opt-in prop — caller requests autofocus explicitly (e.g. form opens to this field).
         autoFocus={props.autoFocus}
         value={stringValue}
         defaultValue={defaultValue}
         onInput={(e) => {
           if (controlled) {
-            (props.value as Signal<string>).value =
-              e.currentTarget.value;
+            (props.value as Signal<string>).value = e.currentTarget.value;
           }
         }}
       />
@@ -88,6 +82,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
       type="text"
       class={className}
       data-polly-input-variant="single"
+      // biome-ignore lint/a11y/noAutofocus: opt-in prop — caller requests autofocus explicitly (e.g. form opens to this field).
       autoFocus={props.autoFocus}
       value={stringValue}
       defaultValue={defaultValue}

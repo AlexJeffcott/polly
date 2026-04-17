@@ -25,16 +25,18 @@ export type QualityLogger = {
 };
 
 function defaultLog(message: string): void {
-  // biome-ignore lint/suspicious/noConsoleLog: CLI output by design
   console.log(message);
 }
 function defaultError(message: string): void {
+  // biome-ignore lint/suspicious/noConsole: CLI output is the whole point of the default sink.
   console.error(message);
 }
 function defaultInfo(message: string): void {
+  // biome-ignore lint/suspicious/noConsole: CLI output is the whole point of the default sink.
   console.info(message);
 }
 function defaultWarn(message: string): void {
+  // biome-ignore lint/suspicious/noConsole: CLI output is the whole point of the default sink.
   console.warn(message);
 }
 

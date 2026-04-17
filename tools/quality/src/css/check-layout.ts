@@ -9,8 +9,8 @@
  * comment on the violating line or the line above.
  */
 
-import { makeResult, walkDirectory } from "./shared.ts";
 import type { CssCheckResult, CssViolation } from "./shared.ts";
+import { makeResult, walkDirectory } from "./shared.ts";
 
 export type CssLayoutOptions = {
   rootDir: string;
@@ -38,15 +38,14 @@ const TSX_PATTERNS: Array<{ pattern: RegExp; kind: string }> = [
 
 const SUPPRESS = "layout-ignore";
 
-export async function checkCssLayout(
-  options: CssLayoutOptions,
-): Promise<CssCheckResult> {
+export async function checkCssLayout(options: CssLayoutOptions): Promise<CssCheckResult> {
   const rootDir = options.rootDir;
   const exempt = options.layoutExemptPaths ?? ["Layout.module.css", "Layout.tsx"];
   const violations: CssViolation[] = [];
 
   await walkDirectory(
     rootDir,
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-file visitor covers filetype, suppression, and pattern loop.
     async (full) => {
       const isCss = full.endsWith(".module.css");
       const isTsx = full.endsWith(".tsx");
@@ -61,11 +60,8 @@ export async function checkCssLayout(
         const line = lines[i];
         if (!line) continue;
         const trimmed = line.trim();
-        if (
-          trimmed.startsWith("//") ||
-          trimmed.startsWith("*") ||
-          trimmed.startsWith("/*")
-        ) continue;
+        if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*"))
+          continue;
         if (trimmed.includes(SUPPRESS)) continue;
         const prev = i > 0 ? (lines[i - 1]?.trim() ?? "") : "";
         if (prev.includes(SUPPRESS)) continue;
@@ -87,7 +83,7 @@ export async function checkCssLayout(
     {
       rootDir,
       skipDirs: options.skipDirs,
-    },
+    }
   );
 
   return makeResult("css-layout", rootDir, violations);

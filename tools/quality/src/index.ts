@@ -30,26 +30,26 @@
  */
 
 export {
-  type CheckResult,
-  checkNoAsCasting,
-  isLineClean,
-  suggestFix,
-  type Violation,
-} from "./no-as-casting";
+  type CssLayoutOptions,
+  checkCssLayout,
+} from "./css/check-layout.ts";
 
 export {
-  checkCssQuality,
   type CssQualityOptions,
+  checkCssQuality,
 } from "./css/check-quality.ts";
-export {
-  checkCssLayout,
-  type CssLayoutOptions,
-} from "./css/check-layout.ts";
-export { checkCssVars, type CssVarsOptions } from "./css/check-vars.ts";
-export { checkCssUnused, type CssUnusedOptions } from "./css/check-unused.ts";
+export { type CssUnusedOptions, checkCssUnused } from "./css/check-unused.ts";
+export { type CssVarsOptions, checkCssVars } from "./css/check-vars.ts";
 export type { CssCheckResult, CssViolation } from "./css/shared.ts";
 export {
   logger,
   type QualityLogger,
   resetLogger,
 } from "./logger.ts";
+export {
+  type CheckResult,
+  checkNoAsCasting,
+  isLineClean,
+  suggestFix,
+  type Violation,
+} from "./no-as-casting";

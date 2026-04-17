@@ -44,6 +44,7 @@ export type ActionInputProps = {
   className?: string;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two render branches times two variants times four saveOn triggers; branching is inherent to the primitive.
 export function ActionInput(props: ActionInputProps): JSX.Element {
   const variant = props.variant ?? "single";
   const saveOn = props.saveOn ?? "blur";
@@ -81,10 +82,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
       const hidden = document.createElement("button");
       hidden.setAttribute("data-action", props.action);
       for (const [key, value] of Object.entries(dataAttrs)) {
-        const dashKey = key.replace(
-          /[A-Z]/g,
-          (m) => `-${m.toLowerCase()}`,
-        );
+        const dashKey = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
         hidden.setAttribute(`data-action-${dashKey}`, value);
       }
       hidden.style.position = "fixed";
@@ -99,7 +97,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
       }
       setMode("view");
     },
-    [props.action, props.actionData, props.value],
+    [props.action, props.actionData, props.value]
   );
 
   const cancel = useCallback(() => {
@@ -107,9 +105,8 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
     setMode("view");
   }, [props.value]);
 
-  const onKeyDown = (
-    event: JSX.TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard handler encodes the saveOn × variant matrix.
+  const onKeyDown = (event: JSX.TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
       cancel();
@@ -120,10 +117,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
       if (saveOn === "enter" && variant === "single") {
         event.preventDefault();
         commit(draft);
-      } else if (
-        (saveOn === "enter" && variant === "multi" && cmd) ||
-        saveOn === "cmd-enter"
-      ) {
+      } else if ((saveOn === "enter" && variant === "multi" && cmd) || saveOn === "cmd-enter") {
         if (cmd) {
           event.preventDefault();
           commit(draft);
@@ -132,16 +126,13 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
     }
   };
 
-  const className = props.className
-    ? `${classes["root"]} ${props.className}`
-    : classes["root"];
+  const className = props.className ? `${classes["root"]} ${props.className}` : classes["root"];
 
   if (mode === "view") {
-    const rendered = props.renderView
-      ? props.renderView(props.value)
-      : props.value;
+    const rendered = props.renderView ? props.renderView(props.value) : props.value;
     const isEmpty = props.value.length === 0;
     return (
+      // biome-ignore lint/a11y/useSemanticElements: <button> would swallow text selection and add default styling; div with role=button is the inline-edit idiom.
       <div
         class={`${className} ${classes["view"]}`}
         data-polly-ui
@@ -178,9 +169,8 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
     "data-variant": variant,
     placeholder: props.placeholder,
     value: draft,
-    onInput: (
-      e: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => setDraft(e.currentTarget.value),
+    onInput: (e: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setDraft(e.currentTarget.value),
     onBlur: () => {
       if (saveOn === "blur") commit(draft);
       else cancel();

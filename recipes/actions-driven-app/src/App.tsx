@@ -6,6 +6,7 @@
  * action registry in `actions.ts`.
  */
 
+import { useStores } from "@fairfox/polly/actions";
 import {
   ActionForm,
   ActionInput,
@@ -15,7 +16,6 @@ import {
   TextInput,
   Toast,
 } from "@fairfox/polly/ui";
-import { useStores } from "@fairfox/polly/actions";
 import { createTodoForm } from "./forms.ts";
 import type { RootStore } from "./stores.ts";
 
@@ -33,12 +33,7 @@ export function App() {
       >
         <Layout as="header" columns="1fr auto" alignItems="center">
           <h1>Todos</h1>
-          <button
-            type="button"
-            data-polly-ui
-            data-polly-interactive
-            data-action="theme:toggle"
-          >
+          <button type="button" data-polly-ui data-polly-interactive data-action="theme:toggle">
             {theme === "dark" ? "Light" : "Dark"}
           </button>
         </Layout>
@@ -82,12 +77,7 @@ export function App() {
         </Layout>
 
         <Layout as="footer">
-          <button
-            type="button"
-            data-polly-ui
-            data-polly-interactive
-            data-action="todo:create:open"
-          >
+          <button type="button" data-polly-ui data-polly-interactive data-action="todo:create:open">
             New todo
           </button>
         </Layout>
@@ -96,10 +86,7 @@ export function App() {
       <OverlayRoot />
       <Toast.Viewport />
 
-      <Modal.Root
-        when={createTodoForm.isOpen}
-        onClose={() => createTodoForm.close()}
-      >
+      <Modal.Root when={createTodoForm.isOpen} onClose={() => createTodoForm.close()}>
         <Modal.Backdrop />
         <Modal.Content>
           <Modal.Header>
@@ -109,6 +96,7 @@ export function App() {
           <Modal.Body>
             <ActionForm form={createTodoForm}>
               <Layout gap="var(--polly-space-md)">
+                {/* biome-ignore lint/a11y/noLabelWithoutControl: label wraps the nested TextInput component; biome cannot see through component composition. */}
                 <label>
                   Title
                   <TextInput name="title" required autoFocus />

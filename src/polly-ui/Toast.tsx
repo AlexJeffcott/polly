@@ -11,11 +11,7 @@
 import type { JSX } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
-import {
-  clearError,
-  type ErrorEntry,
-  errorState,
-} from "../actions/error.ts";
+import { clearError, type ErrorEntry, errorState } from "../actions/error.ts";
 import { getOverlayRootNode } from "./OverlayRoot.tsx";
 import classes from "./Toast.module.css";
 
@@ -47,6 +43,7 @@ function Viewport(props: ToastViewportProps): JSX.Element | null {
   if (!portalNode) return null;
 
   const content = (
+    // biome-ignore lint/a11y/noStaticElementInteractions: viewport pauses auto-dismiss on hover; it is a container, not an interactive control itself.
     <div
       class={`${classes["viewport"]} ${props.className ?? ""}`.trim()}
       data-polly-ui

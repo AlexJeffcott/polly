@@ -28,7 +28,7 @@ function allocId(): string {
 
 export function setError(
   message: string,
-  opts: { severity?: ErrorSeverity; action?: string } = {},
+  opts: { severity?: ErrorSeverity; action?: string } = {}
 ): string {
   const entry: ErrorEntry = {
     id: allocId(),

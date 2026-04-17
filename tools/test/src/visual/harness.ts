@@ -60,7 +60,7 @@ export function isCi(): boolean {
 export function assertSafeUpdateMode(): void {
   if (isUpdateMode() && isCi()) {
     throw new Error(
-      `${UPDATE_ENV}=1 is not allowed in CI. Regenerate baselines locally and commit them.`,
+      `${UPDATE_ENV}=1 is not allowed in CI. Regenerate baselines locally and commit them.`
     );
   }
 }
@@ -68,10 +68,8 @@ export function assertSafeUpdateMode(): void {
 function maskInPage(page: Page, selectors: string[]): Promise<void> {
   return page.evaluate((sels) => {
     for (const sel of sels) {
-      const nodes = document.querySelectorAll<HTMLElement>(sel);
-      for (let i = 0; i < nodes.length; i += 1) {
-        const el = nodes[i];
-        if (el) el.style.visibility = "hidden";
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
+        el.style.visibility = "hidden";
       }
     }
   }, selectors);
@@ -103,7 +101,7 @@ export async function matchBaseline(
   name: string,
   baselinesDir: string,
   diffsDir: string,
-  options: VisualMatchOptions = {},
+  options: VisualMatchOptions = {}
 ): Promise<VisualMatchResult> {
   assertSafeUpdateMode();
   await applyEmulation(page, options);
@@ -122,9 +120,7 @@ export async function matchBaseline(
   mkdirSync(dirname(baselinePath), { recursive: true });
   mkdirSync(dirname(actualPath), { recursive: true });
 
-  const target = options.selector
-    ? await page.$(options.selector)
-    : null;
+  const target = options.selector ? await page.$(options.selector) : null;
   const screenshotBuffer: Buffer = target
     ? Buffer.from(await target.screenshot({ type: "png" }))
     : Buffer.from(await page.screenshot({ type: "png", fullPage: false }));

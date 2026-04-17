@@ -134,6 +134,16 @@ time-varying selectors, commits baselines under
 baselines locally; the harness refuses that env var when `CI=true`
 to prevent silently-drifted baselines from landing.
 
+#### Browser test runner shipped as `polly test:browser`
+
+The Puppeteer-based browser test runner that Polly uses internally
+now ships in `dist/`. Consumers wire up `*.browser.{ts,tsx}` files
+and run them with `polly test:browser <dir>` — no need to copy or
+reimplement the orchestrator. The underlying harness
+(`describe`/`test`/`expect`/`flush`/`cleanup`/`done`) already
+shipped via `@fairfox/polly/test/browser`; this closes the gap by
+exposing the runner too.
+
 #### Centralised quality logger
 
 Every `console` call in the quality tool now routes through a

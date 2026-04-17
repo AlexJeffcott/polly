@@ -6,11 +6,7 @@
  * browser harness at `@fairfox/polly/test/browser`.
  */
 
-import type {
-  ActionContext,
-  ActionHandler,
-  ActionRegistry,
-} from "./registry.ts";
+import type { ActionContext, ActionHandler, ActionRegistry } from "./registry.ts";
 
 /**
  * Build a mock element that satisfies ActionContext.element.
@@ -18,7 +14,7 @@ import type {
  */
 export function createMockElement(
   attrs: Record<string, string> = {},
-  tagName = "DIV",
+  tagName = "DIV"
 ): HTMLElement {
   const attrMap = new Map(Object.entries(attrs));
   const el = {
@@ -41,9 +37,7 @@ export function createMockElement(
 }
 
 /** Build a minimal submit-like event wrapping a `<form>` FormData payload. */
-export function createMockSubmitEvent(
-  form: HTMLFormElement | Record<string, string>,
-): Event {
+export function createMockSubmitEvent(form: HTMLFormElement | Record<string, string>): Event {
   let target: HTMLFormElement;
   if (typeof HTMLFormElement !== "undefined" && form instanceof HTMLFormElement) {
     target = form;
@@ -58,7 +52,9 @@ export function createMockSubmitEvent(
     preventDefault() {
       defaultPrevented = true;
     },
-    stopPropagation() {},
+    stopPropagation() {
+      /* noop */
+    },
     get defaultPrevented() {
       return defaultPrevented;
     },
@@ -79,9 +75,7 @@ function createMockFormElement(fields: Record<string, string>): HTMLFormElement 
 /**
  * Shallow-merged partial stores. Callers typically pass signal-backed fakes.
  */
-export function createMockStores<TStores extends object>(
-  partial: Partial<TStores> = {},
-): TStores {
+export function createMockStores<TStores extends object>(partial: Partial<TStores> = {}): TStores {
   return partial as unknown as TStores;
 }
 
@@ -92,7 +86,7 @@ export function createMockStores<TStores extends object>(
 export async function runAction<TStores>(
   registry: ActionRegistry<TStores>,
   action: string,
-  ctx: Partial<ActionContext<TStores>> & { stores: TStores },
+  ctx: Partial<ActionContext<TStores>> & { stores: TStores }
 ): Promise<void> {
   const handler: ActionHandler<TStores> | undefined = registry[action];
   if (!handler) {

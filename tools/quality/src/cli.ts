@@ -44,9 +44,15 @@ function getSubcommand(): string {
 
 const subcommand = getSubcommand();
 const rootDir = getFlag("root") ?? process.cwd();
-const exclude =
-  getFlag("exclude")?.split(",") ??
-  ["node_modules", "dist", ".git", ".bun", "dist-test", "build", "coverage"];
+const exclude = getFlag("exclude")?.split(",") ?? [
+  "node_modules",
+  "dist",
+  ".git",
+  ".bun",
+  "dist-test",
+  "build",
+  "coverage",
+];
 const excludePackages = getFlag("exclude-packages")?.split(",");
 const excludeFiles = getFlag("exclude-files")?.split(",");
 const filePatterns = getFlag("pattern");
@@ -128,7 +134,7 @@ switch (subcommand) {
   default:
     logger.error(`Unknown quality subcommand: ${subcommand}`);
     logger.error(
-      "Expected one of: no-as-casting, css, css-quality, css-layout, css-vars, css-unused",
+      "Expected one of: no-as-casting, css, css-quality, css-layout, css-vars, css-unused"
     );
     exitCode = 2;
 }

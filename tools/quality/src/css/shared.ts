@@ -32,24 +32,18 @@ export type CssScanOptions = {
   skipFiles?: string[];
 };
 
-export const DEFAULT_SKIP_DIRS = [
-  "node_modules",
-  ".git",
-  "dist",
-  "dist-test",
-  "build",
-  "coverage",
-];
+export const DEFAULT_SKIP_DIRS = ["node_modules", ".git", "dist", "dist-test", "build", "coverage"];
 
 export async function walkDirectory(
   dir: string,
   visit: (filePath: string, relPath: string) => Promise<void>,
-  opts: CssScanOptions,
+  opts: CssScanOptions
 ): Promise<void> {
   const skipDirs = new Set(opts.skipDirs ?? DEFAULT_SKIP_DIRS);
   const skipFiles = new Set(opts.skipFiles ?? []);
   const rootDir = opts.rootDir;
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: recursive walk with skip sets is inherently branchy.
   async function walk(current: string): Promise<void> {
     let entries: Dirent[];
     try {
@@ -76,7 +70,7 @@ export async function walkDirectory(
 export function formatViolations(
   kind: string,
   violations: CssViolation[],
-  rootDir: string,
+  rootDir: string
 ): string[] {
   const lines: string[] = [];
   if (violations.length === 0) {
@@ -100,7 +94,11 @@ export function formatViolations(
   return lines;
 }
 
-export function makeResult(kind: string, rootDir: string, violations: CssViolation[]): CssCheckResult {
+export function makeResult(
+  kind: string,
+  rootDir: string,
+  violations: CssViolation[]
+): CssCheckResult {
   return {
     violations,
     print() {
@@ -118,18 +116,11 @@ export function makeResult(kind: string, rootDir: string, violations: CssViolati
 /** True when the line is a CSS comment (standalone or continuation). */
 export function isInsideComment(line: string): boolean {
   const trimmed = line.trim();
-  return (
-    trimmed.startsWith("/*") ||
-    trimmed.startsWith("*") ||
-    trimmed.startsWith("//")
-  );
+  return trimmed.startsWith("/*") || trimmed.startsWith("*") || trimmed.startsWith("//");
 }
 
 /** Heuristic: true when the given line number falls inside an @keyframes block. */
-export function isInsideKeyframes(
-  lineNum: number,
-  allLines: readonly string[],
-): boolean {
+export function isInsideKeyframes(lineNum: number, allLines: readonly string[]): boolean {
   for (let i = lineNum - 1; i >= 0; i -= 1) {
     const l = allLines[i]?.trim() ?? "";
     if (l.startsWith("@keyframes")) return true;

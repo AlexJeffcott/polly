@@ -17,15 +17,15 @@ function makeStores(): RootStore & { _calls: unknown[] } {
       add: (title: string) => {
         calls.push({ name: "add", title });
       },
-      rename: () => {},
-      toggle: () => {},
-      remove: () => {},
+      rename: () => undefined,
+      toggle: () => undefined,
+      remove: () => undefined,
     },
     view: {
       theme: signal<"light" | "dark">("light"),
       selectedId: signal<string | null>(null),
-      toggleTheme: () => {},
-      select: () => {},
+      toggleTheme: () => undefined,
+      select: () => undefined,
     },
     _calls: calls,
   } as unknown as RootStore & { _calls: unknown[] };

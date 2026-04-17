@@ -36,15 +36,11 @@ export type ActionDispatch = {
  */
 export function parseActionData(element: HTMLElement): Record<string, string> {
   const data: Record<string, string> = {};
-  for (let i = 0; i < element.attributes.length; i += 1) {
-    const attr = element.attributes[i];
-    if (!attr) continue;
+  for (const attr of Array.from(element.attributes)) {
     if (attr.name.startsWith("data-action-")) {
       const key = attr.name
         .replace("data-action-", "")
-        .replace(/-([a-z])/g, (_m: string, letter: string) =>
-          letter.toUpperCase(),
-        );
+        .replace(/-([a-z])/g, (_m: string, letter: string) => letter.toUpperCase());
       data[key] = attr.value;
     }
   }
@@ -64,7 +60,7 @@ export function closeTopOverlay(): void {
     new CustomEvent("overlay:close", {
       bubbles: true,
       detail: { id: topOverlay.getAttribute("data-overlay-id") },
-    }),
+    })
   );
 }
 
@@ -93,7 +89,7 @@ export function resolveAction(event: Event): ActionDispatch | null {
  */
 export function installEventDelegation(
   onDispatch: (dispatch: ActionDispatch) => void,
-  options: { onEscape?: () => void; onOutsideOverlayClick?: () => void } = {},
+  options: { onEscape?: () => void; onOutsideOverlayClick?: () => void } = {}
 ): () => void {
   const handleActionEvent = (event: Event) => {
     const dispatch = resolveAction(event);

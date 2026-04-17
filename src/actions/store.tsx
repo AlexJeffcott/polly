@@ -32,13 +32,8 @@ export type StoreProviderProps<TStores> = {
   stores: TStores;
 };
 
-export function StoreProvider<TStores>({
-  children,
-  stores,
-}: StoreProviderProps<TStores>) {
-  return (
-    <StoreContext.Provider value={stores}>{children}</StoreContext.Provider>
-  );
+export function StoreProvider<TStores>({ children, stores }: StoreProviderProps<TStores>) {
+  return <StoreContext.Provider value={stores}>{children}</StoreContext.Provider>;
 }
 
 export function useStores<TStores>(): TStores {

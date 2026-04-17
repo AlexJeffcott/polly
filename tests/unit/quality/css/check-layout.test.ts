@@ -1,7 +1,7 @@
+import { beforeEach, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, expect, test } from "bun:test";
 import { checkCssLayout } from "@fairfox/polly/quality";
 
 let root: string;
@@ -31,19 +31,13 @@ test("flags display: grid in a non-Layout CSS module", async () => {
 });
 
 test("exempts Layout.module.css", async () => {
-  await writeFileAt(
-    "ui/Layout.module.css",
-    `.layout { display: grid; }`,
-  );
+  await writeFileAt("ui/Layout.module.css", `.layout { display: grid; }`);
   const r = await checkCssLayout({ rootDir: root });
   expect(r.violations).toEqual([]);
 });
 
 test("exempts a line suppressed by /* layout-ignore */ on the same line", async () => {
-  await writeFileAt(
-    "components/Card.module.css",
-    `.x { display: flex; /* layout-ignore */ }`,
-  );
+  await writeFileAt("components/Card.module.css", `.x { display: flex; /* layout-ignore */ }`);
   const r = await checkCssLayout({ rootDir: root });
   expect(r.violations).toEqual([]);
 });
@@ -52,7 +46,7 @@ test("exempts a line suppressed by /* layout-ignore */ on the preceding line", a
   await writeFileAt(
     "components/Card.module.css",
     `/* layout-ignore */
-.x { display: flex; }`,
+.x { display: flex; }`
   );
   const r = await checkCssLayout({ rootDir: root });
   expect(r.violations).toEqual([]);
@@ -61,7 +55,7 @@ test("exempts a line suppressed by /* layout-ignore */ on the preceding line", a
 test("flags inline display: 'flex' in TSX", async () => {
   await writeFileAt(
     "components/Card.tsx",
-    `export const X = () => <div style={{ display: "flex" }} />;`,
+    `export const X = () => <div style={{ display: "flex" }} />;`
   );
   const r = await checkCssLayout({ rootDir: root });
   expect(r.violations.length).toBe(1);
@@ -69,10 +63,7 @@ test("flags inline display: 'flex' in TSX", async () => {
 });
 
 test("custom layoutExemptPaths is honoured", async () => {
-  await writeFileAt(
-    "components/MyStack.module.css",
-    `.stack { display: flex; }`,
-  );
+  await writeFileAt("components/MyStack.module.css", `.stack { display: flex; }`);
   const r = await checkCssLayout({
     rootDir: root,
     layoutExemptPaths: ["MyStack.module.css"],

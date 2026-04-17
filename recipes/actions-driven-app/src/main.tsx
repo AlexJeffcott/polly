@@ -5,17 +5,13 @@
  * delegation, registers the StoreProvider, and mounts.
  */
 
-import {
-  installEventDelegation,
-  StoreProvider,
-  submitError,
-} from "@fairfox/polly/actions";
+import { installEventDelegation, StoreProvider, submitError } from "@fairfox/polly/actions";
 import "@fairfox/polly/ui/styles.css";
 import "@fairfox/polly/ui/theme.css";
 import "@fairfox/polly/ui/components.css";
 import { render } from "preact";
-import { ACTION_REGISTRY } from "./actions.ts";
 import { App } from "./App.tsx";
+import { ACTION_REGISTRY } from "./actions.ts";
 import { createTodoForm } from "./forms.ts";
 import { makeRootStore } from "./stores.ts";
 
@@ -43,5 +39,5 @@ render(
   <StoreProvider stores={stores}>
     <App />
   </StoreProvider>,
-  root,
+  root
 );

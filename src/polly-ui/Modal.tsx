@@ -12,10 +12,7 @@ import type { ReadonlySignal } from "@preact/signals";
 import { type ComponentChildren, createContext } from "preact";
 import { createPortal } from "preact/compat";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
-import {
-  popOverlay,
-  pushOverlay,
-} from "../actions/overlay.ts";
+import { popOverlay, pushOverlay } from "../actions/overlay.ts";
 import { installFocusTrap } from "./internal/focus-trap.ts";
 import classes from "./Modal.module.css";
 import { getOverlayRootNode } from "./OverlayRoot.tsx";
@@ -65,7 +62,11 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
     const entry = { id, onClose };
     pushOverlay(entry);
     const el = mountRef.current;
-    const cleanup = el ? installFocusTrap(el) : () => {};
+    const cleanup = el
+      ? installFocusTrap(el)
+      : () => {
+          /* no ref yet */
+        };
     return () => {
       cleanup();
       popOverlay(id);
@@ -106,12 +107,7 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
 function Backdrop() {
   const { close } = useModal();
   return (
-    <div
-      class={classes["backdrop"]}
-      data-polly-modal-backdrop
-      onClick={close}
-      aria-hidden="true"
-    />
+    <div class={classes["backdrop"]} data-polly-modal-backdrop onClick={close} aria-hidden="true" />
   );
 }
 

@@ -32,9 +32,7 @@ function mount(html: string): HTMLElement {
 
 describe("installEventDelegation — click events", () => {
   test("fires the handler with parsed data-action-* camelCase", async () => {
-    let seen:
-      | { action: string; data: Record<string, string>; tag: string }
-      | undefined;
+    let seen: { action: string; data: Record<string, string>; tag: string } | undefined;
     const off = installEventDelegation((d) => {
       seen = { action: d.action, data: d.data, tag: d.element.tagName };
     });
@@ -129,9 +127,7 @@ describe("installEventDelegation — keyboard", () => {
     `);
     const el = host.querySelector<HTMLDivElement>("#k")!;
     el.focus();
-    el.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-    );
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await flush();
     expect(action).toBe("open:menu");
 
@@ -148,9 +144,7 @@ describe("installEventDelegation — keyboard", () => {
     const host = mount(`<button id="b" data-action="x">B</button>`);
     const el = host.querySelector<HTMLButtonElement>("#b")!;
     el.focus();
-    el.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-    );
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await flush();
     // keydown for Enter on a BUTTON is not dispatched by the runtime;
     // the native click cycle will fire click separately (not triggered here).
@@ -168,9 +162,7 @@ describe("installEventDelegation — keyboard", () => {
     pushOverlay({ id: "b", onClose: () => (closedB += 1) });
 
     const off = installEventDelegation(() => {});
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await flush();
 
     // installEventDelegation's Escape path calls closeTopOverlay on the

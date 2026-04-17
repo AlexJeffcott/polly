@@ -18,13 +18,7 @@
  *   guard  → autonomous effect; if guard() returns false while open, close()
  */
 
-import {
-  computed,
-  effect,
-  type ReadonlySignal,
-  type Signal,
-  signal,
-} from "@preact/signals";
+import { computed, effect, type ReadonlySignal, type Signal, signal } from "@preact/signals";
 import { submitError } from "./error.ts";
 import type { ActionRegistry } from "./registry.ts";
 
@@ -51,23 +45,16 @@ export type FormConfig<TValues extends Record<string, string>, TStores> = {
   /** Used as action namespace: `{name}:open`, `{name}:close`, `{name}:submit`. */
   name: string;
   initialValues: TValues;
-  onSubmit: (
-    ctx: FormSubmitContext<TValues, TStores>,
-  ) => void | Promise<void>;
+  onSubmit: (ctx: FormSubmitContext<TValues, TStores>) => void | Promise<void>;
   /** Invoked on open; return partial overrides to pre-populate fields. */
-  onOpen?: (ctx: FormOpenContext<TStores>) => Partial<TValues> | void;
+  onOpen?: (ctx: FormOpenContext<TStores>) => Partial<TValues> | undefined;
   /** Returns false while open → form auto-closes (entity-deletion guard). */
   guard?: (ctx: { stores: TStores }) => boolean;
   /** Synchronous validation. Returning keys blocks submit. */
-  validate?: (
-    values: TValues,
-  ) => Partial<Record<keyof TValues, string>> | null;
+  validate?: (values: TValues) => Partial<Record<keyof TValues, string>> | null;
 };
 
-export type FormStore<
-  TValues extends Record<string, string>,
-  TStores,
-> = {
+export type FormStore<TValues extends Record<string, string>, TStores> = {
   readonly name: string;
   readonly isOpen: ReadonlySignal<boolean>;
   readonly values: ReadonlySignal<TValues>;
@@ -84,10 +71,9 @@ export type FormStore<
   actions: ActionRegistry<TStores>;
 };
 
-export function createForm<
-  TValues extends Record<string, string>,
-  TStores,
->(config: FormConfig<TValues, TStores>): FormStore<TValues, TStores> {
+export function createForm<TValues extends Record<string, string>, TStores>(
+  config: FormConfig<TValues, TStores>
+): FormStore<TValues, TStores> {
   const fieldKeys = Object.keys(config.initialValues) as unknown as (keyof TValues)[];
 
   const fields = {} as unknown as { [K in keyof TValues]: Signal<TValues[K]> };
@@ -114,7 +100,7 @@ export function createForm<
   function getStoresOrThrow(): TStores {
     if (!getStoresRef) {
       throw new Error(
-        `Form "${config.name}" used before bindStores(). Call form.bindStores(() => yourStores) at app init.`,
+        `Form "${config.name}" used before bindStores(). Call form.bindStores(() => yourStores) at app init.`
       );
     }
     return getStoresRef();
@@ -127,15 +113,12 @@ export function createForm<
     errors.value = {};
   }
 
-  function open(
-    override?: Partial<TValues>,
-    params: Record<string, string> = {},
-  ): void {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: open applies two layers of overrides plus optional onOpen — branchy by design.
+  function open(override?: Partial<TValues>, params: Record<string, string> = {}): void {
     resetToInitial();
     openParams.value = params;
     if (config.onOpen && getStoresRef) {
-      const onOpenOverride =
-        config.onOpen({ data: params, stores: getStoresOrThrow() }) ?? {};
+      const onOpenOverride = config.onOpen({ data: params, stores: getStoresOrThrow() }) ?? {};
       for (const [k, v] of Object.entries(onOpenOverride)) {
         if (k in fields) {
           fields[k as keyof TValues].value = v as TValues[keyof TValues];
@@ -158,6 +141,7 @@ export function createForm<
     openParams.value = {};
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: submit funnels FormData, validate, onSubmit, errorState, and close — one-path-per-stage by design.
   async function submit(event?: Event): Promise<void> {
     if (event) event.preventDefault();
     if (event && isFormElement(event.target)) {
@@ -171,10 +155,7 @@ export function createForm<
     }
     const current = values.value;
     const validationErrors = config.validate?.(current);
-    if (
-      validationErrors &&
-      Object.keys(validationErrors).length > 0
-    ) {
+    if (validationErrors && Object.keys(validationErrors).length > 0) {
       errors.value = validationErrors;
       return;
     }
@@ -243,9 +224,8 @@ export type FormSet<TStores> = {
   bindStores(getStores: () => TStores): void;
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export function createFormSet<TStores>(
-  forms: readonly FormStore<any, TStores>[],
+  forms: readonly FormStore<Record<string, string>, TStores>[]
 ): FormSet<TStores> {
   const merged: ActionRegistry<TStores> = {};
   for (const form of forms) {
@@ -270,4 +250,3 @@ export function createFormSet<TStores>(
     },
   };
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */

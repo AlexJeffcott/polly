@@ -31,14 +31,7 @@ export function OverlayRoot() {
     };
   }, []);
 
-  return (
-    <div
-      ref={ref}
-      class={classes["root"]}
-      data-polly-ui
-      data-polly-overlay-root
-    />
-  );
+  return <div ref={ref} class={classes["root"]} data-polly-ui data-polly-overlay-root />;
 }
 
 /** Get the mount node for portaled overlays. Returns null before mount. */

@@ -16,6 +16,7 @@
  *   polly lint [--fix]               Lint your code
  *   polly format                     Format your code
  *   polly test [args]                Run tests (requires bun test)
+ *   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
  *   polly quality [args]             Run quality conformance checks
@@ -259,6 +260,30 @@ async function test() {
 }
 
 /**
+ * Browser test command — bundles *.browser.{ts,tsx} files, serves them,
+ * opens a Puppeteer page, and collects results. Consumers use this to
+ * run tests written with @fairfox/polly/test/browser in a real browser.
+ */
+async function testBrowser() {
+  const bundledCli = `${__dirname}/../tools/test/src/browser/run.js`;
+  const monorepoCli = `${__dirname}/../tools/test/src/browser/run.ts`;
+  const browserCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  const proc = Bun.spawn(["bun", browserCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Browser tests failed with exit code ${exitCode}`);
+  }
+}
+
+/**
  * Check command - run all quality checks in sequence
  */
 async function check() {
@@ -321,6 +346,7 @@ Usage:
   polly lint [--fix]               Lint your code
   polly format                     Format your code
   polly test [args]                Run tests
+  polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
   polly verify [args]              Run formal verification
   polly visualize [args]           Generate architecture diagrams
   polly quality [args]             Run quality conformance checks
@@ -362,6 +388,9 @@ async function main() {
         break;
       case "test":
         await test();
+        break;
+      case "test:browser":
+        await testBrowser();
         break;
       case "verify":
         await verify();

@@ -23,8 +23,6 @@ export type ActionContext<TStores> = {
   data: Record<string, string>;
 };
 
-export type ActionHandler<TStores> = (
-  ctx: ActionContext<TStores>,
-) => void | Promise<void>;
+export type ActionHandler<TStores> = (ctx: ActionContext<TStores>) => void | Promise<void>;
 
 export type ActionRegistry<TStores> = Record<string, ActionHandler<TStores>>;

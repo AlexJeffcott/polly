@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { parseActionData } from "@fairfox/polly/actions";
-import { createMockElement } from "@fairfox/polly/actions";
+import { createMockElement, parseActionData } from "@fairfox/polly/actions";
 
 test("camelCases data-action-* attribute names", () => {
   const el = createMockElement({

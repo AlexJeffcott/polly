@@ -10,8 +10,8 @@
  * of a file to skip checks for that file.
  */
 
-import { makeResult, walkDirectory, isInsideComment, isInsideKeyframes } from "./shared.ts";
 import type { CssCheckResult, CssViolation } from "./shared.ts";
+import { isInsideComment, isInsideKeyframes, makeResult, walkDirectory } from "./shared.ts";
 
 export type CssQualityOptions = {
   rootDir: string;
@@ -27,11 +27,7 @@ export type CssQualityOptions = {
 
 type Rule = {
   id: string;
-  check: (
-    line: string,
-    lineNum: number,
-    allLines: readonly string[],
-  ) => string | null;
+  check: (line: string, lineNum: number, allLines: readonly string[]) => string | null;
 };
 
 const DEFAULT_RULES: Rule[] = [
@@ -43,10 +39,7 @@ const DEFAULT_RULES: Rule[] = [
       if (/\bcolor:\s*(white|black|#[0-9a-fA-F]{3,8})\b/.test(line)) {
         return "Use a semantic colour token (--polly-text, --polly-text-muted, …)";
       }
-      if (
-        /background(-color)?:\s*#[0-9a-fA-F]{3,8}/.test(line) &&
-        !line.includes("var(")
-      ) {
+      if (/background(-color)?:\s*#[0-9a-fA-F]{3,8}/.test(line) && !line.includes("var(")) {
         return "Use a semantic surface token (--polly-surface, --polly-surface-raised, …)";
       }
       return null;
@@ -99,9 +92,7 @@ const DEFAULT_RULES: Rule[] = [
       if (line.includes("var(--polly-motion")) return null;
       if (!/(?:transition|animation)/.test(line)) return null;
       if (
-        /\d+(\.\d+)?(ms|s)\s+(ease|linear|ease-in|ease-out|ease-in-out)/.test(
-          line,
-        ) &&
+        /\d+(\.\d+)?(ms|s)\s+(ease|linear|ease-in|ease-out|ease-in-out)/.test(line) &&
         !line.includes("infinite")
       ) {
         return "Use var(--polly-motion-fast|base|slow)";
@@ -139,9 +130,7 @@ const DEFAULT_RULES: Rule[] = [
     check: (line) => {
       if (isInsideComment(line)) return null;
       if (line.includes("var(--polly-border-width")) return null;
-      const m = line.match(
-        /border(?:-(?:top|right|bottom|left))?:\s*(\d+)px\s+solid/,
-      );
+      const m = line.match(/border(?:-(?:top|right|bottom|left))?:\s*(\d+)px\s+solid/);
       if (!m?.[1]) return null;
       return "Use a --polly-border-width-* token";
     },
@@ -179,9 +168,7 @@ const DEFAULT_RULES: Rule[] = [
   },
 ];
 
-export async function checkCssQuality(
-  options: CssQualityOptions,
-): Promise<CssCheckResult> {
+export async function checkCssQuality(options: CssQualityOptions): Promise<CssCheckResult> {
   const rootDir = options.rootDir;
   const extensions = options.extensions ?? [".module.css"];
   const skipFiles = options.skipFiles ?? ["theme.css", "tokens.css"];
@@ -191,6 +178,7 @@ export async function checkCssQuality(
 
   await walkDirectory(
     rootDir,
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-file nested rule loop; readable as written.
     async (full) => {
       if (!extensions.some((ext) => full.endsWith(ext))) return;
       const content = await Bun.file(full).text();
@@ -221,7 +209,7 @@ export async function checkCssQuality(
       rootDir,
       skipDirs: options.skipDirs,
       skipFiles,
-    },
+    }
   );
 
   return makeResult("css-quality", rootDir, violations);

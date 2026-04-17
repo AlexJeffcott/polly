@@ -8,7 +8,7 @@
  */
 
 import { signal } from "@preact/signals";
-import { h, render } from "preact";
+import { render } from "preact";
 import {
   type ActionRegistry,
   clearError,
@@ -17,14 +17,7 @@ import {
   resetOverlayStack,
   submitError,
 } from "../../../src/actions";
-import {
-  ActionForm,
-  Layout,
-  Modal,
-  OverlayRoot,
-  TextInput,
-  Toast,
-} from "../../../src/polly-ui";
+import { ActionForm, Layout, Modal, OverlayRoot, TextInput, Toast } from "../../../src/polly-ui";
 import {
   cleanup,
   describe,
@@ -45,7 +38,7 @@ function mountHost(): HTMLElement {
 describe("OverlayRoot", () => {
   test("mounts a portal target with data-polly-overlay-root", async () => {
     const host = mountHost();
-    render(h(OverlayRoot, null), host);
+    render(<OverlayRoot />, host);
     await flush();
     const root = host.querySelector("[data-polly-overlay-root]");
     expect(root).toExist();
@@ -57,13 +50,11 @@ describe("Layout", () => {
   test("renders a grid container with configured tracks", async () => {
     const host = mountHost();
     render(
-      h(
-        Layout,
-        { columns: "1fr 1fr", gap: "var(--polly-space-lg)" },
-        h("div", { "data-testid": "a" }, "A"),
-        h("div", { "data-testid": "b" }, "B"),
-      ),
-      host,
+      <Layout columns="1fr 1fr" gap="var(--polly-space-lg)">
+        <div data-testid="a">A</div>
+        <div data-testid="b">B</div>
+      </Layout>,
+      host
     );
     await flush();
     const grid = host.querySelector<HTMLElement>("[data-polly-layout]");
@@ -80,40 +71,38 @@ describe("Modal", () => {
     const open = signal(false);
     const offDelegation = installEventDelegation(() => {});
 
-    const App = () =>
-      h(
-        "div",
-        null,
-        h("button", {
-          id: "opener",
-          onClick: () => {
-            open.value = true;
-          },
-        }, "open"),
-        h(OverlayRoot, null),
-        h(
-          Modal.Root,
-          { when: open, onClose: () => (open.value = false) },
-          h(Modal.Backdrop, null),
-          h(
-            Modal.Content,
-            null,
-            h(
-              Modal.Header,
-              null,
-              h(Modal.Title, null, "Hello"),
-            ),
-            h(Modal.Body, null, h("input", { id: "first" })),
-            h(
-              Modal.Footer,
-              null,
-              h(Modal.Close, null, "Close"),
-            ),
-          ),
-        ),
+    function TestApp() {
+      return (
+        <div>
+          <button
+            id="opener"
+            type="button"
+            onClick={() => {
+              open.value = true;
+            }}
+          >
+            open
+          </button>
+          <OverlayRoot />
+          <Modal.Root when={open} onClose={() => (open.value = false)}>
+            <Modal.Backdrop />
+            <Modal.Content>
+              <Modal.Header>
+                <Modal.Title>Hello</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <input id="first" />
+              </Modal.Body>
+              <Modal.Footer>
+                <Modal.Close>Close</Modal.Close>
+              </Modal.Footer>
+            </Modal.Content>
+          </Modal.Root>
+        </div>
       );
+    }
 
-    render(h(App, null), host);
+    render(<TestApp />, host);
     await flush();
 
     const opener = host.querySelector<HTMLButtonElement>("#opener")!;
@@ -121,25 +110,15 @@ describe("Modal", () => {
     opener.click();
     await flush();
 
-    const modal = document.querySelector<HTMLElement>(
-      "[data-polly-modal-content]",
-    );
+    const modal = document.querySelector<HTMLElement>("[data-polly-modal-content]");
     expect(modal).toExist();
     expect(modal!.getAttribute("role")).toBe("dialog");
     expect(modal!.getAttribute("aria-modal")).toBe("true");
-
-    // Focus should have moved inside the modal.
     expect(modal!.contains(document.activeElement)).toBe(true);
 
-    // Escape closes.
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await flush();
-    expect(
-      document.querySelector("[data-polly-modal-content]"),
-    ).toBeNull();
-    // Focus restored to the opener.
+    expect(document.querySelector("[data-polly-modal-content]")).toBeNull();
     expect(document.activeElement).toBe(opener);
 
     offDelegation();
@@ -150,25 +129,24 @@ describe("Modal", () => {
     const host = mountHost();
     resetOverlayStack();
     const open = signal(false);
-    const App = () =>
-      h(
-        "div",
-        null,
-        h(OverlayRoot, null),
-        h(
-          Modal.Root,
-          { when: open, onClose: () => (open.value = false) },
-          h(Modal.Backdrop, null),
-          h(Modal.Content, null, h(Modal.Body, null, "body")),
-        ),
+    function TestApp() {
+      return (
+        <div>
+          <OverlayRoot />
+          <Modal.Root when={open} onClose={() => (open.value = false)}>
+            <Modal.Backdrop />
+            <Modal.Content>
+              <Modal.Body>body</Modal.Body>
+            </Modal.Content>
+          </Modal.Root>
+        </div>
       );
-    render(h(App, null), host);
+    }
+    render(<TestApp />, host);
     open.value = true;
     await flush();
 
-    const backdrop = document.querySelector<HTMLElement>(
-      "[data-polly-modal-backdrop]",
-    )!;
+    const backdrop = document.querySelector<HTMLElement>("[data-polly-modal-backdrop]")!;
     backdrop.click();
     await flush();
     expect(open.value).toBe(false);
@@ -208,14 +186,17 @@ describe("ActionForm + createForm", () => {
 
     form.open();
 
-    const App = () =>
-      h(
-        ActionForm<Values, Stores>,
-        { form },
-        h("input", { name: "name", defaultValue: "" }),
-        h("button", { type: "submit", id: "submit-btn" }, "Save"),
+    function TestApp() {
+      return (
+        <ActionForm<Values, Stores> form={form}>
+          <input name="name" defaultValue="" />
+          <button type="submit" id="submit-btn">
+            Save
+          </button>
+        </ActionForm>
       );
-    render(h(App, null), host);
+    }
+    render(<TestApp />, host);
     await flush();
 
     const input = host.querySelector<HTMLInputElement>("input[name=name]")!;
@@ -236,27 +217,28 @@ describe("Toast", () => {
   test("renders entries from errorState and dismisses on click", async () => {
     const host = mountHost();
     clearError();
-    const App = () => h("div", null, h(OverlayRoot, null), h(Toast.Viewport, { autoDismissMs: 100000 }));
-    render(h(App, null), host);
+    function TestApp() {
+      return (
+        <div>
+          <OverlayRoot />
+          <Toast.Viewport autoDismissMs={100000} />
+        </div>
+      );
+    }
+    render(<TestApp />, host);
     await flush();
 
     submitError("x", new Error("boom"));
     await flush();
 
-    const item = document.querySelector<HTMLElement>(
-      "[data-polly-toast-item]",
-    );
+    const item = document.querySelector<HTMLElement>("[data-polly-toast-item]");
     expect(item).toExist();
     expect(item!).toHaveTextContent("boom");
 
-    const close = document.querySelector<HTMLButtonElement>(
-      "[data-polly-toast-close]",
-    )!;
+    const close = document.querySelector<HTMLButtonElement>("[data-polly-toast-close]")!;
     close.click();
     await flush();
-    expect(
-      document.querySelector("[data-polly-toast-item]"),
-    ).toBeNull();
+    expect(document.querySelector("[data-polly-toast-item]")).toBeNull();
 
     cleanup(host);
   });
@@ -266,12 +248,10 @@ describe("TextInput", () => {
   test("uncontrolled mode exposes name + default value for FormData", async () => {
     const host = mountHost();
     render(
-      h(
-        "form",
-        { id: "f" },
-        h(TextInput, { name: "handle", value: "seed" }),
-      ),
-      host,
+      <form id="f">
+        <TextInput name="handle" value="seed" />
+      </form>,
+      host
     );
     await flush();
     const input = host.querySelector<HTMLInputElement>("input[name=handle]")!;
@@ -282,7 +262,7 @@ describe("TextInput", () => {
   test("controlled mode writes to the signal on input", async () => {
     const host = mountHost();
     const s = signal("");
-    render(h(TextInput, { name: "q", value: s }), host);
+    render(<TextInput name="q" value={s} />, host);
     await flush();
     const input = host.querySelector<HTMLInputElement>("input[name=q]")!;
     input.value = "hi";
@@ -294,10 +274,7 @@ describe("TextInput", () => {
 
   test("invalid prop surfaces aria-invalid and data-state", async () => {
     const host = mountHost();
-    render(
-      h(TextInput, { name: "email", invalid: true, value: "bad" }),
-      host,
-    );
+    render(<TextInput name="email" invalid value="bad" />, host);
     await flush();
     const input = host.querySelector<HTMLInputElement>("input[name=email]")!;
     expect(input.getAttribute("aria-invalid")).toBe("true");

@@ -8,11 +8,7 @@
  * any of them in media queries without touching specificity.
  */
 
-import {
-  type ComponentChildren,
-  createElement,
-  type JSX,
-} from "preact";
+import { type ComponentChildren, createElement, type JSX } from "preact";
 import classes from "./Layout.module.css";
 
 export type LayoutProps = {
@@ -66,6 +62,7 @@ export type LayoutProps = {
   "aria-describedby"?: string;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: sixteen optional prop-to-custom-property mappings; flat and linear.
 export function Layout(props: LayoutProps): JSX.Element {
   const {
     children,
@@ -127,11 +124,7 @@ export function Layout(props: LayoutProps): JSX.Element {
   const baseClass = stackOnMobile
     ? `${classes["layout"]} ${classes["stackOnMobile"]}`
     : classes["layout"];
-  const combined = contents
-    ? className
-    : className
-      ? `${baseClass} ${className}`
-      : baseClass;
+  const combined = contents ? className : className ? `${baseClass} ${className}` : baseClass;
 
   return createElement(
     as,
@@ -148,6 +141,6 @@ export function Layout(props: LayoutProps): JSX.Element {
       "aria-describedby": props["aria-describedby"],
       "data-polly-layout": true,
     },
-    children,
+    children
   );
 }

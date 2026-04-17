@@ -6,8 +6,8 @@
  * read signals and dispatch actions.
  */
 
-import { $persistedState } from "@fairfox/polly/state";
 import { createStore } from "@fairfox/polly/actions";
+import { $persistedState } from "@fairfox/polly/state";
 import { computed, signal } from "@preact/signals";
 
 export type Todo = {
@@ -22,22 +22,15 @@ function makeTodoStore() {
   function add(title: string): void {
     const trimmed = title.trim();
     if (trimmed === "") return;
-    todos.value = [
-      ...todos.value,
-      { id: crypto.randomUUID(), title: trimmed, done: false },
-    ];
+    todos.value = [...todos.value, { id: crypto.randomUUID(), title: trimmed, done: false }];
   }
 
   function rename(id: string, title: string): void {
-    todos.value = todos.value.map((t) =>
-      t.id === id ? { ...t, title } : t,
-    );
+    todos.value = todos.value.map((t) => (t.id === id ? { ...t, title } : t));
   }
 
   function toggle(id: string): void {
-    todos.value = todos.value.map((t) =>
-      t.id === id ? { ...t, done: !t.done } : t,
-    );
+    todos.value = todos.value.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
   }
 
   function remove(id: string): void {
@@ -46,9 +39,7 @@ function makeTodoStore() {
 
   return createStore({
     todos,
-    remaining: computed(
-      () => todos.value.filter((t) => !t.done).length,
-    ),
+    remaining: computed(() => todos.value.filter((t) => !t.done).length),
     add,
     rename,
     toggle,

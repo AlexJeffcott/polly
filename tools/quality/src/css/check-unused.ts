@@ -10,8 +10,8 @@
  * the caller decides whether to fail the build.
  */
 
-import { makeResult, walkDirectory } from "./shared.ts";
 import type { CssCheckResult, CssViolation } from "./shared.ts";
+import { makeResult, walkDirectory } from "./shared.ts";
 
 export type CssUnusedOptions = {
   rootDir: string;
@@ -28,9 +28,7 @@ type Definition = {
   type: "class" | "variable";
 };
 
-export async function checkCssUnused(
-  options: CssUnusedOptions,
-): Promise<CssCheckResult> {
+export async function checkCssUnused(options: CssUnusedOptions): Promise<CssCheckResult> {
   const rootDir = options.rootDir;
   const alwaysUsed = new Set(options.alwaysUsedClasses ?? []);
   const definitions: Definition[] = [];
@@ -39,6 +37,7 @@ export async function checkCssUnused(
 
   await walkDirectory(
     rootDir,
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: filetype dispatch with nested matchAll scans; flat branches.
     async (full) => {
       if (full.endsWith(".module.css")) {
         const content = await Bun.file(full).text();
@@ -71,15 +70,12 @@ export async function checkCssUnused(
       } else if (full.endsWith(".css") && !full.endsWith(".css.d.ts")) {
         const content = await Bun.file(full).text();
         cssContents.push({ file: full, content });
-      } else if (
-        (full.endsWith(".ts") || full.endsWith(".tsx")) &&
-        !full.endsWith(".css.d.ts")
-      ) {
+      } else if ((full.endsWith(".ts") || full.endsWith(".tsx")) && !full.endsWith(".css.d.ts")) {
         const content = await Bun.file(full).text();
         tsContents.push({ file: full, content });
       }
     },
-    { rootDir, skipDirs: options.skipDirs },
+    { rootDir, skipDirs: options.skipDirs }
   );
 
   // Deduplicate definitions (same class may appear in multiple selectors)
@@ -105,6 +101,7 @@ export async function checkCssUnused(
     return false;
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: three-way reference check (other CSS, same CSS self-count, TS references).
   function variableReferenced(name: string, defFile: string): boolean {
     for (const { file, content } of cssContents) {
       if (file === defFile) continue;

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { ActionRegistry } from "@fairfox/polly/actions";
 import {
   createMockElement,
   createMockStores,
@@ -6,7 +7,6 @@ import {
   parseActionData,
   runAction,
 } from "@fairfox/polly/actions";
-import type { ActionRegistry } from "@fairfox/polly/actions";
 
 test("createMockElement exposes attributes compatible with parseActionData", () => {
   const el = createMockElement({
@@ -32,7 +32,7 @@ test("createMockStores returns the partial cast as the stores type", () => {
 test("runAction invokes the registered handler with context defaults", async () => {
   let seen: Record<string, string> | undefined;
   const registry: ActionRegistry<{ x: number }> = {
-    "ping": ({ data }) => {
+    ping: ({ data }) => {
       seen = data;
     },
   };
@@ -43,6 +43,6 @@ test("runAction invokes the registered handler with context defaults", async () 
 test("runAction throws when the handler is absent", async () => {
   const registry: ActionRegistry<{}> = {};
   await expect(runAction(registry, "missing", { stores: {} })).rejects.toThrow(
-    /No handler registered/,
+    /No handler registered/
   );
 });

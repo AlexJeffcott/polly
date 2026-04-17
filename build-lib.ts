@@ -117,6 +117,7 @@ const toolsResult = await Bun.build({
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
     "tools/test/src/cli.ts",
+    "tools/test/src/browser/run.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
     "scripts/build-extension.ts",
@@ -130,7 +131,22 @@ const toolsResult = await Bun.build({
   naming: {
     entry: "[dir]/[name].[ext]",
   },
-  external: ["ts-morph", "bun", "bun:*", "node:*"],
+  external: [
+    "ts-morph",
+    "bun",
+    "bun:*",
+    "node:*",
+    "elysia",
+    "@elysiajs/*",
+    "puppeteer",
+    "ws",
+    "@automerge/*",
+    "werift",
+    "@roamhq/wrtc",
+    "tweetnacl",
+    "pixelmatch",
+    "pngjs",
+  ],
 });
 
 if (!toolsResult.success) {

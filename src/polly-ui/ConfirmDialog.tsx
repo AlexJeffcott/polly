@@ -9,8 +9,8 @@
 
 import { signal } from "@preact/signals";
 import type { JSX } from "preact";
-import { Modal } from "./Modal.tsx";
 import classes from "./ConfirmDialog.module.css";
+import { Modal } from "./Modal.tsx";
 
 type ConfirmRequest = {
   id: number;

@@ -10,8 +10,8 @@
  * `dynamicVars` so they are treated as defined without appearing in CSS.
  */
 
-import { makeResult, walkDirectory } from "./shared.ts";
 import type { CssCheckResult, CssViolation } from "./shared.ts";
+import { makeResult, walkDirectory } from "./shared.ts";
 
 export type CssVarsOptions = {
   rootDir: string;
@@ -23,9 +23,7 @@ export type CssVarsOptions = {
   skipDirs?: string[];
 };
 
-export async function checkCssVars(
-  options: CssVarsOptions,
-): Promise<CssCheckResult> {
+export async function checkCssVars(options: CssVarsOptions): Promise<CssCheckResult> {
   const rootDir = options.rootDir;
   const scanExts = options.scanExtensions ?? [".ts", ".tsx", ".css"];
   const dynamic = new Set(options.dynamicVars ?? []);
@@ -42,12 +40,13 @@ export async function checkCssVars(
         if (m[1]) definitions.add(`--${m[1]}`);
       }
     },
-    { rootDir, skipDirs: options.skipDirs },
+    { rootDir, skipDirs: options.skipDirs }
   );
 
   // Pass 2 — scan var(--name) references
   await walkDirectory(
     rootDir,
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: nested for + matchAll per file is linear and readable as written.
     async (full) => {
       if (full.endsWith(".css.d.ts")) return;
       if (!scanExts.some((ext) => full.endsWith(ext))) return;
@@ -70,7 +69,7 @@ export async function checkCssVars(
         }
       }
     },
-    { rootDir, skipDirs: options.skipDirs },
+    { rootDir, skipDirs: options.skipDirs }
   );
 
   return makeResult("css-vars", rootDir, violations);

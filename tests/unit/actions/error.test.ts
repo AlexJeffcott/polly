@@ -1,10 +1,5 @@
 import { beforeEach, expect, test } from "bun:test";
-import {
-  clearError,
-  errorState,
-  setError,
-  submitError,
-} from "@fairfox/polly/actions";
+import { clearError, errorState, setError, submitError } from "@fairfox/polly/actions";
 
 beforeEach(() => {
   clearError();

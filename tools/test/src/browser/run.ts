@@ -56,7 +56,7 @@ const testDir = resolve(process.cwd(), process.argv[2] ?? "tests/browser");
 const filter = process.argv[3] ?? "";
 const headless = process.env["HEADLESS"] !== "false";
 
-const glob = new Glob("**/*.browser.ts");
+const glob = new Glob("**/*.browser.{ts,tsx}");
 const testFiles: string[] = [];
 for await (const file of glob.scan({ cwd: testDir, absolute: true })) {
   if (file.includes("harness")) continue;

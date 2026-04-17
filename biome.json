@@ -134,14 +134,33 @@
       "linter": {
         "rules": {
           "complexity": {
-            "noForEach": "off"
+            "noForEach": "off",
+            "noBannedTypes": "off"
           },
           "style": {
             "useForOf": "off",
             "noNonNullAssertion": "off"
           },
           "suspicious": {
-            "noExplicitAny": "off"
+            "noExplicitAny": "off",
+            "noEmptyBlockStatements": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.browser.ts", "**/*.browser.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off",
+            "noEmptyBlockStatements": "off"
+          },
+          "correctness": {
+            "noUnusedImports": "off"
           }
         }
       }
