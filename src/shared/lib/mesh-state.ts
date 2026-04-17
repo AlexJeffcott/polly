@@ -14,10 +14,15 @@
  *      belongs to.
  *
  *   2. A handle factory that resolves the application's logical key to an
- *      Automerge DocumentId via a per-Repo key map, identical in shape to
- *      the $peerState factory but registered against a separate Repo
- *      configured for the mesh transport (signed and encrypted at the
- *      network layer).
+ *      Automerge DocumentId by hashing the key into a deterministic,
+ *      content-addressable id. Every Repo backed by the same storage lands
+ *      on the same document without needing any extra state, and two devices
+ *      that have never met converge on the same id for the same key — which
+ *      also helps first-sync after pairing. (Prior to this change the factory
+ *      held an in-memory per-Repo `Map<string, DocumentId>`, which meant that
+ *      a lone-device reload — a very common onboarding state — produced a
+ *      fresh DocumentId for the same logical key, orphaned the document the
+ *      storage adapter still held on disk, and silently lost the user's data.)
  *
  *   3. Signing and encryption are mandatory, not optional. Where $peerState
  *      accepts encrypt/sign as opt-in flags (currently throwing in Phase 1),
@@ -33,7 +38,15 @@
  * loopback adapter pair satisfies the same contract.
  */
 
-import type { DocHandle, DocumentId, Repo } from "@automerge/automerge-repo/slim";
+import {
+  Automerge,
+  type BinaryDocumentId,
+  type DocHandle,
+  type DocumentId,
+  interpretAsDocumentId,
+  type Repo,
+} from "@automerge/automerge-repo/slim";
+import nacl from "tweetnacl";
 import type { Access } from "./access";
 import {
   $crdtCounter,
@@ -62,22 +75,16 @@ export interface MeshStateOptions {
   access?: Access;
 }
 
-/** Internal: per-Repo key → DocumentId map. */
-const keyMapsByRepo = new WeakMap<Repo, Map<string, DocumentId>>();
 let defaultRepo: Repo | undefined;
 
 /**
  * Set the default Repo that the $mesh* primitives use when no `repo` option
- * is supplied. Calling this with a new Repo clears the per-Repo key map so
- * that tests start each scenario with a fresh document space.
- *
- * Production code typically calls this once at application startup with a
- * Repo configured for the mesh transport. Tests call it before each
- * scenario with an in-memory or loopback Repo.
+ * is supplied. Production code typically calls this once at application
+ * startup with a Repo configured for the mesh transport. Tests call it
+ * before each scenario with an in-memory or loopback Repo.
  */
 export function configureMeshState(repo: Repo): void {
   defaultRepo = repo;
-  keyMapsByRepo.set(repo, new Map());
 }
 
 /**
@@ -98,28 +105,54 @@ function resolveRepo(option: Repo | undefined): Repo {
   return repo;
 }
 
-function getKeyMap(repo: Repo): Map<string, DocumentId> {
-  let map = keyMapsByRepo.get(repo);
-  if (!map) {
-    map = new Map();
-    keyMapsByRepo.set(repo, map);
-  }
-  return map;
+/**
+ * Domain-separated hash of an application key into a 16-byte
+ * {@link BinaryDocumentId}. SHA-512 via tweetnacl (already a dep for signing);
+ * the first 16 bytes give a DocumentId with uniform distribution across the
+ * Automerge id space. The domain prefix pins the derivation to $meshState so
+ * that the same logical key used in a different Polly subsystem would
+ * produce a different id.
+ */
+const DOC_ID_DOMAIN = "polly/meshState/v1";
+const keyEncoder = new TextEncoder();
+
+function deriveDocumentId(key: string): DocumentId {
+  const digest = nacl.hash(keyEncoder.encode(`${DOC_ID_DOMAIN}:${key}`));
+  const bytes = digest.slice(0, 16);
+  return interpretAsDocumentId(bytes as unknown as BinaryDocumentId);
 }
 
+/**
+ * Build a getHandle factory that resolves a logical key to a DocHandle on
+ * the supplied Repo via a deterministic DocumentId. On the first call during
+ * a process lifetime — whether the device has never written this key or has
+ * written it before a prior reload — the factory short-circuits around
+ * {@link Repo.find}'s network-request timeout: it peeks directly at the
+ * Repo's storage subsystem, hydrates from storage if the bytes are there,
+ * and otherwise seeds a fresh document at the deterministic id. Subsequent
+ * calls in the same process return the cached handle.
+ */
 function buildHandleFactory<D>(
   repo: Repo,
   key: string,
   initialDoc: D
 ): () => Promise<DocHandle<D>> {
+  const documentId = deriveDocumentId(key);
   return async () => {
-    const map = getKeyMap(repo);
-    const existingId = map.get(key);
-    if (existingId !== undefined) {
-      return repo.find<D>(existingId);
+    const cached = repo.handles[documentId];
+    if (cached) {
+      await cached.whenReady(["ready", "unavailable"]);
+      if (cached.state === "ready") {
+        return cached as unknown as DocHandle<D>;
+      }
     }
-    const handle = repo.create<D>(initialDoc);
-    map.set(key, handle.documentId);
+    const stored = await repo.storageSubsystem?.loadDoc<D>(documentId);
+    if (stored) {
+      return repo.find<D>(documentId, { allowableStates: ["ready"] });
+    }
+    const seeded = Automerge.save(Automerge.from(initialDoc as unknown as Record<string, unknown>));
+    const handle = repo.import<D>(seeded, { docId: documentId });
+    handle.doneLoading();
     return handle;
   };
 }
