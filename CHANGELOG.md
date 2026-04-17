@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.1] - 2026-04-17
+
+### Fixed
+
+Ship the compiled JavaScript for the `@fairfox/polly/ui/markdown`
+subpath. The 0.26.0 release declared the export in `package.json` and
+emitted `markdown.d.ts` through `tsc`, but `build-lib.ts` never listed
+`src/polly-ui/markdown.tsx` as a Bun.build entrypoint, so the
+corresponding `markdown.js` was absent from the published tarball.
+Consumers that imported `renderMarkdown` — notably The Struggle and
+Library in fairfox — compiled fine against the declaration file and
+then failed to bundle against the runtime module. The fix adds
+`src/polly-ui/markdown.tsx` to the library build's entrypoints list;
+the emitted `markdown.js` now rides alongside its declaration.
+
 ## [0.26.0] - 2026-04-17
 
 ### Added
