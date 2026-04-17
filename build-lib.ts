@@ -51,6 +51,9 @@ const libResult = await Bun.build({
     "src/elysia/index.ts",
     "src/client/index.ts",
 
+    // Actions subpath (event delegation, action registry, form primitive)
+    "src/actions/index.ts",
+
     // Tool exports
     "tools/verify/src/config.ts",
     "tools/test/src/index.ts",

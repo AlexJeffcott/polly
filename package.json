@@ -85,6 +85,10 @@
     "./quality": {
       "import": "./dist/tools/quality/src/index.js",
       "types": "./dist/tools/quality/src/index.d.ts"
+    },
+    "./actions": {
+      "import": "./dist/src/actions/index.js",
+      "types": "./dist/src/actions/index.d.ts"
     }
   },
   "files": [
