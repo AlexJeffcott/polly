@@ -50,6 +50,9 @@ export type LayoutProps = {
   /** Collapse to a single column at ≤640px. */
   stackOnMobile?: boolean;
 
+  /** Render as display: inline-grid so the Layout flows inline with surrounding text/controls. */
+  inline?: boolean;
+
   className?: string;
   onClick?: JSX.MouseEventHandler<HTMLElement>;
   onKeyDown?: JSX.KeyboardEventHandler<HTMLElement>;
@@ -85,6 +88,7 @@ export function Layout(props: LayoutProps): JSX.Element {
     autoRows,
     autoColumns,
     stackOnMobile,
+    inline,
     className,
     onClick,
     onKeyDown,
@@ -121,9 +125,10 @@ export function Layout(props: LayoutProps): JSX.Element {
   if (justifySelf) style["--l-js"] = justifySelf;
   if (alignSelf) style["--l-as"] = alignSelf;
 
-  const baseClass = stackOnMobile
-    ? `${classes["layout"]} ${classes["stackOnMobile"]}`
-    : classes["layout"];
+  const baseParts = [classes["layout"]];
+  if (inline) baseParts.push(classes["inline"]);
+  if (stackOnMobile) baseParts.push(classes["stackOnMobile"]);
+  const baseClass = baseParts.filter(Boolean).join(" ");
   const combined = contents ? className : className ? `${baseClass} ${className}` : baseClass;
 
   return createElement(

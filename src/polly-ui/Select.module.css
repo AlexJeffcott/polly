@@ -1,0 +1,90 @@
+@layer polly-components {
+  .select {
+    display: inline-block;
+  }
+
+  .label {
+    display: block;
+    margin-bottom: var(--polly-space-xs);
+    font-size: var(--polly-text-sm);
+    font-weight: var(--polly-weight-medium);
+    color: var(--polly-text-muted);
+  }
+
+  .trigger {
+    display: inline-block;
+    min-width: 140px;
+    padding: var(--polly-space-sm) var(--polly-space-md);
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-sm);
+    background-color: var(--polly-surface);
+    font-family: inherit;
+    font-size: var(--polly-text-md);
+    color: var(--polly-text);
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .trigger:disabled {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .placeholder {
+    color: var(--polly-text-muted);
+  }
+
+  .actions {
+    padding: var(--polly-space-xs) var(--polly-space-sm);
+    border-bottom: var(--polly-border-width-default) solid var(--polly-border);
+  }
+
+  .actionBtn {
+    display: inline-block;
+    width: 100%;
+    padding: var(--polly-space-xs) var(--polly-space-sm);
+    border: none;
+    border-radius: var(--polly-radius-sm);
+    background: none;
+    font-family: inherit;
+    font-size: var(--polly-text-xs);
+    color: var(--polly-accent);
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .actionBtn:hover {
+    background-color: var(--polly-surface-sunken);
+  }
+
+  .option {
+    display: block;
+    width: 100%;
+    padding: var(--polly-space-sm) var(--polly-space-md);
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: var(--polly-text-sm);
+    color: var(--polly-text);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .option:hover {
+    background-color: var(--polly-surface-sunken);
+  }
+
+  .optionSelected {
+    background-color: color-mix(in srgb, var(--polly-accent) 8%, var(--polly-surface));
+  }
+
+  .optionCheck {
+    accent-color: var(--polly-accent);
+    margin-right: var(--polly-space-sm);
+    vertical-align: middle;
+    pointer-events: none;
+  }
+}

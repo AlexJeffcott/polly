@@ -1,0 +1,33 @@
+@layer polly-components {
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  .trigger {
+    display: inline-block;
+  }
+
+  .menu {
+    position: absolute;
+    inset: unset;
+    top: 100%;
+    left: 0;
+    z-index: var(--polly-z-raised);
+    min-width: 160px;
+    margin: var(--polly-space-xs) 0 0;
+    padding: var(--polly-space-xs) 0;
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-md);
+    background-color: var(--polly-surface);
+    box-shadow: var(--polly-shadow-md);
+    box-sizing: border-box;
+    overflow-y: auto;
+    max-height: 280px;
+  }
+
+  .alignRight {
+    left: auto;
+    right: 0;
+  }
+}

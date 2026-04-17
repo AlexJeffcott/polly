@@ -30,12 +30,25 @@
     /* Accent */
     --polly-accent: #2451b5;
     --polly-accent-contrast: #ffffff;
+    --polly-accent-hover: #1b3e8c;
 
     /* Feedback */
     --polly-danger: #b3261e;
     --polly-danger-contrast: #ffffff;
     --polly-success: #1f6f43;
+    --polly-success-contrast: #ffffff;
     --polly-warning: #8a5a00;
+    --polly-warning-contrast: #ffffff;
+
+    /* Status chips — tinted background / on-tint text for Badge, severity Toast, etc. */
+    --polly-status-info-bg: #eff6ff;
+    --polly-status-info-text: #1e40af;
+    --polly-status-success-bg: #f0fdf4;
+    --polly-status-success-text: #166534;
+    --polly-status-warning-bg: #fefce8;
+    --polly-status-warning-text: #854d0e;
+    --polly-status-danger-bg: #fef2f2;
+    --polly-status-danger-text: #991b1b;
 
     /* Focus */
     --polly-focus-ring: #2451b5;
@@ -51,6 +64,12 @@
     --polly-radius-sm: 4px;
     --polly-radius-md: 8px;
     --polly-radius-lg: 12px;
+    --polly-radius-full: 9999px;
+
+    /* Control heights — used by Button, Input, Select. */
+    --polly-control-height-sm: 1.75rem;
+    --polly-control-height-md: 2.25rem;
+    --polly-control-height-lg: 2.75rem;
 
     /* Motion */
     --polly-motion-fast: 120ms;
@@ -62,6 +81,7 @@
       "Helvetica Neue", Arial, sans-serif;
     --polly-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco,
       "Cascadia Mono", monospace;
+    --polly-text-xs: 0.75em;
     --polly-text-sm: 0.875em;
     --polly-text-md: 1em;
     --polly-text-lg: 1.125em;
@@ -106,11 +126,23 @@
 
       --polly-accent: #6c95ff;
       --polly-accent-contrast: #0b1020;
+      --polly-accent-hover: #8badff;
 
       --polly-danger: #ff8680;
       --polly-danger-contrast: #0b1020;
       --polly-success: #63c18a;
+      --polly-success-contrast: #0b1020;
       --polly-warning: #f2c269;
+      --polly-warning-contrast: #0b1020;
+
+      --polly-status-info-bg: #1e3a5f;
+      --polly-status-info-text: #93c5fd;
+      --polly-status-success-bg: #14532d;
+      --polly-status-success-text: #86efac;
+      --polly-status-warning-bg: #713f12;
+      --polly-status-warning-text: #fde68a;
+      --polly-status-danger-bg: #7f1d1d;
+      --polly-status-danger-text: #fecaca;
 
       --polly-focus-ring: #6c95ff;
 
@@ -131,10 +163,21 @@
     --polly-text-muted: #5a5f67;
     --polly-accent: #2451b5;
     --polly-accent-contrast: #ffffff;
+    --polly-accent-hover: #1b3e8c;
     --polly-danger: #b3261e;
     --polly-danger-contrast: #ffffff;
     --polly-success: #1f6f43;
+    --polly-success-contrast: #ffffff;
     --polly-warning: #8a5a00;
+    --polly-warning-contrast: #ffffff;
+    --polly-status-info-bg: #eff6ff;
+    --polly-status-info-text: #1e40af;
+    --polly-status-success-bg: #f0fdf4;
+    --polly-status-success-text: #166534;
+    --polly-status-warning-bg: #fefce8;
+    --polly-status-warning-text: #854d0e;
+    --polly-status-danger-bg: #fef2f2;
+    --polly-status-danger-text: #991b1b;
     --polly-focus-ring: #2451b5;
     --polly-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
     --polly-shadow-md: 0 4px 12px rgb(0 0 0 / 0.1);
@@ -151,10 +194,21 @@
     --polly-text-muted: #a7adb5;
     --polly-accent: #6c95ff;
     --polly-accent-contrast: #0b1020;
+    --polly-accent-hover: #8badff;
     --polly-danger: #ff8680;
     --polly-danger-contrast: #0b1020;
     --polly-success: #63c18a;
+    --polly-success-contrast: #0b1020;
     --polly-warning: #f2c269;
+    --polly-warning-contrast: #0b1020;
+    --polly-status-info-bg: #1e3a5f;
+    --polly-status-info-text: #93c5fd;
+    --polly-status-success-bg: #14532d;
+    --polly-status-success-text: #86efac;
+    --polly-status-warning-bg: #713f12;
+    --polly-status-warning-text: #fde68a;
+    --polly-status-danger-bg: #7f1d1d;
+    --polly-status-danger-text: #fecaca;
     --polly-focus-ring: #6c95ff;
     --polly-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
     --polly-shadow-md: 0 4px 12px rgb(0 0 0 / 0.6);

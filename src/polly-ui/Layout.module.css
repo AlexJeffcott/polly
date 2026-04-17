@@ -38,6 +38,11 @@
     grid-column: var(--l-col);
   }
 
+  .inline {
+    display: inline-grid;
+    inline-size: auto;
+  }
+
   @media (max-width: 640px) {
     .stackOnMobile {
       grid-template-columns: 1fr;

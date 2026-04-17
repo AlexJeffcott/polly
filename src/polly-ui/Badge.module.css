@@ -1,0 +1,34 @@
+@layer polly-components {
+  .badge {
+    display: inline-block;
+    padding: 0 var(--polly-space-sm);
+    border-radius: var(--polly-radius-full);
+    font-family: inherit;
+    font-size: var(--polly-text-xs);
+    font-weight: var(--polly-weight-medium);
+    line-height: 1.5;
+    white-space: nowrap;
+    background-color: var(--polly-surface-sunken);
+    color: var(--polly-text-muted);
+  }
+
+  .info {
+    background-color: var(--polly-status-info-bg);
+    color: var(--polly-status-info-text);
+  }
+
+  .success {
+    background-color: var(--polly-status-success-bg);
+    color: var(--polly-status-success-text);
+  }
+
+  .warning {
+    background-color: var(--polly-status-warning-bg);
+    color: var(--polly-status-warning-text);
+  }
+
+  .danger {
+    background-color: var(--polly-status-danger-bg);
+    color: var(--polly-status-danger-text);
+  }
+}

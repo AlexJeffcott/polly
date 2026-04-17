@@ -1,0 +1,42 @@
+@layer polly-components {
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: var(--polly-border-width-default) solid var(--polly-border);
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    display: inline-block;
+    padding: var(--polly-space-sm) var(--polly-space-lg);
+    border: none;
+    border-bottom: var(--polly-border-width-medium) solid transparent;
+    background: none;
+    font-family: inherit;
+    font-size: var(--polly-text-sm);
+    font-weight: var(--polly-weight-medium);
+    color: var(--polly-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      color var(--polly-motion-fast),
+      border-color var(--polly-motion-fast);
+  }
+
+  .tab:hover:not(:disabled) {
+    color: var(--polly-text);
+  }
+
+  .tab:disabled {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .active {
+    color: var(--polly-accent);
+    border-bottom-color: var(--polly-accent);
+  }
+}

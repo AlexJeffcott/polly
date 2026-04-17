@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-04-17
+
+### Added
+
+#### Nine UI primitives absorbed from `@fairfox/ui`
+
+`@fairfox/polly/ui` gains `Badge`, `Button`, `Checkbox`, `Collapsible`,
+`Dropdown`, `Select`, `Skeleton`, `Tabs`, and `Toggle` — the components
+that Fairfox had built and Polly had not. Each follows the existing
+conventions: `@layer polly-components` for the CSS, `data-polly-ui`
+plus `data-polly-<name>` hooks on the root, token-driven colours and
+spacing, and no reliance on `clsx` or other runtime styling helpers.
+
+`Button` carries the full tier × colour × size matrix (three tiers,
+five colours, three sizes, plus `circle`, `fullWidth`, `icon`, `label`,
+and an anchor-or-button variant via `href`). `Dropdown` uses the
+native Popover API and integrates with Polly's existing
+`closeTopOverlay()` via the shared `data-overlay-id` + `overlay:close`
+mechanism. `Select` composes `Dropdown` and a native checkbox per row;
+state is a `Signal<Set<T>>` with Select All / Clear affordances in
+multi-select mode. `Checkbox` accepts either a plain boolean or a
+`Signal<boolean>` and binds its own change listener when given a
+signal.
+
+#### `Layout` gains an `inline` prop
+
+`display: inline-grid` mode so `Button` can arrange an icon beside its
+label without violating the no-flex-or-grid-outside-Layout rule
+enforced by `polly quality css-layout`.
+
+#### New subpath: `@fairfox/polly/ui/markdown`
+
+Ships a `renderMarkdown(value): JSX.Element` helper that parses with
+`marked`, sanitises with `DOMPurify`, and renders via
+`dangerouslySetInnerHTML`. The helper plugs straight into
+`ActionInput`'s existing `renderView` prop:
+
+```tsx
+import { ActionInput } from "@fairfox/polly/ui";
+import { renderMarkdown } from "@fairfox/polly/ui/markdown";
+
+<ActionInput value={note.body} variant="multi" action="note:update" renderView={renderMarkdown} />
+```
+
+`marked` and `dompurify` are declared as optional peer dependencies so
+the core `@fairfox/polly/ui` bundle gains no runtime dependencies.
+Apps that opt into the markdown subpath install them themselves.
+
+#### Theme tokens for the lifted primitives
+
+`theme.css` grows a small set of first-class tokens the ported
+components genuinely need, added to all four theme blocks (default
+`:root`, `prefers-color-scheme: dark`, and both explicit
+`[data-polly-theme]` overrides):
+
+- `--polly-text-xs` — smaller chip/badge type.
+- `--polly-radius-full` — pill and circle shapes.
+- `--polly-control-height-sm`, `-md`, `-lg` — form-control sizing.
+- `--polly-accent-hover` — hover state for primary tier buttons.
+- `--polly-success-contrast`, `--polly-warning-contrast` — text on
+  saturated success and warning backgrounds.
+- `--polly-status-{info,success,warning,danger}-{bg,text}` — tinted
+  chip palette consumed by Badge variants.
+
 ## [0.25.2] - 2026-04-17
 
 ### Changed

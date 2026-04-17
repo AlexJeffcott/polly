@@ -1,0 +1,127 @@
+@layer polly-components {
+  .btn {
+    display: inline-block;
+    padding: var(--polly-space-sm) var(--polly-space-lg);
+    border: var(--polly-border-width-default) solid transparent;
+    border-radius: var(--polly-radius-sm);
+    font-family: inherit;
+    font-size: var(--polly-text-md);
+    font-weight: var(--polly-weight-medium);
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    transition:
+      background-color var(--polly-motion-fast),
+      border-color var(--polly-motion-fast),
+      color var(--polly-motion-fast);
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  /* Tiers — hierarchy and importance. */
+  .tierPrimary {
+    background-color: var(--polly-accent);
+    color: var(--polly-accent-contrast);
+    border-color: var(--polly-accent);
+  }
+
+  .tierPrimary:hover:not(:disabled) {
+    background-color: var(--polly-accent-hover);
+    border-color: var(--polly-accent-hover);
+  }
+
+  .tierSecondary {
+    background-color: var(--polly-surface-sunken);
+    color: var(--polly-text);
+    border-color: var(--polly-border);
+  }
+
+  .tierSecondary:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--polly-surface-sunken) 80%, var(--polly-text));
+  }
+
+  .tierTertiary {
+    background-color: transparent;
+    color: var(--polly-text);
+    border-color: transparent;
+  }
+
+  .tierTertiary:hover:not(:disabled) {
+    background-color: var(--polly-surface-sunken);
+  }
+
+  /* Semantic colours — applied on top of the tier. */
+  .colorInfo {
+    --btn-accent: var(--polly-accent);
+    --btn-accent-text: var(--polly-accent-contrast);
+  }
+
+  .colorSuccess {
+    --btn-accent: var(--polly-success);
+    --btn-accent-text: var(--polly-success-contrast);
+  }
+
+  .colorWarning {
+    --btn-accent: var(--polly-warning);
+    --btn-accent-text: var(--polly-warning-contrast);
+  }
+
+  .colorDanger {
+    --btn-accent: var(--polly-danger);
+    --btn-accent-text: var(--polly-danger-contrast);
+  }
+
+  .tierPrimary.colorInfo,
+  .tierPrimary.colorSuccess,
+  .tierPrimary.colorWarning,
+  .tierPrimary.colorDanger {
+    background-color: var(--btn-accent);
+    border-color: var(--btn-accent);
+    color: var(--btn-accent-text);
+  }
+
+  .tierSecondary.colorInfo,
+  .tierSecondary.colorSuccess,
+  .tierSecondary.colorWarning,
+  .tierSecondary.colorDanger {
+    color: var(--btn-accent);
+    border-color: var(--btn-accent);
+  }
+
+  .tierTertiary.colorInfo,
+  .tierTertiary.colorSuccess,
+  .tierTertiary.colorWarning,
+  .tierTertiary.colorDanger {
+    color: var(--btn-accent);
+  }
+
+  /* Sizes. */
+  .btnSmall {
+    padding: var(--polly-space-xs) var(--polly-space-md);
+    font-size: var(--polly-text-sm);
+  }
+
+  .btnLarge {
+    padding: var(--polly-space-md) var(--polly-space-xl);
+    font-size: var(--polly-text-lg);
+  }
+
+  /* Modifiers. */
+  .btnCircle {
+    border-radius: var(--polly-radius-full);
+    padding: 0;
+    aspect-ratio: 1;
+    width: var(--polly-control-height-md);
+  }
+
+  .btnFullWidth {
+    width: 100%;
+  }
+}

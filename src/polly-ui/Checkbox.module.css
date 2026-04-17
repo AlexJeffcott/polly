@@ -1,0 +1,27 @@
+@layer polly-components {
+  .checkbox {
+    display: inline-block;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--polly-text-md);
+    color: var(--polly-text);
+    user-select: none;
+  }
+
+  .disabled {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .input {
+    accent-color: var(--polly-accent);
+    margin: 0;
+    vertical-align: middle;
+    cursor: inherit;
+  }
+
+  .label {
+    margin-left: var(--polly-space-sm);
+    vertical-align: middle;
+  }
+}

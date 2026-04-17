@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.25.2",
+  "version": "0.26.0",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -100,7 +100,11 @@
     },
     "./ui/styles.css": "./dist/src/polly-ui/styles.css",
     "./ui/theme.css": "./dist/src/polly-ui/theme.css",
-    "./ui/components.css": "./dist/src/polly-ui/index.css"
+    "./ui/components.css": "./dist/src/polly-ui/index.css",
+    "./ui/markdown": {
+      "import": "./dist/src/polly-ui/markdown.js",
+      "types": "./dist/src/polly-ui/markdown.d.ts"
+    }
   },
   "files": [
     "dist",
@@ -142,8 +146,10 @@
     "@types/pngjs": "^6.0.5",
     "@types/serialize-javascript": "^5.0.4",
     "@types/ws": "^8.18.1",
+    "dompurify": "^3.2.4",
     "elysia": "^1.4.28",
     "fast-check": "^3.23.2",
+    "marked": "^18.0.0",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
     "puppeteer": "^24.41.0",
@@ -173,7 +179,9 @@
     "ws": ">= 8.0.0",
     "tweetnacl": ">= 1.0.0",
     "werift": ">= 0.19.0",
-    "@roamhq/wrtc": ">= 0.8.0"
+    "@roamhq/wrtc": ">= 0.8.0",
+    "marked": ">= 12.0.0",
+    "dompurify": ">= 3.0.0"
   },
   "peerDependenciesMeta": {
     "elysia": {
@@ -207,6 +215,12 @@
       "optional": true
     },
     "@roamhq/wrtc": {
+      "optional": true
+    },
+    "marked": {
+      "optional": true
+    },
+    "dompurify": {
       "optional": true
     }
   },

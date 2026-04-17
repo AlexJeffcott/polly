@@ -1,0 +1,64 @@
+@layer polly-components {
+  .toggle {
+    display: inline-block;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--polly-text-md);
+    color: var(--polly-text);
+    user-select: none;
+    vertical-align: middle;
+  }
+
+  .disabled {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .track {
+    display: inline-block;
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: var(--polly-radius-full);
+    background-color: var(--polly-border);
+    vertical-align: middle;
+    transition: background-color var(--polly-motion-fast);
+  }
+
+  .trackChecked {
+    background-color: var(--polly-accent);
+  }
+
+  .thumb {
+    display: block;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: var(--polly-radius-full);
+    background-color: var(--polly-accent-contrast);
+    transition: transform var(--polly-motion-fast);
+  }
+
+  .thumbChecked {
+    transform: translateX(16px);
+  }
+
+  .label {
+    margin-left: var(--polly-space-sm);
+    vertical-align: middle;
+  }
+}

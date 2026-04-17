@@ -1,0 +1,44 @@
+@layer polly-components {
+  .collapsible {
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-md);
+    overflow: hidden;
+  }
+
+  .summary {
+    padding: var(--polly-space-sm) var(--polly-space-md);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--polly-text-md);
+    font-weight: var(--polly-weight-medium);
+    color: var(--polly-text);
+    background-color: var(--polly-surface-sunken);
+    user-select: none;
+    list-style: none;
+  }
+
+  .summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .summary::before {
+    content: "\25B6";
+    display: inline-block;
+    margin-right: var(--polly-space-sm);
+    font-size: var(--polly-text-xs);
+    transition: transform var(--polly-motion-fast);
+  }
+
+  .collapsible[open] > .summary::before {
+    transform: rotate(90deg);
+  }
+
+  .summary:hover {
+    background-color: var(--polly-surface-raised);
+  }
+
+  .content {
+    padding: var(--polly-space-md);
+    color: var(--polly-text);
+  }
+}
