@@ -767,3 +767,95 @@ Current test coverage: **all tests passing**
 - ✅ Full type safety with TypeScript strict mode
 
 E2E tests with Playwright are run separately for browser-based scenarios.
+
+---
+
+## Action handler tests
+
+Actions are plain functions taking a typed context. Test them in
+isolation with `runAction` from `@fairfox/polly/actions`:
+
+```ts
+import {
+  createMockElement, createMockStores, runAction,
+  type ActionRegistry,
+} from '@fairfox/polly/actions';
+
+test('team:create writes to the store', async () => {
+  const stores = createMockStores({
+    data: { createTeam: mock() },
+  });
+  await runAction(ACTION_REGISTRY, 'team:create', {
+    stores,
+    data: { name: 'Alpha' },
+  });
+  expect(stores.data.createTeam).toHaveBeenCalledWith({ name: 'Alpha' });
+});
+```
+
+No jsdom, no event dispatch, no document listener — the runner
+builds the context and calls the handler directly. For full-DOM
+coverage use the browser harness at `@fairfox/polly/test/browser`.
+
+---
+
+## Visual regression
+
+`@fairfox/polly/test/visual` adds screenshot-based regression testing
+on top of the Puppeteer browser harness. Tests render a primitive,
+call `matchBaseline(page, name, baselinesDir, diffsDir, options)`, and
+the harness diffs the result against a committed PNG.
+
+Baselines live at `tests/visual/__baselines__/` and are committed to
+the repo. CI fails on any mismatch above the configured tolerance
+(default 0.1% of pixels). Regenerate baselines locally:
+
+```sh
+POLLY_VISUAL_UPDATE=1 bun tools/test/src/browser/run.ts tests/visual
+```
+
+The harness refuses `POLLY_VISUAL_UPDATE=1` when `CI=true` so a
+silently drifted baseline cannot enter the repo through a green CI.
+
+Emulation options cover the two axes that change visual output:
+
+```ts
+await matchBaseline(page, 'modal-dark', baselines, diffs, {
+  theme: 'dark',
+  motion: 'reduced',
+  selector: '[data-polly-modal-content]',
+  maskSelectors: ['[data-testid="timestamp"]'],
+});
+```
+
+`theme` flips `prefers-color-scheme`. `motion` flips
+`prefers-reduced-motion` between `full` and `reduced`. `selector`
+scopes capture to one element. `maskSelectors` hides time-varying
+content (dates, random IDs) before the shot.
+
+---
+
+## Quality logger in tests
+
+Every `console.log` and `console.error` in the quality tool goes
+through a singleton `logger` at `@fairfox/polly/quality`. Tests swap
+its methods to capture output, then call `resetLogger()` to restore
+the defaults:
+
+```ts
+import { afterEach, beforeEach, test } from 'bun:test';
+import { logger, resetLogger } from '@fairfox/polly/quality';
+
+let captured: string[];
+
+beforeEach(() => {
+  captured = [];
+  logger.log = (m) => captured.push(m);
+  logger.error = (m) => captured.push(`[err] ${m}`);
+});
+
+afterEach(() => resetLogger());
+```
+
+This avoids wrapping `console.log` globally and keeps the output
+side-effect scoped to the test that cares about it.
