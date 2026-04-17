@@ -43,6 +43,11 @@ export interface MeshSignalingClientOptions {
   /** Optional callback for the open and close lifecycle events. */
   onOpen?: () => void;
   onClose?: () => void;
+  /** WebSocket constructor. Defaults to `globalThis.WebSocket`. Inject a
+   * different implementation (e.g. `ws` package's `WebSocket`) when running
+   * in an environment without a native WebSocket global, or to use a custom
+   * subclass for tests or instrumentation. */
+  WebSocket?: typeof WebSocket;
 }
 
 /**
@@ -64,6 +69,7 @@ export class MeshSignalingClient {
   private readonly onClose?: () => void;
   private socket: WebSocket | undefined;
   private joined = false;
+  private readonly WebSocketCtor: typeof WebSocket;
 
   constructor(options: MeshSignalingClientOptions) {
     this.url = options.url;
@@ -72,6 +78,13 @@ export class MeshSignalingClient {
     if (options.onError !== undefined) this.onError = options.onError;
     if (options.onOpen !== undefined) this.onOpen = options.onOpen;
     if (options.onClose !== undefined) this.onClose = options.onClose;
+    const WS = options.WebSocket ?? globalThis.WebSocket;
+    if (typeof WS !== "function") {
+      throw new Error(
+        "MeshSignalingClient: no WebSocket implementation found. Pass one via options.WebSocket, or run in an environment where `globalThis.WebSocket` exists (Node 21+, Bun, browsers)."
+      );
+    }
+    this.WebSocketCtor = WS;
   }
 
   /**
@@ -81,7 +94,7 @@ export class MeshSignalingClient {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(this.url);
+      const ws = new this.WebSocketCtor(this.url);
       this.socket = ws;
 
       ws.addEventListener("open", () => {
@@ -128,7 +141,7 @@ export class MeshSignalingClient {
    * the message was sent, false if the connection is not open.
    */
   sendSignal(targetPeerId: string, payload: unknown): boolean {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.joined) {
+    if (!this.socket || this.socket.readyState !== this.WebSocketCtor.OPEN || !this.joined) {
       return false;
     }
     const msg: SignalingMessage = {
@@ -153,6 +166,6 @@ export class MeshSignalingClient {
 
   /** True if the signalling connection is open and joined. */
   get isConnected(): boolean {
-    return this.joined && this.socket?.readyState === WebSocket.OPEN;
+    return this.joined && this.socket?.readyState === this.WebSocketCtor.OPEN;
   }
 }

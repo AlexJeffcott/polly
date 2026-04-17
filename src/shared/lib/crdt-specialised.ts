@@ -34,7 +34,7 @@
  * `extractValue` and `applyWrite` hooks they pass.
  */
 
-import { Counter, type DocHandle, updateText } from "@automerge/automerge-repo";
+import { Counter, type DocHandle, updateText } from "@automerge/automerge-repo/slim";
 import { effect, signal } from "@preact/signals";
 import type { Access } from "./access";
 import { type MigratableState, MigrationError, migrationRegistry } from "./migrate-primitive";

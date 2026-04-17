@@ -3,9 +3,9 @@ name: polly
 description: Expert guide for the @fairfox/polly framework covering state management, peer-first/mesh state (CRDTs, WebRTC, encryption), async resources, formal verification (TLA+), quality tooling, and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState, $peerState, $meshState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification), quality checks (no-as-casting), browser test harness, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, peer-first/mesh state setup, Automerge CRDTs, WebRTC data channels, verification setup, TLA+ model checking, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
 ---
 
-# Polly Expert (up to v0.22.0)
+# Polly Expert (up to v0.24.0)
 
-Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, and formal verification features. This skill covers the Polly framework up to and including version 0.21.0.
+Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, blob storage, and formal verification features. This skill covers the Polly framework up to and including version 0.24.0.
 
 ## Quick Reference
 
@@ -21,7 +21,14 @@ import { validateShape } from '@fairfox/polly'
 import { $peerState, $peerText, $peerCounter, configurePeerState, createPeerStateClient } from '@fairfox/polly/peer'
 import { $meshState, $meshText, $meshCounter, configureMeshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly/mesh'
 
-// Quality tooling (v0.22.0)
+// Mesh client factory + blob store (v0.24.0)
+import { createMeshClient, memoryKeyringStorage, serialiseKeyring, deserialiseKeyring } from '@fairfox/polly/mesh'
+import { createBlobStore, createBlobRef, computeBlobHash, IndexedDBBlobCache, MemoryBlobCache } from '@fairfox/polly/mesh'
+
+// Node/Bun mesh wiring (v0.24.0)
+import { bootstrapCliKeyring, fileKeyringStorage, readPairingTokenFromStdin } from '@fairfox/polly/mesh/node'
+
+// Quality tooling (v0.22.0) — library import + `polly quality` CLI
 import { checkNoAsCasting, isLineClean, suggestFix } from '@fairfox/polly/quality'
 
 // Browser test harness (v0.22.0)
@@ -99,21 +106,97 @@ import { peerRepo } from '@fairfox/polly/elysia'
 
 Peers exchange operations directly over WebRTC data channels, signed with Ed25519 and encrypted with XSalsa20-Poly1305. A small stateless signalling server helps peers find each other; removing it does not affect running connections.
 
+Prefer the factory over hand-wiring the adapters — it assembles signalling + WebRTC + encryption + Repo and calls `configureMeshState` for you:
+
+```typescript
+import { createMeshClient, $meshState } from '@fairfox/polly/mesh'
+
+const client = await createMeshClient({
+  signaling: { url: 'wss://example.com/polly/signaling', peerId: 'device-a1b2' },
+  keyring,   // MeshKeyring instance, OR { storage: KeyringStorage }
+})
+
+const notes = $meshState('notes', { entries: [] })
+await notes.loaded
+```
+
+Hand-wire only when you need custom Repo options the factory does not surface:
+
 ```typescript
 import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from '@fairfox/polly/mesh'
 
 const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] })
 configureMeshState(repo)
-
-const notes = $meshState('notes', { entries: [] })
 ```
 
-**Key exchange:** First-time pairing uses `createPairingToken` / `applyPairingToken` (displayed as QR code). Compromised devices are revoked via `createRevocation` / `applyRevocation`.
+**Key exchange:** First-time pairing uses `createPairingToken` / `applyPairingToken` (displayed as QR code in browsers, copy-paste-from-stdin in CLIs). Compromised devices are revoked via `createRevocation` / `applyRevocation`.
 
 **Signalling server:**
 ```typescript
 import { signalingServer } from '@fairfox/polly/elysia'
 ```
+
+### $meshState from Node or Bun (v0.24.0)
+
+`@fairfox/polly/mesh/node` adds the Node-specific wiring — filesystem keyring storage, atomic writes, stdin pairing. Applies to archival cron, LLM proxies, admin CLIs, headless bridges, any always-on peer outside the browser.
+
+```typescript
+import { createMeshClient, $meshState } from '@fairfox/polly/mesh'
+import { bootstrapCliKeyring, fileKeyringStorage } from '@fairfox/polly/mesh/node'
+import { RTCPeerConnection } from 'werift'            // or '@roamhq/wrtc'
+
+const storage = fileKeyringStorage('~/.fairfox/keyring.json')
+const keyring = await bootstrapCliKeyring({ storage })   // first run: prompts stdin; later: loads silently
+
+const client = await createMeshClient({
+  signaling: { url: 'wss://example.com/polly/signaling', peerId: 'cli-a1b2' },
+  rtc:       { RTCPeerConnection },
+  keyring,
+})
+
+const doc = $meshState('agenda', { items: [] })
+await doc.loaded
+await client.close()
+```
+
+**Node WebRTC impl choice.** Polly does not bundle either. Consumer picks:
+- `werift` — pure TypeScript, no native deps. Installs everywhere including Bun and ARM Linux. DataChannel throughput ~25× slower than `@roamhq/wrtc`; fine for Automerge sync, marginal for large blob transfer.
+- `@roamhq/wrtc` — prebuilt C++ binding to Chromium's libwebrtc. Faster, but prebuilt binaries sometimes lag new Node majors / new platforms.
+
+Both are declared as optional peer dependencies — consumer `bun add`s whichever fits, passes the class into `createMeshClient({ rtc })`.
+
+**Pairing receive-only (Node).** Use `bootstrapCliKeyring` for the first-run "paste a token from a trusted device" flow. Token *issuance* (minting tokens for new devices) stays where it was — a browser action on an authorising user's laptop. If a Node admin tool genuinely needs to issue tokens, import `createPairingToken` / `createPairingTokenWithFreshIdentity` from `@fairfox/polly/mesh`.
+
+**Keyring storage interface:**
+```typescript
+interface KeyringStorage {
+  load(): Promise<MeshKeyring | null>
+  save(keyring: MeshKeyring): Promise<void>
+}
+```
+Ship with `memoryKeyringStorage()` for tests and `fileKeyringStorage(path)` for CLIs. Browsers build their own (IndexedDB, or whatever). `serialiseKeyring` / `deserialiseKeyring` produce canonical JSON + base64 for any storage backend.
+
+### Blob storage for large binary payloads (v0.22.0)
+
+Documents shouldn't carry binary payloads — the op history grows with every sync. `createBlobStore` transfers files peer-to-peer over the same WebRTC data channels as `$meshState`, with no server storage. Documents hold lightweight `BlobRef` values; bytes live in a local IndexedDB cache and move in 64 KiB chunks.
+
+```typescript
+import { createBlobStore, createBlobRef } from '@fairfox/polly/mesh'
+
+const blobs = createBlobStore(webrtcAdapter, { encrypt: { key: docKey } })
+
+// Sender
+const bytes = new Uint8Array(await file.arrayBuffer())
+const ref = await createBlobRef({ bytes, filename: file.name, mimeType: file.type })
+await blobs.put(ref, bytes)              // caches locally, announces to peers
+doc.value = { ...doc.value, attachment: ref }
+
+// Receiver (any connected peer)
+const received = await blobs.get(ref.hash)   // fetches from peers, verifies hash
+const url = await blobs.url(ref.hash)         // object URL for <img src> etc.
+```
+
+SHA-256 content addressing deduplicates across documents and peers. Encryption is optional; when configured the sender encrypts once and chunks the ciphertext, receiver reassembles + decrypts + verifies plaintext hash against the `BlobRef`. Caches: `IndexedDBBlobCache` (browser), `MemoryBlobCache` (tests). See `docs/RFC-042-blob-sync.md` for the protocol.
 
 ### Choosing a resilience tier
 
@@ -141,6 +224,14 @@ Each tier has specialised variants for common Automerge types:
 ### No-as-casting conformance check
 
 Bans TypeScript `as` type assertions codebase-wide. Only `as const` and the explicit escape hatch `as unknown as` are allowed. Violations include pattern-specific fix advice.
+
+Run via the CLI in CI or pre-commit:
+
+```bash
+polly quality [--root <dir>] [--exclude-packages <names>] [--exclude-files <names>]
+```
+
+Or import the library and compose into a custom script:
 
 ```typescript
 import { checkNoAsCasting } from '@fairfox/polly/quality'

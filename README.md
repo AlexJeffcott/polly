@@ -125,6 +125,53 @@ First-time key exchange between devices uses a pairing token displayed as a QR c
 
 The three tiers coexist in one application — public settings in `$sharedState`, collaborative documents in `$peerState`, private notes in `$meshState`. See [docs/STATE.md](docs/STATE.md) for the full decision tree and [docs/RFC-041-choosing.md](docs/RFC-041-choosing.md) for the design rationale.
 
+### Node and Bun are first-class mesh peers
+
+Archival cron, LLM proxies, admin CLIs, headless bridges — every always-on participant gets the same state primitives as the browser, without monkey-patching globals or writing bespoke transport wiring. Polly ships a factory that accepts injectable transport and storage:
+
+```typescript
+import { createMeshClient, $meshState } from "@fairfox/polly/mesh";
+import { bootstrapCliKeyring, fileKeyringStorage } from "@fairfox/polly/mesh/node";
+import { RTCPeerConnection } from "werift";              // or '@roamhq/wrtc'
+
+const storage = fileKeyringStorage("~/.fairfox/keyring.json");
+const keyring = await bootstrapCliKeyring({ storage });   // first run prompts for a pairing token
+
+const client = await createMeshClient({
+  signaling: { url: "wss://example.com/polly/signaling", peerId: "cli-a1b2" },
+  rtc:       { RTCPeerConnection },
+  keyring,
+});
+
+const doc = $meshState("agenda", { items: [] });
+await doc.loaded;
+await client.close();
+```
+
+`createMeshClient` is runtime-agnostic — in a browser the `rtc` option is optional because `globalThis.RTCPeerConnection` exists. The `@fairfox/polly/mesh/node` subpath adds filesystem-backed keyring storage, atomic writes with `0600` permissions, and the stdin bootstrap flow. Neither `werift` nor `@roamhq/wrtc` is bundled; both are declared as optional peer dependencies. Pick the one that fits your deployment — `werift` installs cleanly anywhere (pure TypeScript, no native deps), `@roamhq/wrtc` is faster but needs prebuilt binaries for your platform.
+
+### Blob storage for large files
+
+CRDT documents shouldn't carry binary payloads — the op history grows with every sync. Polly ships a content-addressed blob store that transfers files peer-to-peer over the same WebRTC channels as `$meshState`, with no server storage. Documents hold lightweight `BlobRef` values; the bytes live in a local IndexedDB cache and move between peers in 64 KiB chunks.
+
+```typescript
+import { createBlobStore, createBlobRef } from "@fairfox/polly/mesh";
+
+const blobs = createBlobStore(webrtcAdapter, { encrypt: { key: docKey } });
+
+// Sender
+const bytes = new Uint8Array(await file.arrayBuffer());
+const ref = await createBlobRef({ bytes, filename: file.name, mimeType: file.type });
+await blobs.put(ref, bytes);       // caches locally, announces to peers
+doc.value = { ...doc.value, attachment: ref };
+
+// Receiver (on any connected peer)
+const received = await blobs.get(ref.hash);  // fetches from peers, verifies hash
+const url = await blobs.url(ref.hash);        // object URL for <img src>
+```
+
+SHA-256 content addressing deduplicates across peers and documents. Encryption is optional — when configured, the sender encrypts once (XSalsa20-Poly1305) and chunks the ciphertext; the receiver reassembles, decrypts, and verifies the plaintext hash against the `BlobRef`. See [docs/RFC-042-blob-sync.md](docs/RFC-042-blob-sync.md) for the design.
+
 ## Verification that plugs in
 
 A popup and a background script both write to the same state. A content script reads it mid-update. Tests miss these bugs because they depend on timing.
@@ -243,13 +290,20 @@ polly format            Format your code
 polly test              Run tests
 polly verify            Run formal verification
 polly visualize         Generate architecture diagrams (Structurizr DSL)
+polly quality           Run conformance checks (no-as-casting)
 ```
 
 ## Quality tooling
 
 Polly ships conformance checks and a browser test harness that consuming applications can adopt directly.
 
-**No-as-casting check.** Bans TypeScript `as` type assertions codebase-wide (only `as const` and the explicit escape hatch `as unknown as` are allowed). Violations include pattern-specific fix advice. Import it programmatically:
+**No-as-casting check.** Bans TypeScript `as` type assertions codebase-wide (only `as const` and the explicit escape hatch `as unknown as` are allowed). Violations include pattern-specific fix advice. Run as a CLI:
+
+```bash
+polly quality [--root <dir>] [--exclude-packages <names>] [--exclude-files <names>]
+```
+
+Or import it programmatically for integration into custom check scripts:
 
 ```typescript
 import { checkNoAsCasting } from "@fairfox/polly/quality";

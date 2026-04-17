@@ -45,6 +45,7 @@ const libResult = await Bun.build({
     // Peer-first and mesh state (isolated subpath exports)
     "src/peer.ts",
     "src/mesh.ts",
+    "src/mesh-node.ts",
 
     // Elysia integration
     "src/elysia/index.ts",
@@ -72,7 +73,10 @@ const libResult = await Bun.build({
     "elysia",
     "@elysiajs/eden",
     "serialize-javascript",
+    "@automerge/automerge",
+    "@automerge/automerge/automerge.wasm",
     "@automerge/automerge-repo",
+    "@automerge/automerge-repo/slim",
     "@automerge/automerge-repo-network-websocket",
     "@automerge/automerge-repo-storage-indexeddb",
     "@automerge/automerge-repo-storage-nodefs",
@@ -80,6 +84,10 @@ const libResult = await Bun.build({
     "tweetnacl",
     "bun",
     "puppeteer",
+    "werift",
+    "@roamhq/wrtc",
+    "node:fs/promises",
+    "node:readline/promises",
   ],
 });
 
@@ -103,6 +111,7 @@ const toolsResult = await Bun.build({
     "tools/visualize/src/cli.ts",
     "tools/test/src/cli.ts",
     "tools/quality/src/cli.ts",
+    "tools/quality/src/index.ts",
     "scripts/build-extension.ts",
   ],
   outdir: DIST_DIR,
@@ -174,6 +183,8 @@ try {
       "src/**/*",
       "tools/verify/src/config.ts",
       "tools/test/src/**/*",
+      "tools/quality/src/index.ts",
+      "tools/quality/src/no-as-casting.ts",
     ],
     exclude: [
       "src/content/**/*",

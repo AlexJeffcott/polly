@@ -12,6 +12,23 @@
  * ```
  */
 
+// Eagerly initialise Automerge's WASM runtime. Must come before anything
+// that touches @automerge/automerge-repo/slim.
+import "./shared/lib/wasm-init";
+
+export { IndexedDBBlobCache, MemoryBlobCache } from "./shared/lib/blob-cache";
+export type { BlobRef, CreateBlobRefArgs } from "./shared/lib/blob-ref";
+export { computeBlobHash, createBlobRef, isBlobRef } from "./shared/lib/blob-ref";
+// Blob store
+export type {
+  BlobCache,
+  BlobProgressCallback,
+  BlobProgressEvent,
+  BlobStore,
+  BlobStoreOptions,
+  BlobTransferOptions,
+} from "./shared/lib/blob-store";
+export { createBlobStore } from "./shared/lib/blob-store-impl";
 export type {
   EncryptedEnvelope,
   SealedBytes,
@@ -26,7 +43,16 @@ export {
   NONCE_BYTES as ENCRYPTION_NONCE_BYTES,
   TAG_BYTES as ENCRYPTION_TAG_BYTES,
 } from "./shared/lib/encryption";
-
+// Keyring storage (runtime-agnostic)
+export type { KeyringStorage } from "./shared/lib/keyring-storage";
+export {
+  deserialiseKeyring,
+  memoryKeyringStorage,
+  serialiseKeyring,
+} from "./shared/lib/keyring-storage";
+// Mesh client factory
+export type { CreateMeshClientOptions, MeshClient } from "./shared/lib/mesh-client";
+export { createMeshClient } from "./shared/lib/mesh-client";
 // Mesh network adapter (sign-then-encrypt envelopes over any base adapter)
 export type {
   MeshKeyring,

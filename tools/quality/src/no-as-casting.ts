@@ -215,8 +215,17 @@ function isFileExcluded(
 function findViolations(relative: string, content: string): Violation[] {
   const results: Violation[] = [];
   const lines = content.split("\n");
+  let insideTemplate = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
+    const backticks = (line.match(/`/g) ?? []).length;
+    const startedInTemplate = insideTemplate;
+    if (backticks % 2 === 1) insideTemplate = !insideTemplate;
+
+    // Line is entirely inside a multi-line template literal and has no
+    // interpolation — treat as string content (e.g. SQL column aliases).
+    if (startedInTemplate && backticks === 0 && !line.includes("${")) continue;
+
     if (!isLineClean(line)) {
       results.push({
         file: relative,

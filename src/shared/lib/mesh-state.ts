@@ -33,7 +33,7 @@
  * loopback adapter pair satisfies the same contract.
  */
 
-import type { DocHandle, DocumentId, Repo } from "@automerge/automerge-repo";
+import type { DocHandle, DocumentId, Repo } from "@automerge/automerge-repo/slim";
 import type { Access } from "./access";
 import {
   $crdtCounter,

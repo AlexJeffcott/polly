@@ -45,7 +45,7 @@ import {
   NetworkAdapter,
   type PeerId,
   type PeerMetadata,
-} from "@automerge/automerge-repo";
+} from "@automerge/automerge-repo/slim";
 import {
   decodeEncryptedEnvelope,
   encodeEncryptedEnvelope,

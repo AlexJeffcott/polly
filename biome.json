@@ -96,7 +96,11 @@
       }
     },
     {
-      "includes": ["examples/team-task-manager/**", "examples/webrtc-p2p-chat/**"],
+      "includes": [
+        "examples/team-task-manager/**",
+        "examples/webrtc-p2p-chat/**",
+        "examples/blob-share/**"
+      ],
       "linter": {
         "rules": {
           "suspicious": {

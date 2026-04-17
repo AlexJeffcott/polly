@@ -26,7 +26,7 @@
  * ```
  */
 
-import { type NetworkAdapterInterface, Repo } from "@automerge/automerge-repo";
+import { type NetworkAdapterInterface, Repo } from "@automerge/automerge-repo/slim";
 import { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { type Signal, signal } from "@preact/signals";
 import { type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";

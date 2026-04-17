@@ -23,7 +23,7 @@
  * preserve concurrent-edit semantics) land in Phase 1's crdt-specialised.ts.
  */
 
-import type { DocHandle } from "@automerge/automerge-repo";
+import type { DocHandle } from "@automerge/automerge-repo/slim";
 import { effect, signal } from "@preact/signals";
 import type { Access } from "./access";
 import { type MigratableState, MigrationError, migrationRegistry } from "./migrate-primitive";

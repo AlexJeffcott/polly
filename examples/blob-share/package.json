@@ -1,0 +1,15 @@
+{
+  "name": "blob-share-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "bun run --cwd server dev",
+    "start": "bun run --cwd server start",
+    "typecheck": "bun run --cwd server typecheck && bun run --cwd client typecheck"
+  }
+}

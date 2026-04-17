@@ -360,6 +360,53 @@ The four `$mesh*` variants mirror the `$peer*` family: `$meshState`, `$meshText`
 
 See [`docs/RFC-041-peer-first-webrtc.md`](./RFC-041-peer-first-webrtc.md) for the full design and [`tools/verify/specs/tla/MeshState.tla`](../tools/verify/specs/tla/MeshState.tla) for the formal protocol spec.
 
+### Large files: the blob store
+
+CRDT documents shouldn't carry binary payloads — the Automerge history grows monotonically with every op, so embedding a file means every sync carries the file. Polly separates the data model (a `BlobRef` pointing at the content) from the bytes (which transfer peer-to-peer on demand and live in a local cache).
+
+**The contract.** A `BlobRef` is a content-addressed reference — SHA-256 hash, size, filename, mime type — safe to embed anywhere in a `$peerState` or `$meshState` document. The blob store manages the bytes.
+
+```typescript
+import { createBlobStore, createBlobRef } from '@fairfox/polly/mesh'
+
+const blobs = createBlobStore(webrtcAdapter, {
+  encrypt: { key: docKey },   // optional; mesh trust model expects this
+  maxBlobSize: 100 * 1024 * 1024, // 100 MiB default
+})
+
+// Sender
+const bytes = new Uint8Array(await file.arrayBuffer())
+const ref = await createBlobRef({ bytes, filename: file.name, mimeType: file.type })
+await blobs.put(ref, bytes)       // caches locally, announces to connected peers
+
+// Embed the ref in a document — the bytes aren't in the doc, only the pointer
+doc.value = { ...doc.value, attachment: ref }
+
+// Receiver — on any peer that sees the document update
+const received = await blobs.get(ref.hash)   // fetches chunks from peers
+const url = await blobs.url(ref.hash)        // object URL for <img src> / <a href>
+```
+
+**How it flows.** The blob store piggybacks on the mesh WebRTC data channel (the same one Automerge sync uses). Three message types — `blob-have`, `blob-request`, `blob-chunk` — share the adapter's wire format, distinguished by the `type` field. The sender chunks the plaintext into 64 KiB pieces and encrypts each chunk independently with a fresh random nonce (chunk-then-encrypt), keeping working memory bounded regardless of blob size. The receiver decrypts each chunk as it arrives, reassembles the plaintext, and verifies SHA-256 against the `BlobRef.hash` before returning bytes to the caller.
+
+**What the server does.** Nothing. The signalling server remains stateless — it helps peers find each other, then gets out of the way. Blob bytes never traverse the server. The operational footprint stays exactly as it is for `$meshState`.
+
+**The trade-off.** Blobs require peer infrastructure, which means you need at least one online peer that has the bytes. If the only peer who uploaded a file goes offline before anyone else fetched it, the file is unavailable until they return. This is the same availability posture as `$meshState` itself — no server means no availability guarantee when peers are offline.
+
+**What you get per blob:**
+
+- Content-addressed deduplication (same SHA-256 → same cache entry, across peers and documents)
+- Hash verification on every receive (corrupted or poisoned bytes are rejected)
+- Per-operation key override (`put(ref, bytes, { key: docKey })`) for per-document keying without reconfiguring the store
+- Chunk-then-encrypt streaming: working memory stays bounded (~64 KiB per chunk) regardless of blob size
+- Multi-source fetch: stalled transfers automatically re-request missing chunks from a different peer
+- LRU cache eviction with pinning (`pin(hash)` / `unpin(hash)` / `evict(maxBytes)`) so applications can bound local storage
+- Progress callbacks for `encrypting`, `uploading`, `downloading`, `decrypting` phases
+- `AbortSignal` support for cancelling in-flight transfers
+- IndexedDB persistence across sessions (separate `"polly-blobs"` database)
+
+See [`docs/RFC-042-blob-sync.md`](./RFC-042-blob-sync.md) for the full design and the list of deferred enhancements (encrypted cache relay, automated eviction policy, parallel chunk requests, garbage collection).
+
 ---
 
 ## Universal Architecture

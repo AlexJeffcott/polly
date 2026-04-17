@@ -50,7 +50,8 @@ import {
   NetworkAdapter,
   type PeerId,
   type PeerMetadata,
-} from "@automerge/automerge-repo";
+} from "@automerge/automerge-repo/slim";
+import { isBlobMessageType } from "./blob-transfer";
 import type { MeshSignalingClient } from "./mesh-signaling-client";
 
 /** Standard STUN servers for NAT traversal. In production, callers who
@@ -83,6 +84,11 @@ export interface MeshWebRTCAdapterOptions {
    * that share a signalling server between multiple meshes may want
    * distinct labels per mesh. */
   dataChannelLabel?: string;
+  /** RTCPeerConnection constructor. Defaults to
+   * `globalThis.RTCPeerConnection`. Inject a different implementation
+   * (e.g. `werift` or `@roamhq/wrtc`) when running outside a browser, or
+   * to use a custom subclass for tests or instrumentation. */
+  RTCPeerConnection?: typeof RTCPeerConnection;
 }
 
 /** Types of signalling payload this adapter exchanges through the
@@ -112,9 +118,15 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   readonly iceServers: RTCIceServer[];
   readonly dataChannelLabel: string;
   readonly knownPeerIds: string[];
+  private readonly RTCPeerConnectionCtor: typeof RTCPeerConnection;
   private readonly slots = new Map<string, PeerSlot>();
   private ready = false;
   private readyResolver: (() => void) | undefined;
+
+  /** Callback for incoming blob messages. Set by the blob store.
+   *  Called with the sender's peer ID, the raw header object, and the
+   *  binary payload (chunk data). */
+  onBlobMessage?: (peerId: string, header: Record<string, unknown>, data: Uint8Array) => void;
 
   constructor(options: MeshWebRTCAdapterOptions) {
     super();
@@ -122,6 +134,13 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.iceServers = options.iceServers ?? DEFAULT_ICE_SERVERS;
     this.dataChannelLabel = options.dataChannelLabel ?? "polly-mesh";
     this.knownPeerIds = options.knownPeerIds ?? [];
+    const PC = options.RTCPeerConnection ?? globalThis.RTCPeerConnection;
+    if (typeof PC !== "function") {
+      throw new Error(
+        "MeshWebRTCAdapter: no RTCPeerConnection implementation found. Pass one via options.RTCPeerConnection (e.g. from `werift` or `@roamhq/wrtc`), or run in a browser where `globalThis.RTCPeerConnection` exists."
+      );
+    }
+    this.RTCPeerConnectionCtor = PC;
   }
 
   isReady(): boolean {
@@ -217,7 +236,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   }
 
   private createInitiatingSlot(targetId: string): PeerSlot {
-    const connection = new RTCPeerConnection({ iceServers: this.iceServers });
+    const connection = new this.RTCPeerConnectionCtor({ iceServers: this.iceServers });
     const channel = connection.createDataChannel(this.dataChannelLabel, { ordered: true });
     const slot: PeerSlot = { connection, channel, pendingSends: [] };
     this.slots.set(targetId, slot);
@@ -249,7 +268,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       this.slots.delete(fromPeerId);
     }
 
-    const connection = new RTCPeerConnection({ iceServers: this.iceServers });
+    const connection = new this.RTCPeerConnectionCtor({ iceServers: this.iceServers });
     const slot: PeerSlot = { connection, channel: undefined, pendingSends: [] };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -323,9 +342,9 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     channel.onmessage = (event) => {
       const data = event.data;
       if (data instanceof ArrayBuffer) {
-        this.dispatchMessage(new Uint8Array(data));
+        this.dispatchMessage(peerId, new Uint8Array(data));
       } else if (data instanceof Uint8Array) {
-        this.dispatchMessage(data);
+        this.dispatchMessage(peerId, data);
       }
       // Other types (strings, Blobs) are ignored — Polly's mesh transport
       // only sends binary payloads via this adapter.
@@ -338,8 +357,21 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     };
   }
 
-  private dispatchMessage(bytes: Uint8Array): void {
+  private dispatchMessage(fromPeerId: string, bytes: Uint8Array): void {
     try {
+      // Intercept blob messages before they reach the Automerge deserialiser.
+      // Blob headers have type fields starting with "blob-" and would fail
+      // MeshNetworkAdapter's signed-envelope unwrap if passed through.
+      if (this.onBlobMessage && isBlobMessageType(bytes)) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const headerLen = view.getUint32(0, false);
+        const header = JSON.parse(
+          new TextDecoder().decode(bytes.subarray(4, 4 + headerLen))
+        ) as Record<string, unknown>;
+        const data = bytes.subarray(4 + headerLen);
+        this.onBlobMessage(fromPeerId, header, data);
+        return;
+      }
       const message = this.deserialiseMessage(bytes);
       this.emit("message", message);
     } catch {
@@ -347,6 +379,35 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       // also drops on verification failure, so a corrupt frame at this
       // layer is observationally the same as a forgery at the layer above.
     }
+  }
+
+  /** Peer IDs with an open data channel, suitable for blob requests. */
+  get connectedPeerIds(): string[] {
+    const ids: string[] = [];
+    for (const [peerId, slot] of this.slots) {
+      if (slot.channel && slot.channel.readyState === "open") {
+        ids.push(peerId);
+      }
+    }
+    return ids;
+  }
+
+  /** Send a pre-serialised blob message to a specific peer. Returns false
+   *  if the peer is not connected or the send buffer is above the high-water
+   *  mark (caller should retry after a delay). */
+  sendBlobMessage(peerId: string, bytes: Uint8Array<ArrayBuffer>): boolean {
+    const slot = this.slots.get(peerId);
+    if (!slot?.channel || slot.channel.readyState !== "open") return false;
+    return this.trySendOnChannel(slot.channel, bytes);
+  }
+
+  /** Send bytes on a data channel if the buffer is below the high-water
+   *  mark. Returns true if sent, false if backpressure applies. */
+  private trySendOnChannel(channel: RTCDataChannel, bytes: Uint8Array<ArrayBuffer>): boolean {
+    // 256 KiB high-water mark — matches the blob transfer default.
+    if (channel.bufferedAmount > 256 * 1024) return false;
+    channel.send(bytes);
+    return true;
   }
 
   /** Pack an Automerge Message into binary for transmission over the

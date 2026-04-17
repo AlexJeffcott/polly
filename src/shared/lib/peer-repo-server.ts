@@ -35,7 +35,7 @@
  * ```
  */
 
-import { Repo } from "@automerge/automerge-repo";
+import { Repo } from "@automerge/automerge-repo/slim";
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket";
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
 import * as ws from "ws";

@@ -134,6 +134,58 @@ describe("isLineClean — violations (must detect)", () => {
   });
 });
 
+describe("checkNoAsCasting — multi-line template literals (#46)", () => {
+  test("skips SQL column aliases inside multi-line template literal", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "polly-quality-"));
+    writeFileSync(
+      join(dir, "server.ts"),
+      [
+        "const stats = db.prepare(`",
+        "  SELECT",
+        "    (SELECT COUNT(*) FROM text_sets WHERE deleted_at IS NULL) as textSets,",
+        "    (SELECT COUNT(*) FROM text_set_versions) as versions,",
+        "    (SELECT COUNT(*) FROM teams) as teams",
+        "`).get();",
+        "",
+      ].join("\n")
+    );
+
+    const result = await checkNoAsCasting({ rootDir: dir });
+    expect(result.violations).toEqual([]);
+  });
+
+  test("skips single-line SQL alias with count", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "polly-quality-"));
+    writeFileSync(
+      join(dir, "repo.ts"),
+      ["const q = db.prepare(`", "  SELECT COUNT(*) as count FROM users", "`).get();", ""].join(
+        "\n"
+      )
+    );
+
+    const result = await checkNoAsCasting({ rootDir: dir });
+    expect(result.violations).toEqual([]);
+  });
+
+  test("still flags real casts outside template literals", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "polly-quality-"));
+    writeFileSync(
+      join(dir, "app.ts"),
+      [
+        "const sql = `",
+        "  SELECT COUNT(*) as total FROM users",
+        "`;",
+        "const x = y as string;",
+        "",
+      ].join("\n")
+    );
+
+    const result = await checkNoAsCasting({ rootDir: dir });
+    expect(result.violations.length).toBe(1);
+    expect(result.violations[0]?.content).toBe("const x = y as string;");
+  });
+});
+
 describe("checkNoAsCasting — excludePackages (#44)", () => {
   test("skips files in excluded packages", async () => {
     const dir = mkdtempSync(join(tmpdir(), "polly-quality-"));

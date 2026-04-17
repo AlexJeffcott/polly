@@ -12,6 +12,10 @@
  * ```
  */
 
+// Eagerly initialise Automerge's WASM runtime. Must come before anything
+// that touches @automerge/automerge-repo/slim.
+import "./shared/lib/wasm-init";
+
 // Base CRDT primitives (transport-agnostic, caller-supplied handle factory)
 export type {
   CounterDoc,
