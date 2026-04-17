@@ -1,0 +1,7 @@
+@layer polly-components {
+  .root {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+}

@@ -5,6 +5,183 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.1] - 2026-04-17
+
+### Fixed
+
+- `@fairfox/polly/elysia` no longer forces a static import of
+  `@automerge/automerge-repo`, `@automerge/automerge-repo-network-websocket`,
+  `@automerge/automerge-repo-storage-nodefs`, and `ws` through its barrel.
+  The `createPeerRepoServer` factory now pulls those peer-state dependencies
+  dynamically inside the function body, so Elysia apps that use only the
+  non-peer surface (the `polly()` plugin) evaluate the module without the
+  peer packages installed. Apps that actually build a peer-relay server
+  still need the packages — they're loaded when `createPeerRepoServer` runs
+  — and the public type surface is unchanged.
+
+## [0.25.0] - 2026-04-17
+
+### Added
+
+#### `@fairfox/polly/actions` — action-registry runtime
+
+A new subpath ships the plumbing that Lingua and Fairfox have both
+converged on independently: one document listener, one typed action
+registry, components that read signals and emit markup.
+
+```ts
+import {
+  installEventDelegation, createStore, createForm,
+  type ActionRegistry,
+} from "@fairfox/polly/actions";
+
+const teamForm = createForm({
+  name: "team",
+  initialValues: { name: "", description: "" },
+  onSubmit: async ({ values, stores }) => stores.data.createTeam(values),
+});
+
+const ACTION_REGISTRY: ActionRegistry<RootStore> = {
+  ...teamForm.actions,
+  "theme:toggle": ({ stores }) => stores.ui.toggleTheme(),
+};
+
+installEventDelegation((dispatch) => {
+  ACTION_REGISTRY[dispatch.action]?.(ctxFor(dispatch));
+});
+```
+
+Ships event delegation with a form-click guard and keyboard
+activation for non-interactive elements; typed `ActionRegistry` and
+`ActionContext`; a signal-backed overlay registry with
+`pushOverlay` / `popOverlay` / `closeTopOverlay`; a `createStore`
+base and `StoreProvider` / `useStores` context wiring; a `createForm`
+primitive that extends the store base with per-field signals, an
+aggregated values signal, open/close/submit methods, an entity
+`guard` effect (autonomous close when the subject disappears), and
+three auto-registered action handlers; an optional `createFormSet`
+for many-form apps; a global `errorState` signal with `setError` /
+`clearError` / `submitError` that routes handler failures to the
+UI; and `runAction` / `createMockStores` / `createMockElement` /
+`createMockSubmitEvent` testing helpers for DOM-less unit tests.
+
+#### `@fairfox/polly/ui` — compound UI primitives
+
+Eight primitives sit on top of the action runtime. Every element
+carries `data-polly-*` hooks for stable selectors, focus rings are
+visible on WCAG 2.4.11 terms, hit targets meet WCAG 2.5.8, focus is
+trapped inside modals and restored on close, aria attributes are
+wired automatically, `prefers-reduced-motion` zeroes every motion
+token, and overlays portal through a single `<OverlayRoot />`.
+
+```tsx
+import {
+  Layout, Modal, ActionForm, TextInput, ActionInput,
+  ConfirmDialog, Toast, OverlayRoot,
+} from "@fairfox/polly/ui";
+import "@fairfox/polly/ui/styles.css";
+import "@fairfox/polly/ui/theme.css";
+import "@fairfox/polly/ui/components.css";
+```
+
+`<Layout>` is the one primitive that owns layouting concerns (CSS
+grid via custom properties). `<Modal>` is compound (Root / Backdrop
+/ Content / Header / Title / Body / Footer / Close). `<ActionForm>`
+wraps `<form>` and wires `data-action="{form.name}:submit"` plus
+`aria-busy`. `<TextInput>` is passive and signal-friendly — pass a
+plain string for uncontrolled mode (FormData picks up the value on
+submit) or a `Signal<string>` for controlled. `<ActionInput>` is
+Fairfox's dual-mode view/edit with action dispatch on commit,
+`saveOn` picks the trigger, `renderView` opts into rich view
+rendering without adding deps. `<ConfirmDialog.Host />` exposes a
+Promise-returning `confirm()`. `<Toast.Viewport />` consumes
+`errorState` automatically.
+
+Theming splits across two stylesheets. `theme.css` carries semantic
+tokens consumers override (`--polly-surface`, `--polly-text`,
+`--polly-accent`, space / radius / motion scales, light + dark
+palettes, explicit `data-polly-theme` override, WCAG AA contrast
+in both modes). `styles.css` carries the structural and a11y rules
+that should not be overridden.
+
+#### CSS conformance checks in `@fairfox/polly/quality`
+
+Four new subcommands enforce the styling contract:
+
+```
+polly quality css          # all four
+polly quality css-quality  # hardcoded values
+polly quality css-layout   # Layout-component enforcement
+polly quality css-vars     # undefined var references
+polly quality css-unused   # dead selectors (advisory)
+```
+
+Each check exposes a library function (`checkCssQuality`,
+`checkCssLayout`, `checkCssVars`, `checkCssUnused`) for programmatic
+use. Rule disabling, token-prefix configuration, layout exempt
+paths, and dynamic-variable lists are all configurable per check.
+
+A `polly-ignore-all` marker in a file's first-line CSS comment opts
+out of `css-quality`. A `layout-ignore` CSS comment on the line or
+the preceding line opts out of `css-layout`.
+
+#### `@fairfox/polly/test/visual` — visual regression harness
+
+A new testing subpath pairs with the existing `@fairfox/polly/test/browser`
+harness and adds pixel-diff assertions via pixelmatch.
+
+```ts
+import { matchBaseline, resolveVisualPaths } from "@fairfox/polly/test/visual";
+
+const { baselinesDir, diffsDir } = resolveVisualPaths(projectRoot);
+const result = await matchBaseline(page, "modal-dark", baselinesDir, diffsDir, {
+  theme: "dark",
+  motion: "reduced",
+  selector: "[data-polly-modal-content]",
+});
+```
+
+Emulates `prefers-color-scheme` and `prefers-reduced-motion`, masks
+time-varying selectors, commits baselines under
+`tests/visual/__baselines__/`, writes diff PNGs on mismatch under
+`tests/visual/__diffs__/`. `POLLY_VISUAL_UPDATE=1` overwrites
+baselines locally; the harness refuses that env var when `CI=true`
+to prevent silently-drifted baselines from landing.
+
+#### Browser test runner shipped as `polly test:browser`
+
+The Puppeteer-based browser test runner that Polly uses internally
+now ships in `dist/`. Consumers wire up `*.browser.{ts,tsx}` files
+and run them with `polly test:browser <dir>` — no need to copy or
+reimplement the orchestrator. The underlying harness
+(`describe`/`test`/`expect`/`flush`/`cleanup`/`done`) already
+shipped via `@fairfox/polly/test/browser`; this closes the gap by
+exposing the runner too.
+
+#### Centralised quality logger
+
+Every `console` call in the quality tool now routes through a
+mutable `logger` singleton exported from `@fairfox/polly/quality`.
+Tests swap its methods at runtime and restore with `resetLogger()`.
+
+#### Recipe
+
+`recipes/actions-driven-app/` demonstrates the complete loop
+end-to-end: stores, forms, registry, components, $persistedState,
+and five unit tests.
+
+### Documentation
+
+- `docs/ACTIONS.md` — the action-registry pattern, three-layer
+  split, form lifecycle, error surface, migration guide.
+- `docs/UI.md` — compound components, theming contract, a11y
+  guarantees, styling hooks, per-primitive worked examples.
+- `docs/CSS.md` — the four CSS conformance checks, configuration,
+  escape hatches, programmatic use.
+- `docs/TESTING.md` — new sections on action-handler testing with
+  `runAction`, visual regression with `matchBaseline`, and the
+  quality logger mock pattern.
+
 ## [0.21.0] - 2026-04-16
 
 ### Added

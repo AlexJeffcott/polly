@@ -1,0 +1,47 @@
+@layer polly-components {
+  .viewport {
+    display: grid; /* layout-ignore */
+    gap: var(--polly-space-sm);
+  }
+
+  .item {
+    display: grid; /* layout-ignore */
+    grid-template-columns: 1fr auto;
+    gap: var(--polly-space-md);
+    align-items: center;
+    padding: var(--polly-space-md) var(--polly-space-lg);
+    background: var(--polly-surface-raised);
+    color: var(--polly-text);
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-md);
+    box-shadow: var(--polly-shadow-md);
+    min-inline-size: 16em;
+    max-inline-size: 28em;
+  }
+
+  .item[data-severity="error"] {
+    border-color: var(--polly-danger);
+  }
+  .item[data-severity="warning"] {
+    border-color: var(--polly-warning);
+  }
+
+  .message {
+    font-size: var(--polly-text-md);
+    line-height: var(--polly-line-height-base);
+  }
+
+  .close {
+    appearance: none;
+    background: transparent;
+    color: inherit;
+    border: var(--polly-border-width-default) solid transparent;
+    border-radius: var(--polly-radius-sm);
+    padding: var(--polly-space-xs) var(--polly-space-sm);
+    font: inherit;
+    cursor: pointer;
+  }
+  .close:hover {
+    background: var(--polly-surface-sunken);
+  }
+}

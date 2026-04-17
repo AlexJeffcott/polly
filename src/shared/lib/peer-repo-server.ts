@@ -35,15 +35,22 @@
  * ```
  */
 
-import { Repo } from "@automerge/automerge-repo/slim";
-import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket";
-import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
-import * as ws from "ws";
+// Heavy peer-relay dependencies (@automerge/automerge-repo, ws) are dynamic
+// imports loaded only when createPeerRepoServer is actually called. Static
+// imports at this file's top level were hoisted into @fairfox/polly/elysia's
+// module-init chain, breaking Elysia apps that don't use peer state and
+// don't install the automerge peer deps. Types come from the static package
+// references — TypeScript only reads them for shape, so no runtime cost is
+// incurred.
+import type { Repo as RepoType } from "@automerge/automerge-repo/slim";
+import type { WebSocketServerAdapter as WebSocketServerAdapterType } from "@automerge/automerge-repo-network-websocket";
+import type { NodeFSStorageAdapter as NodeFSStorageAdapterType } from "@automerge/automerge-repo-storage-nodefs";
+import type * as wsType from "ws";
 
 // `@types/ws` uses CJS `export = WebSocket` with WebSocketServer hanging off
 // the namespace. Under the project's bundler module resolution, the namespace
 // import gives us access to both the constructor and the type.
-type WebSocketServer = ws.WebSocketServer;
+type WebSocketServer = wsType.WebSocketServer;
 
 export interface CreatePeerRepoServerOptions {
   /** Port to listen on. The factory creates its own `WebSocketServer` and
@@ -64,14 +71,14 @@ export interface CreatePeerRepoServerOptions {
 export interface PeerRepoServer {
   /** A configured Repo participating as the always-on peer. Server-side
    * cron and HTTP handlers can open document handles on this directly. */
-  repo: Repo;
+  repo: RepoType;
   /** The underlying WebSocket server. Exposed for advanced use such as
    * health checks or graceful shutdown coordination. */
   webSocketServer: WebSocketServer;
   /** The Automerge network adapter wrapping the WebSocket server. */
-  adapter: WebSocketServerAdapter;
+  adapter: WebSocketServerAdapterType;
   /** The NodeFS storage adapter writing to {@link CreatePeerRepoServerOptions.storagePath}. */
-  storage: NodeFSStorageAdapter;
+  storage: NodeFSStorageAdapterType;
   /** Tear down the server: disconnect peers, flush storage, close the
    * underlying WebSocket server. Returns a promise that resolves once the
    * tear-down is complete. */
@@ -90,6 +97,17 @@ export interface PeerRepoServer {
 export async function createPeerRepoServer(
   options: CreatePeerRepoServerOptions
 ): Promise<PeerRepoServer> {
+  // Dynamic imports keep automerge-repo and ws out of the static module
+  // graph. Apps that never call this function — which is most of them —
+  // never pay the dependency cost and don't need the peer packages
+  // installed at all.
+  const [{ Repo }, { WebSocketServerAdapter }, { NodeFSStorageAdapter }, ws] = await Promise.all([
+    import("@automerge/automerge-repo/slim"),
+    import("@automerge/automerge-repo-network-websocket"),
+    import("@automerge/automerge-repo-storage-nodefs"),
+    import("ws"),
+  ]);
+
   // Construct the WebSocket server first and wait until it is actually
   // listening before wiring up the Repo. Using the constructor callback
   // avoids the race where the 'listening' event fires before our listener

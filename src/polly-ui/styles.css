@@ -1,0 +1,70 @@
+/**
+ * @fairfox/polly/ui — structural + accessibility stylesheet.
+ *
+ * Not meant to be overridden. This file encodes the a11y guarantees of
+ * every primitive: minimum hit targets, focus-ring visibility, scroll
+ * lock when an overlay is open, motion zeroing under reduced-motion,
+ * and the stacking order for overlays and toasts. Consumers who want
+ * bespoke visuals override theme.css variables; they should not need
+ * to (and should not) change anything in here.
+ */
+
+@layer polly-structure {
+  /* Honour reduced-motion by zeroing every motion token. The components
+   * read only these tokens for their transitions, so a consumer preference
+   * of "reduce" makes every animation instant. */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --polly-motion-fast: 0ms;
+      --polly-motion-base: 0ms;
+      --polly-motion-slow: 0ms;
+    }
+  }
+
+  /* Focus ring — 2 pixels outside a 2 pixel offset. Not customisable past
+   * colour (via --polly-focus-ring); the shape is load-bearing for WCAG
+   * 2.4.11 "focus not obscured". */
+  [data-polly-ui] :focus-visible,
+  [data-polly-ui]:focus-visible {
+    outline: var(--polly-border-width-medium) solid var(--polly-focus-ring);
+    outline-offset: var(--polly-border-width-medium);
+  }
+
+  /* Minimum hit targets — 44×44 for any interactive element hooked by Polly.
+   * Consumers who need smaller targets inside compound components (icons in
+   * a toolbar, etc.) opt out via data-polly-hit-target="none". */
+  [data-polly-interactive]:not([data-polly-hit-target="none"]) {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+  }
+
+  /* Scroll lock — toggled by OverlayRoot when the overlay stack is
+   * non-empty. The padding-right compensates for the scrollbar so content
+   * behind the overlay does not reflow. */
+  html[data-polly-scroll-locked="true"] {
+    overflow: hidden;
+    padding-inline-end: var(--polly-scrollbar-gutter, 0px);
+  }
+
+  /* Overlay layering. The stack is managed in JS; z-index values here
+   * only exist to guarantee ordering against application content. */
+  [data-polly-overlay-root] {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: var(--polly-z-overlay);
+  }
+  [data-polly-overlay-root] > * {
+    pointer-events: auto;
+  }
+  [data-polly-toast-viewport] {
+    position: fixed;
+    inset-block-end: var(--polly-space-lg);
+    inset-inline-end: var(--polly-space-lg);
+    z-index: var(--polly-z-toast);
+    pointer-events: none;
+  }
+  [data-polly-toast-viewport] > * {
+    pointer-events: auto;
+  }
+}

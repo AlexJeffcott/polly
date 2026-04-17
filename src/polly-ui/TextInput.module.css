@@ -1,0 +1,37 @@
+@layer polly-components {
+  .input {
+    inline-size: 100%;
+    box-sizing: border-box;
+    padding: var(--polly-space-sm) var(--polly-space-md);
+    font: inherit;
+    font-family: var(--polly-font-sans);
+    color: var(--polly-text);
+    background: var(--polly-surface);
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-md);
+    transition: border-color var(--polly-motion-fast) ease,
+      background var(--polly-motion-fast) ease;
+  }
+
+  .input:hover {
+    border-color: var(--polly-border-strong);
+  }
+
+  .input[data-state="invalid"] {
+    border-color: var(--polly-danger);
+  }
+
+  .input:disabled {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .input[data-polly-input-variant="multi"] {
+    field-sizing: content;
+    min-block-size: calc(
+      1.5em + 2 * var(--polly-space-sm) + 2 * var(--polly-border-width-default)
+    );
+    max-block-size: 40em;
+    resize: vertical;
+  }
+}

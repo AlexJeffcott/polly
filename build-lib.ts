@@ -51,11 +51,18 @@ const libResult = await Bun.build({
     "src/elysia/index.ts",
     "src/client/index.ts",
 
+    // Actions subpath (event delegation, action registry, form primitive)
+    "src/actions/index.ts",
+
+    // UI primitives subpath
+    "src/polly-ui/index.ts",
+
     // Tool exports
     "tools/verify/src/config.ts",
     "tools/test/src/index.ts",
     "tools/test/src/test-utils.ts",
     "tools/test/src/browser/index.ts",
+    "tools/test/src/visual/index.ts",
     "tools/test/src/adapters/index.ts",
   ],
   outdir: DIST_DIR,
@@ -110,6 +117,7 @@ const toolsResult = await Bun.build({
     "tools/verify/src/cli.ts",
     "tools/visualize/src/cli.ts",
     "tools/test/src/cli.ts",
+    "tools/test/src/browser/run.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
     "scripts/build-extension.ts",
@@ -123,7 +131,22 @@ const toolsResult = await Bun.build({
   naming: {
     entry: "[dir]/[name].[ext]",
   },
-  external: ["ts-morph", "bun", "bun:*", "node:*"],
+  external: [
+    "ts-morph",
+    "bun",
+    "bun:*",
+    "node:*",
+    "elysia",
+    "@elysiajs/*",
+    "puppeteer",
+    "ws",
+    "@automerge/*",
+    "werift",
+    "@roamhq/wrtc",
+    "tweetnacl",
+    "pixelmatch",
+    "pngjs",
+  ],
 });
 
 if (!toolsResult.success) {
@@ -145,6 +168,16 @@ mkdirSync(templatesDestDir, { recursive: true });
 cpSync(templatesSourceDir, templatesDestDir, { recursive: true });
 
 console.log("✅ Templates copied");
+console.log("🔨 Copying UI stylesheets...");
+
+const pollyUiSrc = join("src", "polly-ui");
+const pollyUiDest = join(DIST_DIR, "src", "polly-ui");
+mkdirSync(pollyUiDest, { recursive: true });
+for (const file of ["styles.css", "theme.css"]) {
+  await Bun.write(join(pollyUiDest, file), await Bun.file(join(pollyUiSrc, file)).text());
+}
+
+console.log("✅ UI stylesheets copied");
 console.log("🔨 Copying specs for verification tool...");
 
 // Copy MessageRouter.tla specs to dist so verify CLI can find them
@@ -185,6 +218,8 @@ try {
       "tools/test/src/**/*",
       "tools/quality/src/index.ts",
       "tools/quality/src/no-as-casting.ts",
+      "tools/quality/src/logger.ts",
+      "tools/quality/src/css/**/*",
     ],
     exclude: [
       "src/content/**/*",

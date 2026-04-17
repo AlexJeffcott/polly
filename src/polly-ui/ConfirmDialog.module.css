@@ -1,0 +1,47 @@
+@layer polly-components {
+  .actions {
+    display: grid; /* layout-ignore */
+    grid-auto-flow: column;
+    gap: var(--polly-space-sm);
+    justify-content: end;
+  }
+
+  .cancel,
+  .confirm,
+  .confirmDanger {
+    appearance: none;
+    padding: var(--polly-space-sm) var(--polly-space-lg);
+    font: inherit;
+    font-weight: var(--polly-weight-medium);
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-md);
+    cursor: pointer;
+    transition: background var(--polly-motion-fast) ease;
+  }
+
+  .cancel {
+    background: var(--polly-surface);
+    color: var(--polly-text);
+  }
+  .cancel:hover {
+    background: var(--polly-surface-sunken);
+  }
+
+  .confirm {
+    background: var(--polly-accent);
+    color: var(--polly-accent-contrast);
+    border-color: var(--polly-accent);
+  }
+  .confirm:hover {
+    filter: brightness(1.05);
+  }
+
+  .confirmDanger {
+    background: var(--polly-danger);
+    color: var(--polly-danger-contrast);
+    border-color: var(--polly-danger);
+  }
+  .confirmDanger:hover {
+    filter: brightness(1.05);
+  }
+}

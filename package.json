@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.24.0",
+  "version": "0.25.1",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -62,6 +62,10 @@
       "import": "./dist/tools/test/src/browser/index.js",
       "types": "./dist/tools/test/src/browser/index.d.ts"
     },
+    "./test/visual": {
+      "import": "./dist/tools/test/src/visual/index.js",
+      "types": "./dist/tools/test/src/visual/index.d.ts"
+    },
     "./peer": {
       "import": "./dist/src/peer.js",
       "types": "./dist/src/peer.d.ts"
@@ -85,7 +89,18 @@
     "./quality": {
       "import": "./dist/tools/quality/src/index.js",
       "types": "./dist/tools/quality/src/index.d.ts"
-    }
+    },
+    "./actions": {
+      "import": "./dist/src/actions/index.js",
+      "types": "./dist/src/actions/index.d.ts"
+    },
+    "./ui": {
+      "import": "./dist/src/polly-ui/index.js",
+      "types": "./dist/src/polly-ui/index.d.ts"
+    },
+    "./ui/styles.css": "./dist/src/polly-ui/styles.css",
+    "./ui/theme.css": "./dist/src/polly-ui/theme.css",
+    "./ui/components.css": "./dist/src/polly-ui/index.css"
   },
   "files": [
     "dist",
@@ -123,10 +138,14 @@
     "@elysiajs/eden": "^1.4.8",
     "@types/bun": "^1.3.10",
     "@types/chrome": "^0.1.38",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
     "@types/serialize-javascript": "^5.0.4",
     "@types/ws": "^8.18.1",
     "elysia": "^1.4.28",
     "fast-check": "^3.23.2",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
     "puppeteer": "^24.41.0",
     "tweetnacl": "^1.0.3",
     "typescript": "^5.9.3"
