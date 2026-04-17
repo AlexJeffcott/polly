@@ -57,6 +57,10 @@ const libResult = await Bun.build({
     // UI primitives subpath
     "src/polly-ui/index.ts",
 
+    // Optional-peer UI helpers (separate subpath so marked + DOMPurify
+    // only ship in the bundles of consumers that import them).
+    "src/polly-ui/markdown.tsx",
+
     // Tool exports
     "tools/verify/src/config.ts",
     "tools/test/src/index.ts",
