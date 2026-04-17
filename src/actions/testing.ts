@@ -44,11 +44,12 @@ export function createMockElement(
 export function createMockSubmitEvent(
   form: HTMLFormElement | Record<string, string>,
 ): Event {
-  const isReal =
-    typeof HTMLFormElement !== "undefined" && form instanceof HTMLFormElement;
-  const target = isReal
-    ? (form as HTMLFormElement)
-    : createMockFormElement(form as Record<string, string>);
+  let target: HTMLFormElement;
+  if (typeof HTMLFormElement !== "undefined" && form instanceof HTMLFormElement) {
+    target = form;
+  } else {
+    target = createMockFormElement(form as unknown as Record<string, string>);
+  }
   let defaultPrevented = false;
   return {
     type: "submit",
@@ -81,7 +82,7 @@ function createMockFormElement(fields: Record<string, string>): HTMLFormElement 
 export function createMockStores<TStores extends object>(
   partial: Partial<TStores> = {},
 ): TStores {
-  return partial as TStores;
+  return partial as unknown as TStores;
 }
 
 /**

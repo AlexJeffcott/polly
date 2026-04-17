@@ -42,7 +42,7 @@ export function StoreProvider<TStores>({
 }
 
 export function useStores<TStores>(): TStores {
-  const ctx = useContext(StoreContext) as TStores | null;
+  const ctx = useContext(StoreContext) as unknown as TStores | null;
   if (ctx === null) {
     throw new Error("useStores must be used within a StoreProvider");
   }

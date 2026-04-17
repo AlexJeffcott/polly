@@ -33,7 +33,7 @@ function isFormElement(target: EventTarget | null): target is HTMLFormElement {
   if (typeof HTMLFormElement !== "undefined") {
     return target instanceof HTMLFormElement;
   }
-  const t = target as { tagName?: unknown };
+  const t = target as unknown as { tagName?: unknown };
   return typeof t.tagName === "string" && t.tagName === "FORM";
 }
 
@@ -88,15 +88,15 @@ export function createForm<
   TValues extends Record<string, string>,
   TStores,
 >(config: FormConfig<TValues, TStores>): FormStore<TValues, TStores> {
-  const fieldKeys = Object.keys(config.initialValues) as (keyof TValues)[];
+  const fieldKeys = Object.keys(config.initialValues) as unknown as (keyof TValues)[];
 
-  const fields = {} as { [K in keyof TValues]: Signal<TValues[K]> };
+  const fields = {} as unknown as { [K in keyof TValues]: Signal<TValues[K]> };
   for (const key of fieldKeys) {
     fields[key] = signal(config.initialValues[key]);
   }
 
   const values = computed<TValues>(() => {
-    const v = {} as TValues;
+    const v = {} as unknown as TValues;
     for (const key of fieldKeys) {
       v[key] = fields[key].value;
     }
@@ -163,9 +163,9 @@ export function createForm<
     if (event && isFormElement(event.target)) {
       const fd = new FormData(event.target);
       for (const key of fieldKeys) {
-        const raw = fd.get(key as string);
+        const raw = fd.get(key as unknown as string);
         if (raw !== null) {
-          fields[key].value = String(raw) as TValues[typeof key];
+          fields[key].value = String(raw) as unknown as TValues[typeof key];
         }
       }
     }
