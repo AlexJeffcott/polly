@@ -30,10 +30,17 @@
  */
 
 export {
+  type CheckSharedComponentsOptions,
+  checkSharedComponents,
+  DEFAULT_SHARED_COMPONENT_RULES,
+  type SharedComponentRule,
+  type SharedComponentsCheckResult,
+  type SharedComponentViolation,
+} from "./check-shared-components.ts";
+export {
   type CssLayoutOptions,
   checkCssLayout,
 } from "./css/check-layout.ts";
-
 export {
   type CssQualityOptions,
   checkCssQuality,
