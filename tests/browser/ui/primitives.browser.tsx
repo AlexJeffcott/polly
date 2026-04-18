@@ -17,7 +17,15 @@ import {
   resetOverlayStack,
   submitError,
 } from "../../../src/actions";
-import { ActionForm, Layout, Modal, OverlayRoot, TextInput, Toast } from "../../../src/polly-ui";
+import {
+  ActionForm,
+  Button,
+  Layout,
+  Modal,
+  OverlayRoot,
+  TextInput,
+  Toast,
+} from "../../../src/polly-ui";
 import {
   cleanup,
   describe,
@@ -279,6 +287,49 @@ describe("TextInput", () => {
     const input = host.querySelector<HTMLInputElement>("input[name=email]")!;
     expect(input.getAttribute("aria-invalid")).toBe("true");
     expect(input.getAttribute("data-state")).toBe("invalid");
+    cleanup(host);
+  });
+});
+
+describe("Button", () => {
+  // Every consumer that uses <Button> to carry additional action data
+  // (data-action-tid, data-action-item-id, etc.) relies on the Button
+  // rendering those attributes on the underlying button element. If
+  // Button silently drops the `data-action-*` extras, clicking the
+  // button fires the handler with an empty `ctx.data` and the handler
+  // typically no-ops on a missing id. The bug is invisible in unit
+  // tests that stub the element directly, so this test plants a real
+  // Button, clicks it, and asserts the event-delegator sees every
+  // attribute the JSX set.
+  test("forwards data-action-* extras to the underlying element", async () => {
+    let received: { action: string; data: Record<string, string> } | undefined;
+    const off = installEventDelegation((d) => {
+      received = { action: d.action, data: d.data };
+    });
+
+    const host = mountHost();
+    render(
+      <Button
+        label="×"
+        tier="tertiary"
+        color="danger"
+        data-action="task.delete"
+        data-action-tid="task-17"
+        data-action-label="Do laundry"
+      />,
+      host
+    );
+    await flush();
+
+    const btn = host.querySelector<HTMLButtonElement>("button[data-action='task.delete']");
+    expect(btn).toExist();
+    btn?.click();
+    await flush();
+
+    expect(received?.action).toBe("task.delete");
+    expect(received?.data).toEqual({ tid: "task-17", label: "Do laundry" });
+
+    off();
     cleanup(host);
   });
 });

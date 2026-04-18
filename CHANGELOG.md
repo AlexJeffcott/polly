@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.2] - 2026-04-18
+
+### Fixed
+
+#### `Button` silently dropped `data-action-*` extras
+
+Consumers that attached additional action payload attributes to
+`<Button>` — `data-action-tid`, `data-action-item-id`,
+`data-action-person`, any `data-action-*` — had those attributes
+dropped during render. `Button` destructured `data-action` explicitly
+and forwarded only that one; the rest were accepted as props by
+TypeScript (the type now declares an index signature for
+``data-action-${string}``) but never reached the underlying element.
+The click bubbled up to the event delegator, the handler fired, and
+`ctx.data` was empty. Every handler that guarded on `if (!ctx.data.tid)
+return;` silently no-ed — the user clicked a delete button and
+nothing happened.
+
+The fix collects every `data-action-*` key from `props` and spreads
+them onto both the anchor and button render branches. The type
+surface gains an index signature so `<Button data-action-tid="…" />`
+type-checks without a per-attribute enumeration.
+
+`tests/browser/ui/primitives.browser.tsx` grows a Button regression
+that plants a `<Button>` with three `data-action-*` extras, installs
+the event delegator, clicks the button, and asserts every extra
+arrived in `ctx.data`. Verified red against the 0.27.1 Button, green
+against the 0.27.2 fix.
+
+#### `mesh-node.js` stripped its `node:fs/promises` imports
+
+The library build compiled every entrypoint under `target: "browser"`,
+which replaced every `import … from "node:fs/promises"` statement in
+`mesh-node.ts` with an empty destructure —
+`var {readFile, rename, writeFile} = (() => ({}))` — turning every
+call on the file-backed keyring storage into a runtime
+`readFile is not a function`. Consumers that reached for
+`@fairfox/polly/mesh/node` — CLI peers, always-on bridges, any
+Node/Bun-side mesh participant — could not load or save a keyring.
+
+`build-lib.ts` now routes `src/mesh-node.ts` through a second
+`Bun.build` pass with `target: "node"`, so the `node:fs/promises`
+and `node:readline/promises` imports survive the bundler. The
+`target: "browser"` pass drops `mesh-node` from its entrypoint list;
+the file was never appropriate for a browser target anyway.
+
 ## [0.27.1] - 2026-04-18
 
 ### Fixed
