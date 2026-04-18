@@ -57,6 +57,24 @@ describe("fileKeyringStorage", () => {
     expect(entries.some((e) => e.endsWith(".tmp"))).toBe(false);
     expect(entries).toContain("keyring.json");
   });
+
+  test("save creates the parent directory when it does not exist", async () => {
+    // First-run on a fresh machine: the consumer points
+    // fileKeyringStorage at ~/.fairfox/keyring.json and the parent
+    // hasn't been created yet. The save should mkdir -p rather than
+    // fail at open() on the tmp path.
+    const dir = tmpDir();
+    const nested = join(dir, "profile", "fairfox", "keyring.json");
+    const storage = fileKeyringStorage(nested);
+    await storage.save({
+      identity: generateSigningKeyPair(),
+      knownPeers: new Map(),
+      documentKeys: new Map([["polly-mesh-default", new Uint8Array(32)]]),
+      revokedPeers: new Set(),
+    });
+    const reloaded = await storage.load();
+    expect(reloaded).not.toBeNull();
+  });
 });
 
 describe("bootstrapCliKeyring", () => {

@@ -38,7 +38,8 @@
  * ```
  */
 
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
   deserialiseKeyring,
@@ -77,6 +78,11 @@ export function fileKeyringStorage(path: string): KeyringStorage {
       }
     },
     save: async (keyring) => {
+      // First-run on a fresh machine often points this storage at a
+      // path whose parent directory hasn't been created yet (the
+      // typical `~/.fairfox/keyring.json` shape). mkdir -p the parent
+      // up front so the write-to-tmp step doesn't fail at open().
+      await mkdir(dirname(path), { recursive: true });
       const text = serialiseKeyring(keyring);
       const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
       await writeFile(tmp, text, { mode: 0o600 });
