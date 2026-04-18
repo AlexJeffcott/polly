@@ -20,7 +20,7 @@
  * a file-backed keyring store.
  */
 
-import { Repo, type StorageAdapterInterface } from "@automerge/automerge-repo/slim";
+import { type PeerId, Repo, type StorageAdapterInterface } from "@automerge/automerge-repo/slim";
 import type { KeyringStorage } from "./keyring-storage";
 import { DEFAULT_MESH_KEY_ID, type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";
 import { MeshSignalingClient, type MeshSignalingClientOptions } from "./mesh-signaling-client";
@@ -158,8 +158,16 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     encryptionEnabled,
   });
 
+  // The Repo's peerId MUST match the mesh peer id we signed the keyring
+  // against. Automerge would otherwise auto-generate a random "peer-xxxxx"
+  // identifier, and `MeshNetworkAdapter`'s outgoing envelope would carry
+  // that auto-id as its `senderId` — a value the remote keyring has never
+  // seen and cannot look up in `knownPeers`. Every message would then fail
+  // signature verification silently, and no `$meshState` sync would ever
+  // apply.
   const repo = new Repo({
     network: [networkAdapter],
+    peerId: options.signaling.peerId as unknown as PeerId,
     ...(options.repoStorage !== undefined && { storage: options.repoStorage }),
   });
 
