@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.5] - 2026-04-18
+
+### Fixed
+
+#### `fileKeyringStorage` mkdirs its parent directory before the first write
+
+First-run on a fresh machine typically points `fileKeyringStorage`
+at a path whose parent hasn't been created yet — `~/.fairfox/keyring.json`
+is the canonical shape. The previous implementation went straight to
+`writeFile` on a `${path}.tmp-*` sibling, which failed at `open()` with
+`ENOENT` when the parent was missing and aborted the pairing bootstrap.
+
+`save` now calls `mkdir(dirname(path), { recursive: true })` before the
+write-to-tmp-then-rename dance. The `load` path is unchanged — a
+missing file still returns `null`.
+
+A new unit test (`save creates the parent directory when it does not exist`)
+pins this to a nested path under a fresh `tmpdir` and asserts the
+keyring round-trips.
+
 ## [0.27.4] - 2026-04-18
 
 ### Added
