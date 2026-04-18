@@ -45,7 +45,10 @@ const libResult = await Bun.build({
     // Peer-first and mesh state (isolated subpath exports)
     "src/peer.ts",
     "src/mesh.ts",
-    "src/mesh-node.ts",
+    // mesh-node is built separately with target: "node" below — building
+    // it under target: "browser" replaces its `node:fs/promises` import
+    // with an empty stub (`var {readFile, rename, writeFile} = (() => ({}))`),
+    // which turns every call into a runtime TypeError.
 
     // Elysia integration
     "src/elysia/index.ts",
@@ -111,6 +114,53 @@ if (!libResult.success) {
 }
 
 console.log("✅ Library built");
+console.log("🔨 Building mesh-node (node target, keeps node: imports)...");
+
+// mesh-node has to be built under target: "node" because target: "browser"
+// strips every `node:fs/promises` / `node:readline/promises` import and
+// emits a stub (`var {readFile, rename, writeFile} = (() => ({}))`) that
+// turns every call into a runtime TypeError. The same `external` list
+// keeps peer and optional deps out of the bundle so consumers supply
+// their own WebRTC implementation.
+const meshNodeResult = await Bun.build({
+  entrypoints: ["src/mesh-node.ts"],
+  // Single-entry builds strip the `src/` prefix from the output path
+  // otherwise, so write into `dist/src/` directly to match the
+  // package.json export `./dist/src/mesh-node.js`.
+  outdir: join(DIST_DIR, "src"),
+  target: "node",
+  format: "esm",
+  splitting: false,
+  minify: false,
+  sourcemap: "external",
+  external: [
+    "preact",
+    "@preact/signals",
+    "@automerge/automerge",
+    "@automerge/automerge/automerge.wasm",
+    "@automerge/automerge-repo",
+    "@automerge/automerge-repo/slim",
+    "@automerge/automerge-repo-network-websocket",
+    "@automerge/automerge-repo-storage-indexeddb",
+    "@automerge/automerge-repo-storage-nodefs",
+    "serialize-javascript",
+    "ws",
+    "tweetnacl",
+    "bun",
+    "werift",
+    "@roamhq/wrtc",
+  ],
+});
+
+if (!meshNodeResult.success) {
+  console.error("❌ mesh-node build failed:");
+  for (const log of meshNodeResult.logs) {
+    console.error(log);
+  }
+  process.exit(1);
+}
+
+console.log("✅ mesh-node built");
 console.log("🔨 Building CLI and tools (node target, fully bundled)...");
 
 // Build CLI and tools (node target) - bundle EVERYTHING

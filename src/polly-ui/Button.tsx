@@ -34,6 +34,12 @@ type BaseButtonProps = {
   label: ComponentChildren;
   "data-action"?: string;
   "aria-label"?: string;
+  /** Additional action-payload attributes the event delegator parses
+   * into `ctx.data`. `data-action-tid="t-17"` becomes `{ tid: "t-17" }`,
+   * `data-action-item-id="…"` becomes `{ itemId: "…" }`, and so on.
+   * Typed as an index signature so every `data-action-*` key the
+   * consumer cares about type-checks without a Button-side enumeration. */
+  [actionDataAttr: `data-action-${string}`]: string | undefined;
 };
 
 type ButtonAsButton = BaseButtonProps & {
@@ -111,6 +117,19 @@ export function Button(props: ButtonProps): JSX.Element {
 
   const dataAction = props["data-action"];
   const ariaLabel = props["aria-label"];
+  // Collect every `data-action-*` extra the consumer passed so the
+  // event delegator can read them off the rendered element. Without
+  // this, anything beyond `data-action` is silently dropped and
+  // handlers fire with an empty `ctx.data`.
+  const actionDataAttrs: Record<string, string> = {};
+  for (const key of Object.keys(props)) {
+    if (key.startsWith("data-action-")) {
+      const value = (props as unknown as Record<string, unknown>)[key];
+      if (typeof value === "string") {
+        actionDataAttrs[key] = value;
+      }
+    }
+  }
 
   if ("href" in props && props.href) {
     return (
@@ -126,6 +145,7 @@ export function Button(props: ButtonProps): JSX.Element {
         data-polly-ui
         data-polly-button={tier}
         data-action={dataAction}
+        {...actionDataAttrs}
       >
         {content}
       </a>
@@ -146,6 +166,7 @@ export function Button(props: ButtonProps): JSX.Element {
       data-polly-ui
       data-polly-button={tier}
       data-action={dataAction}
+      {...actionDataAttrs}
     >
       {content}
     </button>
