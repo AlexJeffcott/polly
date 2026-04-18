@@ -90,6 +90,28 @@ async function waitForMessage(
   ]);
 }
 
+// Drain peer-discovery frames (peers-present, peer-joined, peer-left)
+// so tests that assert on the signal/error contract are not tripped up
+// by the additive discovery protocol covered in
+// signaling-peer-notifications.test.ts.
+async function waitForNonDiscoveryMessage(
+  client: { next: () => Promise<unknown> },
+  timeoutMs = 1000
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const msg = await waitForMessage(client, deadline - Date.now());
+    const type =
+      typeof msg === "object" && msg !== null && "type" in msg
+        ? (msg as { type: unknown }).type
+        : undefined;
+    if (type !== "peers-present" && type !== "peer-joined" && type !== "peer-left") {
+      return msg;
+    }
+  }
+  throw new Error(`waitForNonDiscoveryMessage timed out after ${timeoutMs}ms`);
+}
+
 describe("signalingServer plugin", () => {
   test("relays a signal from peer A to peer B after both have joined", async () => {
     const port = pickPort();
@@ -117,7 +139,7 @@ describe("signalingServer plugin", () => {
       payload: { sdp: "v=0\r\n…" },
     });
 
-    const received = (await waitForMessage(bob)) as unknown as {
+    const received = (await waitForNonDiscoveryMessage(bob)) as unknown as {
       type: string;
       peerId: string;
       targetPeerId: string;
@@ -179,7 +201,7 @@ describe("signalingServer plugin", () => {
       payload: { ice: "candidate" },
     });
 
-    const reply = (await waitForMessage(dave)) as unknown as {
+    const reply = (await waitForNonDiscoveryMessage(dave)) as unknown as {
       type: string;
       reason: string;
       targetPeerId: string;
@@ -216,7 +238,7 @@ describe("signalingServer plugin", () => {
       payload: { evil: true },
     });
 
-    const received = (await waitForMessage(frank)) as unknown as { peerId: string };
+    const received = (await waitForNonDiscoveryMessage(frank)) as unknown as { peerId: string };
     // Server replaces with the authenticated peer id.
     expect(received.peerId).toBe("peer-eve");
 
@@ -254,7 +276,10 @@ describe("signalingServer plugin", () => {
       payload: {},
     });
 
-    const reply = (await waitForMessage(grace)) as unknown as { type: string; reason: string };
+    const reply = (await waitForNonDiscoveryMessage(grace)) as unknown as {
+      type: string;
+      reason: string;
+    };
     expect(reply.type).toBe("error");
     expect(reply.reason).toBe("unknown-target");
 
