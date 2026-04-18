@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-04-18
+
+### Added
+
+#### Reactive peer discovery on the signalling protocol
+
+Two paired devices used to find each other only if both happened to be
+joined to the signalling server at the same moment `connect()` fired on
+the WebRTC adapter. Whichever device joined second reached the first
+(which was still joined); the first device's offer landed on an empty
+slot and the adapter did not retry. 0.27.0 adds three new server-to-
+client frames that replace the one-shot startup sweep with a fully
+reactive flow.
+
+- `peers-present: [peerId…]` — sent once to a newcomer immediately
+  after it joins, listing every peer already joined.
+- `peer-joined: peerId` — broadcast to every incumbent when a new peer
+  joins.
+- `peer-left: peerId` — broadcast to every remaining incumbent when a
+  joined peer's socket closes.
+
+`MeshSignalingClient` parses the three new types into three optional
+callbacks (`onPeersPresent`, `onPeerJoined`, `onPeerLeft`).
+`MeshWebRTCAdapter` gains `handlePeerJoined`, `handlePeersPresent`, and
+`handlePeerLeft`. The two initiator entry points apply a shared filter:
+the peer must be in `knownPeerIds`, no slot may already exist, and the
+local peer id must compare lexicographically greater than the remote's
+— matching the existing glare-resolution rule in `handleOffer` so the
+pre-offer filter eliminates the glare pathway entirely. `handlePeerLeft`
+tears down any slot for the departed peer, so a subsequent rejoin
+builds a clean connection instead of racing WebRTC's ICE-timeout
+eviction. `createMeshClient` wires the three callbacks automatically.
+
+The unconditional startup sweep in `MeshWebRTCAdapter.connect()` is
+gone. Discovery flows exclusively through the notification frames; the
+signalling server is the single source of truth for presence, which
+removes the race that made the old sweep unreliable. A narrow
+`peerSlotCount()` accessor exposes the adapter's slot count for tests
+that assert "exactly one data channel per ordered pair".
+
+The wire protocol is additive. Older servers that do not emit the new
+frames leave the new client callbacks unused and behaviour degrades to
+the pre-0.27 sweep; older clients ignore unknown `type` values and
+continue to function against the new server. Consumers that build the
+stack manually (rather than through `createMeshClient`) need to wire
+`onPeersPresent`, `onPeerJoined`, and `onPeerLeft` on their
+`MeshSignalingClient` — see the browser tests under `tests/browser/` for
+the pattern.
+
+### Fixed
+
+The signalling server's close handler used pointer equality on the
+Elysia `ws` wrapper when deciding whether a socket's eviction should
+actually clear its peer id from the routing map. Elysia does not
+guarantee the same `ws` reference across `message` and `close`
+callbacks, so stale closes after a rejoin could silently evict the
+fresh socket and strand the peer. The check now compares on the
+`ws.data` bag Elysia does preserve per connection.
+
 ## [0.26.1] - 2026-04-17
 
 ### Fixed
