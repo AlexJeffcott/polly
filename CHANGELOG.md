@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.1] - 2026-04-18
+
+### Fixed
+
+`createMeshClient` constructed the Automerge `Repo` without passing a
+`peerId`, so Automerge auto-generated a random `peer-xxxxxxx`
+identifier for the local side. `MeshNetworkAdapter` then signed every
+outgoing envelope with that auto-id as its `senderId`, and the remote
+receiver — whose `keyring.knownPeers` was keyed by the mesh peer id
+the application had paired against — dropped the envelope on the
+`knownPeers.get(senderId)` lookup. Mutual trust, WebRTC connection,
+data-channel open — all correct; only the last step, signature
+verification, silently rejected every message. No `$meshState`
+document ever synced through consumers that used the factory.
+
+The fix threads `options.signaling.peerId` into the `Repo` constructor
+so the Automerge local peer id and the mesh peer id are the same
+string. Existing consumers that wired the stack manually and passed
+an explicit `peerId` to `new Repo(...)` were unaffected; the bug
+only ever surfaced for the recommended `createMeshClient` entry point.
+
+A new browser test, `tests/browser/mesh-client-roundtrip.browser.ts`,
+constructs two clients through `createMeshClient` with paired
+keyrings and verifies that a document written on one converges on
+the other. This is the regression guard the existing hand-wired
+`mesh-webrtc.browser.ts` could never have caught, because that test
+passed its own explicit `peerId` to `new Repo()` and so silently
+compensated for the gap.
+
 ## [0.27.0] - 2026-04-18
 
 ### Added
