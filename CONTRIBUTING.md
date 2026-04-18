@@ -142,6 +142,38 @@ test("state syncs between contexts", async ({ page, context }) => {
 });
 ```
 
+#### Test the factory entry points, not only hand-wired stacks
+
+If the project ships a factory or composite entry point —
+`createMeshClient`, `createPeerRepoServer`, any `createX` or
+`configureX` helper — there must be a test that exercises that exact
+entry point end-to-end. Hand-wired tests that bypass the factory are
+useful as unit scaffolds; they are not a substitute.
+
+0.27.0 of this package shipped a bug where `createMeshClient` omitted
+the `peerId` option to `new Repo(...)`. Automerge auto-generated a
+random id, `MeshNetworkAdapter` stamped every outgoing envelope with
+that auto-id as its `senderId`, and the remote receiver — whose
+`knownPeers` was keyed by the mesh peer id the application had paired
+against — silently dropped every message at the signature step. The
+full test suite passed, including the browser e2e harness, because
+`tests/browser/mesh-webrtc.browser.ts` wired the stack by hand and
+passed an explicit `peerId` to `new Repo(...)`. The test silently
+compensated for the factory's gap. Every downstream consumer of the
+factory — fairfox, any external application — saw real-world sync
+break, with no signal from any tier of the suite that anything was
+wrong.
+
+`tests/browser/mesh-client-roundtrip.browser.ts` is the pattern to
+mirror when adding a new factory: two clients built through the
+public API with mutually-paired keyrings, a real WebRTC data channel,
+a document round-trip. Run the test in two states before committing
+it — green against your fix, red against the unfixed code — so you
+know the test actually exercises the path it claims to.
+
+A hand-wired test tells you the pieces work. A factory-path test
+tells you the assembly ships correctly. You need both.
+
 ### Building
 
 ```bash
