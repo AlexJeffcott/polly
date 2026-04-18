@@ -124,8 +124,11 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
   // The signalling client needs a handleSignal callback, but that callback
   // lives on the WebRTC adapter — which itself wants a reference to the
   // signalling client for sending answers. Break the cycle by letting the
-  // signalling client's onSignal reach the adapter through a closure over
-  // `webrtcAdapter`, which is assigned immediately below.
+  // signalling client's callbacks reach the adapter through a closure
+  // over `webrtcAdapter`, which is assigned immediately below. The same
+  // closure pattern wires the peer-discovery callbacks
+  // (onPeersPresent / onPeerJoined / onPeerLeft) through to the adapter's
+  // dispatch methods.
   let webrtcAdapter: MeshWebRTCAdapter | undefined;
   const signaling = new MeshSignalingClient({
     url: options.signaling.url,
@@ -134,6 +137,15 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     ...(options.signaling.onError !== undefined && { onError: options.signaling.onError }),
     onSignal: (fromPeerId, payload) => {
       webrtcAdapter?.handleSignal(fromPeerId, payload);
+    },
+    onPeersPresent: (peerIds) => {
+      webrtcAdapter?.handlePeersPresent(peerIds);
+    },
+    onPeerJoined: (peerId) => {
+      webrtcAdapter?.handlePeerJoined(peerId);
+    },
+    onPeerLeft: (peerId) => {
+      webrtcAdapter?.handlePeerLeft(peerId);
     },
   });
 

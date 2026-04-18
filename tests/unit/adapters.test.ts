@@ -44,7 +44,6 @@ test("RuntimeAdapter interface - onMessage listener", async () => {
 
   // Simulate incoming message
   for (const listener of mockChrome.runtime._messageListeners) {
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: Empty response handler for test
     listener({ type: "TEST" }, {} as unknown as MessageSender, () => {});
   }
 

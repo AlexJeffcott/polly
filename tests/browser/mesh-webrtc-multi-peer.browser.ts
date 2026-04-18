@@ -35,6 +35,7 @@ type Doc = {
 };
 
 interface Peer {
+  identity: ReturnType<typeof generateSigningKeyPair>;
   keyring: MeshKeyring;
   signaling: MeshSignalingClient;
   webrtc: MeshWebRTCAdapter;
@@ -43,13 +44,31 @@ interface Peer {
   peerId: string;
 }
 
-function buildPeer(peerId: string, knownPeerIds: string[], docKey: Uint8Array): Peer {
-  const identity = generateSigningKeyPair();
+type Identities = Map<string, ReturnType<typeof generateSigningKeyPair>>;
+
+function preGenerateIdentities(peerIds: string[]): Identities {
+  const identities: Identities = new Map();
+  for (const id of peerIds) identities.set(id, generateSigningKeyPair());
+  return identities;
+}
+
+function buildPeer(
+  peerId: string,
+  knownPeerIds: string[],
+  docKey: Uint8Array,
+  identities: Identities
+): Peer {
+  const identity = identities.get(peerId);
+  if (!identity) throw new Error(`missing identity for ${peerId}`);
+  const knownPeers = new Map<string, Uint8Array>();
+  for (const knownId of knownPeerIds) {
+    const knownIdentity = identities.get(knownId);
+    if (!knownIdentity) throw new Error(`peer ${peerId} lists unknown peer ${knownId}`);
+    knownPeers.set(knownId, knownIdentity.publicKey);
+  }
   const keyring: MeshKeyring = {
     identity,
-    knownPeers: new Map(
-      knownPeerIds.map((id) => [id, new Uint8Array(32)] as [string, Uint8Array])
-    ),
+    knownPeers,
     documentKeys: new Map([[DEFAULT_MESH_KEY_ID, docKey]]),
     revokedPeers: new Set(),
   };
@@ -69,7 +88,7 @@ function buildPeer(peerId: string, knownPeerIds: string[], docKey: Uint8Array): 
   Object.assign(webrtc, { signaling });
   const mesh = new MeshNetworkAdapter({ base: webrtc, keyring });
   const repo = new Repo({ network: [mesh], peerId: peerId as unknown as PeerId });
-  return { keyring, signaling, webrtc, mesh, repo, peerId };
+  return { identity, keyring, signaling, webrtc, mesh, repo, peerId };
 }
 
 async function shutdown(peer: Peer): Promise<void> {
@@ -80,11 +99,12 @@ async function shutdown(peer: Peer): Promise<void> {
 describe("MeshWebRTCAdapter in multi-peer topologies", () => {
   test("three-peer mesh: every pair connects and writes converge on all three", async () => {
     const docKey = generateDocumentKey();
+    const identities = preGenerateIdentities(["peer-a", "peer-b", "peer-c"]);
     // peer-c > peer-b > peer-a under string comparison — so peer-c
     // initiates to both, peer-b initiates to peer-a.
-    const a = buildPeer("peer-a", ["peer-b", "peer-c"], docKey);
-    const b = buildPeer("peer-b", ["peer-a", "peer-c"], docKey);
-    const c = buildPeer("peer-c", ["peer-a", "peer-b"], docKey);
+    const a = buildPeer("peer-a", ["peer-b", "peer-c"], docKey, identities);
+    const b = buildPeer("peer-b", ["peer-a", "peer-c"], docKey, identities);
+    const c = buildPeer("peer-c", ["peer-a", "peer-b"], docKey, identities);
 
     await a.signaling.connect();
     await b.signaling.connect();
@@ -131,10 +151,11 @@ describe("MeshWebRTCAdapter in multi-peer topologies", () => {
     const docKey = generateDocumentKey();
     // A and B are pairwise trusted. D joins the signalling server with
     // a completely unrelated peer id and is in no one's knownPeers.
-    const a = buildPeer("peer-alpha", ["peer-beta"], docKey);
-    const b = buildPeer("peer-beta", ["peer-alpha"], docKey);
+    const identities = preGenerateIdentities(["peer-alpha", "peer-beta", "peer-delta"]);
+    const a = buildPeer("peer-alpha", ["peer-beta"], docKey, identities);
+    const b = buildPeer("peer-beta", ["peer-alpha"], docKey, identities);
     const dDocKey = generateDocumentKey(); // D does not share A/B's document key either
-    const d = buildPeer("peer-delta", [], dDocKey);
+    const d = buildPeer("peer-delta", [], dDocKey, identities);
 
     await a.signaling.connect();
     await b.signaling.connect();

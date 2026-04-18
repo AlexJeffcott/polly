@@ -19,7 +19,7 @@
       "!**/examples/**/docs",
       "!**/*.min.js",
       "!**/*.min.css",
-      "!**/.claude/worktrees/**"
+      "!**/.claude/worktrees"
     ]
   },
   "linter": {

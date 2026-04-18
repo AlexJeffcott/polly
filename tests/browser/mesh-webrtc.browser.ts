@@ -68,6 +68,9 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
       url: SIGNALING_URL,
       peerId: "peer-a",
       onSignal: (from, payload) => webrtcA.handleSignal(from, payload),
+      onPeersPresent: (ids) => webrtcA.handlePeersPresent(ids),
+      onPeerJoined: (id) => webrtcA.handlePeerJoined(id),
+      onPeerLeft: (id) => webrtcA.handlePeerLeft(id),
     });
 
     // Replace the signaling reference via Object.assign since the field is readonly
@@ -83,6 +86,9 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
       url: SIGNALING_URL,
       peerId: "peer-b",
       onSignal: (from, payload) => webrtcB.handleSignal(from, payload),
+      onPeersPresent: (ids) => webrtcB.handlePeersPresent(ids),
+      onPeerJoined: (id) => webrtcB.handlePeerJoined(id),
+      onPeerLeft: (id) => webrtcB.handlePeerLeft(id),
     });
     Object.assign(webrtcB, { signaling: signalingB });
 

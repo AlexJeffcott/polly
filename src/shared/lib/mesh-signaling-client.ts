@@ -20,8 +20,9 @@
 /** A signal message either sent to or received from the signalling server.
  * Matches the wire format produced by the Elysia signalingServer plugin. */
 export interface SignalingMessage {
-  type: "join" | "signal" | "error";
+  type: "join" | "signal" | "error" | "peers-present" | "peer-joined" | "peer-left";
   peerId?: string;
+  peerIds?: string[];
   targetPeerId?: string;
   payload?: unknown;
   reason?: "unknown-target" | "not-joined" | "malformed";
@@ -43,6 +44,17 @@ export interface MeshSignalingClientOptions {
   /** Optional callback for the open and close lifecycle events. */
   onOpen?: () => void;
   onClose?: () => void;
+  /** Optional callback invoked once, immediately after the server's
+   * response to our `join`, listing every peer already joined at that
+   * moment. Empty list when the lobby is otherwise empty. */
+  onPeersPresent?: (peerIds: string[]) => void;
+  /** Optional callback invoked each time a new peer joins the signalling
+   * server after we have already joined. */
+  onPeerJoined?: (peerId: string) => void;
+  /** Optional callback invoked each time a joined peer's socket closes
+   * (including graceful disconnect and abrupt drops detected by the
+   * server). Fires at most once per departure. */
+  onPeerLeft?: (peerId: string) => void;
   /** WebSocket constructor. Defaults to `globalThis.WebSocket`. Inject a
    * different implementation (e.g. `ws` package's `WebSocket`) when running
    * in an environment without a native WebSocket global, or to use a custom
@@ -67,6 +79,9 @@ export class MeshSignalingClient {
   private readonly onError?: (reason: string, targetPeerId?: string) => void;
   private readonly onOpen?: () => void;
   private readonly onClose?: () => void;
+  private readonly onPeersPresent?: (peerIds: string[]) => void;
+  private readonly onPeerJoined?: (peerId: string) => void;
+  private readonly onPeerLeft?: (peerId: string) => void;
   private socket: WebSocket | undefined;
   private joined = false;
   private readonly WebSocketCtor: typeof WebSocket;
@@ -78,6 +93,9 @@ export class MeshSignalingClient {
     if (options.onError !== undefined) this.onError = options.onError;
     if (options.onOpen !== undefined) this.onOpen = options.onOpen;
     if (options.onClose !== undefined) this.onClose = options.onClose;
+    if (options.onPeersPresent !== undefined) this.onPeersPresent = options.onPeersPresent;
+    if (options.onPeerJoined !== undefined) this.onPeerJoined = options.onPeerJoined;
+    if (options.onPeerLeft !== undefined) this.onPeerLeft = options.onPeerLeft;
     const WS = options.WebSocket ?? globalThis.WebSocket;
     if (typeof WS !== "function") {
       throw new Error(
@@ -108,19 +126,7 @@ export class MeshSignalingClient {
       });
 
       ws.addEventListener("message", (event) => {
-        let msg: SignalingMessage;
-        try {
-          msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        } catch {
-          return;
-        }
-        if (msg.type === "signal" && typeof msg.peerId === "string") {
-          this.onSignal(msg.peerId, msg.payload);
-          return;
-        }
-        if (msg.type === "error" && msg.reason) {
-          this.onError?.(msg.reason, msg.targetPeerId);
-        }
+        this.dispatchFrame(event.data);
       });
 
       ws.addEventListener("error", (err) => {
@@ -132,6 +138,39 @@ export class MeshSignalingClient {
         this.onClose?.();
       });
     });
+  }
+
+  /**
+   * Parse and route an incoming frame. Extracted from the open/message
+   * closure in {@link connect} so the discriminated-union switch stays
+   * below the linter's cognitive-complexity ceiling.
+   */
+  private dispatchFrame(raw: unknown): void {
+    let msg: SignalingMessage;
+    try {
+      msg = typeof raw === "string" ? JSON.parse(raw) : (raw as SignalingMessage);
+    } catch {
+      return;
+    }
+    switch (msg.type) {
+      case "signal":
+        if (typeof msg.peerId === "string") this.onSignal(msg.peerId, msg.payload);
+        return;
+      case "peers-present":
+        if (Array.isArray(msg.peerIds)) this.onPeersPresent?.(msg.peerIds);
+        return;
+      case "peer-joined":
+        if (typeof msg.peerId === "string") this.onPeerJoined?.(msg.peerId);
+        return;
+      case "peer-left":
+        if (typeof msg.peerId === "string") this.onPeerLeft?.(msg.peerId);
+        return;
+      case "error":
+        if (msg.reason) this.onError?.(msg.reason, msg.targetPeerId);
+        return;
+      default:
+        return;
+    }
   }
 
   /**

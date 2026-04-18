@@ -29,9 +29,9 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import {
-  type MeshSignalingClient,
-  type MeshSignalingClientOptions,
+import type {
+  MeshSignalingClient,
+  MeshSignalingClientOptions,
 } from "@/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 

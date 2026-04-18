@@ -118,6 +118,13 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   readonly iceServers: RTCIceServer[];
   readonly dataChannelLabel: string;
   readonly knownPeerIds: string[];
+  /** Local peer id captured at construction time. The base
+   * `NetworkAdapter.peerId` is only populated when `connect()` fires,
+   * which means glare-resolution and peer-discovery dispatch would
+   * otherwise have no id to compare against before the first incoming
+   * message. Keeping a private mirror keeps those code paths honest
+   * without depending on Automerge's lifecycle. */
+  private readonly localPeerId: string;
   private readonly RTCPeerConnectionCtor: typeof RTCPeerConnection;
   private readonly slots = new Map<string, PeerSlot>();
   private ready = false;
@@ -134,6 +141,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.iceServers = options.iceServers ?? DEFAULT_ICE_SERVERS;
     this.dataChannelLabel = options.dataChannelLabel ?? "polly-mesh";
     this.knownPeerIds = options.knownPeerIds ?? [];
+    this.localPeerId = options.peerId;
     const PC = options.RTCPeerConnection ?? globalThis.RTCPeerConnection;
     if (typeof PC !== "function") {
       throw new Error(
@@ -147,6 +155,64 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     return this.ready;
   }
 
+  /** The current number of peer slots the adapter is tracking. Each
+   * slot is one ordered pair (local peer ↔ remote peer) with its own
+   * RTCPeerConnection and data channel. Exposed for tests that assert
+   * "exactly one channel per pair" after discovery settles. */
+  peerSlotCount(): number {
+    return this.slots.size;
+  }
+
+  /** Handle the signalling server's `peer-joined` notification: a new
+   * peer has appeared on the relay. If the peer is in `knownPeerIds`
+   * and we do not already have a slot for it, and the tie-break rule
+   * designates us as the initiator (our peerId compares greater than
+   * theirs), open an initiating slot and fire the SDP offer. Otherwise
+   * do nothing — either we are not interested in this peer, we are
+   * already connected, or the other side is the one expected to
+   * initiate. */
+  handlePeerJoined(remotePeerId: string): void {
+    if (!this.shouldInitiateTo(remotePeerId)) return;
+    this.createInitiatingSlot(remotePeerId);
+  }
+
+  /** Handle the signalling server's `peers-present` notification sent
+   * once to a newcomer. Applies the same filter as handlePeerJoined to
+   * every listed peer, so a device joining into an established lobby
+   * dials every knownPeer it is meant to initiate to in one pass. */
+  handlePeersPresent(peerIds: string[]): void {
+    for (const remotePeerId of peerIds) {
+      if (!this.shouldInitiateTo(remotePeerId)) continue;
+      this.createInitiatingSlot(remotePeerId);
+    }
+  }
+
+  /** Handle the signalling server's `peer-left` notification: a
+   * previously joined peer has closed its socket. Evict any slot we
+   * hold for that peer so a subsequent `peer-joined` from the same
+   * peerId (a reconnect) creates a fresh slot rather than colliding
+   * with a stale RTCPeerConnection that WebRTC's own ICE timer has
+   * not yet noticed is dead. */
+  handlePeerLeft(remotePeerId: string): void {
+    const slot = this.slots.get(remotePeerId);
+    if (!slot) return;
+    slot.channel?.close();
+    slot.connection.close();
+    this.slots.delete(remotePeerId);
+  }
+
+  private shouldInitiateTo(remotePeerId: string): boolean {
+    if (remotePeerId === this.localPeerId) return false;
+    if (!this.knownPeerIds.includes(remotePeerId)) return false;
+    if (this.slots.has(remotePeerId)) return false;
+    // Tie-break: the lexicographically higher peer id initiates. This
+    // matches the glare-resolution rule in handleOffer, so pre-offer
+    // filtering eliminates the glare pathway for the common case where
+    // both sides learn of each other at roughly the same moment.
+    if (this.localPeerId <= remotePeerId) return false;
+    return true;
+  }
+
   whenReady(): Promise<void> {
     if (this.ready) return Promise.resolve();
     return new Promise((resolve) => {
@@ -155,9 +221,16 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   }
 
   /**
-   * Start the adapter. Wires the signalling client's onSignal callback
-   * to the adapter's dispatch, opens the signalling connection if it
-   * is not already open, and marks the adapter ready.
+   * Start the adapter. Marks the adapter ready so Automerge's
+   * NetworkSubsystem begins routing messages through it. Discovery of
+   * peers is driven entirely by the signalling server's
+   * `peers-present` and `peer-joined` frames, handed to
+   * {@link handlePeersPresent} and {@link handlePeerJoined}. A peer
+   * that calls `signaling.connect()` at any point — before or after
+   * this method — will either find its targets already in the server's
+   * lobby (peers-present) or learn about them as they arrive
+   * (peer-joined); either way the adapter only opens one
+   * initiating slot per ordered pair.
    */
   connect(peerId: PeerId, peerMetadata?: PeerMetadata): void {
     this.peerId = peerId;
@@ -166,16 +239,6 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
     this.ready = true;
     this.readyResolver?.();
-
-    // Initiate WebRTC connections to every known peer. This is the
-    // discovery step: once the SDP exchange completes and the data
-    // channel opens, the adapter emits 'peer-candidate' and the Repo's
-    // NetworkSubsystem learns about the peer.
-    for (const remotePeerId of this.knownPeerIds) {
-      if (remotePeerId !== (peerId as unknown as string) && !this.slots.has(remotePeerId)) {
-        this.createInitiatingSlot(remotePeerId);
-      }
-    }
   }
 
   disconnect(): void {

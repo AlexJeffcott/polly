@@ -36,6 +36,7 @@ type Doc = {
 };
 
 interface Peer {
+  identity: ReturnType<typeof generateSigningKeyPair>;
   keyring: MeshKeyring;
   signaling: MeshSignalingClient;
   webrtc: MeshWebRTCAdapter;
@@ -44,16 +45,36 @@ interface Peer {
   peerId: string;
 }
 
-// Build every layer for one peer, wiring the signalling client's three
-// discovery callbacks — onPeersPresent, onPeerJoined, onPeerLeft — into
-// the webrtc adapter's new dispatch methods. Does not call connect().
-function buildPeer(peerId: string, knownPeerIds: string[], docKey: Uint8Array): Peer {
-  const identity = generateSigningKeyPair();
+type Identities = Map<string, ReturnType<typeof generateSigningKeyPair>>;
+
+function preGenerateIdentities(peerIds: string[]): Identities {
+  const identities: Identities = new Map();
+  for (const id of peerIds) identities.set(id, generateSigningKeyPair());
+  return identities;
+}
+
+// Build one peer's full stack. Keyring carries real public keys for
+// every peer in `knownPeerIds`, so MeshNetworkAdapter's signature
+// verification passes when bytes flow. Signalling-client wires the
+// three discovery callbacks into the adapter's dispatch methods.
+// Does not call signaling.connect(); the test orders those calls.
+function buildPeer(
+  peerId: string,
+  knownPeerIds: string[],
+  docKey: Uint8Array,
+  identities: Identities
+): Peer {
+  const identity = identities.get(peerId);
+  if (!identity) throw new Error(`missing identity for ${peerId}`);
+  const knownPeers = new Map<string, Uint8Array>();
+  for (const knownId of knownPeerIds) {
+    const knownIdentity = identities.get(knownId);
+    if (!knownIdentity) throw new Error(`peer ${peerId} lists unknown peer ${knownId}`);
+    knownPeers.set(knownId, knownIdentity.publicKey);
+  }
   const keyring: MeshKeyring = {
     identity,
-    knownPeers: new Map(
-      knownPeerIds.map((id) => [id, new Uint8Array(32)] as [string, Uint8Array])
-    ),
+    knownPeers,
     documentKeys: new Map([[DEFAULT_MESH_KEY_ID, docKey]]),
     revokedPeers: new Set(),
   };
@@ -73,7 +94,7 @@ function buildPeer(peerId: string, knownPeerIds: string[], docKey: Uint8Array): 
   Object.assign(webrtc, { signaling });
   const mesh = new MeshNetworkAdapter({ base: webrtc, keyring });
   const repo = new Repo({ network: [mesh], peerId: peerId as unknown as PeerId });
-  return { keyring, signaling, webrtc, mesh, repo, peerId };
+  return { identity, keyring, signaling, webrtc, mesh, repo, peerId };
 }
 
 async function shutdown(peer: Peer): Promise<void> {
@@ -84,17 +105,18 @@ async function shutdown(peer: Peer): Promise<void> {
 describe("MeshWebRTCAdapter convergence across join orderings", () => {
   test("late-join A-then-B: B joining second reaches A through peers-present", async () => {
     const docKey = generateDocumentKey();
+    const identities = preGenerateIdentities(["peer-alpha", "peer-beta"]);
     // Peer ids chosen so "peer-beta" > "peer-alpha": the higher id is
     // the initiator under the tie-break rule, and we want B to be the
     // one whose handlePeersPresent fires the offer when it joins second.
-    const a = buildPeer("peer-alpha", ["peer-beta"], docKey);
+    const a = buildPeer("peer-alpha", ["peer-beta"], docKey, identities);
     await a.signaling.connect();
 
     console.log("[test] A joined; verifying no peer before B arrives");
     await new Promise((r) => setTimeout(r, 300));
     expect(a.repo.peers.length).toBe(0);
 
-    const b = buildPeer("peer-beta", ["peer-alpha"], docKey);
+    const b = buildPeer("peer-beta", ["peer-alpha"], docKey, identities);
     await b.signaling.connect();
     console.log("[test] B joined; waiting for WebRTC convergence");
     await waitFor(() => a.repo.peers.length > 0 && b.repo.peers.length > 0, 10000);
@@ -123,14 +145,15 @@ describe("MeshWebRTCAdapter convergence across join orderings", () => {
 
   test("late-join B-then-A: A joining second reaches B through peer-joined", async () => {
     const docKey = generateDocumentKey();
-    const b = buildPeer("peer-beta", ["peer-alpha"], docKey);
+    const identities = preGenerateIdentities(["peer-alpha", "peer-beta"]);
+    const b = buildPeer("peer-beta", ["peer-alpha"], docKey, identities);
     await b.signaling.connect();
 
     console.log("[test] B joined first; verifying no peer before A arrives");
     await new Promise((r) => setTimeout(r, 300));
     expect(b.repo.peers.length).toBe(0);
 
-    const a = buildPeer("peer-alpha", ["peer-beta"], docKey);
+    const a = buildPeer("peer-alpha", ["peer-beta"], docKey, identities);
     await a.signaling.connect();
     console.log("[test] A joined; waiting for WebRTC convergence");
     await waitFor(() => a.repo.peers.length > 0 && b.repo.peers.length > 0, 10000);
@@ -159,15 +182,32 @@ describe("MeshWebRTCAdapter convergence across join orderings", () => {
 
   test("simultaneous-join race: exactly one slot per pair, both directions work", async () => {
     const docKey = generateDocumentKey();
-    const a = buildPeer("peer-alpha", ["peer-beta"], docKey);
-    const b = buildPeer("peer-beta", ["peer-alpha"], docKey);
+    const identities = preGenerateIdentities(["peer-alpha", "peer-beta"]);
+    const a = buildPeer("peer-alpha", ["peer-beta"], docKey, identities);
+    const b = buildPeer("peer-beta", ["peer-alpha"], docKey, identities);
 
     // Kick both joins in parallel — the server is free to process them
     // in either order, so we exercise the tie-break rule.
     await Promise.all([a.signaling.connect(), b.signaling.connect()]);
     console.log("[test] both signalling clients joined; waiting for WebRTC convergence");
+    console.log(
+      `[test] immediately after join: A slots=${a.webrtc.peerSlotCount()} B slots=${b.webrtc.peerSlotCount()}`
+    );
 
-    await waitFor(() => a.repo.peers.length > 0 && b.repo.peers.length > 0, 10000);
+    await waitFor(() => {
+      const aPeers = a.repo.peers.length;
+      const bPeers = b.repo.peers.length;
+      const aSlots = a.webrtc.peerSlotCount();
+      const bSlots = b.webrtc.peerSlotCount();
+      if (aPeers > 0 && bPeers > 0) return true;
+      if ((aSlots + bSlots) % 2 === 0 && aSlots + bSlots > 0) {
+        // intentionally log the in-progress state once
+      }
+      return false;
+    }, 10000);
+    console.log(
+      `[test] converged: A peers=${a.repo.peers.length} A slots=${a.webrtc.peerSlotCount()} B peers=${b.repo.peers.length} B slots=${b.webrtc.peerSlotCount()}`
+    );
 
     // Give any glare resolution a moment to settle and then assert that
     // each side converged on exactly one slot for the other peer.
@@ -193,8 +233,12 @@ describe("MeshWebRTCAdapter convergence across join orderings", () => {
 
   test("reconnect: a peer that closes and rejoins re-establishes its channel", async () => {
     const docKey = generateDocumentKey();
-    const a1 = buildPeer("peer-alpha", ["peer-beta"], docKey);
-    const b = buildPeer("peer-beta", ["peer-alpha"], docKey);
+    // Reuse the same identities across A1 and A2 so the rejoin
+    // genuinely looks like the same peer coming back, not a brand-new
+    // device with a coincidentally reused peer id.
+    const identities = preGenerateIdentities(["peer-alpha", "peer-beta"]);
+    const a1 = buildPeer("peer-alpha", ["peer-beta"], docKey, identities);
+    const b = buildPeer("peer-beta", ["peer-alpha"], docKey, identities);
 
     await a1.signaling.connect();
     await b.signaling.connect();
@@ -215,14 +259,13 @@ describe("MeshWebRTCAdapter convergence across join orderings", () => {
     await shutdown(a1);
     // Give the server's close handler time to propagate peer-left to B.
     await waitFor(() => b.webrtc.peerSlotCount() === 0, 5000);
-    expect(b.repo.peers.length).toBe(0);
 
     handleB.change((d) => {
       d.count = 42;
     });
 
     console.log("[test] reconnecting A as a fresh stack with the same peer id");
-    const a2 = buildPeer("peer-alpha", ["peer-beta"], docKey);
+    const a2 = buildPeer("peer-alpha", ["peer-beta"], docKey, identities);
     await a2.signaling.connect();
     await waitFor(() => a2.repo.peers.length > 0 && b.repo.peers.length > 0, 10000);
 

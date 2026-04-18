@@ -52,8 +52,10 @@
 
 import { Elysia } from "elysia";
 
-/** A signalling message. The `type` discriminates between join (peer
- * registration), signal (relayed message), and error (server response). */
+/** A signalling message. The `type` discriminates between client-to-server
+ * requests (join, signal), the error envelope, and the server-to-client
+ * discovery frames (peers-present, peer-joined, peer-left) that let
+ * peers learn about each other without polling. */
 export type SignalingMessage =
   | {
       type: "join";
@@ -73,6 +75,25 @@ export type SignalingMessage =
       type: "error";
       reason: "unknown-target" | "not-joined" | "malformed";
       targetPeerId?: string;
+    }
+  | {
+      /** Sent to a newcomer immediately after it joins, listing every
+       * peer that was already joined at that moment. Empty for a lone
+       * newcomer. */
+      type: "peers-present";
+      peerIds: string[];
+    }
+  | {
+      /** Broadcast to every incumbent when a new peer joins. */
+      type: "peer-joined";
+      peerId: string;
+    }
+  | {
+      /** Broadcast to every remaining incumbent when a joined peer
+       * closes its socket. Never emitted for a connection that never
+       * sent a join frame. */
+      type: "peer-left";
+      peerId: string;
     };
 
 export interface SignalingServerOptions {
@@ -108,9 +129,34 @@ export function signalingServer(options: SignalingServerOptions = {}) {
   };
 
   const handleJoin = (ws: unknown, peerId: string): void => {
-    peerSockets.set(peerId, ws as unknown as { send: (m: unknown) => void });
+    const newcomer = ws as unknown as { send: (m: unknown) => void };
+    // Collect the peers that were already joined so we can (a) tell the
+    // newcomer who is present and (b) tell each of them about the
+    // newcomer. A rejoin with the same peerId replaces the prior entry
+    // but is otherwise treated as a fresh arrival.
+    const incumbents: Array<{ peerId: string; socket: { send: (m: unknown) => void } }> = [];
+    for (const [existingPeerId, existingSocket] of peerSockets) {
+      if (existingPeerId === peerId) continue;
+      incumbents.push({ peerId: existingPeerId, socket: existingSocket });
+    }
+    peerSockets.set(peerId, newcomer);
     const wsWithData = ws as unknown as { data: Record<string, unknown> };
     wsWithData.data.peerId = peerId;
+
+    newcomer.send({
+      type: "peers-present",
+      peerIds: incumbents.map((i) => i.peerId),
+    } as unknown as SignalingMessage);
+
+    for (const incumbent of incumbents) {
+      try {
+        incumbent.socket.send({ type: "peer-joined", peerId } as unknown as SignalingMessage);
+      } catch {
+        // If a send fails we leave the stale socket to its own close
+        // handler to evict. Dropping here would open a window where
+        // the next signal to this peer still thinks it's alive.
+      }
+    }
   };
 
   const sendUnknownTarget = (ws: unknown, targetPeerId: string): void => {
@@ -185,11 +231,30 @@ export function signalingServer(options: SignalingServerOptions = {}) {
       const peerId = (ws.data as unknown as Record<string, unknown>).peerId as unknown as
         | string
         | undefined;
-      if (peerId) {
-        // Only delete the entry if it still points at *this* socket, so a
-        // stale close after a reconnect does not evict the new socket.
-        if (peerSockets.get(peerId) === (ws as unknown as { send: (m: unknown) => void })) {
-          peerSockets.delete(peerId);
+      if (!peerId) {
+        // Connection that never sent a join — nothing to broadcast and
+        // nothing to evict. A bystander coming and going leaves no trace.
+        return;
+      }
+      // Only evict if the map still points at *this* socket. A stale
+      // close after the same peerId rejoined on a new socket should not
+      // take the fresh entry with it. The comparison uses the `data` bag
+      // Elysia attaches to each connection because it is preserved across
+      // message and close callbacks, unlike the `ws` wrapper object which
+      // Elysia may or may not reuse.
+      const mapped = peerSockets.get(peerId);
+      const wsData = (ws as unknown as { data: Record<string, unknown> }).data;
+      const mappedData = (mapped as unknown as { data?: Record<string, unknown> } | undefined)
+        ?.data;
+      if (mapped === undefined || mappedData !== wsData) {
+        return;
+      }
+      peerSockets.delete(peerId);
+      for (const [_incumbentId, incumbentSocket] of peerSockets) {
+        try {
+          incumbentSocket.send({ type: "peer-left", peerId } as unknown as SignalingMessage);
+        } catch {
+          // Incumbent socket is gone; its own close handler will tidy.
         }
       }
     },
