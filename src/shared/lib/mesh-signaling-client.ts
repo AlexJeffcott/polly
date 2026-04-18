@@ -72,6 +72,13 @@ export interface MeshSignalingClientOptions {
  * offers, SDP answers, ICE candidates, or any other message the
  * WebRTC adapter wants to exchange with peers.
  */
+/** Base delay (ms) between reconnect attempts. Doubles per attempt up
+ * to {@link RECONNECT_MAX_DELAY_MS}. */
+const RECONNECT_BASE_DELAY_MS = 250;
+/** Ceiling for the exponential backoff so a long outage does not leave
+ * the client silent for minutes between probes. */
+const RECONNECT_MAX_DELAY_MS = 30_000;
+
 export class MeshSignalingClient {
   readonly url: string;
   readonly peerId: string;
@@ -84,6 +91,8 @@ export class MeshSignalingClient {
   private readonly onPeerLeft?: (peerId: string) => void;
   private socket: WebSocket | undefined;
   private joined = false;
+  private stopping = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly WebSocketCtor: typeof WebSocket;
 
   constructor(options: MeshSignalingClientOptions) {
@@ -111,9 +120,15 @@ export class MeshSignalingClient {
    * promise resolves.
    */
   async connect(): Promise<void> {
+    this.stopping = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     return new Promise((resolve, reject) => {
       const ws = new this.WebSocketCtor(this.url);
       this.socket = ws;
+      let settled = false;
 
       ws.addEventListener("open", () => {
         // Send the join message as the first frame. The server registers
@@ -122,7 +137,10 @@ export class MeshSignalingClient {
         ws.send(JSON.stringify({ type: "join", peerId: this.peerId } satisfies SignalingMessage));
         this.joined = true;
         this.onOpen?.();
-        resolve();
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
       });
 
       ws.addEventListener("message", (event) => {
@@ -130,14 +148,39 @@ export class MeshSignalingClient {
       });
 
       ws.addEventListener("error", (err) => {
-        reject(err);
+        // Only the initial connect rejects here. Post-open errors route
+        // through the close handler's reconnect path.
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
       });
 
       ws.addEventListener("close", () => {
+        const wasOpen = this.joined;
         this.joined = false;
         this.onClose?.();
+        // If the caller asked to stop, respect it. Otherwise a close on
+        // an established connection — or a close that preempted `open`
+        // — kicks off the reconnect loop.
+        if (!this.stopping && wasOpen) {
+          this.scheduleReconnect(0);
+        }
       });
     });
+  }
+
+  /** Schedule the next reconnect attempt with exponential backoff. */
+  private scheduleReconnect(attempt: number): void {
+    if (this.stopping) return;
+    const delay = Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** attempt);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.stopping) return;
+      void this.connect().catch(() => {
+        this.scheduleReconnect(attempt + 1);
+      });
+    }, delay);
   }
 
   /**
@@ -195,9 +238,16 @@ export class MeshSignalingClient {
 
   /**
    * Close the underlying WebSocket connection. The server's close handler
-   * will evict this peer from its routing table.
+   * will evict this peer from its routing table. Also cancels any
+   * pending reconnect attempt so the client stays closed until the
+   * caller reopens it with another {@link connect} call.
    */
   close(): void {
+    this.stopping = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     this.socket?.close();
     this.socket = undefined;
     this.joined = false;

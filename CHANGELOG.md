@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.3] - 2026-04-18
+
+### Added
+
+#### `MeshSignalingClient` reconnects on unexpected close
+
+Real deployments hand the signalling server restarts, load-balancer
+rolls, and network blips. Pre-0.27.3 the client noticed the close,
+flipped `joined = false`, called its `onClose` callback, and went
+quiet. Every existing WebRTC data channel survived the drop (they
+are peer-to-peer once open) but no new peer could reach the stranded
+client, and any dropped channel stayed dropped. Users saw "stale
+and disconnected until refresh."
+
+The client now schedules a reconnect on every close that was not
+triggered by an explicit `close()` call. Backoff starts at 250ms and
+doubles up to a 30-second ceiling. Each reconnect reopens the
+WebSocket, re-sends the `join` frame under the same `peerId`, and
+lets the existing `peers-present` / `peer-joined` dispatch replay
+discovery — no caller-side reset, no lost peer ids.
+
+`close()` now sets a `stopping` flag and clears any pending reconnect
+timer, so a consumer that deliberately tears the client down stays
+torn down.
+
+`tests/integration/signaling-client-reconnect.test.ts` is the guard.
+The "re-joins after server restart" test stops the signalling server,
+waits briefly, restarts on the same port, and asserts `onOpen` fires
+a second time with `isConnected` returning true again. The
+"explicit close does not reconnect" test asserts `close()` is
+respected. Verified red against the pre-0.27.3 client (first test
+times out at 10s) and green at HEAD.
+
 ## [0.27.2] - 2026-04-18
 
 ### Fixed
