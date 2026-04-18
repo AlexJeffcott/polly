@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.4] - 2026-04-18
+
+### Added
+
+#### `checkSharedComponents` quality check
+
+`@fairfox/polly/quality` now exports a programmatic check that scans
+a directory for raw native HTML elements that have a polly primitive
+equivalent — `<button>` → `<Button>`, `<input>` → `<ActionInput>` /
+`<TextInput>`, `<textarea>` → `<ActionInput variant="multi">`,
+`<select>` → `<Select>`, `<form>` → `<ActionForm>`, `<dialog>` →
+`<Modal>`. Consumers wire it into their own `bun check` script and
+pass `exemptPackages` / `additionalRules` for legacy code or
+application-specific extensions.
+
+The check was lifted from fairfox's `scripts/check-shared-components.ts`
+and generalised — it takes a `root` + optional `scanRoot`, and
+returns a `{ violations, print() }` result. The printing path is
+injectable so consumers can route output through their own logger.
+Default rules add `<dialog>` on top of the fairfox originals now
+that `<Modal>` is the published replacement; `<input type="hidden">`
+gets a `skip` predicate because hidden inputs have no primitive
+analogue.
+
+`tests/unit/quality/check-shared-components.test.ts` covers every
+default rule, the hidden-input skip, the exempt-package escape
+hatch, a consumer-supplied `additionalRules` entry, commented-out
+elements being ignored, the default skip-dirs traversal, and the
+`print()` log-sink injection.
+
 ## [0.27.3] - 2026-04-18
 
 ### Added
