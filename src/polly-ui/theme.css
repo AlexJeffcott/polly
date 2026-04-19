@@ -66,6 +66,15 @@
     --polly-radius-lg: 12px;
     --polly-radius-full: 9999px;
 
+    /* Measures — caps on inline-size for readable line length and comfortable
+     * page widths. `prose` tracks WCAG 1.4.8's 80-char guidance for body text;
+     * `page` is a sensible application shell width. Layout reads these via its
+     * `maxInlineSize` prop so consumers can centre content without ad hoc
+     * container divs or magic numbers in app CSS. Override to retheme.
+     */
+    --polly-measure-prose: 68ch;
+    --polly-measure-page: 1040px;
+
     /* Control heights — used by Button, Input, Select. */
     --polly-control-height-sm: 1.75rem;
     --polly-control-height-md: 2.25rem;
@@ -86,10 +95,13 @@
     --polly-text-md: 1em;
     --polly-text-lg: 1.125em;
     --polly-text-xl: 1.375em;
+    --polly-text-2xl: 1.75em;
+    --polly-text-3xl: 2.25em;
     --polly-weight-normal: 400;
     --polly-weight-medium: 500;
     --polly-weight-bold: 700;
     --polly-line-height-tight: 1.25;
+    --polly-line-height-heading: 1.15;
     --polly-line-height-base: 1.5;
 
     /* Z-index scale */

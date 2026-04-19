@@ -224,12 +224,26 @@ cpSync(templatesSourceDir, templatesDestDir, { recursive: true });
 console.log("✅ Templates copied");
 console.log("🔨 Copying UI stylesheets...");
 
+// polly ships three CSS entry points so consumers can compose what they need,
+// but the default `./ui/styles.css` must deliver a complete, working baseline
+// on its own — structure + components — so that a fresh consumer who imports
+// only the two documented files (styles + theme) gets a correctly rendered
+// UI. The separate `./ui/components.css` (= Bun-built index.css) stays as an
+// escape hatch for anyone who wants to replace polly-structure wholesale.
 const pollyUiSrc = join("src", "polly-ui");
 const pollyUiDest = join(DIST_DIR, "src", "polly-ui");
 mkdirSync(pollyUiDest, { recursive: true });
-for (const file of ["styles.css", "theme.css"]) {
-  await Bun.write(join(pollyUiDest, file), await Bun.file(join(pollyUiSrc, file)).text());
-}
+
+const structureCss = await Bun.file(join(pollyUiSrc, "styles.css")).text();
+const componentsCss = await Bun.file(join(pollyUiDest, "index.css")).text();
+await Bun.write(
+  join(pollyUiDest, "styles.css"),
+  `${structureCss}\n${componentsCss}`
+);
+await Bun.write(
+  join(pollyUiDest, "theme.css"),
+  await Bun.file(join(pollyUiSrc, "theme.css")).text()
+);
 
 console.log("✅ UI stylesheets copied");
 console.log("🔨 Copying specs for verification tool...");

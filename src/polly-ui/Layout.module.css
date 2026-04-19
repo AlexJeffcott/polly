@@ -7,6 +7,7 @@
     --l-p: 0;
     --l-h: auto;
     --l-mh: auto;
+    --l-mis: none;
     --l-ji: stretch;
     --l-ai: start;
     --l-jc: normal;
@@ -19,7 +20,10 @@
     --l-col: auto;
 
     display: grid;
+    box-sizing: border-box;
     inline-size: 100%;
+    max-inline-size: var(--l-mis);
+    margin-inline: auto;
     grid-template-columns: var(--l-cols);
     grid-template-rows: var(--l-rows);
     gap: var(--l-gap);

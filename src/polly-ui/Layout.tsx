@@ -36,6 +36,12 @@ export type LayoutProps = {
   /** Sizing. */
   height?: string;
   minHeight?: string;
+  /**
+   * Cap the inline size and centre within the parent. Typical values use the
+   * `--polly-measure-*` tokens (e.g. "var(--polly-measure-page)" for an app
+   * shell, "var(--polly-measure-prose)" for body copy). Any CSS length works.
+   */
+  maxInlineSize?: string;
 
   /** Container alignment. */
   justifyItems?: string;
@@ -78,6 +84,7 @@ export function Layout(props: LayoutProps): JSX.Element {
     padding,
     height,
     minHeight,
+    maxInlineSize,
     justifyItems,
     alignItems,
     justifyContent,
@@ -111,6 +118,7 @@ export function Layout(props: LayoutProps): JSX.Element {
     if (padding) style["--l-p"] = padding;
     if (height) style["--l-h"] = height;
     if (minHeight) style["--l-mh"] = minHeight;
+    if (maxInlineSize) style["--l-mis"] = maxInlineSize;
     if (rows) style["--l-rows"] = rows;
     if (columns) style["--l-cols"] = columns;
     if (gap) style["--l-gap"] = gap;

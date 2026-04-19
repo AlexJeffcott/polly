@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0] - 2026-04-19
+
+### Fixed
+
+#### `styles.css` now delivers the working visual baseline
+
+The `@fairfox/polly/ui/styles.css` entry previously shipped only the
+structural and a11y rules; the component CSS modules built into
+`index.css` were not part of it. A consumer who imported the two
+documented entries (`styles.css` and `theme.css`) therefore got a
+page in which every polly primitive rendered without its own styles
+— tabs looked like native buttons, badges had no shape, the
+underlying layout grid was invisible. Matching the expectation that
+the default import deliver a complete working UI, `styles.css` now
+concatenates the structural rules with the component rules. The
+separate `components.css` alias remains for consumers who want to
+supply their own structure.
+
+### Added
+
+#### Document baseline
+
+A neutral document baseline lands in the polly-structure layer and
+gives bare HTML a consistent starting point: `font-family`, `color`,
+and `background` inherit from the polly tokens; `<body>` loses its
+margin; headings, paragraphs, lists, and figures lose their
+browser-default margins so they compose cleanly with `Layout`'s
+`gap`. Every selector uses `:where()` and carries zero specificity,
+so any consumer class overrides without a fight.
+
+#### Heading scale
+
+Headings `h1`..`h6` receive sizes drawn from the typography tokens
+and a dedicated `--polly-line-height-heading`. Two new tokens,
+`--polly-text-2xl` and `--polly-text-3xl`, extend the existing scale
+upward so `h1` and `h2` have defined values rather than inheriting
+the browser's approximate multipliers.
+
+#### Measure tokens
+
+Two semantic widths enter the theme. `--polly-measure-prose` caps
+body text at sixty-eight characters, the WCAG 1.4.8 comfortable
+reading line; `--polly-measure-page` caps an application shell at
+1040 pixels. Consumers pass either token — or any CSS length —
+through the new `maxInlineSize` prop on `Layout`; the layout clamps
+its inline size and centres within the parent via
+`margin-inline: auto`. `box-sizing: border-box` now applies to every
+`Layout` so padding no longer breaks the clamp.
+
+#### Text overflow utilities
+
+Two zero-specificity attribute selectors offer opt-in truncation
+without breaking the grid-only layout contract. `data-polly-truncate`
+produces a single-line ellipsis and sets `min-inline-size: 0` so a
+`1fr` grid track can shrink below the text's intrinsic content size.
+`data-polly-clamp` produces a multi-line ellipsis; the consumer sets
+`--polly-clamp` to the line count and the element takes on
+`-webkit-box` display without affecting its parent. Both replace the
+ad hoc pattern of JavaScript string slicing for "description" fields,
+which tended to cut mid-word and fight the actual available width.
+
 ## [0.27.5] - 2026-04-18
 
 ### Fixed

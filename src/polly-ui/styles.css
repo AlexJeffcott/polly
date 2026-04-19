@@ -10,6 +10,90 @@
  */
 
 @layer polly-structure {
+  /* Neutral document baseline. Every selector uses :where() so it adds no
+   * specificity — consumers win with any plain selector. The baseline exists
+   * because polly's layout contract is "Layout dictates spacing via gap"; if
+   * bare headings, paragraphs, and lists shipped with browser-default margins
+   * they would conflict with that contract (margin and grid gap do not
+   * compose, the larger wins) and the rhythm would drift. Resetting here
+   * means a consumer's <h1> inside a Layout behaves like any other child:
+   * no magic margin from the UA sheet, size and spacing come from above.
+   */
+  :where(html) {
+    font-family: var(--polly-font-sans);
+    color: var(--polly-text);
+    background: var(--polly-surface);
+    line-height: var(--polly-line-height-base);
+  }
+  :where(body) {
+    margin: 0;
+  }
+  :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, dl, dd) {
+    margin: 0;
+  }
+  :where(ul, ol) {
+    margin: 0;
+    padding-inline-start: var(--polly-space-lg);
+  }
+
+  /* Heading scale — tokens from theme.css, weights and leading consistent
+   * across levels so a consumer who drops in <h1>..<h4> inside Layouts gets a
+   * sensible visual hierarchy without setting font properties themselves.
+   * Overridable: the selectors are :where() so any class or id wins. */
+  :where(h1) {
+    font-size: var(--polly-text-3xl);
+    font-weight: var(--polly-weight-bold);
+    line-height: var(--polly-line-height-heading);
+  }
+  :where(h2) {
+    font-size: var(--polly-text-2xl);
+    font-weight: var(--polly-weight-bold);
+    line-height: var(--polly-line-height-heading);
+  }
+  :where(h3) {
+    font-size: var(--polly-text-xl);
+    font-weight: var(--polly-weight-bold);
+    line-height: var(--polly-line-height-heading);
+  }
+  :where(h4) {
+    font-size: var(--polly-text-lg);
+    font-weight: var(--polly-weight-medium);
+    line-height: var(--polly-line-height-tight);
+  }
+  :where(h5, h6) {
+    font-size: var(--polly-text-md);
+    font-weight: var(--polly-weight-medium);
+    line-height: var(--polly-line-height-tight);
+  }
+
+  /* Text overflow utilities. Both are opt-in: any element receives the
+   * behaviour by carrying the data attribute. They stay compatible with
+   * Layout (a grid) because the utilities change the element's OWN display,
+   * not its parent's — a Layout child with data-polly-truncate still
+   * participates in the grid track as usual.
+   *
+   *   data-polly-truncate       — single-line ellipsis.
+   *   data-polly-clamp          — multi-line ellipsis; set --polly-clamp for
+   *                               the line count (defaults to 2).
+   *
+   * Both set min-inline-size: 0 so a Layout grid track with 1fr can shrink
+   * below content width — the default min-content sizing would otherwise
+   * keep the track wide enough to hold the full text, defeating the clamp.
+   */
+  [data-polly-truncate] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-inline-size: 0;
+  }
+  [data-polly-clamp] {
+    display: -webkit-box;
+    -webkit-line-clamp: var(--polly-clamp, 2);
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-inline-size: 0;
+  }
+
   /* Honour reduced-motion by zeroing every motion token. The components
    * read only these tokens for their transitions, so a consumer preference
    * of "reduce" makes every animation instant. */
