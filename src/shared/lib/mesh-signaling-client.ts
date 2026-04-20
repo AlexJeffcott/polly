@@ -28,6 +28,20 @@ export interface SignalingMessage {
   reason?: "unknown-target" | "not-joined" | "malformed";
 }
 
+/** A frame whose `type` is outside the built-in {@link SignalingMessage}
+ * vocabulary. Consumers who want to layer application protocols on the
+ * signalling socket — pairing return tokens, presence pings, anything
+ * else that benefits from sharing the existing connection and its
+ * reconnect state — receive these through {@link MeshSignalingClientOptions.onCustomFrame}
+ * and produce them through {@link MeshSignalingClient.sendCustom}. Polly
+ * does not interpret the body; the signalling server routes it per its
+ * own conventions. The field `type` is always present; everything else
+ * is application-defined. */
+export interface CustomSignalingFrame {
+  type: string;
+  [key: string]: unknown;
+}
+
 /** Options for constructing a {@link MeshSignalingClient}. */
 export interface MeshSignalingClientOptions {
   /** The signalling server URL (ws:// or wss://). */
@@ -55,6 +69,14 @@ export interface MeshSignalingClientOptions {
    * (including graceful disconnect and abrupt drops detected by the
    * server). Fires at most once per departure. */
   onPeerLeft?: (peerId: string) => void;
+  /** Optional callback invoked for any frame whose `type` is outside the
+   * built-in {@link SignalingMessage} vocabulary. Consumers use this to
+   * layer their own protocol on top of the signalling socket — pairing
+   * return tokens, presence pings, anything else that benefits from
+   * sharing the existing connection and its reconnect state. A frame
+   * that arrives before the join handshake completes or that fails to
+   * parse as JSON is dropped silently, as with the built-in types. */
+  onCustomFrame?: (frame: CustomSignalingFrame) => void;
   /** WebSocket constructor. Defaults to `globalThis.WebSocket`. Inject a
    * different implementation (e.g. `ws` package's `WebSocket`) when running
    * in an environment without a native WebSocket global, or to use a custom
@@ -89,6 +111,7 @@ export class MeshSignalingClient {
   private readonly onPeersPresent?: (peerIds: string[]) => void;
   private readonly onPeerJoined?: (peerId: string) => void;
   private readonly onPeerLeft?: (peerId: string) => void;
+  private readonly onCustomFrame?: (frame: CustomSignalingFrame) => void;
   private socket: WebSocket | undefined;
   private joined = false;
   private stopping = false;
@@ -105,6 +128,7 @@ export class MeshSignalingClient {
     if (options.onPeersPresent !== undefined) this.onPeersPresent = options.onPeersPresent;
     if (options.onPeerJoined !== undefined) this.onPeerJoined = options.onPeerJoined;
     if (options.onPeerLeft !== undefined) this.onPeerLeft = options.onPeerLeft;
+    if (options.onCustomFrame !== undefined) this.onCustomFrame = options.onCustomFrame;
     const WS = options.WebSocket ?? globalThis.WebSocket;
     if (typeof WS !== "function") {
       throw new Error(
@@ -189,29 +213,54 @@ export class MeshSignalingClient {
    * below the linter's cognitive-complexity ceiling.
    */
   private dispatchFrame(raw: unknown): void {
-    let msg: SignalingMessage;
+    let parsed: unknown;
     try {
-      msg = typeof raw === "string" ? JSON.parse(raw) : (raw as SignalingMessage);
+      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     } catch {
       return;
     }
-    switch (msg.type) {
+    if (typeof parsed !== "object" || parsed === null) {
+      return;
+    }
+    const record = parsed as Record<string, unknown>;
+    const type = record["type"];
+    if (typeof type !== "string") {
+      return;
+    }
+    switch (type) {
       case "signal":
-        if (typeof msg.peerId === "string") this.onSignal(msg.peerId, msg.payload);
+        if (typeof record["peerId"] === "string") {
+          this.onSignal(record["peerId"], record["payload"]);
+        }
         return;
       case "peers-present":
-        if (Array.isArray(msg.peerIds)) this.onPeersPresent?.(msg.peerIds);
+        if (Array.isArray(record["peerIds"])) {
+          this.onPeersPresent?.(record["peerIds"] as string[]);
+        }
         return;
       case "peer-joined":
-        if (typeof msg.peerId === "string") this.onPeerJoined?.(msg.peerId);
+        if (typeof record["peerId"] === "string") {
+          this.onPeerJoined?.(record["peerId"]);
+        }
         return;
       case "peer-left":
-        if (typeof msg.peerId === "string") this.onPeerLeft?.(msg.peerId);
+        if (typeof record["peerId"] === "string") {
+          this.onPeerLeft?.(record["peerId"]);
+        }
         return;
       case "error":
-        if (msg.reason) this.onError?.(msg.reason, msg.targetPeerId);
+        if (typeof record["reason"] === "string") {
+          const targetPeerId =
+            typeof record["targetPeerId"] === "string" ? record["targetPeerId"] : undefined;
+          this.onError?.(record["reason"], targetPeerId);
+        }
         return;
       default:
+        // Unknown types route to the custom-frame handler, which consumers
+        // use to layer application protocols on the shared socket. Without
+        // a handler the frame is silently dropped, preserving the old
+        // behaviour byte-for-byte.
+        this.onCustomFrame?.(record as CustomSignalingFrame);
         return;
     }
   }
@@ -233,6 +282,24 @@ export class MeshSignalingClient {
       payload,
     };
     this.socket.send(JSON.stringify(msg));
+    return true;
+  }
+
+  /**
+   * Send a custom frame over the signalling socket. The frame is serialised
+   * as `{ type, ...payload }`. The server must be configured to route this
+   * frame type (polly does not interpret it). Returns true if the message
+   * was sent, false if the connection is not open.
+   *
+   * Intended for application-level protocols that want to share the
+   * existing signalling connection — for example, a pairing flow that
+   * delivers a reciprocal token from the scanner back to the issuer.
+   */
+  sendCustom(type: string, payload: Record<string, unknown> = {}): boolean {
+    if (!this.socket || this.socket.readyState !== this.WebSocketCtor.OPEN || !this.joined) {
+      return false;
+    }
+    this.socket.send(JSON.stringify({ ...payload, type }));
     return true;
   }
 

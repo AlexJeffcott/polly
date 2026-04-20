@@ -96,9 +96,36 @@ export type SignalingMessage =
       peerId: string;
     };
 
+/** A frame whose `type` is outside the built-in signalling vocabulary.
+ * Consumers who pass an {@link SignalingServerOptions.onCustomFrame}
+ * handler receive these on the server side; everything else — including
+ * routing them to a specific peer, storing a session, or rejecting the
+ * frame — is the consumer's call. Polly does not touch the body. */
+export interface CustomSignalingFrame {
+  type: string;
+  [key: string]: unknown;
+}
+
+/** Minimal surface the custom-frame handler receives in place of the
+ * Elysia-specific `ws` object so the plugin stays portable. Exposes the
+ * `data` bag (used to stash the authenticated peerId under the existing
+ * join handshake) and a `send` method. */
+export interface CustomFrameSocket {
+  data: Record<string, unknown>;
+  send: (msg: unknown) => void;
+}
+
 export interface SignalingServerOptions {
   /** WebSocket route path. Defaults to "/polly/signaling". */
   path?: string;
+  /** Optional hook for frames whose `type` is outside the built-in
+   * vocabulary. The plugin invokes it in place of returning a
+   * `malformed` error, so consumers can layer their own application
+   * protocol (pairing return tokens, presence pings, etc.) on the
+   * existing socket. The `peerId` argument is the sender's
+   * authenticated peer id from their prior `join` frame, or
+   * `undefined` if they haven't joined yet. */
+  onCustomFrame?: (socket: CustomFrameSocket, frame: CustomSignalingFrame, peerId: string | undefined) => void;
 }
 
 /**
@@ -112,6 +139,7 @@ export interface SignalingServerOptions {
  */
 export function signalingServer(options: SignalingServerOptions = {}) {
   const path = options.path ?? "/polly/signaling";
+  const onCustomFrame = options.onCustomFrame;
   // Per-peer-id map of joined sockets. The inverse mapping is stored
   // directly on ws.data (a mutable property bag that Elysia preserves
   // across message callbacks for a given connection); the webrtc-p2p-chat
@@ -222,6 +250,17 @@ export function signalingServer(options: SignalingServerOptions = {}) {
       }
       if (msg.type === "signal") {
         handleSignal(ws, msg);
+        return;
+      }
+      // Unknown types route to the consumer's custom-frame hook when
+      // one is configured. Without a hook they still fall through to
+      // the `malformed` error — same behaviour as before this branch
+      // existed.
+      if (onCustomFrame !== undefined) {
+        const wsWithData = ws as unknown as CustomFrameSocket;
+        const senderId = wsWithData.data["peerId"];
+        const peerId = typeof senderId === "string" ? senderId : undefined;
+        onCustomFrame(wsWithData, msg as unknown as CustomSignalingFrame, peerId);
         return;
       }
       ws.send({ type: "error", reason: "malformed" } as unknown as SignalingMessage);

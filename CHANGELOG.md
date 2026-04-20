@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-04-20
+
+### Added
+
+#### Custom-frame extensibility on the signalling socket
+
+The signalling transport now tolerates frames whose `type` falls
+outside polly's built-in vocabulary. Consumers who want to layer their
+own protocol on the existing connection — pairing return tokens,
+presence pings, anything else that benefits from sharing the
+signalling socket and its reconnect state — wire up a matched pair of
+hooks. On the client, `MeshSignalingClient` gains an optional
+`onCustomFrame` option and a `sendCustom(type, payload)` method; on
+the server, `signalingServer` gains an optional `onCustomFrame`
+handler that receives the parsed frame along with the sender's
+authenticated peer id.
+
+The built-in types — `join`, `signal`, `peers-present`, `peer-joined`,
+`peer-left`, `error` — keep their existing fast path unchanged. An
+unknown type with no configured hook still falls through silently on
+the client and still returns a `malformed` error on the server, so
+this is additive: an older consumer sees no behavioural change, a
+newer consumer opts in.
+
+Both sides treat frame bodies as opaque. Polly does not interpret or
+route custom frames beyond the hook call; routing, authentication
+beyond the join handshake, and back-pressure are the consumer's
+responsibility.
+
 ## [0.28.0] - 2026-04-19
 
 ### Fixed
