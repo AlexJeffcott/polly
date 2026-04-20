@@ -125,7 +125,11 @@ export interface SignalingServerOptions {
    * existing socket. The `peerId` argument is the sender's
    * authenticated peer id from their prior `join` frame, or
    * `undefined` if they haven't joined yet. */
-  onCustomFrame?: (socket: CustomFrameSocket, frame: CustomSignalingFrame, peerId: string | undefined) => void;
+  onCustomFrame?: (
+    socket: CustomFrameSocket,
+    frame: CustomSignalingFrame,
+    peerId: string | undefined
+  ) => void;
 }
 
 /**

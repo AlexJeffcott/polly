@@ -101,6 +101,27 @@ const RECONNECT_BASE_DELAY_MS = 250;
  * the client silent for minutes between probes. */
 const RECONNECT_MAX_DELAY_MS = 30_000;
 
+/** Parse a raw frame from the socket into a record with a string `type`,
+ * or `undefined` if the frame is unparseable or malformed. Extracted so
+ * {@link MeshSignalingClient.dispatchFrame} stays below the linter's
+ * cognitive-complexity ceiling. */
+function parseFrame(raw: unknown): Record<string, unknown> | undefined {
+  let parsed: unknown;
+  try {
+    parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return undefined;
+  }
+  const record = parsed as Record<string, unknown>;
+  if (typeof record["type"] !== "string") {
+    return undefined;
+  }
+  return record;
+}
+
 export class MeshSignalingClient {
   readonly url: string;
   readonly peerId: string;
@@ -213,56 +234,62 @@ export class MeshSignalingClient {
    * below the linter's cognitive-complexity ceiling.
    */
   private dispatchFrame(raw: unknown): void {
-    let parsed: unknown;
-    try {
-      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    } catch {
+    const record = parseFrame(raw);
+    if (record === undefined) {
       return;
     }
-    if (typeof parsed !== "object" || parsed === null) {
+    const handler = this.builtInHandler(record["type"]);
+    if (handler !== undefined) {
+      handler(record);
       return;
     }
-    const record = parsed as Record<string, unknown>;
-    const type = record["type"];
-    if (typeof type !== "string") {
-      return;
-    }
-    switch (type) {
-      case "signal":
+    // Unknown types route to the custom-frame handler, which consumers
+    // use to layer application protocols on the shared socket. Without
+    // a handler the frame is silently dropped, preserving the old
+    // behaviour byte-for-byte.
+    this.onCustomFrame?.(record as CustomSignalingFrame);
+  }
+
+  private builtInHandler(type: unknown): ((record: Record<string, unknown>) => void) | undefined {
+    if (type === "signal") {
+      return (record) => {
         if (typeof record["peerId"] === "string") {
           this.onSignal(record["peerId"], record["payload"]);
         }
-        return;
-      case "peers-present":
+      };
+    }
+    if (type === "peers-present") {
+      return (record) => {
         if (Array.isArray(record["peerIds"])) {
           this.onPeersPresent?.(record["peerIds"] as string[]);
         }
-        return;
-      case "peer-joined":
+      };
+    }
+    if (type === "peer-joined") {
+      return (record) => {
         if (typeof record["peerId"] === "string") {
           this.onPeerJoined?.(record["peerId"]);
         }
-        return;
-      case "peer-left":
+      };
+    }
+    if (type === "peer-left") {
+      return (record) => {
         if (typeof record["peerId"] === "string") {
           this.onPeerLeft?.(record["peerId"]);
         }
-        return;
-      case "error":
-        if (typeof record["reason"] === "string") {
-          const targetPeerId =
-            typeof record["targetPeerId"] === "string" ? record["targetPeerId"] : undefined;
-          this.onError?.(record["reason"], targetPeerId);
-        }
-        return;
-      default:
-        // Unknown types route to the custom-frame handler, which consumers
-        // use to layer application protocols on the shared socket. Without
-        // a handler the frame is silently dropped, preserving the old
-        // behaviour byte-for-byte.
-        this.onCustomFrame?.(record as CustomSignalingFrame);
-        return;
+      };
     }
+    if (type === "error") {
+      return (record) => {
+        if (typeof record["reason"] !== "string") {
+          return;
+        }
+        const targetPeerId =
+          typeof record["targetPeerId"] === "string" ? record["targetPeerId"] : undefined;
+        this.onError?.(record["reason"], targetPeerId);
+      };
+    }
+    return undefined;
   }
 
   /**
