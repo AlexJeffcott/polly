@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.2] - 2026-04-20
+
+### Added
+
+#### `@fairfox/polly/guards` — type guards for walking `unknown` safely
+
+Polly touches a lot of shapes it doesn't own — signalling frames
+parsed from JSON, IndexedDB records, storage adapter returns. The
+ergonomic-but-unsafe fix is a bare `as` cast; every cast hides a
+shape mismatch until runtime. This release publishes the two
+smallest possible helpers so every consumer can narrow `unknown`
+at the point it lands in a tight predicate instead:
+
+- `hasKeyInObject(input, key)` — narrows `input` to
+  `Record<K, unknown>` when the input is a non-null object with an
+  own property under the given key. Uses `Object.hasOwn` so it
+  never walks the prototype chain; a `hasKeyInObject(x, "toString")`
+  against any object would pass via prototype otherwise, which is
+  never what a caller looking for a specific data key intends.
+- `isRecord(input)` — narrows `input` to
+  `Record<string, unknown>` when it's a non-null object (not an
+  array). Useful as a prelude to reads off a record whose shape is
+  known at the call site but typed as `unknown`.
+
+Both guards leave the inner value as `unknown` so the caller still
+narrows further. No runtime coupling to the rest of polly; published
+from the new `./guards` subpath so consumers can import without
+pulling in the mesh stack.
+
 ## [0.29.1] - 2026-04-20
 
 ### Added

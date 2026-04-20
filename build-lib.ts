@@ -34,6 +34,7 @@ const libResult = await Bun.build({
     "src/shared/lib/resource.ts",
     "src/shared/lib/message-bus.ts",
     "src/shared/lib/errors.ts",
+    "src/shared/lib/guards.ts",
     "src/shared/lib/context-helpers.ts",
     "src/shared/lib/test-helpers.ts",
     "src/shared/adapters/index.ts",
