@@ -60,3 +60,10 @@ export {
   suggestFix,
   type Violation,
 } from "./no-as-casting";
+export {
+  checkNoRequire,
+  isLineRequireClean,
+  type NoRequireCheckOptions,
+  type NoRequireCheckResult,
+  type NoRequireViolation,
+} from "./no-require";

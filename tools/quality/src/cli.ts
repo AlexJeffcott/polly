@@ -5,6 +5,7 @@
  *
  *   polly quality                    # run every check
  *   polly quality no-as-casting      # only the TS casting check
+ *   polly quality no-require         # ban require(...) calls
  *   polly quality css                # all CSS checks
  *   polly quality css-quality        # only hardcoded-values check
  *   polly quality css-layout         # only Layout-usage check
@@ -16,7 +17,7 @@
  *   --exclude <a,b,c>                # comma-separated dir names
  *   --exclude-packages <a,b>         # no-as-casting only
  *   --exclude-files <a,b>            # no-as-casting only
- *   --pattern <glob>                 # no-as-casting only
+ *   --pattern <glob>                 # no-as-casting / no-require
  */
 
 import {
@@ -25,6 +26,7 @@ import {
   checkCssUnused,
   checkCssVars,
   checkNoAsCasting,
+  checkNoRequire,
 } from "./index";
 import { logger } from "./logger";
 
@@ -69,6 +71,16 @@ async function runNoAsCasting(): Promise<number> {
   return result.violations.length > 0 ? 1 : 0;
 }
 
+async function runNoRequire(): Promise<number> {
+  const result = await checkNoRequire({
+    rootDir,
+    exclude,
+    ...(filePatterns ? { filePatterns } : {}),
+  });
+  result.print();
+  return result.violations.length > 0 ? 1 : 0;
+}
+
 async function runCssQuality(): Promise<number> {
   const r = await checkCssQuality({ rootDir, skipDirs: exclude });
   r.print();
@@ -104,7 +116,7 @@ async function runCssAll(): Promise<number> {
 }
 
 async function runAll(): Promise<number> {
-  const results = [await runNoAsCasting(), await runCssAll()];
+  const results = [await runNoAsCasting(), await runNoRequire(), await runCssAll()];
   return results.some((code) => code !== 0) ? 1 : 0;
 }
 
@@ -112,6 +124,9 @@ let exitCode = 0;
 switch (subcommand) {
   case "no-as-casting":
     exitCode = await runNoAsCasting();
+    break;
+  case "no-require":
+    exitCode = await runNoRequire();
     break;
   case "css":
     exitCode = await runCssAll();
@@ -134,7 +149,7 @@ switch (subcommand) {
   default:
     logger.error(`Unknown quality subcommand: ${subcommand}`);
     logger.error(
-      "Expected one of: no-as-casting, css, css-quality, css-layout, css-vars, css-unused"
+      "Expected one of: no-as-casting, no-require, css, css-quality, css-layout, css-vars, css-unused"
     );
     exitCode = 2;
 }
