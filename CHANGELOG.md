@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.3] - 2026-04-20
+
+### Fixed
+
+#### `$crdtState` no longer cycles preact signals on value-equal writes
+
+`applyTopLevel` used to copy every top-level field onto the
+Automerge doc unconditionally. A value-equal reassignment
+(`doc.users = sameObject`) still generated real ops, fired a
+`change` event through the DocHandle's state machine, and pushed
+the signal binding to set `inner.value` again — which the preact
+effect then wrote back through `applyTopLevel`, restarting the
+chain. Browsers spaced these interactions across their event loop
+and the cycle exhausted itself below preact's 100-deep counter;
+bun runs xstate tight enough that every write re-entered and
+tripped `Cycle detected` within a few iterations.
+
+`applyTopLevel` now JSON-compares each incoming field against
+what's already on the doc and only writes when it actually
+differs. Value-equal writes are no-ops at the Automerge layer, so
+`docChanged` in `#checkForChanges` comes up false, no change
+event is emitted, and the signal binding stops echoing.
+Regression test covers ten structurally-equal writes in a row.
+
+Caught while shipping a CLI that boots under bun and writes to
+`mesh:users` + `mesh:devices` on init; every invocation previously
+crashed with `Cycle detected`.
+
+### Added
+
+#### `@fairfox/polly/quality` — no-require conformance check
+
+Bans `require(...)` calls in TypeScript source. Inline CommonJS
+defeats bundler static analysis, hides cross-module dependencies,
+and quietly opts a module out of ESM semantics. Exports
+`checkNoRequire`, `isLineRequireClean`, `NoRequireCheckOptions`,
+`NoRequireCheckResult`, and `NoRequireViolation` from
+`@fairfox/polly/quality`. The CLI gains a `polly quality
+no-require` subcommand, and `polly quality all` runs it alongside
+`no-as-casting` and the CSS family.
+
+Allowed escapes: static ES imports, `await import(...)` dynamic
+imports (they're ESM), `require.resolve(...)` (sometimes
+load-bearing for runtime path resolution), and occurrences inside
+strings or comments.
+
 ## [0.29.2] - 2026-04-20
 
 ### Added
