@@ -39,6 +39,11 @@ export interface CreateMeshClientOptions {
     WebSocket?: MeshSignalingClientOptions["WebSocket"];
     /** Forwarded error callback for diagnostic UI. */
     onError?: MeshSignalingClientOptions["onError"];
+    /** Forwarded hook for custom signalling frames. See
+     * {@link MeshSignalingClientOptions.onCustomFrame} — consumers who
+     * layer application protocols on the signalling socket receive
+     * frames of unknown types here. */
+    onCustomFrame?: MeshSignalingClientOptions["onCustomFrame"];
   };
   /** WebRTC configuration. On browsers the defaults are fine; in Node or
    * Bun pass the `RTCPeerConnection` ctor from `werift` or `@roamhq/wrtc`. */
@@ -135,6 +140,9 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     peerId: options.signaling.peerId,
     ...(options.signaling.WebSocket !== undefined && { WebSocket: options.signaling.WebSocket }),
     ...(options.signaling.onError !== undefined && { onError: options.signaling.onError }),
+    ...(options.signaling.onCustomFrame !== undefined && {
+      onCustomFrame: options.signaling.onCustomFrame,
+    }),
     onSignal: (fromPeerId, payload) => {
       webrtcAdapter?.handleSignal(fromPeerId, payload);
     },

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.1] - 2026-04-20
+
+### Added
+
+#### `createMeshClient` forwards `onCustomFrame` to its signalling client
+
+The 0.29.0 release wired an `onCustomFrame` hook onto
+`MeshSignalingClient` so consumers could receive frames outside the
+built-in vocabulary, but `createMeshClient`'s `signaling` option set
+didn't forward it. An application that used `createMeshClient` (as
+fairfox and the CLI bootstrap do) therefore couldn't subscribe to
+custom frames without bypassing the factory and wiring the signalling
+client by hand. `createMeshClient`'s `signaling.onCustomFrame` now
+forwards straight through, matching the existing pattern for `onError`
+and `WebSocket`. No behavioural change for consumers that don't pass
+the option.
+
 ## [0.29.0] - 2026-04-20
 
 ### Added
