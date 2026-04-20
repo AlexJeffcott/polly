@@ -185,6 +185,30 @@ describe("$crdtState — schema migrations", () => {
     expect(doc[SCHEMA_VERSION_FIELD]).toBe(2);
   });
 
+  test("structurally-equal writes don't cascade into a signal cycle", async () => {
+    // Regression guard for the bun-only preact-signals "Cycle detected"
+    // that applyTopLevel used to trigger when a value-equal assignment
+    // still produced Automerge ops. Under browser timing the cycle
+    // masked itself; under bun / CLI boot every invocation tripped.
+    // The fix: skip value-equal top-level writes so `docChanged` in
+    // checkForChanges comes up false and no change event fires.
+    const repo = makeRepo();
+    const prim = $crdtState<Notes>({
+      key: "cycle-check",
+      primitive: "peerState",
+      initialValue: { title: "seed", body: "" },
+      getHandle: async () => repo.create<Notes>({ title: "seed", body: "" }),
+    });
+    await prim.loaded;
+    // Ten writes of a structurally-equal object. Pre-fix this threw
+    // "Cycle detected" on the second write. Post-fix the writes are
+    // no-ops at the Automerge layer and resolve cleanly.
+    for (let i = 0; i < 10; i += 1) {
+      prim.value = { title: "seed", body: "" };
+    }
+    expect(prim.value.title).toBe("seed");
+  });
+
   test("stamps the target version even when no migrations run", async () => {
     const repo = makeRepo();
     const prim = $crdtState<Notes>({

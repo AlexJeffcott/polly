@@ -192,18 +192,51 @@ function cloneDoc<T>(doc: T): T {
 }
 
 /**
- * Copy every top-level field from the incoming value onto the Automerge doc.
- * This is the naive Phase 0 write path: correct for flat JSON-shaped documents
- * and good enough for the base module's tests. Specialised primitives in
- * Phase 1 will replace this with type-aware operation capture for text,
- * counters, and lists.
+ * Copy every top-level field from the incoming value onto the Automerge doc
+ * — but only for fields whose serialised form actually differs from what's
+ * already there. The equality skip is load-bearing, not an optimisation:
+ *
+ *   - Automerge records a new operation for every assignment (`doc[k] = v`),
+ *     even when v is structurally identical to the current value.
+ *   - Every op triggers a state-machine transition, which via
+ *     `#checkForChanges` fires a `change` event, which the signal binding
+ *     above handles by setting `inner.value = cloneDoc(...)`.
+ *   - Under certain event-loop timings — most consistently on bun — preact
+ *     signals' synchronous effect propagation re-runs this write path with
+ *     the just-cloned value, which compares ref-different to the previous
+ *     signal value, so the effect doesn't short-circuit, so applyTopLevel
+ *     runs again, so more ops are recorded, and the whole chain loops until
+ *     preact's own cycle counter trips with "Cycle detected".
+ *
+ * Skipping value-equal assignments makes the write a true no-op at the
+ * Automerge level, which makes `docChanged` in `#checkForChanges` false,
+ * which skips the change emission, which breaks the loop at its origin.
+ * Browsers mask this under typical interactive timing; a tight CLI boot
+ * reproduces it every time.
  *
  * The reserved schema-version field is not copied — it is managed by the
  * migration subsystem and must not be overwritten by application writes.
  */
 function applyTopLevel<T extends VersionedDoc>(doc: Record<string, unknown>, value: T): void {
+  const source = value as unknown as Record<string, unknown>;
   for (const key of Object.keys(value)) {
     if (key === SCHEMA_VERSION_FIELD) continue;
-    doc[key] = (value as unknown as Record<string, unknown>)[key];
+    const incoming = source[key];
+    if (fieldEquals(doc[key], incoming)) continue;
+    doc[key] = incoming;
+  }
+}
+
+/** Structural equality check for the top-level-field comparison. JSON.stringify
+ * round-trip because Automerge docs are Proxies and `===` would miss a match
+ * when the proxy wraps an equal value. Arrays, objects, and primitives all
+ * round-trip cleanly for the CRDT-state use case. Cycles in the input aren't
+ * supported (neither is Automerge — it refuses cyclic structures). */
+function fieldEquals(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
   }
 }
