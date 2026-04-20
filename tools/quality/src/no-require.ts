@@ -53,11 +53,7 @@ export function isLineRequireClean(line: string): boolean {
     return true;
   }
   const trimmed = line.trim();
-  if (
-    trimmed.startsWith("//") ||
-    trimmed.startsWith("*") ||
-    trimmed.startsWith("/*")
-  ) {
+  if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
     return true;
   }
   const match = line.match(/\brequire\s*\(/);
@@ -86,10 +82,7 @@ export function isLineRequireClean(line: string): boolean {
   return false;
 }
 
-function findRequireViolations(
-  relative: string,
-  content: string
-): NoRequireViolation[] {
+function findRequireViolations(relative: string, content: string): NoRequireViolation[] {
   const results: NoRequireViolation[] = [];
   const lines = content.split("\n");
   let insideTemplate = false;
@@ -123,18 +116,14 @@ function printRequireViolations(violations: NoRequireViolation[]): void {
     logger.log(`    ${v.content}`);
     logger.log("");
   }
-  logger.log(
-    "[no-require] Replace with static ES imports or `await import(...)` for lazy ESM."
-  );
+  logger.log("[no-require] Replace with static ES imports or `await import(...)` for lazy ESM.");
 }
 
 export async function checkNoRequire(
   options: NoRequireCheckOptions
 ): Promise<NoRequireCheckResult> {
   const rootDir = options.rootDir;
-  const excludeDirs = new Set(
-    options.exclude ?? ["node_modules", "dist", ".git", ".bun"]
-  );
+  const excludeDirs = new Set(options.exclude ?? ["node_modules", "dist", ".git", ".bun"]);
   const pattern = options.filePatterns ?? "**/*.{ts,tsx}";
   const glob = new Glob(pattern);
   const violations: NoRequireViolation[] = [];
