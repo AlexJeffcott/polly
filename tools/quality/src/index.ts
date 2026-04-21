@@ -67,3 +67,11 @@ export {
   type NoRequireCheckResult,
   type NoRequireViolation,
 } from "./no-require";
+export {
+  type CheckGitignoreOptions,
+  type CheckSecretsOptions,
+  checkGitignoreCoversAllowlist,
+  checkSecrets,
+  type GitignoreCheckResult,
+  type SecretsCheckResult,
+} from "./secrets.ts";
