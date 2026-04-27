@@ -1,3 +1,6 @@
+/* Surface chrome (background, border, radius, shadow, padding for the dialog
+ * itself) lives in <Modal.Content>, which composes <Surface variant="raised">
+ * since #67. The classes here style only the confirm/cancel button row. */
 @layer polly-components {
   .actions {
     display: grid; /* layout-ignore */
