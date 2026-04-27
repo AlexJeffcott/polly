@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-04-27
+
+### Added
+
+#### `Surface` primitive owns visual-surface concerns
+
+Where `Layout` owns spatial concerns — grid, flex, gap, alignment —
+`Surface` now owns the chrome that sits on top: padding, background,
+border, radius, shadow, and the narrow positioning idioms (sticky
+strips, fixed floating panes) that consumers had been reaching for
+inline styles to express. Eight named variants — `plain`, `raised`,
+`sunken`, `bubble`, `chip`, `callout`, `floating`, `sticky-bar` —
+resolve to bundles of the underlying props, all routed through
+`--polly-*` tokens via local `--s-*` custom properties so a
+per-instance retint works through `style={{ "--polly-surface-raised":
+"..." }}` without touching theme tokens. Polymorphic via an `as` prop;
+`borderSides` modifiers use logical CSS properties so RTL is
+browser-handled. The `team-task-manager` example's `InstallPrompt`
+floating panel and `NetworkStatus` sync indicator both now consume
+Surface as the reference compose-sites. Closes #66.
+
+#### `Card` composite primitive
+
+`Card.Root`, `Card.Header`, `Card.Body`, and `Card.Footer` each render
+a `Surface` with sensible defaults — Root raised with medium radius,
+Header and Footer with a logical-side border so the separator falls
+in the right place under both LTR and RTL, Body as plain padding.
+Every slot accepts the full `SurfaceProps`, so consumers retint,
+override padding, or reach for a different variant without leaving
+the primitive. Card is the first compound that is purely a re-skin
+of Surface — no behavioural layer like Modal's focus trap or Toast's
+severity tinting. Closes #70.
+
+### Changed
+
+#### `Modal`, `Toast`, and `ConfirmDialog` compose `Surface` internally
+
+The visual chrome that each of these primitives previously hand-rolled
+in its own CSS module — background, border, radius, shadow, the raised
+or callout look — now lives in `<Surface>`. The behavioural shell
+around each one is unchanged: Modal still installs the focus trap,
+Escape still pops the top overlay, the backdrop still closes on
+click, Toast still tints by severity (now via `--polly-border` retint
+instead of direct `border-color`), and ConfirmDialog still resolves
+its `Promise<boolean>` on confirm or cancel. The token vocabulary now
+flows through one consistent path, so a per-instance retint works the
+same way on every compound that composes Surface. Closes #67, #68,
+#69.
+
 ## [0.29.3] - 2026-04-20
 
 ### Fixed
