@@ -32,6 +32,7 @@ export { Modal } from "./Modal.tsx";
 export { getOverlayRootNode, OverlayRoot } from "./OverlayRoot.tsx";
 export { Select, type SelectOption, type SelectProps } from "./Select.tsx";
 export { Skeleton, type SkeletonProps, type SkeletonVariant } from "./Skeleton.tsx";
+export { Surface, type SurfaceProps, type SurfaceVariant } from "./Surface.tsx";
 export { type Tab, Tabs, type TabsProps } from "./Tabs.tsx";
 export { TextInput, type TextInputProps } from "./TextInput.tsx";
 export { Toast, type ToastViewportProps } from "./Toast.tsx";

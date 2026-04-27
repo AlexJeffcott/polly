@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import { useEffect, useState } from "preact/hooks";
 import { isInstallPromptAvailable, isPWA, showInstallPrompt } from "../pwa";
 
@@ -58,19 +59,12 @@ export function InstallPrompt() {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        background: "white",
-        padding: "16px 20px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-        maxWidth: "320px",
-        zIndex: 1000,
-        animation: "slideIn 0.3s ease-out",
-      }}
+    <Surface
+      variant="floating"
+      inset="auto 20px 20px auto"
+      maxInlineSize="320px"
+      padding="16px 20px"
+      style={{ animation: "slideIn 0.3s ease-out" }}
     >
       <button
         onClick={handleDismiss}
@@ -131,6 +125,6 @@ export function InstallPrompt() {
           }
         }
       `}</style>
-    </div>
+    </Surface>
   );
 }

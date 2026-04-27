@@ -8,7 +8,7 @@
  */
 
 import { signal } from "@preact/signals";
-import { render } from "preact";
+import { type JSX, render } from "preact";
 import {
   type ActionRegistry,
   clearError,
@@ -23,6 +23,7 @@ import {
   Layout,
   Modal,
   OverlayRoot,
+  Surface,
   TextInput,
   Toast,
 } from "../../../src/polly-ui";
@@ -68,6 +69,162 @@ describe("Layout", () => {
     const grid = host.querySelector<HTMLElement>("[data-polly-layout]");
     expect(grid).toExist();
     expect(grid!.style.getPropertyValue("--l-cols")).toBe("1fr 1fr");
+    cleanup(host);
+  });
+});
+
+describe("Surface", () => {
+  test("plain variant sets no surface custom properties beyond defaults", async () => {
+    const host = mountHost();
+    render(
+      <Surface>
+        <div>content</div>
+      </Surface>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface]");
+    expect(node).toExist();
+    expect(node!.getAttribute("data-polly-surface")).toBe("plain");
+    expect(node!.style.getPropertyValue("--s-bg")).toBe("");
+    expect(node!.style.getPropertyValue("--s-radius")).toBe("");
+    cleanup(host);
+  });
+
+  test("raised variant resolves to the expected token vocabulary", async () => {
+    const host = mountHost();
+    render(
+      <Surface variant="raised">
+        <div>card</div>
+      </Surface>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='raised']")!;
+    expect(node).toExist();
+    expect(node.style.getPropertyValue("--s-bg")).toBe("var(--polly-surface-raised)");
+    expect(node.style.getPropertyValue("--s-radius")).toBe("var(--polly-radius-md)");
+    expect(node.style.getPropertyValue("--s-shadow")).toBe("var(--polly-shadow-md)");
+    expect(node.style.getPropertyValue("--s-border-color")).toBe("var(--polly-border)");
+    expect(node.style.getPropertyValue("--s-border-width")).toBe(
+      "var(--polly-border-width-default)"
+    );
+    cleanup(host);
+  });
+
+  test("sunken variant uses the sunken surface token", async () => {
+    const host = mountHost();
+    render(<Surface variant="sunken">x</Surface>, host);
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='sunken']")!;
+    expect(node.style.getPropertyValue("--s-bg")).toBe("var(--polly-surface-sunken)");
+    expect(node.style.getPropertyValue("--s-radius")).toBe("var(--polly-radius-md)");
+    cleanup(host);
+  });
+
+  test("bubble variant carries padding and border but no background", async () => {
+    const host = mountHost();
+    render(<Surface variant="bubble">hi</Surface>, host);
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='bubble']")!;
+    expect(node.style.getPropertyValue("--s-bg")).toBe("");
+    expect(node.style.getPropertyValue("--s-p")).toBe(
+      "var(--polly-space-sm) var(--polly-space-md)"
+    );
+    expect(node.style.getPropertyValue("--s-border-color")).toBe("var(--polly-border)");
+    cleanup(host);
+  });
+
+  test("chip variant is inline with full radius", async () => {
+    const host = mountHost();
+    render(<Surface variant="chip">tag</Surface>, host);
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='chip']")!;
+    expect(node.className).toContain("inline");
+    expect(node.style.getPropertyValue("--s-radius")).toBe("var(--polly-radius-full)");
+    cleanup(host);
+  });
+
+  test("callout variant has small radius and bordered padding", async () => {
+    const host = mountHost();
+    render(<Surface variant="callout">heads up</Surface>, host);
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='callout']")!;
+    expect(node.style.getPropertyValue("--s-radius")).toBe("var(--polly-radius-sm)");
+    expect(node.style.getPropertyValue("--s-p")).toBe(
+      "var(--polly-space-sm) var(--polly-space-md)"
+    );
+    cleanup(host);
+  });
+
+  test("floating variant pins fixed with z-index and lg shadow", async () => {
+    const host = mountHost();
+    render(<Surface variant="floating">dock</Surface>, host);
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='floating']")!;
+    expect(node.style.getPropertyValue("--s-position")).toBe("fixed");
+    expect(node.style.getPropertyValue("--s-z")).toBe("9999");
+    expect(node.style.getPropertyValue("--s-shadow")).toBe("var(--polly-shadow-lg)");
+    expect(node.style.getPropertyValue("--s-bg")).toBe("var(--polly-surface-raised)");
+    cleanup(host);
+  });
+
+  test("sticky-bar variant draws block-end border via logical class", async () => {
+    const host = mountHost();
+    render(<Surface variant="sticky-bar">header</Surface>, host);
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='sticky-bar']")!;
+    expect(node.style.getPropertyValue("--s-position")).toBe("sticky");
+    expect(node.style.getPropertyValue("--s-inset")).toBe("0 0 auto 0");
+    expect(node.className).toContain("sides-block-end");
+    cleanup(host);
+  });
+
+  test("explicit prop overrides variant default", async () => {
+    const host = mountHost();
+    render(
+      <Surface variant="raised" radius="lg">
+        x
+      </Surface>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='raised']")!;
+    expect(node.style.getPropertyValue("--s-radius")).toBe("var(--polly-radius-lg)");
+    cleanup(host);
+  });
+
+  test("polymorphic as prop renders the requested element", async () => {
+    const host = mountHost();
+    render(
+      <Surface as="section" variant="raised" aria-label="panel">
+        body
+      </Surface>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("section[data-polly-surface]")!;
+    expect(node).toExist();
+    expect(node.tagName).toBe("SECTION");
+    expect(node.getAttribute("aria-label")).toBe("panel");
+    cleanup(host);
+  });
+
+  test("style prop merges through for per-instance polly token override", async () => {
+    const host = mountHost();
+    render(
+      <Surface
+        variant="raised"
+        style={{ "--polly-surface-raised": "#fef3c7" } as JSX.CSSProperties}
+      >
+        x
+      </Surface>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-surface='raised']")!;
+    expect(node.style.getPropertyValue("--polly-surface-raised")).toBe("#fef3c7");
+    expect(node.style.getPropertyValue("--s-bg")).toBe("var(--polly-surface-raised)");
     cleanup(host);
   });
 });

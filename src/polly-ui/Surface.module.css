@@ -1,0 +1,67 @@
+@layer polly-components {
+  .surface {
+    /* Reset so nested Surfaces don't inherit ancestor tokens. */
+    --s-p: 0;
+    --s-bg: transparent;
+    --s-radius: 0;
+    --s-border-color: transparent;
+    --s-border-width: 0;
+    --s-shadow: none;
+    --s-w: auto;
+    --s-h: auto;
+    --s-mh: auto;
+    --s-mis: none;
+    --s-position: static;
+    --s-inset: auto;
+    --s-z: auto;
+
+    box-sizing: border-box;
+    padding: var(--s-p);
+    background: var(--s-bg);
+    border-style: solid;
+    border-color: var(--s-border-color);
+    border-width: var(--s-border-width);
+    border-radius: var(--s-radius);
+    box-shadow: var(--s-shadow);
+    inline-size: var(--s-w);
+    block-size: var(--s-h);
+    min-block-size: var(--s-mh);
+    max-inline-size: var(--s-mis);
+    position: var(--s-position);
+    inset: var(--s-inset);
+    z-index: var(--s-z);
+  }
+
+  .inline {
+    display: inline-block;
+    inline-size: auto;
+  }
+
+  /* borderSides — flip border-style per logical side so RTL is handled by the
+   * browser. Each modifier suppresses the all-sides default and re-enables
+   * only the sides the consumer asked for. */
+  .sides-block-start {
+    border-style: none;
+    border-block-start-style: solid;
+  }
+  .sides-block-end {
+    border-style: none;
+    border-block-end-style: solid;
+  }
+  .sides-inline-start {
+    border-style: none;
+    border-inline-start-style: solid;
+  }
+  .sides-inline-end {
+    border-style: none;
+    border-inline-end-style: solid;
+  }
+  .sides-block {
+    border-style: none;
+    border-block-style: solid;
+  }
+  .sides-inline {
+    border-style: none;
+    border-inline-style: solid;
+  }
+}
