@@ -5,25 +5,23 @@
   }
 
   .item {
+    /* Visual chrome (background, border, radius, shadow) lives in
+     * <Surface variant="raised">. The grid + sizing rules below are
+     * Toast-specific layout that Surface intentionally does not own. */
     display: grid; /* layout-ignore */
     grid-template-columns: 1fr auto;
     gap: var(--polly-space-md);
     align-items: center;
-    padding: var(--polly-space-md) var(--polly-space-lg);
-    background: var(--polly-surface-raised);
     color: var(--polly-text);
-    border: var(--polly-border-width-default) solid var(--polly-border);
-    border-radius: var(--polly-radius-md);
-    box-shadow: var(--polly-shadow-md);
     min-inline-size: 16em;
     max-inline-size: 28em;
   }
 
   .item[data-severity="error"] {
-    border-color: var(--polly-danger);
+    --polly-border: var(--polly-danger);
   }
   .item[data-severity="warning"] {
-    border-color: var(--polly-warning);
+    --polly-border: var(--polly-warning);
   }
 
   .message {

@@ -10,9 +10,10 @@
 
 import type { JSX } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { clearError, type ErrorEntry, errorState } from "../actions/error.ts";
 import { getOverlayRootNode } from "./OverlayRoot.tsx";
+import { Surface } from "./Surface.tsx";
 import classes from "./Toast.module.css";
 
 export type ToastViewportProps = {
@@ -61,11 +62,11 @@ function Viewport(props: ToastViewportProps): JSX.Element | null {
 
 function ToastItem({ entry }: { entry: ErrorEntry }): JSX.Element {
   const liveness = entry.severity === "error" ? "assertive" : "polite";
-  const ref = useRef<HTMLDivElement>(null);
   return (
-    <div
-      ref={ref}
-      class={classes["item"]}
+    <Surface
+      variant="raised"
+      padding="var(--polly-space-md) var(--polly-space-lg)"
+      className={classes["item"]}
       data-polly-ui
       data-polly-toast-item
       data-severity={entry.severity}
@@ -84,7 +85,7 @@ function ToastItem({ entry }: { entry: ErrorEntry }): JSX.Element {
       >
         ×
       </button>
-    </div>
+    </Surface>
   );
 }
 
