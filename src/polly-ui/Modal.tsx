@@ -9,13 +9,14 @@
  */
 
 import type { ReadonlySignal } from "@preact/signals";
-import { type ComponentChildren, createContext } from "preact";
+import { type ComponentChildren, createContext, type JSX } from "preact";
 import { createPortal } from "preact/compat";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import { popOverlay, pushOverlay } from "../actions/overlay.ts";
 import { installFocusTrap } from "./internal/focus-trap.ts";
 import classes from "./Modal.module.css";
 import { getOverlayRootNode } from "./OverlayRoot.tsx";
+import { Surface } from "./Surface.tsx";
 
 type ModalContext = {
   id: string;
@@ -111,11 +112,26 @@ function Backdrop() {
   );
 }
 
-function Content({ children }: { children: ComponentChildren }) {
+type ContentProps = {
+  children: ComponentChildren;
+  className?: string;
+  style?: JSX.CSSProperties;
+};
+
+function Content({ children, className, style }: ContentProps) {
+  const cls = className ? `${classes["surface"]} ${className}` : classes["surface"];
   return (
-    <div class={classes["surface"]} data-polly-modal-surface>
+    <Surface
+      variant="raised"
+      radius="lg"
+      shadow="lg"
+      position="relative"
+      className={cls}
+      style={style}
+      data-polly-modal-surface
+    >
       {children}
-    </div>
+    </Surface>
   );
 }
 

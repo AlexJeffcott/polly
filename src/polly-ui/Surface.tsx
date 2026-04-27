@@ -39,7 +39,17 @@ type BorderSides =
 type Shadow = "none" | "sm" | "md" | "lg";
 type Position = "static" | "relative" | "sticky" | "fixed";
 
-export type SurfaceProps = {
+/**
+ * Arbitrary `data-*` and `aria-*` attributes forwarded to the rendered element
+ * so consumers (Modal, Toast, Card, etc.) can compose Surface without losing
+ * DOM hooks or ARIA semantics.
+ */
+export type SurfaceDataAttrs = {
+  [dataAttr: `data-${string}`]: string | number | boolean | undefined;
+  [ariaAttr: `aria-${string}`]: string | number | boolean | undefined;
+};
+
+export type SurfaceProps = SurfaceDataAttrs & {
   children?: ComponentChildren;
 
   /** Polymorphic element (div, section, article, aside, header, …). Defaults to 'div'. */
@@ -246,6 +256,20 @@ export function Surface(props: SurfaceProps): JSX.Element {
   if (props.className) parts.push(props.className);
   const className = parts.filter(Boolean).join(" ");
 
+  const passthrough: Record<string, string | number | boolean> = {};
+  for (const key of Object.keys(props)) {
+    const isData = key.startsWith("data-");
+    const isAria = key.startsWith("aria-");
+    if (!isData && !isAria) continue;
+    if (key === "data-polly-surface") continue;
+    if (key === "aria-label" || key === "aria-labelledby" || key === "aria-describedby") continue;
+    const value = (props as Record<string, unknown>)[key];
+    if (value === undefined) continue;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      passthrough[key] = value;
+    }
+  }
+
   return createElement(
     as,
     {
@@ -260,6 +284,7 @@ export function Surface(props: SurfaceProps): JSX.Element {
       "aria-labelledby": props["aria-labelledby"],
       "aria-describedby": props["aria-describedby"],
       "data-polly-surface": variant,
+      ...passthrough,
     },
     props.children
   );

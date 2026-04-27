@@ -15,13 +15,11 @@
   }
 
   .surface {
-    position: relative;
+    /* Dialog-only properties. Visual chrome (background, border, radius,
+     * shadow, position) lives in <Surface variant="raised" radius="lg"
+     * shadow="lg" position="relative">. */
     pointer-events: auto;
-    background: var(--polly-surface-raised);
     color: var(--polly-text);
-    border: var(--polly-border-width-default) solid var(--polly-border);
-    border-radius: var(--polly-radius-lg);
-    box-shadow: var(--polly-shadow-lg);
     max-inline-size: min(640px, calc(100vw - 2 * var(--polly-space-lg)));
     max-block-size: calc(100vh - 2 * var(--polly-space-lg));
     overflow: auto;

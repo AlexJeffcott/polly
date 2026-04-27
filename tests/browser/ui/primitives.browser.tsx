@@ -20,6 +20,8 @@ import {
 import {
   ActionForm,
   Button,
+  ConfirmDialog,
+  confirm,
   Layout,
   Modal,
   OverlayRoot,
@@ -290,6 +292,31 @@ describe("Modal", () => {
     cleanup(host);
   });
 
+  test("content composes Surface variant=raised", async () => {
+    const host = mountHost();
+    resetOverlayStack();
+    const open = signal(true);
+    function TestApp() {
+      return (
+        <div>
+          <OverlayRoot />
+          <Modal.Root when={open} onClose={() => (open.value = false)}>
+            <Modal.Backdrop />
+            <Modal.Content>
+              <Modal.Body>body</Modal.Body>
+            </Modal.Content>
+          </Modal.Root>
+        </div>
+      );
+    }
+    render(<TestApp />, host);
+    await flush();
+    const surface = document.querySelector<HTMLElement>("[data-polly-modal-surface]")!;
+    expect(surface).toExist();
+    expect(surface.getAttribute("data-polly-surface")).toBe("raised");
+    cleanup(host);
+  });
+
   test("backdrop click closes the modal", async () => {
     const host = mountHost();
     resetOverlayStack();
@@ -315,6 +342,35 @@ describe("Modal", () => {
     backdrop.click();
     await flush();
     expect(open.value).toBe(false);
+    cleanup(host);
+  });
+});
+
+describe("ConfirmDialog", () => {
+  test("inherits Surface composition through Modal", async () => {
+    const host = mountHost();
+    resetOverlayStack();
+    function TestApp() {
+      return (
+        <div>
+          <OverlayRoot />
+          <ConfirmDialog.Host />
+        </div>
+      );
+    }
+    render(<TestApp />, host);
+    const promise = confirm({ title: "Sure?", body: "Confirm or cancel" });
+    await flush();
+
+    const surface = document.querySelector<HTMLElement>("[data-polly-modal-surface]")!;
+    expect(surface).toExist();
+    expect(surface.getAttribute("data-polly-surface")).toBe("raised");
+
+    const cancel = document.querySelector<HTMLButtonElement>("[data-polly-confirm-cancel]")!;
+    cancel.click();
+    await flush();
+    const result = await promise;
+    expect(result).toBe(false);
     cleanup(host);
   });
 });
@@ -405,6 +461,27 @@ describe("Toast", () => {
     await flush();
     expect(document.querySelector("[data-polly-toast-item]")).toBeNull();
 
+    cleanup(host);
+  });
+
+  test("item composes Surface variant=raised", async () => {
+    const host = mountHost();
+    clearError();
+    function TestApp() {
+      return (
+        <div>
+          <OverlayRoot />
+          <Toast.Viewport autoDismissMs={100000} />
+        </div>
+      );
+    }
+    render(<TestApp />, host);
+    await flush();
+    submitError("x", new Error("boom"));
+    await flush();
+    const item = document.querySelector<HTMLElement>("[data-polly-toast-item]")!;
+    expect(item).toExist();
+    expect(item.getAttribute("data-polly-surface")).toBe("raised");
     cleanup(host);
   });
 });
