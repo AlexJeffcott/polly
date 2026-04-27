@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import { isOnline, isSyncing, pendingSync, syncStatus } from "../network";
 
 export function NetworkStatus() {
@@ -6,20 +7,25 @@ export function NetworkStatus() {
     return null;
   }
 
+  const tintToken = isOnline.value
+    ? "var(--polly-status-success-bg)"
+    : "var(--polly-status-warning-bg)";
+  const textToken = isOnline.value
+    ? "var(--polly-status-success-text)"
+    : "var(--polly-status-warning-text)";
+
   return (
-    <div
+    <Surface
+      variant="floating"
+      shadow="sm"
+      radius="md"
+      inset="auto 20px 80px auto"
+      padding="var(--polly-space-sm) var(--polly-space-lg)"
       style={{
-        position: "fixed",
-        bottom: "80px",
-        right: "20px",
-        background: isOnline.value ? "#10b981" : "#f59e0b",
-        color: "white",
-        padding: "8px 16px",
-        borderRadius: "8px",
+        "--polly-surface-raised": tintToken,
+        color: textToken,
         fontSize: "14px",
         fontWeight: 500,
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-        zIndex: 999,
         display: "flex",
         alignItems: "center",
         gap: "8px",
@@ -27,28 +33,12 @@ export function NetworkStatus() {
       }}
     >
       <span>{syncStatus.value}</span>
-
       <style>{`
         @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
         }
       `}</style>
-    </div>
+    </Surface>
   );
 }
