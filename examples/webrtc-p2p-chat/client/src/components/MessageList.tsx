@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import { useEffect, useRef } from "preact/hooks";
 import { displayName } from "../state";
 import type { ChatMessage } from "../types";
@@ -123,15 +124,17 @@ export function MessageList({ messages }: Props) {
                 <span style={{ fontWeight: "bold", color: "#888" }}>{message.fromName}</span>{" "}
                 <span style={{ color: "#555" }}>{formatTime(message.timestamp)}</span>
               </div>
-              <div
+              <Surface
+                variant="bubble"
+                padding="0.75rem 1rem"
+                background={
+                  isOwnMessage ? "linear-gradient(135deg, #0066ff 0%, #0088ff 100%)" : "#1a1a1a"
+                }
+                border={isOwnMessage ? "none" : "default"}
                 style={{
                   maxWidth: "70%",
-                  padding: "0.75rem 1rem",
                   borderRadius: isOwnMessage ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                  background: isOwnMessage
-                    ? "linear-gradient(135deg, #0066ff 0%, #0088ff 100%)"
-                    : "#1a1a1a",
-                  border: isOwnMessage ? "none" : "1px solid #333",
+                  "--polly-border": "#333",
                   wordWrap: "break-word",
                   boxShadow: isOwnMessage
                     ? "0 2px 8px rgba(0, 102, 255, 0.3)"
@@ -141,7 +144,7 @@ export function MessageList({ messages }: Props) {
                 }}
               >
                 {message.text}
-              </div>
+              </Surface>
               {isOwnMessage && !message.delivered && (
                 <div
                   style={{
