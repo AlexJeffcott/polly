@@ -53,7 +53,7 @@ export function ShareInvite({ roomId }: Props) {
   return (
     <Surface
       variant="raised"
-      padding="1rem"
+      padding="var(--polly-space-lg)"
       style={{ "--polly-surface-raised": "#1a1a1a", "--polly-border": "#333" }}
     >
       <div

@@ -121,13 +121,13 @@ export function RoomLobby({ onJoin }: Props) {
         <Surface
           variant="callout"
           radius="md"
-          padding="1rem 1.5rem"
+          padding="var(--polly-space-lg) var(--polly-space-xl)"
           maxInlineSize="500px"
           background="linear-gradient(135deg, #0066ff20 0%, #00ccff20 100%)"
           style={{
             "--polly-border": "#0066ff",
             width: "100%",
-            marginBottom: "2rem",
+            marginBottom: "var(--polly-space-xl)",
             textAlign: "center",
           }}
         >
@@ -144,7 +144,7 @@ export function RoomLobby({ onJoin }: Props) {
       <Surface
         variant="raised"
         radius="lg"
-        padding="2rem"
+        padding="var(--polly-space-xl)"
         maxInlineSize="500px"
         style={{
           "--polly-surface-raised": "#1a1a1a",
@@ -169,7 +169,7 @@ export function RoomLobby({ onJoin }: Props) {
             background="#ff000020"
             style={{
               "--polly-border": "var(--polly-danger)",
-              marginBottom: "1rem",
+              marginBottom: "var(--polly-space-lg)",
               color: "#ff6666",
             }}
           >
@@ -340,13 +340,13 @@ export function RoomLobby({ onJoin }: Props) {
       {!hasInviteLink && (
         <Surface
           variant="sunken"
-          padding="1.5rem"
+          padding="var(--polly-space-xl)"
           maxInlineSize="500px"
           background="#0f0f0f"
           style={{
             "--polly-border": "#333",
             width: "100%",
-            marginTop: "2rem",
+            marginTop: "var(--polly-space-xl)",
           }}
         >
           <h3

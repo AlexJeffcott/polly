@@ -11,6 +11,7 @@
 
 import { getMessageBus } from "@fairfox/polly/message-bus";
 import { $sharedState } from "@fairfox/polly/state";
+import { Surface } from "@fairfox/polly/ui";
 import { signal } from "@preact/signals";
 import { render } from "preact";
 import type { AllMessages, Bookmark } from "../shared/types/messages";
@@ -171,16 +172,16 @@ function Popup() {
           Full-Featured Example
         </h1>
         {statusMessage.value && (
-          <div
-            style={{
-              padding: "8px",
-              background: "#f0f0f0",
-              borderRadius: "4px",
-              fontSize: "12px",
-            }}
+          <Surface
+            variant="callout"
+            background="var(--polly-surface-sunken)"
+            border="none"
+            padding="var(--polly-space-sm)"
           >
-            {statusMessage.value}
-          </div>
+            <span style={{ fontSize: "var(--polly-text-xs)" }}>
+              {statusMessage.value}
+            </span>
+          </Surface>
         )}
       </header>
 
@@ -283,13 +284,14 @@ function Popup() {
               </p>
             ) : (
               bookmarks.value.map((bookmark) => (
-                <div
+                <Surface
                   key={bookmark.id}
+                  variant="sunken"
+                  radius="sm"
+                  border="none"
+                  padding="var(--polly-space-sm)"
                   style={{
-                    padding: "8px",
                     marginBottom: "4px",
-                    background: "#f9f9f9",
-                    borderRadius: "4px",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -328,7 +330,7 @@ function Popup() {
                   >
                     Remove
                   </button>
-                </div>
+                </Surface>
               ))
             )}
           </div>
@@ -351,28 +353,32 @@ function Popup() {
             Get Current Tab Info
           </button>
           {currentTab.value && (
-            <div
-              style={{
-                padding: "8px",
-                background: "#f9f9f9",
-                borderRadius: "4px",
-                fontSize: "12px",
-              }}
+            <Surface
+              variant="sunken"
+              radius="sm"
+              border="none"
+              padding="var(--polly-space-sm)"
             >
-              <div>
-                <strong>Title:</strong> {currentTab.value.title}
+              <div style={{ fontSize: "var(--polly-text-xs)" }}>
+                <div>
+                  <strong>Title:</strong> {currentTab.value.title}
+                </div>
+                <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <strong>URL:</strong> {currentTab.value.url}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBookmarkCurrentTab}
+                  style={{
+                    width: "100%",
+                    padding: "var(--polly-space-xs)",
+                    marginTop: "var(--polly-space-sm)",
+                  }}
+                >
+                  Bookmark This Tab
+                </button>
               </div>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                <strong>URL:</strong> {currentTab.value.url}
-              </div>
-              <button
-                type="button"
-                onClick={handleBookmarkCurrentTab}
-                style={{ width: "100%", padding: "6px", marginTop: "8px" }}
-              >
-                Bookmark This Tab
-              </button>
-            </div>
+            </Surface>
           )}
         </section>
 

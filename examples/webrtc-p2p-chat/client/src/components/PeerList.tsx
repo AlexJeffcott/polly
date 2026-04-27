@@ -64,7 +64,7 @@ export function PeerList({ peers }: Props) {
   return (
     <Surface
       variant="raised"
-      padding="1rem"
+      padding="var(--polly-space-lg)"
       style={{
         "--polly-surface-raised": "#1a1a1a",
         "--polly-border": "#333",
@@ -117,7 +117,7 @@ export function PeerList({ peers }: Props) {
               key={peer.id}
               variant="raised"
               radius="sm"
-              padding="0.75rem"
+              padding="var(--polly-space-md)"
               background={
                 peer.connectionState === "connected" ? "#0f0f0f" : "rgba(255, 170, 0, 0.05)"
               }

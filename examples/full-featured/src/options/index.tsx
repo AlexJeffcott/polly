@@ -5,6 +5,7 @@
  */
 
 import { $sharedState } from "@fairfox/polly/state";
+import { Surface } from "@fairfox/polly/ui";
 import { render } from "preact";
 import type { Settings } from "../shared/types/messages";
 
@@ -141,17 +142,17 @@ function Options() {
         </label>
       </section>
 
-      <div
-        style={{
-          padding: "12px",
-          background: "#f0f0f0",
-          borderRadius: "4px",
-          fontSize: "12px",
-        }}
+      <Surface
+        variant="callout"
+        background="var(--polly-surface-sunken)"
+        border="none"
+        padding="var(--polly-space-md)"
       >
-        <strong>Note:</strong> Settings are automatically saved and synced
-        across all extension contexts.
-      </div>
+        <span style={{ fontSize: "var(--polly-text-xs)" }}>
+          <strong>Note:</strong> Settings are automatically saved and synced
+          across all extension contexts.
+        </span>
+      </Surface>
     </div>
   );
 }

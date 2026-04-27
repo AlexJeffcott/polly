@@ -48,7 +48,7 @@ export function ChatRoom({ onLeave, onSendMessage }: Props) {
         {/* Header */}
         <Surface
           variant="raised"
-          padding="1rem"
+          padding="var(--polly-space-lg)"
           style={{ "--polly-surface-raised": "#1a1a1a", "--polly-border": "#333" }}
         >
           <div style={{ fontSize: "0.8rem", color: "#888", marginBottom: "0.25rem" }}>Room</div>
@@ -61,13 +61,13 @@ export function ChatRoom({ onLeave, onSendMessage }: Props) {
         {/* Connection Status */}
         <Surface
           variant="raised"
-          padding="0.75rem"
+          padding="var(--polly-space-md)"
           style={{
             "--polly-surface-raised": "#1a1a1a",
             "--polly-border": "#333",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
+            gap: "var(--polly-space-sm)",
           }}
         >
           <div
