@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import type { Peer } from "../types";
 
 interface Props {
@@ -61,12 +62,12 @@ export function PeerList({ peers }: Props) {
   const connectingCount = peers.filter((p) => p.connectionState === "connecting").length;
 
   return (
-    <div
+    <Surface
+      variant="raised"
+      padding="1rem"
       style={{
-        padding: "1rem",
-        background: "#1a1a1a",
-        borderRadius: "8px",
-        border: "1px solid #333",
+        "--polly-surface-raised": "#1a1a1a",
+        "--polly-border": "#333",
         flex: 1,
         overflowY: "auto",
       }}
@@ -112,16 +113,17 @@ export function PeerList({ peers }: Props) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           {peers.map((peer) => (
-            <div
+            <Surface
               key={peer.id}
+              variant="raised"
+              radius="sm"
+              padding="0.75rem"
+              background={
+                peer.connectionState === "connected" ? "#0f0f0f" : "rgba(255, 170, 0, 0.05)"
+              }
               style={{
-                padding: "0.75rem",
-                background:
-                  peer.connectionState === "connected" ? "#0f0f0f" : "rgba(255, 170, 0, 0.05)",
-                borderRadius: "6px",
-                border: `1px solid ${
-                  peer.connectionState === "connected" ? "#222" : "rgba(255, 170, 0, 0.2)"
-                }`,
+                "--polly-border":
+                  peer.connectionState === "connected" ? "#222" : "rgba(255, 170, 0, 0.2)",
                 transition: "all 0.3s ease",
               }}
             >
@@ -199,10 +201,10 @@ export function PeerList({ peers }: Props) {
                   </div>
                 )}
               </div>
-            </div>
+            </Surface>
           ))}
         </div>
       )}
-    </div>
+    </Surface>
   );
 }

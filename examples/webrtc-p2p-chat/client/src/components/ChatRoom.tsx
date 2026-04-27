@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import { useState } from "preact/hooks";
 import { currentRoom, isSignalingConnected, messages, peers } from "../state";
 import { MessageList } from "./MessageList";
@@ -45,28 +46,25 @@ export function ChatRoom({ onLeave, onSendMessage }: Props) {
         }}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: "1rem",
-            background: "#1a1a1a",
-            borderRadius: "8px",
-            border: "1px solid #333",
-          }}
+        <Surface
+          variant="raised"
+          padding="1rem"
+          style={{ "--polly-surface-raised": "#1a1a1a", "--polly-border": "#333" }}
         >
           <div style={{ fontSize: "0.8rem", color: "#888", marginBottom: "0.25rem" }}>Room</div>
           <div style={{ fontWeight: "bold", wordBreak: "break-all" }}>{currentRoom.value?.id}</div>
-        </div>
+        </Surface>
 
         {/* Share Invite */}
         {currentRoom.value && <ShareInvite roomId={currentRoom.value.id} />}
 
         {/* Connection Status */}
-        <div
+        <Surface
+          variant="raised"
+          padding="0.75rem"
           style={{
-            padding: "0.75rem",
-            background: "#1a1a1a",
-            borderRadius: "8px",
-            border: "1px solid #333",
+            "--polly-surface-raised": "#1a1a1a",
+            "--polly-border": "#333",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
@@ -83,7 +81,7 @@ export function ChatRoom({ onLeave, onSendMessage }: Props) {
           <span style={{ fontSize: "0.85rem" }}>
             {isSignalingConnected.value ? "Connected" : "Disconnected"}
           </span>
-        </div>
+        </Surface>
 
         {/* Peer List */}
         <PeerList peers={peers.value} />
@@ -121,11 +119,11 @@ export function ChatRoom({ onLeave, onSendMessage }: Props) {
         <form
           onSubmit={handleSubmit}
           style={{
-            padding: "1rem",
+            padding: "var(--polly-space-lg)",
             background: "#1a1a1a",
-            borderTop: "1px solid #333",
+            borderBlockStart: "var(--polly-border-width-default) solid #333",
             display: "flex",
-            gap: "0.5rem",
+            gap: "var(--polly-space-sm)",
           }}
         >
           <input

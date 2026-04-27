@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import { useEffect, useState } from "preact/hooks";
 import { displayName as savedDisplayName } from "../state";
 
@@ -117,14 +118,15 @@ export function RoomLobby({ onJoin }: Props) {
 
       {/* Invite Link Banner */}
       {hasInviteLink && (
-        <div
+        <Surface
+          variant="callout"
+          radius="md"
+          padding="1rem 1.5rem"
+          maxInlineSize="500px"
+          background="linear-gradient(135deg, #0066ff20 0%, #00ccff20 100%)"
           style={{
-            maxWidth: "500px",
+            "--polly-border": "#0066ff",
             width: "100%",
-            padding: "1rem 1.5rem",
-            background: "linear-gradient(135deg, #0066ff20 0%, #00ccff20 100%)",
-            border: "1px solid #0066ff",
-            borderRadius: "8px",
             marginBottom: "2rem",
             textAlign: "center",
           }}
@@ -135,18 +137,19 @@ export function RoomLobby({ onJoin }: Props) {
           <div style={{ fontSize: "0.85rem", color: "#aaa" }}>
             Enter your name below to join the conversation
           </div>
-        </div>
+        </Surface>
       )}
 
       {/* Main Form Card */}
-      <div
+      <Surface
+        variant="raised"
+        radius="lg"
+        padding="2rem"
+        maxInlineSize="500px"
         style={{
-          maxWidth: "500px",
+          "--polly-surface-raised": "#1a1a1a",
+          "--polly-border": "#333",
           width: "100%",
-          padding: "2rem",
-          background: "#1a1a1a",
-          borderRadius: "12px",
-          border: "1px solid #333",
           boxShadow: "0 4px 24px rgba(0, 0, 0, 0.5)",
         }}
       >
@@ -161,18 +164,17 @@ export function RoomLobby({ onJoin }: Props) {
         </h2>
 
         {error && (
-          <div
+          <Surface
+            variant="callout"
+            background="#ff000020"
             style={{
-              padding: "0.75rem",
+              "--polly-border": "var(--polly-danger)",
               marginBottom: "1rem",
-              background: "#ff000020",
-              border: "1px solid #ff0000",
-              borderRadius: "4px",
               color: "#ff6666",
             }}
           >
             {error}
-          </div>
+          </Surface>
         )}
 
         <form onSubmit={handleSubmit}>
@@ -332,19 +334,19 @@ export function RoomLobby({ onJoin }: Props) {
             {isJoining ? "Connecting..." : hasInviteLink ? "Join Room" : "Create & Join Room"}
           </button>
         </form>
-      </div>
+      </Surface>
 
       {/* Info Section - Only for new visitors */}
       {!hasInviteLink && (
-        <div
+        <Surface
+          variant="sunken"
+          padding="1.5rem"
+          maxInlineSize="500px"
+          background="#0f0f0f"
           style={{
-            maxWidth: "500px",
+            "--polly-border": "#333",
             width: "100%",
             marginTop: "2rem",
-            padding: "1.5rem",
-            background: "#0f0f0f",
-            borderRadius: "8px",
-            border: "1px solid #333",
           }}
         >
           <h3
@@ -381,7 +383,7 @@ export function RoomLobby({ onJoin }: Props) {
               <span>The server only helps establish connections - it never sees your messages</span>
             </div>
           </div>
-        </div>
+        </Surface>
       )}
     </div>
   );

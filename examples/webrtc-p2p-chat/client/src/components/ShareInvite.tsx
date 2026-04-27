@@ -1,3 +1,4 @@
+import { Surface } from "@fairfox/polly/ui";
 import { useState } from "preact/hooks";
 
 interface Props {
@@ -50,13 +51,10 @@ export function ShareInvite({ roomId }: Props) {
   };
 
   return (
-    <div
-      style={{
-        padding: "1rem",
-        background: "#1a1a1a",
-        borderRadius: "8px",
-        border: "1px solid #333",
-      }}
+    <Surface
+      variant="raised"
+      padding="1rem"
+      style={{ "--polly-surface-raised": "#1a1a1a", "--polly-border": "#333" }}
     >
       <div
         style={{
@@ -139,6 +137,6 @@ export function ShareInvite({ roomId }: Props) {
       >
         💡 Share this link with others or open it in another tab to test
       </p>
-    </div>
+    </Surface>
   );
 }
