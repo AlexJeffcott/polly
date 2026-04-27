@@ -50,6 +50,34 @@ export interface CreateMeshClientOptions {
   rtc?: {
     RTCPeerConnection?: MeshWebRTCAdapterOptions["RTCPeerConnection"];
     iceServers?: RTCIceServer[];
+    /**
+     * Async resolver for ICE servers, called once at connect time. Wins
+     * over `iceServers` if both are set. The realistic pattern is a
+     * consumer fetching short-lived TURN credentials from its own
+     * backend before each session — for production WebRTC apps that
+     * care about coverage, TURN is the only way two peers behind
+     * symmetric NATs (cellular CGNAT, some corporate firewalls) can
+     * exchange bytes at all.
+     *
+     * Common provider shapes:
+     *
+     * - **Self-hosted coturn**: fetch a HMAC-derived ephemeral
+     *   `username` / `credential` pair from your backend and return
+     *   `[{ urls: "turn:turn.example.com", username, credential }]`.
+     * - **Cloudflare Calls**: hit `/v1/turn/keys/<id>/credentials/generate`
+     *   from a server route and pass the returned `iceServers` array
+     *   straight through.
+     * - **Twilio NTS**: call the network-traversal-service endpoint
+     *   server-side and forward `data.iceServers`.
+     * - **metered.ca / Xirsys / etc.**: same pattern — credentials live
+     *   server-side, the resolver is the integration point.
+     *
+     * Resolution happens once. ICE restart with refreshed credentials
+     * is a separate concern that this hook does not yet cover; if your
+     * deployment needs it, tear down and rebuild the mesh client when
+     * the credential window closes.
+     */
+    iceCredentialResolver?: () => Promise<RTCIceServer[]>;
     dataChannelLabel?: string;
   };
   /** The local peer's keyring — either a fully-constructed instance, or a
@@ -65,6 +93,23 @@ export interface CreateMeshClientOptions {
   /** When `false`, signs but does not encrypt. Defaults to `true` — the
    * full $meshState posture where the server is off the data path. */
   encryptionEnabled?: boolean;
+}
+
+/**
+ * Resolve the ICE server list a mesh client will use. The resolver wins
+ * over a static `iceServers` list because the realistic deployment shape
+ * is a consumer fetching short-lived TURN credentials per session — the
+ * resolver is the integration point and a static list alongside it would
+ * silently mask a broken credential flow. Exported for unit tests; the
+ * production call site is inside {@link createMeshClient}.
+ */
+export async function resolveIceServers(
+  rtc: CreateMeshClientOptions["rtc"]
+): Promise<RTCIceServer[] | undefined> {
+  if (rtc?.iceCredentialResolver) {
+    return rtc.iceCredentialResolver();
+  }
+  return rtc?.iceServers;
 }
 
 /** Handle returned by {@link createMeshClient}. */
@@ -113,11 +158,17 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     (id) => id !== options.signaling.peerId
   );
 
+  // The resolver wins when both are set. Failure here surfaces as a
+  // create-time rejection rather than a silent fall-through to STUN-only,
+  // which would mask broken credential plumbing until a real symmetric
+  // NAT user reported "can't connect".
+  const resolvedIceServers = await resolveIceServers(options.rtc);
+
   const webrtcAdapterOptions: MeshWebRTCAdapterOptions = {
     signaling: undefined as unknown as MeshSignalingClient, // wired after signaling construction
     peerId: options.signaling.peerId,
     knownPeerIds,
-    ...(options.rtc?.iceServers !== undefined && { iceServers: options.rtc.iceServers }),
+    ...(resolvedIceServers !== undefined && { iceServers: resolvedIceServers }),
     ...(options.rtc?.dataChannelLabel !== undefined && {
       dataChannelLabel: options.rtc.dataChannelLabel,
     }),
