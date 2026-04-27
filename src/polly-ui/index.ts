@@ -23,6 +23,7 @@ export {
   type ButtonSize,
   type ButtonTier,
 } from "./Button.tsx";
+export { Card, type CardProps, type CardSlotProps } from "./Card.tsx";
 export { Checkbox, type CheckboxProps } from "./Checkbox.tsx";
 export { Collapsible, type CollapsibleProps } from "./Collapsible.tsx";
 export { ConfirmDialog, type ConfirmOptions, confirm } from "./ConfirmDialog.tsx";

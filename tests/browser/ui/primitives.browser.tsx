@@ -20,6 +20,7 @@ import {
 import {
   ActionForm,
   Button,
+  Card,
   ConfirmDialog,
   confirm,
   Layout,
@@ -227,6 +228,80 @@ describe("Surface", () => {
     const node = host.querySelector<HTMLElement>("[data-polly-surface='raised']")!;
     expect(node.style.getPropertyValue("--polly-surface-raised")).toBe("#fef3c7");
     expect(node.style.getPropertyValue("--s-bg")).toBe("var(--polly-surface-raised)");
+    cleanup(host);
+  });
+});
+
+describe("Card", () => {
+  test("Root renders a raised Surface with the card hook", async () => {
+    const host = mountHost();
+    render(
+      <Card.Root>
+        <div>body</div>
+      </Card.Root>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("[data-polly-card]")!;
+    expect(node).toExist();
+    expect(node.getAttribute("data-polly-surface")).toBe("raised");
+    expect(node.style.getPropertyValue("--s-radius")).toBe("var(--polly-radius-md)");
+    cleanup(host);
+  });
+
+  test("full card renders header, body, and footer with separator borders", async () => {
+    const host = mountHost();
+    render(
+      <Card.Root>
+        <Card.Header>title</Card.Header>
+        <Card.Body>body</Card.Body>
+        <Card.Footer>actions</Card.Footer>
+      </Card.Root>,
+      host
+    );
+    await flush();
+    const header = host.querySelector<HTMLElement>("[data-polly-card-header]")!;
+    const body = host.querySelector<HTMLElement>("[data-polly-card-body]")!;
+    const footer = host.querySelector<HTMLElement>("[data-polly-card-footer]")!;
+    expect(header).toExist();
+    expect(body).toExist();
+    expect(footer).toExist();
+    expect(header.className).toContain("sides-block-end");
+    expect(footer.className).toContain("sides-block-start");
+    expect(header.style.getPropertyValue("--s-border-color")).toBe("var(--polly-border)");
+    expect(footer.style.getPropertyValue("--s-border-color")).toBe("var(--polly-border)");
+    cleanup(host);
+  });
+
+  test("Root passes polymorphic as through to the rendered element", async () => {
+    const host = mountHost();
+    render(
+      <Card.Root as="article" aria-label="story">
+        <Card.Body>x</Card.Body>
+      </Card.Root>,
+      host
+    );
+    await flush();
+    const node = host.querySelector<HTMLElement>("article[data-polly-card]")!;
+    expect(node).toExist();
+    expect(node.tagName).toBe("ARTICLE");
+    expect(node.getAttribute("aria-label")).toBe("story");
+    cleanup(host);
+  });
+
+  test("body-only card carries no separator borders", async () => {
+    const host = mountHost();
+    render(
+      <Card.Root>
+        <Card.Body>just body</Card.Body>
+      </Card.Root>,
+      host
+    );
+    await flush();
+    const body = host.querySelector<HTMLElement>("[data-polly-card-body]")!;
+    expect(body).toExist();
+    expect(body.className).not.toContain("sides-block-start");
+    expect(body.className).not.toContain("sides-block-end");
     cleanup(host);
   });
 });
