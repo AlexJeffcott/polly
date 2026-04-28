@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-04-28
+
+### Added
+
+#### `iceCredentialResolver` hook on `createMeshClient`
+
+WebRTC traversal between two peers behind symmetric NATs (cellular
+CGNAT, some corporate firewalls) requires a TURN relay; STUN alone
+is not enough. The runtime already accepts `iceServers` on the
+WebRTC adapter, but the realistic deployment shape is short-lived
+rotating credentials fetched from a consumer-owned backend, not a
+static list hardcoded into the application bundle.
+
+The new `iceCredentialResolver` option on `createMeshClient` is the
+single integration point a consumer needs. It runs once at connect
+time and the resolved servers reach the adapter through the existing
+`iceServers` path; when both options are set the resolver wins on
+purpose, so a stale `iceServers` value left in client code cannot
+mask a broken credential flow. Common provider patterns are
+documented inline (self-hosted coturn, Cloudflare Calls, Twilio NTS,
+metered.ca-style services). ICE restart with refreshed credentials
+is a separate concern not covered by this hook; deployments that
+need it tear down and rebuild the mesh client when the credential
+window closes. Closes #58.
+
 ## [0.30.0] - 2026-04-27
 
 ### Added
