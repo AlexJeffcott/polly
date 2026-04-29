@@ -3610,6 +3610,7 @@ export class HandlerExtractor {
       if (match) {
         const signalName = match[1];
         const fieldName = match[2];
+        if (!signalName) return;
         if (fieldName) {
           signals.push(`${signalName}_${fieldName}`);
         } else {

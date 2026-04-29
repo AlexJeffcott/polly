@@ -693,11 +693,11 @@ export class ProjectDetector {
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Monorepo detection requires iterating workspaces and scoring candidates
   private detectMonorepo(packageJson: Record<string, unknown>): ProjectConfig | null {
-    const workspacesRaw = packageJson.workspaces;
+    const workspacesRaw = packageJson["workspaces"];
     const patterns: string[] = Array.isArray(workspacesRaw)
       ? workspacesRaw
-      : Array.isArray((workspacesRaw as unknown as Record<string, unknown>)?.packages)
-        ? ((workspacesRaw as unknown as Record<string, unknown>).packages as unknown as string[])
+      : Array.isArray((workspacesRaw as unknown as Record<string, unknown>)?.["packages"])
+        ? ((workspacesRaw as unknown as Record<string, unknown>)["packages"] as unknown as string[])
         : [];
 
     if (patterns.length === 0) return null;
@@ -724,7 +724,7 @@ export class ProjectDetector {
         continue;
       }
 
-      const pkgName = (wsPkg.name as unknown as string) || path.basename(wsDir);
+      const pkgName = (wsPkg["name"] as unknown as string) || path.basename(wsDir);
       const context = this.inferContextFromPackageName(pkgName);
 
       // Score server candidates relative to this workspace
@@ -791,9 +791,9 @@ export class ProjectDetector {
       contextMapping,
       workspacePackages,
       metadata: {
-        name: packageJson.name as unknown as string | undefined,
-        version: packageJson.version as unknown as string | undefined,
-        description: packageJson.description as unknown as string | undefined,
+        name: packageJson["name"] as unknown as string | undefined,
+        version: packageJson["version"] as unknown as string | undefined,
+        description: packageJson["description"] as unknown as string | undefined,
       },
     };
   }

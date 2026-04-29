@@ -1,8 +1,8 @@
 // Invariant extraction from JSDoc comments
 // Extract domain-specific invariants from code annotations
 
-import { type JSDoc, Node, Project, type SourceFile } from "ts-morph";
-import type { CodebaseAnalysis } from "../../../analysis/src/extract/types";
+import { type JSDoc, type JSDocTag, Node, Project, type SourceFile } from "ts-morph";
+import type { CodebaseAnalysis } from "../types";
 
 /**
  * Extracted invariant from JSDoc annotation
@@ -125,7 +125,7 @@ export class InvariantExtractor {
    * Process a single JSDoc tag
    */
   private processJSDocTag(
-    tag: { getTagName: () => string; getComment: () => string | undefined },
+    tag: JSDocTag,
     sourceFile: SourceFile,
     node: Node,
     invariants: Invariant[]

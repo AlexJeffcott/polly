@@ -7,6 +7,7 @@ import type { MessageHandler } from "../core/model";
 import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
 import type {
   CodebaseAnalysis,
+  FieldAnalysis,
   FieldConfig,
   StateAssignment,
   VerificationCondition,
@@ -485,7 +486,11 @@ export class TLAGenerator {
       // Define Tabs as the set of model values
       const tabValues = Array.from({ length: this.tabCount }, (_, i) => `Tab${i}`).join(", ");
       lines.push(`  Tabs = {${tabValues}}`);
-    } else if ("maxTabs" in messages && messages.maxTabs !== undefined) {
+    } else if (
+      "maxTabs" in messages &&
+      messages.maxTabs !== undefined &&
+      messages.maxTabs !== null
+    ) {
       // Standard integer-based tabs with explicit maxTabs
       const tabValues = Array.from({ length: messages.maxTabs + 1 }, (_, i) => i).join(", ");
       lines.push(`  Tabs = {${tabValues}}`);
@@ -630,7 +635,7 @@ export class TLAGenerator {
     }
 
     // Add per-message bounds constants (Tier 1 optimization)
-    if (hasPerMessageBounds) {
+    if (hasPerMessageBounds && config.messages.perMessageBounds) {
       for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
         const constName = `MaxMessages_${msgType}`;
         this.line(`,${constName}`);
@@ -685,15 +690,15 @@ export class TLAGenerator {
   ): boolean {
     let isFirst = first;
 
-    if ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) {
+    if ("maxLength" in fieldConfig && fieldConfig["maxLength"] !== null) {
       this.line(`${isFirst ? "" : ","}${constName}_MaxLength  \\* Max length for ${field}`);
       isFirst = false;
     }
-    if ("max" in fieldConfig && fieldConfig.max !== null) {
+    if ("max" in fieldConfig && fieldConfig["max"] !== null) {
       this.line(`${isFirst ? "" : ","}${constName}_Max       \\* Max value for ${field}`);
       isFirst = false;
     }
-    if ("maxSize" in fieldConfig && fieldConfig.maxSize !== null) {
+    if ("maxSize" in fieldConfig && fieldConfig["maxSize"] !== null) {
       this.line(`${isFirst ? "" : ","}${constName}_MaxSize   \\* Max size for ${field}`);
       isFirst = false;
     }
@@ -944,9 +949,6 @@ export class TLAGenerator {
     this.line(`UserMessageTypes == {${messageTypeSet}}`);
     this.line("");
 
-    // Store for symmetry reduction
-    this.filteredMessageTypes = validMessageTypes;
-
     // Apply Tier 1 Optimization: Symmetry reduction
     if (config.messages.symmetry && config.messages.symmetry.length > 0) {
       this.addSymmetrySets(config.messages.symmetry, validMessageTypes);
@@ -963,6 +965,7 @@ export class TLAGenerator {
    * This is the standard approach used in real TLA+ specs (e.g., Paxos, SimpleAllocator).
    * It preserves independent group semantics while using a single SYMMETRY declaration.
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: branches reflect distinct symmetry-group cases
   private addSymmetrySets(symmetryGroups: string[][], validMessageTypes: string[]): void {
     const validTypes = new Set(validMessageTypes);
 
@@ -997,6 +1000,7 @@ export class TLAGenerator {
     // Generate individual symmetry set definitions
     for (let i = 0; i < validSymmetryGroups.length; i++) {
       const group = validSymmetryGroups[i];
+      if (!group) continue;
       const setName = `SymmetrySet${i + 1}`;
       const setValues = group.map((t) => `"${t}"`).join(", ");
       this.line(`${setName} == {${setValues}}`);
@@ -1021,8 +1025,9 @@ export class TLAGenerator {
     } else {
       // Single symmetry group
       this.line(`Symmetry == Permutations(SymmetrySet1)`);
+      const onlyGroup = validSymmetryGroups[0];
       console.log(
-        `[INFO] [TLAGenerator] Symmetry reduction: 1 symmetry group with ${validSymmetryGroups[0].length} message types`
+        `[INFO] [TLAGenerator] Symmetry reduction: 1 symmetry group with ${onlyGroup?.length ?? 0} message types`
       );
     }
 
@@ -1307,9 +1312,10 @@ export class TLAGenerator {
   ): void {
     for (const text of this.collectHandlerTexts(handler)) {
       const numMatch = TLAGenerator.NUMERIC_PAYLOAD_PATTERN.exec(text);
-      if (numMatch) fields.set(numMatch[1], "0..2");
+      if (numMatch?.[1]) fields.set(numMatch[1], "0..2");
       for (const m of text.matchAll(TLAGenerator.PAYLOAD_REF_PATTERN)) {
-        if (!fields.has(m[1])) fields.set(m[1], TLAGenerator.inferFieldType(m[1]));
+        const name = m[1];
+        if (name && !fields.has(name)) fields.set(name, TLAGenerator.inferFieldType(name));
       }
     }
   }
@@ -1777,7 +1783,7 @@ export class TLAGenerator {
 
     // Non-abstract fields with values: map null to last value (legacy)
     if ("values" in fieldConfig && fieldConfig.values) {
-      const nullValue = fieldConfig.values[fieldConfig.values.length - 1];
+      const nullValue = fieldConfig.values[fieldConfig.values.length - 1] ?? null;
       return { ...assignment, value: nullValue };
     }
 
@@ -2179,7 +2185,6 @@ export class TLAGenerator {
     // Array[index] -> Array[index+1] (convert to 1-based indexing)
     // Handle nested indices: arr[0][1] -> arr[1][2]
     // Pattern matches either: identifier OR closing bracket, followed by [number]
-    const _indexMap = new Map<string, number>();
     result = result.replace(
       /(\w+(?:\.\w+)*)\[(\d+)\]|\]\[(\d+)\]/g,
       (_match, identPart, index1, index2) => {
@@ -2907,6 +2912,7 @@ export class TLAGenerator {
 
     for (let i = 0; i < constraints.length; i++) {
       const constraint = constraints[i];
+      if (!constraint) continue;
       const invName = `TemporalConstraint${i + 1}`;
 
       if (constraint.description) {
@@ -2932,9 +2938,8 @@ export class TLAGenerator {
         name: invName,
         description:
           constraint.description || `${constraint.before} must happen before ${constraint.after}`,
-        condition: "",
-        confidence: "high",
-        source: { file: "", line: 0, column: 0 },
+        expression: `${constraint.before} happens-before ${constraint.after}`,
+        location: { file: "", line: 0 },
       });
     }
   }
@@ -2960,7 +2965,7 @@ export class TLAGenerator {
       this.line("/\\ Len(messages) <= MaxMessages");
 
       // Tier 1: Per-message bounds
-      if (hasPerMessageBounds) {
+      if (hasPerMessageBounds && config.messages.perMessageBounds) {
         for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
           const constName = `MaxMessages_${msgType}`;
           this.line(

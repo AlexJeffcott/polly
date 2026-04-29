@@ -63,6 +63,7 @@ async function generateAndWriteSpec(args: {
     handlers: [
       {
         messageType: "DISCONNECT",
+        node: "background",
         // The mutation lives here. The "correct" run writes "disconnected"
         // (matching the ensures), the "wrong-target" run writes "connected"
         // (which the ensures rejects).
@@ -75,6 +76,7 @@ async function generateAndWriteSpec(args: {
             location: { line: 1, column: 1 },
           },
         ],
+        location: { file: "scripts/verify-issue-74.ts", line: 1 },
       },
     ],
     stateConstraints: [],

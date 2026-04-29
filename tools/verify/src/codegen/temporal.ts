@@ -1,7 +1,7 @@
 // Temporal property generation for message ordering and causality
 // Generate LTL (Linear Temporal Logic) properties for TLC liveness checking
 
-import type { CodebaseAnalysis } from "../../../analysis/src/extract/types";
+import type { CodebaseAnalysis } from "../types";
 
 /**
  * Temporal property types

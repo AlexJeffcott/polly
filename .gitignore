@@ -46,3 +46,6 @@ test-results
 
 # auto-generated test fixtures
 **/__tests__/fixtures/**/*.dsl
+
+# claude worktrees
+.claude/worktrees/
