@@ -7,6 +7,7 @@ import type { MessageHandler } from "../core/model";
 import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
 import type {
   CodebaseAnalysis,
+  FieldConfig,
   StateAssignment,
   VerificationCondition,
   VerificationConfig,
@@ -55,6 +56,10 @@ export class TLAGenerator {
   private symmetrySets: string[] = [];
   // Map from messageType to resolved unique action name (handles collisions)
   private resolvedActionNames: Map<string, string> = new Map();
+  // Sanitized payload-field name → TLA+ domain string (e.g. '{"a","b"}', '0..N', 'BOOLEAN').
+  // Populated by deriveParamDomains() before PayloadType emission. Empty when a parameter
+  // cannot be linked to a config.state field — collectPayloadFields falls back to inferFieldType.
+  private paramDomains: Map<string, string> = new Map();
   // Tab symmetry state
   private tabSymmetryEnabled: boolean = false;
   private tabCount: number = 0;
@@ -1106,6 +1111,10 @@ export class TLAGenerator {
   }
 
   private addInit(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
+    // Resolve param→state-field domain links before PayloadType emits so payload
+    // fields are typed by the modeled state field's declared domain (issue #72).
+    this.deriveParamDomains(config, _analysis);
+
     // Generate InitialState first
     this.line("\\* Initial application state");
     this.line("InitialState == [");
@@ -1155,11 +1164,94 @@ export class TLAGenerator {
     return TLAGenerator.BOOL_PARAM_PATTERN.test(name) ? "BOOLEAN" : "Value";
   }
 
-  private collectPayloadFields(
-    analysis: CodebaseAnalysis
-  ): { name: string; type: "Value" | "BOOLEAN" | "0..2" }[] {
-    const fields = new Map<string, "Value" | "BOOLEAN" | "0..2">();
+  /**
+   * Build a flat map (sanitized field name → FieldConfig) for O(1) lookup against
+   * StateAssignment.field. Mirrors collectNestedInitialValues' join-with-"_" recursion
+   * (tla.ts:1247-1271) so keys match what the extractor emits at
+   * tools/analysis/src/extract/handlers.ts:1552 for nested writes like user.role → user_role.
+   */
+  private flattenStateConfig(config: VerificationConfig): Map<string, FieldConfig> {
+    const out = new Map<string, FieldConfig>();
+    const recurse = (prefix: string, fc: FieldConfig): void => {
+      if (this.hasTypeIndicators(fc)) {
+        out.set(this.sanitizeFieldName(prefix), fc);
+        return;
+      }
+      for (const [key, value] of Object.entries(fc)) {
+        if (typeof value !== "object" || value === null) continue;
+        if (key === "item" || key === "element") continue;
+        recurse(`${prefix}_${key}`, value as unknown as FieldConfig);
+      }
+    };
+    for (const [fieldPath, fc] of Object.entries(config.state)) {
+      if (typeof fc !== "object" || fc === null) continue;
+      recurse(fieldPath, fc);
+    }
+    return out;
+  }
+
+  /**
+   * Walk every handler assignment whose value is "param:<name>" and resolve <name>
+   * to a TLA+ domain by looking up the assignment.field in the flattened state config.
+   * Populates this.paramDomains so collectPayloadFields can type the payload field by
+   * the modeled state field's declared domain (enum, bounded number, BOOLEAN).
+   *
+   * On miss (no matching state field, or field config maps to "Value"): leaves the
+   * entry absent — collectPayloadFields falls back to the existing name-based heuristic.
+   *
+   * On conflict (same param name written into state fields with different TLA+ domains):
+   * throws with a precise error naming both handlers and both fields. Silent fallback to
+   * "Value" would re-introduce the bug this method exists to fix.
+   */
+  private deriveParamDomains(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    this.paramDomains.clear();
+    const fieldMap = this.flattenStateConfig(config);
+    const provenance = new Map<string, { msg: string; field: string; domain: string }>();
+    for (const handler of analysis.handlers) {
+      for (const a of handler.assignments ?? []) {
+        this.recordParamDomain(handler.messageType, a, fieldMap, provenance, config);
+      }
+    }
+  }
+
+  /** Process a single assignment for param:X markers and update paramDomains. */
+  private recordParamDomain(
+    messageType: string,
+    a: StateAssignment,
+    fieldMap: Map<string, FieldConfig>,
+    provenance: Map<string, { msg: string; field: string; domain: string }>,
+    config: VerificationConfig
+  ): void {
+    if (typeof a.value !== "string" || !a.value.startsWith("param:")) return;
+    const paramName = this.sanitizeFieldName(a.value.substring(6));
+    const fieldKey = this.sanitizeFieldName(a.field);
+    const fc = fieldMap.get(fieldKey);
+    if (!fc) return;
+    const tlaType = this.fieldConfigToTLAType(fieldKey, fc, config);
+    if (tlaType === "Value") return;
+    const prior = provenance.get(paramName);
+    if (prior && prior.domain !== tlaType) {
+      throw new Error(
+        `PayloadType conflict: parameter "${paramName}" is written to multiple state fields with incompatible TLA+ domains.\n` +
+          `  - Handler "${prior.msg}" assigns it to field "${prior.field}" with domain ${prior.domain}\n` +
+          `  - Handler "${messageType}" assigns it to field "${a.field}" with domain ${tlaType}\n` +
+          `Either rename one parameter, split the handlers across subsystems, or set both fields to the same domain in your verification config.`
+      );
+    }
+    this.paramDomains.set(paramName, tlaType);
+    provenance.set(paramName, { msg: messageType, field: a.field, domain: tlaType });
+  }
+
+  private collectPayloadFields(analysis: CodebaseAnalysis): { name: string; type: string }[] {
+    const fields = new Map<string, string>();
     for (const f of ["id", "text", "userId"]) fields.set(f, "Value");
+    // Config-derived param domains are always emitted, regardless of whether the
+    // bare param name appears in handler.parameters. Real-world extractors often
+    // record the outer arg name (e.g. "payload") in parameters while the linked
+    // param name (e.g. "theme") only appears inside `param:X` assignment markers.
+    for (const [name, domain] of this.paramDomains) {
+      fields.set(name, domain);
+    }
     for (const handler of analysis.handlers) {
       this.addHandlerParams(handler.parameters, fields);
       this.addPayloadRefsFromHandler(handler, fields);
@@ -1167,15 +1259,20 @@ export class TLAGenerator {
     return Array.from(fields.entries()).map(([name, type]) => ({ name, type }));
   }
 
-  private addHandlerParams(
-    params: string[] | undefined,
-    fields: Map<string, "Value" | "BOOLEAN" | "0..2">
-  ): void {
+  private addHandlerParams(params: string[] | undefined, fields: Map<string, string>): void {
     if (!params) return;
     for (const param of params) {
-      if (!TLAGenerator.PAYLOAD_EXCLUDED.has(param) && !fields.has(param)) {
-        fields.set(param, TLAGenerator.inferFieldType(param));
+      if (TLAGenerator.PAYLOAD_EXCLUDED.has(param)) continue;
+      const sanitized = this.sanitizeFieldName(param);
+      const configDomain = this.paramDomains.get(sanitized);
+      if (configDomain) {
+        // Config-derived domain wins, even if a name-based heuristic already set this entry.
+        // It is strictly more precise (named enum vs catch-all Value/BOOLEAN).
+        fields.set(param, configDomain);
+        continue;
       }
+      if (fields.has(param)) continue;
+      fields.set(param, TLAGenerator.inferFieldType(param));
     }
   }
 
@@ -1202,7 +1299,7 @@ export class TLAGenerator {
       postconditions?: VerificationCondition[];
       assignments?: StateAssignment[];
     },
-    fields: Map<string, "Value" | "BOOLEAN" | "0..2">
+    fields: Map<string, string>
   ): void {
     for (const text of this.collectHandlerTexts(handler)) {
       const numMatch = TLAGenerator.NUMERIC_PAYLOAD_PATTERN.exec(text);

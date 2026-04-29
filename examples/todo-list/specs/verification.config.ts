@@ -10,6 +10,9 @@ export const verificationConfig = defineVerification({
 
     // Todo state — maxLength 1 keeps NDET sequence operations tractable
     todos: { maxLength: 1 },
+
+    // User preferences — exercises payload-domain wiring (issue #72)
+    theme: { type: "enum", values: ["light", "dark", "system"] },
   },
 
   messages: {
@@ -24,6 +27,7 @@ export const verificationConfig = defineVerification({
       TODO_TOGGLE: 1,
       TODO_REMOVE: 1,
       TODO_CLEAR_COMPLETED: 1,
+      SET_THEME: 1,
     },
   },
 
@@ -61,6 +65,10 @@ export const verificationConfig = defineVerification({
     todos: {
       state: ["todos"],
       handlers: ["TODO_ADD", "TODO_TOGGLE", "TODO_REMOVE", "TODO_CLEAR_COMPLETED"],
+    },
+    preferences: {
+      state: ["theme"],
+      handlers: ["SET_THEME"],
     },
   },
 

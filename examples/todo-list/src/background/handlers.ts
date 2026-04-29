@@ -3,7 +3,7 @@ import { createBackground } from "@fairfox/polly/background";
 import { ensures, hasLength, requires, stateConstraint } from "@fairfox/polly/verify";
 import type { TodoMessages } from "../shared/messages";
 import type { Todo } from "../shared/types";
-import { filter, generateId, maxTodos, todos, user } from "./state";
+import { filter, generateId, maxTodos, theme, todos, user } from "./state";
 
 // Initialize background script with MessageRouter
 // IMPORTANT: Always use createBackground() in background scripts, NOT getMessageBus('background')
@@ -150,6 +150,14 @@ bus.on("TODO_SET_LIMIT", (payload: { limit: number }) => {
   // State change - update configurable limit
   maxTodos.value = payload.limit;
 
+  return { success: true };
+});
+
+// Theme preference setter. Exercises payload-domain wiring (issue #72): the
+// extractor records assignments[].value = "param:theme", and the verifier
+// types payload.theme as the declared enum domain rather than the catch-all Value.
+bus.on("SET_THEME", (payload: { theme: "light" | "dark" | "system" }) => {
+  theme.value = payload.theme;
   return { success: true };
 });
 

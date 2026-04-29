@@ -29,6 +29,7 @@ export type TodoMessages =
   // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
   | Message<"TODO_CLEAR_COMPLETED", {}, { success: true; removed: number }>
   | Message<"TODO_SET_LIMIT", { limit: number }, { success: true }>
+  | Message<"SET_THEME", { theme: "light" | "dark" | "system" }, { success: true }>
   // biome-ignore lint/complexity/noBannedTypes: Empty payload for messages without data
   | Message<"GET_STATE", {}, AppState>
   | Message<"GET_TODOS", { filter?: "all" | "active" | "completed" }, { todos: Todo[] }>;

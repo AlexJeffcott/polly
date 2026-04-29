@@ -1471,11 +1471,13 @@ describe("Complex Expression Translation", () => {
       expect(spec).toContain("PayloadType ==");
     });
 
-    test("boolean parameter gets BOOLEAN type in PayloadType", async () => {
+    test("boolean-named parameter falls back to BOOLEAN heuristic when unbound", async () => {
+      // Parameter `isOnline` is NOT linked to any state field (no param: assignment).
+      // The name-pattern heuristic in inferFieldType applies as a fallback.
       baseAnalysis.handlers = [
         {
           messageType: "SET_ONLINE",
-          assignments: [{ field: "active", value: "param:isOnline" }],
+          assignments: [],
           preconditions: [],
           postconditions: [],
           parameters: ["isOnline"],

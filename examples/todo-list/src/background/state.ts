@@ -17,6 +17,11 @@ export const filter = $sharedState<"all" | "active" | "completed">("filter", "al
 // Configurable todo limit (exercises { type: "number" } verification)
 export const maxTodos = $sharedState<number>("maxTodos", 50);
 
+// User-facing theme preference. Exercises payload-domain wiring (issue #72): the
+// SET_THEME handler writes payload.theme into this signal directly, so the verifier
+// types `payload.theme` as the declared enum domain.
+export const theme = $sharedState<"light" | "dark" | "system">("theme", "system");
+
 // Helper to generate IDs
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
