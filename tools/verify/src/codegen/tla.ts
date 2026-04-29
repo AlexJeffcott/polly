@@ -1639,12 +1639,20 @@ export class TLAGenerator {
    *         (messages[m].status = "pending"
    *          /\ messages'[m].status = "delivered"
    *          /\ messages[m].msgType = "X")
-   *         => \A target \in messages[m].targets :
+   *         => LET target == messages'[m].deliveredTo IN
    *              (target \in Contexts /\ ports[target] = "connected")
    *              => /\ <P_1 with [ctx] -> [target]>
    *                 /\ <P_2 with [ctx] -> [target]>
    *                 ...
    *     ]_allVars
+   *
+   * The LET binds `target` to the single context the action actually
+   * routed to (recorded by RouteMessage / UserRouteMessage in the
+   * message's `deliveredTo` field). Earlier revisions used
+   * `\A target \in messages[m].targets`, which false-positived whenever
+   * a multi-target send routed to one target and the property's
+   * predicate read the post-state of an untouched sibling target
+   * (issue #75).
    *
    * TLC handles `[][P]_allVars` as a safety property: no liveness
    * machinery, no fairness needed. A wrong-target write trips the
@@ -1669,7 +1677,7 @@ export class TLAGenerator {
     const conjunction =
       predicateClauses.length === 1
         ? predicateClauses[0]
-        : predicateClauses.map((c) => `        /\\ ${c}`).join("\n");
+        : predicateClauses.map((c) => `             /\\ ${c}`).join("\n");
 
     const propertyName = `EnsuresAfter_${actionName}`;
     const messages = postconditions
@@ -1684,7 +1692,7 @@ export class TLAGenerator {
       `    (messages[m].status = "pending"\n` +
       `     /\\ messages'[m].status = "delivered"\n` +
       `     /\\ messages[m].msgType = "${messageType}")\n` +
-      `    => \\A target \\in messages[m].targets :\n` +
+      `    => LET target == messages'[m].deliveredTo IN\n` +
       `         (target \\in Contexts /\\ ports[target] = "connected")\n` +
       `         =>\n` +
       (predicateClauses.length === 1 ? `         ${predicateClauses[0]}` : conjunction);
@@ -2776,7 +2784,10 @@ export class TLAGenerator {
     this.line('            /\\ IF target \\in Contexts /\\ ports[target] = "connected"');
     this.line("               THEN \\* Successful delivery - route AND invoke handler");
     this.line(
-      '                    /\\ messages\' = [messages EXCEPT ![msgIndex].status = "delivered"]'
+      '                    /\\ messages\' = [messages EXCEPT ![msgIndex].status = "delivered",'
+    );
+    this.line(
+      "                                                   ![msgIndex].deliveredTo = target]"
     );
     this.line("                    /\\ delivered' = delivered \\union {msg.id}");
     this.line(

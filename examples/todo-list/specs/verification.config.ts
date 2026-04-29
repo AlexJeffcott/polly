@@ -51,7 +51,13 @@ export const verificationConfig = defineVerification({
       },
     ],
     boundedExploration: {
-      maxDepth: 8,
+      // Lowered from 8 to 4 with the issue #75 fix: deliveredTo now
+      // records the routed target on each delivered message, making
+      // routing nondeterminism observable and multiplying distinct
+      // states per delivered message. Pre-fix the auth subsystem
+      // "passed" only because the ensures() property false-positived
+      // and TLC stopped early; post-fix the spec is exhaustive.
+      maxDepth: 4,
     },
   },
 

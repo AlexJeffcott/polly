@@ -81,9 +81,17 @@ export default defineVerification({
     ],
 
     // 2. Bounded Exploration
-    // Limit depth to keep verification tractable
+    // Limit depth to keep verification tractable. Lowered from 8 to 4
+    // when deliveredTo was added to the message record (issue #75) —
+    // recording the routed target makes routing nondeterminism
+    // observable, which multiplies distinct states by a factor of
+    // |targets| per delivered message. Pre-fix the example "passed"
+    // at depth 8 only because the property false-positived on the
+    // first multi-target send and TLC stopped early; post-fix the
+    // spec is actually checked exhaustively, and depth 4 is what
+    // completes within Docker's state-pool budget.
     boundedExploration: {
-      maxDepth: 8,
+      maxDepth: 4,
     },
   },
 

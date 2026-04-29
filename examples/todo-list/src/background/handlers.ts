@@ -22,30 +22,33 @@ stateConstraint(
 // User Authentication
 // ============================================================================
 
-bus.on("USER_LOGIN", (payload: { userId: string; name: string; role: "user" | "admin" }) => {
-  // Preconditions - user must not already be logged in. The role precondition
-  // narrows payload.role's domain so the role postcondition below is provable.
-  requires(user.value.loggedIn === false, "User must not be logged in");
-  requires(payload.userId !== null, "User ID must be provided");
-  requires(payload.role !== "guest", "Login role must not be guest");
+bus.on(
+  "USER_LOGIN",
+  (payload: { userId: string; name: string; role: "user" | "admin" | "guest" }) => {
+    // Preconditions - user must not already be logged in. The role precondition
+    // narrows payload.role's domain so the role postcondition below is provable.
+    requires(user.value.loggedIn === false, "User must not be logged in");
+    requires(payload.userId !== null, "User ID must be provided");
+    requires(payload.role !== "guest", "Login role must not be guest");
 
-  // State changes - using reactive signals with automatic sync
-  user.value = {
-    loggedIn: true,
-    id: payload.userId,
-    name: payload.name,
-    role: payload.role,
-  };
+    // State changes - using reactive signals with automatic sync
+    user.value = {
+      loggedIn: true,
+      id: payload.userId,
+      name: payload.name,
+      role: payload.role,
+    };
 
-  // Postconditions - verify state was updated correctly. Both writes are now
-  // surfaced as modeled assignments (loggedIn as a literal, role traced
-  // through payload.role into the user.role enum), so TLC's Assert checks
-  // are honest postconditions rather than documentation.
-  ensures(user.value.loggedIn === true, "User must be logged in after login");
-  ensures(user.value.role !== "guest", "User must have non-guest role");
+    // Postconditions - verify state was updated correctly. Both writes are now
+    // surfaced as modeled assignments (loggedIn as a literal, role traced
+    // through payload.role into the user.role enum), so TLC's Assert checks
+    // are honest postconditions rather than documentation.
+    ensures(user.value.loggedIn === true, "User must be logged in after login");
+    ensures(user.value.role !== "guest", "User must have non-guest role");
 
-  return { success: true, user: user.value };
-});
+    return { success: true, user: user.value };
+  }
+);
 
 bus.on("USER_LOGOUT", () => {
   // Precondition - user must be logged in to logout

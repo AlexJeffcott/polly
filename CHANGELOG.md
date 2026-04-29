@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.36.0] - 2026-04-30
+
+### Fixed
+
+#### Multi-target sends no longer false-positive `EnsuresAfter_*` properties
+
+Issue #75. The 0.35.0 step-temporal property emitted by the codegen
+quantified over the whole target set:
+
+```tla
+=> \A target \in messages[m].targets :
+     (target \in Contexts /\ ports[target] = "connected")
+     => contextStates'[target].phase = "connected"
+```
+
+Routing only mutates one target at a time — `RouteMessage` selects via
+`\E target \in msg.targets` and runs `StateTransition(target, ...)` on
+that one — so any other connected target in the message's target set
+keeps its pre-step state. When the predicate's expected value differs
+from a sibling's pre-state (the common case, since `ensures()` typically
+asserts a non-init value), the property false-positives. In a project
+with `Contexts = {background, content, popup}` and a `CONNECT` handler
+asserting `phase === 'connected'`, every multi-target send tripped the
+property even though the handler did exactly the right thing on the
+routed target.
+
+The fix records the routed target on the message itself. `MessageRouter`
+gains a `deliveredTo: ContextType \cup {NoTarget}` field on the message
+record, set by `RouteMessage` / `UserRouteMessage` to the chosen target
+on successful delivery. The property template binds `target` via `LET`
+to that field instead of universally quantifying over the target set:
+
+```tla
+=> LET target == messages'[m].deliveredTo IN
+     (target \in Contexts /\ ports[target] = "connected")
+     => contextStates'[target].phase = "connected"
+```
+
+The wrong-target catch from #74 still trips, because the predicate now
+reads the post-state of the actually-routed context — exactly the
+target whose `contextStates` entry the EXCEPT touched.
+
+Recording `deliveredTo` makes routing nondeterminism observable in the
+state, which multiplies distinct states by a factor proportional to
+`|targets|` per delivered message. Examples that exercise multi-target
+sends at depth 8 may need a slightly tighter depth bound; the
+full-featured example dropped from `maxDepth: 8` to `6`.
+
+`scripts/verify-issue-75.ts` is the end-to-end artefact: it generates a
+multi-context, multi-target spec where the handler writes the asserted
+value, runs TLC, and confirms no false positive. It also generates a
+companion wrong-target spec and confirms TLC still flags the violation.
+
+Closes #75.
+
 ## [0.35.0] - 2026-04-29
 
 ### Changed

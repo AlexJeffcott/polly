@@ -40,6 +40,14 @@ ContextType == {"background", "content", "popup", "devtools", "options", "offscr
 PortState == {"connected", "disconnected"}
 MessageStatus == {"pending", "routing", "delivered", "failed", "timeout"}
 
+\* Sentinel value for messages that have not been routed to a concrete
+\* target yet. Once RouteMessage selects a target from msg.targets, that
+\* target is recorded in deliveredTo so step-temporal postcondition
+\* properties can identify which single target was actually mutated.
+\* Without this field a property that quantifies over msg.targets
+\* false-positives whenever routing picks one target out of many.
+NoTarget == "NoTarget"
+
 Message == [
     id: Nat,
     source: ContextType,
@@ -47,7 +55,8 @@ Message == [
     tabId: Nat,
     msgType: STRING,  \* Message type for handler dispatch
     status: MessageStatus,
-    timestamp: Nat
+    timestamp: Nat,
+    deliveredTo: ContextType \cup {NoTarget}
 ]
 
 -----------------------------------------------------------------------------
@@ -97,7 +106,8 @@ SendMessage(source, targetSet, tabId, messageType) ==
                tabId |-> tabId,
                msgType |-> messageType,
                status |-> "pending",
-               timestamp |-> time
+               timestamp |-> time,
+               deliveredTo |-> NoTarget
            ]
        IN /\ messages' = Append(messages, newMsg)
           /\ pendingRequests' = pendingRequests @@
@@ -118,7 +128,8 @@ RouteMessage(msgIndex) ==
              \E target \in msg.targets :
                 /\ IF target \in Contexts /\ ports[target] = "connected"
                    THEN \* Successful delivery to this target
-                        /\ messages' = [messages EXCEPT ![msgIndex].status = "delivered"]
+                        /\ messages' = [messages EXCEPT ![msgIndex].status = "delivered",
+                                                       ![msgIndex].deliveredTo = target]
                         /\ delivered' = delivered \union {msg.id}
                         /\ pendingRequests' = [id \in DOMAIN pendingRequests \ {msg.id} |->
                                                pendingRequests[id]]

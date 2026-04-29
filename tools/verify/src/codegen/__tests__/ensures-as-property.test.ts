@@ -230,6 +230,65 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
     expect(cfg).not.toContain("EnsuresAfter_HandlePing");
   });
 
+  test("issue #75 — property quantifies over the routed target only, not all of msg.targets", async () => {
+    // Earlier revisions emitted `\A target \in messages[m].targets`
+    // which false-positived whenever a send carried multiple targets:
+    // routing picks one via \E and only that target's contextStates is
+    // updated, so the universal property would then check the post-state
+    // of untouched sibling targets and fail spuriously. The fix lifts
+    // the routed target into a `deliveredTo` field on the message, set
+    // by RouteMessage/UserRouteMessage, and binds the property's
+    // `target` via LET.
+    baseAnalysis.handlers = [
+      {
+        messageType: "CONNECT",
+        assignments: [{ field: "phase", value: "connected-leader" }],
+        preconditions: [],
+        postconditions: [
+          {
+            expression: "state.phase === 'connected-leader'",
+            message: "phase must be connected-leader after connect",
+            location: { line: 1, column: 1 },
+          },
+        ],
+      },
+    ];
+
+    const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+    // The new shape: target is bound to the actually-routed context.
+    expect(spec).toContain("LET target == messages'[m].deliveredTo IN");
+    // The old, broken shape must not reappear.
+    expect(spec).not.toContain("\\A target \\in messages[m].targets");
+    // Predicate still reads the post-state of the routed target.
+    expect(spec).toContain(`contextStates'[target].phase = "connected-leader"`);
+  });
+
+  test("issue #75 — UserRouteMessage records the chosen target in deliveredTo", async () => {
+    baseAnalysis.handlers = [
+      {
+        messageType: "CONNECT",
+        assignments: [{ field: "phase", value: "connected-leader" }],
+        preconditions: [],
+        postconditions: [
+          {
+            expression: "state.phase === 'connected-leader'",
+            message: "phase must be connected-leader",
+            location: { line: 1, column: 1 },
+          },
+        ],
+      },
+    ];
+
+    const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+    // The successful-delivery branch must update both status and
+    // deliveredTo so the EnsuresAfter property can identify the routed
+    // target on the (s, s') step.
+    expect(spec).toContain('![msgIndex].status = "delivered"');
+    expect(spec).toContain("![msgIndex].deliveredTo = target");
+  });
+
   test("double-quote in user-supplied message survives into the property description comment", async () => {
     baseAnalysis.handlers = [
       {
