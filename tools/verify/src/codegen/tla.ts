@@ -400,6 +400,10 @@ export class TLAGenerator {
       this.addTemporalProperties();
     }
 
+    // Module-end marker — must be the last line of the spec, AFTER any
+    // temporal properties have been emitted.
+    this.line("=============================================================================");
+
     return this.lines.join("\n");
   }
 
@@ -1592,17 +1596,102 @@ export class TLAGenerator {
 
     // Process and emit assignments
     const validAssignments = this.processAssignments(allAssignments, config.state);
-    const usedUnchanged = this.emitStateUpdates(validAssignments, allPreconditions);
-
-    // Emit postconditions only if we're not using UNCHANGED
-    // When UNCHANGED is used, we can't also constrain contextStates' - it's a contradiction
-    // The verification still works via preconditions (requires() conditions)
-    if (!usedUnchanged) {
-      this.emitPostconditions(allPostconditions);
-    }
+    this.emitStateUpdates(validAssignments, allPreconditions);
 
     this.indent--;
     this.line("");
+
+    // Postconditions are NOT emitted as conjuncts in the action body.
+    //
+    // From 0.33.0 through 0.34.0 the codegen wrapped each ensures() in
+    // TLC's Assert(P, "msg") and added it as a conjunct here. Issue #74
+    // confirmed empirically that this still acted as a guard: when the
+    // EXCEPT primes a value that fails the predicate, TLC's action
+    // evaluator catches the resulting EvalException and treats the
+    // binding as not-a-successor, so the buggy transition simply doesn't
+    // fire and the model still verifies green.
+    //
+    // The fix lifts each postcondition into a per-handler step-temporal
+    // property (`[][P]_allVars`) emitted into the PROPERTIES section.
+    // The property's predicate fires only on (s, s') pairs that just
+    // delivered a message of this msgType, and reads the post-state via
+    // contextStates'[target]. Failures surface as ordinary TLC property
+    // violations with a clean counterexample, instead of silently
+    // disabling the action.
+    this.recordPostconditionProperty(messageType, actionName, allPostconditions);
+  }
+
+  /**
+   * Record per-handler postconditions as a step-temporal property.
+   *
+   * For a handler `HandleX(ctx)` with one or more `ensures(P_i, msg_i)`
+   * postconditions, emit:
+   *
+   *   EnsuresAfter_HandleX ==
+   *     [][
+   *       \A m \in 1..Len(messages) :
+   *         (messages[m].status = "pending"
+   *          /\ messages'[m].status = "delivered"
+   *          /\ messages[m].msgType = "X")
+   *         => \A target \in messages[m].targets :
+   *              (target \in Contexts /\ ports[target] = "connected")
+   *              => /\ <P_1 with [ctx] -> [target]>
+   *                 /\ <P_2 with [ctx] -> [target]>
+   *                 ...
+   *     ]_allVars
+   *
+   * TLC handles `[][P]_allVars` as a safety property: no liveness
+   * machinery, no fairness needed. A wrong-target write trips the
+   * property and TLC reports a real counterexample.
+   */
+  private recordPostconditionProperty(
+    messageType: string,
+    actionName: string,
+    postconditions: Array<{ expression: string; message?: string }>
+  ): void {
+    if (postconditions.length === 0) return;
+
+    // Convert each predicate to TLA+ form (post-state, then rebind ctx -> target)
+    const predicateClauses = postconditions
+      .map((pc) => this.tsExpressionToTLA(pc.expression, true))
+      .filter((p) => p && p.length > 0)
+      .map((p) => p.replace(/\[ctx\]/g, "[target]"));
+
+    if (predicateClauses.length === 0) return;
+
+    // Multi-line conjunction so the generated TLA+ stays readable.
+    const conjunction =
+      predicateClauses.length === 1
+        ? predicateClauses[0]
+        : predicateClauses.map((c) => `        /\\ ${c}`).join("\n");
+
+    const propertyName = `EnsuresAfter_${actionName}`;
+    const messages = postconditions
+      .map((pc) => pc.message)
+      .filter((m): m is string => Boolean(m))
+      .join("; ");
+
+    // Build the inner step predicate as a single string. We hand-format
+    // the lines so the generated spec is readable in a counterexample.
+    const target =
+      `\n  \\A m \\in 1..Len(messages) :\n` +
+      `    (messages[m].status = "pending"\n` +
+      `     /\\ messages'[m].status = "delivered"\n` +
+      `     /\\ messages[m].msgType = "${messageType}")\n` +
+      `    => \\A target \\in messages[m].targets :\n` +
+      `         (target \\in Contexts /\\ ports[target] = "connected")\n` +
+      `         =>\n` +
+      (predicateClauses.length === 1 ? `         ${predicateClauses[0]}` : conjunction);
+
+    this.temporalProperties.push({
+      name: propertyName,
+      description:
+        messages.length > 0
+          ? `ensures(...) for ${messageType}: ${messages}`
+          : `ensures(...) for ${messageType}`,
+      type: "step-always",
+      target,
+    });
   }
 
   /**
@@ -1613,27 +1702,6 @@ export class TLAGenerator {
       const tlaExpr = this.tsExpressionToTLA(precondition.expression);
       const comment = precondition.message ? ` \\* ${precondition.message}` : "";
       this.line(`/\\ ${tlaExpr}${comment}`);
-    }
-  }
-
-  /**
-   * Emit postcondition checks.
-   *
-   * Wraps each ensures() expression in TLC's Assert(P, "msg") so the predicate
-   * becomes a hard runtime check rather than a silent action guard (issue #73).
-   * Without Assert, a wrong-target EXCEPT followed by ensures(target = right)
-   * makes the conjunction false, TLC marks the action disabled, and the bug
-   * goes unflagged. With Assert, TLC raises a TLCRuntimeException naming the
-   * failed postcondition. Available because MessageRouter extends TLC.
-   */
-  private emitPostconditions(
-    postconditions: Array<{ expression: string; message?: string }>
-  ): void {
-    for (const postcondition of postconditions) {
-      const tlaExpr = this.tsExpressionToTLA(postcondition.expression, true);
-      const message = postcondition.message ?? "ensures failed";
-      const escapedMessage = message.replace(/"/g, '\\"');
-      this.line(`/\\ Assert(${tlaExpr}, "${escapedMessage}")`);
     }
   }
 
@@ -2823,7 +2891,8 @@ export class TLAGenerator {
     this.line("\\* State constraint to bound state space");
     this.addStateConstraint(config, _analysis);
 
-    this.line("=============================================================================");
+    // Module-end marker is emitted separately so temporal properties (if
+    // any) land inside the module rather than after its closing line.
   }
 
   /**
@@ -2966,7 +3035,8 @@ export class TLAGenerator {
       this.line("");
     }
 
-    this.line("=============================================================================");
+    // Module-end marker is emitted by the top-level generator so it
+    // always lands as the last line of the spec.
   }
 
   private fieldConfigToTLAType(

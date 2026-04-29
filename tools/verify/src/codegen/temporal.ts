@@ -9,6 +9,7 @@ import type { CodebaseAnalysis } from "../../../analysis/src/extract/types";
 export type TemporalPropertyType =
   | "eventually" // <>P (eventually P)
   | "always" // []P (always P)
+  | "step-always" // [][P]_allVars (always: P holds on every (s,s') step or stuttering)
   | "until" // P U Q (P until Q)
   | "implies-eventually" // []( P => <>Q ) (always: if P then eventually Q)
   | "implies-next" // []( P => X Q ) (always: if P then next Q)
@@ -233,6 +234,15 @@ export class TemporalTLAGenerator {
 
       case "always":
         lines.push(`${prop.name} == [](${prop.target})`);
+        break;
+
+      case "step-always":
+        // [][P]_allVars — safety-only step property. P references both
+        // unprimed and primed variables to constrain (s,s') pairs. Used
+        // by ensures()-as-property: the predicate fires when a message
+        // transitions from "pending" to "delivered" and reads the
+        // post-state via contextStates'.
+        lines.push(`${prop.name} == [][${prop.target}]_allVars`);
         break;
 
       case "until":

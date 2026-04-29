@@ -5,6 +5,159 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.0] - 2026-04-29
+
+### Changed
+
+#### `ensures()` postconditions are step-temporal properties, not action-body conjuncts
+
+0.33.0 wrapped each postcondition in TLC's `Assert(P, "msg")` and added
+it as a conjunct in the handler's action body, on the assumption that a
+failed Assert would halt TLC. Issue #74 confirmed empirically that this
+still acts as a guard: when the EXCEPT primes a value that fails the
+predicate, TLC's action evaluator catches the resulting `EvalException`
+and treats the binding as not-a-successor — the buggy transition simply
+doesn't fire, no invariant is reported as violated, and the model still
+verifies green. The Assert-as-conjunct fix never actually closed the
+bug class issue #73 named.
+
+The codegen now lifts each handler's postconditions into a per-handler
+step-temporal property emitted into the `PROPERTIES` section:
+
+```tla
+EnsuresAfter_HandleDisconnect ==
+  [][
+    \A m \in 1..Len(messages) :
+      (messages[m].status = "pending"
+       /\ messages'[m].status = "delivered"
+       /\ messages[m].msgType = "DISCONNECT")
+      => \A target \in messages[m].targets :
+           (target \in Contexts /\ ports[target] = "connected")
+           => contextStates'[target].phase = "disconnected"
+  ]_allVars
+```
+
+The predicate fires only on `(s, s')` pairs that just delivered a
+message of the matching type, and reads the post-state via
+`contextStates'[target]`. TLC handles `[][P]_allVars` as a safety
+property — no liveness machinery, no fairness needed — and a violation
+is reported as `Action property EnsuresAfter_<HandlerName> is
+violated`, with a counterexample trace.
+
+The previous syntax-only test (`ensures-as-assert.test.ts`) was
+replaced with `ensures-as-property.test.ts`, and an end-to-end
+verification artefact lives at `scripts/verify-issue-74.ts`. The
+artefact runs TLC against two synthesised specs — one where the
+handler writes the value its `ensures()` asserts, and one where it
+writes a different value — and confirms TLC catches the mutation.
+This is the shape `CLAUDE.md` calls for: a one-command reproduction
+that prints success or a specific failure rather than relying on
+green unit tests that exercise the integration surface only on paper.
+
+`requires()` is unchanged. Preconditions stay as enabling conjuncts
+in the action body, which is the correct TLA+ idiom for "this handler
+doesn't fire here." Only `ensures()` moves to the property layer.
+
+The module-end `=====` line moved out of `addInvariants()` and into a
+dedicated final emission step so temporal properties always land
+inside the module rather than after its closing line.
+
+Closes #74.
+
+## [0.34.0] - 2026-04-29
+
+### Added
+
+#### Payload-property tracing for longhand object literals
+
+The shorthand `{ field }` and direct `signal.value = paramName.X` paths
+already let the verifier see a parameter being written into a modeled
+state field. The longhand `{ field: paramName.X }` form did not — the
+extractor returned undefined for any non-literal initializer, dropping
+the assignment on the floor. Real handlers built the same way the
+todo-list `USER_LOGIN` does — `{ id: payload.userId, role: payload.role }`
+— surfaced no `role` write to the spec, so an `ensures()` over
+`user.role` became a postcondition the verifier could not honour.
+
+Polly now traces the longhand form the same way it traces the
+shorthand. Combined with the payload-domain wiring from 0.32.0 and the
+ensures-as-Assert change from 0.33.0, longhand assignments participate
+fully in verification: the payload field carries the modeled state
+field's domain, and the ensures over that field is a checked
+postcondition rather than documentation that doubled as a guard.
+
+### Fixed
+
+#### EXCEPT clauses no longer emitted for unmodeled fields
+
+Surfacing the new writes also revealed a quieter codegen issue. EXCEPT
+clauses were being emitted for every assignment the extractor
+recorded, modeled or not, which after the extractor improvement meant
+unmodeled fields like `user.id` and `user.name` appeared in
+`contextStates` with values the schema never declared. The codegen now
+drops assignments whose target is not part of the (subsystem-filtered)
+state config. Without the filter the auth subsystem's state space
+ballooned sixfold for no checking benefit.
+
+## [0.33.0] - 2026-04-29
+
+### Changed
+
+#### `ensures()` postconditions emit `Assert(...)` for caught wrong-target transitions
+
+Before this change, an `ensures()` call became a plain conjunct on the
+primed state inside the action body. When the EXCEPT wrote one value
+and the postcondition expected another, TLC saw the conjunction as
+false, marked the action **disabled**, and reported a green model —
+even when the handler was visibly broken under mutation testing. The
+postcondition was, in effect, documentation that doubled as a silent
+guard.
+
+The codegen now wraps every postcondition in TLC's `Assert(P, "msg")`.
+Available transitively because `MessageRouter` already extends TLC,
+the operator returns true when the predicate holds and raises a
+runtime exception naming the failed message otherwise. A wrong-target
+EXCEPT now causes TLC to halt with the user-supplied label, instead
+of silently disabling the action — closing the bug class issue #73
+named.
+
+Surfacing this caught a latent `ensures()` in the `todo-list`
+`USER_LOGIN` handler that asserted `user.role !== "guest"`. The
+extractor only records literal assignments at that point, so
+`role: payload.role` was invisible to the spec; TLC correctly
+reported the postcondition as unprovable. The handler's `ensures` was
+narrowed to the part the verifier could honour — `loggedIn === true`
+— with a comment explaining the limitation. (0.34.0 then closes the
+extractor gap.)
+
+## [0.32.0] - 2026-04-29
+
+### Added
+
+#### Payload-domain wiring for parameterised handlers
+
+A handler that writes a parameter into a modeled state field — the
+common `setX(enum)` shape — used to leave the verifier guessing. The
+parameter became a payload field typed `Value`, `BOOLEAN`, or `0..2`
+by a name-pattern heuristic; the state field's declared domain was
+ignored. TLC then explored a payload value that the field's `TypeOK`
+refused, and either rejected the trace or, worse, never reached the
+bug at all.
+
+The fix joins the two pieces of information that already exist. The
+extractor already records `param:X` markers on every handler
+assignment. The verification config already declares each state
+field's domain through `FieldConfig`. A new derivation pass walks the
+handlers, links each marker to its target field, and emits the
+field's domain — enum literal, bounded number, BOOLEAN — into
+`PayloadType`. **Conflicting domains across handlers are a hard error**
+rather than a silent fallback that would re-introduce the gap.
+
+Subsystem-scoped verification continues to work without changes; each
+subsystem reuses the same generator over its filtered config and
+analysis. The `todo-list` example grows a `SET_THEME` handler in a
+new `preferences` subsystem to exercise the path end to end.
+
 ## [0.31.0] - 2026-04-28
 
 ### Added
@@ -748,6 +901,96 @@ and five unit tests.
 - `docs/TESTING.md` — new sections on action-handler testing with
   `runAction`, visual regression with `matchBaseline`, and the
   quality logger mock pattern.
+
+## [0.24.0] - 2026-04-17
+
+### Added
+
+#### Mesh client factory
+
+`createMeshClient()` assembles signalling, WebRTC, encryption, and the
+Automerge `Repo` from one call and configures `$meshState` against the
+resulting repo. `MeshSignalingClient` and `MeshWebRTCAdapter` accept
+optional `WebSocket` and `RTCPeerConnection` constructors; defaults
+read from `globalThis` so browser code is unchanged. A clear error
+now replaces the "undefined is not a constructor" failure when
+neither a global nor an injected impl is available.
+
+#### `@fairfox/polly/mesh/node`
+
+A new subpath export ships the Node-specific wiring.
+`fileKeyringStorage(path)` reads and writes the serialised keyring
+atomically (tmp-then-rename, 0600 perms). `bootstrapCliKeyring` runs
+the first-run pairing UX: generate an identity, print the public-key
+fingerprint to stderr, read a pairing token from stdin, apply it,
+save. **Token issuance stays browser-side**; the CLI path is
+receive-only because the listed consumers (archival cron, LLM
+proxies, admin tools, headless bridges) onboard from a trusted
+device rather than introducing new peers. Neither `werift` nor
+`@roamhq/wrtc` is bundled — both are declared as optional peer
+dependencies and the consumer passes the `RTCPeerConnection` class
+into the factory, keeping Polly out of the native-binary install-risk
+story.
+
+#### Blob store primitive
+
+A small content-addressed blob store rounds out the mesh
+participants' storage shape, so non-CRDT payloads (uploaded files,
+images, anything binary) can ride alongside `$meshState` without
+forcing every byte through Automerge.
+
+## [0.23.0] - 2026-04-16
+
+### Added
+
+#### `checkNoAsCasting` exclusion flags
+
+The `no-as-casting` conformance check now accepts `--exclude-packages`
+and `--exclude-files` flags, letting monorepos adopt the check
+incrementally without waiting for every legacy package to be cleaned
+up first. The same options are available on the programmatic
+`checkNoAsCasting` API as `excludePackages` / `excludeFiles`.
+
+### Fixed
+
+#### `as` line scanner stops flagging prose
+
+The line scanner no longer flags prose that happens to contain the
+word `as` — CLI help text in template literals, JSX paragraph copy,
+and SQL column aliases all pass cleanly now. The string-literal
+detector checks every occurrence on a line rather than just the
+first, and two new heuristics (`isJsxText`, `isPlainText`) catch the
+remaining patterns.
+
+#### Test infrastructure: `Cycle detected` no longer kills parallel suites
+
+`automerge-repo`'s xstate `DocHandle` machine throws a `Cycle
+detected` error via `setTimeout` when multiple `Repo` instances
+coexist across parallel test files. A preload script intercepts the
+throw so the 19 tests that were previously killed by the leaked
+error now run to completion. `Repo` instances in the affected test
+files are shut down properly in `afterEach`.
+
+Closes #44, closes #45.
+
+## [0.22.0] - 2026-04-16
+
+### Changed
+
+#### Peer/mesh exports isolated behind subpath imports
+
+The main bundle no longer pulls in `@automerge/*` or `tweetnacl` —
+consumers who only use `$sharedState`, `$syncedState`, or `$resource`
+can now bundle without stubbing those dependencies. Peer-first and
+mesh primitives live at `@fairfox/polly/peer` and
+`@fairfox/polly/mesh` respectively.
+
+#### Quality conformance check moved to CLI
+
+The quality conformance check, which relied on `node:fs` and broke in
+the browser-targeted build, is now a proper CLI subcommand
+(`polly quality`) built with the node target alongside the other
+tools.
 
 ## [0.21.0] - 2026-04-16
 
