@@ -1617,15 +1617,23 @@ export class TLAGenerator {
   }
 
   /**
-   * Emit postcondition checks
+   * Emit postcondition checks.
+   *
+   * Wraps each ensures() expression in TLC's Assert(P, "msg") so the predicate
+   * becomes a hard runtime check rather than a silent action guard (issue #73).
+   * Without Assert, a wrong-target EXCEPT followed by ensures(target = right)
+   * makes the conjunction false, TLC marks the action disabled, and the bug
+   * goes unflagged. With Assert, TLC raises a TLCRuntimeException naming the
+   * failed postcondition. Available because MessageRouter extends TLC.
    */
   private emitPostconditions(
     postconditions: Array<{ expression: string; message?: string }>
   ): void {
     for (const postcondition of postconditions) {
       const tlaExpr = this.tsExpressionToTLA(postcondition.expression, true);
-      const comment = postcondition.message ? ` \\* ${postcondition.message}` : "";
-      this.line(`/\\ ${tlaExpr}${comment}`);
+      const message = postcondition.message ?? "ensures failed";
+      const escapedMessage = message.replace(/"/g, '\\"');
+      this.line(`/\\ Assert(${tlaExpr}, "${escapedMessage}")`);
     }
   }
 
