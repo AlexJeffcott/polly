@@ -1645,8 +1645,28 @@ export class TLAGenerator {
     state: VerificationConfig["state"]
   ): Array<{ field: string; value: string | boolean | number | null }> {
     return assignments
+      .filter((a) => this.isFieldModeled(a.field, state))
       .filter((a) => this.shouldIncludeAssignment(a, state))
       .map((a) => this.mapNullAssignment(a, state));
+  }
+
+  /**
+   * True iff the assignment's target field has a matching entry in the
+   * (flattened) state config. Drops assignments to fields that aren't part of
+   * the modeled state — without this filter, an EXCEPT for an unmodeled field
+   * (e.g. user.name when the config only declares user.loggedIn and
+   * user.role) widens contextStates to carry payload values that no invariant
+   * constrains, and the state space explodes for no checking benefit.
+   */
+  private isFieldModeled(field: string, state: VerificationConfig["state"]): boolean {
+    const sanitized = this.sanitizeFieldName(field);
+    const fakeConfig: VerificationConfig = {
+      state,
+      messages: { maxInFlight: null },
+      onBuild: "warn",
+      onRelease: "warn",
+    };
+    return this.flattenStateConfig(fakeConfig).has(sanitized);
   }
 
   /**

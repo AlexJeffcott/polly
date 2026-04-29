@@ -23,9 +23,11 @@ stateConstraint(
 // ============================================================================
 
 bus.on("USER_LOGIN", (payload: { userId: string; name: string; role: "user" | "admin" }) => {
-  // Preconditions - user must not already be logged in
+  // Preconditions - user must not already be logged in. The role precondition
+  // narrows payload.role's domain so the role postcondition below is provable.
   requires(user.value.loggedIn === false, "User must not be logged in");
   requires(payload.userId !== null, "User ID must be provided");
+  requires(payload.role !== "guest", "Login role must not be guest");
 
   // State changes - using reactive signals with automatic sync
   user.value = {
@@ -35,12 +37,12 @@ bus.on("USER_LOGIN", (payload: { userId: string; name: string; role: "user" | "a
     role: payload.role,
   };
 
-  // Postconditions - verify state was updated correctly.
-  // Note: only loggedIn is checked by TLC. The extractor records literal
-  // assignments only, so `role: payload.role` is not surfaced as a modeled
-  // write — an ensures over user.role would be a postcondition the spec
-  // can't honour, and (per issue #73) the runtime Assert would fire.
+  // Postconditions - verify state was updated correctly. Both writes are now
+  // surfaced as modeled assignments (loggedIn as a literal, role traced
+  // through payload.role into the user.role enum), so TLC's Assert checks
+  // are honest postconditions rather than documentation.
   ensures(user.value.loggedIn === true, "User must be logged in after login");
+  ensures(user.value.role !== "guest", "User must have non-guest role");
 
   return { success: true, user: user.value };
 });

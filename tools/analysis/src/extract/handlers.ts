@@ -1541,16 +1541,7 @@ export class HandlerExtractor {
   ): void {
     // Handle regular property assignments: { field: value }
     if (Node.isPropertyAssignment(prop)) {
-      const name = prop.getName();
-      const initializer = prop.getInitializer();
-      if (!name || !initializer) return;
-
-      const value = this.extractValue(initializer);
-      if (value === undefined) return;
-
-      // Prefix field name with signal name if provided (e.g., user_loggedIn)
-      const field = signalName ? `${signalName}_${name}` : name;
-      assignments.push({ field, value });
+      this.extractRegularPropertyAssignment(prop, assignments, signalName);
       return;
     }
 
@@ -1567,6 +1558,55 @@ export class HandlerExtractor {
         assignments.push({ field, value: "@" }); // Use @ as placeholder
       }
     }
+  }
+
+  /**
+   * Handle the regular `{ field: value }` form within an object literal.
+   * Splits the literal-extraction and payload-property-tracing paths so the
+   * outer dispatcher stays simple and biome's cognitive-complexity budget
+   * holds.
+   */
+  private extractRegularPropertyAssignment(
+    prop: Node,
+    assignments: StateAssignment[],
+    signalName?: string
+  ): void {
+    if (!Node.isPropertyAssignment(prop)) return;
+    const name = prop.getName();
+    const initializer = prop.getInitializer();
+    if (!name || !initializer) return;
+
+    const field = signalName ? `${signalName}_${name}` : name;
+
+    const value = this.extractValue(initializer);
+    if (value !== undefined) {
+      assignments.push({ field, value });
+      return;
+    }
+
+    // Trace `field: paramName.X` (e.g. `role: payload.role`) to the payload
+    // field. Mirrors the shorthand `{ field }` and direct `signal.value =
+    // paramName.X` paths so longhand object literals participate in
+    // payload-domain wiring (issue #72) and per-action ensures Asserts
+    // (issue #73) the same way the other forms do.
+    const paramName = this.extractPayloadPropertyParam(initializer);
+    if (paramName !== null) {
+      assignments.push({ field, value: `param:${paramName}` });
+    }
+  }
+
+  /**
+   * If `initializer` is `paramName.X` where paramName is a function parameter
+   * of the current handler, return X. Otherwise return null.
+   */
+  private extractPayloadPropertyParam(initializer: Node): string | null {
+    if (!Node.isPropertyAccessExpression(initializer)) return null;
+    const parts = this.getPropertyPath(initializer).split(".");
+    if (parts.length !== 2) return null;
+    const [paramName, fieldName] = parts;
+    if (paramName === undefined || fieldName === undefined) return null;
+    if (!this.currentFunctionParams.includes(paramName)) return null;
+    return fieldName;
   }
 
   /**
