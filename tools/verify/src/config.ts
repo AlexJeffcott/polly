@@ -14,6 +14,12 @@
 interface SubsystemConfig {
   state: string[]; // Field names from parent state config
   handlers: string[]; // Message type names
+  // Per-subsystem message bounds; override messages.maxInFlight and merge
+  // into messages.perMessageBounds for this subsystem only.
+  bounds?: {
+    maxInFlight?: number;
+    perMessageBounds?: Record<string, number>;
+  };
 }
 
 // Legacy verification configuration

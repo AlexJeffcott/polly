@@ -17,6 +17,15 @@ export type {
 export type SubsystemConfig = {
   state: string[]; // Field names from parent state config
   handlers: string[]; // Message type names
+  // Per-subsystem message bounds. Override the top-level messages.maxInFlight
+  // and merge into messages.perMessageBounds for this subsystem only, so
+  // subsystems with no parameterised handlers can run at higher maxInFlight
+  // (and exercise multi-step ensures) without blowing up the global state
+  // space of subsystems that carry unbounded payload domains.
+  bounds?: {
+    maxInFlight?: number;
+    perMessageBounds?: Record<string, number>;
+  };
 };
 
 export type VerificationConfig = {

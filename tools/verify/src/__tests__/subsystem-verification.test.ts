@@ -187,4 +187,89 @@ describe("Subsystem TLA+ generation", () => {
     // The cfg should exist
     expect(result.cfg).toBeTruthy();
   });
+
+  test("subsystem bounds.maxInFlight overrides the top-level maxInFlight", async () => {
+    const { generateSubsystemTLA } = await import("../codegen/tla");
+
+    const config = {
+      state: {
+        loggedIn: { type: "boolean" as const },
+        status: { type: "enum" as const, values: ["idle", "connected"] },
+      },
+      messages: {
+        maxInFlight: 1, // global stays cheap (e.g. unbounded payloads elsewhere)
+        maxTabs: 1,
+        include: ["Login", "Logout", "Connect", "Disconnect"],
+      },
+      onBuild: "warn" as const,
+      onRelease: "error" as const,
+    };
+
+    const analysis = {
+      stateType: null,
+      messageTypes: ["Login", "Logout", "Connect", "Disconnect"],
+      fields: [],
+      handlers: [
+        makeHandler("Login", ["loggedIn"]),
+        makeHandler("Logout", ["loggedIn"]),
+        makeHandler("Connect", ["status"]),
+        makeHandler("Disconnect", ["status"]),
+      ],
+      stateConstraints: [],
+    };
+
+    const subsystem = {
+      state: ["status"],
+      handlers: ["Connect", "Disconnect"],
+      bounds: { maxInFlight: 3 },
+    };
+
+    const result = await generateSubsystemTLA("connection", subsystem, config, analysis);
+
+    // The override must reach the .cfg as MaxMessages = 3, not the global 1.
+    expect(result.cfg).toContain("MaxMessages = 3");
+    expect(result.cfg).not.toContain("MaxMessages = 1");
+  });
+
+  test("subsystem bounds.perMessageBounds merges over the top-level perMessageBounds", async () => {
+    const { generateSubsystemTLA } = await import("../codegen/tla");
+
+    const config = {
+      state: {
+        status: { type: "enum" as const, values: ["idle", "connected"] },
+      },
+      messages: {
+        maxInFlight: 1,
+        maxTabs: 1,
+        include: ["Connect", "Disconnect"],
+        perMessageBounds: { Connect: 1 }, // global default
+      },
+      onBuild: "warn" as const,
+      onRelease: "error" as const,
+    };
+
+    const analysis = {
+      stateType: null,
+      messageTypes: ["Connect", "Disconnect"],
+      fields: [],
+      handlers: [makeHandler("Connect", ["status"]), makeHandler("Disconnect", ["status"])],
+      stateConstraints: [],
+    };
+
+    const subsystem = {
+      state: ["status"],
+      handlers: ["Connect", "Disconnect"],
+      bounds: {
+        maxInFlight: 2,
+        perMessageBounds: { Connect: 2, Disconnect: 2 },
+      },
+    };
+
+    const result = await generateSubsystemTLA("connection", subsystem, config, analysis);
+
+    expect(result.cfg).toContain("MaxMessages = 2");
+    expect(result.cfg).toContain("MaxMessages_Connect = 2");
+    expect(result.cfg).toContain("MaxMessages_Disconnect = 2");
+    expect(result.cfg).not.toContain("MaxMessages_Connect = 1");
+  });
 });

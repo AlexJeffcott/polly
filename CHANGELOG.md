@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0] - 2026-04-30
+
+### Added
+
+#### Per-subsystem message bounds for multi-step ensures
+
+Issue #78. The `ensures()` postconditions wired into step properties
+by #74/#75 only fire if TLC reaches a state where the handler is
+enabled. A handler that requires another handler to have fired first
+— `handleDisconnected` only runs once `StartConnecting` has put the
+connection into a connected phase, `becomeLeader` only after a chain
+of three or four messages, `submitSuccess` only after a `ShowModal`
+and a `StartSubmitting` — was a postcondition TLC never evaluated.
+The global `maxInFlight` controls how many distinct messages may sit
+in flight at once, and raising it from one to two carries the entire
+message-router infrastructure along: ports, the message queue,
+`deliveredTo`, `routingDepth`, payload non-determinism. On a
+representative codebase, `maxInFlight: 2` against the auth subsystem
+with unbounded payloads excluded produced 2.2 GB of TLC state files
+in twenty minutes; the payload-free app subsystem of three handlers
+produced 287 MB in fifteen.
+
+The fix adds an optional `bounds` field to `SubsystemConfig`:
+
+```ts
+subsystems: {
+  connection: {
+    state: ["connectionState.phase"],
+    handlers: ["StartConnecting", "Connected", "Disconnected", "BecomeLeader"],
+    bounds: {
+      maxInFlight: 2,
+      perMessageBounds: { Connected: 1 },
+    },
+  },
+}
+```
+
+`generateSubsystemTLA` already builds a filtered config per subsystem
+before handing it to the standard generator. The new helper
+`applySubsystemBounds` layers the override on top of that filtered
+config: `bounds.maxInFlight` replaces the inherited global, and
+`bounds.perMessageBounds` merges over the filtered per-message map
+after the parent map has been narrowed to the subsystem's handlers.
+Subsystems without `bounds` keep the parent's values exactly as
+before.
+
+The trade-off becomes local. A subsystem of payload-free handlers
+can run at a higher `maxInFlight` and exercise its multi-step
+ensures, while subsystems that carry unbounded payload domains stay
+at the cheaper global setting. The mutation-test guarantee from
+#74/#75 reaches the postconditions on multi-step-reachable handlers
+(`handleDisconnected`, `becomeLeader`, `resolveConflict`,
+`submitSuccess`) one subsystem at a time, without paying the global
+exploration cost of doing so for every subsystem at once.
+
 ## [0.37.0] - 2026-04-30
 
 ### Fixed

@@ -10,6 +10,7 @@ import type {
   FieldAnalysis,
   FieldConfig,
   StateAssignment,
+  SubsystemConfig,
   VerificationCondition,
   VerificationConfig,
 } from "../types";
@@ -3425,6 +3426,43 @@ export async function generateTLA(
 }
 
 /**
+ * Filter messages.perMessageBounds to only the subsystem's handlers, then
+ * layer the subsystem-level bounds override on top in-place. Mutates the
+ * passed messages object.
+ */
+function applySubsystemBounds(
+  messages: VerificationConfig["messages"],
+  subsystem: SubsystemConfig,
+  handlerNames: Set<string>
+): void {
+  if (messages.perMessageBounds) {
+    const filtered: Record<string, number> = {};
+    for (const [msg, bound] of Object.entries(messages.perMessageBounds)) {
+      if (handlerNames.has(msg)) {
+        filtered[msg] = bound;
+      }
+    }
+    messages.perMessageBounds = filtered;
+  }
+
+  const override = subsystem.bounds;
+  if (!override) return;
+
+  if (override.maxInFlight !== undefined) {
+    messages.maxInFlight = override.maxInFlight;
+  }
+  if (override.perMessageBounds) {
+    const merged: Record<string, number> = { ...(messages.perMessageBounds ?? {}) };
+    for (const [msg, bound] of Object.entries(override.perMessageBounds)) {
+      if (handlerNames.has(msg)) {
+        merged[msg] = bound;
+      }
+    }
+    messages.perMessageBounds = merged;
+  }
+}
+
+/**
  * Generate a filtered TLA+ spec for a single subsystem.
  *
  * Filters the config's state/messages and analysis's handlers/messageTypes
@@ -3432,7 +3470,7 @@ export async function generateTLA(
  */
 export async function generateSubsystemTLA(
   _subsystemName: string,
-  subsystem: { state: string[]; handlers: string[] },
+  subsystem: SubsystemConfig,
   config: VerificationConfig,
   analysis: CodebaseAnalysis
 ): Promise<{ spec: string; cfg: string; validation?: ValidationReport }> {
@@ -3455,16 +3493,12 @@ export async function generateSubsystemTLA(
   // Remove exclude since we're using explicit include
   filteredMessages.exclude = undefined;
 
-  // Filter perMessageBounds to only relevant handlers
-  if (filteredMessages.perMessageBounds) {
-    const filteredBounds: Record<string, number> = {};
-    for (const [msg, bound] of Object.entries(filteredMessages.perMessageBounds)) {
-      if (handlerNames.has(msg)) {
-        filteredBounds[msg] = bound;
-      }
-    }
-    filteredMessages.perMessageBounds = filteredBounds;
-  }
+  // Filter perMessageBounds to only relevant handlers, then layer the
+  // per-subsystem bounds override on top. A subsystem with no parameterised
+  // handlers can safely run at higher maxInFlight to exercise multi-step
+  // ensures (handlers reachable only after another handler has fired) without
+  // forcing every other subsystem to pay the same exploration cost.
+  applySubsystemBounds(filteredMessages, subsystem, handlerNames);
 
   // Build filtered config
   const filteredConfig: VerificationConfig = {
