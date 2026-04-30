@@ -165,7 +165,7 @@ export class ConfigValidator {
 
     // Validate subsystems
     if (config.subsystems) {
-      this.validateSubsystems(config.subsystems, config.state);
+      this.validateSubsystems(config.subsystems, config.state, config.messages);
     }
   }
 
@@ -534,8 +534,19 @@ export class ConfigValidator {
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Subsystem validation requires checking multiple cross-references
   private validateSubsystems(
-    subsystems: Record<string, { state: string[]; handlers: string[] }>,
-    stateConfig: Record<string, unknown>
+    subsystems: Record<
+      string,
+      {
+        state: string[];
+        handlers: string[];
+        bounds?: {
+          maxInFlight?: number;
+          perMessageBounds?: Record<string, number>;
+        };
+      }
+    >,
+    stateConfig: Record<string, unknown>,
+    messages: { maxInFlight: number | null }
   ): void {
     const stateFieldNames = Object.keys(stateConfig);
     const allAssignedHandlers = new Map<string, string>(); // handler → subsystem name
@@ -606,6 +617,88 @@ export class ConfigValidator {
           suggestion: "Add at least one state field to the subsystem",
         });
       }
+
+      if (subsystem.bounds) {
+        this.validateSubsystemBounds(subsystemName, subsystem, messages);
+      }
+    }
+  }
+
+  private validateSubsystemBounds(
+    subsystemName: string,
+    subsystem: {
+      handlers: string[];
+      bounds?: { maxInFlight?: number; perMessageBounds?: Record<string, number> };
+    },
+    messages: { maxInFlight: number | null }
+  ): void {
+    const bounds = subsystem.bounds;
+    if (!bounds) return;
+
+    const effectiveMaxInFlight =
+      bounds.maxInFlight === undefined ? (messages.maxInFlight ?? 3) : bounds.maxInFlight;
+
+    if (bounds.maxInFlight !== undefined && bounds.maxInFlight < 1) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: `subsystems.${subsystemName}.bounds.maxInFlight`,
+        message: `bounds.maxInFlight must be at least 1, got ${bounds.maxInFlight}`,
+        suggestion: "Use 1 to keep the global value, or 2+ to exercise multi-step ensures",
+      });
+    }
+    if (bounds.maxInFlight !== undefined && bounds.maxInFlight > 20) {
+      this.issues.push({
+        type: "unrealistic_bound",
+        severity: "warning",
+        field: `subsystems.${subsystemName}.bounds.maxInFlight`,
+        message: `Very high bounds.maxInFlight (${bounds.maxInFlight}) will slow this subsystem's verification significantly`,
+        suggestion: "Use 2-4 for most multi-step ensures cases",
+      });
+    }
+
+    if (bounds.perMessageBounds) {
+      const handlerSet = new Set(subsystem.handlers);
+      for (const [msg, bound] of Object.entries(bounds.perMessageBounds)) {
+        this.validatePerMessageBound(subsystemName, msg, bound, effectiveMaxInFlight, handlerSet);
+      }
+    }
+  }
+
+  private validatePerMessageBound(
+    subsystemName: string,
+    msg: string,
+    bound: number,
+    effectiveMaxInFlight: number,
+    handlerSet: Set<string>
+  ): void {
+    const field = `subsystems.${subsystemName}.bounds.perMessageBounds.${msg}`;
+    if (bound < 1) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field,
+        message: `perMessageBounds[${msg}] must be at least 1, got ${bound}`,
+        suggestion: "Remove the entry to inherit from the global bound, or set 1+",
+      });
+    }
+    if (bound > effectiveMaxInFlight) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field,
+        message: `perMessageBounds[${msg}] = ${bound} exceeds effective maxInFlight = ${effectiveMaxInFlight}; the bound is unreachable and ${msg} will not be explored`,
+        suggestion: `Lower perMessageBounds[${msg}] to ≤ ${effectiveMaxInFlight}, or raise bounds.maxInFlight`,
+      });
+    }
+    if (!handlerSet.has(msg)) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "warning",
+        field,
+        message: `perMessageBounds[${msg}] is set on subsystem "${subsystemName}" but ${msg} is not in its handlers list; the override will be silently dropped`,
+        suggestion: `Move ${msg} into subsystems.${subsystemName}.handlers, or remove the override`,
+      });
     }
   }
 }

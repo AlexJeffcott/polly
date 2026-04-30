@@ -568,6 +568,7 @@ async function runSubsystemVerification(
     name: string;
     success: boolean;
     handlerCount: number;
+    ensuresCount: number;
     stateCount: number;
     elapsed: number;
     stats?: { statesGenerated: number; distinctStates: number };
@@ -582,6 +583,13 @@ async function runSubsystemVerification(
 
     // Generate per-subsystem TLA+
     const { spec, cfg } = await generateSubsystemTLA(name, sub, config, analysis);
+
+    // Count step-temporal ensures properties registered for this subsystem.
+    // This is the upper bound on postconditions TLC will evaluate; a property
+    // only fires when its handler is enabled at some reachable state, so the
+    // count overstates true coverage when handlers are multi-step-reachable
+    // and bounds.maxInFlight is too low to reach them.
+    const ensuresCount = (spec.match(/^EnsuresAfter_\w+ ==/gm) ?? []).length;
 
     // Write specs
     const specDir = path.join(process.cwd(), "specs", "tla", "generated", name);
@@ -610,6 +618,7 @@ async function runSubsystemVerification(
       name,
       success: result.success,
       handlerCount: sub.handlers.length,
+      ensuresCount,
       stateCount: result.stats?.distinctStates ?? 0,
       elapsed,
       stats: result.stats,
@@ -636,11 +645,35 @@ async function runSubsystemVerification(
   displayCompositionalReport(results, interference.valid);
 }
 
+function displayEnsuresSummary(results: Array<{ ensuresCount: number }>): void {
+  const totalEnsures = results.reduce((sum, r) => sum + r.ensuresCount, 0);
+  if (totalEnsures === 0) return;
+
+  const subsystemWord = `subsystem${results.length === 1 ? "" : "s"}`;
+  console.log();
+  console.log(
+    color(
+      `  ${totalEnsures} ensures step-properties registered across ${results.length} ${subsystemWord}.`,
+      COLORS.gray
+    )
+  );
+  console.log(
+    color("  A property only fires at states where its handler is enabled — raise", COLORS.gray)
+  );
+  console.log(
+    color(
+      "  bounds.maxInFlight on a subsystem to reach multi-step-reachable handlers.",
+      COLORS.gray
+    )
+  );
+}
+
 function displayCompositionalReport(
   results: Array<{
     name: string;
     success: boolean;
     handlerCount: number;
+    ensuresCount: number;
     stateCount: number;
     elapsed: number;
   }>,
@@ -652,10 +685,15 @@ function displayCompositionalReport(
     const status = r.success ? color("✓", COLORS.green) : color("✗", COLORS.red);
     const name = r.name.padEnd(20);
     const handlers = `${r.handlerCount} handler${r.handlerCount === 1 ? "" : "s"}`;
+    const ensures = `${r.ensuresCount} ensures`;
     const states = `${r.stateCount} states`;
     const time = `${r.elapsed.toFixed(1)}s`;
-    console.log(`  ${status} ${name} ${handlers.padEnd(14)} ${states.padEnd(14)} ${time}`);
+    console.log(
+      `  ${status} ${name} ${handlers.padEnd(14)} ${ensures.padEnd(12)} ${states.padEnd(14)} ${time}`
+    );
   }
+
+  displayEnsuresSummary(results);
 
   console.log();
 

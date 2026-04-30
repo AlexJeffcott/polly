@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.1] - 2026-04-30
+
+### Added
+
+#### Validation, ensures-count surfacing, and end-to-end coverage proof for #78
+
+The 0.38.0 change wired `bounds` through `generateSubsystemTLA` and
+proved structurally that the override reaches the generated `.cfg`.
+A Lamport-style audit raised the right complaint: a string-in-cfg
+test cannot show that TLC's exploration actually reaches the
+multi-step-reachable handler whose `ensures()` postcondition the
+fix was meant to cover. This release closes that gap on three
+fronts.
+
+The config validator (`tools/verify/src/config/parser.ts`) now
+checks `subsystems.<name>.bounds`. It rejects `maxInFlight < 1` and
+flags `maxInFlight > 20` as unrealistic. It rejects
+`perMessageBounds[m] < 1`, rejects `perMessageBounds[m]` greater
+than the effective `maxInFlight` (the bound is unreachable and the
+message will not be explored), and warns when a `perMessageBounds`
+key names a handler that is not in the subsystem's `handlers`
+list. The last check turns a silent drop into a visible
+configuration error: a typo in a handler name no longer hides
+behind successful verification.
+
+The `polly verify` CLI now reports the count of `EnsuresAfter_*`
+step properties registered per subsystem, and a total across all
+subsystems with a one-line reminder that a property only fires at
+states where its handler is enabled. The count is the upper bound
+on coverage, not the genuinely-fired count, and the report makes
+that distinction explicit so the number cannot be read as a clean
+"all postconditions verified" signal.
+
+`scripts/verify-issue-78.ts` is the end-to-end mutation test the
+audit asked for. It builds a two-handler connection state machine
+in which `Disconnect` requires `phase = "connected"` and so is
+two-step-reachable from any initial state. The script generates
+four specs — correct/mutated × low-bounds/high-bounds — and runs
+TLC against each. The interesting rows are the two middle ones:
+under `bounds.maxInFlight: 1` even the mutated spec reports PASS,
+because `Disconnect` is never enabled and its `EnsuresAfter_*`
+property is vacuously true. Under `bounds.maxInFlight: 2` the same
+mutation falls out as a temporal-property violation in roughly
+three seconds. The script returns 0 only when all four cases match
+their expected outcome, so the verification artefact lives next
+to the feature and answers the question directly: yes, the
+override changes which postconditions TLC actually evaluates, on
+this fixture, today.
+
+A separate ticket (#79) tracks the deeper soundness concern the
+audit named: a handler in subsystem A whose `requires()` reads
+state owned by subsystem B will silently never have its
+postcondition evaluated under the compositional verification of A
+alone. That is a static-analysis pass to add next to
+`checkNonInterference`, and it is genuinely separate work from the
+bounds primitive itself.
+
 ## [0.38.0] - 2026-04-30
 
 ### Added
