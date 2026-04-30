@@ -1584,6 +1584,19 @@ export class HandlerExtractor {
       return;
     }
 
+    // Trace `field: paramName` (renamed-property form, e.g.
+    // `currentView: view`) to the payload identifier. The shorthand
+    // `{ view }` form already does this; without this branch the renamed
+    // form silently drops the assignment from the action body and leaves
+    // ensures references to the parameter unbound (issue #77).
+    if (Node.isIdentifier(initializer)) {
+      const paramName = initializer.getText();
+      if (this.currentFunctionParams.includes(paramName)) {
+        assignments.push({ field, value: `param:${paramName}` });
+        return;
+      }
+    }
+
     // Trace `field: paramName.X` (e.g. `role: payload.role`) to the payload
     // field. Mirrors the shorthand `{ field }` and direct `signal.value =
     // paramName.X` paths so longhand object literals participate in

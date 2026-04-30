@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.0] - 2026-04-30
+
+### Fixed
+
+#### Renamed-property assignments now contribute to the payload model
+
+Issue #77. The handler walker recognised the shorthand assignment
+`{ theme }` as a payload contribution but silently dropped its
+renamed-property equivalent `{ currentView: view }`. The two forms
+differ only in syntax, so the inconsistency split codebases stylistically:
+field names that read as locations (`currentView`, `activeHubTab`) had
+to match parameter names that read as intent (`view`, `tab`), or
+verification would simply not see the assignment.
+
+The action body lost the renamed assignment entirely, leaving the
+modeled handler with a phantom no-op for that field. Worse, an
+`ensures()` clause referring to the parameter still produced
+`payload.<param>` in the generated property, even though the action
+body had never added the parameter to `PayloadType`. TLC reported
+`Evaluating action property EnsuresAfter_* failed` on a name it could
+not resolve, and the source of the mismatch — two extractors disagreeing
+about whether the parameter belonged to the payload — was invisible
+from the surface of the spec.
+
+The fix lives in `extractRegularPropertyAssignment`. The extractor
+already had two branches: one for literal initializers
+(`extractValue`) and one for property-access tracing
+(`extractPayloadPropertyParam`, e.g. `role: payload.role`). A bare
+parameter Identifier fell between them. A third branch closes the
+gap: when the initializer is an Identifier whose text matches a
+function parameter, the extractor records
+`{ field, value: "param:<paramName>" }` — the same marker the shorthand
+path already emits. Action body and ensures extractors now agree on
+the payload model, and the codegen wires the parameter into
+`PayloadType` and the `EXCEPT` clause as expected.
+
+The codepath the fix joins is well covered downstream. Issue #72's
+payload-domain wiring and issue #73's per-action ensures Asserts both
+consume the `param:` marker; the renamed-property form now flows
+through both without further changes.
+
 ## [0.36.0] - 2026-04-30
 
 ### Fixed
