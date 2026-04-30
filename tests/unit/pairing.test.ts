@@ -118,6 +118,21 @@ describe("isPairingTokenExpired", () => {
     });
     expect(isPairingTokenExpired(token, () => 1_999_000)).toBe(true);
   });
+
+  test("returns true when now equals expiresAt exactly", () => {
+    // Boundary case: the contract is "expired iff t >= expiresAt".
+    // Without an exact-equality test, a `>=` → `>` mutation slips through.
+    const identity = generateSigningKeyPair();
+    const token = createPairingToken({
+      identity,
+      issuerPeerId: "p",
+      documentKeyId: "k",
+      ttlMs: 60_000,
+      now: () => 1_000_000,
+    });
+    expect(token.expiresAt).toBe(1_060_000);
+    expect(isPairingTokenExpired(token, () => 1_060_000)).toBe(true);
+  });
 });
 
 describe("applyPairingToken", () => {

@@ -185,13 +185,13 @@ describe("$crdtState — schema migrations", () => {
     expect(doc[SCHEMA_VERSION_FIELD]).toBe(2);
   });
 
-  test("structurally-equal writes don't cascade into a signal cycle", async () => {
-    // Regression guard for the bun-only preact-signals "Cycle detected"
-    // that applyTopLevel used to trigger when a value-equal assignment
-    // still produced Automerge ops. Under browser timing the cycle
-    // masked itself; under bun / CLI boot every invocation tripped.
-    // The fix: skip value-equal top-level writes so `docChanged` in
-    // checkForChanges comes up false and no change event fires.
+  test("structurally-equal writes don't append Automerge ops", async () => {
+    // The preact-signals "Cycle detected" symptom this test originally
+    // guarded against is timing-dependent and no longer reproduces under
+    // bun test, even when applyTopLevel's value-equal short-circuit is
+    // removed. Asserting on the *invariant* — value-equal writes record
+    // no operations on the document — is decoupled from the timing and
+    // catches the same root cause that caused the cycle.
     const repo = makeRepo();
     const prim = $crdtState<Notes>({
       key: "cycle-check",
@@ -200,13 +200,28 @@ describe("$crdtState — schema migrations", () => {
       getHandle: async () => repo.create<Notes>({ title: "seed", body: "" }),
     });
     await prim.loaded;
-    // Ten writes of a structurally-equal object. Pre-fix this threw
-    // "Cycle detected" on the second write. Post-fix the writes are
-    // no-ops at the Automerge layer and resolve cleanly.
+    const headsBefore = prim.handle?.heads();
     for (let i = 0; i < 10; i += 1) {
       prim.value = { title: "seed", body: "" };
     }
-    expect(prim.value.title).toBe("seed");
+    expect(prim.handle?.heads()).toEqual(headsBefore);
+  });
+
+  test("structurally-different writes advance Automerge heads", async () => {
+    // Sibling test: confirms heads() actually moves when ops are recorded,
+    // so the equal-writes assertion above isn't vacuously true on a
+    // hypothetical undefined return.
+    const repo = makeRepo();
+    const prim = $crdtState<Notes>({
+      key: "cycle-check-contrast",
+      primitive: "peerState",
+      initialValue: { title: "seed", body: "" },
+      getHandle: async () => repo.create<Notes>({ title: "seed", body: "" }),
+    });
+    await prim.loaded;
+    const headsBefore = prim.handle?.heads();
+    prim.value = { title: "changed", body: "" };
+    expect(prim.handle?.heads()).not.toEqual(headsBefore);
   });
 
   test("stamps the target version even when no migrations run", async () => {

@@ -208,6 +208,20 @@ test("MessageBus - message type safety", async () => {
   expect(clipboardMessage.type).toBe("CLIPBOARD_WRITE");
 });
 
+test("MessageBus - returns success: false when no handler is registered for the message type", async () => {
+  const routedMessage: RoutedMessage<ExtensionMessage> = {
+    id: "test-no-handler",
+    source: "content",
+    targets: ["background"],
+    timestamp: Date.now(),
+    payload: { type: "SETTINGS_GET" },
+  };
+
+  const response = await bus.handleMessage(routedMessage);
+
+  expect(response).toMatchObject({ success: false, error: "No handler" });
+});
+
 test("MessageBus - handler error handling", async () => {
   const handler = mock(async (_payload: ExtensionMessage) => {
     throw new Error("Handler error");

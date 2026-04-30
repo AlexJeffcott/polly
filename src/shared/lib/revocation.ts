@@ -158,7 +158,7 @@ export function revokePeerLocally(peerId: string, keyring: MeshKeyring): void {
  *   [4 bytes BE: reason byte length]
  *   [R bytes: reason UTF-8]
  */
-function serialiseRevocationPayload(record: RevocationRecord): Uint8Array {
+export function serialiseRevocationPayload(record: RevocationRecord): Uint8Array {
   const issuerBytes = new TextEncoder().encode(record.issuerPeerId);
   const revokedBytes = new TextEncoder().encode(record.revokedPeerId);
   const reasonBytes = new TextEncoder().encode(record.reason ?? "");

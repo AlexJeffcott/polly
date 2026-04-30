@@ -31,8 +31,9 @@ import {
   encodeRevocation,
   RevocationError,
   revokePeerLocally,
+  serialiseRevocationPayload,
 } from "@/shared/lib/revocation";
-import { generateSigningKeyPair } from "@/shared/lib/signing";
+import { encodeSignedEnvelope, generateSigningKeyPair, signEnvelope } from "@/shared/lib/signing";
 
 type Doc = { title: string };
 
@@ -278,6 +279,42 @@ describe("encodeRevocation and decodeRevocation", () => {
     }
     expect(caught).toBeInstanceOf(RevocationError);
     expect((caught as unknown as RevocationError).code).toBe("unauthorised-issuer");
+  });
+
+  test("rejects when the payload's claimed issuer differs from the envelope's signer", () => {
+    // Forgery scenario: Mallory signs an envelope with her own key (and her
+    // peer id is in the receiver's knownPeers, so the signature verifies)
+    // but stuffs a payload that names Alice as the issuer. The cross-check
+    // at the end of decodeRevocation must catch the discordance.
+    const alice = generateSigningKeyPair();
+    const mallory = generateSigningKeyPair();
+    const receiver = generateSigningKeyPair();
+
+    const forgedRecord = createRevocation({
+      issuer: alice,
+      issuerPeerId: "peer-alice",
+      revokedPeerId: "peer-target",
+    });
+    const payloadBytes = serialiseRevocationPayload(forgedRecord);
+    const envelope = signEnvelope(payloadBytes, "peer-mallory", mallory.secretKey);
+    const wireBytes = encodeSignedEnvelope(envelope);
+
+    const receiverKeyring = makeKeyring({
+      identity: receiver,
+      knownPeers: new Map([
+        ["peer-alice", alice.publicKey],
+        ["peer-mallory", mallory.publicKey],
+      ]),
+    });
+
+    let caught: unknown;
+    try {
+      decodeRevocation(wireBytes, receiverKeyring);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(RevocationError);
+    expect((caught as unknown as RevocationError).code).toBe("not-signed-by-issuer");
   });
 
   test("decodeRevocation throws on a tampered payload", () => {

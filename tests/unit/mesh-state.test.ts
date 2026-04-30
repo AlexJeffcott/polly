@@ -21,6 +21,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { DocumentId } from "@automerge/automerge-repo";
 import { type Message, NetworkAdapter, type PeerId, Repo } from "@automerge/automerge-repo";
 import { generateDocumentKey } from "@/shared/lib/encryption";
 import {
@@ -154,6 +155,42 @@ async function waitFor(
   }
   throw new Error(`Timed out after ${timeoutMs}ms waiting for predicate`);
 }
+
+describe("$meshState — DocumentId derivation", () => {
+  test("derives a known DocumentId from a fixed key", async () => {
+    // Pinning the derived id locks the contract: nacl.hash of
+    // "polly/meshState/v1:" + key, sliced to 16 bytes, then interpreted as
+    // an Automerge DocumentId. The mutation that surfaced this gap drops
+    // the domain prefix from the input to the hash, which would change
+    // this exact value.
+    const repo = trackRepo();
+    configureMeshState(repo);
+    const prim = $meshState<Notes>("domain-test", { title: "", body: "" });
+    await prim.loaded;
+    expect(prim.handle?.documentId).toBe("2XzGLTRxBs5q9GZpwY5jwGSMNKBi" as unknown as DocumentId);
+  });
+
+  test("derives different DocumentIds for different keys", async () => {
+    const repo = trackRepo();
+    configureMeshState(repo);
+    const a = $meshState<Notes>("key-alpha", { title: "", body: "" });
+    const b = $meshState<Notes>("key-beta", { title: "", body: "" });
+    await Promise.all([a.loaded, b.loaded]);
+    expect(a.handle?.documentId).not.toBe(b.handle?.documentId);
+  });
+
+  test("derives the same DocumentId across separate Repos for the same key", async () => {
+    // Determinism across processes is what makes a fresh device reload
+    // pick up its existing on-disk document. Two Repos, same key, same id.
+    const repoA = trackRepo();
+    const repoB = trackRepo();
+    const primA = $meshState<Notes>("same-key", { title: "", body: "" }, { repo: repoA });
+    primitiveRegistry.clear();
+    const primB = $meshState<Notes>("same-key", { title: "", body: "" }, { repo: repoB });
+    await Promise.all([primA.loaded, primB.loaded]);
+    expect(primA.handle?.documentId).toBe(primB.handle?.documentId as unknown as DocumentId);
+  });
+});
 
 describe("$meshState — construction with a local Repo", () => {
   test("registers the key as meshState", () => {

@@ -382,6 +382,34 @@ test("MessageRouter - handles concurrent port connections", () => {
   expect(router.devtoolsPorts.size).toBe(2);
 });
 
+test("MessageRouter - routes a message to multiple distinct contexts in one targets array", async () => {
+  const contentPort = createMockPort("content-123");
+  const popupPort = createMockPort("popup");
+  const contentSpy = mock();
+  const popupSpy = mock();
+  contentPort.postMessage = contentSpy;
+  popupPort.postMessage = popupSpy;
+
+  for (const listener of mockRuntime._connectListeners) {
+    listener(contentPort);
+    listener(popupPort);
+  }
+
+  const message: RoutedMessage = {
+    id: "test-multi",
+    source: "background",
+    targets: ["content", "popup"],
+    tabId: 123,
+    timestamp: Date.now(),
+    payload: { type: "DOM_QUERY", selector: ".test" },
+  };
+
+  await router.routeMessage(message);
+
+  expect(contentSpy).toHaveBeenCalledWith(message);
+  expect(popupSpy).toHaveBeenCalledWith(message);
+});
+
 test("MessageRouter - replaces port for same tab", () => {
   const port1 = createMockPort("content-123");
   const port2 = createMockPort("content-123");
