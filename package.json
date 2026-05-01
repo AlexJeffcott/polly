@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.38.1",
+  "version": "0.38.2",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -129,11 +129,12 @@
     "format": "biome format --write .",
     "test": "bun run --cwd tests test",
     "test:watch": "bun run --cwd tests test:watch",
-    "test:all": "bun run lint && bun run typecheck && bun run --cwd tests test:all && bun run test:examples",
+    "test:all": "bun run lint && bun run typecheck && bun run --cwd tests test:all && bun run test:examples && bun run test:e2e:visualize",
     "test:examples": "echo '\\n=== Testing Examples ===' && bun run test:example:minimal && bun run test:example:todo-list && bun run test:example:full-featured",
     "test:example:minimal": "echo '\\n--- Minimal Example ---' && bun run --cwd examples/minimal test:all",
     "test:example:todo-list": "echo '\\n--- Todo List ---' && bun run --cwd examples/todo-list test:all",
     "test:example:full-featured": "echo '\\n--- Full Featured ---' && bun run --cwd examples/full-featured test:all",
+    "test:e2e:visualize": "bun scripts/e2e-visualize.ts",
     "prepublishOnly": "bun run typecheck && bun run lint && bun run --cwd tests test && bun run build:lib",
     "publish:public": "npm publish --access public --otp=$(pass-cli item totp --output json --item-id Rdr--oUgHp-IfyjoTB7vhMPHfNt6Oz2JpXfS1WrdQMQ9damDMPOvKiOxxpCZqp92WgqXnfY68cSXWdQ_JVMNMQ== --share-id Ixmpll6U5ioU_1P4fzUbarQNANRPU51O68xzFblTB08S0HUfw4dhQaNAv4Yv7Sud_Vf8ps4mnQUFqdvN-eTRdQ== | jq -r '.totp')"
   },

@@ -275,7 +275,7 @@ export class StructurizrDSLGenerator {
       const properties = this.getComponentProperties(messageType, firstHandler, contextType);
 
       componentDefs.push({
-        id: this.toId(componentName),
+        id: this.componentIdForMessageType(messageType, handlers),
         name: componentName,
         description,
         tags,
@@ -584,8 +584,8 @@ export class StructurizrDSLGenerator {
     for (const api of contextInfo.chromeAPIs) {
       const apiId = this.toId(`chrome_${api}`);
 
-      for (const [messageType, _handlers] of handlersByType) {
-        const componentId = this.toId(this.toComponentName(messageType));
+      for (const [messageType, handlers] of handlersByType) {
+        const componentId = this.componentIdForMessageType(messageType, handlers);
         const description = this.inferChromeAPIDescription(api, messageType);
         parts.push(`        ${componentId} -> ${apiId} "${description}"`);
       }
@@ -716,9 +716,9 @@ export class StructurizrDSLGenerator {
     const stateHandlers: string[] = [];
     const queryHandlers: string[] = [];
 
-    for (const [messageType, _handlers] of handlersByType) {
+    for (const [messageType, handlers] of handlersByType) {
       const type = messageType.toLowerCase();
-      const componentId = this.toId(this.toComponentName(messageType));
+      const componentId = this.componentIdForMessageType(messageType, handlers);
 
       if (this.isStateHandler(type)) {
         stateHandlers.push(componentId);
@@ -1192,7 +1192,7 @@ export class StructurizrDSLGenerator {
 
     // For each handler, show its flow through services
     for (const { handler, contextName: _contextName } of handlers) {
-      const handlerComponentId = this.toId(`${handler.messageType}_handler`);
+      const handlerComponentId = this.componentIdForMessageType(handler.messageType, [handler]);
 
       // Show flow for each relationship
       const relationships = handler.relationships || [];
@@ -1649,6 +1649,16 @@ export class StructurizrDSLGenerator {
       .split("_")
       .map((part) => this.capitalize(part.toLowerCase()))
       .join(" ")} Handler`;
+  }
+
+  // Canonical component identifier for a (messageType, handlers) pair.
+  // REST handlers keep the raw messageType (e.g. "POST /todos" -> "post_todos");
+  // others use the "Foo Handler" form (-> "foo_handler"). Must stay in sync with
+  // buildComponentDefinitionsFromHandlers, otherwise relationship sources/targets
+  // refer to identifiers that the model never declares.
+  private componentIdForMessageType(messageType: string, handlers: MessageHandler[]): string {
+    const isRest = handlers[0]?.handlerKind === "rest";
+    return this.toId(isRest ? messageType : this.toComponentName(messageType));
   }
 
   /**
