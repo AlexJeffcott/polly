@@ -5,21 +5,6 @@ import { getMessageBus } from "@/shared/lib/message-bus";
 const bus = getMessageBus("page");
 
 // Register handlers for page JS environment access
-bus.on("PAGE_EVAL", async (payload) => {
-  try {
-    // Execute in page context
-    // biome-ignore lint/security/noGlobalEval: This is intentional for page script eval
-    // nosemgrep: javascript.browser.security.eval-detected.eval-detected — deliberate PAGE_EVAL bridge; the extension is the trust boundary, not the evaluated code.
-    const result = eval(payload.code);
-    return { result };
-  } catch (error) {
-    return {
-      result: null,
-      error: error instanceof Error ? error.message : "Eval error",
-    };
-  }
-});
-
 bus.on("PAGE_GET_VAR", async (payload) => {
   const windowRecord = window as unknown as Record<string, unknown>;
   const value = windowRecord[payload.varName];

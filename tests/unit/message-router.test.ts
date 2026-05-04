@@ -354,7 +354,7 @@ test("MessageRouter - routes page script messages through content script", () =>
     targets: ["page"],
     tabId: 123,
     timestamp: Date.now(),
-    payload: { type: "PAGE_EVAL", code: 'console.log("test")' },
+    payload: { type: "PAGE_GET_VAR", varName: "test" },
   };
 
   router.routeMessage(message);

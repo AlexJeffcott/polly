@@ -76,6 +76,21 @@ const bannedPattern = new RegExp(
   `(?:import|export)\\s+.*?from\\s+['"](?:${escaped})(?:/[^'"]*)?['"]|require\\(\\s*['"](?:${escaped})(?:/[^'"]*)?['"]\\s*\\)`
 );
 
+const SKIP_DIRS = new Set(["node_modules", "dist", ".cache"]);
+
+function shouldSkipFile(rel: string): boolean {
+  if (rel.includes("__tests__") || rel.includes(".test.") || rel.includes(".spec.")) {
+    return true;
+  }
+  // tools/test/src/browser/run.ts is the node-side orchestrator that
+  // boots the browser bundle — it intentionally uses node APIs.
+  return rel === "tools/test/src/browser/run.ts";
+}
+
+function isScannableFile(name: string): boolean {
+  return name.endsWith(".ts") || name.endsWith(".tsx");
+}
+
 async function scanDirectory(dir: string): Promise<void> {
   let entries: import("node:fs").Dirent[];
   try {
@@ -88,22 +103,14 @@ async function scanDirectory(dir: string): Promise<void> {
     const fullPath = join(dir, entry.name);
 
     if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name === "dist" || entry.name === ".cache") {
-        continue;
+      if (!SKIP_DIRS.has(entry.name)) {
+        await scanDirectory(fullPath);
       }
-      await scanDirectory(fullPath);
-    } else if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))) {
-      // Skip test files — they may legitimately mock node modules.
+    } else if (entry.isFile() && isScannableFile(entry.name)) {
       const rel = relative(rootDir, fullPath);
-      if (rel.includes("__tests__") || rel.includes(".test.") || rel.includes(".spec.")) {
-        continue;
+      if (!shouldSkipFile(rel)) {
+        await scanFile(fullPath);
       }
-      // tools/test/src/browser/run.ts is the node-side orchestrator that
-      // boots the browser bundle — it intentionally uses node APIs.
-      if (rel === "tools/test/src/browser/run.ts") {
-        continue;
-      }
-      await scanFile(fullPath);
     }
   }
 }

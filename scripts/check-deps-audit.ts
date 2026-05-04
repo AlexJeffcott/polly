@@ -39,6 +39,30 @@ const NO_CACHE = process.argv.includes("--no-cache");
 // Hash inputs that should invalidate the cache
 // ---------------------------------------------------------------------------
 
+function pushIfExists(files: string[], rel: string): void {
+  if (existsSync(join(ROOT, rel))) {
+    files.push(rel);
+  }
+}
+
+function collectExamplePackageJsons(files: string[]): void {
+  const examplesDir = join(ROOT, "examples");
+  if (!existsSync(examplesDir)) {
+    return;
+  }
+  for (const entry of readdirSafe(examplesDir)) {
+    pushIfExists(files, join("examples", entry, "package.json"));
+    // Two-level nesting (server/client subprojects).
+    const inner = join(ROOT, "examples", entry);
+    if (!existsSync(inner)) {
+      continue;
+    }
+    for (const sub of readdirSafe(inner)) {
+      pushIfExists(files, join("examples", entry, sub, "package.json"));
+    }
+  }
+}
+
 function listInputFiles(): string[] {
   const files: string[] = [
     "package.json",
@@ -49,30 +73,10 @@ function listInputFiles(): string[] {
     "tools/verify/specs/Dockerfile",
   ];
   // Workspace package.json files (just `tests/` for polly).
-  if (existsSync(join(ROOT, "tests/package.json"))) {
-    files.push("tests/package.json");
-  }
-  // Example package.jsons — examples aren't in the workspace but their deps
-  // still inform the supply-chain surface, so include them in the cache key.
-  const examplesDir = join(ROOT, "examples");
-  if (existsSync(examplesDir)) {
-    for (const entry of readdirSafe(examplesDir)) {
-      const root = join("examples", entry, "package.json");
-      if (existsSync(join(ROOT, root))) {
-        files.push(root);
-      }
-      // Two-level nesting (server/client subprojects).
-      const inner = join(ROOT, "examples", entry);
-      if (existsSync(inner)) {
-        for (const sub of readdirSafe(inner)) {
-          const subPkg = join("examples", entry, sub, "package.json");
-          if (existsSync(join(ROOT, subPkg))) {
-            files.push(subPkg);
-          }
-        }
-      }
-    }
-  }
+  pushIfExists(files, "tests/package.json");
+  // Examples aren't in the workspace but their deps still inform the
+  // supply-chain surface, so include them in the cache key.
+  collectExamplePackageJsons(files);
   return files;
 }
 
@@ -146,54 +150,14 @@ function requireBinary(name: string, hint: string): void {
 // Audit runners
 // ---------------------------------------------------------------------------
 
-function runOsvScanner(): { cveCount: number; output: string } {
-  // Only scan code that ships in @fairfox/polly: root + tests workspace.
-  // Examples are demo apps with their own (often older) dep choices and aren't
-  // part of the published surface — bun audit on each example is the right
-  // tool there if you want to lint them.
-  const proc = spawnSync(
-    "osv-scanner",
-    [
-      "scan",
-      "source",
-      "-r",
-      ".",
-      "--experimental-exclude",
-      "examples",
-      "--format",
-      "json",
-    ],
-    {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    }
-  );
+type OsvVuln = { id: string; summary?: string };
+type OsvPkg = {
+  package?: { name?: string; version?: string };
+  vulnerabilities?: OsvVuln[];
+};
+type OsvOutput = { results?: Array<{ packages?: OsvPkg[] }> };
 
-  // osv-scanner exits 1 when vulnerabilities are found, 0 when clean. Other
-  // codes are tooling failures.
-  if (proc.status !== 0 && proc.status !== 1) {
-    return {
-      cveCount: 0,
-      output: `osv-scanner failed with exit ${proc.status}:\n${proc.stderr || proc.stdout}`,
-    };
-  }
-
-  type OsvVuln = { id: string; summary?: string };
-  type OsvPkg = {
-    package?: { name?: string; version?: string };
-    vulnerabilities?: OsvVuln[];
-  };
-  type OsvOutput = { results?: Array<{ packages?: OsvPkg[] }> };
-
-  const stdout = proc.stdout || "{}";
-  let parsed: OsvOutput = {};
-  try {
-    parsed = JSON.parse(stdout) as unknown as OsvOutput;
-  } catch {
-    return { cveCount: 0, output: stdout };
-  }
-
+function summariseOsvPackages(parsed: OsvOutput): { cveCount: number; output: string } {
   let count = 0;
   const lines: string[] = [];
   for (const result of parsed.results ?? []) {
@@ -211,6 +175,38 @@ function runOsvScanner(): { cveCount: number; output: string } {
     }
   }
   return { cveCount: count, output: lines.join("\n") };
+}
+
+function runOsvScanner(): { cveCount: number; output: string } {
+  // Only scan code that ships in @fairfox/polly: root + tests workspace.
+  // Examples are demo apps with their own (often older) dep choices and aren't
+  // part of the published surface — bun audit on each example is the right
+  // tool there if you want to lint them.
+  const proc = spawnSync(
+    "osv-scanner",
+    ["scan", "source", "-r", ".", "--experimental-exclude", "examples", "--format", "json"],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    }
+  );
+
+  // osv-scanner exits 1 when vulnerabilities are found, 0 when clean. Other
+  // codes are tooling failures.
+  if (proc.status !== 0 && proc.status !== 1) {
+    return {
+      cveCount: 0,
+      output: `osv-scanner failed with exit ${proc.status}:\n${proc.stderr || proc.stdout}`,
+    };
+  }
+
+  const stdout = proc.stdout || "{}";
+  try {
+    return summariseOsvPackages(JSON.parse(stdout) as unknown as OsvOutput);
+  } catch {
+    return { cveCount: 0, output: stdout };
+  }
 }
 
 function runBunAudit(): { cveCount: number; output: string } {
@@ -395,6 +391,49 @@ function printVerbose(): void {
 // Main
 // ---------------------------------------------------------------------------
 
+function emitCachedResult(cached: CachedResult): void {
+  process.stdout.write(`✅ Deps audit cached at ${cached.timestamp} (inputs unchanged)\n`);
+  process.stdout.write(
+    `   ${cached.cveCount === 0 ? "0 CVEs" : `${cached.cveCount} CVE(s)`} · ${cached.outdatedCount} outdated\n`
+  );
+  if (VERBOSE) {
+    if (cached.cveDetails) {
+      process.stdout.write(`\n${cached.cveDetails}\n`);
+    }
+    if (cached.outdated) {
+      process.stdout.write(`\n${cached.outdated}\n`);
+    }
+    printVerbose();
+  }
+  if (cached.cveCount > 0) {
+    process.exit(1);
+  }
+}
+
+function buildCveDetails(osv: { output: string }, audit: { output: string }): string {
+  return [
+    osv.output ? `osv-scanner:\n${osv.output}` : "",
+    audit.output ? `bun audit:\n${audit.output}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function emitFreshResult(result: CachedResult, outdated: { output: string; count: number }): void {
+  if (result.cveCount === 0) {
+    process.stdout.write(`✅ No CVEs found · ${outdated.count} outdated dep(s)\n`);
+  } else {
+    process.stdout.write(`❌ ${result.cveCount} CVE(s) found:\n\n${result.cveDetails}\n`);
+  }
+
+  if (VERBOSE) {
+    if (outdated.output) {
+      process.stdout.write(`\n── Outdated ──\n${outdated.output}\n`);
+    }
+    printVerbose();
+  }
+}
+
 function main(): void {
   requireBinary("osv-scanner", "Run `brew bundle` (or `brew install osv-scanner`).");
 
@@ -402,22 +441,7 @@ function main(): void {
   const cached = loadCache();
 
   if (cached?.hash === hash) {
-    process.stdout.write(`✅ Deps audit cached at ${cached.timestamp} (inputs unchanged)\n`);
-    process.stdout.write(
-      `   ${cached.cveCount === 0 ? "0 CVEs" : `${cached.cveCount} CVE(s)`} · ${cached.outdatedCount} outdated\n`
-    );
-    if (VERBOSE) {
-      if (cached.cveDetails) {
-        process.stdout.write(`\n${cached.cveDetails}\n`);
-      }
-      if (cached.outdated) {
-        process.stdout.write(`\n${cached.outdated}\n`);
-      }
-      printVerbose();
-    }
-    if (cached.cveCount > 0) {
-      process.exit(1);
-    }
+    emitCachedResult(cached);
     return;
   }
 
@@ -427,38 +451,18 @@ function main(): void {
   const audit = runBunAudit();
   const outdated = runBunOutdated();
 
-  const cveCount = osv.cveCount + audit.cveCount;
-  const cveDetails = [
-    osv.output ? `osv-scanner:\n${osv.output}` : "",
-    audit.output ? `bun audit:\n${audit.output}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
   const result: CachedResult = {
     hash,
     timestamp: new Date().toISOString(),
-    cveCount,
-    cveDetails,
+    cveCount: osv.cveCount + audit.cveCount,
+    cveDetails: buildCveDetails(osv, audit),
     outdated: outdated.output,
     outdatedCount: outdated.count,
   };
   saveCache(result);
+  emitFreshResult(result, outdated);
 
-  if (cveCount === 0) {
-    process.stdout.write(`✅ No CVEs found · ${outdated.count} outdated dep(s)\n`);
-  } else {
-    process.stdout.write(`❌ ${cveCount} CVE(s) found:\n\n${cveDetails}\n`);
-  }
-
-  if (VERBOSE) {
-    if (outdated.output) {
-      process.stdout.write(`\n── Outdated ──\n${outdated.output}\n`);
-    }
-    printVerbose();
-  }
-
-  if (cveCount > 0) {
+  if (result.cveCount > 0) {
     process.exit(1);
   }
 }

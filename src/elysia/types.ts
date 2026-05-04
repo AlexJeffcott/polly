@@ -136,12 +136,11 @@ export interface PollyConfig {
  */
 export interface PollyResponseMetadata {
   /**
-   * Client effect to execute
+   * Whether this route has a client effect registered on the server.
+   * The client looks the actual handler up in its own `clientEffects` registry
+   * keyed by route pattern — handlers are never shipped over the wire.
    */
-  clientEffect?: {
-    handler: string; // Serialized function
-    broadcast: boolean;
-  };
+  hasClientEffect?: boolean;
 
   /**
    * Offline configuration for this route

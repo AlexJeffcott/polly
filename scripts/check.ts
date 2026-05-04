@@ -8,6 +8,8 @@
  *
  * Implemented checks:
  *
+ *   typecheck       bunx tsc --noEmit (root + tests workspace)
+ *   lint            biome check . (formatting + lint rules)
  *   secrets         gitleaks scan with .gitleaks.toml allowlist
  *   gitignore       cross-checks .gitleaks.toml allowlist against .gitignore
  *   security        semgrep SAST with --config auto
@@ -55,6 +57,22 @@ async function requireBinary(name: string, hint: string): Promise<boolean> {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+
+async function checkTypecheck(): Promise<boolean> {
+  const code = await spawn(["bun", "run", "typecheck"]);
+  if (code === 0) {
+    process.stdout.write("✅ Typecheck clean (tsc --noEmit)\n");
+  }
+  return code === 0;
+}
+
+async function checkLint(): Promise<boolean> {
+  const code = await spawn(["bun", "run", "lint"]);
+  if (code === 0) {
+    process.stdout.write("✅ Lint clean (biome check)\n");
+  }
+  return code === 0;
+}
 
 async function checkSecrets(): Promise<boolean> {
   if (!(await requireBinary("gitleaks", "Run `brew bundle` (or `brew install gitleaks`)."))) {
@@ -126,6 +144,61 @@ async function checkServerImports(): Promise<boolean> {
   return (await spawn(["bun", "scripts/check-no-server-imports.ts"])) === 0;
 }
 
+interface MustIgnoreEntry {
+  pattern: string;
+  filename: string;
+}
+
+const SECTION_OPEN_MARKERS = ["Gitignored files", "Local dev TLS certs"];
+const SECTION_CLOSE_MARKERS = ["Test fixtures", "Sanitised production"];
+
+function isSectionMarker(line: string, markers: string[]): boolean {
+  return markers.some((m) => line.includes(m));
+}
+
+function parseMustIgnore(toml: string): MustIgnoreEntry[] {
+  const out: MustIgnoreEntry[] = [];
+  let inSection = false;
+  for (const line of toml.split("\n")) {
+    if (isSectionMarker(line, SECTION_OPEN_MARKERS)) {
+      inSection = true;
+      continue;
+    }
+    if (isSectionMarker(line, SECTION_CLOSE_MARKERS)) {
+      inSection = false;
+      continue;
+    }
+    if (!inSection) {
+      continue;
+    }
+    const match = line.match(/'''(.+?)'''/);
+    if (!match?.[1]) {
+      continue;
+    }
+    const regex = match[1];
+    out.push({ pattern: regex, filename: regex.replace(/\\\./g, ".").replace(/\$$/, "") });
+  }
+  return out;
+}
+
+function gitignoreCoversFilename(gi: string, filename: string): boolean {
+  if (!gi || gi.startsWith("#")) {
+    return false;
+  }
+  if (gi === filename) {
+    return true;
+  }
+  // .env covers .env.local etc.
+  if (filename.startsWith(`${gi}.`) || filename.startsWith(`${gi}/`)) {
+    return true;
+  }
+  const dirMatch = gi.match(/^\*?\*?\/?(.+)\/$/);
+  if (dirMatch?.[1] && filename.startsWith(dirMatch[1])) {
+    return true;
+  }
+  return gi.endsWith("/") && filename.startsWith(gi);
+}
+
 async function checkGitignore(): Promise<boolean> {
   const tomlPath = join(ROOT, ".gitleaks.toml");
   const gitignorePath = join(ROOT, ".gitignore");
@@ -137,61 +210,11 @@ async function checkGitignore(): Promise<boolean> {
   const toml = readFileSync(tomlPath, "utf8");
   const gitignore = existsSync(gitignorePath) ? readFileSync(gitignorePath, "utf8") : "";
 
-  // Pull paths between "Gitignored files" and "Test fixtures" comments —
-  // those are the ones that MUST also be in .gitignore.
-  const lines = toml.split("\n");
-  const mustIgnore: { pattern: string; filename: string }[] = [];
-  let inGitignoreSection = false;
-
-  for (const line of lines) {
-    if (line.includes("Gitignored files") || line.includes("Local dev TLS certs")) {
-      inGitignoreSection = true;
-      continue;
-    }
-    if (line.includes("Test fixtures") || line.includes("Sanitised production")) {
-      inGitignoreSection = false;
-      continue;
-    }
-    if (!inGitignoreSection) {
-      continue;
-    }
-    const match = line.match(/'''(.+?)'''/);
-    if (!match?.[1]) {
-      continue;
-    }
-    const regex = match[1];
-    const filename = regex.replace(/\\\./g, ".").replace(/\$$/, "");
-    mustIgnore.push({ pattern: regex, filename });
-  }
-
+  const mustIgnore = parseMustIgnore(toml);
   const gitignoreLines = gitignore.split("\n").map((l) => l.trim());
-  const missing: string[] = [];
-
-  for (const { filename } of mustIgnore) {
-    const covered = gitignoreLines.some((gi) => {
-      if (!gi || gi.startsWith("#")) {
-        return false;
-      }
-      if (gi === filename) {
-        return true;
-      }
-      // .env covers .env.local etc.
-      if (filename.startsWith(`${gi}.`) || filename.startsWith(`${gi}/`)) {
-        return true;
-      }
-      const dirMatch = gi.match(/^\*?\*?\/?(.+)\/$/);
-      if (dirMatch?.[1] && filename.startsWith(dirMatch[1])) {
-        return true;
-      }
-      if (gi.endsWith("/") && filename.startsWith(gi)) {
-        return true;
-      }
-      return false;
-    });
-    if (!covered) {
-      missing.push(filename);
-    }
-  }
+  const missing = mustIgnore
+    .filter(({ filename }) => !gitignoreLines.some((gi) => gitignoreCoversFilename(gi, filename)))
+    .map((e) => e.filename);
 
   if (missing.length === 0) {
     process.stdout.write("✅ All gitleaks-allowlisted secret paths are gitignored\n");
@@ -208,6 +231,8 @@ async function checkGitignore(): Promise<boolean> {
 // ───────────────────────────────────────────────────────────────────────────
 
 const KNOWN_CHECKS = [
+  "typecheck",
+  "lint",
   "secrets",
   "gitignore",
   "security",
@@ -226,6 +251,8 @@ function showHelp(): void {
 Usage: bun run check <subcommand>
 
 Subcommands:
+  typecheck       tsc --noEmit (root + tests workspace)
+  lint            biome check (formatting + lint rules)
   secrets         gitleaks secret scanning
   gitignore       gitleaks allowlist must be reflected in .gitignore
   security        semgrep SAST scan
@@ -243,6 +270,10 @@ Options:
 
 async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
   switch (name) {
+    case "typecheck":
+      return checkTypecheck();
+    case "lint":
+      return checkLint();
     case "secrets":
       return checkSecrets();
     case "gitignore":
@@ -266,6 +297,8 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
 
 async function runAll(verbose: boolean): Promise<boolean> {
   const checks: Array<{ name: string; fn: () => Promise<boolean> }> = [
+    { name: "Typecheck", fn: () => checkTypecheck() },
+    { name: "Lint", fn: () => checkLint() },
     { name: "Gitignore", fn: () => checkGitignore() },
     { name: "Secrets", fn: () => checkSecrets() },
     { name: "Security", fn: () => checkSecurity(verbose) },

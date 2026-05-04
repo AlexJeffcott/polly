@@ -106,6 +106,29 @@ async function scanDirectory(dir: string): Promise<void> {
   }
 }
 
+function isCommentLine(trimmed: string): boolean {
+  return trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
+}
+
+function collectLineViolations(line: string, relPath: string, lineNumber: number): void {
+  const trimmed = line.trim();
+  importRegex.lastIndex = 0;
+  let match = importRegex.exec(line);
+  while (match !== null) {
+    const specifier = match[1] || match[2];
+    const banned = specifier ? isBannedImport(specifier) : null;
+    if (banned) {
+      violations.push({
+        file: relPath,
+        line: lineNumber,
+        content: trimmed,
+        category: banned.category,
+      });
+    }
+    match = importRegex.exec(line);
+  }
+}
+
 async function scanFile(filePath: string): Promise<void> {
   const file = Bun.file(filePath);
   const content = await file.text();
@@ -114,32 +137,10 @@ async function scanFile(filePath: string): Promise<void> {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line) {
+    if (!line || isCommentLine(line.trim())) {
       continue;
     }
-
-    const trimmed = line.trim();
-    if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
-      continue;
-    }
-
-    importRegex.lastIndex = 0;
-    let match = importRegex.exec(line);
-    while (match !== null) {
-      const specifier = match[1] || match[2];
-      if (specifier) {
-        const banned = isBannedImport(specifier);
-        if (banned) {
-          violations.push({
-            file: relPath,
-            line: i + 1,
-            content: trimmed,
-            category: banned.category,
-          });
-        }
-      }
-      match = importRegex.exec(line);
-    }
+    collectLineViolations(line, relPath, i + 1);
   }
 }
 

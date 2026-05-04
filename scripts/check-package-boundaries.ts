@@ -115,47 +115,74 @@ async function scanDirectory(dir: string): Promise<void> {
   }
 }
 
+function isCommentLine(trimmed: string): boolean {
+  return trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
+}
+
+function recordImportViolations(
+  specifier: string,
+  filePath: string,
+  fromZone: string,
+  bans: readonly string[],
+  ctx: { relPath: string; lineNumber: number; trimmed: string }
+): void {
+  const target = resolveTargetZone(specifier, filePath);
+  if (!target) {
+    return;
+  }
+  for (const banned of bans) {
+    if (target.startsWith(banned)) {
+      violations.push({
+        file: ctx.relPath,
+        line: ctx.lineNumber,
+        content: ctx.trimmed,
+        rule: `"${fromZone}/" cannot import from "${banned}" (resolved: ${target})`,
+      });
+    }
+  }
+}
+
+function scanLine(
+  line: string,
+  filePath: string,
+  fromZone: string,
+  bans: readonly string[],
+  relPath: string,
+  lineNumber: number
+): void {
+  const trimmed = line.trim();
+  if (isCommentLine(trimmed)) {
+    return;
+  }
+  importRegex.lastIndex = 0;
+  let match = importRegex.exec(line);
+  while (match !== null) {
+    const specifier = match[1] || match[2];
+    if (specifier) {
+      recordImportViolations(specifier, filePath, fromZone, bans, {
+        relPath,
+        lineNumber,
+        trimmed,
+      });
+    }
+    match = importRegex.exec(line);
+  }
+}
+
 async function scanFile(filePath: string): Promise<void> {
-  const content = await Bun.file(filePath).text();
-  const lines = content.split("\n");
   const fromZone = getZone(filePath);
   if (!fromZone) {
     return;
   }
+  const content = await Bun.file(filePath).text();
+  const lines = content.split("\n");
   const bans = directionalBans[fromZone] ?? [];
   const relPath = relative(rootDir, filePath);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line) {
-      continue;
-    }
-
-    const trimmed = line.trim();
-    if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
-      continue;
-    }
-
-    importRegex.lastIndex = 0;
-    let match = importRegex.exec(line);
-    while (match !== null) {
-      const specifier = match[1] || match[2];
-      if (specifier) {
-        const target = resolveTargetZone(specifier, filePath);
-        if (target) {
-          for (const banned of bans) {
-            if (target.startsWith(banned)) {
-              violations.push({
-                file: relPath,
-                line: i + 1,
-                content: trimmed,
-                rule: `"${fromZone}/" cannot import from "${banned}" (resolved: ${target})`,
-              });
-            }
-          }
-        }
-      }
-      match = importRegex.exec(line);
+    if (line) {
+      scanLine(line, filePath, fromZone, bans, relPath, i + 1);
     }
   }
 }

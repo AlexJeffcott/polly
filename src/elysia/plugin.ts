@@ -2,7 +2,7 @@
 import type { Signal } from "@preact/signals-core";
 import { Elysia } from "elysia";
 import { createLamportClock } from "../core/clock";
-import { serializeFunction } from "../utils/function-serialization";
+import { findMatchingConfig } from "./route-match";
 import type { PollyConfig, PollyResponseMetadata } from "./types";
 
 /**
@@ -22,63 +22,6 @@ interface BroadcastMessage {
 interface MinimalWebSocket {
   readyState: number;
   send(data: string): void;
-}
-
-/**
- * Route pattern matcher
- * Supports:
- * - Exact match: 'POST /todos'
- * - Param match: 'GET /todos/:id'
- * - Wildcard: '/todos/*'
- */
-function matchRoute(pattern: string, method: string, path: string): boolean {
-  // Split pattern into method + path or just path
-  const hasMethod = pattern.includes(" ");
-  const patternMethod = hasMethod ? pattern.split(" ")[0] : null;
-  const patternPath = hasMethod ? pattern.split(" ")[1] : pattern;
-
-  // Check method
-  if (patternMethod && patternMethod !== method) {
-    return false;
-  }
-
-  // Check path
-  const patternSegments = patternPath.split("/").filter(Boolean);
-  const pathSegments = path.split("/").filter(Boolean);
-
-  if (patternSegments.length !== pathSegments.length && !patternPath.includes("*")) {
-    return false;
-  }
-
-  for (let i = 0; i < patternSegments.length; i++) {
-    const patternSeg = patternSegments[i];
-    const pathSeg = pathSegments[i];
-
-    if (patternSeg === "*") return true;
-    if (patternSeg.startsWith(":")) continue; // Param match
-    if (patternSeg !== pathSeg) return false;
-  }
-
-  return true;
-}
-
-/**
- * Find matching config for a route
- */
-function findMatchingConfig<T>(
-  configs: Record<string, T> | undefined,
-  method: string,
-  path: string
-): T | undefined {
-  if (!configs) return undefined;
-
-  for (const [pattern, config] of Object.entries(configs)) {
-    if (matchRoute(pattern, method, path)) {
-      return config;
-    }
-  }
-
-  return undefined;
 }
 
 /**
@@ -228,12 +171,7 @@ export function polly(config: PollyConfig = {}) {
         // DEV ONLY: Add Polly metadata to response for debugging/hot-reload
         const offlineConfig = findMatchingConfig(config.offline, method, path);
         const metadata: PollyResponseMetadata = {
-          clientEffect: effectConfig
-            ? {
-                handler: serializeFunction(effectConfig.client),
-                broadcast: effectConfig.broadcast || false,
-              }
-            : undefined,
+          hasClientEffect: !!effectConfig,
           offline: offlineConfig,
           clock: pollyClock.now(),
         };

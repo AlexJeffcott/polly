@@ -2,8 +2,8 @@
 import { treaty } from "@elysiajs/eden";
 import { type Signal, signal } from "@preact/signals-core";
 import { createLamportClock } from "../core/clock";
-import type { PollyResponseMetadata } from "../elysia/types";
-import { deserializeFunction } from "../utils/function-serialization";
+import { findMatchingConfig } from "../elysia/route-match";
+import type { ClientEffectConfig, PollyResponseMetadata, RoutePattern } from "../elysia/types";
 
 /**
  * Offline queue entry
@@ -34,6 +34,14 @@ export interface PollyClientOptions {
    * Client state signals that should be synced
    */
   state?: Record<string, Signal<unknown>>;
+
+  /**
+   * Client-side effect handlers, keyed by the same route pattern used in the
+   * server config (e.g. `'POST /todos'`). The wrapper looks up handlers here
+   * after a successful request — handlers are imported, never shipped from
+   * the server.
+   */
+  clientEffects?: Record<RoutePattern, ClientEffectConfig["client"]>;
 
   /**
    * Callback when online/offline status changes
@@ -194,16 +202,18 @@ export function createPollyClient<T extends Record<string, unknown>>(
               }
             }
 
-            // Execute client effect
-            if (metadata.clientEffect) {
-              const handler = deserializeFunction(metadata.clientEffect.handler);
-              handler({
-                result,
-                body: req.body,
-                state: { client: options.state || {}, server: {} },
-                params: {},
-                clock: metadata.clock,
-              });
+            // Execute client effect — looked up locally by route, never deserialised from the wire
+            if (metadata.hasClientEffect) {
+              const handler = findMatchingConfig(options.clientEffects, req.method, req.path);
+              if (handler) {
+                handler({
+                  result,
+                  body: req.body,
+                  state: { client: options.state || {}, server: {} },
+                  params: {},
+                  clock: metadata.clock,
+                });
+              }
             }
           }
         }

@@ -742,7 +742,6 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
       DOM_UPDATE: "content",
       DOM_INSERT: "content",
       DOM_REMOVE: "content",
-      PAGE_EVAL: "page",
       PAGE_GET_VAR: "page",
       PAGE_CALL_FN: "page",
       PAGE_SET_VAR: "page",

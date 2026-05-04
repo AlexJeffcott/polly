@@ -76,7 +76,6 @@ export type ExtensionMessage =
   | { type: "DOM_REMOVE"; selector: string }
 
   // Page Script Operations (handled by Page Script)
-  | { type: "PAGE_EVAL"; code: string }
   | { type: "PAGE_GET_VAR"; varName: string }
   | { type: "PAGE_CALL_FN"; fnName: string; args: unknown[] }
   | { type: "PAGE_SET_VAR"; varName: string; value: unknown }
@@ -209,106 +208,104 @@ export type MessageResponse<T extends BaseMessage> =
               : T extends { type: "DOM_REMOVE" }
                 ? { success: boolean; count: number }
                 : // Page Script Operations
-                  T extends { type: "PAGE_EVAL" }
-                  ? { result: unknown; error?: string }
-                  : T extends { type: "PAGE_GET_VAR" }
-                    ? { value: unknown; exists: boolean }
-                    : T extends { type: "PAGE_CALL_FN" }
-                      ? { result: unknown; error?: string }
-                      : T extends { type: "PAGE_SET_VAR" }
-                        ? { success: boolean }
-                        : // API Operations
-                          T extends { type: "API_REQUEST" }
+                  T extends { type: "PAGE_GET_VAR" }
+                  ? { value: unknown; exists: boolean }
+                  : T extends { type: "PAGE_CALL_FN" }
+                    ? { result: unknown; error?: string }
+                    : T extends { type: "PAGE_SET_VAR" }
+                      ? { success: boolean }
+                      : // API Operations
+                        T extends { type: "API_REQUEST" }
+                        ? {
+                            data: unknown;
+                            status: number;
+                            statusText: string;
+                            headers: Record<string, string>;
+                            error?: string;
+                          }
+                        : T extends { type: "API_BATCH" }
                           ? {
-                              data: unknown;
-                              status: number;
-                              statusText: string;
-                              headers: Record<string, string>;
-                              error?: string;
+                              results: Array<{
+                                data: unknown;
+                                status: number;
+                                error?: string;
+                              }>;
                             }
-                          : T extends { type: "API_BATCH" }
-                            ? {
-                                results: Array<{
-                                  data: unknown;
-                                  status: number;
-                                  error?: string;
-                                }>;
-                              }
-                            : // Clipboard Operations
-                              T extends { type: "CLIPBOARD_WRITE" }
+                          : // Clipboard Operations
+                            T extends { type: "CLIPBOARD_WRITE" }
+                            ? { success: boolean }
+                            : T extends { type: "CLIPBOARD_WRITE_HTML" }
                               ? { success: boolean }
-                              : T extends { type: "CLIPBOARD_WRITE_HTML" }
+                              : T extends { type: "CLIPBOARD_WRITE_RICH" }
                                 ? { success: boolean }
-                                : T extends { type: "CLIPBOARD_WRITE_RICH" }
-                                  ? { success: boolean }
-                                  : T extends { type: "CLIPBOARD_READ" }
-                                    ? { text: string }
-                                    : // Context Menu
-                                      T extends { type: "CONTEXT_MENU_CLICKED" }
-                                      ? undefined
-                                      : T extends { type: "CONTEXT_MENU_CREATE" }
+                                : T extends { type: "CLIPBOARD_READ" }
+                                  ? { text: string }
+                                  : // Context Menu
+                                    T extends { type: "CONTEXT_MENU_CLICKED" }
+                                    ? undefined
+                                    : T extends { type: "CONTEXT_MENU_CREATE" }
+                                      ? { success: boolean }
+                                      : T extends { type: "CONTEXT_MENU_REMOVE" }
                                         ? { success: boolean }
-                                        : T extends { type: "CONTEXT_MENU_REMOVE" }
-                                          ? { success: boolean }
-                                          : // State Sync
-                                            T extends { type: "STATE_SYNC" }
-                                            ? undefined
-                                            : // Tab Operations
-                                              T extends { type: "TAB_QUERY" }
-                                              ? { tabs: chrome.tabs.Tab[] }
+                                        : // State Sync
+                                          T extends { type: "STATE_SYNC" }
+                                          ? undefined
+                                          : // Tab Operations
+                                            T extends { type: "TAB_QUERY" }
+                                            ? { tabs: chrome.tabs.Tab[] }
+                                            : T extends {
+                                                  type: "TAB_GET_CURRENT";
+                                                }
+                                              ? { tab: chrome.tabs.Tab }
                                               : T extends {
-                                                    type: "TAB_GET_CURRENT";
+                                                    type: "TAB_RELOAD";
                                                   }
-                                                ? { tab: chrome.tabs.Tab }
-                                                : T extends {
-                                                      type: "TAB_RELOAD";
+                                                ? { success: boolean }
+                                                : // DevTools Operations
+                                                  T extends {
+                                                      type: "DEVTOOLS_INSPECT_ELEMENT";
                                                     }
-                                                  ? { success: boolean }
-                                                  : // DevTools Operations
-                                                    T extends {
-                                                        type: "DEVTOOLS_INSPECT_ELEMENT";
+                                                  ? {
+                                                      success: boolean;
+                                                    }
+                                                  : T extends {
+                                                        type: "DEVTOOLS_LOG";
                                                       }
-                                                    ? {
-                                                        success: boolean;
-                                                      }
-                                                    : T extends {
-                                                          type: "DEVTOOLS_LOG";
+                                                    ? undefined
+                                                    : // Logging Operations
+                                                      T extends {
+                                                          type: "LOG";
                                                         }
-                                                      ? undefined
-                                                      : // Logging Operations
-                                                        T extends {
-                                                            type: "LOG";
+                                                      ? {
+                                                          success: boolean;
+                                                        }
+                                                      : T extends {
+                                                            type: "LOGS_GET";
                                                           }
                                                         ? {
-                                                            success: boolean;
+                                                            logs: LogEntry[];
                                                           }
                                                         : T extends {
-                                                              type: "LOGS_GET";
+                                                              type: "LOGS_CLEAR";
                                                             }
                                                           ? {
-                                                              logs: LogEntry[];
+                                                              success: boolean;
+                                                              count: number;
                                                             }
                                                           : T extends {
-                                                                type: "LOGS_CLEAR";
+                                                                type: "LOGS_EXPORT";
                                                               }
                                                             ? {
-                                                                success: boolean;
+                                                                json: string;
                                                                 count: number;
                                                               }
                                                             : T extends {
-                                                                  type: "LOGS_EXPORT";
+                                                                  type: "SETTINGS_GET";
                                                                 }
                                                               ? {
-                                                                  json: string;
-                                                                  count: number;
+                                                                  settings: unknown;
                                                                 }
-                                                              : T extends {
-                                                                    type: "SETTINGS_GET";
-                                                                  }
-                                                                ? {
-                                                                    settings: unknown;
-                                                                  }
-                                                                : undefined
+                                                              : undefined
         : unknown // For custom messages outside ExtensionMessage, require phantom type
     : unknown; // Fallback for messages without type field
 
@@ -320,7 +317,6 @@ export type MessageHandler = {
   DOM_INSERT: "content";
   DOM_REMOVE: "content";
 
-  PAGE_EVAL: "page";
   PAGE_GET_VAR: "page";
   PAGE_CALL_FN: "page";
   PAGE_SET_VAR: "page";

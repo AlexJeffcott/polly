@@ -52,7 +52,9 @@ export function TextInput(props: TextInputProps): JSX.Element {
 
   const controlled = isSignal(props.value);
   const stringValue = controlled ? (props.value as unknown as Signal<string>).value : undefined;
-  const defaultValue = controlled ? undefined : ((props.value as unknown as string | undefined) ?? "");
+  const defaultValue = controlled
+    ? undefined
+    : ((props.value as unknown as string | undefined) ?? "");
 
   const className = props.className ? `${classes["input"]} ${props.className}` : classes["input"];
 
