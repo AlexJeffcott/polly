@@ -239,6 +239,7 @@ async function runOne(c: Case): Promise<Result> {
 function missingDeclarations(dsl: string, kind: string, ids: string[], keyword: string): string[] {
   const out: string[] = [];
   for (const id of ids) {
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `id` is escapeRe-sanitised; `keyword` is a hardcoded callsite literal.
     const re = new RegExp(`\\b${escapeRe(id)}\\s*=\\s*${keyword}\\b`);
     if (!re.test(dsl)) out.push(`${kind} ${id} not found`);
   }

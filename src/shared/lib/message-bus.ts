@@ -703,9 +703,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   public sendMessage<T extends TMessage = TMessage>(message: RoutedMessage<T>): void {
     if (this.context === "content" && message.targets.includes("page")) {
       // Content → Page via window.postMessage
+      // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration — content↔page bridge runs in the same web origin (the active tab); narrowing the target wouldn't add security.
       this.adapters.window.postMessage({ __extensionMessage: true, message }, "*");
     } else if (this.context === "page") {
       // Page → Content via window.postMessage
+      // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration — content↔page bridge runs in the same web origin (the active tab); narrowing the target wouldn't add security.
       this.adapters.window.postMessage({ __extensionMessage: true, message }, "*");
     } else if (this.port) {
       // Use long-lived port if connected (devtools, content, popup, options)
@@ -719,9 +721,11 @@ export class MessageBus<TMessage extends BaseMessage = ExtensionMessage> {
   private sendResponse(request: RoutedMessage<TMessage>, response: RoutedResponse<TMessage>): void {
     if (this.context === "content" && request.source === "page") {
       // Content → Page response
+      // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration — content↔page bridge runs in the same web origin (the active tab); narrowing the target wouldn't add security.
       this.adapters.window.postMessage({ __extensionMessage: true, message: response }, "*");
     } else if (this.context === "page" && request.source === "content") {
       // Page → Content response
+      // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration — content↔page bridge runs in the same web origin (the active tab); narrowing the target wouldn't add security.
       this.adapters.window.postMessage({ __extensionMessage: true, message: response }, "*");
     } else if (this.port && (this.context === "devtools" || this.context === "content")) {
       // Use port for response

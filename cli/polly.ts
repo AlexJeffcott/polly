@@ -59,7 +59,7 @@ async function loadConfig() {
     `${cwd}/polly.config.ts`,
     `${cwd}/polly.config.js`,
     `${cwd}/polly.config.mjs`,
-  ].filter(Boolean) as string[];
+  ].filter(Boolean) as unknown as string[];
 
   for (const configPath of configPaths) {
     // Use Bun.file().exists() instead of existsSync

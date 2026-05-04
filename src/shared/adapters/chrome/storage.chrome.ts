@@ -5,9 +5,9 @@ import type { StorageAdapter, StorageChanges } from "../storage.adapter";
 export class ChromeStorageAdapter implements StorageAdapter {
   async get<T = Record<string, unknown>>(keys: string | string[] | null): Promise<T> {
     if (keys === null) {
-      return (await chrome.storage.local.get()) as T;
+      return (await chrome.storage.local.get()) as unknown as T;
     }
-    return (await chrome.storage.local.get(keys as never)) as T;
+    return (await chrome.storage.local.get(keys as unknown as never)) as unknown as T;
   }
 
   async set(items: Record<string, unknown>): Promise<void> {

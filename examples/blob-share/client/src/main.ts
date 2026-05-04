@@ -251,6 +251,7 @@ async function main(): Promise<void> {
     knownPeerIds: otherPeers.map((p) => p.peerId),
   });
   const signaling = new MeshSignalingClient({
+    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket — local-dev example; production deployments swap to wss://.
     url: `ws://${window.location.host}/polly/signaling`,
     peerId: myPeerId,
     onSignal: (from, payload) => webrtc.handleSignal(from, payload),

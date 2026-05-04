@@ -251,7 +251,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   // Create verification mirror if requested
   if (options.verify) {
     // Create plain object mirror for verification
-    const mirror = JSON.parse(JSON.stringify(initialValue)) as T;
+    const mirror = JSON.parse(JSON.stringify(initialValue)) as unknown as T;
     (sig as unknown as SignalWithVerify<T>).verify = mirror;
   }
 
@@ -300,6 +300,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       if (options.verify) {
         const verifySignal = sig as unknown as SignalWithVerify<T>;
         if (verifySignal.verify) {
+          // nosemgrep: javascript.lang.security.insecure-object-assign.insecure-object-assign — internal mirror; value is a deep JSON clone, not arbitrary external input.
           Object.assign(verifySignal.verify, JSON.parse(JSON.stringify(value)));
         }
       }

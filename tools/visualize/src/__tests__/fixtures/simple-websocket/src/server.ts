@@ -12,7 +12,7 @@ wss.on("connection", (ws) => {
 
   ws.on("message", async (data) => {
     try {
-      const message = JSON.parse(data.toString()) as RequestMessage;
+      const message = JSON.parse(data.toString()) as unknown as RequestMessage;
       const response = await routeMessage(message);
       ws.send(response);
     } catch (_error) {

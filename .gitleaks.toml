@@ -1,0 +1,28 @@
+# Gitleaks configuration — extends default rules
+# https://github.com/gitleaks/gitleaks
+#
+# Anything listed under `[allowlist] paths` is exempt from secret scanning.
+# Two categories of paths:
+#   1. Gitignored files — secrets belong here, not in source. These MUST also
+#      appear in .gitignore (verified by `bun check gitignore`) so that an
+#      allowlist entry can never silently accept a committed secret.
+#   2. Test fixtures — files with intentionally fake credentials used to
+#      exercise the framework's auth/keying logic. These are committed but
+#      gitleaks knows the patterns are not real.
+
+title = "Polly secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  # Gitignored files (secrets belong here, not in source)
+  '''\.env$''',
+  '''\.npmrc$''',
+  # Test fixtures with intentionally fake credentials
+  '''__tests__/''',
+  '''tests/''',
+  '''examples/''',
+  '''recipes/''',
+]

@@ -191,6 +191,7 @@ describe("Property-Based Testing: TLA+ Generation", () => {
 
         // Property: MaxMessages should match maxInFlight
         expect(result.cfg).toMatch(
+          // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `maxInFlight` is a fast-check-generated number, not user input.
           new RegExp(`MaxMessages\\s*=\\s*${config.messages.maxInFlight}`)
         );
 

@@ -218,7 +218,7 @@ describe("Surface", () => {
     render(
       <Surface
         variant="raised"
-        style={{ "--polly-surface-raised": "#fef3c7" } as JSX.CSSProperties}
+        style={{ "--polly-surface-raised": "#fef3c7" } as unknown as JSX.CSSProperties}
       >
         x
       </Surface>,

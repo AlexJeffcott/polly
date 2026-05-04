@@ -11,17 +11,17 @@
     "typecheck": "bun tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/eden": "^1.2.0",
-    "@elysiajs/html": "^1.2.0",
+    "@elysiajs/eden": "1.2.0",
+    "@elysiajs/html": "1.2.0",
     "@fairfox/polly": "workspace:*",
-    "@preact/signals": "^2.5.1",
-    "elysia": "^1.4.0",
-    "preact": "^10.28.1",
-    "preact-render-to-string": "^6.5.11",
+    "@preact/signals": "2.5.1",
+    "elysia": "1.4.28",
+    "preact": "10.29.1",
+    "preact-render-to-string": "6.5.11",
     "server": "workspace:*"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.5",
-    "typescript": "^5.9.3"
+    "@types/bun": "1.3.13",
+    "typescript": "5.9.3"
   }
 }

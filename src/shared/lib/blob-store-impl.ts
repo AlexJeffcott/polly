@@ -87,7 +87,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
   // Wire up the adapter's blob message callback.
   adapter.onBlobMessage = (peerId, header, data) => {
     if (disposed) return;
-    const type = header["type"] as string;
+    const type = header["type"] as unknown as string;
     switch (type) {
       case "blob-chunk":
         void handleChunk(peerId, header as unknown as BlobChunkHeader, data);
@@ -106,7 +106,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
     if (disposed) return;
     const newPeerId = event.peerId as unknown as string;
     for (const hash of localHashes) {
-      const msg = serialiseBlobMessage({ type: "blob-have", hash } as BlobMessageHeader);
+      const msg = serialiseBlobMessage({ type: "blob-have", hash } as unknown as BlobMessageHeader);
       adapter.sendBlobMessage(newPeerId, msg);
     }
   };
@@ -231,7 +231,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
       index,
       total: plaintextChunks.length,
     };
-    const msg = serialiseBlobMessage(chunkHeader as BlobMessageHeader, payload);
+    const msg = serialiseBlobMessage(chunkHeader as unknown as BlobMessageHeader, payload);
 
     if (!adapter.sendBlobMessage(peerId, msg)) {
       await waitForBufferDrain();
@@ -253,7 +253,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
   // -----------------------------------------------------------------------
 
   function announceHave(hash: string): void {
-    const msg = serialiseBlobMessage({ type: "blob-have", hash } as BlobMessageHeader);
+    const msg = serialiseBlobMessage({ type: "blob-have", hash } as unknown as BlobMessageHeader);
     for (const peerId of adapter.connectedPeerIds) {
       adapter.sendBlobMessage(peerId, msg);
     }
@@ -283,7 +283,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
     if (!target) return;
 
     const reqHeader: BlobRequestHeader = { type: "blob-request", hash, missing };
-    const msg = serialiseBlobMessage(reqHeader as BlobMessageHeader);
+    const msg = serialiseBlobMessage(reqHeader as unknown as BlobMessageHeader);
     adapter.sendBlobMessage(target, msg);
 
     // Re-arm timer in case this peer also stalls.
@@ -353,7 +353,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
       if (!targetPeer) return undefined;
 
       const requestHeader: BlobRequestHeader = { type: "blob-request", hash };
-      const msg = serialiseBlobMessage(requestHeader as BlobMessageHeader);
+      const msg = serialiseBlobMessage(requestHeader as unknown as BlobMessageHeader);
       adapter.sendBlobMessage(targetPeer, msg);
 
       // Wait for chunks to arrive.

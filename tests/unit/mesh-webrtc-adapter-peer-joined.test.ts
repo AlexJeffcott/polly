@@ -145,7 +145,7 @@ describe("MeshWebRTCAdapter peer-discovery dispatch", () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(sent).toHaveLength(1);
       expect(sent[0]?.targetPeerId).toBe("peer-a");
-      const payload = sent[0]?.payload as { kind?: string };
+      const payload = sent[0]?.payload as unknown as { kind?: string };
       expect(payload.kind).toBe("offer");
     });
 

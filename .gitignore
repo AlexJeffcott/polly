@@ -29,6 +29,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.production.local
 .env.local
 
+# npm registry credentials
+.npmrc
+
 # caches
 .eslintcache
 .cache
@@ -49,3 +52,4 @@ test-results
 
 # claude worktrees
 .claude/worktrees/
+.cache/

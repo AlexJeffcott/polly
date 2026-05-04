@@ -1,0 +1,5 @@
+#!/bin/sh
+# Pre-commit hook: runs all polly security/quality checks before allowing a commit.
+# Activate once with: git config core.hooksPath .githooks
+
+exec bun run check all

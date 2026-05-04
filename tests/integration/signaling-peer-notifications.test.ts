@@ -127,7 +127,7 @@ function isPeersPresent(value: unknown): value is PeersPresentFrame {
     typeof value === "object" &&
     value !== null &&
     "type" in value &&
-    (value as { type: unknown }).type === "peers-present"
+    (value as unknown as { type: unknown }).type === "peers-present"
   );
 }
 
@@ -136,7 +136,7 @@ function isPeerJoined(value: unknown): value is PeerJoinedFrame {
     typeof value === "object" &&
     value !== null &&
     "type" in value &&
-    (value as { type: unknown }).type === "peer-joined"
+    (value as unknown as { type: unknown }).type === "peer-joined"
   );
 }
 
@@ -145,7 +145,7 @@ function isPeerLeft(value: unknown): value is PeerLeftFrame {
     typeof value === "object" &&
     value !== null &&
     "type" in value &&
-    (value as { type: unknown }).type === "peer-left"
+    (value as unknown as { type: unknown }).type === "peer-left"
   );
 }
 

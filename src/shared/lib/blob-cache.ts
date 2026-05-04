@@ -147,7 +147,7 @@ export class IndexedDBBlobCache implements BlobCache {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
+        const db = (event.target as unknown as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(IndexedDBBlobCache.STORE_NAME)) {
           db.createObjectStore(IndexedDBBlobCache.STORE_NAME);
         }
@@ -162,7 +162,7 @@ export class IndexedDBBlobCache implements BlobCache {
       const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
       const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
       const request = store.get(hash);
-      request.onsuccess = () => resolve(request.result as IDBRecord | undefined);
+      request.onsuccess = () => resolve(request.result as unknown as IDBRecord | undefined);
       request.onerror = () => reject(request.error);
     });
   }
@@ -246,7 +246,7 @@ export class IndexedDBBlobCache implements BlobCache {
       request.onsuccess = () => {
         const cursor = request.result;
         if (cursor) {
-          const value = cursor.value as IDBRecord;
+          const value = cursor.value as unknown as IDBRecord;
           total += value.size;
           cursor.continue();
         } else {
@@ -269,11 +269,11 @@ export class IndexedDBBlobCache implements BlobCache {
       request.onsuccess = () => {
         const cursor = request.result;
         if (cursor) {
-          const value = cursor.value as IDBRecord;
+          const value = cursor.value as unknown as IDBRecord;
           totalSize += value.size;
           if (!value.pinned) {
             candidates.push({
-              hash: cursor.key as string,
+              hash: cursor.key as unknown as string,
               accessedAt: value.accessedAt,
               size: value.size,
             });

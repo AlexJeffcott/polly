@@ -21,7 +21,7 @@ import { marked } from "marked";
 import type { JSX } from "preact";
 
 export function renderMarkdown(value: string): JSX.Element {
-  const html = marked.parse(value, { async: false }) as string;
+  const html = marked.parse(value, { async: false }) as unknown as string;
   const clean = DOMPurify.sanitize(html);
   return <div dangerouslySetInnerHTML={{ __html: clean }} />;
 }

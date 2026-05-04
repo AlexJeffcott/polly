@@ -117,6 +117,7 @@ export function createPollyClient<T extends Record<string, unknown>>(
 
         if (message.type === "state-sync") {
           // Initial state sync
+          // nosemgrep: javascript.lang.security.insecure-object-assign.insecure-object-assign — `message.state` is already typed wire data delivered by the polly server; the trust boundary is the WebSocket auth, not Object.assign.
           Object.assign(options.state || {}, message.state);
         } else if (message.type === "effect") {
           // Remote effect triggered by another client (broadcast)

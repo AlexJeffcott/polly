@@ -34,7 +34,7 @@ export type TextInputProps = {
 };
 
 function isSignal<T>(v: Signal<T> | T | undefined): v is Signal<T> {
-  return typeof v === "object" && v !== null && "value" in v && "peek" in (v as object);
+  return typeof v === "object" && v !== null && "value" in v && "peek" in (v as unknown as object);
 }
 
 export function TextInput(props: TextInputProps): JSX.Element {
@@ -51,8 +51,8 @@ export function TextInput(props: TextInputProps): JSX.Element {
   });
 
   const controlled = isSignal(props.value);
-  const stringValue = controlled ? (props.value as Signal<string>).value : undefined;
-  const defaultValue = controlled ? undefined : ((props.value as string | undefined) ?? "");
+  const stringValue = controlled ? (props.value as unknown as Signal<string>).value : undefined;
+  const defaultValue = controlled ? undefined : ((props.value as unknown as string | undefined) ?? "");
 
   const className = props.className ? `${classes["input"]} ${props.className}` : classes["input"];
 
@@ -69,7 +69,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
         defaultValue={defaultValue}
         onInput={(e) => {
           if (controlled) {
-            (props.value as Signal<string>).value = e.currentTarget.value;
+            (props.value as unknown as Signal<string>).value = e.currentTarget.value;
           }
         }}
       />
@@ -88,7 +88,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
       defaultValue={defaultValue}
       onInput={(e) => {
         if (controlled) {
-          (props.value as Signal<string>).value = e.currentTarget.value;
+          (props.value as unknown as Signal<string>).value = e.currentTarget.value;
         }
       }}
     />

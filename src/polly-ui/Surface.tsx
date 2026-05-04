@@ -247,7 +247,7 @@ export function Surface(props: SurfaceProps): JSX.Element {
   if (zIndex !== undefined) style["--s-z"] = String(zIndex);
 
   if (props.style) {
-    Object.assign(style, props.style as Record<string, string>);
+    Object.assign(style, props.style as unknown as Record<string, string>);
   }
 
   const parts: (string | undefined)[] = [classes["surface"]];
@@ -263,7 +263,7 @@ export function Surface(props: SurfaceProps): JSX.Element {
     if (!isData && !isAria) continue;
     if (key === "data-polly-surface") continue;
     if (key === "aria-label" || key === "aria-labelledby" || key === "aria-describedby") continue;
-    const value = (props as Record<string, unknown>)[key];
+    const value = (props as unknown as Record<string, unknown>)[key];
     if (value === undefined) continue;
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
       passthrough[key] = value;

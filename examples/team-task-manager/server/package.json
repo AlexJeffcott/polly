@@ -9,11 +9,11 @@
     "test:watch": "bun test --watch"
   },
   "dependencies": {
-    "@elysiajs/cors": "^1.0.0",
+    "@elysiajs/cors": "1.4.2",
     "@fairfox/polly": "file:../../..",
-    "elysia": "^1.0.0"
+    "elysia": "1.4.28"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "^1.3.13"
   }
 }

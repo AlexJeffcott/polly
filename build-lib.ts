@@ -283,6 +283,7 @@ try {
     },
     include: [
       "src/**/*",
+      "bun-env.d.ts",
       "tools/verify/src/config.ts",
       "tools/test/src/**/*",
       "tools/quality/src/index.ts",

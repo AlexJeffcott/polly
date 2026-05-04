@@ -105,6 +105,7 @@ export class ContextAnalyzer {
    * Extract API namespace from chrome.* or browser.* prefix
    */
   private extractAPIFromPrefix(text: string, prefix: string): string | null {
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — prefix is a fixed identifier ("chrome" / "browser"), not user input.
     const pattern = new RegExp(`^${prefix}\\.([^.(]+(?:\\.[^.(]+)?)`);
     const match = text.match(pattern);
     return match?.[1] || null;

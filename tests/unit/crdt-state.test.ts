@@ -131,7 +131,7 @@ describe("$crdtState — writes", () => {
     await prim.loaded;
     prim.value = { title: "no-version", body: "" };
     await Promise.resolve();
-    const doc = prim.handle?.doc() as Record<string, unknown>;
+    const doc = prim.handle?.doc() as unknown as Record<string, unknown>;
     // The version from the migration must survive the write.
     expect(doc[SCHEMA_VERSION_FIELD]).toBe(1);
   });
@@ -181,7 +181,7 @@ describe("$crdtState — schema migrations", () => {
     await prim.loaded;
     expect(prim.value.title).toBe("migrated-v1");
     expect(prim.value.tags).toEqual(["migrated-v2"]);
-    const doc = prim.handle?.doc() as Record<string, unknown>;
+    const doc = prim.handle?.doc() as unknown as Record<string, unknown>;
     expect(doc[SCHEMA_VERSION_FIELD]).toBe(2);
   });
 
@@ -248,7 +248,7 @@ describe("$crdtState — schema migrations", () => {
       },
     });
     await prim.loaded;
-    const doc = prim.handle?.doc() as Record<string, unknown>;
+    const doc = prim.handle?.doc() as unknown as Record<string, unknown>;
     expect(doc[SCHEMA_VERSION_FIELD]).toBe(3);
     expect(prim.value.title).toBe("existing");
   });

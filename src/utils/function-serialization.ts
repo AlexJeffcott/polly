@@ -41,5 +41,6 @@ export function deserializeFunction(serialized: string): Function {
   }
 
   // biome-ignore lint/security/noGlobalEval: Required for dev-mode function deserialization
+  // nosemgrep: javascript.browser.security.eval-detected.eval-detected — round-trips developer-authored predicates through TLA+ codegen; never receives external input.
   return eval(`(${serialized})`);
 }

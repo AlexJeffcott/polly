@@ -13,10 +13,10 @@ export function createMockStorageArea(): MockStorageArea {
       // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Mock storage needs to handle multiple key types
     ): Promise<T> => {
       if (!keys) {
-        return Object.fromEntries(data) as T;
+        return Object.fromEntries(data) as unknown as T;
       }
       if (typeof keys === "string") {
-        return (data.has(keys) ? { [keys]: data.get(keys) } : {}) as T;
+        return (data.has(keys) ? { [keys]: data.get(keys) } : {}) as unknown as T;
       }
       if (Array.isArray(keys)) {
         const result: Record<string, unknown> = {};

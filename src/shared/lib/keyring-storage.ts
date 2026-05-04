@@ -104,7 +104,7 @@ export function deserialiseKeyring(text: string): MeshKeyring {
   if (!raw || typeof raw !== "object") {
     throw new Error("KeyringStorage: keyring payload is not an object");
   }
-  const r = raw as Partial<SerialisedKeyring>;
+  const r = raw as unknown as Partial<SerialisedKeyring>;
   if (r.version !== 1) {
     throw new Error(`KeyringStorage: unsupported keyring version: ${String(r.version)}`);
   }

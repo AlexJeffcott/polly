@@ -103,7 +103,7 @@ async function waitForNonDiscoveryMessage(
     const msg = await waitForMessage(client, deadline - Date.now());
     const type =
       typeof msg === "object" && msg !== null && "type" in msg
-        ? (msg as { type: unknown }).type
+        ? (msg as unknown as { type: unknown }).type
         : undefined;
     if (type !== "peers-present" && type !== "peer-joined" && type !== "peer-left") {
       return msg;

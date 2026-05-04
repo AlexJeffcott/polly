@@ -489,7 +489,7 @@ export class TypeExtractor {
     // Check for string literal union (enum)
     const allStringLiterals = unionTypes.every((t) => t.isStringLiteral());
     if (allStringLiterals) {
-      const enumValues = unionTypes.map((t) => t.getLiteralValue() as string);
+      const enumValues = unionTypes.map((t) => t.getLiteralValue() as unknown as string);
       return { name, kind: "enum", nullable, enumValues };
     }
 

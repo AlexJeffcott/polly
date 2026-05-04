@@ -10,7 +10,7 @@
     "@fairfox/polly": "link:../.."
   },
   "devDependencies": {
-    "@types/bun": "^1.3.5",
-    "typescript": "^5.9.3"
+    "@types/bun": "1.3.13",
+    "typescript": "5.9.3"
   }
 }

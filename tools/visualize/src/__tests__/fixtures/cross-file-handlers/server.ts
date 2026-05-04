@@ -12,7 +12,7 @@ declare const ws: {
 
 // Message router - Polly detects handlers here
 ws.on("message", async (data: string) => {
-  const message = JSON.parse(data) as RequestMessage;
+  const message = JSON.parse(data) as unknown as RequestMessage;
   let response: any;
 
   // Type guard pattern - Polly detects handleQuery as query handler

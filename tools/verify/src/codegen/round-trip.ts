@@ -102,7 +102,7 @@ export class RoundTripValidator {
    */
   private extractMessageTypes(spec: string): string[] {
     const match = spec.match(/UserMessageTypes\s*==\s*\{([^}]+)\}/);
-    if (!match || !match[1]) {
+    if (!match?.[1]) {
       return [];
     }
 

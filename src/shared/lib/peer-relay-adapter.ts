@@ -34,8 +34,9 @@ import { type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";
 export type PeerRelayConnectionState = "connecting" | "connected" | "disconnected";
 
 export interface CreatePeerStateClientOptions {
-  /** WebSocket URL of the Polly peer-relay server. Use `ws://` for local
-   * development and `wss://` for any deployment that terminates TLS. */
+  /** WebSocket URL of the Polly peer-relay server. Use the unencrypted scheme
+   * (`ws:` + `//`) for local development; `wss://` is required for any
+   * deployment that terminates TLS. */
   url: string;
   /** Reconnect interval in milliseconds. Defaults to Automerge-Repo's own
    * default (5 seconds at the time of writing). */

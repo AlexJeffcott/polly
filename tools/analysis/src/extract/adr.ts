@@ -168,6 +168,7 @@ export class ADRExtractor {
    */
   private extractSection(content: string, sectionName: string): string {
     // Match section heading and capture content until next heading or end
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — sectionName is a hardcoded callsite literal, not user input.
     const regex = new RegExp(`##\\s+${sectionName}\\s*\\n([\\s\\S]*?)(?=\\n##|$)`, "i");
     const match = content.match(regex);
 

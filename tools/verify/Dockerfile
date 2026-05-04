@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11-jre
+FROM eclipse-temurin:21-jre
 
 # Install TLA+ tools v1.7.4 (latest stable, includes TLC 2.19 from August 2024)
 RUN apt-get update && apt-get install -y curl && \

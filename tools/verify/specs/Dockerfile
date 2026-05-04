@@ -2,7 +2,7 @@
 # This is separate from the main Dockerfile used by the CLI - this one includes
 # additional tools for interactive development and editing of specs.
 
-FROM eclipse-temurin:11-jre
+FROM eclipse-temurin:21-jre
 
 # Install TLA+ tools v1.7.4 (matches main Dockerfile)
 RUN apt-get update && apt-get install -y curl && \

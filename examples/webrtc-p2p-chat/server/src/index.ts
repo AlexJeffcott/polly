@@ -168,6 +168,7 @@ function handleSignalingMessage(
 }
 
 console.log(`🎯 Signaling server running at ${app.server?.hostname}:${app.server?.port}`);
+// nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket — diagnostic console line for local dev; deployments terminate TLS at the edge.
 console.log(`   WebSocket: ws://${app.server?.hostname}:${app.server?.port}/signaling`);
 console.log(`   Health: http://${app.server?.hostname}:${app.server?.port}/health`);
 console.log(`   Stats: http://${app.server?.hostname}:${app.server?.port}/stats`);

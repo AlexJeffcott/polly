@@ -83,7 +83,7 @@ export function reassembleChunks(chunks: Map<number, Uint8Array>, total: number)
   const out = new Uint8Array(totalBytes);
   let offset = 0;
   for (let i = 0; i < total; i++) {
-    const chunk = chunks.get(i) as Uint8Array;
+    const chunk = chunks.get(i) as unknown as Uint8Array;
     out.set(chunk, offset);
     offset += chunk.length;
   }

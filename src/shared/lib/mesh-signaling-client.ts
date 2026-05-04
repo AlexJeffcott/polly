@@ -44,7 +44,7 @@ export interface CustomSignalingFrame {
 
 /** Options for constructing a {@link MeshSignalingClient}. */
 export interface MeshSignalingClientOptions {
-  /** The signalling server URL (ws:// or wss://). */
+  /** The signalling server URL — unencrypted scheme for local dev, TLS-terminated for production. */
   url: string;
   /** The local peer id that this client will register with on join. */
   peerId: string;
@@ -115,7 +115,7 @@ function parseFrame(raw: unknown): Record<string, unknown> | undefined {
   if (typeof parsed !== "object" || parsed === null) {
     return undefined;
   }
-  const record = parsed as Record<string, unknown>;
+  const record = parsed as unknown as Record<string, unknown>;
   if (typeof record["type"] !== "string") {
     return undefined;
   }
@@ -247,7 +247,7 @@ export class MeshSignalingClient {
     // use to layer application protocols on the shared socket. Without
     // a handler the frame is silently dropped, preserving the old
     // behaviour byte-for-byte.
-    this.onCustomFrame?.(record as CustomSignalingFrame);
+    this.onCustomFrame?.(record as unknown as CustomSignalingFrame);
   }
 
   private builtInHandler(type: unknown): ((record: Record<string, unknown>) => void) | undefined {
@@ -261,7 +261,7 @@ export class MeshSignalingClient {
     if (type === "peers-present") {
       return (record) => {
         if (Array.isArray(record["peerIds"])) {
-          this.onPeersPresent?.(record["peerIds"] as string[]);
+          this.onPeersPresent?.(record["peerIds"] as unknown as string[]);
         }
       };
     }

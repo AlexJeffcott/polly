@@ -9,6 +9,7 @@ bus.on("PAGE_EVAL", async (payload) => {
   try {
     // Execute in page context
     // biome-ignore lint/security/noGlobalEval: This is intentional for page script eval
+    // nosemgrep: javascript.browser.security.eval-detected.eval-detected — deliberate PAGE_EVAL bridge; the extension is the trust boundary, not the evaluated code.
     const result = eval(payload.code);
     return { result };
   } catch (error) {
