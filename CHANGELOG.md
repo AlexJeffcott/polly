@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.39.0] - 2026-05-04
+
+### Changed
+
+#### Dependency refresh, TypeScript 6 compatibility, and Java 21 in the verifier
+
+This release refreshes every dependency in the published surface and
+widens the TypeScript peer constraint so consumers on the 6.0 line
+stop receiving peer warnings. The only constraint that loosened is
+`peerDependencies.typescript`, which moved from `^5.9.3` to
+`>= 5.9.3`. Consumers staying on 5.9.x see no change. Consumers on
+6.0 — the version Polly itself now compiles against — install
+without a warning for the first time.
+
+Several transitive deps moved by a major. `ts-morph` (used by
+`tools/analysis` for handler, context, type, and integration
+extraction) went from 21 to 28; the AST surface Polly relies on is
+unchanged, but the version is far enough ahead that subtle
+behavioural differences in TypeScript node walking are theoretically
+possible. `serialize-javascript` (used by the function-serialization
+round-trip that carries `$constraints` predicates between code and
+TLA+ codegen) went from 6 to 7. The full unit suite passes against
+both bumps and the end-to-end TLC verification on the minimal example
+explores the same state space as before.
+
+The verifier's Docker image (`tools/verify/Dockerfile`) moved from
+`eclipse-temurin:11-jre` to `eclipse-temurin:21-jre`. TLA+ tools
+v1.7.4 / TLC 2.19 — the bundled jar — runs unchanged on Java 21,
+and the LTS bump means the image continues to receive security
+updates from the upstream Temurin distribution. Existing
+`polly verify` invocations rebuild on first run; behaviour is
+identical.
+
+Every direct and transitive dependency in the root and tests
+workspaces is now pinned to an exact version (no `^` or `~`), with
+a `bunfig.toml` defaulting future `bun add` invocations to exact
+pins. A new `overrides` block in `package.json` carries minimum
+versions for transitive dependencies whose previously-resolved
+versions had open CVEs (`brace-expansion`, `file-type`, `minimatch`,
+`uuid`); after the override `bun audit` and `osv-scanner` both
+report a clean tree across the published surface.
+
+### Added
+
+#### Layered security and quality checks
+
+A new `bun run check <name>` orchestrator wires up gitleaks (secret
+scanning), semgrep (SAST), `osv-scanner` + `bun audit` (dependency
+vulnerability), a forbidden-deps gate that bans superseded test
+runners and linters, the existing no-as-casting check, a module
+boundary check that enforces direction between `src/`, `tools/`,
+`cli/`, and `scripts/`, and a server-imports check that bans
+`node:` and `bun:` modules from browser-targeted files. The
+aggregate `bun run check all` runs every check and aborts on the
+first failure. A `.githooks/pre-commit` invokes the aggregate so
+the gate fires before each commit; activate once with
+`git config core.hooksPath .githooks`.
+
+The check surface is dev-only — none of the new files
+(`Brewfile`, `.gitleaks.toml`, `deps-notes.json`, `osv-scanner`
+config, `scripts/check*.ts`, `.githooks/`) ship in the published
+package. Required external tools (`gitleaks`, `semgrep`,
+`osv-scanner`) are pinned in the new `Brewfile`; install with
+`brew bundle`.
+
 ## [0.38.1] - 2026-04-30
 
 ### Added
