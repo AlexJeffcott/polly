@@ -97,6 +97,7 @@ export {
   validateRunConfig,
 } from "./host";
 export { POLLY_CORE_VERSION, pollyCorePlugin } from "./plugins/core";
+export { POLLY_UI_PLUGIN_VERSION, pollyUiPlugin } from "./plugins/polly-ui";
 export type {
   Check,
   CheckContext,

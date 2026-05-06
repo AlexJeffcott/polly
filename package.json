@@ -1,6 +1,6 @@
 {
   "name": "@fairfox/polly",
-  "version": "0.45.0",
+  "version": "0.46.0",
   "private": false,
   "type": "module",
   "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
@@ -102,6 +102,10 @@
       "import": "./dist/src/polly-ui/index.js",
       "types": "./dist/src/polly-ui/index.d.ts"
     },
+    "./ui/registry": {
+      "import": "./dist/src/polly-ui/registry.js",
+      "types": "./dist/src/polly-ui/registry.d.ts"
+    },
     "./ui/styles.css": "./dist/src/polly-ui/styles.css",
     "./ui/theme.css": "./dist/src/polly-ui/theme.css",
     "./ui/components.css": "./dist/src/polly-ui/index.css",
@@ -119,7 +123,8 @@
     "dev": "bun run build.ts --watch",
     "build": "bun run build.ts",
     "build:prod": "bun run build.ts --prod",
-    "build:lib": "bun run build-lib.ts",
+    "build:lib": "bun scripts/build-polly-ui-registry.ts && bun run build-lib.ts",
+    "build:registry": "bun scripts/build-polly-ui-registry.ts",
     "build:full-featured": "bun run scripts/build-user-extension.ts examples/full-featured",
     "build:full-featured:prod": "bun run scripts/build-user-extension.ts examples/full-featured --prod",
     "typecheck": "bunx tsc --noEmit && bun run --cwd tests typecheck",

@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-05-06
+
+### Added
+
+#### polly-ui registry exports and the polly-ui plugin (#89, #90, #91, #92, #93, #94)
+
+This release lands the polly-ui side of the umbrella. A new
+`@fairfox/polly/ui/registry` subpath exposes the canonical token and
+component lists as importable data, and a new `pollyUiPlugin` re-homes
+the existing CSS family and shared-components ban under a dedicated
+`polly-ui` namespace, alongside a new `polly-ui:no-inline-handlers`
+check.
+
+`scripts/build-polly-ui-registry.ts` parses
+`src/polly-ui/theme.css` for every `--polly-*: <value>;` declaration
+inside the `:root` block, infers a category for each token from its
+name prefix (color, spacing, radius, typography, motion, sizing,
+shadow, z-index), and emits `src/polly-ui/registry.generated.ts`
+with `pollyUiTokens: readonly PollyUiToken[]`. The same generator
+walks `src/polly-ui/index.ts` for exported components and
+`tools/quality/src/check-shared-components.ts` for native-element
+replacements, producing `pollyUiComponents: readonly
+PollyUiComponent[]` keyed by component name. The `build:lib` script
+runs the generator before the bundler so a new token in `theme.css`
+is in the published registry without a hand-edit. A second script
+entry, `build:registry`, runs the generator alone for fast
+iteration. `src/polly-ui/registry.ts` is the hand-written re-export
+that pins the public API path; the generated module is what the
+re-export reads from.
+
+`tools/quality/src/plugins/polly-ui.ts` exports `pollyUiPlugin`
+with six checks. `polly-ui:css-layout`, `polly-ui:css-quality`,
+`polly-ui:css-vars`, and `polly-ui:css-unused` each wrap the existing
+`checkCss*` function under the `polly-ui` namespace; the underlying
+behaviour is identical to the pre-host invocation, only the
+integration surface changes. `polly-ui:shared-components` wraps
+`checkSharedComponents` and surfaces the
+element → primitive mapping in violation messages so a contributor
+can fix without consulting the documentation. The CSS family
+currently parses polly-ui's CSS at scan time rather than reading the
+new registry; swapping the inner discovery for a registry lookup is
+a follow-up that will not change the public check ids.
+
+`polly-ui:no-inline-handlers` is a new check. It bans inline JSX
+event handlers (`onClick={fn}` and the rest of the React-style
+`on*` family) in `.tsx` files. The intent is to push consumers
+toward declarative event delegation via `data-action` attributes, the
+pattern lingua's ADR 0019 selected. The runtime dispatcher that makes
+the alternative work — a Provider mounted near `<OverlayRoot>`
+that registers a delegated event listener and routes by
+`data-action` — is a follow-up: it belongs in
+`src/polly-ui/actions.tsx`, not under the quality plugin host, and
+it needs a real Preact implementation rather than a wrapper. The
+check on its own is useful immediately because it forces the
+consumer to pick an alternative; the runtime can land in a
+subsequent release without changing the check's id or shape.
+
+`pollyUiPlugin` is exported from `@fairfox/polly/quality` so a
+consumer's `polly.config.ts` can compose
+`{ plugins: [pollyCorePlugin, pollyUiPlugin, localPlugin] }`.
+Tests in `tests/unit/quality/plugins/polly-ui.test.ts` cover the
+six-check registration, the no-collision invariant when registered
+alongside `pollyCorePlugin`, and clean / dirty / allowlisted /
+test-file-excluded paths for `polly-ui:no-inline-handlers`.
+Tests in `tests/unit/polly-ui-registry.test.ts` cover the registry
+shape: token categories, non-empty defaults, the canonical accent /
+surface / text tokens, the Button → button and Modal → dialog
+component replacements, and the `polly-` prefix invariant.
+
+The next outstanding child of #80 is #97 (attest workflow + GitHub
+commit-status posting). That ticket touches the GitHub API on real
+PRs and is not safe to ship blind; it deserves its own release with a
+human in the loop for the first staging post.
+
 ## [0.45.0] - 2026-05-06
 
 ### Added
