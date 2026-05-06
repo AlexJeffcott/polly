@@ -21,6 +21,7 @@
 
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { $ } from "bun";
 
 const ROOT = process.cwd();
 const THEME_PATH = join(ROOT, "src", "polly-ui", "theme.css");
@@ -213,6 +214,12 @@ async function main(): Promise<void> {
 
   const output = emitOutput(tokens, components);
   await writeFile(OUTPUT_PATH, output, "utf8");
+
+  // Format the output through biome so re-running the generator does
+  // not churn against the project's canonical TS style (unquoted keys,
+  // trailing commas). Without this, every regen flips the file back to
+  // JSON.stringify shape and lint fails.
+  await $`bunx @biomejs/biome format --write ${OUTPUT_PATH}`.quiet();
 
   process.stdout.write(
     `polly-ui registry: ${tokens.length} token(s), ${components.length} component(s) → ${OUTPUT_PATH}\n`
