@@ -75,3 +75,34 @@ export {
   type GitignoreCheckResult,
   type SecretsCheckResult,
 } from "./secrets.ts";
+
+// ─────────────────────────────────────────────────────────────────
+// Plugin host (#80 / #95)
+// ─────────────────────────────────────────────────────────────────
+
+export {
+  type CacheEntry,
+  type CacheInputs,
+  computeInputsHash,
+  getCachedOutcome,
+  setCachedOutcome,
+} from "./cache";
+export { loadQualityConfig } from "./config";
+export {
+  listChecks,
+  type RegisteredCheck,
+  type RunOptions,
+  registerPlugins,
+  runChecks,
+  validateRunConfig,
+} from "./host";
+export { POLLY_CORE_VERSION, pollyCorePlugin } from "./plugins/core";
+export type {
+  Check,
+  CheckContext,
+  CheckOutcome,
+  CheckRunResult,
+  QualityPlugin,
+  QualityRunConfig,
+  RunReport,
+} from "./types";

@@ -5,6 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-05-06
+
+### Added
+
+#### Quality plugin host with content-hash cache (#80, #95, #96, #98)
+
+Issue #80 calls for `@fairfox/polly/quality` to become a plugin host
+that consumers compose from a polly-provided core, a polly-ui-provided
+plugin, and project-local plugins. This release lands the foundation:
+the contract, the runner, the cache, and a `pollyCorePlugin` that
+wraps the four checks polly already shipped. The remaining children
+of #80 (attest workflow, the new core checks, the polly-ui plugin)
+build on the contract this release defines.
+
+A `Check` declares `id`, `description`, optional `validate(config)`,
+optional `filesRead(config, root)`, optional `cacheKeyExtras(config)`,
+and `run(ctx)`. A `QualityPlugin` bundles checks under a namespace
+that prefixes every check id (e.g. `polly:no-as-casting`). The host
+in `tools/quality/src/host.ts` registers plugins, refuses duplicate
+plugin names and check ids, validates config at load time, and runs
+the requested set in parallel. A check that throws is caught and
+reported as a failure with the error attached, so one broken plugin
+does not abort the run.
+
+The cache in `tools/quality/src/cache.ts` is a standalone module:
+`computeInputsHash` returns a SHA-256 over the sorted file contents,
+sorted env extras, and tool versions a check has declared as inputs;
+`getCachedOutcome` and `setCachedOutcome` read and write JSON entries
+under `.cache/polly-quality/<id>.json` via atomic temp + rename. A
+hit returns the prior outcome instantly; a miss runs the body and
+persists the result. Failing outcomes are not cached so a fix is
+visible on the next run rather than after the next input change.
+Corrupt cache files are treated as misses with a warning so a
+half-written entry from a crashed prior run does not block a CI
+build.
+
+`pollyCorePlugin` in `tools/quality/src/plugins/core.ts` wraps four
+existing checks: `polly:no-as-casting`, `polly:no-require`,
+`polly:secrets`, `polly:gitignore-cross-check`. Each wrap declares
+`filesRead` honestly so the cache can short-circuit a re-run on
+unchanged inputs. The underlying functions (`checkNoAsCasting`,
+`checkNoRequire`, `checkSecrets`, `checkGitignoreCoversAllowlist`)
+keep their existing exports and signatures unchanged; the plugin
+path is the new way; the function path stays the same. The CSS
+family and shared-components live in a separate polly-ui plugin
+(#92–#94) because they belong to the styled-component contract
+polly-ui owns and depend on a registry-export step (#89) that is not
+in this release.
+
+The `polly quality` CLI gains two new subcommands:
+
+```
+polly quality list                       # list registered checks
+polly quality run                        # run every registered check
+polly quality run polly:no-as-casting    # run a specific id (or several)
+polly quality run all                    # alias for `run`
+polly quality run --no-cache             # bypass the cache
+```
+
+Existing positional subcommands (`no-as-casting`, `no-require`, the
+`css*` family) remain unchanged for back-compat. A
+`tools/quality/src/config.ts` loader reads `polly.config.ts` and
+pulls a `quality` block in the form `{ plugins: [...], checks: {} }`;
+absent or empty configs default to `pollyCorePlugin` so the new
+subcommands work out of the box.
+
+Tests in `tests/unit/quality/cache.test.ts`,
+`tests/unit/quality/host.test.ts`, and
+`tests/unit/quality/plugins/core.test.ts` cover hash determinism,
+cache hit/miss/corrupt-recovery, registration collisions, validation,
+parallel execution, error containment, and per-wrap parity with the
+underlying functions.
+
 ## [0.41.0] - 2026-05-06
 
 ### Added

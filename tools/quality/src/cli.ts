@@ -3,7 +3,13 @@
 /**
  * CLI entry point for Polly quality checks.
  *
- *   polly quality                    # run every check
+ * Plugin-host subcommands (preferred):
+ *   polly quality list                       # list registered checks
+ *   polly quality run                        # run every registered check
+ *   polly quality run polly:no-as-casting    # run a specific id (or several)
+ *   polly quality run all                    # alias for `run`
+ *
+ * Legacy subcommands (back-compat with the pre-host CLI):
  *   polly quality no-as-casting      # only the TS casting check
  *   polly quality no-require         # ban require(...) calls
  *   polly quality css                # all CSS checks
@@ -14,10 +20,12 @@
  *
  * Shared flags:
  *   --root <dir>                     # defaults to process.cwd()
- *   --exclude <a,b,c>                # comma-separated dir names
- *   --exclude-packages <a,b>         # no-as-casting only
- *   --exclude-files <a,b>            # no-as-casting only
- *   --pattern <glob>                 # no-as-casting / no-require
+ *   --config <path>                  # explicit polly.config.ts path
+ *   --no-cache                       # bypass the on-disk cache
+ *   --exclude <a,b,c>                # legacy: comma-separated dir names
+ *   --exclude-packages <a,b>         # legacy: no-as-casting only
+ *   --exclude-files <a,b>            # legacy: no-as-casting only
+ *   --pattern <glob>                 # legacy: no-as-casting / no-require
  */
 
 import {
@@ -27,6 +35,11 @@ import {
   checkCssVars,
   checkNoAsCasting,
   checkNoRequire,
+  listChecks,
+  loadQualityConfig,
+  registerPlugins,
+  runChecks,
+  validateRunConfig,
 } from "./index";
 import { logger } from "./logger";
 
@@ -120,8 +133,87 @@ async function runAll(): Promise<number> {
   return results.some((code) => code !== 0) ? 1 : 0;
 }
 
+async function runHostList(): Promise<number> {
+  const config = await loadQualityConfig(rootDir, getFlag("config"));
+  const registry = registerPlugins(config.plugins);
+  for (const c of listChecks(registry)) {
+    logger.log(`  ${c.id.padEnd(40)} ${c.description}`);
+  }
+  return 0;
+}
+
+const VALUE_FLAGS = new Set([
+  "root",
+  "config",
+  "exclude",
+  "exclude-packages",
+  "exclude-files",
+  "pattern",
+]);
+
+function collectRunPositionals(): string[] {
+  // Positional args after the `run` subcommand are the requested ids.
+  const runIdx = args.indexOf("run");
+  const out: string[] = [];
+  for (let i = runIdx + 1; i < args.length; i++) {
+    const a = args[i];
+    if (!a) continue;
+    if (a.startsWith("--")) {
+      if (VALUE_FLAGS.has(a.slice(2))) i++;
+      continue;
+    }
+    out.push(a);
+  }
+  return out;
+}
+
+function reportRunResult(r: {
+  id: string;
+  ok: boolean;
+  cached: boolean;
+  durationMs: number;
+  messages: string[];
+  error?: string;
+}): void {
+  const tag = r.cached ? "cached " : "       ";
+  if (r.ok) {
+    logger.log(`  ✓ ${tag}${r.id} (${r.durationMs}ms)`);
+    return;
+  }
+  logger.log(`  ✗ ${tag}${r.id} (${r.durationMs}ms)`);
+  if (r.error) logger.error(`      error: ${r.error}`);
+  for (const m of r.messages) logger.log(`      ${m}`);
+}
+
+async function runHostRun(): Promise<number> {
+  const config = await loadQualityConfig(rootDir, getFlag("config"));
+  const registry = registerPlugins(config.plugins);
+  const validationErrors = validateRunConfig(registry, config);
+  if (validationErrors.length > 0) {
+    for (const err of validationErrors) logger.error(err);
+    return 2;
+  }
+  const positional = collectRunPositionals();
+  const ids =
+    positional.length === 0 || (positional.length === 1 && positional[0] === "all")
+      ? undefined
+      : positional;
+  const report = await runChecks(registry, config, ids, {
+    rootDir,
+    noCache: args.includes("--no-cache"),
+  });
+  for (const r of report.results) reportRunResult(r);
+  return report.ok ? 0 : 1;
+}
+
 let exitCode = 0;
 switch (subcommand) {
+  case "list":
+    exitCode = await runHostList();
+    break;
+  case "run":
+    exitCode = await runHostRun();
+    break;
   case "no-as-casting":
     exitCode = await runNoAsCasting();
     break;
@@ -149,7 +241,7 @@ switch (subcommand) {
   default:
     logger.error(`Unknown quality subcommand: ${subcommand}`);
     logger.error(
-      "Expected one of: no-as-casting, no-require, css, css-quality, css-layout, css-vars, css-unused"
+      "Expected one of: list, run, no-as-casting, no-require, css, css-quality, css-layout, css-vars, css-unused"
     );
     exitCode = 2;
 }
