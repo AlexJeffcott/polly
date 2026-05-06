@@ -22,6 +22,7 @@ import { checkGitignoreCoversAllowlist, checkSecrets } from "../secrets";
 import type { Check, QualityPlugin } from "../types";
 import { additionalCoreChecks } from "./core-checks";
 import { extraCoreChecks } from "./extra-checks";
+import { importCoreChecks } from "./import-checks";
 
 const DEFAULT_EXCLUDES = ["node_modules", "dist", ".git", ".bun", "dist-test", "build", "coverage"];
 
@@ -177,7 +178,7 @@ const gitignoreCrossCheck: Check<GitignoreConfig | undefined> = {
   },
 };
 
-export const POLLY_CORE_VERSION = "0.44.0";
+export const POLLY_CORE_VERSION = "0.45.0";
 
 export const pollyCorePlugin: QualityPlugin = {
   name: "polly",
@@ -189,5 +190,6 @@ export const pollyCorePlugin: QualityPlugin = {
     gitignoreCrossCheck as Check<unknown>,
     ...additionalCoreChecks,
     ...extraCoreChecks,
+    ...importCoreChecks,
   ],
 };

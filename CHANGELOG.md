@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.45.0] - 2026-05-06
+
+### Added
+
+#### Final core-check batch: import-graph and types orchestrator (#84, #85, #86)
+
+This release closes out the core-check track of #80. Four checks ship
+together in `tools/quality/src/plugins/import-checks.ts`, all
+parameterised, all silent or zero-impact unless a consumer opts in
+via `polly.config.ts`. Polly's own pre-commit pipeline does not
+currently run them; they exist for downstream consumers (lingua,
+fairfox, warehouse-experiments) and ship under the core plugin
+namespace so adoption is a one-line config change.
+
+`polly:relative-imports` (#84) bans `../` imports beyond a
+configurable depth threshold (default 1). Imports starting with
+`#src/` or any other subpath prefix pass unconditionally because they
+are package-level subpath imports rather than relative paths. This
+encodes the convention that single-level relatives are local and
+multi-level relatives signal a missing subpath import.
+
+`polly:tsconfig-paths` (#84) walks every `tsconfig.json` and
+`tsconfig.base.json` it finds and flags any
+`compilerOptions.paths` entry. The rule's intent is to push consumers
+toward `package.json` subpath imports rather than tsconfig-level
+aliasing, since the former survives every bundler's resolver and the
+latter does not. Specific aliases can be allowlisted by name through
+`allowedAliases` for incremental migrations.
+
+`polly:no-raw-http` (#86) forces HTTP calls through a configured
+canonical client. The check is opt-in: without `canonicalClient` set
+the rule no-ops. With it set, any file that calls `fetch`,
+`XMLHttpRequest`, or `axios` outside a configured allowlist fails,
+unless the file itself is the canonical-client implementation
+(detected by an `export … from "<canonicalClient>"` re-export line).
+Lingua's existing `TypeSafeRESTClient` enforcement maps directly to
+this check via `{ canonicalClient: "#src/api/typed-rest-client" }`.
+
+`polly:types` (#85) runs `tsc --noEmit -p <package>` against each
+workspace package found by glob (default `packages/*` plus the root)
+in parallel, aggregates per-package failures into the run report,
+and reports each one with a 30-line tail of tsc output. It does not
+declare `filesRead` because the TypeScript dependency graph reaches
+far beyond any glob the wrapper could write; tsc's own incremental
+cache is the right place for that complexity to live, and bypassing
+the polly cache means each invocation re-runs at the cost tsc itself
+sets.
+
+Tests in `tests/unit/quality/plugins/import-checks.test.ts` cover
+relative-import depth thresholds (default and custom), the
+subpath-imports pass path, tsconfig-paths flagging plus
+allowedAliases override, no-raw-http silent default and
+canonical-client-configured paths, and the polly:types
+no-workspace-found graceful exit.
+
 ## [0.44.0] - 2026-05-06
 
 ### Added
