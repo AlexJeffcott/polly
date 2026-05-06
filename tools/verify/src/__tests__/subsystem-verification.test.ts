@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { checkNonInterference } from "../analysis/non-interference";
-import type { MessageHandler } from "../types";
+import { checkPreconditionLocality } from "../analysis/precondition-locality";
+import type { MessageHandler, VerificationCondition } from "../types";
 
 function makeHandler(messageType: string, fields: string[]): MessageHandler {
   return {
@@ -16,6 +17,22 @@ function makeHandler(messageType: string, fields: string[]): MessageHandler {
     context: "background",
     filePath: "test.ts",
     lineNumber: 1,
+  };
+}
+
+function makeHandlerWithRequires(
+  messageType: string,
+  writes: string[],
+  requires: string[]
+): MessageHandler {
+  const preconditions: VerificationCondition[] = requires.map((expression, i) => ({
+    expression,
+    location: { line: i + 1, column: 1 },
+  }));
+  return {
+    ...makeHandler(messageType, writes),
+    preconditions,
+    location: { file: "test.ts", line: 1 },
   };
 }
 
@@ -129,6 +146,204 @@ describe("Non-interference checker", () => {
     const result = checkNonInterference(subsystems, handlers);
     expect(result.valid).toBe(false);
     expect(result.violations).toHaveLength(2);
+  });
+});
+
+describe("Precondition-locality checker", () => {
+  test("passes when handlers only read state owned by their subsystem", () => {
+    const subsystems = {
+      auth: {
+        state: ["user.loggedIn"],
+        handlers: ["Login", "Logout"],
+      },
+      todos: {
+        state: ["todos"],
+        handlers: ["AddTodo"],
+      },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires("Login", ["user.loggedIn"], ["state.user.loggedIn === false"]),
+      makeHandlerWithRequires("Logout", ["user.loggedIn"], ["user.value.loggedIn === true"]),
+      makeHandlerWithRequires("AddTodo", ["todos"], ["todos.value.length < 100"]),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  test("flags a handler whose requires() reads state owned by another subsystem", () => {
+    const subsystems = {
+      auth: {
+        state: ["user.loggedIn"],
+        handlers: ["Login"],
+      },
+      connection: {
+        state: ["connectionState.phase"],
+        handlers: ["Disconnect"],
+      },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires("Login", ["user.loggedIn"], ["state.user.loggedIn === false"]),
+      // Disconnect lives in `connection` but reads `user.loggedIn` owned by `auth`
+      makeHandlerWithRequires(
+        "Disconnect",
+        ["connectionState.phase"],
+        ["state.user.loggedIn === true"]
+      ),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toMatchObject({
+      handler: "Disconnect",
+      subsystem: "connection",
+      readsFrom: "user.loggedIn",
+      ownedBy: "auth",
+      expression: "state.user.loggedIn === true",
+    });
+  });
+
+  test("ignores handlers not assigned to any subsystem", () => {
+    const subsystems = {
+      auth: { state: ["user.loggedIn"], handlers: ["Login"] },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires("Login", ["user.loggedIn"], ["state.user.loggedIn === false"]),
+      // Orphan handler reads auth state but is not in any subsystem
+      makeHandlerWithRequires("Orphan", [], ["state.user.loggedIn === true"]),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(true);
+  });
+
+  test("ignores reads of fields owned by no subsystem", () => {
+    const subsystems = {
+      auth: { state: ["user.loggedIn"], handlers: ["Login"] },
+    };
+
+    // Login reads `system.timestamp` which no subsystem claims; this is not a
+    // cross-subsystem read because no other subsystem could produce it either.
+    const handlers = [
+      makeHandlerWithRequires(
+        "Login",
+        ["user.loggedIn"],
+        ["state.user.loggedIn === false && state.system.timestamp > 0"]
+      ),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(true);
+  });
+
+  test("detects multiple cross-subsystem reads in the same expression", () => {
+    const subsystems = {
+      auth: { state: ["user.loggedIn"], handlers: ["Login"] },
+      ui: { state: ["theme"], handlers: ["SetTheme"] },
+      connection: { state: ["connectionState.phase"], handlers: ["Disconnect"] },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires(
+        "Disconnect",
+        ["connectionState.phase"],
+        ["state.user.loggedIn === true && state.theme === 'dark'"]
+      ),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(false);
+    expect(result.violations).toHaveLength(2);
+    const ownersFlagged = result.violations.map((v) => v.ownedBy).sort();
+    expect(ownersFlagged).toEqual(["auth", "ui"]);
+  });
+
+  test("normalizes dot-form refs against underscore-form state keys", () => {
+    // Some configs declare state with underscore form (user_loggedIn) rather
+    // than dot form (user.loggedIn); the analyzer should still resolve the
+    // owner regardless of which form the ref or the config uses.
+    const subsystems = {
+      auth: { state: ["user_loggedIn"], handlers: ["Login"] },
+      connection: { state: ["connectionState_phase"], handlers: ["Disconnect"] },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires(
+        "Disconnect",
+        ["connectionState_phase"],
+        ["user.value.loggedIn === true"]
+      ),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(false);
+    expect(result.violations[0]?.ownedBy).toBe("auth");
+  });
+
+  test("strips .length suffix to find the owning array field", () => {
+    // requires(todos.value.length > 0) extracts `todos.length`; the owner is
+    // the parent `todos` field.
+    const subsystems = {
+      auth: { state: ["user.loggedIn"], handlers: ["Login"] },
+      todos: { state: ["todos"], handlers: ["AddTodo"] },
+    };
+
+    const handlers = [
+      // Login (auth) reads todos.length — owned by todos subsystem
+      makeHandlerWithRequires(
+        "Login",
+        ["user.loggedIn"],
+        ["state.user.loggedIn === false && todos.value.length > 0"]
+      ),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(false);
+    expect(result.violations[0]).toMatchObject({
+      handler: "Login",
+      subsystem: "auth",
+      readsFrom: "todos.length",
+      ownedBy: "todos",
+    });
+  });
+
+  test("ignores payload-only preconditions", () => {
+    const subsystems = {
+      auth: { state: ["user.loggedIn"], handlers: ["Login"] },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires("Login", ["user.loggedIn"], ["payload.role !== 'guest'"]),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.valid).toBe(true);
+  });
+
+  test("attaches expression and location to each violation", () => {
+    const subsystems = {
+      auth: { state: ["user.loggedIn"], handlers: ["Login"] },
+      connection: { state: ["connectionState.phase"], handlers: ["Disconnect"] },
+    };
+
+    const handlers = [
+      makeHandlerWithRequires(
+        "Disconnect",
+        ["connectionState.phase"],
+        ["state.user.loggedIn === true"]
+      ),
+    ];
+
+    const result = checkPreconditionLocality(subsystems, handlers);
+    expect(result.violations[0]).toMatchObject({
+      expression: "state.user.loggedIn === true",
+      location: { file: "test.ts", line: 1, column: 1 },
+    });
   });
 });
 

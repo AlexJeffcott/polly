@@ -44,7 +44,7 @@ const PAYLOAD_REF = /payload\.\w+/;
  * Extract state field references from an expression, returning
  * config-compatible field names (dot-form and underscore-form).
  */
-function extractFieldRefs(expression: string): string[] {
+export function extractFieldRefs(expression: string): string[] {
   const refs: string[] = [];
 
   // Pattern 1: xxx.value.yyy.zzz → xxx.yyy.zzz (strip .value.)
@@ -56,12 +56,12 @@ function extractFieldRefs(expression: string): string[] {
 
   // Pattern 2: xxx.value (no suffix) → xxx
   for (const m of expression.matchAll(SIGNAL_VALUE_BARE)) {
-    refs.push(m[1]);
+    if (m[1]) refs.push(m[1]);
   }
 
   // Pattern 3: state.xxx.yyy → xxx.yyy
   for (const m of expression.matchAll(STATE_DOT_FIELD)) {
-    refs.push(m[1]);
+    if (m[1]) refs.push(m[1]);
   }
 
   // Deduplicate
@@ -117,7 +117,7 @@ function resolveConfigEntry(
 function isArrayLike(configEntry: unknown): boolean {
   if (configEntry && typeof configEntry === "object") {
     const obj = configEntry as unknown as Record<string, unknown>;
-    if (obj.type === "array") return true;
+    if (obj["type"] === "array") return true;
     if ("maxLength" in obj) return true;
     if ("maxSize" in obj) return true;
   }
@@ -131,10 +131,10 @@ function isNullable(configEntry: unknown): boolean {
   if (configEntry && typeof configEntry === "object") {
     const obj = configEntry as unknown as Record<string, unknown>;
     // { abstract: true } allows extra values including null-like
-    if (obj.abstract === true) return true;
+    if (obj["abstract"] === true) return true;
     // { values: [...] } — check if null is in the values array
-    if (Array.isArray(obj.values)) {
-      return obj.values.includes(null);
+    if (Array.isArray(obj["values"])) {
+      return obj["values"].includes(null);
     }
   }
   return false;

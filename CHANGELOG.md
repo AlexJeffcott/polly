@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.0] - 2026-05-06
+
+### Added
+
+#### Precondition-locality analysis closes the read-side soundness gap
+
+Issue #79. Compositional verification has been sound on writes since
+`checkNonInterference` shipped — a handler that writes to a field
+owned by another subsystem is rejected, so the per-subsystem passes
+never disagree about who set what. The read side has been silently
+unsound. A handler in subsystem A whose `requires()` reads state
+owned by subsystem B never has its postcondition evaluated under the
+compositional verification of A alone: none of B's handlers run
+during A's pass, so the pre-state A's handler waits for is never
+produced, and from inside A's verification this looks identical to a
+handler that is unreachable. TLC reports A as PASS, the
+`EnsuresAfter_*` property appears in the spec, and there is no signal
+that the postcondition the user wrote was never fired.
+
+The new `tools/verify/src/analysis/precondition-locality.ts`
+mirrors `non-interference.ts` on the read side. For each handler it
+walks every `requires()` expression, extracts the state field
+references using the same patterns the TLA+ generator uses
+(`state.x.y`, `signal.value.field`, bare `signal.value`), normalises
+each ref against the dot-form and underscore-form variants of every
+subsystem's declared state, and flags any read whose owning subsystem
+is not the handler's own. Reads of unowned fields and payload-only
+preconditions are ignored — they cannot cross a subsystem boundary
+and so cannot threaten the soundness of the decomposition.
+
+The `polly verify` CLI now runs the analyzer right after
+non-interference and emits a green check or a yellow warning block in
+the same shape. Each violation reports the handler, the field it
+reads, the owning subsystem, and the source expression, with a
+trailing reminder that the handler's `ensures()` postcondition will
+not be evaluated under the current decomposition. Restructuring
+subsystem boundaries to keep preconditions local closes the gap; the
+warning makes the gap visible so the choice is no longer silent.
+
+`scripts/verify-issue-79.ts` is the verification artefact. It builds
+two fixtures that share a structure — three handlers across two
+subsystems — and differ only in whether one handler's `requires()`
+crosses a subsystem boundary. The clean fixture asserts the analyzer
+returns `valid: true`; the violating fixture asserts exactly one
+violation surfaces, with the expected handler/field/owner. The script
+exits 0 only when both assertions hold. No Docker or TLC is
+required: the analyzer is static, and the artefact runs in
+milliseconds against the same module the CLI invokes.
+
 ## [0.39.0] - 2026-05-04
 
 ### Changed

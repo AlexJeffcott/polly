@@ -537,6 +537,48 @@ async function runSubsystemVerification(
     console.log();
   }
 
+  // Precondition-locality check (read-side complement to non-interference).
+  // A handler whose requires() reads state owned by another subsystem will
+  // silently never have its postcondition evaluated under compositional
+  // verification: the foreign subsystem is absent during this pass, so the
+  // pre-state the handler waits for is never produced and TLC reports PASS
+  // without firing the property the user wrote.
+  const { checkPreconditionLocality } = await import("./analysis/precondition-locality");
+  const locality = checkPreconditionLocality(subsystems, analysis.handlers);
+
+  if (locality.valid) {
+    console.log(
+      color("✓ Precondition locality: verified (no cross-subsystem requires() reads)", COLORS.green)
+    );
+    console.log();
+  } else {
+    console.log(color("⚠️  Precondition-locality violations detected:\n", COLORS.yellow));
+    for (const v of locality.violations) {
+      console.log(
+        color(
+          `   • Handler "${v.handler}" (${v.subsystem}) requires "${v.readsFrom}" owned by "${v.ownedBy}"`,
+          COLORS.yellow
+        )
+      );
+      console.log(color(`     ${v.expression}`, COLORS.gray));
+    }
+    console.log();
+    console.log(
+      color(
+        "   Compositional verification of these subsystems cannot satisfy the precondition;",
+        COLORS.yellow
+      )
+    );
+    console.log(
+      color(
+        "   the handler's ensures() postcondition will not be evaluated. Consider restructuring",
+        COLORS.yellow
+      )
+    );
+    console.log(color("   subsystems to keep preconditions local.", COLORS.yellow));
+    console.log();
+  }
+
   // Warn about unassigned handlers
   const assignedHandlers = new Set(Object.values(subsystems).flatMap((s) => s.handlers));
   const unassigned = analysis.messageTypes.filter((mt) => !assignedHandlers.has(mt));
