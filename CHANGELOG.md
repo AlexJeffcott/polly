@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.0] - 2026-05-06
+
+### Added
+
+#### Three more parameterised core checks (#87, #88, #99)
+
+This release adds the next batch of checks to `pollyCorePlugin`. All
+three are parameterised — defaults match polly's own pre-commit
+surface; consumers override via the `checks` block of
+`polly.config.ts`. Implementations live in
+`tools/quality/src/plugins/extra-checks.ts`.
+
+`polly:forbidden-deps` (#87) bans imports from a configured list of
+packages. The default list mirrors polly's existing
+`scripts/check-no-forbidden-deps.ts`: alternative test runners
+(vitest, jest, mocha, ava, tap, uvu), alternative linters (eslint,
+prettier, tslint), deprecated HTTP libraries, and the moment family.
+The `banned` config is a map of category description → package
+prefixes, so violations come back tagged with the category as
+context. Test files are excluded — mocks legitimately reference
+banned packages — and the issue's workspace-package-json mode is
+deferred behind the import-graph mode that polly itself runs.
+
+`polly:no-state-hooks` (#99) bans `useState`, `useReducer`, and
+`useSignal`. Polly is signals-first; the rule encodes that stance
+across the codebase. The check is regex-based rather than AST-based
+because the rule shape is simple (match a hook name word boundary)
+and the cost of an AST walker is not earned by what it would catch
+that the regex misses. `allowedFiles` accepts glob patterns
+(matched via `bun`'s `Glob`) so a migration path can carve out
+specific files without disabling the rule globally.
+
+`polly:typographic-quotes` (#88) is opt-in. The default config is
+silent — the rule only fires when a consumer points a glob at a
+zone. Files inside `typographicZone` fail on straight quotes
+(`'`, `"`); files inside `straightZone` fail on typographic quotes
+(`'`, `'`, `"`, `"`). Both zones can coexist when a project uses
+straight quotes in code and typographic quotes in user-facing
+strings.
+
+Tests in `tests/unit/quality/plugins/extra-checks.test.ts` cover
+each check's clean and dirty paths, the test-file exclusion for
+forbidden-deps, the `allowedFiles` exemption for no-state-hooks,
+the silent default for typographic-quotes, and the two-zone
+configurability for the quotes check.
+
 ## [0.43.0] - 2026-05-06
 
 ### Added
