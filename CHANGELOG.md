@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.0] - 2026-05-06
+
+### Added
+
+#### Three additional core checks (#81, #82, #83)
+
+The 0.42.0 plugin host shipped four wrapped checks in `pollyCorePlugin`.
+This release adds three more that already existed as
+`scripts/check-*.ts` scripts in the polly repo and wraps each into the
+plugin contract so downstream consumers (lingua, fairfox,
+warehouse-experiments) can pick them up by adding `pollyCorePlugin` to
+their `polly.config.ts` rather than copying the script.
+
+`polly:security` (#81) wraps `semgrep scan`. The check accepts a
+`config`, `severities`, and `exclude` block; defaults match polly's
+own pre-commit invocation (`--config auto`, severities ERROR and
+WARNING, excluding Dockerfile and docker-compose). When semgrep is
+absent from PATH, the check returns `ok: false` with the install
+instructions surfaced as a message rather than throwing — so a
+contributor on a fresh machine sees the actionable hint instead of a
+crash. `cacheKeyExtras` captures the ruleset name plus the severity
+and exclude lists, so a config flip re-scans even on identical
+files.
+
+`polly:boundaries` (#82) wraps directional zone-ban enforcement.
+Polly's existing `scripts/check-package-boundaries.ts` enforces that
+`src/` cannot import `tools/`, `cli/`, or `scripts/`, and that
+`tools/` cannot import `cli/` or `scripts/` — keeping the published
+library surface free of dev tooling. The plugin port keeps the same
+default rules and exposes them as configuration so consumers with
+different zone layouts can override `bans`, `zones`, and `skipDirs`
+directly. The issue text describes a workspace-dependency model
+(each package may only import packages it lists in its
+`dependencies`); polly is a single-package repo and uses directional
+bans, so that is what ships here. The workspace-dep model can be
+layered on as an additional configuration mode in a future release
+when a consumer needs it.
+
+`polly:server-imports` (#83) wraps the browser-context import
+enforcement. Files inside browser-targeting directories (`src/popup`,
+`src/content`, `src/devtools`, `src/options`, `src/offscreen`,
+`src/page`, `src/ui`, `src/polly-ui`, `tools/test/src/browser`)
+cannot import `node:fs`, `bun:sqlite`, `better-sqlite3`, or any of
+the other server-only specifiers polly already bans. The check
+exposes `browserPaths`, `bannedSpecifiers`, `allowFiles`, and
+`skipDirs` so a consumer with different browser surfaces can
+configure the rule without reimplementing it.
+
+The implementations live in `tools/quality/src/plugins/core-checks.ts`
+and are appended to `pollyCorePlugin.checks` so every check still
+ships under one plugin namespace. Tests in
+`tests/unit/quality/plugins/core-checks.test.ts` cover the boundary
+clean and dirty paths, the server-imports clean and dirty paths
+plus a non-browser-package skip path and a custom-config override
+path, and the `polly:security` registration plus description shape.
+The semgrep behavioural path is exercised by the existing pre-commit
+pipeline that runs the underlying tool in CI; mocking PATH to test
+the missing-tool branch is not portable across platforms and is left
+to inspection of the wrap source.
+
 ## [0.42.0] - 2026-05-06
 
 ### Added
