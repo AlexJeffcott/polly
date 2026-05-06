@@ -38,6 +38,7 @@ import {
   listChecks,
   loadQualityConfig,
   registerPlugins,
+  runAttest,
   runChecks,
   validateRunConfig,
 } from "./index";
@@ -185,6 +186,46 @@ function reportRunResult(r: {
   for (const m of r.messages) logger.log(`      ${m}`);
 }
 
+async function runHostAttest(): Promise<number> {
+  const config = await loadQualityConfig(rootDir, getFlag("config"));
+  const registry = registerPlugins(config.plugins);
+  const validationErrors = validateRunConfig(registry, config);
+  if (validationErrors.length > 0) {
+    for (const err of validationErrors) logger.error(err);
+    return 2;
+  }
+  const positional = collectAttestPositionals();
+  const deploy = positional[0] === "deploy";
+  const result = await runAttest({
+    rootDir,
+    registry,
+    runConfig: config,
+    deploy,
+  });
+  if (result.error) {
+    logger.error(result.error);
+    for (const m of result.messages) logger.log(`  ${m}`);
+    return 1;
+  }
+  for (const m of result.messages) logger.log(m);
+  return 0;
+}
+
+function collectAttestPositionals(): string[] {
+  const idx = args.indexOf("attest");
+  const out: string[] = [];
+  for (let i = idx + 1; i < args.length; i++) {
+    const a = args[i];
+    if (!a) continue;
+    if (a.startsWith("--")) {
+      if (VALUE_FLAGS.has(a.slice(2))) i++;
+      continue;
+    }
+    out.push(a);
+  }
+  return out;
+}
+
 async function runHostRun(): Promise<number> {
   const config = await loadQualityConfig(rootDir, getFlag("config"));
   const registry = registerPlugins(config.plugins);
@@ -214,6 +255,9 @@ switch (subcommand) {
   case "run":
     exitCode = await runHostRun();
     break;
+  case "attest":
+    exitCode = await runHostAttest();
+    break;
   case "no-as-casting":
     exitCode = await runNoAsCasting();
     break;
@@ -241,7 +285,7 @@ switch (subcommand) {
   default:
     logger.error(`Unknown quality subcommand: ${subcommand}`);
     logger.error(
-      "Expected one of: list, run, no-as-casting, no-require, css, css-quality, css-layout, css-vars, css-unused"
+      "Expected one of: list, run, attest, no-as-casting, no-require, css, css-quality, css-layout, css-vars, css-unused"
     );
     exitCode = 2;
 }

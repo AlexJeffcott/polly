@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-05-06
+
+### Added
+
+#### Attest workflow with GitHub commit-status posting (#97)
+
+Closes the last open child of #80. `polly quality attest` runs every
+registered check, signs the result on success, and posts a GitHub
+commit status that branch protection can require as a merge gate.
+
+`tools/quality/src/attest.ts` carries the workflow. A run refuses to
+attest a dirty working tree (`git status --porcelain` non-empty);
+once the tree is clean it resolves the current commit sha, the gh
+user, and the repo slug, then runs every registered check through
+the cache. A red result aborts with no status posted and a summary
+message naming the failed checks. A green result computes a SHA-256
+digest over the commit sha plus the sorted check ids, ok flags, and
+violation messages — `durationMs` and the `cached` flag are
+deliberately excluded so a cache-warmed re-attest produces the same
+digest as the original. The status posts under
+`polly/attested/<gh-username>` (or `polly/deploy-attested/<…>` when
+`polly quality attest deploy` is invoked) and is signed against the
+sha so branch protection can pin a required check by name.
+
+Authentication piggybacks on the local `gh` CLI rather than reading
+a `GITHUB_TOKEN` env var. Every contributor running `polly quality
+attest` already authenticated `gh` for issue and PR work; shelling
+out keeps the dependency surface zero and the auth surface single.
+The post itself is a `gh api -X POST repos/<slug>/statuses/<sha>`
+call so the failure surface is the same one the user already debugs
+when `gh` misbehaves.
+
+The signed entry persists at `.cache/polly-quality/attest/<sha>.json`
+so a re-invocation on the same commit short-circuits to a status
+refresh; the report on disk records the digest, the context, and the
+attestation timestamp.
+
+The CLI gains `polly quality attest` and `polly quality attest
+deploy` subcommands. The deploy variant currently reuses the same
+flow with a renamed status context; the consumer-defined preflight
+hook (e.g. lingua's TLA+ verify) is the natural follow-up and lands
+when a consumer needs it without changing the public command shape.
+
+Tests in `tests/unit/quality/attest.test.ts` cover digest determinism
+across reordering and cache-warmed re-runs, the result-changes-the-
+digest invariant, the sha-changes-the-digest invariant, and the
+`summariseRunReport` shape. The behavioural path that posts to
+GitHub runs against a real `gh` binary on real authentication and is
+exercised by attesting an actual commit.
+
+The umbrella issue #80 is now fully landed across 0.42.0 → 0.47.0.
+
 ## [0.46.0] - 2026-05-06
 
 ### Added

@@ -81,6 +81,13 @@ export {
 // ─────────────────────────────────────────────────────────────────
 
 export {
+  type AttestOptions,
+  type AttestResult,
+  digestRun,
+  runAttest,
+  summariseRunReport,
+} from "./attest";
+export {
   type CacheEntry,
   type CacheInputs,
   computeInputsHash,
