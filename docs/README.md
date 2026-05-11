@@ -1,88 +1,42 @@
 # Documentation
 
-Documentation for the `@fairfox/polly` multi-execution-context framework.
+Reference docs for `@fairfox/polly`. The entry-point pitch and the
+smallest end-to-end example live in the [root README](../README.md);
+this directory is the per-feature reference.
 
-## Core Documentation
+## Core
 
-### [ADAPTERS.md](./ADAPTERS.md)
-Adapter pattern implementation for browser and platform APIs:
-- All adapter interfaces (Runtime, Storage, Tabs, Window, Offscreen, ContextMenus, Fetch, Logger)
-- Chrome, Web, Node, and Mock implementations
-- Dependency injection patterns
+| Doc | Covers |
+|-----|--------|
+| [STATE.md](./STATE.md) | The four reactive state primitives (`$state`, `$persistedState`, `$syncedState`, `$sharedState`), `$resource`, the peer/mesh tiers (`$peerState`, `$meshState` and their text/counter/list variants), and the decision tree for picking one. |
+| [MESSAGING.md](./MESSAGING.md) | The `MessageBus`/`MessageRouter` cross-context messaging system, routing envelopes, request/response shapes, and the typed-message protocol. |
+| [ADAPTERS.md](./ADAPTERS.md) | The adapter pattern over browser/platform APIs (`runtime`, `storage`, `tabs`, `window`, `offscreen`, `contextMenus`, `fetch`, `logger`), plus the Chrome, web, Node, and mock implementations. |
+| [BACKGROUND_SETUP.md](./BACKGROUND_SETUP.md) | `createBackground()` vs `getMessageBus()`, the `MessageRouter` singleton, and the double-execution guard. |
+| [ACTIONS.md](./ACTIONS.md) | The action-registry pattern, event delegation, store providers, and `runAction` for testing. |
+| [UI.md](./UI.md) | The polly-ui component library — `Layout`, `Modal`, `ActionForm`, `Toast`, dialogs, and the three stylesheets (`styles.css`, `theme.css`, `components.css`). |
+| [CSS.md](./CSS.md) | The token-driven styling contract polly-ui enforces, and the four CSS conformance checks (`css-quality`, `css-layout`, `css-vars`, `css-unused`). |
+| [LOGGING.md](./LOGGING.md) | The logger adapter — `LogStore`, `LogLevel`, `LogEntry`, the `MessageLoggerAdapter` bridge, and querying/exporting from the popup. |
+| [ERRORS.md](./ERRORS.md) | The error types in `src/shared/lib/errors.ts` (`ExtensionError`, `TimeoutError`, `ConnectionError`, `MessageRouterError`, `HandlerError`, `APIError`, `OffscreenError`) and `ErrorHandler`. |
+| [TESTING.md](./TESTING.md) | Mock adapters, the browser harness (`@fairfox/polly/test/browser`), `runAction`/`createMockStores` for action tests, and the visual-baseline harness. |
 
-### [MESSAGING.md](./MESSAGING.md)
-Distributed messaging system:
-- Cross-context communication
-- Message routing
-- Request/response patterns
-- Type-safe message definitions
+## Verification
 
-### [STATE.md](./STATE.md)
-Reactive state management with sync and persistence:
-- State primitives ($sharedState, $syncedState, $persistedState, $state)
-- Automatic synchronization across contexts
-- Lamport clock for conflict resolution
-- Runtime validation and deep equality
+| Doc | Covers |
+|-----|--------|
+| [TLA_RESOURCES.md](./TLA_RESOURCES.md) | TLA+ tutorials, references, and troubleshooting notes — useful background for `polly verify`. |
+| [RFC-041-peer-first.md](./RFC-041-peer-first.md) | Design of the peer-first state tier (`$peerState`). |
+| [RFC-041-peer-first-webrtc.md](./RFC-041-peer-first-webrtc.md) | The WebRTC transport for the mesh tier (`$meshState`). |
+| [RFC-041-choosing.md](./RFC-041-choosing.md) | Decision tree across the three resilience tiers (`$sharedState`, `$peerState`, `$meshState`). |
+| [RFC-042-blob-sync.md](./RFC-042-blob-sync.md) | The content-addressed blob store that rides on the mesh transport. |
 
-### [ERRORS.md](./ERRORS.md)
-Type-safe error handling system:
-- Custom error classes with metadata
-- ErrorCode enum for categorization
-- Error propagation through message bus
-- Error recovery patterns
+## Generated
 
-### [LOGGING.md](./LOGGING.md)
-Logger adapter for consistent, testable logging:
-- LoggerAdapter interface and implementations
-- MockLogger for tests
-- Structured logging with context
-- Integration with MessageBus adapters
+- [architecture.dsl](./architecture.dsl) — Structurizr DSL produced by `polly visualize`.
 
-### [BACKGROUND_SETUP.md](./BACKGROUND_SETUP.md)
-Background script initialization:
-- `createBackground()` vs `getMessageBus()`
-- MessageRouter singleton pattern
-- Double-execution protection
+## Quick links
 
-### [TESTING.md](./TESTING.md)
-Testing guide:
-- Mock adapter usage
-- Unit vs integration testing patterns
-- Best practices
-
-### [DX-IMPROVEMENTS.md](./DX-IMPROVEMENTS.md)
-Developer experience enhancements:
-- `createContext()` helper
-- `registerHandlers()` bulk registration
-- Context-specific helpers
-
-### [MIGRATION-DX-ENHANCEMENTS.md](./MIGRATION-DX-ENHANCEMENTS.md)
-Migration guide for v0.13 DX enhancements:
-- Verification tracking with `{ verify: true }`
-- Runtime constraints
-- Auto-persistence
-- Shape validation helpers
-
-## Verification & Formal Methods
-
-### [TLA_RESOURCES.md](./TLA_RESOURCES.md)
-Curated TLA+ learning resources:
-- Official documentation and tools
-- Tutorials and courses
-- Symmetry reduction guides
-- Troubleshooting and FAQs
-
-## Generated Artifacts
-
-### [architecture.dsl](./architecture.dsl)
-Auto-generated Structurizr DSL from `polly visualize`.
-
-## Quick Start
-
-1. **New to the project?** Start with the root [README.md](../README.md)
-2. **Writing tests?** Check [TESTING.md](./TESTING.md)
-3. **Working with adapters?** Read [ADAPTERS.md](./ADAPTERS.md)
-4. **Message passing?** Study [MESSAGING.md](./MESSAGING.md)
-5. **State management?** See [STATE.md](./STATE.md)
-6. **Error handling?** See [ERRORS.md](./ERRORS.md)
-7. **Verification & TLA+?** See [TLA_RESOURCES.md](./TLA_RESOURCES.md)
+- New to the project? Start with the [root README](../README.md).
+- Picking a state primitive? [STATE.md](./STATE.md) has the decision tree.
+- Writing tests? [TESTING.md](./TESTING.md).
+- Wiring an adapter? [ADAPTERS.md](./ADAPTERS.md).
+- Running formal verification? [TLA_RESOURCES.md](./TLA_RESOURCES.md) and the `verify` config in `examples/todo-list/`.

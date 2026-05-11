@@ -50,8 +50,8 @@ import type { MeshKeyring } from "./shared/lib/mesh-network-adapter";
 import { applyPairingToken, decodePairingToken } from "./shared/lib/pairing";
 import { generateSigningKeyPair } from "./shared/lib/signing";
 
-// Re-export runtime-agnostic pieces so a Node consumer only needs one
-// import site.
+// Re-export runtime-agnostic pieces from a single entry point so a Node
+// consumer never has to reach into the browser-leaning subpaths.
 export type { KeyringStorage } from "./shared/lib/keyring-storage";
 export {
   deserialiseKeyring,

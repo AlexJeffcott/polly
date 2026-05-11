@@ -1,5 +1,5 @@
 // Error Message Tests - validates error messages are clear, actionable, and helpful
-// 20 comprehensive tests for validation error quality
+// 20 tests for validation error quality
 
 import { describe, expect, test } from "bun:test";
 import { RoundTripValidator } from "../../codegen/round-trip";
@@ -41,9 +41,7 @@ describe("Error Message Quality", () => {
     })),
   });
 
-  // ============================================================================
   // IDENTIFIER ERROR MESSAGES (5 tests)
-  // ============================================================================
 
   describe("Identifier Error Messages", () => {
     test("provides clear message for invalid character", () => {
@@ -93,9 +91,7 @@ describe("Error Message Quality", () => {
     });
   });
 
-  // ============================================================================
   // BRACKET ERROR MESSAGES (5 tests)
-  // ============================================================================
 
   describe("Bracket Error Messages", () => {
     test("indicates exact position of unmatched bracket", () => {
@@ -138,9 +134,7 @@ describe("Error Message Quality", () => {
     });
   });
 
-  // ============================================================================
   // OPERATOR ERROR MESSAGES (5 tests)
-  // ============================================================================
 
   describe("Operator Error Messages", () => {
     test("clearly identifies invalid operator", () => {
@@ -190,9 +184,7 @@ describe("Error Message Quality", () => {
     });
   });
 
-  // ============================================================================
   // MODULE STRUCTURE ERROR MESSAGES (3 tests)
-  // ============================================================================
 
   describe("Module Structure Error Messages", () => {
     test("explains missing MODULE declaration", () => {
@@ -225,12 +217,10 @@ describe("Error Message Quality", () => {
     });
   });
 
-  // ============================================================================
   // INTEGRATED ERROR MESSAGES (2 tests)
-  // ============================================================================
 
   describe("Integrated Error Messages", () => {
-    test("TLAValidationError provides comprehensive summary", async () => {
+    test("TLAValidationError provides full summary", async () => {
       const config = createConfig({ "invalid-field": { type: "enum", values: ["0"] } });
       const analysis = createAnalysis([], []);
 

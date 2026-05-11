@@ -38,7 +38,7 @@ describe("API Client", () => {
     expect(callInit?.method).toBe("POST");
 
     // Headers can be a Headers object or plain object
-    // Note: Eden treaty uses lowercase header keys
+    // Eden treaty uses lowercase header keys
     const contentType =
       callInit?.headers instanceof Headers
         ? callInit.headers.get("content-type")

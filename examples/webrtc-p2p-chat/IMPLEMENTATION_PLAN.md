@@ -230,7 +230,7 @@ export interface Room {
 - [ ] Dark mode (optional)
 
 ### Phase 7: Documentation
-- [ ] Comprehensive README
+- [ ] Full README
   - Architecture explanation
   - WebRTC concepts
   - Running instructions
@@ -379,7 +379,7 @@ With N peers:
 ✅ Polly state management makes UI reactive
 ✅ Connection state clearly indicated
 ✅ Clean disconnect handling
-✅ Comprehensive documentation
+✅ Full documentation
 
 ## Learning Outcomes
 

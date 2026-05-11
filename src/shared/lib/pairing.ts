@@ -201,7 +201,7 @@ export function applyPairingToken(
   keyring.documentKeys.set(token.documentKeyId, token.documentKey);
 }
 
-// ─── binary serialisation ──────────────────────────────────────────────────
+// binary serialisation
 
 /**
  * Serialise a token to a binary blob. The wire format is:
@@ -408,7 +408,7 @@ export function decodePairingToken(encoded: string): PairingToken {
   return parsePairingToken(bytes);
 }
 
-// ─── helpers ───────────────────────────────────────────────────────────────
+// helpers
 
 function validateForSerialisation(token: PairingToken): void {
   if (token.issuerPublicKey.length !== SIGNING_PUBLIC_KEY_BYTES) {

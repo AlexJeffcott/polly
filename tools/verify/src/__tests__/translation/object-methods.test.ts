@@ -185,7 +185,7 @@ describe("Object/Array Method Translation", () => {
 
     test("translates nested array access", async () => {
       baseConfig.state.matrix = { type: "array", maxLength: 3 };
-      // Note: Currently only first index is converted; nested indices are a known limitation
+      // Currently only first index is converted; nested indices are a known limitation
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.matrix[0] === 'value'", location: { line: 1, column: 1 } },
       ];
@@ -506,7 +506,7 @@ describe("Object/Array Method Translation", () => {
     });
 
     test("translates string includes", async () => {
-      // Note: For enum fields, .includes() is treated as membership check
+      // For enum fields, .includes() is treated as membership check
       // For true substring matching, would need proper string type
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.name.includes('alice')", location: { line: 1, column: 1 } },

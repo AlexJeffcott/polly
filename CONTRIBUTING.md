@@ -20,24 +20,29 @@ Polly (πολύς - "many") is a multi-execution-context framework for building 
    cd polly
    ```
 
-2. **Install dependencies and set up CLI**:
+2. **Install dependencies**:
    ```bash
-   bun run setup
+   bun install
    ```
 
-   This command will:
-   - Install all dependencies
-   - Build the library with TypeScript declarations
-   - Link the `polly` CLI globally
+3. **Build the library and link the CLI**:
+   ```bash
+   bun run build:lib
+   bun link
+   ```
 
-3. **Add CLI to your PATH** (add to `~/.zshrc` or `~/.bashrc`):
+   `build:lib` produces the runtime + TypeScript declarations under `dist/`.
+   `bun link` exposes the `polly` binary defined by `package.json#bin` to the
+   shell. After the link step, add bun's bin dir to your `PATH` if you haven't
+   already:
+
    ```bash
    export PATH="$HOME/.bun/bin:$PATH"
    ```
 
-4. **Verify setup**:
+4. **Verify the install**:
    ```bash
-   polly help
+   polly --help
    ```
 
 ## Development Workflow
@@ -101,44 +106,51 @@ polly/
 
 ### Testing
 
-#### Unit Tests
+#### Unit tests
 
 ```bash
-bun run test
+bun run test                    # Runs the tests workspace via bun:test
+bun run test:watch              # Same, with watch mode
 ```
 
-Unit tests are located alongside source files with `.test.ts` suffix.
+Unit tests live in the `tests/` workspace, organised by area
+(`tests/unit/quality/`, `tests/unit/state/`, etc.). The colocated
+`*.test.ts` pattern is also used inside `tools/` (e.g.
+`tools/verify/src/__tests__/`).
 
-#### E2E Tests
+#### Browser tests
+
+Tests for code that needs a real DOM (Preact rendering, WebRTC
+adapters, etc.) run through a Puppeteer harness:
 
 ```bash
-bun run test:framework           # Run all E2E tests
-bun run test:framework:ui        # Run with Playwright UI
-bun run test:framework:headed    # Run in headed mode
-bun run test:framework:debug     # Run with debugging
+polly test:browser tests/browser           # Or any directory holding *.browser.ts
 ```
 
-E2E tests use Playwright to test real Chrome extension behavior.
+The harness is implemented in `tools/test/src/browser/`. Each
+`*.browser.ts` file is bundled with `Bun.build`, served on an
+ephemeral port, and its results collected back to the runner.
 
-#### Writing Tests
+#### Example test suites
+
+```bash
+bun run test:examples           # Lint + typecheck + verify three examples
+bun run test:e2e:visualize      # End-to-end test of `polly visualize`
+bun run test:all                # Lint + typecheck + tests + examples + e2e
+```
+
+#### Writing tests
 
 ```typescript
-// Unit test example
 import { describe, test, expect } from "bun:test";
+import { createMockAdapters } from "@fairfox/polly/test";
 
 describe("MessageBus", () => {
   test("sends messages", async () => {
-    const bus = getMessageBus("popup");
-    const result = await bus.send({ type: "PING" });
-    expect(result).toBeDefined();
+    const adapters = createMockAdapters();
+    // ... wire up the bus against the mock adapters, send a message,
+    // assert against adapters.runtime._sentMessages.
   });
-});
-
-// E2E test example
-import { test, expect } from "@playwright/test";
-
-test("state syncs between contexts", async ({ page, context }) => {
-  // Test implementation
 });
 ```
 
@@ -224,10 +236,14 @@ if (isSettings(stored.settings)) {
 
 ### Formatting
 
-- Use Biome for formatting (configured in `biome.json`)
-- 2-space indentation
-- No semicolons (except where required)
-- Single quotes for strings
+- Biome handles formatting; see `biome.json`.
+- 2-space indentation.
+- Double quotes for strings.
+- Semicolons always.
+- Trailing commas where ES5 permits them (objects, arrays).
+
+Run `bun run format` before committing — or rely on biome via your
+editor.
 
 ### Naming Conventions
 
@@ -255,212 +271,117 @@ export function getMessageBus<T>(context: string): MessageBus<T> {
 }
 ```
 
-## Commit Messages
+## Commit messages and PR descriptions
 
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+Commits and PR descriptions are written in plain English. They describe
+the change and the reason for it, not its mechanics. They are written
+from the task description (and any refinement notes), not from the
+diff.
 
-```
-type(scope): description
+Avoid the Conventional-Commits prefix grammar (`feat:`, `fix:`, etc.) —
+the project does not use it.
 
-[optional body]
+Avoid:
 
-[optional footer]
-```
+- Sentence-starter scope tags (`docs:`, `chore:`).
+- Bulleted "What changed" lists that restate the diff.
+- "Test steps" or "How to test" sections in PR bodies (CI proves the
+  test plan ran; the PR body explains the change).
+- Authorship attributions or co-author trailers added by tooling
+  unless the user has explicitly asked for them on a given commit.
 
-### Types
-
-- **feat**: New feature
-- **fix**: Bug fix
-- **docs**: Documentation changes
-- **style**: Code style changes (formatting, etc.)
-- **refactor**: Code refactoring
-- **test**: Adding or updating tests
-- **chore**: Maintenance tasks
-
-### Examples
-
-```
-feat(state): add $persistedState primitive
-
-Add a new state primitive that persists to storage without syncing.
-Useful for local-only state that should survive reloads.
-
-Closes #123
-```
-
-```
-fix(message-bus): prevent duplicate message handlers
-
-MessageRouter now tracks registered handlers to prevent duplicates
-when the background script is executed multiple times.
-```
+A good commit message reads like a short note from the author to a
+future reader: what was done, what motivated it, and any constraint a
+reader might need to know about the result.
 
 ## Pull Requests
 
-### Before Submitting
+### Before submitting
 
-1. **Run all checks**:
-   ```bash
-   bun run check
-   ```
+1. `bun run check` passes.
+2. `bun run test` passes locally.
+3. The relevant browser, example, or e2e suite passes if you touched
+   code those exercise.
+4. The change is documented where a reader would expect to find it
+   (README, the matching `docs/*.md`, or the example's README).
 
-2. **Test your changes**:
-   ```bash
-   bun run test
-   bun run test:framework
-   ```
+### Guidelines
 
-3. **Update documentation** if needed
+- The PR title is the same one-line summary you'd write in a commit.
+  Plain English; no `feat:` / `fix:` prefix.
+- The description is one or two paragraphs that explain the change and
+  the reason for it. See "Commit messages and PR descriptions" above.
+- Reference related issues with `Closes #N` or `Refs #N`.
+- For UI changes, attach a screenshot or short clip.
+- Breaking changes are called out explicitly in the description and
+  in `CHANGELOG.md`.
 
-4. **Add tests** for new features
+## Architecture notes
 
-### PR Guidelines
+State primitives are built on Preact signals. Cross-context
+synchronisation uses Lamport clocks for ordering, Chrome storage (or
+the equivalent web adapter) for persistence, and ports plus
+`BroadcastChannel` for transport. The peer and mesh tiers replace the
+storage layer with Automerge CRDT replicas and WebRTC data channels.
 
-- **Title**: Use conventional commit format
-- **Description**: Explain what, why, and how
-- **Link issues**: Reference related issues
-- **Screenshots**: Add for UI changes
-- **Breaking changes**: Clearly document
-
-### PR Template
-
-```markdown
-## Description
-Brief description of changes
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-- [ ] Unit tests pass
-- [ ] E2E tests pass
-- [ ] Manual testing completed
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Self-review completed
-- [ ] Comments added for complex code
-- [ ] Documentation updated
-- [ ] No breaking changes (or documented)
-```
-
-## Architecture Decisions
-
-### State Management
-
-- Use Preact signals for reactivity
-- Lamport clocks for distributed consistency
-- Chrome storage for persistence
-- Ports for cross-context communication
-
-### Type Safety
-
-- No `any` types
-- No type casting (`as`) - use type guards
-- Strict TypeScript configuration
-- End-to-end type safety
-
-### Framework Philosophy
-
-1. **Zero Magic**: Explicit, predictable behavior
-2. **Type Safety First**: Compile-time guarantees
-3. **Developer Experience**: Fast builds, great errors
-4. **Framework Over Library**: Opinionated patterns
-5. **Formal Correctness**: TLA+ for critical components
+Type-safety rules are enforced by the conformance plugin under
+`polly quality run`: no `any`, no `as` casts outside `as const` and the
+explicit `as unknown as Y` escape hatch, no `require(...)`, no
+`node:`/`bun:` imports inside browser-targeted code, no decorative
+comment banners or marketing prose. The full list of rules is in
+`tools/quality/src/plugins/`.
 
 ## Verification
 
-### TLA+ Specifications
-
-Critical components have TLA+ specifications in `specs/`:
-
-```bash
-# Start TLA+ environment
-bun run tla:up
-
-# Run verification
-bun run tla:check
-
-# Stop environment
-bun run tla:down
-```
-
-### Formal Verification Tool
+Polly ships a TLA+/TLC pipeline as a first-class part of the
+toolchain. From inside any example:
 
 ```bash
-cd examples/full-featured
-bun run verify              # Run verification
-bun run verify --setup      # Generate config
+cd examples/todo-list
+polly verify                # Lints, generates spec, runs TLC
+polly verify --setup        # Scaffold a specs/verification.config.ts
 ```
+
+The generator lives at `tools/verify/`. Handler-level `requires()` and
+`ensures()` annotations are runtime no-ops; the verifier reads them
+statically to build invariants and temporal properties.
+
+For subsystem-scoped runs and the supporting handlers, see
+`docs/TLA_RESOURCES.md` and the verification config shipped with the
+todo-list example.
 
 ## Documentation
 
-### Where to Document
+### Where to document
 
-- **README.md**: High-level overview, quick start
-- **Code comments**: Complex logic, non-obvious behavior
-- **JSDoc**: Public APIs
-- **Examples**: Working code samples
-- **CONTRIBUTING.md**: Development guidelines
+- `README.md` for the entry-point pitch and the smallest end-to-end
+  example.
+- `docs/*.md` for feature areas (state, messaging, adapters, testing,
+  UI, CSS, actions, errors, logging, background setup, TLA+).
+- JSDoc on every public export — these surface in editor tooltips and
+  in generated declaration files.
+- Example READMEs for runnable, copy-paste-ready usage.
 
-### Documentation Standards
+Documentation is held to the same conformance bar as code: the
+`polly:no-banners`, `polly:no-decorative-emoji`, `polly:no-marketing`,
+`polly:no-note-prefix`, and `polly:no-commented-code` checks run over
+`docs/` (and the marketing check covers prose), so the same rules that
+keep source clean keep the documentation clean.
 
-- Clear and concise
-- Include code examples
-- Keep up to date
-- Test examples (ensure they work)
+## Release process
 
-## Release Process
+(For maintainers.)
 
-(For maintainers)
+Polly publishes a single package, `@fairfox/polly`. The internal tool
+packages (verify, visualize, analysis, quality, test) are bundled into
+that one publish via subpath exports declared in `package.json`. Steps:
 
-### Publishing Strategy
+1. Bump `version` in `package.json` and add a `CHANGELOG.md` entry.
+2. `bun run check && bun run test:all`.
+3. `bun run build:lib`.
+4. `npm publish --access public`.
 
-The project uses a **single-package publishing model**:
-- Only `@fairfox/polly` is published to npm
-- Internal packages (verify, visualize, analysis) are marked `private: true`
-- All tools are bundled into the main CLI
-- Users get the complete framework and toolchain with one install
+## Getting help
 
-### Release Steps
-
-1. **Update version** in `package.json`
-2. **Update CHANGELOG.md**
-3. **Run full test suite**:
-   ```bash
-   bun run check
-   bun run test:all
-   ```
-4. **Build for production**:
-   ```bash
-   bun run build:lib
-   ```
-5. **Publish to npm**:
-   ```bash
-   npm publish --access public
-   ```
-
-This publishes the framework with:
-- Core runtime (state, message-bus, adapters)
-- CLI with all commands (polly init, build, verify, visualize, etc.)
-- Bundled verification and visualization tools
-- TypeScript definitions
-- Multi-platform support (Chrome extensions, PWAs, workers)
-
-## Getting Help
-
-- **Issues**: [GitHub Issues](https://github.com/AlexJeffcott/polly/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/AlexJeffcott/polly/discussions)
-- **Email**: [maintainer email]
-
-## Code of Conduct
-
-- Be respectful and inclusive
-- Welcome newcomers
-- Focus on what's best for the community
-- Show empathy towards others
-
-Thank you for contributing! 🎉
+- Issues: [GitHub Issues](https://github.com/AlexJeffcott/polly/issues)
+- Discussions: [GitHub Discussions](https://github.com/AlexJeffcott/polly/discussions)

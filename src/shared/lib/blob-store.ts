@@ -8,9 +8,7 @@
 
 import type { BlobRef } from "./blob-ref";
 
-// ---------------------------------------------------------------------------
 // Progress reporting
-// ---------------------------------------------------------------------------
 
 export type BlobProgressPhase = "encrypting" | "uploading" | "downloading" | "decrypting";
 
@@ -35,9 +33,7 @@ export interface BlobTransferOptions {
   key?: Uint8Array;
 }
 
-// ---------------------------------------------------------------------------
 // Cache abstraction
-// ---------------------------------------------------------------------------
 
 /** Storage backend for blob bytes. Implementations must store Uint8Array
  *  values keyed by SHA-256 hex hash without serialisation loss. */
@@ -64,9 +60,7 @@ export interface BlobCache {
   evict(maxBytes: number): Promise<number>;
 }
 
-// ---------------------------------------------------------------------------
 // Blob store
-// ---------------------------------------------------------------------------
 
 export interface BlobStore {
   /** Store bytes locally and announce availability to connected peers.
@@ -102,9 +96,7 @@ export interface BlobStore {
   dispose(): void;
 }
 
-// ---------------------------------------------------------------------------
 // Blob store options
-// ---------------------------------------------------------------------------
 
 export interface BlobStoreOptions {
   /** Maximum blob size in bytes. Defaults to 100 MiB. */

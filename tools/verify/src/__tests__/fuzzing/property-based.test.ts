@@ -196,7 +196,7 @@ describe("Property-Based Testing: TLA+ Generation", () => {
         );
 
         // Property: Project-specific constants should be present
-        // Note: Priority order is maxWorkers > maxRenderers > maxContexts > maxClients
+        // Priority order is maxWorkers > maxRenderers > maxContexts > maxClients
         const hasMaxWorkers = "maxWorkers" in config.messages;
         const hasMaxRenderers = !hasMaxWorkers && "maxRenderers" in config.messages;
         const hasMaxContexts =

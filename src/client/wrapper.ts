@@ -196,9 +196,8 @@ export function createPollyClient<T extends Record<string, unknown>>(
                 // Replace optimistic with server result (default)
                 // The client effect will handle this
               } else if (typeof mergeStrategy === "function") {
-                // TODO: Update local state with merged result
-                // const merged = mergeStrategy(req.optimisticResult, result);
-                // Apply merged state to local signals
+                // TODO: call mergeStrategy(req.optimisticResult, result) and apply
+                // the merged state to local signals.
               }
             }
 

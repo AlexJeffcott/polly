@@ -109,7 +109,7 @@ export class TLAGenerator {
    * 1. Pre-validate inputs
    * 2. Generate spec
    * 3. Fast syntax validation
-   * 4. SANY validation (comprehensive)
+   * 4. SANY validation (full grammar)
    * 5. Round-trip validation
    *
    * Throws TLAValidationError if validation fails.
@@ -201,7 +201,7 @@ export class TLAGenerator {
     // Fast syntax validation
     const syntaxErrors = this.performSyntaxValidation(spec);
 
-    // SANY validation (comprehensive)
+    // SANY validation (full grammar)
     const sanyResult = await this.performSANYValidation(spec);
 
     // Round-trip validation
@@ -300,7 +300,7 @@ export class TLAGenerator {
       }
     }
 
-    // Note: State field names are sanitized (dots → underscores) during generation,
+    // State field names are sanitized (dots → underscores) during generation,
     // so we don't validate them here as strict TLA+ identifiers
   }
 
@@ -1074,7 +1074,7 @@ export class TLAGenerator {
     this.indent--;
     this.line("");
 
-    // Note: Tabs is a CONSTANT in MessageRouter.tla, assigned via config file as {Tab0, Tab1, ...}
+    // Tabs is a CONSTANT in MessageRouter.tla, assigned via config file as {Tab0, Tab1, ...}
 
     // Generate TabSymmetry permutations
     this.line("TabSymmetry == Permutations(Tabs)");
@@ -2133,10 +2133,8 @@ export class TLAGenerator {
 
     let result = expr;
 
-    // =========================================================================
     // Verification helper functions (hasLength, inRange, oneOf)
     // These must be translated FIRST before other array operations
-    // =========================================================================
 
     // hasLength(arr, { max: N }) -> Len(arr) <= N
     // hasLength(arr, { min: M }) -> Len(arr) >= M
@@ -2357,7 +2355,7 @@ export class TLAGenerator {
     );
 
     // substring(start, end) → SubSeq(str, start+1, end)
-    // Note: substring auto-swaps if start > end
+    // substring auto-swaps if start > end
     result = result.replace(
       /(\w+(?:\.\w+)*)\.substring\((\d+),\s*(\d+)\)/g,
       (_match, strRef, start, end) => {
@@ -2401,7 +2399,7 @@ export class TLAGenerator {
     result = this.translateTernary(result);
 
     // Phase 4: Handle logical short-circuit (advanced)
-    // Note: && and || are handled later as simple operators
+    // && and || are handled later as simple operators
     // This is for special cases where we want IF-THEN-ELSE semantics
 
     return result;
@@ -2521,7 +2519,7 @@ export class TLAGenerator {
 
       // Pattern 3: identifier?.[index] (bracket notation with number)
       // Matches: items?.[0], arr?.[5], etc.
-      // Note: TLA+ uses 1-based indexing, so [0] becomes [1]
+      // TLA+ uses 1-based indexing, so [0] becomes [1]
       result = result.replace(/(\w+(?:\.\w+)*)\?\.\[(\d+)\]/g, (_match, obj, index) => {
         const tlaIndex = Number.parseInt(index, 10) + 1; // Convert to 1-based
         return `IF ${obj} # NULL THEN ${obj}[${tlaIndex}] ELSE NULL`;
@@ -2831,7 +2829,7 @@ export class TLAGenerator {
 
     if (hasValidHandlers) {
       // Use integrated routing + handlers
-      // Note: payload is UNCHANGED for non-message actions, but can change non-deterministically
+      // payload is UNCHANGED for non-message actions, but can change non-deterministically
       // when a message is routed (to model any possible payload value)
       this.line(
         "\\/ \\E c \\in Contexts : ConnectPort(c) /\\ UNCHANGED <<contextStates, payload>>"

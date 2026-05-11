@@ -32,7 +32,7 @@ export type ValidationResult = {
  * via Docker to validate generated specifications.
  *
  * SANY is the standard TLA+ parser used by TLC and the TLA+ Toolbox.
- * Running it ensures that generated specs are syntactically valid
+ * Running it confirms that generated specs are syntactically valid
  * before attempting model checking.
  */
 export class SANYRunner {

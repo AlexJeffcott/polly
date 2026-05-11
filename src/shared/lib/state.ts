@@ -225,7 +225,7 @@ function resolveAdapters(options: InternalStateOptions): {
   }
 
   // Priority 2: MessageBus (legacy support)
-  // Note: MessageBus doesn't provide sync adapter, only Chrome storage
+  // MessageBus doesn't provide sync adapter, only Chrome storage
   if (options.bus) {
     return {
       storage: options.bus.adapters.storage,

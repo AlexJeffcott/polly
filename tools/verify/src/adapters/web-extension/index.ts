@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Web Extension Adapter
-// ═══════════════════════════════════════════════════════════════
 //
 // Extracts verification model from Chrome extension codebases.
 // Recognizes:
@@ -22,9 +20,7 @@ import type {
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
-// ─────────────────────────────────────────────────────────────────
 // Configuration
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Extension contexts that can send/receive messages
@@ -52,9 +48,7 @@ export interface WebExtensionAdapterConfig extends AdapterConfig {
   maxInFlight?: number;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Web Extension Adapter Implementation
-// ─────────────────────────────────────────────────────────────────
 
 export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterConfig> {
   readonly name = "web-extension";
@@ -382,9 +376,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     return this.extractCondition(node);
   }
 
-  // ─────────────────────────────────────────────────────────────────
   // Private Helper Methods
-  // ─────────────────────────────────────────────────────────────────
 
   /**
    * Extract all handlers from a source file

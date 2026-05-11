@@ -1,5 +1,5 @@
 // Compound Assignments Tests - validates detection and translation of compound operators
-// 50 comprehensive tests for compound assignment detection
+// 50 tests for compound assignment detection
 
 import { describe, expect, test } from "bun:test";
 import { TLAGenerator } from "../../codegen/tla";
@@ -35,9 +35,7 @@ describe("Compound Assignments Detection", () => {
     ],
   });
 
-  // ============================================================================
   // ADDITION ASSIGNMENT (+=) - 10 tests
-  // ============================================================================
 
   describe("Addition Assignment (+=)", () => {
     test("translates count += 1 to @ + 1", async () => {
@@ -147,9 +145,7 @@ describe("Compound Assignments Detection", () => {
     });
   });
 
-  // ============================================================================
   // SUBTRACTION ASSIGNMENT (-=) - 10 tests
-  // ============================================================================
 
   describe("Subtraction Assignment (-=)", () => {
     test("translates count -= 1 to @ - 1", async () => {
@@ -261,9 +257,7 @@ describe("Compound Assignments Detection", () => {
     });
   });
 
-  // ============================================================================
   // MULTIPLICATION/DIVISION/MODULO (10 tests)
-  // ============================================================================
 
   describe("Multiplication, Division, Modulo", () => {
     test("translates count *= 2", async () => {
@@ -373,9 +367,7 @@ describe("Compound Assignments Detection", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY PUSH OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Push Operations", () => {
     test("translates items.push(item) to Append", async () => {
@@ -499,9 +491,7 @@ describe("Compound Assignments Detection", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY POP/SHIFT/UNSHIFT (10 tests)
-  // ============================================================================
 
   describe("Array Pop, Shift, Unshift Operations", () => {
     test("translates items.pop() to SubSeq", async () => {

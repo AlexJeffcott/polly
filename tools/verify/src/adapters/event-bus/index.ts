@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Event Bus Adapter
-// ═══════════════════════════════════════════════════════════════
 //
 // Extracts verification model from event-driven systems using EventEmitter.
 // Recognizes:
@@ -22,9 +20,7 @@ import type {
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
-// ─────────────────────────────────────────────────────────────────
 // Configuration
-// ─────────────────────────────────────────────────────────────────
 
 export interface EventBusAdapterConfig extends AdapterConfig {
   /** EventEmitter library being used (default: "events") */
@@ -40,9 +36,7 @@ export interface EventBusAdapterConfig extends AdapterConfig {
   maxEmitters?: number;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Event Bus Adapter Implementation
-// ─────────────────────────────────────────────────────────────────
 
 export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
   readonly name = "event-bus";
@@ -239,9 +233,7 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     return this.extractCondition(node);
   }
 
-  // ─────────────────────────────────────────────────────────────────
   // Private Helper Methods
-  // ─────────────────────────────────────────────────────────────────
 
   /**
    * Extract all handlers from a source file

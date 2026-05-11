@@ -1,5 +1,5 @@
 // TLA+ Syntax Validation Tests - lightweight validator for fast feedback
-// 60 comprehensive tests for TLAValidator class
+// 60 tests for TLAValidator class
 
 import { describe, expect, test } from "bun:test";
 import { TLAValidator } from "../../codegen/tla-validator";
@@ -7,9 +7,7 @@ import { TLAValidator } from "../../codegen/tla-validator";
 describe("TLA+ Syntax Validation", () => {
   const validator = new TLAValidator();
 
-  // ============================================================================
   // IDENTIFIER VALIDATION (15 tests)
-  // ============================================================================
 
   describe("Identifier Validation", () => {
     test("accepts valid single-letter identifier", () => {
@@ -103,9 +101,7 @@ describe("TLA+ Syntax Validation", () => {
     });
   });
 
-  // ============================================================================
   // RESERVED WORD VALIDATION (10 tests)
-  // ============================================================================
 
   describe("Reserved Word Validation", () => {
     test("rejects TRUE as identifier", () => {
@@ -169,9 +165,7 @@ describe("TLA+ Syntax Validation", () => {
     });
   });
 
-  // ============================================================================
   // BRACKET MATCHING (10 tests)
-  // ============================================================================
 
   describe("Bracket Matching", () => {
     test("accepts balanced parentheses", () => {
@@ -233,9 +227,7 @@ describe("TLA+ Syntax Validation", () => {
     });
   });
 
-  // ============================================================================
   // EXPRESSION VALIDATION (10 tests)
-  // ============================================================================
 
   describe("Expression Validation", () => {
     test("accepts empty expression", () => {
@@ -301,9 +293,7 @@ describe("TLA+ Syntax Validation", () => {
     });
   });
 
-  // ============================================================================
   // RECORD SYNTAX VALIDATION (5 tests)
-  // ============================================================================
 
   describe("Record Syntax Validation", () => {
     test("accepts TLA+ record syntax", () => {
@@ -335,9 +325,7 @@ describe("TLA+ Syntax Validation", () => {
     });
   });
 
-  // ============================================================================
   // OPERATOR CONTEXT VALIDATION (5 tests)
-  // ============================================================================
 
   describe("Operator Context Validation", () => {
     test("allows prime in action context", () => {
@@ -369,9 +357,7 @@ describe("TLA+ Syntax Validation", () => {
     });
   });
 
-  // ============================================================================
   // MODULE STRUCTURE VALIDATION (5 tests)
-  // ============================================================================
 
   describe("Module Structure Validation", () => {
     test("accepts valid module structure", () => {

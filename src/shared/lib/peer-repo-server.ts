@@ -48,8 +48,8 @@ import type { NodeFSStorageAdapter as NodeFSStorageAdapterType } from "@automerg
 import type * as wsType from "ws";
 
 // `@types/ws` uses CJS `export = WebSocket` with WebSocketServer hanging off
-// the namespace. Under the project's bundler module resolution, the namespace
-// import gives us access to both the constructor and the type.
+// the namespace. Under the project's bundler module resolution, the
+// namespace alias gives us access to both the constructor and the type.
 type WebSocketServer = wsType.WebSocketServer;
 
 export interface CreatePeerRepoServerOptions {

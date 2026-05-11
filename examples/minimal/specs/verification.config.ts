@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Verification Configuration
-// ═══════════════════════════════════════════════════════════════
 //
 // This file configures TLA+ verification for your extension.
 // Some values are auto-configured, others need your input.
@@ -45,7 +43,6 @@ export const verificationConfig = defineVerification({
   },
 
   // Verification behavior
-  // ─────────────────────
   //
   // onBuild: What to do during development builds
   //   • 'warn' - Show warnings but don't fail (recommended)

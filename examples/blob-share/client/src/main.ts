@@ -24,9 +24,7 @@ import {
   MeshWebRTCAdapter,
 } from "@fairfox/polly/mesh";
 
-// ---------------------------------------------------------------------------
 // Known-peer lobby
-// ---------------------------------------------------------------------------
 //
 // The signalling server is a relay — it doesn't do peer discovery. For a
 // real app, you'd use a room protocol or an out-of-band introduction.
@@ -69,9 +67,7 @@ function removeFromLobby(peerId: string): void {
   writeLobby(readLobby().filter((e) => e.peerId !== peerId));
 }
 
-// ---------------------------------------------------------------------------
 // Demo encryption key
-// ---------------------------------------------------------------------------
 //
 // In a real app this key would come from a pairing token (see
 // docs/STATE.md). For this demo, every tab in the same browser shares a
@@ -89,9 +85,7 @@ function getOrCreateSharedKey(): Uint8Array {
   return key;
 }
 
-// ---------------------------------------------------------------------------
 // UI helpers
-// ---------------------------------------------------------------------------
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -128,9 +122,7 @@ function fromHex(hex: string): Uint8Array {
   return result;
 }
 
-// ---------------------------------------------------------------------------
 // File list state
-// ---------------------------------------------------------------------------
 
 interface FileEntry {
   hash: string;
@@ -202,9 +194,7 @@ function renderFiles(): void {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Bootstrap
-// ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   const identity = generateSigningKeyPair();

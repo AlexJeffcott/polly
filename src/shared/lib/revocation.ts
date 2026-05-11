@@ -142,7 +142,7 @@ export function revokePeerLocally(peerId: string, keyring: MeshKeyring): void {
   keyring.revokedPeers.add(peerId);
 }
 
-// ─── binary serialisation ──────────────────────────────────────────────────
+// binary serialisation
 
 /**
  * Serialise a {@link RevocationRecord} to a binary payload ready for

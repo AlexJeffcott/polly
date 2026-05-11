@@ -11,9 +11,7 @@ const messageBus = {
   },
 };
 
-// ============================================================================
 // State declarations with verify: true
-// ============================================================================
 
 export const connectionState = $sharedState(
   "connection",
@@ -24,9 +22,7 @@ export const connectionState = $sharedState(
   { verify: true }
 );
 
-// ============================================================================
 // DOM Event Handlers - these produce messageType like "connected"
-// ============================================================================
 
 // This will produce: messageType = "connected" → HandleConnected
 messageBus.on("connected", () => {
@@ -38,9 +34,7 @@ messageBus.on("disconnected", () => {
   console.log("WebSocket disconnected event");
 });
 
-// ============================================================================
 // State Handlers - these produce messageType like "Connected" (after stripping "handle")
-// ============================================================================
 
 // This will produce: messageType = "Connected" → HandleConnected (COLLISION!)
 export function handleConnected(): void {

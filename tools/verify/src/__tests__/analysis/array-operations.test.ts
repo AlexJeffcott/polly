@@ -1,5 +1,5 @@
 // Array Operations Translation Tests - validates array/string operations in conditions
-// 70 comprehensive tests for array operation translation
+// 70 tests for array operation translation
 
 import { describe, expect, test } from "bun:test";
 import { TLAGenerator } from "../../codegen/tla";
@@ -40,9 +40,7 @@ describe("Array Operations Translation", () => {
         : [],
   });
 
-  // ============================================================================
   // ARRAY LENGTH OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Length Translation", () => {
     test("translates array.length to Len(array)", async () => {
@@ -162,9 +160,7 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY INCLUDES OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Includes Translation", () => {
     test("translates array.includes(item) to item \\in array", async () => {
@@ -285,9 +281,7 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY INDEXING OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Indexing Translation", () => {
     test("translates array[0] to array[1] (1-based)", async () => {
@@ -393,9 +387,7 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY SOME OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Some Translation", () => {
     test("translates array.some to \\E quantifier", async () => {
@@ -511,9 +503,7 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY EVERY OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Every Translation", () => {
     test("translates array.every to \\A quantifier", async () => {
@@ -630,9 +620,7 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY FIND OPERATIONS (10 tests)
-  // ============================================================================
 
   describe("Array Find Translation", () => {
     test("translates array.find to CHOOSE", async () => {
@@ -752,9 +740,7 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // ARRAY FILTER.LENGTH OPERATIONS (5 tests)
-  // ============================================================================
 
   describe("Array Filter Length Translation", () => {
     test("translates array.filter().length to Cardinality", async () => {
@@ -808,12 +794,10 @@ describe("Array Operations Translation", () => {
     });
   });
 
-  // ============================================================================
   // STRING OPERATIONS (3 tests)
-  // ============================================================================
 
   describe("String Operations Translation", () => {
-    // Note: String operations like startsWith/endsWith/includes are handled
+    // String operations like startsWith/endsWith/includes are handled
     // by the translateArrayOperations() method for string fields.
     // The current tests use enum fields (set of values), not string fields,
     // so string methods work differently.

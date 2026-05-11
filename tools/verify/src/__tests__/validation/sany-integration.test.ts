@@ -1,5 +1,5 @@
 // SANY integration tests - validates SANY Docker integration and error parsing
-// 40 comprehensive tests for the official TLA+ syntax analyzer
+// 40 tests for the official TLA+ syntax analyzer
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
@@ -35,16 +35,14 @@ describe("SANY Integration Tests", () => {
   };
 
   // Cleanup after all tests
-  // Note: Using process.on('exit') instead of afterAll for cleanup
+  // Using process.on('exit') instead of afterAll for cleanup
   process.on("exit", () => {
     if (tempDir && fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true });
     }
   });
 
-  // ============================================================================
   // VALID SPEC TESTS (10 tests)
-  // ============================================================================
 
   describe("Valid TLA+ Specifications", () => {
     test("validates minimal valid spec", async () => {
@@ -250,9 +248,7 @@ Next == /\\ x' = x + 1
     });
   });
 
-  // ============================================================================
   // INVALID SPEC TESTS - LEXICAL ERRORS (10 tests)
-  // ============================================================================
 
   describe("Lexical Errors Detection", () => {
     test("detects invalid character in identifier", async () => {
@@ -421,9 +417,7 @@ Init == x = "test\\q"
     });
   });
 
-  // ============================================================================
   // SEMANTIC ERRORS (10 tests)
-  // ============================================================================
 
   describe("Semantic Errors Detection", () => {
     test("detects undefined variable", async () => {
@@ -604,9 +598,7 @@ Init == x = Foo
     });
   });
 
-  // ============================================================================
   // ERROR PARSING & LINE NUMBERS (5 tests)
-  // ============================================================================
 
   describe("Error Parsing and Line Numbers", () => {
     test("correctly extracts line number from lexical error", async () => {
@@ -708,9 +700,7 @@ Spec == Init /\\ [][Next]_x
     });
   });
 
-  // ============================================================================
   // EDGE CASES & ERROR HANDLING (5 tests)
-  // ============================================================================
 
   describe("Edge Cases and Error Handling", () => {
     test("handles non-existent file gracefully", async () => {

@@ -1,14 +1,10 @@
-// ═══════════════════════════════════════════════════════════════
 // Core Analysis Model (Domain-Agnostic)
-// ═══════════════════════════════════════════════════════════════
 //
 // This module defines abstract types for analyzing message-passing systems.
 // These types are independent of the specific domain (web extensions,
 // actors, event buses, etc.).
 
-// ─────────────────────────────────────────────────────────────────
 // Type System (Universal)
-// ─────────────────────────────────────────────────────────────────
 
 export type TypeKind =
   | "boolean"
@@ -34,9 +30,7 @@ export type TypeInfo = {
   unionTypes?: TypeInfo[]; // For unions
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Node System (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * A node represents an entity in the system that can send/receive messages.
@@ -64,9 +58,7 @@ export type NodeDefinition = {
   metadata?: Record<string, unknown>;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Message Types (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Defines a type of message that flows through the system
@@ -91,9 +83,7 @@ export type MessageTypeDefinition = {
   response?: TypeInfo;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // State Schema (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Configuration for a state field
@@ -109,9 +99,7 @@ export type FieldConfig =
 
 export type StateSchema = Record<string, FieldConfig>;
 
-// ─────────────────────────────────────────────────────────────────
 // Verified State Discovery (Issue #27)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Information about a $sharedState declaration with { verify: true }
@@ -136,9 +124,7 @@ export type VerifiedStateInfo = {
   fields: string[];
 };
 
-// ─────────────────────────────────────────────────────────────────
 // State Mutations (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Represents an assignment to a state field
@@ -154,9 +140,7 @@ export type StateAssignment = {
   conditional?: string;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Verification Conditions (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * A verification condition (precondition or postcondition)
@@ -175,9 +159,7 @@ export type VerificationCondition = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // State-Level Constraints (Declarative)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Constraint declared at the state level.
@@ -206,9 +188,7 @@ export type StateConstraint = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Global State Constraints (CONSTRAINT clause)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * A global state constraint that prunes structurally impossible states.
@@ -232,9 +212,7 @@ export type GlobalStateConstraint = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Message Handler (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Component relationship detected from code analysis
@@ -298,9 +276,7 @@ export type MessageHandler = {
   routePath?: string;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Confidence Levels (Universal)
-// ─────────────────────────────────────────────────────────────────
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -319,13 +295,9 @@ export type FieldAnalysis = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Codebase Analysis Result
-// ─────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────
 // Resource Discovery ($resource calls)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Information about a $resource() call discovered during extraction.

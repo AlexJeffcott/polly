@@ -1,67 +1,65 @@
-# Background Script Setup
+# Background script setup
 
-## Quick Start
-
-In your background script, use `createBackground()` to initialize the message bus:
+In a background context, use `createBackground()` to wire the bus:
 
 ```typescript
 // src/background/index.ts
-import { createBackground } from '@fairfox/polly/background'
+import { createBackground } from "@fairfox/polly/background";
 
-const bus = createBackground()
+const bus = createBackground();
 
-bus.on('MY_MESSAGE', async (payload) => {
-  // Handle message
-  return { success: true }
-})
+bus.on("MY_MESSAGE", async (payload) => {
+  return { success: true };
+});
 ```
 
-## ⚠️ Important: Use createBackground() Not getMessageBus()
+## Why not `getMessageBus("background")`?
 
-**Always use `createBackground()` in background scripts**, not `getMessageBus('background')`.
+The background context needs two collaborators, not one. `MessageBus`
+handles local message processing — registered handlers, request /
+response correlation, port lifecycle. `MessageRouter` handles routing
+between extension contexts — popup, content, devtools, options,
+offscreen. The router owns the single `chrome.runtime.onMessage`
+listener that fans incoming messages out to the bus.
 
-### Why?
+Calling `getMessageBus("background")` directly returns a bus without a
+router; messages from other contexts never reach your handlers.
+Constructing both by hand registers two listeners against
+`chrome.runtime.onMessage`, which causes every handler to fire twice
+per message.
 
-The background context requires special setup:
-- **MessageBus** handles local message processing
-- **MessageRouter** handles routing between extension contexts (popup, content, devtools, etc.)
-
-If you use `getMessageBus('background')` directly, you'll set up MessageBus **without** MessageRouter, causing messages from other contexts to never reach your handlers.
-
-If you try to manually create both, you'll get **double execution bugs** where handlers run twice for every message.
-
-### What createBackground() Does
+`createBackground()` is the assembly that gets both pieces right:
 
 ```typescript
 export function createBackground(): MessageBus {
   // 1. Create MessageBus without its own chrome.runtime.onMessage listener
   const bus = getMessageBus("background", undefined, { skipListenerSetup: true });
 
-  // 2. Create MessageRouter which sets up the single listener
+  // 2. Create MessageRouter which owns the single listener
   new MessageRouter(bus);
 
-  // 3. Return the bus for registering handlers
   return bus;
 }
 ```
 
-## Framework Protection
+## Framework guard rails
 
-The framework includes multiple layers of protection against misconfiguration:
+Three independent guards catch the configurations that produce
+double-execution bugs.
 
-### 1. Singleton MessageRouter
+### Singleton router
 
-Only one MessageRouter can exist. Attempting to create a second throws an error:
+Constructing a second `MessageRouter` against the same context throws:
 
 ```typescript
-// This will throw an error:
-const bus1 = createBackground()  // OK
-const bus2 = createBackground()  // ERROR: MessageRouter already exists!
+const bus1 = createBackground(); // ok
+const bus2 = createBackground(); // throws
 ```
 
-**Error message:**
+The thrown error message:
+
 ```
-🔴 MessageRouter already exists!
+MessageRouter already exists!
 
 Only ONE MessageRouter can exist in the background context.
 Multiple MessageRouter instances will cause handlers to execute multiple times.
@@ -69,28 +67,31 @@ Multiple MessageRouter instances will cause handlers to execute multiple times.
 Fix: Ensure createBackground() is only called once at application startup.
 ```
 
-### 2. Listener Registration Warning
+### Listener-count warning
 
-If multiple `chrome.runtime.onMessage` listeners are registered, you'll see a warning:
+If anything other than the router registers a
+`chrome.runtime.onMessage` listener, the runtime adapter prints:
 
 ```
-⚠️  WARNING: 2 chrome.runtime.onMessage listeners registered!
+WARNING: 2 chrome.runtime.onMessage listeners registered!
 
 Multiple listeners will cause message handlers to execute multiple times.
 This is usually caused by:
   1. Creating both MessageBus and MessageRouter with separate listeners
   2. Calling createBackground() multiple times
-  3. Calling getMessageBus('background') after createBackground()
+  3. Calling getMessageBus("background") after createBackground()
 
 Fix: In background scripts, use createBackground() ONCE at startup.
 ```
 
-### 3. Development-Mode Double Execution Detection
+### Double-execution tracker
 
-In development mode, the framework automatically detects if a handler executes multiple times for the same message:
+In development mode, the framework records each `messageId` it
+dispatches and surfaces a runtime error if any handler fires twice for
+the same message:
 
 ```
-🔴 DOUBLE EXECUTION DETECTED
+DOUBLE EXECUTION DETECTED
 
 Handler "TODO_ADD" executed 2 times for message abc-123.
 
@@ -104,87 +105,64 @@ Fix: Ensure only ONE listener is registered. In background scripts,
 use createBackground() instead of getMessageBus().
 ```
 
-## Best Practices
-
-### ✅ Correct Usage
+## Correct usage
 
 ```typescript
-// src/background/index.ts
-import { createBackground } from '@fairfox/polly/background'
+import { createBackground } from "@fairfox/polly/background";
 
-// Call once at startup
-const bus = createBackground()
+const bus = createBackground();
 
-// Register all handlers
-bus.on('USER_LOGIN', handleLogin)
-bus.on('DATA_SYNC', handleSync)
-bus.on('SETTINGS_UPDATE', handleSettings)
+bus.on("USER_LOGIN", handleLogin);
+bus.on("DATA_SYNC", handleSync);
+bus.on("SETTINGS_UPDATE", handleSettings);
 ```
 
-### ❌ Incorrect Usage
-
-```typescript
-// DON'T: Using getMessageBus directly
-const bus = getMessageBus('background')  // Missing MessageRouter!
-
-// DON'T: Creating MessageRouter separately
-const bus = getMessageBus('background')
-new MessageRouter(bus)  // This creates double listeners!
-
-// DON'T: Calling createBackground multiple times
-const bus1 = createBackground()  // OK
-const bus2 = createBackground()  // ERROR!
-```
+The patterns the guards exist to catch — `getMessageBus("background")`
+without a router, manual `new MessageRouter(bus)`, multiple
+`createBackground()` calls — should be replaced wherever they appear.
 
 ## Testing
 
-When testing background handlers, ensure you reset the MessageRouter singleton:
+`MessageRouter` exposes a static reset hook for tests so the singleton
+constraint does not break test isolation:
 
 ```typescript
-import { test, expect, beforeEach } from 'bun:test'
-import { MessageRouter } from '@fairfox/polly/background'
+import { test, beforeEach } from "bun:test";
+import { MessageRouter } from "@fairfox/polly/background";
+import { createBackground } from "@fairfox/polly/background";
 
 beforeEach(() => {
-  // Reset singleton for each test
-  MessageRouter.resetInstance()
-})
+  MessageRouter.resetInstance();
+});
 
-test('handler works correctly', async () => {
-  const bus = createBackground()
-  // ... test your handlers
-})
+test("handler works correctly", async () => {
+  const bus = createBackground();
+  // ...
+});
 ```
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│         Background Script (Service Worker)       │
+│        Background script (service worker)        │
 ├─────────────────────────────────────────────────┤
 │                                                   │
 │  createBackground()                               │
 │         │                                         │
-│         ├──> MessageBus (no listener)            │
+│         ├──> MessageBus (no listener)             │
 │         │         │                               │
-│         │         └──> User Handlers              │
+│         │         └──> user handlers              │
 │         │                                         │
-│         └──> MessageRouter (single listener)     │
+│         └──> MessageRouter (single listener)      │
 │                   │                               │
 │                   └──> chrome.runtime.onMessage   │
 │                             │                     │
-│                             ▼                     │
-│                   Route to MessageBus             │
+│                             v                     │
+│                   route to MessageBus             │
 │                             │                     │
-│                             ▼                     │
-│                   Invoke User Handlers            │
+│                             v                     │
+│                   invoke user handlers            │
 │                                                   │
 └─────────────────────────────────────────────────┘
 ```
-
-## Summary
-
-1. **Always** use `createBackground()` in background scripts
-2. **Never** use `getMessageBus('background')` directly
-3. Call `createBackground()` **once** at application startup
-4. The framework will warn you if you misconfigure it
-5. All configuration errors are caught in development mode

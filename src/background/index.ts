@@ -53,4 +53,5 @@ export function createBackground<TMessage extends BaseMessage = ExtensionMessage
 
 export { getMessageBus } from "../shared/lib/message-bus";
 // Re-export for convenience
+export { LogStore, type LogStoreOptions } from "./log-store";
 export { MessageRouter } from "./message-router";

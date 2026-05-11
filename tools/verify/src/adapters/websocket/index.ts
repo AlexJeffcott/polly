@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // WebSocket Adapter
-// ═══════════════════════════════════════════════════════════════
 //
 // Extracts verification model from Bun WebSocket applications.
 // Recognizes:
@@ -22,9 +20,7 @@ import type {
 } from "../../core/model";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
-// ─────────────────────────────────────────────────────────────────
 // Configuration
-// ─────────────────────────────────────────────────────────────────
 
 export interface WebSocketAdapterConfig extends AdapterConfig {
   /** Whether to use Eden types for message extraction */
@@ -40,9 +36,7 @@ export interface WebSocketAdapterConfig extends AdapterConfig {
   maxInFlight?: number;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // WebSocket Adapter Implementation
-// ─────────────────────────────────────────────────────────────────
 
 export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> {
   readonly name = "websocket";
@@ -249,9 +243,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     return this.extractCondition(node);
   }
 
-  // ─────────────────────────────────────────────────────────────────
   // Private Helper Methods
-  // ─────────────────────────────────────────────────────────────────
 
   /**
    * Extract all handlers from a source file

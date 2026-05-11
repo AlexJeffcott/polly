@@ -1,9 +1,7 @@
 // Handler extraction from TypeScript code
 // Extracts message handlers and their state mutations
 //
-// ═══════════════════════════════════════════════════════════════════════════════
 // STATE ASSIGNMENT EXTRACTION - SUPPORTED PATTERNS
-// ═══════════════════════════════════════════════════════════════════════════════
 //
 // The following patterns are extracted and converted to TLA+ state transitions:
 //
@@ -32,9 +30,7 @@
 //   ✓ new Map([...map].filter(...))          → [k \in DOMAIN @ \ {payload.key} |-> @[k]]
 //   ✓ new Map()                              → <<>>
 //
-// ═══════════════════════════════════════════════════════════════════════════════
 // UNSUPPORTED PATTERNS (will emit warnings)
-// ═══════════════════════════════════════════════════════════════════════════════
 //
 // MUTATING METHODS (modify in place, don't return new value):
 //   ✗ arr.push(), arr.pop(), arr.shift(), arr.unshift(), arr.splice()
@@ -57,7 +53,6 @@
 //
 // To request support for additional patterns, please open an issue at:
 // https://github.com/anthropics/polly/issues
-// ═══════════════════════════════════════════════════════════════════════════════
 
 import {
   type ArrowFunction,
@@ -3202,9 +3197,7 @@ export class HandlerExtractor {
     return results;
   }
 
-  // ═══════════════════════════════════════════════════════════════════
   // Verified State Discovery (Issue #27)
-  // ═══════════════════════════════════════════════════════════════════
 
   /**
    * Extract $sharedState declarations with { verify: true } from a source file
@@ -3532,9 +3525,7 @@ export class HandlerExtractor {
     return name || funcName;
   }
 
-  // ═══════════════════════════════════════════════════════════════════
   // $resource() Discovery
-  // ═══════════════════════════════════════════════════════════════════
 
   /**
    * Extract $resource() calls from a source file.

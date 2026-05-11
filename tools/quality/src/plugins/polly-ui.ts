@@ -72,9 +72,7 @@ async function walkScannableFiles(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
 // polly-ui:css-layout (#91)
-// ─────────────────────────────────────────────────────────────────
 
 type CssCheckConfig = {
   rootDir?: string;
@@ -142,9 +140,7 @@ const cssUnused: Check<CssCheckConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly-ui:shared-components (#92)
-// ─────────────────────────────────────────────────────────────────
 
 type SharedComponentsConfig = {
   scanRoot?: string;
@@ -173,9 +169,7 @@ const sharedComponents: Check<SharedComponentsConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly-ui:no-inline-handlers (#90, check-only — runtime is a follow-up)
-// ─────────────────────────────────────────────────────────────────
 
 type NoInlineHandlersConfig = {
   banned?: string[];
@@ -279,8 +273,6 @@ const noInlineHandlers: Check<NoInlineHandlersConfig | undefined> = {
     return { ok: violations.length === 0, messages: violations };
   },
 };
-
-// ─────────────────────────────────────────────────────────────────
 
 export const POLLY_UI_PLUGIN_VERSION = "0.46.0";
 

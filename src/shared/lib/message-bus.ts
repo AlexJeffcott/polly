@@ -31,7 +31,7 @@ import { ConnectionError, ErrorHandler, HandlerError, TimeoutError } from "./err
 import { globalExecutionTracker } from "./handler-execution-tracker";
 
 // Type guards for runtime message validation
-// Note: These validate structure but can't validate TMessage type at runtime
+// These validate structure but can't validate TMessage type at runtime
 export function isRoutedMessage<TMessage extends BaseMessage = BaseMessage>(
   value: unknown
 ): value is RoutedMessage<TMessage> {

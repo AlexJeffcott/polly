@@ -5,9 +5,7 @@
 
 import type { MessageHandler } from "../core/model";
 
-// ─────────────────────────────────────────────────────────────────
 // Types
-// ─────────────────────────────────────────────────────────────────
 
 export type ExpressionWarning = {
   kind:
@@ -30,9 +28,7 @@ export type ValidationResult = {
   warnCount: number;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Field reference extraction
-// ─────────────────────────────────────────────────────────────────
 
 // Same patterns the TLA+ generator uses (tla.ts Phase 2b/2c)
 const SIGNAL_VALUE_FIELD = /([a-zA-Z_]\w*)\.value\.([a-zA-Z_][\w.]*)/g;
@@ -110,9 +106,7 @@ function resolveConfigEntry(
   return undefined;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Type resolution helpers
-// ─────────────────────────────────────────────────────────────────
 
 function isArrayLike(configEntry: unknown): boolean {
   if (configEntry && typeof configEntry === "object") {
@@ -140,9 +134,7 @@ function isNullable(configEntry: unknown): boolean {
   return false;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // 5 checks
-// ─────────────────────────────────────────────────────────────────
 
 const UNSUPPORTED_METHODS = /\.(some|every|find|filter)\s*\(/;
 const OPTIONAL_CHAIN = /\?\./;
@@ -308,9 +300,7 @@ function checkWeakPostconditions(
   return [];
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Main validator
-// ─────────────────────────────────────────────────────────────────
 
 export function validateExpressions(
   handlers: MessageHandler[],

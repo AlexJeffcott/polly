@@ -157,7 +157,7 @@ function buildHandleFactory<D>(
   };
 }
 
-// ─── $meshState ─────────────────────────────────────────────────────────────
+// $meshState
 
 /**
  * Create a peer-replicated state primitive backed by Automerge with a mesh
@@ -189,7 +189,7 @@ export function $meshState<T extends VersionedDoc>(
   });
 }
 
-// ─── $meshText ──────────────────────────────────────────────────────────────
+// $meshText
 
 /**
  * Create a peer-replicated text primitive backed by a mesh transport.
@@ -212,7 +212,7 @@ export function $meshText(
   });
 }
 
-// ─── $meshCounter ───────────────────────────────────────────────────────────
+// $meshCounter
 
 /**
  * Create a peer-replicated counter primitive backed by a mesh transport.
@@ -234,7 +234,7 @@ export function $meshCounter(
   });
 }
 
-// ─── $meshList ──────────────────────────────────────────────────────────────
+// $meshList
 
 /**
  * Create a peer-replicated list primitive backed by a mesh transport.

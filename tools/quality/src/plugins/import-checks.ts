@@ -76,9 +76,7 @@ function specifiersInLine(line: string): string[] {
   return out;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // polly:relative-imports — ban deep `../` imports
-// ─────────────────────────────────────────────────────────────────
 
 type RelativeImportsConfig = {
   /** Maximum depth of `../` traversal allowed; default 1. */
@@ -160,9 +158,7 @@ const relativeImports: Check<RelativeImportsConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly:tsconfig-paths — ban `compilerOptions.paths` aliases
-// ─────────────────────────────────────────────────────────────────
 
 type TsconfigPathsConfig = {
   /** Filenames to scan; defaults to tsconfig.json variants. */
@@ -230,9 +226,7 @@ const tsconfigPaths: Check<TsconfigPathsConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly:no-raw-http — force HTTP through a canonical client
-// ─────────────────────────────────────────────────────────────────
 
 type NoRawHttpConfig = {
   /** Specifier for the canonical client (e.g. `#src/api/client`). Required. */
@@ -329,9 +323,7 @@ const noRawHttp: Check<NoRawHttpConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly:types — multi-package tsc --noEmit orchestrator
-// ─────────────────────────────────────────────────────────────────
 
 type TypesConfig = {
   /** Workspace globs to discover packages. */
@@ -375,9 +367,9 @@ const types: Check<TypesConfig | undefined> = {
   filesRead: async () => {
     // The TypeScript compiler walks the entire dependency graph from
     // tsconfig.json out, which is far wider than what we can easily
-    // declare here. We keep filesRead empty so the cache always misses
-    // for this check; tsc has its own incremental cache and that is the
-    // right place for that complexity to live.
+    // declare here. We keep filesRead empty so the orchestrator cache
+    // always misses on this check; tsc has its own incremental cache,
+    // and that is the right place for that complexity to live.
     return [];
   },
   run: async ({ rootDir, config }) => {

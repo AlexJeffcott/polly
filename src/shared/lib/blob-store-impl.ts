@@ -112,9 +112,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
   };
   adapter.on("peer-candidate", peerCandidateHandler);
 
-  // -----------------------------------------------------------------------
   // Crypto helpers
-  // -----------------------------------------------------------------------
 
   async function encryptChunk(plaintext: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
     const { encrypt } = await import("./encryption");
@@ -129,9 +127,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
     return decrypt(sealed, key);
   }
 
-  // -----------------------------------------------------------------------
   // Incoming message handlers
-  // -----------------------------------------------------------------------
 
   async function handleChunk(
     peerId: string,
@@ -248,9 +244,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
     peers.add(peerId);
   }
 
-  // -----------------------------------------------------------------------
   // Helpers
-  // -----------------------------------------------------------------------
 
   function announceHave(hash: string): void {
     const msg = serialiseBlobMessage({ type: "blob-have", hash } as unknown as BlobMessageHeader);
@@ -294,9 +288,7 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
     return new Promise((resolve) => setTimeout(resolve, 50));
   }
 
-  // -----------------------------------------------------------------------
   // BlobStore implementation
-  // -----------------------------------------------------------------------
 
   const store: BlobStore = {
     async put(ref, bytes, options?): Promise<void> {

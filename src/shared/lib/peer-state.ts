@@ -156,7 +156,7 @@ function buildHandleFactory<D>(
   };
 }
 
-// ─── $peerState ─────────────────────────────────────────────────────────────
+// $peerState
 
 /**
  * Create a peer-replicated state primitive backed by Automerge. Every device
@@ -189,7 +189,7 @@ export function $peerState<T extends VersionedDoc>(
   });
 }
 
-// ─── $peerText ──────────────────────────────────────────────────────────────
+// $peerText
 
 export interface PeerTextOptions extends Omit<PeerStateOptions<unknown>, "initialValue"> {}
 
@@ -213,7 +213,7 @@ export function $peerText(
   });
 }
 
-// ─── $peerCounter ───────────────────────────────────────────────────────────
+// $peerCounter
 
 export interface PeerCounterOptions extends Omit<PeerStateOptions<unknown>, "initialValue"> {}
 
@@ -238,7 +238,7 @@ export function $peerCounter(
   });
 }
 
-// ─── $peerList ──────────────────────────────────────────────────────────────
+// $peerList
 
 export interface PeerListOptions extends Omit<PeerStateOptions<unknown>, "initialValue"> {}
 

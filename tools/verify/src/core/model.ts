@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Core Verification Model (Domain-Agnostic)
-// ═══════════════════════════════════════════════════════════════
 //
 // This module defines abstract types for any message-passing system.
 // These types are independent of the specific domain (web extensions,
@@ -8,9 +6,7 @@
 //
 // Adapters translate domain-specific code into this universal model.
 
-// ─────────────────────────────────────────────────────────────────
 // Type System (Universal)
-// ─────────────────────────────────────────────────────────────────
 
 export type TypeKind =
   | "boolean"
@@ -36,9 +32,7 @@ export type TypeInfo = {
   unionTypes?: TypeInfo[]; // For unions
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Node System (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * A node represents an entity in the system that can send/receive messages.
@@ -66,9 +60,7 @@ export type NodeDefinition = {
   metadata?: Record<string, unknown>;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Message Types (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Defines a type of message that flows through the system
@@ -93,9 +85,7 @@ export type MessageType = {
   response?: TypeInfo;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Routing Rules (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 export type RoutingPattern =
   | "direct" // Point-to-point (actor.send)
@@ -115,9 +105,7 @@ export type RoutingRule = {
   description?: string;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // State Schema (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Configuration for a state field
@@ -133,9 +121,7 @@ export type FieldConfig =
 
 export type StateSchema = Record<string, FieldConfig>;
 
-// ─────────────────────────────────────────────────────────────────
 // State-Level Constraints (Declarative)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Constraint declared at the state level.
@@ -164,9 +150,7 @@ export type StateConstraint = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Global State Constraints (CONSTRAINT clause)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * A global state constraint that prunes structurally impossible states.
@@ -190,9 +174,7 @@ export type GlobalStateConstraint = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // State Mutations (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Represents an assignment to a state field
@@ -208,9 +190,7 @@ export type StateAssignment = {
   conditional?: string;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Verification Conditions (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * A verification condition (precondition or postcondition)
@@ -229,9 +209,7 @@ export type VerificationCondition = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Message Handler (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Represents a message handler extracted from code
@@ -265,9 +243,7 @@ export type MessageHandler = {
   parameters?: string[];
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Complete Verification Model (Abstract)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * The complete abstract model that the core verification engine operates on.
@@ -305,9 +281,7 @@ export type CoreVerificationModel = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Confidence Levels (Universal)
-// ─────────────────────────────────────────────────────────────────
 
 export type Confidence = "high" | "medium" | "low";
 

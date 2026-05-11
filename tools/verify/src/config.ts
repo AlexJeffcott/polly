@@ -1,14 +1,10 @@
-// ═══════════════════════════════════════════════════════════════
 // Configuration Helper for @fairfox/polly/verify
-// ═══════════════════════════════════════════════════════════════
 //
 // Lightweight entry point for user configuration files.
 // Does NOT include heavy dependencies (ts-morph, analysis, etc.)
 // which are only needed by the CLI tool.
 
-// ─────────────────────────────────────────────────────────────────
 // Configuration Types (inlined to avoid heavy dependencies)
-// ─────────────────────────────────────────────────────────────────
 
 // Subsystem configuration for compositional verification
 interface SubsystemConfig {

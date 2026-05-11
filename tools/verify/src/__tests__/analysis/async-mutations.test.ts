@@ -1,5 +1,5 @@
 // Async Mutations Tests - validates detection of async race conditions
-// 30 comprehensive tests for async mutation tracking
+// 30 tests for async mutation tracking
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -57,9 +57,7 @@ describe("Async Mutation Detection", () => {
     return extractor.extractHandlers();
   }
 
-  // ============================================================================
   // ASYNC FUNCTION DETECTION (10 tests)
-  // ============================================================================
 
   describe("Async Function Detection", () => {
     test("detects async arrow function handler", async () => {
@@ -219,9 +217,7 @@ describe("Async Mutation Detection", () => {
     });
   });
 
-  // ============================================================================
   // MUTATION AFTER AWAIT DETECTION (10 tests)
-  // ============================================================================
 
   describe("Mutation After Await Detection", () => {
     test("detects simple assignment after await", async () => {
@@ -378,9 +374,7 @@ describe("Async Mutation Detection", () => {
     });
   });
 
-  // ============================================================================
   // SAFE PATTERNS (10 tests)
-  // ============================================================================
 
   describe("Safe Async Patterns", () => {
     test("allows mutation before any await", async () => {

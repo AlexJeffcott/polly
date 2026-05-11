@@ -136,7 +136,7 @@ export class ConfigValidator {
 
   private loadConfig(configPath: string): VerificationConfig {
     // Dynamic import of the config file
-    // Note: In production, this would use proper module loading
+    // In production, this would use proper module loading
     delete require.cache[require.resolve(path.resolve(configPath))];
     const module = require(path.resolve(configPath));
     return module.verificationConfig || module.default || module;

@@ -59,7 +59,7 @@ function assertElement(value: unknown): Element {
 
 export function expect<T>(actual: T) {
   return {
-    // ─── Value matchers ───────────────────────────────────────────────
+    // Value matchers
     toBe(expected: T) {
       if (actual !== expected) {
         throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
@@ -108,7 +108,7 @@ export function expect<T>(actual: T) {
       if (actual == null) throw new Error(`Expected value to exist, got ${String(actual)}`);
     },
 
-    // ─── DOM element matchers ─────────────────────────────────────────
+    // DOM element matchers
     toHaveTextContent(expected: string) {
       const el = assertElement(actual);
       if (!el.textContent?.includes(expected)) {
@@ -151,7 +151,7 @@ export function expect<T>(actual: T) {
       }
     },
 
-    // ─── .not variants ────────────────────────────────────────────────
+    // .not variants
     not: {
       toBe(expected: T) {
         if (actual === expected) {

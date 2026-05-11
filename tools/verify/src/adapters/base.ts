@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Routing Adapter Interface
-// ═══════════════════════════════════════════════════════════════
 //
 // Adapters translate domain-specific code into the core verification model.
 // Each adapter implements pattern matching and extraction logic for a
@@ -14,9 +12,7 @@ import type {
   VerificationCondition,
 } from "../core/model";
 
-// ─────────────────────────────────────────────────────────────────
 // Adapter Configuration
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Base configuration for all adapters
@@ -32,9 +28,7 @@ export type AdapterConfig = {
   [key: string]: unknown;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Adapter Interface
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Base interface that all routing adapters must implement.
@@ -117,9 +111,7 @@ export interface RoutingAdapter<TConfig extends AdapterConfig = AdapterConfig> {
   customInvariants?(): Array<[name: string, tlaExpression: string]>;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Helper: Base Adapter Class
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Base class providing common extraction logic that adapters can extend.

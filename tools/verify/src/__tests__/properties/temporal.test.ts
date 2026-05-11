@@ -21,9 +21,7 @@ describe("Temporal Property Generation", () => {
     typeDefinitions: [],
   });
 
-  // ============================================================================
   // Basic Property Generation (10 tests)
-  // ============================================================================
 
   test("generates init-first property when init exists", () => {
     const analysis = createAnalysis(["init", "update", "delete"]);
@@ -128,9 +126,7 @@ describe("Temporal Property Generation", () => {
     expect(properties).toHaveLength(0);
   });
 
-  // ============================================================================
   // Handler-Based Property Generation (5 tests)
-  // ============================================================================
 
   test("detects ordering from handler preconditions", () => {
     const analysis = createAnalysis(
@@ -269,9 +265,7 @@ describe("Temporal Property Generation", () => {
     expect(authProp).toBeUndefined();
   });
 
-  // ============================================================================
   // Custom Ordering Rules (5 tests)
-  // ============================================================================
 
   test("creates custom ordering rule", () => {
     const generator = new TemporalPropertyGenerator();
@@ -344,9 +338,7 @@ describe("Temporal Property Generation", () => {
 });
 
 describe("Temporal TLA+ Generation", () => {
-  // ============================================================================
   // Eventually Properties (3 tests)
-  // ============================================================================
 
   test("generates eventually property", () => {
     const property: TemporalProperty = {
@@ -392,9 +384,7 @@ describe("Temporal TLA+ Generation", () => {
     expect(tla[0]).toContain("Prop == <>(done)");
   });
 
-  // ============================================================================
   // Always Properties (2 tests)
-  // ============================================================================
 
   test("generates always property", () => {
     const property: TemporalProperty = {
@@ -425,9 +415,7 @@ describe("Temporal TLA+ Generation", () => {
     expect(tla[0]).not.toContain("<>");
   });
 
-  // ============================================================================
   // Implies-Eventually Properties (3 tests)
-  // ============================================================================
 
   test("generates implies-eventually property", () => {
     const property: TemporalProperty = {
@@ -477,9 +465,7 @@ describe("Temporal TLA+ Generation", () => {
     expect(tla[0]).toContain("state.count > 0 /\\ state.active");
   });
 
-  // ============================================================================
   // Ordering Properties (3 tests)
-  // ============================================================================
 
   test("generates ordering property", () => {
     const property: TemporalProperty = {
@@ -530,9 +516,7 @@ describe("Temporal TLA+ Generation", () => {
     expect(tla[0]).not.toContain("<>");
   });
 
-  // ============================================================================
   // Config Generation (1 test)
-  // ============================================================================
 
   test("generates config file property declarations", () => {
     const properties: TemporalProperty[] = [
@@ -558,9 +542,7 @@ describe("Temporal TLA+ Generation", () => {
     expect(config[1]).toBe("PROPERTY Prop2");
   });
 
-  // ============================================================================
   // Delivered Variables (1 test)
-  // ============================================================================
 
   test("generates delivered tracking variables", () => {
     const generator = new TemporalTLAGenerator();

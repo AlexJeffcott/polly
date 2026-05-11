@@ -167,68 +167,85 @@ Defines which context handles which message type:
 
 ```typescript
 export type MessageHandler = {
-  'DOM_QUERY': 'content'
-  'DOM_UPDATE': 'content'
-  'DOM_INSERT': 'content'
-  'DOM_REMOVE': 'content'
+  DOM_QUERY: "content";
+  DOM_UPDATE: "content";
+  DOM_INSERT: "content";
+  DOM_REMOVE: "content";
 
-  'PAGE_EVAL': 'page'
-  'PAGE_GET_VAR': 'page'
-  'PAGE_CALL_FN': 'page'
-  'PAGE_SET_VAR': 'page'
+  PAGE_GET_VAR: "page";
+  PAGE_CALL_FN: "page";
+  PAGE_SET_VAR: "page";
 
-  'API_REQUEST': 'background'
-  'API_BATCH': 'background'
+  API_REQUEST: "background";
+  API_BATCH: "background";
 
-  'CLIPBOARD_WRITE': 'offscreen'
-  'CLIPBOARD_WRITE_HTML': 'offscreen'
-  'CLIPBOARD_WRITE_RICH': 'offscreen'
-  'CLIPBOARD_READ': 'offscreen'
+  CLIPBOARD_WRITE: "offscreen";
+  CLIPBOARD_WRITE_HTML: "offscreen";
+  CLIPBOARD_WRITE_RICH: "offscreen";
+  CLIPBOARD_READ: "offscreen";
 
-  'CONTEXT_MENU_CLICKED': 'background'
-  'CONTEXT_MENU_CREATE': 'background'
-  'CONTEXT_MENU_REMOVE': 'background'
+  CONTEXT_MENU_CLICKED: "background";
+  CONTEXT_MENU_CREATE: "background";
+  CONTEXT_MENU_REMOVE: "background";
 
-  'STATE_SYNC': 'broadcast'
+  STATE_SYNC: Context[]; // Broadcast to every listed context
 
-  'TAB_QUERY': 'background'
-  'TAB_GET_CURRENT': 'background'
-  'TAB_RELOAD': 'background'
+  TAB_QUERY: "background";
+  TAB_GET_CURRENT: "background";
+  TAB_RELOAD: "background";
 
-  'DEVTOOLS_INSPECT_ELEMENT': 'content'
-  'DEVTOOLS_LOG': 'background'
+  DEVTOOLS_INSPECT_ELEMENT: "content";
+  DEVTOOLS_LOG: "background";
 
-  'LOG': 'background'
-  'LOGS_GET': 'background'
-  'LOGS_CLEAR': 'background'
-  'LOGS_EXPORT': 'background'
-}
+  LOG: "background";
+  LOGS_GET: "background";
+  LOGS_CLEAR: "background";
+  LOGS_EXPORT: "background";
+};
 
-export type Context = 'background' | 'content' | 'page' | 'devtools' | 'popup' | 'options' | 'offscreen'
+export type Context =
+  | "background"
+  | "content"
+  | "page"
+  | "devtools"
+  | "popup"
+  | "options"
+  | "offscreen";
 ```
+
+Each value is either a single `Context` literal or an array of
+contexts. There is no `"broadcast"` literal — broadcasting is modelled
+as a `Context[]` listing every context that should receive the
+message. `STATE_SYNC` is the canonical example.
 
 ### 4. Routed Message Envelope
 
 Every message is wrapped in a routing envelope:
 
 ```typescript
-export type RoutedMessage<T extends ExtensionMessage = ExtensionMessage> = {
-  id: string                    // Unique correlation ID (UUID)
-  source: Context               // Which context sent it
-  target: Context | 'broadcast' // Where it should go
-  tabId?: number               // Required for per-tab contexts (content, page, devtools)
-  timestamp: number            // When it was sent
-  payload: T                   // The actual message
-}
+export type RoutedMessage<T extends BaseMessage = ExtensionMessage> = {
+  id: string;          // Correlation ID (UUID)
+  source: Context;     // Which context sent it
+  targets: Context[];  // Which contexts should receive it (one entry, or several)
+  tabId?: number;      // Required for per-tab contexts (content, page, devtools)
+  timestamp: number;   // When it was sent
+  payload: T;          // The actual message
+};
 
-export type RoutedResponse<T extends ExtensionMessage = ExtensionMessage> = {
-  id: string                    // Matches request ID
-  success: boolean             // Whether operation succeeded
-  data?: MessageResponse<T>    // Response data (typed based on request)
-  error?: string               // Error message if failed
-  timestamp: number            // When response was sent
-}
+export type RoutedResponse<T extends BaseMessage = ExtensionMessage> = {
+  id: string;                  // Matches the request id
+  success: boolean;            // Whether the handler succeeded
+  data?: MessageResponse<T>;   // Typed response payload
+  error?: string;              // Error message if failed
+  timestamp: number;           // When response was sent
+};
 ```
+
+`targets` is an array on the envelope: a unicast send produces a
+one-element array, a broadcast produces several. The type parameter is
+`BaseMessage` (the minimal contract — just a `type` field) so consumers
+can use these envelopes with their own message union, not only
+`ExtensionMessage`.
 
 ### 5. Settings Schema
 
@@ -252,349 +269,39 @@ export const defaultSettings: Settings = {
 }
 ```
 
-## MessageBus Implementation
+## MessageBus implementation
 
-```typescript
-// src/shared/lib/message-bus.ts
+The implementation lives at `src/shared/lib/message-bus.ts`. The salient
+details:
 
-import type {
-  ExtensionMessage,
-  MessageResponse,
-  RoutedMessage,
-  RoutedResponse,
-  Context,
-  MessageHandler
-} from '../types/messages'
-import type { ExtensionAdapters } from '../adapters'
-import { adapters as defaultAdapters } from '../adapters'
+- `class MessageBus<TMessage extends BaseMessage = ExtensionMessage>`. The
+  default type parameter is the framework's `ExtensionMessage` union; a
+  consumer application supplies its own union when its messages are not
+  Polly built-ins.
+- The bus holds an `ExtensionAdapters` value internally and exposes its
+  adapters as `bus.adapters` for handlers that need to call into them
+  directly (e.g. `bus.adapters.logger.info(...)`).
+- `send(payload, options?)` wraps the payload in a `RoutedMessage`,
+  generates a UUID `id`, attaches the local context as `source`, and
+  resolves with the `RoutedResponse.data` of the first successful handler
+  reply. Request timeouts surface as `TimeoutError` (default 5s, override
+  with `options.timeoutMs`).
+- `on(type, handler)` registers a handler for a single message type.
+  Handlers are typed against `MessageHandlerMap[type]` so the handler's
+  argument and return type are inferred from the message union.
+- `destroy()` clears registered handlers, rejects pending requests with
+  `ConnectionError`, and removes any listeners the bus installed on its
+  adapters. There is no top-level `destroyMessageBus()` free function;
+  call `bus.destroy()` on the instance you hold.
+- `getMessageBus(context, adapters?)` returns the per-context singleton.
+  Pass adapters explicitly to inject a mock stack in tests; omit them in
+  production to use the default Chrome/web adapter set selected by
+  `createChromeAdapters()`.
 
-type PendingRequest = {
-  resolve: (value: any) => void
-  reject: (error: Error) => void
-  timestamp: number
-  timeout: NodeJS.Timeout
-}
-
-type Handler = (payload: any, message: RoutedMessage) => Promise<any>
-
-export class MessageBus {
-  private context: Context
-  private adapters: ExtensionAdapters
-  private pendingRequests = new Map<string, PendingRequest>()
-  private handlers = new Map<string, Handler>()
-  private port: ReturnType<ExtensionAdapters['runtime']['connect']> | null = null
-  private messageListener: ((message: any, sender: any, sendResponse: any) => void) | null = null
-
-  constructor(context: Context, adapters: ExtensionAdapters = defaultAdapters) {
-    this.context = context
-    this.adapters = adapters
-    this.setupListeners()
-  }
-
-  /**
-   * Send a message with full type safety.
-   * Response type is automatically inferred from message type.
-   */
-  async send<T extends ExtensionMessage>(
-    payload: T,
-    options?: {
-      target?: Context
-      tabId?: number
-      timeout?: number
-    }
-  ): Promise<MessageResponse<T>> {
-    const id = crypto.randomUUID()
-    const target = options?.target || this.inferTarget(payload.type)
-
-    const message: RoutedMessage<T> = {
-      id,
-      source: this.context,
-      target,
-      tabId: options?.tabId,
-      timestamp: Date.now(),
-      payload
-    }
-
-    return new Promise((resolve, reject) => {
-      const timeoutMs = options?.timeout || 5000
-      const timeout = setTimeout(() => {
-        this.pendingRequests.delete(id)
-        reject(new Error(`Message timeout after ${timeoutMs}ms: ${payload.type}`))
-      }, timeoutMs)
-
-      this.pendingRequests.set(id, {
-        resolve: (value) => {
-          clearTimeout(timeout)
-          resolve(value)
-        },
-        reject: (error) => {
-          clearTimeout(timeout)
-          reject(error)
-        },
-        timestamp: Date.now(),
-        timeout
-      })
-
-      // Send via appropriate channel
-      this.sendMessage(message)
-    })
-  }
-
-  /**
-   * Broadcast message to all contexts.
-   * Used for state synchronization.
-   */
-  broadcast<T extends ExtensionMessage>(payload: T): void {
-    const message: RoutedMessage<T> = {
-      id: crypto.randomUUID(),
-      source: this.context,
-      target: 'broadcast',
-      timestamp: Date.now(),
-      payload
-    }
-
-    this.sendMessage(message)
-  }
-
-  /**
-   * Register a typed message handler.
-   * Handler signature is enforced based on message type.
-   */
-  on<T extends ExtensionMessage['type']>(
-    type: T,
-    handler: (
-      payload: Extract<ExtensionMessage, { type: T }>,
-      message: RoutedMessage<Extract<ExtensionMessage, { type: T }>>
-    ) => Promise<MessageResponse<Extract<ExtensionMessage, { type: T }>>> | MessageResponse<Extract<ExtensionMessage, { type: T }>>
-  ): void {
-    this.handlers.set(type, handler as Handler)
-  }
-
-  /**
-   * Connect with long-lived port.
-   * Used for persistent connections (DevTools, Content Scripts).
-   */
-  connect(name: string): void {
-    if (this.port) {
-      console.warn(`Port already connected: ${this.port.name}`)
-      return
-    }
-
-    this.port = this.adapters.runtime.connect(name)
-
-    this.port.onMessage((message: RoutedMessage | RoutedResponse) => {
-      this.handleMessage(message)
-    })
-
-    this.port.onDisconnect(() => {
-      console.warn(`Port disconnected: ${name}`)
-      this.port = null
-
-      // Reject all pending requests
-      for (const [id, pending] of this.pendingRequests.entries()) {
-        pending.reject(new Error('Port disconnected'))
-        clearTimeout(pending.timeout)
-        this.pendingRequests.delete(id)
-      }
-    })
-  }
-
-  /**
-   * Disconnect port if connected.
-   */
-  disconnect(): void {
-    if (this.port) {
-      this.port.disconnect()
-      this.port = null
-    }
-  }
-
-  /**
-   * Remove all handlers and clean up.
-   */
-  destroy(): void {
-    this.disconnect()
-    this.handlers.clear()
-
-    // Clear all pending requests
-    for (const pending of this.pendingRequests.values()) {
-      clearTimeout(pending.timeout)
-    }
-    this.pendingRequests.clear()
-
-    // Remove message listener
-    if (this.messageListener) {
-      // Clean up would depend on adapter implementation
-    }
-  }
-
-  private setupListeners(): void {
-    // Listen for one-off messages via chrome.runtime.sendMessage
-    this.messageListener = (message: RoutedMessage | RoutedResponse, sender: any, sendResponse: any) => {
-      this.handleMessage(message, sender).then(sendResponse).catch((error) => {
-        sendResponse({ success: false, error: error.message })
-      })
-      return true // Indicates async response
-    }
-    this.adapters.runtime.onMessage(this.messageListener)
-
-    // Content/Page script window messaging
-    if (this.context === 'content' || this.context === 'page') {
-      this.adapters.window.addEventListener('message', (event: MessageEvent) => {
-        if (event.source !== window) return
-        if (event.data?.__extensionMessage) {
-          this.handleMessage(event.data.message)
-        }
-      })
-    }
-  }
-
-  private async handleMessage(
-    message: RoutedMessage | RoutedResponse,
-    sender?: any
-  ): Promise<any> {
-    // Handle response to our request
-    if ('success' in message) {
-      const pending = this.pendingRequests.get(message.id)
-      if (pending) {
-        this.pendingRequests.delete(message.id)
-        clearTimeout(pending.timeout)
-
-        if (message.success) {
-          pending.resolve(message.data)
-        } else {
-          pending.reject(new Error(message.error || 'Unknown error'))
-        }
-      }
-      return
-    }
-
-    // Ignore messages not targeted at us (unless broadcast)
-    if (message.target !== this.context && message.target !== 'broadcast') {
-      // If we're background, we need to route it
-      if (this.context === 'background') {
-        return // Routing handled elsewhere
-      }
-      return
-    }
-
-    // Handle incoming request
-    const handler = this.handlers.get(message.payload.type)
-    if (!handler) {
-      if (message.target !== 'broadcast') {
-        console.warn(`[${this.context}] No handler for message type: ${message.payload.type}`)
-      }
-      return { success: false, error: 'No handler' }
-    }
-
-    try {
-      const data = await handler(message.payload, message)
-      const response: RoutedResponse = {
-        id: message.id,
-        success: true,
-        data,
-        timestamp: Date.now()
-      }
-
-      // Send response back (only if not broadcast)
-      if (message.target !== 'broadcast') {
-        this.sendResponse(message, response)
-      }
-
-      return response
-    } catch (error) {
-      const response: RoutedResponse = {
-        id: message.id,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: Date.now()
-      }
-
-      if (message.target !== 'broadcast') {
-        this.sendResponse(message, response)
-      }
-
-      return response
-    }
-  }
-
-  private sendMessage(message: RoutedMessage): void {
-    if (this.context === 'content' && message.target === 'page') {
-      // Content → Page via window.postMessage
-      this.adapters.window.postMessage({ __extensionMessage: true, message }, '*')
-    } else if (this.context === 'page') {
-      // Page → Content via window.postMessage
-      this.adapters.window.postMessage({ __extensionMessage: true, message }, '*')
-    } else if (this.port && (this.context === 'devtools' || this.context === 'content')) {
-      // Use long-lived port if connected
-      this.port.postMessage(message)
-    } else {
-      // Use chrome.runtime.sendMessage
-      this.adapters.runtime.sendMessage(message)
-    }
-  }
-
-  private sendResponse(request: RoutedMessage, response: RoutedResponse): void {
-    if (this.context === 'content' && request.source === 'page') {
-      // Content → Page response
-      this.adapters.window.postMessage({ __extensionMessage: true, message: response }, '*')
-    } else if (this.context === 'page' && request.source === 'content') {
-      // Page → Content response
-      this.adapters.window.postMessage({ __extensionMessage: true, message: response }, '*')
-    } else if (this.port && (this.context === 'devtools' || this.context === 'content')) {
-      // Use port for response
-      this.port.postMessage(response)
-    } else {
-      // Use chrome.runtime.sendMessage
-      this.adapters.runtime.sendMessage(response)
-    }
-  }
-
-  private inferTarget(type: ExtensionMessage['type']): Context {
-    const handlers: Partial<MessageHandler> = {
-      'DOM_QUERY': 'content',
-      'DOM_UPDATE': 'content',
-      'DOM_INSERT': 'content',
-      'DOM_REMOVE': 'content',
-      'PAGE_EVAL': 'page',
-      'PAGE_GET_VAR': 'page',
-      'PAGE_CALL_FN': 'page',
-      'PAGE_SET_VAR': 'page',
-      'API_REQUEST': 'background',
-      'API_BATCH': 'background',
-      'CLIPBOARD_WRITE': 'offscreen',
-      'CLIPBOARD_WRITE_HTML': 'offscreen',
-      'CLIPBOARD_WRITE_RICH': 'offscreen',
-      'CLIPBOARD_READ': 'offscreen',
-      'CONTEXT_MENU_CREATE': 'background',
-      'CONTEXT_MENU_REMOVE': 'background',
-      'TAB_QUERY': 'background',
-      'TAB_GET_CURRENT': 'background',
-      'TAB_RELOAD': 'background',
-    }
-
-    return handlers[type as keyof MessageHandler] || 'background'
-  }
-}
-
-// Singleton instances per context
-const messageBusInstances = new Map<Context, MessageBus>()
-
-export function getMessageBus(context: Context, adapters?: ExtensionAdapters): MessageBus {
-  if (!messageBusInstances.has(context)) {
-    messageBusInstances.set(context, new MessageBus(context, adapters))
-  }
-  return messageBusInstances.get(context)!
-}
-
-export function destroyMessageBus(context: Context): void {
-  const bus = messageBusInstances.get(context)
-  if (bus) {
-    bus.destroy()
-    messageBusInstances.delete(context)
-  }
-}
-```
+For the routing semantics — how messages cross the background script,
+how broadcasts fan out, how per-tab targeting works — see the
+implementation source. The bus is small (under 900 lines) and is the
+authoritative description; this document does not duplicate it.
 
 ## Usage Examples
 
@@ -811,92 +518,63 @@ bus.on('PAGE_SET_VAR', async (payload) => {
 
 ### Example 6: Broadcast state updates
 
+`STATE_SYNC` is the framework-internal channel the state primitives use to
+propagate writes across contexts. Application code does not normally
+emit it directly — `$sharedState`, `$syncedState`, etc. do — but the
+shape is documented here for completeness:
+
 ```typescript
-// Any context can broadcast
-const bus = getMessageBus('popup')
+const bus = getMessageBus("popup");
 
-// Update state and broadcast to all contexts
 bus.broadcast({
-  type: 'STATE_SYNC',
-  path: 'user.settings',
-  value: { theme: 'dark' },
-  timestamp: Date.now()
-})
+  type: "STATE_SYNC",
+  key: "user.settings",
+  value: { theme: "dark" },
+  clock: lamport.next(),
+});
 
-// All contexts receive and can react
-bus.on('STATE_SYNC', async (payload) => {
-  console.log(`State updated: ${payload.path}`, payload.value)
-  // Update local signals, UI, etc.
-})
+bus.on("STATE_SYNC", async (payload) => {
+  // payload is typed as { type: "STATE_SYNC"; key: string; value: unknown; clock: number }
+  console.log(`State updated: ${payload.key}`, payload.value);
+});
 ```
+
+The Lamport `clock` is how concurrent writes from different contexts
+are ordered; see [STATE.md](./STATE.md) for the full conflict-resolution
+contract.
 
 ## Testing
 
-### Mock Message Bus
+Polly ships mock adapters for every adapter the bus uses, so tests
+build a real `MessageBus` against fakes rather than mocking the bus
+itself:
 
 ```typescript
-// tests/mocks/message-bus.mock.ts
-import type { ExtensionMessage, MessageResponse } from '../../src/shared/types/messages'
+import { describe, test, expect } from "bun:test";
+import { MessageBus } from "@fairfox/polly/message-bus";
+import { createMockAdapters } from "@fairfox/polly/test";
 
-export class MockMessageBus {
-  public sentMessages: ExtensionMessage[] = []
-  public handlers = new Map<string, Function>()
+describe("DevTools panel", () => {
+  test("queries the DOM via the runtime adapter", async () => {
+    const adapters = createMockAdapters();
+    const bus = new MessageBus("devtools", adapters);
 
-  async send<T extends ExtensionMessage>(
-    payload: T
-  ): Promise<MessageResponse<T>> {
-    this.sentMessages.push(payload)
+    // Pre-seed a response for the runtime adapter to return.
+    adapters.runtime._respondTo("DOM_QUERY", { elements: [] });
 
-    // Return mock response based on type
-    if (payload.type === 'DOM_QUERY') {
-      return { elements: [] } as any
-    }
-    if (payload.type === 'API_REQUEST') {
-      return { data: {}, status: 200, statusText: 'OK', headers: {} } as any
-    }
+    const result = await bus.send({ type: "DOM_QUERY", selector: ".foo" });
 
-    return undefined as any
-  }
-
-  broadcast<T extends ExtensionMessage>(payload: T): void {
-    this.sentMessages.push(payload)
-  }
-
-  on(type: string, handler: Function): void {
-    this.handlers.set(type, handler)
-  }
-
-  connect(name: string): void {}
-  disconnect(): void {}
-  destroy(): void {}
-}
+    expect(result).toEqual({ elements: [] });
+    expect(adapters.runtime._sentMessages).toHaveLength(1);
+  });
+});
 ```
 
-### Unit Test Example
-
-```typescript
-// tests/unit/devtools.test.ts
-import { describe, test, expect, beforeEach } from 'bun:test'
-import { MockMessageBus } from '../mocks/message-bus.mock'
-
-describe('DevTools Panel', () => {
-  let bus: MockMessageBus
-
-  beforeEach(() => {
-    bus = new MockMessageBus()
-  })
-
-  test('should query DOM elements', async () => {
-    await bus.send({ type: 'DOM_QUERY', selector: '.foo' })
-
-    expect(bus.sentMessages).toHaveLength(1)
-    expect(bus.sentMessages[0]).toEqual({
-      type: 'DOM_QUERY',
-      selector: '.foo'
-    })
-  })
-})
-```
+The mocks live under `tools/test/src/adapters/`. They expose
+inspection fields (`_sentMessages`, `_storage`, `_tabs`, etc.) and
+helpers (`_respondTo`, `_emit`) — see
+[TESTING.md](./TESTING.md) for the full surface. Writing a
+hand-rolled `MockMessageBus` is unnecessary and not recommended.
 
 ## Best Practices
 

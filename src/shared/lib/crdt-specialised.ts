@@ -158,7 +158,7 @@ function createSpecialisedPrimitive<V, D extends VersionedDoc>(
   };
 }
 
-// ─── $crdtText ──────────────────────────────────────────────────────────────
+// $crdtText
 
 /** The Automerge document shape backing a $crdtText primitive. */
 export type TextDoc = VersionedDoc & { text?: string };
@@ -208,7 +208,7 @@ export function $crdtText(
   });
 }
 
-// ─── $crdtCounter ───────────────────────────────────────────────────────────
+// $crdtCounter
 
 /** The Automerge document shape backing a $crdtCounter primitive. */
 export type CounterDoc = VersionedDoc & { count?: Counter };
@@ -268,7 +268,7 @@ export function $crdtCounter(
   });
 }
 
-// ─── $crdtList ──────────────────────────────────────────────────────────────
+// $crdtList
 
 /** The Automerge document shape backing a $crdtList primitive. */
 export type ListDoc<T> = VersionedDoc & { items?: T[] };

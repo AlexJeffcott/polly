@@ -19,7 +19,7 @@ A curated collection of TLA+ learning materials, tools, and community resources.
 
 ### Beginner-Friendly Courses
 
-- **[Learn TLA+](https://learntla.com/)** - Comprehensive interactive tutorial by Hillel Wayne
+- **[Learn TLA+](https://learntla.com/)** - Full interactive tutorial by Hillel Wayne
   - [Constants & Parameters](https://learntla.com/core/constants.html)
   - [Model Values](https://old.learntla.com/models/model-values/)
 - **[TLA+ Video Course](https://lamport.azurewebsites.net/video/videos.html)** - Leslie Lamport's video lectures
@@ -183,34 +183,16 @@ This preserves independent group semantics (elements within each group are inter
 - **[TLA+ Community Wiki](https://github.com/tlaplus/tlaplus/wiki)** - Community documentation
 - **[TLA+ Slack/Discord]** - Real-time community chat (check TLA+ Google Group for links)
 
-## Polly-Specific Resources
+## Polly-specific
 
-### Verification in Polly
+- [Issue #16: Multiple Symmetry Groups](https://github.com/AlexJeffcott/polly/issues/16) — how Polly works around the TLA+ single-`SYMMETRY` limitation.
+- The generator lives at `tools/verify/`; the per-example configs live under each example's `specs/verification.config.ts`.
 
-- [Polly Architecture](./ARCHITECTURE.md) - How Polly generates TLA+ specs
-- [Issue #16: Multiple Symmetry Groups](https://github.com/AlexJeffcott/polly/issues/16) - TLA+ limitation handling
+## Starting points
 
----
-
-## Quick Reference
-
-### Essential Links for Getting Started
-
-1. [Learn TLA+](https://learntla.com/) - Start here for interactive learning
-2. [TLA+ Toolbox](https://github.com/tlaplus/tlaplus/releases) - Download the IDE
-3. [TLA+ Google Group](https://groups.google.com/g/tlaplus) - Ask questions
-4. [Jack Vanlightly's Blog](https://jack-vanlightly.com/blog/2024/12/5/an-introduction-to-symmetry-in-tla) - Symmetry guide
-
-### Advanced Topics
-
-1. [Specifying Systems](https://lamport.azurewebsites.net/tla/book.html) - Deep dive
-2. [Amazon's TLA+ Case Studies](https://lamport.azurewebsites.net/tla/amazon.html) - Real-world use
-3. [Apalache](https://apalache.informal.systems/) - Symbolic model checking
-
----
-
-**Last Updated**: January 2026
-
-**Maintained By**: Polly Team
-
-**Contributing**: Found a useful TLA+ resource? Please submit a PR to add it!
+If you have not used TLA+ before, start with [Learn TLA+](https://learntla.com/)
+and Hillel Wayne's *Practical TLA+*. The [TLA+ Toolbox](https://github.com/tlaplus/tlaplus/releases)
+is the official IDE; [Apalache](https://apalache.informal.systems/) is
+a symbolic alternative to TLC that handles different state-space
+shapes. The [Google Group](https://groups.google.com/g/tlaplus) is where
+to ask questions when the documentation runs out.

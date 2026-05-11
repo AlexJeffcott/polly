@@ -1,10 +1,6 @@
-// ═══════════════════════════════════════════════════════════════
 // Public API for @fairfox/polly-verify
-// ═══════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────────
 // Adapters
-// ─────────────────────────────────────────────────────────────────
 export type { AdapterConfig, RoutingAdapter } from "./adapters/base";
 export { BaseRoutingAdapter } from "./adapters/base";
 // Adapter Detection
@@ -26,9 +22,7 @@ export {
   WebSocketAdapter,
   type WebSocketAdapterConfig,
 } from "./adapters/websocket";
-// ─────────────────────────────────────────────────────────────────
 // Configuration
-// ─────────────────────────────────────────────────────────────────
 export type {
   AdapterVerificationConfig,
   ConfigIssue,
@@ -37,9 +31,7 @@ export type {
   ValidationResult as ConfigValidationResult,
 } from "./config/types";
 export { isAdapterConfig, isLegacyConfig } from "./config/types";
-// ─────────────────────────────────────────────────────────────────
 // Core Types (Domain-Agnostic)
-// ─────────────────────────────────────────────────────────────────
 export type {
   CodebaseAnalysis,
   Confidence,
@@ -57,9 +49,7 @@ export type {
   TypeKind,
   VerificationCondition,
 } from "./core/model";
-// ─────────────────────────────────────────────────────────────────
 // Verification Primitives (Domain-Agnostic)
-// ─────────────────────────────────────────────────────────────────
 export {
   ensures,
   hasLength,
@@ -140,7 +130,5 @@ export { generateTLA, TLAGenerator } from "./codegen/tla";
 export { validateConfig } from "./config/parser";
 export { extractHandlers, HandlerExtractor } from "./extract/handlers";
 export { analyzeCodebase } from "./extract/types";
-// ─────────────────────────────────────────────────────────────────
 // Legacy API (Backward Compatibility)
-// ─────────────────────────────────────────────────────────────────
 export type { ValidationResult, VerificationConfig } from "./types";

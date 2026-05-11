@@ -42,5 +42,5 @@ const app = new Elysia()
   })
   .listen(3100);
 
-console.log(`🎯 blob-share running at http://localhost:${app.server?.port}`);
+console.log(`blob-share running at http://localhost:${app.server?.port}`);
 console.log(`   Open two browser tabs and drop files to share peer-to-peer.`);

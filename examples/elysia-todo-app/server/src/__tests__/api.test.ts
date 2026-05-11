@@ -104,10 +104,8 @@ describe.skipIf(() => !serverAvailable)("Todo API (requires running server)", ()
 
   describe("Authorization", () => {
     test("should reject todo creation when not logged in", async () => {
-      // In real test, ensure no auth state
-      // This would require resetting server state
-      // const response = await api.todos.post({ text: "Unauthorized" });
-      // expect(response.status).toBe(403);
+      // TODO: requires a way to reset server auth state between tests
+      // before we can exercise the 403 path on POST /todos.
     });
   });
 });

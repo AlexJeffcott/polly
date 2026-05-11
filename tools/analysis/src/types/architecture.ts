@@ -2,9 +2,7 @@
 
 import type { MessageHandler } from "./core";
 
-// ─────────────────────────────────────────────────────────────────
 // Context Information
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Information about an execution context (background, content, popup, etc.)
@@ -47,9 +45,7 @@ export type ComponentInfo = {
   description?: string;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Message Flow Analysis
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Represents a message flow between contexts
@@ -97,9 +93,7 @@ export type MessageStep = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // External Integrations
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * External system integration
@@ -147,9 +141,7 @@ export type ExternalAPICall = {
   description?: string;
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Manifest Analysis
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Parsed manifest.json information
@@ -204,9 +196,7 @@ export type ManifestInfo = {
   hostPermissions?: string[];
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Project Configuration (Multi-Project Support)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Project type identifier
@@ -244,9 +234,7 @@ export type ProjectConfig = {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────
 // Complete Architecture Analysis
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Complete architecture analysis result

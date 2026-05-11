@@ -31,7 +31,7 @@ import { Elysia } from "elysia";
 import puppeteer from "puppeteer";
 import { signalingServer } from "../../../../src/elysia/signaling-server-plugin";
 
-// ─── Automerge WASM fix ───────────────────────────────────────────────────
+// Automerge WASM fix
 // Bun.build's target: "browser" picks Automerge's fullfat_bundler.js which
 // does a static .wasm import that Bun can't wire up. Redirect to the
 // base64 variant which embeds the WASM as a string and self-initialises.
@@ -50,7 +50,7 @@ const automergeBase64Plugin: BunPlugin = {
   },
 };
 
-// ─── Argument parsing ──────────────────────────────────────────────────────
+// Argument parsing
 
 const testDir = resolve(process.cwd(), process.argv[2] ?? "tests/browser");
 const filter = process.argv[3] ?? "";
@@ -71,7 +71,7 @@ if (testFiles.length === 0) {
 
 console.log(`[browser-runner] found ${testFiles.length} test file(s)`);
 
-// ─── Start server-side infrastructure ──────────────────────────────────────
+// Start server-side infrastructure
 
 const signalingPort = 39000 + Math.floor(Math.random() * 1000);
 const signalingApp = new Elysia()
@@ -79,7 +79,7 @@ const signalingApp = new Elysia()
   .listen(signalingPort);
 console.log(`[browser-runner] signaling server on ws://127.0.0.1:${signalingPort}/polly/signaling`);
 
-// ─── Launch browser ────────────────────────────────────────────────────────
+// Launch browser
 
 const browser = await puppeteer.launch({
   headless,

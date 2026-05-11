@@ -20,6 +20,7 @@ import { checkNoAsCasting } from "../no-as-casting";
 import { checkNoRequire } from "../no-require";
 import { checkGitignoreCoversAllowlist, checkSecrets } from "../secrets";
 import type { Check, QualityPlugin } from "../types";
+import { clicheCoreChecks } from "./cliche-checks";
 import { additionalCoreChecks } from "./core-checks";
 import { extraCoreChecks } from "./extra-checks";
 import { importCoreChecks } from "./import-checks";
@@ -178,7 +179,7 @@ const gitignoreCrossCheck: Check<GitignoreConfig | undefined> = {
   },
 };
 
-export const POLLY_CORE_VERSION = "0.45.0";
+export const POLLY_CORE_VERSION = "0.48.0";
 
 export const pollyCorePlugin: QualityPlugin = {
   name: "polly",
@@ -191,5 +192,6 @@ export const pollyCorePlugin: QualityPlugin = {
     ...additionalCoreChecks,
     ...extraCoreChecks,
     ...importCoreChecks,
+    ...clicheCoreChecks,
   ],
 };

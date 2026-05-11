@@ -1,13 +1,9 @@
-// ═══════════════════════════════════════════════════════════════
 // Configuration Types for Adapter-Based Verification
-// ═══════════════════════════════════════════════════════════════
 
 import type { RoutingAdapter } from "../adapters/base";
 import type { StateSchema } from "../core/model";
 
-// ─────────────────────────────────────────────────────────────────
 // New Adapter-Based Configuration
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Adapter-based verification configuration (new format)
@@ -39,9 +35,7 @@ export interface AdapterVerificationConfig {
   }>;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Legacy Configuration (Backward Compatibility)
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Legacy verification configuration (backward compatible)
@@ -63,9 +57,7 @@ export interface LegacyVerificationConfig {
   onRelease: "warn" | "error" | "off";
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Unified Configuration Type
-// ─────────────────────────────────────────────────────────────────
 
 /**
  * Union of new and legacy configuration formats
@@ -90,9 +82,7 @@ export function isLegacyConfig(
   return "messages" in config && !("adapter" in config);
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Configuration Validation
-// ─────────────────────────────────────────────────────────────────
 
 export interface ConfigIssue {
   type: "incomplete" | "null_placeholder" | "unrealistic_bound" | "invalid_value";

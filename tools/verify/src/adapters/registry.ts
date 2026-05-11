@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Adapter Selection Registry
-// ═══════════════════════════════════════════════════════════════
 //
 // Maps ProjectType to appropriate adapter with sensible defaults.
 // Automatically selects the correct adapter based on detected project type.

@@ -42,9 +42,7 @@ describe("Invariant Extraction", () => {
     }
   });
 
-  // ============================================================================
   // Basic Extraction Tests (10 tests)
-  // ============================================================================
 
   test("extracts simple @invariant tag", () => {
     const projectPath = createTempProject({
@@ -233,9 +231,7 @@ const MAX_COUNT = 100;
     expect(result.invariants[0]?.expression).toBe("MAX_COUNT > 0");
   });
 
-  // ============================================================================
   // Expression Complexity Tests (10 tests)
-  // ============================================================================
 
   test("handles compound expressions with &&", () => {
     const projectPath = createTempProject({
@@ -407,9 +403,7 @@ function increment(state: any) {}
     expect(result.invariants[0]?.expression).toBe("state.count <= state.maxCount");
   });
 
-  // ============================================================================
   // Name Generation Tests (5 tests)
-  // ============================================================================
 
   test("generates name for >= constraint", () => {
     const projectPath = createTempProject({
@@ -493,9 +487,7 @@ function test() {}
     expect(result.invariants[0]?.name).toContain("Done");
   });
 
-  // ============================================================================
   // Validation Tests (5 tests)
-  // ============================================================================
 
   test("validates expressions with balanced parentheses", () => {
     const extractor = new InvariantExtractor();

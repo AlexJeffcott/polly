@@ -207,7 +207,7 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
     // Unchanged - used for state stability
     expect(result.spec).toMatch(/UNCHANGED/);
 
-    // Note: \E (existential quantification) only appears when there are
+    // \E (existential quantification) only appears when there are
     // complex handlers with state transitions, not required in all specs
   });
 
@@ -313,7 +313,7 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
     // Should reference MessageRouter operators (inherited via EXTENDS)
     expect(result.spec).toMatch(/Init\s/); // MessageRouter's Init
 
-    // Note: ConnectPort, DisconnectPort, SendMessage are inherited from MessageRouter
+    // ConnectPort, DisconnectPort, SendMessage are inherited from MessageRouter
     // and don't appear explicitly in the generated spec since we EXTEND it
   });
 

@@ -19,9 +19,7 @@ export default defineVerification({
     maxInFlight: 2,
     maxTabs: 1,
 
-    // ═══════════════════════════════════════════════════════════
     // TIER 1 OPTIMIZATIONS (Zero precision loss)
-    // ═══════════════════════════════════════════════════════════
 
     // 1. Message Type Filtering (Issue #12)
     // Reduces 43 message types → 7 message types (84% reduction!)
@@ -55,9 +53,7 @@ export default defineVerification({
     },
   },
 
-  // ═══════════════════════════════════════════════════════════
   // TIER 2 OPTIMIZATIONS (Minimal, controlled precision loss)
-  // ═══════════════════════════════════════════════════════════
 
   tier2: {
     // 1. Temporal Constraints

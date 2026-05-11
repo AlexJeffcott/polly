@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Adapter Auto-Detection
-// ═══════════════════════════════════════════════════════════════
 //
 // Automatically detects which adapter to use based on project structure,
 // dependencies, and code patterns.
@@ -10,9 +8,7 @@ import type { RoutingAdapter } from "./base";
 import { EventBusAdapter } from "./event-bus";
 import { WebExtensionAdapter } from "./web-extension";
 
-// ─────────────────────────────────────────────────────────────────
 // Detection Result
-// ─────────────────────────────────────────────────────────────────
 
 export interface AdapterDetectionResult {
   /** The recommended adapter type */
@@ -35,9 +31,7 @@ export interface AdapterDetectionResult {
   }>;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // Adapter Detector
-// ─────────────────────────────────────────────────────────────────
 
 export class AdapterDetector {
   private project: Project;
@@ -106,9 +100,7 @@ export class AdapterDetector {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────
   // Detection Heuristics
-  // ─────────────────────────────────────────────────────────────────
 
   /**
    * Detect web extension patterns

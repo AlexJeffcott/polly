@@ -30,7 +30,7 @@ export type RoundTripResult = {
 };
 
 /**
- * RoundTripValidator ensures that generated TLA+ specifications
+ * RoundTripValidator checks that generated TLA+ specifications
  * preserve all information from the original analysis.
  *
  * This prevents silent data loss during code generation.

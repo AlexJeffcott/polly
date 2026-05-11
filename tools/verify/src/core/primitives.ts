@@ -1,6 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
 // Verification Primitives (Domain-Agnostic)
-// ═══════════════════════════════════════════════════════════════
 //
 // These are runtime no-ops but extracted during verification.
 // They work with ANY message-passing system, not just web extensions.

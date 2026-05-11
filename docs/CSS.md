@@ -2,7 +2,7 @@
 
 `polly quality` ships four CSS checks that enforce the styling contract
 behind `@fairfox/polly/ui`. Apps opt in by pointing the tool at their
-own CSS modules; Polly eats its own dog food.
+own CSS modules; Polly uses the same checks against `src/polly-ui/`.
 
 ```
 polly quality                # all checks (TS + CSS)
@@ -39,9 +39,8 @@ exceptional cases.
 ## css-layout
 
 Forbids `display: flex` and `display: grid` outside the `<Layout>`
-primitive. Apps that use this rule get two things: greppable layout
-decisions, and the guarantee that all layout in the app flows through
-one generalised component.
+primitive. With the rule on, every layout decision in the app sits in
+JSX rather than CSS, which keeps responsive behaviour greppable.
 
 Escape hatches for legitimate exceptions (Modal's own positioning,
 for example, uses `display: grid` to center its backdrop):

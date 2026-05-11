@@ -4,7 +4,7 @@ Universal reactive state primitives with automatic synchronization and persisten
 
 ## Overview
 
-Polly provides reactive state management that works seamlessly across different environments:
+Polly provides reactive state management that works across different environments:
 - **Chrome Extensions**: Multiple isolated contexts (background, popup, content scripts, etc.)
 - **Web Applications & PWAs**: Multi-tab applications with cross-tab synchronization
 - **Node.js/Testing**: In-memory state for verification and testing
@@ -214,7 +214,7 @@ import {
   $peerText,
   $peerCounter,
   $peerList,
-} from '@fairfox/polly'
+} from '@fairfox/polly/peer'
 
 // On startup, wire the $peerState family to a real relay transport.
 const client = createPeerStateClient({ url: 'wss://yourapp.com/polly/peer' })
@@ -233,7 +233,7 @@ settings.value = { theme: 'light' }
 The server side runs a Polly peer-relay factory:
 
 ```typescript
-import { createPeerRepoServer } from '@fairfox/polly'
+import { createPeerRepoServer } from '@fairfox/polly/peer'
 
 const server = await createPeerRepoServer({
   port: 3030,
@@ -274,7 +274,7 @@ import {
   $meshCounter,
   $meshList,
   MeshNetworkAdapter,
-} from '@fairfox/polly'
+} from '@fairfox/polly/mesh'
 import { Repo } from '@automerge/automerge-repo'
 
 // MeshNetworkAdapter wraps any base NetworkAdapter with sign-then-encrypt
@@ -300,7 +300,7 @@ import {
   decodePairingToken,
   applyPairingToken,
   DEFAULT_MESH_KEY_ID,
-} from '@fairfox/polly'
+} from '@fairfox/polly/mesh'
 
 // Issuer device
 const { identity, token } = createPairingTokenWithFreshIdentity({
@@ -325,7 +325,7 @@ import {
   encodeRevocation,
   decodeRevocation,
   applyRevocation,
-} from '@fairfox/polly'
+} from '@fairfox/polly/mesh'
 
 // Local-only revocation (this device stops trusting the peer).
 revokePeerLocally('compromised-peer-id', keyring)

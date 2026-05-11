@@ -146,7 +146,7 @@ describe("SSL Certificate Requirement", () => {
 
     const stdout = stdoutChunks.join("");
 
-    // Note: This will fail with "FAKE CERT" but we're just testing
+    // This will fail with "FAKE CERT" but we're just testing
     // that it doesn't exit with the SSL missing error
     // In a real scenario, you'd mock the TLS setup or use real certs
     expect(

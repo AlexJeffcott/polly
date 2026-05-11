@@ -1,5 +1,5 @@
 // Complex Expression Translation Tests - validates translation of advanced JS patterns
-// 80 comprehensive tests for ternary, nullish coalescing, optional chaining, and nesting
+// 80 tests for ternary, nullish coalescing, optional chaining, and nesting
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { CodebaseAnalysis, VerificationConfig } from "../../../analysis/src/types";
@@ -42,9 +42,7 @@ describe("Complex Expression Translation", () => {
     };
   });
 
-  // ============================================================================
   // TERNARY OPERATOR (20 tests)
-  // ============================================================================
 
   describe("Ternary Operator", () => {
     test("translates simple ternary", async () => {
@@ -288,9 +286,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // NULLISH COALESCING (20 tests)
-  // ============================================================================
 
   describe("Nullish Coalescing", () => {
     test("translates simple nullish coalescing", async () => {
@@ -540,9 +536,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // OPTIONAL CHAINING (20 tests)
-  // ============================================================================
 
   describe("Optional Chaining", () => {
     test("translates simple optional chaining", async () => {
@@ -784,9 +778,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // MIXED COMPLEX EXPRESSIONS (20 tests)
-  // ============================================================================
 
   describe("Mixed Complex Expressions", () => {
     test("handles ternary with nullish coalescing in condition", async () => {
@@ -1049,9 +1041,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // VERIFIED STATE SYNTAX CONVERSION (regression tests for Issue #27)
-  // ============================================================================
 
   describe("Verified State Syntax Conversion", () => {
     test("converts single quotes to double quotes for TLA+ strings", async () => {
@@ -1244,9 +1234,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // NULL CONSTANT (regression tests for Issue #27 follow-up)
-  // ============================================================================
 
   describe("NULL Constant Definition", () => {
     test("generates NULL constant in spec", async () => {
@@ -1265,9 +1253,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // VERIFICATION HELPER FUNCTIONS (hasLength, inRange, oneOf)
-  // ============================================================================
 
   describe("Verification Helper Functions", () => {
     test("translates hasLength with max constraint", async () => {
@@ -1390,9 +1376,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // NUMERIC TYPE (Issue #31)
-  // ============================================================================
 
   describe("Numeric Type", () => {
     test("{ type: 'number', min: 0, max: 10 } generates integer range in state type", async () => {
@@ -1449,9 +1433,7 @@ describe("Complex Expression Translation", () => {
     });
   });
 
-  // ============================================================================
   // PARAMETER REFERENCES (Issue #31)
-  // ============================================================================
 
   describe("Parameter References", () => {
     test("PayloadType includes handler parameter names", async () => {

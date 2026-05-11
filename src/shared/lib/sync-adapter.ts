@@ -2,7 +2,6 @@
 // Abstracts the transport mechanism (chrome.runtime, BroadcastChannel, etc.)
 //
 // Architecture Decision: BroadcastChannel vs SharedWorker
-// ------------------------------------------------------
 // We currently use BroadcastChannel for web app sync because:
 // - Simpler API with no lifecycle management complexity
 // - Decentralized (aligns with local-first/offline-first architecture)
@@ -11,7 +10,6 @@
 // - No single point of failure
 //
 // Future Consideration: SharedWorker Support
-// ------------------------------------------
 // SharedWorker could be added as an optional adapter for use cases requiring:
 // - Central coordination point for complex multi-tab workflows
 // - Shared WebSocket connections (one connection for all tabs)

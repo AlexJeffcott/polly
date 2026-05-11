@@ -10,7 +10,7 @@ import { analyzeCodebase } from "../types";
  * `{ ok: true; value: t }` and treating it as message types,
  * causing TLA+ generation to fail.
  *
- * These tests ensure that ONLY valid message types are extracted,
+ * These tests check that ONLY valid message types are extracted,
  * and complex TypeScript type definitions are ignored.
  */
 describe("Bug #11: Type Extraction Should Ignore Complex Type Definitions", () => {

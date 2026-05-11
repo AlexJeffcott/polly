@@ -14,9 +14,7 @@
  * - blob-have:    announce local availability of a blob
  */
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 /** Default chunk size in bytes: 64 KiB. Stays well within WebRTC SCTP
  *  message size limits (~256 KiB in most browsers). */
@@ -26,9 +24,7 @@ export const BLOB_CHUNK_SIZE = 65_536;
  *  when the buffer exceeds this threshold. */
 export const BLOB_BUFFER_HIGH_WATER = 256 * 1024;
 
-// ---------------------------------------------------------------------------
 // Message header types
-// ---------------------------------------------------------------------------
 
 export interface BlobChunkHeader {
   type: "blob-chunk";
@@ -51,9 +47,7 @@ export interface BlobHaveHeader {
 
 export type BlobMessageHeader = BlobChunkHeader | BlobRequestHeader | BlobHaveHeader;
 
-// ---------------------------------------------------------------------------
 // Chunking
-// ---------------------------------------------------------------------------
 
 /** Split bytes into fixed-size chunks. The last chunk may be smaller. */
 export function chunkBlob(bytes: Uint8Array, chunkSize: number = BLOB_CHUNK_SIZE): Uint8Array[] {
@@ -101,9 +95,7 @@ export function missingChunkIndices(chunks: Map<number, Uint8Array>, total: numb
   return missing;
 }
 
-// ---------------------------------------------------------------------------
 // Wire format
-// ---------------------------------------------------------------------------
 
 /** Serialise a blob message into the shared wire format:
  *  [4-byte BE header length][JSON header bytes][binary payload].

@@ -279,7 +279,7 @@ export class MeshNetworkAdapter extends NetworkAdapter {
   }
 }
 
-// ─── message serialisation ─────────────────────────────────────────────────
+// message serialisation
 
 /**
  * Serialise an Automerge sync message to a binary blob suitable for

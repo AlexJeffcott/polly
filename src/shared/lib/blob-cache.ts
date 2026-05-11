@@ -17,9 +17,7 @@
 
 import type { BlobCache } from "./blob-store";
 
-// ---------------------------------------------------------------------------
 // MemoryBlobCache
-// ---------------------------------------------------------------------------
 
 interface MemoryEntry {
   bytes: Uint8Array;
@@ -119,9 +117,7 @@ export class MemoryBlobCache implements BlobCache {
   }
 }
 
-// ---------------------------------------------------------------------------
 // IndexedDBBlobCache
-// ---------------------------------------------------------------------------
 
 interface IDBRecord {
   bytes: Uint8Array;

@@ -72,9 +72,7 @@ describe("Property Integration", () => {
     typeDefinitions: [],
   };
 
-  // ============================================================================
   // Invariant Integration Tests
-  // ============================================================================
 
   test("generates spec without invariants when disabled", async () => {
     const generator = new TLAGenerator();
@@ -167,9 +165,7 @@ export function test() {}
     expect(spec).toContain("contextStates[ctx].count");
   });
 
-  // ============================================================================
   // Temporal Property Integration Tests
-  // ============================================================================
 
   test("generates spec without temporal properties when disabled", async () => {
     const generator = new TLAGenerator();
@@ -267,9 +263,7 @@ export function test() {}
     expect(spec).toContain("RequiresLogin");
   });
 
-  // ============================================================================
   // Combined Integration Tests
-  // ============================================================================
 
   test("generates both invariants and temporal properties", async () => {
     const projectPath = createTempProject({

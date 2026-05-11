@@ -505,7 +505,7 @@ async function runSubsystemVerification(
   const subsystemNames = Object.keys(subsystems);
 
   console.log(
-    color(`📦 Subsystem-scoped verification (${subsystemNames.length} subsystems)\n`, COLORS.blue)
+    color(`Subsystem-scoped verification (${subsystemNames.length} subsystems)\n`, COLORS.blue)
   );
 
   // Non-interference check

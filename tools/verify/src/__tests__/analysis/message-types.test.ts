@@ -1,5 +1,5 @@
 // Message Type Extraction Tests - validates extraction from TypeScript types
-// 50 comprehensive tests for message type extraction improvements
+// 50 tests for message type extraction improvements
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -35,9 +35,7 @@ describe("Message Type Extraction", () => {
     return extractor.analyzeCodebase();
   }
 
-  // ============================================================================
   // STRING LITERAL UNIONS (10 tests)
-  // ============================================================================
 
   describe("String Literal Unions", () => {
     test("extracts simple union", async () => {
@@ -104,9 +102,7 @@ describe("Message Type Extraction", () => {
     });
   });
 
-  // ============================================================================
   // DISCRIMINATED UNIONS (10 tests)
-  // ============================================================================
 
   describe("Discriminated Unions", () => {
     test("extracts from discriminated union", async () => {
@@ -195,9 +191,7 @@ describe("Message Type Extraction", () => {
     });
   });
 
-  // ============================================================================
   // TYPE ALIASES (10 tests)
-  // ============================================================================
 
   describe("Type Aliases", () => {
     test("resolves type alias", async () => {
@@ -283,9 +277,7 @@ describe("Message Type Extraction", () => {
     });
   });
 
-  // ============================================================================
   // TEMPLATE LITERALS (5 tests)
-  // ============================================================================
 
   describe("Template Literals", () => {
     test("handles unbounded template", async () => {
@@ -319,9 +311,7 @@ describe("Message Type Extraction", () => {
     });
   });
 
-  // ============================================================================
   // VALIDATION AND FILTERING (15 tests)
-  // ============================================================================
 
   describe("Validation and Filtering", () => {
     test("filters hyphens", async () => {

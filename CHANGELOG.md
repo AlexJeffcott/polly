@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-05-11
+
+### Added
+
+#### LLM-cliché checks in `pollyCorePlugin`
+
+Five new checks ship under the `polly:` namespace and bundle into
+`pollyCorePlugin` alongside the existing core checks:
+
+- `polly:no-banners` — bans decorative comment dividers
+  (`// ─────`, `// =====`, `// ----------`) that LLM-generated code
+  scatters between sections. Matches `[=]{5,}`, `[-]{10,}`, or
+  `[─━═]{3,}` in any `//` comment.
+- `polly:no-decorative-emoji` — bans 🚀 ✨ 🎯 🎉 ⚡ 📦 🧩 used as visual
+  flair in source.
+- `polly:no-marketing` — flags overused booster words
+  (`comprehensive`, `robust`, `elegantly`, `seamless(ly)`, `leverages`,
+  `utili[sz]es`) and the `ensures that` filler phrase in both source
+  and markdown.
+- `polly:no-note-prefix` — bans `// Note:` / `// Important:` /
+  `// Warning:` / `// TIP:` / `// NB:` openers.
+- `polly:no-commented-code` — bans single-line commented-out source
+  (`// import`, `// const`, `// function`, etc.).
+
+Each check is parameterised with `zones`, `skipDirs`, `allowFiles`, and
+`extensions`, defaulting to polly's own layout
+(`src/`, `tools/`, `cli/`, `scripts/`, `recipes/`, `examples/`, plus
+`docs/` for the marketing check). Per-line suppression is available
+via a trailing `// audit-allow: <kind>` marker, where `<kind>` is one
+of `banner`, `emoji`, `marketing`, `note-prefix`, `commented-code`.
+
+`POLLY_CORE_VERSION` bumped to `0.48.0`. The plugin path lives at
+`tools/quality/src/plugins/cliche-checks.ts`; the matching test suite
+covers each rule's positive and negative cases plus the audit-allow
+suppression path (`tests/unit/quality/plugins/cliche-checks.test.ts`).
+
+### Cleaned
+
+The polly source tree was scrubbed against the same rules in
+preparation for this release: 410 banner-divider lines removed across
+54 files, 4 decorative emoji stripped from CLI/server startup banners,
+29 marketing-word hits rewritten in source comments and docs prose, 32
+`// Note:` prefixes dropped, and 12 commented-code lines either
+implemented, converted to TODOs, or restructured into JSDoc-style
+examples. The tree is at zero violations across all five rules at
+release time.
+
+### Documentation
+
+The reference docs in `docs/` were audited end-to-end for accuracy
+and rewritten where they had drifted from source. The biggest fixes:
+
+- The peer/mesh import paths in `README.md` and `docs/STATE.md` now
+  point at the actual subpath exports (`@fairfox/polly/peer`,
+  `@fairfox/polly/mesh`) rather than the package root.
+- `docs/ERRORS.md` previously listed a fabricated ten-class hierarchy
+  and an `ErrorCode` enum that did not exist; the rewrite documents
+  the seven real classes in `src/shared/lib/errors.ts`
+  (`ExtensionError`, `TimeoutError`, `ConnectionError`,
+  `MessageRouterError`, `HandlerError`, `APIError`, `OffscreenError`)
+  and the `ErrorHandler` helper.
+- `docs/MESSAGING.md` corrected the `RoutedMessage` envelope shape
+  (`targets: Context[]`, not `target: Context | 'broadcast'`), the
+  `MessageHandler` mapping (`STATE_SYNC: Context[]` instead of the
+  fictional `'broadcast'` literal), the `MessageBus` generic
+  signature, and the `STATE_SYNC` payload shape. The 343-line
+  inline source dump was replaced with a description that points at
+  the real implementation.
+- `docs/ADAPTERS.md` was rewritten to point at `src/shared/adapters/`
+  rather than inline a 1,000-line snapshot of source that had
+  drifted from the real `RuntimeAdapter` interface and pointed at a
+  non-existent `fetch.chrome.ts` file.
+- `docs/LOGGING.md` was rewritten to remove duplicated source dumps
+  and the `// ✅ Good` / `// ❌ Bad` template patterns; it now points
+  at the real `MessageLoggerAdapter` and `LogStore` implementations.
+- `docs/TESTING.md` had one stale `SIGNAL_UPDATE` example corrected
+  to `STATE_SYNC` and lost an unfalsifiable "Coverage: ✅ ..."
+  checklist.
+- `CONTRIBUTING.md` lost references to scripts that do not exist
+  (`bun run setup`, `bun run test:framework*`, `bun run tla:*`), had
+  its formatter section corrected against `biome.json` (double
+  quotes, always semicolons, ES5 trailing commas — previously
+  inverted), and replaced the Conventional-Commits framing with the
+  project's actual plain-English commit policy.
+- `examples/README.md` lost the pitch-deck framing
+  (`**NEW!** 🎉`, "Production-ready (minimal overhead)") and the
+  `team-task-manager` description was reconciled with what the
+  example actually demonstrates (role-based access and verified
+  counts, not end-to-end encryption).
+- `docs/DX-IMPROVEMENTS.md` and `docs/MIGRATION-DX-ENHANCEMENTS.md`
+  were deleted — both were v0.13-era pitch-deck-shaped docs whose
+  example paths no longer existed and whose "30-40% less
+  boilerplate" framing was many versions out of date.
+
+`LogStore` is now re-exported through `@fairfox/polly/background` so
+the LOGGING doc's import example resolves. Net diff across all docs
+work: −4,283 lines, +1,059 lines across 15 files (plus 2 deleted).
+
 ## [0.47.0] - 2026-05-06
 
 ### Added

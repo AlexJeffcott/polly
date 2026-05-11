@@ -1,7 +1,7 @@
 /**
  * Tests for Full-Featured Extension Handlers
  *
- * Demonstrates comprehensive testing with @fairfox/polly/test
+ * Demonstrates testing with @fairfox/polly/test
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";

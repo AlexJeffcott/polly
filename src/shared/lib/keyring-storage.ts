@@ -53,7 +53,7 @@ export function memoryKeyringStorage(): KeyringStorage {
   };
 }
 
-// ─── Canonical JSON+base64 serialisation ───────────────────────────────────
+// Canonical JSON+base64 serialisation
 
 interface SerialisedKeyring {
   version: 1;

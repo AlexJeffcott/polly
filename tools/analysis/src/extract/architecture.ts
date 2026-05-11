@@ -30,9 +30,6 @@ export interface ArchitectureAnalysisOptions {
   useProjectDetector?: boolean;
 }
 
-/**
- * Comprehensive architecture analyzer
- */
 export class ArchitectureAnalyzer {
   private options: ArchitectureAnalysisOptions;
 

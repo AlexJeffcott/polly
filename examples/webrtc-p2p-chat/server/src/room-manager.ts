@@ -32,7 +32,7 @@ export class RoomManager {
     // Create room if it doesn't exist
     if (!this.rooms.has(roomId)) {
       this.rooms.set(roomId, new Map());
-      console.log(`📦 Created room: ${roomId}`);
+      console.log(`Created room: ${roomId}`);
     }
 
     const room = this.rooms.get(roomId)!;

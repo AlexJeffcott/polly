@@ -205,7 +205,7 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
 
     // Temporal properties must appear inside the module, not after its
     // closing line. Take the position of the property header and the
-    // last `=====` and compare.
+    // last module-closing equals run and compare.
     const propHeaderIdx = spec.indexOf("EnsuresAfter_HandleDisconnect");
     const lastEquals = spec.lastIndexOf(
       "============================================================================="

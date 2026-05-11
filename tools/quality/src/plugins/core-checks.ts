@@ -21,9 +21,7 @@ import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import type { Check } from "../types";
 
-// ─────────────────────────────────────────────────────────────────
 // polly:security — semgrep SAST wrapper
-// ─────────────────────────────────────────────────────────────────
 
 type SecurityConfig = {
   /** Override the semgrep ruleset; defaults to `auto`. */
@@ -88,9 +86,7 @@ const security: Check<SecurityConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly:boundaries — directional zone-ban import check
-// ─────────────────────────────────────────────────────────────────
 
 type BoundariesConfig = {
   /** From-zone → list of zone path prefixes that zone may not import from. */
@@ -269,9 +265,7 @@ const boundaries: Check<BoundariesConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly:server-imports — ban node:* / bun:* in browser packages
-// ─────────────────────────────────────────────────────────────────
 
 type ServerImportsConfig = {
   /** Path prefixes that are browser-targeting; their files cannot import banned specifiers. */

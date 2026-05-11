@@ -1,5 +1,5 @@
 // Round-Trip Validation Tests - ensures generated TLA+ preserves all information
-// 40 comprehensive tests for RoundTripValidator class
+// 40 tests for RoundTripValidator class
 
 import { describe, expect, test } from "bun:test";
 import { RoundTripValidator } from "../../codegen/round-trip";
@@ -34,9 +34,7 @@ describe("Round-Trip Validation", () => {
     })),
   });
 
-  // ============================================================================
   // MESSAGE TYPE EXTRACTION (10 tests)
-  // ============================================================================
 
   describe("Message Type Extraction", () => {
     test("extracts single message type", async () => {
@@ -163,9 +161,7 @@ UserMessageTypes == {
     });
   });
 
-  // ============================================================================
   // STATE FIELD EXTRACTION (10 tests)
-  // ============================================================================
 
   describe("State Field Extraction", () => {
     test("extracts single state field", async () => {
@@ -335,9 +331,7 @@ State == [contextStates: [ctx |-> [
     });
   });
 
-  // ============================================================================
   // HANDLER EXTRACTION (10 tests)
-  // ============================================================================
 
   describe("Handler Extraction", () => {
     test("extracts single handler", async () => {
@@ -503,9 +497,7 @@ StateTransition == TRUE
     });
   });
 
-  // ============================================================================
   // INIT/NEXT STRUCTURE (5 tests)
-  // ============================================================================
 
   describe("Init/Next Structure", () => {
     test("detects InitialState operator", async () => {
@@ -572,11 +564,9 @@ VARIABLE x
     });
   });
 
-  // ============================================================================
-  // COMPREHENSIVE VALIDATION (5 tests)
-  // ============================================================================
+  // Whole-spec validation (5 tests)
 
-  describe("Comprehensive Validation", () => {
+  describe("Whole-spec validation", () => {
     test("validates complete valid spec", async () => {
       const config = createConfig({
         count: { type: "enum", values: ["0", "1", "2"] },

@@ -63,7 +63,7 @@ wss.on('connection', (ws) => {
       expect(config.type).toBe("websocket-app");
       expect(config.entryPoints["server"]).toBeDefined();
       expect(config.entryPoints["server"]).toContain("server.ts"); // Path string should contain filename
-      // Note: contextMapping currently returns "WebSocket Server", not "Server"
+      // contextMapping currently returns "WebSocket Server", not "Server"
       expect(config.contextMapping?.["server"]).toBe("WebSocket Server");
     });
 
@@ -169,7 +169,7 @@ const wss = new WebSocketServer({ port: 8080 });`
       // Should use "server" as the key, NOT "websocket-server"
       expect(config.contextMapping?.["server"]).toBeDefined();
       expect(config.contextMapping).not.toHaveProperty("websocket-server");
-      // Note: The value is "WebSocket Server", not "Server"
+      // The value is "WebSocket Server", not "Server"
       expect(config.contextMapping?.["server"]).toBe("WebSocket Server");
     });
   });
@@ -235,7 +235,7 @@ const wss = new WebSocketServer({ port: 8080 });`
 
       const config = detectProjectConfig(tempDir);
 
-      // Note: contextMapping value varies - sometimes "WebSocket Server", sometimes "Server"
+      // contextMapping value varies - sometimes "WebSocket Server", sometimes "Server"
       // depending on whether WebSocket framework is detected
       expect(config.contextMapping?.["server"]).toBeDefined();
       const serverMapping = config.contextMapping?.["server"];

@@ -67,7 +67,7 @@ export {
   type StateAdapters,
 } from "../lib/adapter-factory";
 // Re-export state management adapters
-// Note: Avoid duplicate StorageAdapter export - use named exports to prevent conflicts
+// Avoid duplicate StorageAdapter export - use named exports to prevent conflicts
 export {
   ChromeStorageAdapter as UniversalChromeStorageAdapter,
   createStorageAdapter,

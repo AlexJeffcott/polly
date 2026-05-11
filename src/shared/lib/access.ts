@@ -68,7 +68,7 @@ export interface Access<Identity = PeerIdentity> {
   write: AccessPredicate<Identity>;
 }
 
-// ─── Primitive predicate factories ──────────────────────────────────────────
+// Primitive predicate factories
 
 /**
  * A predicate that accepts every identity. Useful for public documents and
@@ -107,7 +107,7 @@ export function anyOfPeers<Identity extends PeerIdentity = PeerIdentity>(
   return (identity) => set.has(identity.peerId);
 }
 
-// ─── Compositors ────────────────────────────────────────────────────────────
+// Compositors
 
 /**
  * Logical AND of two predicates. Accepts an identity only if both inputs
@@ -138,7 +138,7 @@ export function not<Identity>(a: AccessPredicate<Identity>): AccessPredicate<Ide
   return (identity) => !a(identity);
 }
 
-// ─── Access constructors ────────────────────────────────────────────────────
+// Access constructors
 
 /**
  * Public read and write for every peer. The default for documents that are

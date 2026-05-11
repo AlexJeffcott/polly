@@ -1,8 +1,16 @@
 # UI primitives
 
-`@fairfox/polly/ui` provides eight compound components that sit on top of
-the action-registry runtime. The split of responsibility is deliberate:
-Polly owns accessibility and structure; consumers own visual values.
+`@fairfox/polly/ui` provides a set of components built on the
+action-registry runtime. Polly owns accessibility and structure;
+consumers own visual values.
+
+The full export list lives in `src/polly-ui/index.ts`. At time of
+writing it includes `ActionForm`, `ActionInput`, `Badge`, `Button`,
+`Card`, `Checkbox`, `Collapsible`, `ConfirmDialog` (plus the
+`confirm()` helper), `Dropdown`, `Layout`, `Modal`, `OverlayRoot`
+(plus `getOverlayRootNode`), `Select`, `Skeleton`, `Surface`, `Tabs`,
+`TextInput`, `Toast`, `Toggle`, and a markdown subpath. New components
+land regularly; check the source if you need the current set.
 
 ## Import
 
@@ -12,9 +20,9 @@ import {
   ConfirmDialog, Toast, OverlayRoot,
 } from '@fairfox/polly/ui';
 
-import '@fairfox/polly/ui/styles.css';      // structural + a11y — keep it
+import '@fairfox/polly/ui/styles.css';      // structural + a11y
 import '@fairfox/polly/ui/theme.css';       // default tokens — override or replace
-import '@fairfox/polly/ui/components.css';  // per-component styles — keep it
+import '@fairfox/polly/ui/components.css';  // per-component styles
 ```
 
 ## Theming contract

@@ -18,9 +18,7 @@ stateConstraint(
   () => user.value.loggedIn === true || user.value.role === "guest"
 );
 
-// ============================================================================
 // User Authentication
-// ============================================================================
 
 bus.on(
   "USER_LOGIN",
@@ -69,9 +67,7 @@ bus.on("USER_LOGOUT", () => {
   return { success: true };
 });
 
-// ============================================================================
 // Todo Management
-// ============================================================================
 
 bus.on("TODO_ADD", (payload: { text: string; priority: "low" | "medium" | "high" }) => {
   // Preconditions - enforce configurable todo limit
@@ -90,7 +86,7 @@ bus.on("TODO_ADD", (payload: { text: string; priority: "low" | "medium" | "high"
   todos.value = [...todos.value, newTodo];
 
   // Postconditions - verify todo was added
-  // Note: Can't reference local variables (previousCount) in ensures() for TLA+ translation
+  // Can't reference local variables (previousCount) in ensures() for TLA+ translation
   ensures(todos.value.length > 0, "Todos must not be empty after add");
 
   return { success: true, todo: newTodo };
@@ -98,7 +94,7 @@ bus.on("TODO_ADD", (payload: { text: string; priority: "low" | "medium" | "high"
 
 bus.on("TODO_TOGGLE", (payload: { id: string }) => {
   // Precondition - todo must exist
-  // Note: TLA+ can't enumerate over sequences with \in, so we use length check as proxy
+  // TLA+ can't enumerate over sequences with \in, so we use length check as proxy
   requires(todos.value.length > 0, "Todos must not be empty to toggle");
 
   const todo = todos.value.find((t) => t.id === payload.id);
@@ -121,14 +117,14 @@ bus.on("TODO_TOGGLE", (payload: { id: string }) => {
 
 bus.on("TODO_REMOVE", (payload: { id: string }) => {
   // Precondition - todo must exist
-  // Note: TLA+ can't enumerate over sequences with \in, so we use length check as proxy
+  // TLA+ can't enumerate over sequences with \in, so we use length check as proxy
   requires(todos.value.length > 0, "Todos must not be empty to remove");
 
   // State change - using reactive signals with automatic sync
   todos.value = todos.value.filter((t) => t.id !== payload.id);
 
   // Postconditions - verify removal (length-based check for TLA+ compatibility)
-  // Note: Can't use .some() as TLA+ can't enumerate over sequences
+  // Can't use .some() as TLA+ can't enumerate over sequences
   // The actual runtime check is done internally by filter()
 
   return { success: true };
@@ -141,15 +137,13 @@ bus.on("TODO_CLEAR_COMPLETED", () => {
   todos.value = todos.value.filter((t) => !t.completed);
 
   // Postconditions - verify operation completed
-  // Note: Can't use .some() as TLA+ can't enumerate over sequences
+  // Can't use .some() as TLA+ can't enumerate over sequences
   // The actual runtime check is done internally by filter()
 
   return { success: true, removed: completedCount };
 });
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 bus.on("TODO_SET_LIMIT", (payload: { limit: number }) => {
   // Precondition - limit must be positive (exercises { type: "number" } verification)
@@ -169,9 +163,7 @@ bus.on("SET_THEME", (payload: { theme: "light" | "dark" | "system" }) => {
   return { success: true };
 });
 
-// ============================================================================
 // Queries
-// ============================================================================
 
 bus.on("GET_STATE", () => {
   // Verification: ensure all todo IDs are unique

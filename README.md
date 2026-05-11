@@ -99,7 +99,7 @@ The four primitives above keep state consistent inside a single deployment. But 
 **`$peerState`** — every device holds a full [Automerge](https://automerge.org/) CRDT replica. The server holds one too, so cron and HTTP handlers can read and mutate documents. If the server loses its storage, any reconnecting client repopulates it through the normal sync protocol.
 
 ```typescript
-import { createPeerStateClient, configurePeerState, $peerState } from "@fairfox/polly";
+import { createPeerStateClient, configurePeerState, $peerState } from "@fairfox/polly/peer";
 
 const client = createPeerStateClient({ url: "wss://yourapp.com/polly/peer" });
 configurePeerState(client.repo);
@@ -112,7 +112,7 @@ settings.value = { theme: "light" }; // syncs to every peer
 **`$meshState`** — peers exchange operations directly over WebRTC data channels, signed with Ed25519 and encrypted with XSalsa20-Poly1305. No server sees the data. A small stateless signalling server helps peers find each other; removing it does not affect running connections.
 
 ```typescript
-import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from "@fairfox/polly";
+import { configureMeshState, $meshState, MeshNetworkAdapter, MeshWebRTCAdapter } from "@fairfox/polly/mesh";
 
 const repo = new Repo({ network: [new MeshNetworkAdapter({ base: webrtcAdapter, keyring })] });
 configureMeshState(repo);
@@ -275,22 +275,24 @@ bun install && bun run dev
 | [full-featured](examples/full-featured) | Production Chrome extension with all framework features |
 | [elysia-todo-app](examples/elysia-todo-app) | Full-stack web app with Elysia + Bun, offline-first |
 | [webrtc-p2p-chat](examples/webrtc-p2p-chat) | Peer-to-peer chat over WebRTC data channels |
-| [team-task-manager](examples/team-task-manager) | Collaborative task management with end-to-end encryption |
+| [team-task-manager](examples/team-task-manager) | Role-based collaborative tasks with `$constraints()` and verified urgent-task counts |
 
 ## CLI
 
 ```
-polly init [name]       Scaffold a new project
-polly build [--prod]    Build for development or production
-polly dev               Build with watch mode
-polly check             Run all checks (typecheck, lint, test, build)
-polly typecheck         Type-check your code
-polly lint [--fix]      Lint (and optionally auto-fix)
-polly format            Format your code
-polly test              Run tests
-polly verify            Run formal verification
-polly visualize         Generate architecture diagrams (Structurizr DSL)
-polly quality           Run conformance checks (no-as-casting)
+polly init [name] [--type=TYPE]   Scaffold a new project (extension | pwa | websocket | generic)
+polly build [--prod]              Build for development or production
+polly dev                         Build with watch mode
+polly check                       Run all checks (typecheck, lint, test, build)
+polly typecheck                   Type-check your code
+polly lint [--fix]                Lint (and optionally auto-fix)
+polly format                      Format your code
+polly test [args]                 Run unit tests (bun test)
+polly test:browser [dir]          Run *.browser.{ts,tsx} in Puppeteer
+polly verify                      Run formal verification (TLA+/TLC)
+polly visualize                   Generate architecture diagrams (Structurizr DSL)
+polly quality [args]              Run conformance checks (no-as-casting, boundaries, secrets,
+                                  server-imports, forbidden-deps, banners, marketing, ...)
 ```
 
 ## Quality tooling

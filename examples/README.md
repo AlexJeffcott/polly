@@ -1,166 +1,49 @@
-# Polly Examples
+# Polly examples
 
-This directory contains complete example applications demonstrating Polly's capabilities.
+Each example is a self-contained app that exercises a different
+combination of Polly's features. Pick whichever one most resembles
+what you're building.
 
-## Examples
+## Index
 
-### 1. [Elysia Todo App](./elysia-todo-app) - **NEW!** 🎉
+| Example | What it is |
+|---------|------------|
+| [minimal](./minimal) | The smallest Polly Chrome extension. Background script, popup, one piece of synced state, a TLA+ verification config. Start here if you're new. |
+| [todo-list](./todo-list) | Chrome extension with login, CRUD, a 100-item cap, unit tests, and TLA+ verification of the handlers. Uses the `{ verify: true }` discovery pattern and subsystem-scoped verification. |
+| [full-featured](./full-featured) | The largest example. Covers every Polly feature: multiple execution contexts, complex message flows, runtime constraints, `$sharedState` and `$persistedState` together, the full adapter stack. |
+| [elysia-todo-app](./elysia-todo-app) | Full-stack web app using `@fairfox/polly/elysia`. Eden infers types end-to-end from the Elysia server, the client queues writes offline, and state syncs over WebSocket. Route-level authorization, declarative client effects. |
+| [webrtc-p2p-chat](./webrtc-p2p-chat) | Browser-to-browser chat over WebRTC data channels. The server only handles signalling; message content never reaches it. Demonstrates room-based pairing and connection-state UI. |
+| [team-task-manager](./team-task-manager) | Collaborative task management with role-based access (`owner`/`admin`/`member`), `$constraints()` for workspace-gated operations, urgent-task counts as a verified numeric field, and parameter-traced task priority. Demonstrates the role-and-constraints pattern, not end-to-end encryption. |
 
-**Full-stack web app with Elysia + Bun**
-
-A complete todo application demonstrating Polly's Elysia middleware integration for building distributed web applications.
-
-**Features:**
-- Zero type duplication (Eden infers from Elysia)
-- Offline-first with automatic queueing
-- Real-time sync via WebSocket broadcast
-- Route-level authorization
-- Declarative client effects
-- Production-ready (minimal overhead)
-
-**Great for:**
-- Learning how SPAs are distributed systems
-- Building offline-first web apps
-- Understanding CAP theorem in practice
-- Real-time collaborative applications
-
-[View example →](./elysia-todo-app)
-
----
-
-### 2. [WebRTC P2P Chat](./webrtc-p2p-chat) - **NEW!** 🎉
-
-**Peer-to-peer chat with WebRTC data channels**
-
-A real-time chat application demonstrating direct browser-to-browser communication using WebRTC, with the server only handling signaling.
-
-**Features:**
-- Direct P2P messaging (server never sees content)
-- WebRTC data channels
-- Room-based chat
-- Connection status and latency monitoring
-- Polly reactive state for local UI management
-- Signaling server (Elysia + WebSocket)
-
-**Great for:**
-- Learning WebRTC fundamentals
-- Understanding P2P architectures
-- Building privacy-first applications
-- Low-latency real-time communication
-
-[View example →](./webrtc-p2p-chat)
-
----
-
-### 3. [Minimal](./minimal)
-
-**Chrome extension starter**
-
-The simplest possible Polly extension. Great starting point for understanding the basics.
-
-**Features:**
-- Single background script
-- Basic message handling
-- State synchronization
-- TLA+ verification setup
-
-**Great for:**
-- First-time Polly users
-- Understanding core concepts
-- Quick prototyping
-
----
-
-### 4. [Todo List](./todo-list)
-
-**Chrome extension with formal verification**
-
-A complete todo list extension with both traditional testing and TLA+ verification.
-
-**Features:**
-- User authentication
-- Full CRUD operations
-- 100 todo limit enforcement
-- Unit tests + TLA+ verification
-- Framework double-execution prevention
-- **NEW:** Verified state discovery pattern (`{ verify: true }`)
-
-**Great for:**
-- Understanding formal verification
-- Learning TLA+ model checking
-- Building production extensions
-- Testing distributed state
-- Multi-tab PWAs and WebSocket apps (via verified state handlers)
-
----
-
-### 5. [Full Featured](./full-featured)
-
-**Complete Chrome extension showcase**
-
-The most comprehensive example showing all Polly features.
-
-**Features:**
-- Multiple execution contexts
-- Complex message flows
-- Advanced state management
-- Production-grade architecture
-
-**Great for:**
-- Advanced Polly users
-- Large-scale extensions
-- Reference architecture
-
----
-
-### 6. [Team Task Manager](./team-task-manager)
-
-**Collaborative task management with role constraints**
-
-A multi-user task management application demonstrating Polly's state management with role-based access control and formal verification.
-
-**Features:**
-- Workspace and task state with `{ verify: true }`
-- Role-based authorization (owner, admin, member)
-- Urgent task count tracking (`{ type: "number" }`)
-- `$constraints()` for workspace-gated operations
-- Parameter tracing for task priority
-
-**Great for:**
-- Role-based access patterns
-- Complex domain modeling with verification
-- Understanding `$constraints()` usage
-- Team collaboration patterns
-
----
-
-## Quick Start
-
-Each example has its own README with detailed instructions. Generally:
+## Running an example
 
 ```bash
-cd examples/<example-name>
+cd examples/<name>
 bun install
 bun run dev
 ```
 
-## Choosing an Example
+Each example's README has the specific instructions: extensions load
+their `dist/` directory in Chrome at `chrome://extensions`; web apps
+boot through `bun run dev`; the WebRTC example needs the signalling
+server running first.
 
-- **New to Polly?** Start with [Minimal](./minimal)
-- **Building a web app?** Check out [Elysia Todo App](./elysia-todo-app)
-- **Building P2P/WebRTC apps?** Try [WebRTC P2P Chat](./webrtc-p2p-chat)
-- **Want to learn verification?** See [Todo List](./todo-list)
-- **Need a reference?** Look at [Full Featured](./full-featured)
-- **Building team tools?** See [Team Task Manager](./team-task-manager)
+## Picking one
 
-## Contributing Examples
+- New to Polly: [minimal](./minimal).
+- Building a Chrome extension: [todo-list](./todo-list) or [full-featured](./full-featured).
+- Building a web app or PWA: [elysia-todo-app](./elysia-todo-app).
+- Building a P2P / WebRTC app: [webrtc-p2p-chat](./webrtc-p2p-chat).
+- Learning formal verification: [todo-list](./todo-list).
+- Modelling roles and constraints: [team-task-manager](./team-task-manager).
 
-We welcome new examples! Good examples:
+## Contributing examples
 
-- Demonstrate specific Polly features
-- Include clear documentation
-- Work out of the box
-- Show real-world patterns
-- Include tests (bonus: formal verification!)
+Good examples are short, focused on one or two Polly features, and
+work after `bun install && bun run dev` with no other setup. They
+include a README that explains what the example demonstrates and how
+to run it, and — where applicable — a `specs/verification.config.ts`
+that the TLA+ pipeline can pick up.
 
-See the [Contributing Guide](../CONTRIBUTING.md) for details.
+See [the contributing guide](../CONTRIBUTING.md) for the broader
+workflow.

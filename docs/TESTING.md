@@ -1,13 +1,14 @@
-# Testing Guide
+# Testing
 
-## Overview
+Tests against Polly code build a real `MessageBus` / `MessageRouter` /
+state primitive against mock adapters rather than mocking the bus
+itself. That single seam — the adapter stack — is where every test
+seam lives. There is no separate mock framework to learn.
 
-This extension achieves 100% type safety and comprehensive test coverage through:
-- **Adapter Pattern**: All external APIs wrapped for testability
-- **Dependency Injection**: Services accept optional adapters/bus for testing
-- **Mock Directory Structure**: Mirrors production code organization
-- **Path Aliases**: Uses `@/` imports for consistency
-- **Zero Type Casts**: Proper typed mocks eliminate `as any`
+The mocks live under `tools/test/src/adapters/`. Each implements its
+interface (so the type system enforces parity), and each exposes a
+small surface of test-only fields prefixed with `_` for inspection
+and seeding. They ship from `@fairfox/polly/test`.
 
 ## Table of Contents
 
@@ -245,7 +246,7 @@ test('Error logged on failure', () => {
 })
 ```
 
-See [LOGGING.md](./LOGGING.md) for comprehensive logging documentation.
+See [LOGGING.md](./LOGGING.md) for the full logging documentation.
 
 ---
 
@@ -336,10 +337,10 @@ test('MessageBus - broadcast calls sendMessage', () => {
   bus.broadcast = sendSpy
 
   bus.broadcast({
-    type: 'SIGNAL_UPDATE',
-    signalId: 'test',
+    type: 'STATE_SYNC',
+    key: 'test',
     value: {},
-    source: 'background',
+    clock: 1,
   })
 
   expect(sendSpy).toHaveBeenCalled()
@@ -750,23 +751,6 @@ exclude = [
   "tests/e2e/**/*.spec.ts"  # E2E tests run separately with Playwright
 ]
 ```
-
----
-
-## Coverage
-
-Current test coverage: **all tests passing**
-
-- ✅ Unit tests for all adapters
-- ✅ Unit tests for message bus
-- ✅ Unit tests for message router
-- ✅ Unit tests for background handlers
-- ✅ Unit tests for signal synchronization
-- ✅ Integration tests for cross-context communication
-- ✅ Zero type casts (`as any`) in test code
-- ✅ Full type safety with TypeScript strict mode
-
-E2E tests with Playwright are run separately for browser-based scenarios.
 
 ---
 

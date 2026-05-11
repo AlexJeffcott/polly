@@ -52,9 +52,7 @@ async function walkScannableFiles(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
 // polly:forbidden-deps — import-graph ban list
-// ─────────────────────────────────────────────────────────────────
 
 type ForbiddenDepsConfig = {
   /** Map of category description → list of banned package prefixes. */
@@ -179,9 +177,7 @@ const forbiddenDeps: Check<ForbiddenDepsConfig | undefined> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
 // polly:no-state-hooks — ban local-state hooks (signals-first)
-// ─────────────────────────────────────────────────────────────────
 
 type NoStateHooksConfig = {
   /** Hook names to ban; defaults match polly's signals-first stance. */
@@ -270,9 +266,7 @@ async function scanFileForHookCalls(
   return out;
 }
 
-// ─────────────────────────────────────────────────────────────────
 // polly:typographic-quotes — opt-in straight-vs-curly enforcement
-// ─────────────────────────────────────────────────────────────────
 
 type TypographicQuotesConfig = {
   /** Files matched by these globs must use typographic (curly) quotes. */
