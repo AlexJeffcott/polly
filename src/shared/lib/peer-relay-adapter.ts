@@ -112,11 +112,12 @@ export function createPeerStateClient(options: CreatePeerStateClientOptions): Pe
   // MeshNetworkAdapter. This signs every outgoing message but does NOT
   // encrypt, so the relay server can still parse Automerge sync messages
   // and participate as a full peer (cron, HTTP handlers, etc.).
+  const keyring = options.keyring;
   const networkAdapter: NetworkAdapterInterface =
-    options.sign && options.keyring
+    options.sign && keyring
       ? new MeshNetworkAdapter({
           base: adapter,
-          keyring: options.keyring,
+          keyringSource: () => keyring,
           encryptionEnabled: false,
         })
       : adapter;

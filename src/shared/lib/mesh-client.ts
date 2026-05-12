@@ -80,12 +80,29 @@ export interface CreateMeshClientOptions {
     iceCredentialResolver?: () => Promise<RTCIceServer[]>;
     dataChannelLabel?: string;
   };
-  /** The local peer's keyring — either a fully-constructed instance, or a
-   * persistence adapter to load one from. When a storage adapter is given
-   * and `storage.load()` resolves to `null`, the factory throws with a
-   * message pointing at the bootstrap helper in `@fairfox/polly/mesh/node`;
-   * we deliberately do not generate an identity silently. */
-  keyring: MeshKeyring | { storage: KeyringStorage };
+  /** The local peer's keyring — one of three shapes:
+   *
+   * - A {@link MeshKeyring} instance. The same object is used for the
+   *   lifetime of the mesh client; in-place mutations to its `knownPeers`
+   *   and `documentKeys` maps are visible to the next send and receive
+   *   (`MeshNetworkAdapter` re-reads the keyring on every message, so
+   *   `applyPairingToken` and friends take effect without a restart).
+   *
+   * - `{ storage }`: load the keyring once via the persistence adapter.
+   *   When `storage.load()` resolves to `null`, the factory throws with
+   *   a message pointing at the bootstrap helper in
+   *   `@fairfox/polly/mesh/node`; we deliberately do not generate an
+   *   identity silently.
+   *
+   * - `{ source }`: a synchronous function returning the current keyring.
+   *   Called by `MeshNetworkAdapter` on every send and every receive.
+   *   This is the shape that lets a long-lived mesh client recover from
+   *   keyring updates written by a *different* process — wire the
+   *   `source` to a cached object that a file watcher (or `readFileSync`
+   *   on each call) refreshes from disk, and a freshly-paired peer
+   *   becomes visible to the running adapter without any explicit
+   *   notification path. See polly issue #100. */
+  keyring: MeshKeyring | { storage: KeyringStorage } | { source: () => MeshKeyring };
   /** Optional Automerge-Repo storage adapter. Applications that want
    * durable local state pass an IndexedDB adapter in browsers or a
    * filesystem adapter in Node; omitting it keeps the Repo in-memory. */
@@ -119,10 +136,13 @@ export interface MeshClient {
    * the application needs it directly (server-side cron, bulk exports,
    * migration tools). */
   repo: Repo;
-  /** The configured keyring. Exposed so the application can inspect or
-   * mutate it (add authorised peers, apply revocations) and then
-   * re-persist via its storage. */
-  keyring: MeshKeyring;
+  /** The current keyring. Reads through the same live source the network
+   * adapter uses, so the value always reflects the latest snapshot —
+   * including changes introduced after construction via in-place mutation
+   * or a `{ source }` callback. Applications can inspect or mutate the
+   * returned object (add authorised peers, apply revocations) and the
+   * next mesh message sees the change. */
+  readonly keyring: MeshKeyring;
   /** The signalling client. Exposed for applications that need to hook
    * lifecycle events or send custom signalling payloads. */
   signaling: MeshSignalingClient;
@@ -142,7 +162,8 @@ export interface MeshClient {
  * peer connections negotiate asynchronously in the background.
  */
 export async function createMeshClient(options: CreateMeshClientOptions): Promise<MeshClient> {
-  const keyring = await resolveKeyring(options.keyring);
+  const keyringSource = await resolveKeyringSource(options.keyring);
+  const keyring = keyringSource();
   const encryptionEnabled = options.encryptionEnabled ?? true;
 
   // A mesh keyring must carry the per-Repo document key used by
@@ -213,7 +234,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
 
   const networkAdapter = new MeshNetworkAdapter({
     base: webrtcAdapter,
-    keyring,
+    keyringSource,
     encryptionEnabled,
   });
 
@@ -236,7 +257,9 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
 
   return {
     repo,
-    keyring,
+    get keyring(): MeshKeyring {
+      return keyringSource();
+    },
     signaling,
     networkAdapter,
     webrtcAdapter,
@@ -248,9 +271,12 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
   };
 }
 
-async function resolveKeyring(
-  source: MeshKeyring | { storage: KeyringStorage }
-): Promise<MeshKeyring> {
+async function resolveKeyringSource(
+  source: MeshKeyring | { storage: KeyringStorage } | { source: () => MeshKeyring }
+): Promise<() => MeshKeyring> {
+  if (typeof source === "object" && source !== null && "source" in source) {
+    return source.source;
+  }
   if ("storage" in source) {
     const loaded = await source.storage.load();
     if (loaded === null) {
@@ -258,7 +284,7 @@ async function resolveKeyring(
         "createMeshClient: keyring storage returned null (no saved keyring). In a Node CLI, bootstrap with `bootstrapCliKeyring` from `@fairfox/polly/mesh/node`; in a browser, run your pairing flow first and save the keyring through the storage adapter before constructing the client."
       );
     }
-    return loaded;
+    return () => loaded;
   }
-  return source;
+  return () => source;
 }

@@ -239,8 +239,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const aKeyring = makeKeyring(aIdentity, new Map([["peer-b", bIdentity.publicKey]]), docKey);
     const bKeyring = makeKeyring(bIdentity, new Map([["peer-a", aIdentity.publicKey]]), docKey);
 
-    const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
-    const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({
       network: [adapterA],
@@ -277,8 +277,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const aKeyring = makeKeyring(aIdentity, new Map([["peer-b", bIdentity.publicKey]]), correctKey);
     const bKeyring = makeKeyring(bIdentity, new Map([["peer-a", aIdentity.publicKey]]), wrongKey);
 
-    const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
-    const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
     const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
@@ -310,8 +310,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const aKeyring = makeKeyring(aIdentity, new Map([["peer-b", bIdentity.publicKey]]), docKey);
     const bKeyring = makeKeyring(bIdentity, new Map(), docKey);
 
-    const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
-    const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
     const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
@@ -324,6 +324,54 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     await new Promise((r) => setTimeout(r, 200));
     const handlesOnB = repoB.handles[handleA.documentId];
     expect(handlesOnB).toBeUndefined();
+
+    loopA.disconnect();
+    loopB.disconnect();
+    await repoA.shutdown();
+    await repoB.shutdown();
+  });
+
+  test("a peer added to the live keyring source after construction starts decrypting messages", async () => {
+    // Issue #100: a long-lived MeshNetworkAdapter has to pick up a peer
+    // that was paired *after* construction. The fix replaced the static
+    // `keyring` option with a `keyringSource` callback that re-reads the
+    // keyring on every send/receive. This test exercises that path: B
+    // starts with an empty knownPeers map (so it drops A's first
+    // messages), then the source is swapped to a fresh keyring that
+    // includes A's public key, and from that point on B successfully
+    // syncs with A — without reconstructing the adapter or the repo.
+    const [loopA, loopB] = makeLoopbackPair();
+    const aIdentity = generateSigningKeyPair();
+    const bIdentity = generateSigningKeyPair();
+    const docKey = generateDocumentKey();
+
+    const aKeyring = makeKeyring(aIdentity, new Map([["peer-b", bIdentity.publicKey]]), docKey);
+    // B's source returns a live reference; we'll mutate `bKeyring` later.
+    let bKeyring = makeKeyring(bIdentity, new Map(), docKey);
+
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
+
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+
+    await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
+
+    const handleA = repoA.create<Notes>({ title: "post-pair", body: "shows up after reload" });
+    await handleA.whenReady();
+
+    // Give A time to send sync messages that B should drop (B doesn't know A).
+    await new Promise((r) => setTimeout(r, 100));
+    expect(repoB.handles[handleA.documentId]).toBeUndefined();
+
+    // Simulate the cross-process repro: a fresh keyring is loaded that
+    // now includes A's public key. The adapter sees it on the next
+    // incoming message because `keyringSource` is called per-message.
+    bKeyring = makeKeyring(bIdentity, new Map([["peer-a", aIdentity.publicKey]]), docKey);
+
+    const handleB = await repoB.find<Notes>(handleA.documentId);
+    await waitFor(() => handleB.doc().title === "post-pair");
+    expect(handleB.doc().body).toBe("shows up after reload");
 
     loopA.disconnect();
     loopB.disconnect();

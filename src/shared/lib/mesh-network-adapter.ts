@@ -104,10 +104,21 @@ export interface MeshNetworkAdapterOptions {
    * wire. In production this is a WebRTC or WebSocket adapter; in tests
    * it's an in-memory loopback. */
   base: NetworkAdapter;
-  /** The local node's keyring. The adapter signs every outgoing message
-   * with `identity.secretKey` and verifies every incoming message against
-   * the public keys in `knownPeers`. */
-  keyring: MeshKeyring;
+  /** A synchronous function that returns the keyring to use for the next
+   * send or receive. The adapter never caches the value across calls —
+   * every {@link MeshNetworkAdapter#send | send} and every incoming
+   * message asks the source for the current keyring, so callers that
+   * mutate the in-memory keyring (e.g. `applyPairingToken`) or re-issue
+   * it entirely (e.g. a long-lived CLI watching a disk-backed keyring
+   * file that another process can rewrite) see their updates take effect
+   * on the very next message without restarting the adapter.
+   *
+   * The function must be synchronous because Automerge's
+   * `NetworkAdapter.send` is synchronous. Implementations that need to
+   * read from disk should maintain a cached object — refreshed by a
+   * file watcher, a manual reload, or `readFileSync` per call — and
+   * return that cached object from the source. */
+  keyringSource: () => MeshKeyring;
   /** When false, the adapter signs but does not encrypt. Outgoing messages
    * carry a signature envelope but the payload is plaintext; incoming
    * messages are verified against the sender's public key without a
@@ -130,13 +141,22 @@ export interface MeshNetworkAdapterOptions {
  */
 export class MeshNetworkAdapter extends NetworkAdapter {
   readonly base: NetworkAdapter;
-  readonly keyring: MeshKeyring;
+  readonly keyringSource: () => MeshKeyring;
   readonly encryptionEnabled: boolean;
+
+  /** Read-only view of the current keyring. Each access calls
+   * {@link MeshNetworkAdapterOptions.keyringSource}, so the value
+   * reflects whatever mutations or swaps the caller has applied since
+   * the last access — the same contract the send and receive paths
+   * follow internally. */
+  get keyring(): MeshKeyring {
+    return this.keyringSource();
+  }
 
   constructor(options: MeshNetworkAdapterOptions) {
     super();
     this.base = options.base;
-    this.keyring = options.keyring;
+    this.keyringSource = options.keyringSource;
     this.encryptionEnabled = options.encryptionEnabled ?? true;
 
     // Forward lifecycle and peer events from the base adapter.
@@ -190,11 +210,12 @@ export class MeshNetworkAdapter extends NetworkAdapter {
    * and target ids and the crypto blob in the `data` field.
    */
   private wrap(message: Message): Message {
+    const keyring = this.keyringSource();
     const serialised = serialiseMessage(message);
 
     let payloadToSign: Uint8Array;
     if (this.encryptionEnabled) {
-      const docKey = this.keyring.documentKeys.get(DEFAULT_MESH_KEY_ID);
+      const docKey = keyring.documentKeys.get(DEFAULT_MESH_KEY_ID);
       if (!docKey) {
         throw new Error(
           `MeshNetworkAdapter: missing document encryption key under id "${DEFAULT_MESH_KEY_ID}". Provision the key in the keyring before sending.`
@@ -206,7 +227,7 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       payloadToSign = serialised;
     }
 
-    const signed = signEnvelope(payloadToSign, message.senderId, this.keyring.identity.secretKey);
+    const signed = signEnvelope(payloadToSign, message.senderId, keyring.identity.secretKey);
     const signedBytes = encodeSignedEnvelope(signed);
 
     return {
@@ -231,14 +252,21 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       return undefined;
     }
 
+    // Re-read the keyring on every incoming message. This is what makes a
+    // post-construction peer addition take effect — if the caller has
+    // mutated the keyring's `knownPeers` map (or swapped the keyring
+    // object outright via a file watcher), the new entry is visible here
+    // without any restart or explicit notification path. See issue #100.
+    const keyring = this.keyringSource();
+
     // Drop messages from peers whose keys have been revoked, even if the
     // public key is still present in knownPeers. The revocation set is the
     // authoritative "this peer is no longer trusted" marker.
-    if (this.keyring.revokedPeers.has(signed.senderId)) {
+    if (keyring.revokedPeers.has(signed.senderId)) {
       return undefined;
     }
 
-    const senderKey = this.keyring.knownPeers.get(signed.senderId);
+    const senderKey = keyring.knownPeers.get(signed.senderId);
     if (!senderKey) {
       return undefined;
     }
@@ -263,7 +291,7 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       return undefined;
     }
 
-    const docKey = this.keyring.documentKeys.get(encrypted.documentId);
+    const docKey = keyring.documentKeys.get(encrypted.documentId);
     if (!docKey) {
       return undefined;
     }

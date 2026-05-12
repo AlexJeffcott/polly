@@ -84,8 +84,8 @@ describe("BlobStore end-to-end over WebRTC", () => {
 
     // Wrap with crypto envelope for Automerge messages. The blob store
     // bypasses this layer and handles encryption directly via encrypt-then-chunk.
-    const meshA = new MeshNetworkAdapter({ base: webrtcA, keyring: aKeyring });
-    const meshB = new MeshNetworkAdapter({ base: webrtcB, keyring: bKeyring });
+    const meshA = new MeshNetworkAdapter({ base: webrtcA, keyringSource: () => aKeyring });
+    const meshB = new MeshNetworkAdapter({ base: webrtcB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({ network: [meshA], peerId: "blob-peer-a" as unknown as PeerId });
     const repoB = new Repo({ network: [meshB], peerId: "blob-peer-b" as unknown as PeerId });

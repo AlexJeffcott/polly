@@ -86,7 +86,7 @@ function buildPeer(
     onPeerLeft: (id) => webrtc.handlePeerLeft(id),
   });
   Object.assign(webrtc, { signaling });
-  const mesh = new MeshNetworkAdapter({ base: webrtc, keyring });
+  const mesh = new MeshNetworkAdapter({ base: webrtc, keyringSource: () => keyring });
   const repo = new Repo({ network: [mesh], peerId: peerId as unknown as PeerId });
   return { identity, keyring, signaling, webrtc, mesh, repo, peerId };
 }

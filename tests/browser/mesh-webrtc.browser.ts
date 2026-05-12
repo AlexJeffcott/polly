@@ -98,8 +98,8 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
     console.log("[test] signalling connected");
 
     // Wrap each WebRTC adapter with the crypto envelope.
-    const meshA = new MeshNetworkAdapter({ base: webrtcA, keyring: aKeyring });
-    const meshB = new MeshNetworkAdapter({ base: webrtcB, keyring: bKeyring });
+    const meshA = new MeshNetworkAdapter({ base: webrtcA, keyringSource: () => aKeyring });
+    const meshB = new MeshNetworkAdapter({ base: webrtcB, keyringSource: () => bKeyring });
 
     // Build Repos.
     const repoA = new Repo({ network: [meshA], peerId: "peer-a" as unknown as PeerId });

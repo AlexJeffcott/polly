@@ -436,8 +436,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
       revokedPeers: new Set(["peer-a"]),
     };
 
-    const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
-    const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
     const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
@@ -479,8 +479,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
       revokedPeers: new Set(["peer-someone-else"]),
     };
 
-    const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
-    const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
     const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
@@ -519,8 +519,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
       revokedPeers: new Set(),
     };
 
-    const adapterA = new MeshNetworkAdapter({ base: loopA, keyring: aKeyring });
-    const adapterB = new MeshNetworkAdapter({ base: loopB, keyring: bKeyring });
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
     const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
     const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
