@@ -117,6 +117,14 @@ interface PeerSlot {
    * stamped on each chunk. Entries are deleted as soon as the last
    * fragment for an id arrives and the reassembled bytes are dispatched. */
   pendingFragments: Map<string, { chunks: Map<number, Uint8Array>; total: number }>;
+  /** Remote ICE candidates that arrived before `setRemoteDescription`
+   * completed. addIceCandidate throws when `remoteDescription` is null,
+   * and real Chrome 148+ does not internally queue these the way Chrome
+   * for Testing does — so any candidate that wins the race against the
+   * answer SDP would be silently dropped, leaving ICE checking with no
+   * remote candidates to pair against. Drained from {@link handleAnswer}
+   * and the post-`setRemoteDescription` step of {@link handleOffer}. */
+  pendingRemoteIce: RTCIceCandidateInit[];
 }
 
 /**
@@ -373,6 +381,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       channel,
       pendingSends: [],
       pendingFragments: new Map(),
+      pendingRemoteIce: [],
     };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
@@ -409,6 +418,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       channel: undefined,
       pendingSends: [],
       pendingFragments: new Map(),
+      pendingRemoteIce: [],
     };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -417,6 +427,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       this.wireDataChannel(fromPeerId, event.channel);
     };
     await connection.setRemoteDescription(sdp);
+    await this.flushPendingRemoteIce(slot);
     const answer = await connection.createAnswer();
     await connection.setLocalDescription(answer);
     this.signaling.sendSignal(fromPeerId, {
@@ -436,6 +447,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     // pending; anything else is benign noise.
     if (slot.connection.signalingState !== "have-local-offer") return;
     await slot.connection.setRemoteDescription(sdp);
+    await this.flushPendingRemoteIce(slot);
   }
 
   private async handleIceCandidate(
@@ -444,11 +456,38 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   ): Promise<void> {
     const slot = this.slots.get(fromPeerId);
     if (!slot) return;
+    // If the answerer gathers ICE faster than its answer SDP travels
+    // back through the signalling relay, candidates can land here before
+    // `setRemoteDescription` has run. addIceCandidate throws when
+    // `remoteDescription` is null on Chrome 148+, and the spec does not
+    // require browsers to queue these internally — so buffer until the
+    // remote description is set and drain in handleAnswer/handleOffer.
+    if (slot.connection.remoteDescription === null) {
+      slot.pendingRemoteIce.push(candidate);
+      return;
+    }
     try {
       await slot.connection.addIceCandidate(candidate);
     } catch {
       // Ignore candidate errors — a stale candidate after the connection
       // has already opened is benign.
+    }
+  }
+
+  /** Drain the per-slot queue of remote ICE candidates that arrived
+   * before `setRemoteDescription` completed. Errors per candidate are
+   * swallowed for the same reason {@link handleIceCandidate} swallows
+   * them — a single bad candidate must not stall the connection. */
+  private async flushPendingRemoteIce(slot: PeerSlot): Promise<void> {
+    if (slot.pendingRemoteIce.length === 0) return;
+    const queued = slot.pendingRemoteIce;
+    slot.pendingRemoteIce = [];
+    for (const candidate of queued) {
+      try {
+        await slot.connection.addIceCandidate(candidate);
+      } catch {
+        // Same rationale as the live-path catch in handleIceCandidate.
+      }
     }
   }
 
