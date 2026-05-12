@@ -114,7 +114,7 @@ const secrets: Check<SecretsConfig | undefined> = {
     return [join(root, c.configPath)];
   },
   cacheKeyExtras: (cfg) => ({
-    noGit: (cfg ?? {}).noGit === false ? "false" : "true",
+    noGit: cfg?.noGit === false ? "false" : "true",
   }),
   run: async ({ rootDir, config }) => {
     const cfg = config ?? {};

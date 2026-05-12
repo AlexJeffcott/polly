@@ -373,7 +373,7 @@ const types: Check<TypesConfig | undefined> = {
     return [];
   },
   run: async ({ rootDir, config }) => {
-    const patterns = (config ?? {}).workspaces ?? ["packages/*", "."];
+    const patterns = config?.workspaces ?? ["packages/*", "."];
     const packages = await findWorkspaces(rootDir, patterns);
     if (packages.length === 0) return { ok: true, messages: ["no workspace packages found"] };
     const results = await Promise.all(packages.map((p) => runTscFor(p, rootDir)));

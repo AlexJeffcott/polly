@@ -117,7 +117,16 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   readonly signaling: MeshSignalingClient;
   readonly iceServers: RTCIceServer[];
   readonly dataChannelLabel: string;
-  readonly knownPeerIds: string[];
+  /** Peers this adapter is willing to dial. Mutable so callers that pair
+   * a new device after construction (e.g. a CLI `add-device` process whose
+   * mesh client is long-lived across the pair ceremony) can register the
+   * new peer with {@link addKnownPeer} without restarting the client. */
+  private readonly knownPeers: Set<string>;
+  /** Peers currently visible in the signalling roster — populated by
+   * {@link handlePeersPresent} / {@link handlePeerJoined} and pruned by
+   * {@link handlePeerLeft}. Read by {@link addKnownPeer} to decide
+   * whether the new peer is already online and an offer can fire now. */
+  private readonly presentPeers = new Set<string>();
   /** Local peer id captured at construction time. The base
    * `NetworkAdapter.peerId` is only populated when `connect()` fires,
    * which means glare-resolution and peer-discovery dispatch would
@@ -130,6 +139,14 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private ready = false;
   private readyResolver: (() => void) | undefined;
 
+  /** The peers this adapter will dial. Backward-compatible read accessor
+   * for callers that previously iterated the `knownPeerIds` array; the
+   * underlying storage is now a Set so mutations through
+   * {@link addKnownPeer} are O(1) and survive without re-allocation. */
+  get knownPeerIds(): string[] {
+    return [...this.knownPeers];
+  }
+
   /** Callback for incoming blob messages. Set by the blob store.
    *  Called with the sender's peer ID, the raw header object, and the
    *  binary payload (chunk data). */
@@ -140,7 +157,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.signaling = options.signaling;
     this.iceServers = options.iceServers ?? DEFAULT_ICE_SERVERS;
     this.dataChannelLabel = options.dataChannelLabel ?? "polly-mesh";
-    this.knownPeerIds = options.knownPeerIds ?? [];
+    this.knownPeers = new Set(options.knownPeerIds ?? []);
     this.localPeerId = options.peerId;
     const PC = options.RTCPeerConnection ?? globalThis.RTCPeerConnection;
     if (typeof PC !== "function") {
@@ -172,6 +189,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * already connected, or the other side is the one expected to
    * initiate. */
   handlePeerJoined(remotePeerId: string): void {
+    this.presentPeers.add(remotePeerId);
     if (!this.shouldInitiateTo(remotePeerId)) return;
     this.createInitiatingSlot(remotePeerId);
   }
@@ -182,6 +200,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * dials every knownPeer it is meant to initiate to in one pass. */
   handlePeersPresent(peerIds: string[]): void {
     for (const remotePeerId of peerIds) {
+      this.presentPeers.add(remotePeerId);
       if (!this.shouldInitiateTo(remotePeerId)) continue;
       this.createInitiatingSlot(remotePeerId);
     }
@@ -194,6 +213,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * with a stale RTCPeerConnection that WebRTC's own ICE timer has
    * not yet noticed is dead. */
   handlePeerLeft(remotePeerId: string): void {
+    this.presentPeers.delete(remotePeerId);
     const slot = this.slots.get(remotePeerId);
     if (!slot) return;
     slot.channel?.close();
@@ -201,9 +221,26 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.slots.delete(remotePeerId);
   }
 
+  /** Register a peer the adapter should dial. Used by post-construction
+   * pair-acceptance flows — when a long-lived mesh client (e.g. a CLI
+   * `add-device` process or a daemon holding the mesh open) accepts a
+   * pair token after start-up, its keyring's `knownPeers` map gains a
+   * new entry. Calling this method propagates that into the adapter's
+   * own allowlist; if the peer is already in the signalling roster and
+   * the tie-break rule names us as the initiator, an SDP offer fires
+   * immediately. No-op if the peer is already known. */
+  addKnownPeer(remotePeerId: string): void {
+    if (remotePeerId === this.localPeerId) return;
+    if (this.knownPeers.has(remotePeerId)) return;
+    this.knownPeers.add(remotePeerId);
+    if (!this.presentPeers.has(remotePeerId)) return;
+    if (!this.shouldInitiateTo(remotePeerId)) return;
+    this.createInitiatingSlot(remotePeerId);
+  }
+
   private shouldInitiateTo(remotePeerId: string): boolean {
     if (remotePeerId === this.localPeerId) return false;
-    if (!this.knownPeerIds.includes(remotePeerId)) return false;
+    if (!this.knownPeers.has(remotePeerId)) return false;
     if (this.slots.has(remotePeerId)) return false;
     // Tie-break: the lexicographically higher peer id initiates. This
     // matches the glare-resolution rule in handleOffer, so pre-offer
@@ -351,6 +388,13 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private async handleAnswer(fromPeerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
     const slot = this.slots.get(fromPeerId);
     if (!slot) return;
+    // Drop answers that arrive after the connection has already settled
+    // — the signalling relay can echo a peer's frames more than once
+    // under reconnect or reload, and a duplicate answer in the `stable`
+    // state otherwise throws `InvalidStateError` and kills the slot. We
+    // only ever expect an answer while we still have a local offer
+    // pending; anything else is benign noise.
+    if (slot.connection.signalingState !== "have-local-offer") return;
     await slot.connection.setRemoteDescription(sdp);
   }
 

@@ -31,7 +31,7 @@ describe("pollyCorePlugin", () => {
     expect(cleanReport.results[0]?.ok).toBe(true);
 
     const dirty = await tmp("polly-core-dirty");
-    await writeFile(dirty + "/bad.ts", "const y = foo as Bar;\n");
+    await writeFile(`${dirty}/bad.ts`, "const y = foo as Bar;\n");
     const dirtyReport = await runChecks(
       reg,
       { plugins: [pollyCorePlugin] },
