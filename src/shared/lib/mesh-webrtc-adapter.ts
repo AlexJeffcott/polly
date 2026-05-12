@@ -53,6 +53,13 @@ import {
 } from "@automerge/automerge-repo/slim";
 import { isBlobMessageType } from "./blob-transfer";
 import type { MeshSignalingClient } from "./mesh-signaling-client";
+import {
+  chunkSyncMessage,
+  isSyncFragmentType,
+  parseSyncFragment,
+  reassembleSyncFragments,
+  SYNC_FRAGMENT_THRESHOLD,
+} from "./sync-fragment";
 
 /** Standard STUN servers for NAT traversal. In production, callers who
  * need TURN fallback for peers behind symmetric NATs should replace this
@@ -106,6 +113,10 @@ interface PeerSlot {
    * Typed as ArrayBuffer-backed so they are directly usable by
    * RTCDataChannel.send under TypeScript's strict buffer-source typing. */
   pendingSends: Uint8Array<ArrayBuffer>[];
+  /** Partially-assembled inbound sync messages, keyed by the fragment id
+   * stamped on each chunk. Entries are deleted as soon as the last
+   * fragment for an id arrives and the reassembled bytes are dispatched. */
+  pendingFragments: Map<string, { chunks: Map<number, Uint8Array>; total: number }>;
 }
 
 /**
@@ -303,9 +314,28 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       slot = this.createInitiatingSlot(targetId);
     }
     if (slot.channel && slot.channel.readyState === "open") {
-      slot.channel.send(bytes);
+      this.sendBytesMaybeFragmented(slot.channel, bytes);
     } else {
       slot.pendingSends.push(bytes);
+    }
+  }
+
+  /** Send raw wire bytes, fragmenting if they exceed the SCTP maxMessageSize
+   *  cap. The default RTCDataChannel limit is 256 KiB in current Chrome and
+   *  werift; oversized sends either throw, drop silently, or stall the
+   *  channel, none of which surface as an error to the caller. Fragments
+   *  use the same length-prefixed JSON header wire format as ordinary
+   *  messages but carry a `sync-fragment` type that the receive path
+   *  detects and reassembles before deserialising. */
+  private sendBytesMaybeFragmented(channel: RTCDataChannel, bytes: Uint8Array<ArrayBuffer>): void {
+    if (bytes.length <= SYNC_FRAGMENT_THRESHOLD) {
+      channel.send(bytes);
+      return;
+    }
+    const id = crypto.randomUUID();
+    const fragments = chunkSyncMessage(bytes, id);
+    for (const fragment of fragments) {
+      channel.send(fragment);
     }
   }
 
@@ -338,7 +368,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private createInitiatingSlot(targetId: string): PeerSlot {
     const connection = new this.RTCPeerConnectionCtor({ iceServers: this.iceServers });
     const channel = connection.createDataChannel(this.dataChannelLabel, { ordered: true });
-    const slot: PeerSlot = { connection, channel, pendingSends: [] };
+    const slot: PeerSlot = {
+      connection,
+      channel,
+      pendingSends: [],
+      pendingFragments: new Map(),
+    };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
     this.wireDataChannel(targetId, channel);
@@ -369,7 +404,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
 
     const connection = new this.RTCPeerConnectionCtor({ iceServers: this.iceServers });
-    const slot: PeerSlot = { connection, channel: undefined, pendingSends: [] };
+    const slot: PeerSlot = {
+      connection,
+      channel: undefined,
+      pendingSends: [],
+      pendingFragments: new Map(),
+    };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
     connection.ondatachannel = (event) => {
@@ -440,9 +480,10 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       const slot = this.slots.get(peerId);
       if (!slot) return;
       // Drain any pending sends that were queued while the channel
-      // was still connecting.
+      // was still connecting. The fragmenting helper handles oversized
+      // payloads the same way it would on a live send.
       for (const bytes of slot.pendingSends) {
-        channel.send(bytes);
+        this.sendBytesMaybeFragmented(channel, bytes);
       }
       slot.pendingSends = [];
     };
@@ -466,6 +507,15 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
 
   private dispatchMessage(fromPeerId: string, bytes: Uint8Array): void {
     try {
+      // Intercept sync-fragments first: an oversized Automerge sync
+      // message is split into fragments on the sender side because a
+      // single RTCDataChannel.send above the SCTP maxMessageSize cap
+      // silently drops or stalls the channel. Reassemble and re-dispatch
+      // once every fragment of an id has arrived.
+      if (isSyncFragmentType(bytes)) {
+        this.handleSyncFragment(fromPeerId, bytes);
+        return;
+      }
       // Intercept blob messages before they reach the Automerge deserialiser.
       // Blob headers have type fields starting with "blob-" and would fail
       // MeshNetworkAdapter's signed-envelope unwrap if passed through.
@@ -486,6 +536,27 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       // also drops on verification failure, so a corrupt frame at this
       // layer is observationally the same as a forgery at the layer above.
     }
+  }
+
+  private handleSyncFragment(fromPeerId: string, bytes: Uint8Array): void {
+    const parsed = parseSyncFragment(bytes);
+    if (!parsed) return;
+    const slot = this.slots.get(fromPeerId);
+    if (!slot) return;
+    const { header, data } = parsed;
+    let entry = slot.pendingFragments.get(header.id);
+    if (!entry) {
+      entry = { chunks: new Map(), total: header.total };
+      slot.pendingFragments.set(header.id, entry);
+    }
+    // The data view is a window onto the wire frame buffer. Copy out so
+    // the reassembled message owns its bytes and the wire frame can be
+    // garbage-collected.
+    entry.chunks.set(header.index, data.slice());
+    if (entry.chunks.size < entry.total) return;
+    slot.pendingFragments.delete(header.id);
+    const reassembled = reassembleSyncFragments(entry.chunks, entry.total);
+    this.dispatchMessage(fromPeerId, reassembled);
   }
 
   /** Peer IDs with an open data channel, suitable for blob requests. */
