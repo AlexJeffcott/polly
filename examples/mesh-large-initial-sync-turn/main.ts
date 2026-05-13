@@ -76,7 +76,6 @@ import { RTCPeerConnection as WeriftRTCPeerConnection } from "werift";
 // budget we control.
 process.on("unhandledRejection", (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
-  // biome-ignore lint/suspicious/noConsole: tracing harness rejections is the user-visible behaviour.
   console.error(
     `[mesh-large-initial-sync-turn] unhandled rejection (continuing): ${msg}`,
   );
@@ -158,15 +157,12 @@ function refuseIfFalsePositiveConditions(args: {
     );
   }
   if (reasons.length === 0) return;
-  // biome-ignore lint/suspicious/noConsole: refusal goes to stderr.
   console.error(
     "[mesh-large-initial-sync-turn] REFUSING TO RUN — false-positive surface detected:",
   );
   for (const reason of reasons) {
-    // biome-ignore lint/suspicious/noConsole: refusal goes to stderr.
     console.error(`  - ${reason}`);
   }
-  // biome-ignore lint/suspicious/noConsole: refusal goes to stderr.
   console.error(
     "\npolly#105 item 3 forbids running under these conditions because each\n" +
       "is a known false-positive surface for the failing shape the ticket\n" +
@@ -931,7 +927,6 @@ async function main(): Promise<void> {
   const tickProbe = new TickGapProbe();
   tickProbe.start();
   if (!tickProbe.isRunning()) {
-    // biome-ignore lint/suspicious/noConsole: refusal goes to stderr.
     console.error(
       "[mesh-large-initial-sync-turn] REFUSING TO RUN — tick-gap probe failed",
     );
@@ -1148,7 +1143,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  // biome-ignore lint/suspicious/noConsole: top-level rejection prints to stderr.
   console.error("[mesh-large-initial-sync-turn] fatal error:", err);
   process.exit(1);
 });
