@@ -107,7 +107,6 @@ const REFUSAL_MIN_KEYRING = 50;
  * some arrived later, and the daemon must dial some and be dialled by
  * others. */
 const REAL_PEERS_INITIAL_COUNT = 3; // present at signalling-join time
-const REAL_PEERS_LATE_COUNT = 3; // arrive via `peer-joined` later
 const LATE_ARRIVAL_DELAY_MS = 750;
 
 /** Total observation budget: the sweep runs every 2s by default, so
@@ -207,27 +206,27 @@ function refuseIfFalsePositiveConditions(args: {
   const reasons: string[] = [];
   if (args.daemonKnownPeerCount < REFUSAL_MIN_KEYRING) {
     reasons.push(
-      `daemon keyring has ${args.daemonKnownPeerCount} known peers; the polly#106 ticket requires at least ${REFUSAL_MIN_KEYRING}. The polly#103 reproducer with 10 peers does NOT exercise the polly#106 shape.`
+      `daemon keyring has ${args.daemonKnownPeerCount} known peers; the polly#106 ticket requires at least ${REFUSAL_MIN_KEYRING}. The polly#103 reproducer with 10 peers does NOT exercise the polly#106 shape.`,
     );
   }
   if (args.initialPresentCount >= args.totalRealPeers) {
     reasons.push(
-      "every real peer is online at signalling-join time; the polly#106 ticket requires gradual arrival to mimic the realistic shape (some peers already present, some arriving later via `peer-joined`)."
+      "every real peer is online at signalling-join time; the polly#106 ticket requires gradual arrival to mimic the realistic shape (some peers already present, some arriving later via `peer-joined`).",
     );
   }
   if (args.daemonLexInitiatorCount === 0) {
     reasons.push(
-      "no real peer has the daemon as lex-tie-break initiator; the polly#106 ticket requires a mix so an initiator-direction bug cannot be masked by every peer being answerer-side."
+      "no real peer has the daemon as lex-tie-break initiator; the polly#106 ticket requires a mix so an initiator-direction bug cannot be masked by every peer being answerer-side.",
     );
   }
   if (args.daemonLexInitiatorCount === args.totalRealPeers) {
     reasons.push(
-      "every real peer has the daemon as lex-tie-break initiator; the polly#106 ticket requires a mix so an answerer-direction bug cannot be masked."
+      "every real peer has the daemon as lex-tie-break initiator; the polly#106 ticket requires a mix so an answerer-direction bug cannot be masked.",
     );
   }
   if (reasons.length === 0) return;
   console.error(
-    "[mesh-slot-initiation-realistic-keyring] REFUSING TO RUN — false-positive surface detected:"
+    "[mesh-slot-initiation-realistic-keyring] REFUSING TO RUN — false-positive surface detected:",
   );
   for (const reason of reasons) {
     console.error(`  - ${reason}`);
@@ -235,7 +234,7 @@ function refuseIfFalsePositiveConditions(args: {
   console.error(
     "\npolly#106 item 3 forbids running under these conditions because each\n" +
       "is a known false-positive surface for the failing shape the ticket\n" +
-      "describes. See the ticket body for the full rationale."
+      "describes. See the ticket body for the full rationale.",
   );
   process.exit(2);
 }
@@ -271,7 +270,7 @@ function injectSyntheticThrow(adapter: MeshWebRTCAdapter): void {
     if (targetId === FAILING_REAL_PEER_ID) {
       syntheticThrowCount += 1;
       throw new Error(
-        `synthetic injection: createInitiatingSlot for ${targetId} (count=${syntheticThrowCount})`
+        `synthetic injection: createInitiatingSlot for ${targetId} (count=${syntheticThrowCount})`,
       );
     }
     return original(targetId);
@@ -290,18 +289,18 @@ function injectSyntheticThrow(adapter: MeshWebRTCAdapter): void {
  * peers un-dialled in perpetuity. */
 function disablePerPeerTryCatch(adapter: MeshWebRTCAdapter): void {
   const priv = adapter as unknown as PrivateAdapter;
-  priv.refreshKnownPeers = function () {
+  priv.refreshKnownPeers = () => {
     for (const remotePeerId of priv.presentPeers) {
       if (!priv.shouldInitiateTo(remotePeerId)) continue;
       priv.createInitiatingSlot(remotePeerId);
     }
   };
-  priv.handlePeerJoined = function (remotePeerId: string) {
+  priv.handlePeerJoined = (remotePeerId: string) => {
     priv.presentPeers.add(remotePeerId);
     if (!priv.shouldInitiateTo(remotePeerId)) return;
     priv.createInitiatingSlot(remotePeerId);
   };
-  priv.handlePeersPresent = function (peerIds: string[]) {
+  priv.handlePeersPresent = (peerIds: string[]) => {
     for (const remotePeerId of peerIds) {
       priv.presentPeers.add(remotePeerId);
       if (!priv.shouldInitiateTo(remotePeerId)) continue;
@@ -318,12 +317,16 @@ function pickPort(): number {
 
 function startSignalingServer(): { url: string; stop: () => Promise<void> } {
   const port = pickPort();
-  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
+  const app = new Elysia()
+    .use(signalingServer({ path: "/polly/signaling" }))
+    .listen(port);
   log("signal-server", `listening at ws://127.0.0.1:${port}/polly/signaling`);
   return {
     url: `ws://127.0.0.1:${port}/polly/signaling`,
     stop: async () => {
-      (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+      (
+        app as unknown as { server?: { stop?: (force?: boolean) => void } }
+      ).server?.stop?.(true);
     },
   };
 }
@@ -334,7 +337,10 @@ function startSignalingServer(): { url: string; stop: () => Promise<void> } {
 function buildKeyring(args: {
   knownPeers: Map<string, Uint8Array>;
   sharedDocumentKey: Uint8Array;
-}): { keyring: MeshKeyring; identity: ReturnType<typeof generateSigningKeyPair> } {
+}): {
+  keyring: MeshKeyring;
+  identity: ReturnType<typeof generateSigningKeyPair>;
+} {
   const identity = generateSigningKeyPair();
   const keyring: MeshKeyring = {
     identity,
@@ -351,7 +357,7 @@ async function buildDaemon(args: {
 }): Promise<{ client: MeshClient }> {
   log(
     "daemon",
-    `bootstrapping (peerId=${DAEMON_PEER_ID}, knownPeers=${args.keyring.knownPeers.size})`
+    `bootstrapping (peerId=${DAEMON_PEER_ID}, knownPeers=${args.keyring.knownPeers.size})`,
   );
   const client = await createMeshClient({
     signaling: {
@@ -359,7 +365,8 @@ async function buildDaemon(args: {
       peerId: DAEMON_PEER_ID,
     },
     rtc: {
-      RTCPeerConnection: WeriftRTCPeerConnection as unknown as typeof globalThis.RTCPeerConnection,
+      RTCPeerConnection:
+        WeriftRTCPeerConnection as unknown as typeof globalThis.RTCPeerConnection,
       knownPeersRefreshIntervalMs: SWEEP_INTERVAL_MS,
     },
     keyring: args.keyring,
@@ -369,7 +376,7 @@ async function buildDaemon(args: {
     disablePerPeerTryCatch(client.webrtcAdapter);
     log(
       "config",
-      "POLLY_106_DISABLE_FIX=1 — pre-fix-emulated refreshKnownPeers installed (no per-peer try/catch)"
+      "POLLY_106_DISABLE_FIX=1 — pre-fix-emulated refreshKnownPeers installed (no per-peer try/catch)",
     );
   }
   return { client };
@@ -385,7 +392,9 @@ async function buildRealPeer(args: {
   client: MeshClient;
   identity: ReturnType<typeof generateSigningKeyPair>;
 }> {
-  const knownPeers = new Map<string, Uint8Array>([[args.daemonPeerId, args.daemonPublicKey]]);
+  const knownPeers = new Map<string, Uint8Array>([
+    [args.daemonPeerId, args.daemonPublicKey],
+  ]);
   const { keyring, identity } = buildKeyring({
     knownPeers,
     sharedDocumentKey: args.sharedDocumentKey,
@@ -396,7 +405,8 @@ async function buildRealPeer(args: {
       peerId: args.peerId,
     },
     rtc: {
-      RTCPeerConnection: WeriftRTCPeerConnection as unknown as typeof globalThis.RTCPeerConnection,
+      RTCPeerConnection:
+        WeriftRTCPeerConnection as unknown as typeof globalThis.RTCPeerConnection,
       knownPeersRefreshIntervalMs: SWEEP_INTERVAL_MS,
     },
     keyring,
@@ -433,7 +443,9 @@ function evaluateOutcome(args: {
     const peer = snapshot.peers.find((p) => p.peerId === peerId);
     const daemonIsInitiator = DAEMON_PEER_ID > peerId;
     const isFailingPeer = peerId === FAILING_REAL_PEER_ID;
-    const arrivalKind = args.initialPeerIds.includes(peerId) ? "initial" : "late";
+    const arrivalKind = args.initialPeerIds.includes(peerId)
+      ? "initial"
+      : "late";
     const handshake = peer?.slot?.lastSyncHandshakeAttempt;
     perPeer.push({
       peerId,
@@ -499,7 +511,9 @@ function namedFailureReason(args: {
     return undefined;
   }
   // Post-fix: every non-failing real peer must be slotted.
-  const nonFailingUnslotted = args.perPeer.filter((p) => !p.isFailingPeer && !p.slotted);
+  const nonFailingUnslotted = args.perPeer.filter(
+    (p) => !p.isFailingPeer && !p.slotted,
+  );
   if (nonFailingUnslotted.length > 0) {
     const names = nonFailingUnslotted
       .map((p) => `${p.peerId} (reason=${p.rejectionReason ?? "?"})`)
@@ -531,7 +545,7 @@ async function main(): Promise<void> {
   if (DISABLE_FIX) installPreFixCatch();
   log(
     "config",
-    `mode=${DISABLE_FIX ? "pre-fix-emulated (POLLY_106_DISABLE_FIX=1)" : "post-fix"} verbose=${VERBOSE}`
+    `mode=${DISABLE_FIX ? "pre-fix-emulated (POLLY_106_DISABLE_FIX=1)" : "post-fix"} verbose=${VERBOSE}`,
   );
 
   // 1. Generate identities for every peer up-front so the daemon's
@@ -540,7 +554,10 @@ async function main(): Promise<void> {
   //    knows everyone; the question is which peers are actually
   //    online" — and that's what this harness models.
   const sharedDocumentKey = generateDocumentKey();
-  const realPeerIdentities = new Map<string, ReturnType<typeof generateSigningKeyPair>>();
+  const realPeerIdentities = new Map<
+    string,
+    ReturnType<typeof generateSigningKeyPair>
+  >();
   for (const peerId of REAL_PEER_IDS) {
     realPeerIdentities.set(peerId, generateSigningKeyPair());
   }
@@ -555,7 +572,10 @@ async function main(): Promise<void> {
   }
   for (let i = 0; i < KEYRING_FILLER_COUNT; i += 1) {
     const filler = generateSigningKeyPair();
-    daemonKnownPeers.set(`filler-offline-peer-${i.toString().padStart(3, "0")}`, filler.publicKey);
+    daemonKnownPeers.set(
+      `filler-offline-peer-${i.toString().padStart(3, "0")}`,
+      filler.publicKey,
+    );
   }
   const { keyring: daemonKeyring, identity: daemonIdentity } = buildKeyring({
     knownPeers: daemonKnownPeers,
@@ -564,7 +584,9 @@ async function main(): Promise<void> {
 
   const initialPeerIds = REAL_PEER_IDS.slice(0, REAL_PEERS_INITIAL_COUNT);
   const latePeerIds = REAL_PEER_IDS.slice(REAL_PEERS_INITIAL_COUNT);
-  const daemonInitiatorCount = REAL_PEER_IDS.filter((id) => DAEMON_PEER_ID > id).length;
+  const daemonInitiatorCount = REAL_PEER_IDS.filter(
+    (id) => DAEMON_PEER_ID > id,
+  ).length;
 
   // 3. Refusal gates run before any subprocesses come up so the user
   //    sees the named refusal immediately on a misconfigured invocation.
@@ -647,12 +669,12 @@ async function main(): Promise<void> {
   for (const p of perPeer) {
     log(
       "outcome",
-      `${p.peerId.padEnd(20)} arrival=${p.arrivalKind.padEnd(7)} daemon-initiates=${String(p.daemonIsInitiator).padEnd(5)} failing=${String(p.isFailingPeer).padEnd(5)} slotted=${String(p.slotted).padEnd(5)} reason=${p.rejectionReason ?? "(none)"} peerCandidateEmit=${p.peerCandidateEmittedAt?.toFixed(0) ?? "(none)"}ms firstSend=${p.firstOutboundSendAt?.toFixed(0) ?? "(none)"}ms firstRecv=${p.firstInboundMessageAt?.toFixed(0) ?? "(none)"}ms`
+      `${p.peerId.padEnd(20)} arrival=${p.arrivalKind.padEnd(7)} daemon-initiates=${String(p.daemonIsInitiator).padEnd(5)} failing=${String(p.isFailingPeer).padEnd(5)} slotted=${String(p.slotted).padEnd(5)} reason=${p.rejectionReason ?? "(none)"} peerCandidateEmit=${p.peerCandidateEmittedAt?.toFixed(0) ?? "(none)"}ms firstSend=${p.firstOutboundSendAt?.toFixed(0) ?? "(none)"}ms firstRecv=${p.firstInboundMessageAt?.toFixed(0) ?? "(none)"}ms`,
     );
   }
   log(
     "sweep",
-    `sweep ran ${sweepRunCount} times in ${OBSERVATION_BUDGET_MS}ms (interval=${SWEEP_INTERVAL_MS}ms) — synthetic throws fired ${syntheticThrowCount} times — uncaught errors escaped: ${uncaughtErrors.length}`
+    `sweep ran ${sweepRunCount} times in ${OBSERVATION_BUDGET_MS}ms (interval=${SWEEP_INTERVAL_MS}ms) — synthetic throws fired ${syntheticThrowCount} times — uncaught errors escaped: ${uncaughtErrors.length}`,
   );
 
   const failure = namedFailureReason({
@@ -667,7 +689,7 @@ async function main(): Promise<void> {
       "result",
       DISABLE_FIX
         ? "SUCCESS — pre-fix-emulated path reproduced the failure: synthetic throw aborted the sweep, downstream peers were never dialled."
-        : "SUCCESS — every non-failing real peer got a slot, every connected slot emitted peer-candidate AND issued an outbound send through the adapter, and the failing peer's snapshot names it with `fatal-error`."
+        : "SUCCESS — every non-failing real peer got a slot, every connected slot emitted peer-candidate AND issued an outbound send through the adapter, and the failing peer's snapshot names it with `fatal-error`.",
     );
   } else {
     log("result", `FAILURE — REASON: ${failure}`);
@@ -702,6 +724,7 @@ async function main(): Promise<void> {
   const transcriptPath = resolvePath(import.meta.dir, "transcript.json");
   await writeFile(transcriptPath, `${JSON.stringify(transcript, null, 2)}\n`);
   log("transcript", `wrote ${transcriptPath}`);
+  logVerbose("snapshot", JSON.stringify(transcript.fullSnapshot, null, 2));
 
   // 11. Teardown.
   await daemon.client.close();
