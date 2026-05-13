@@ -52,6 +52,7 @@ import {
   type PeerMetadata,
 } from "@automerge/automerge-repo/slim";
 import { isBlobMessageType } from "./blob-transfer";
+import type { MeshKeyring } from "./mesh-network-adapter";
 import type { MeshSignalingClient } from "./mesh-signaling-client";
 import {
   chunkSyncMessage,
@@ -83,8 +84,41 @@ export interface MeshWebRTCAdapterOptions {
    * one by sending an SDP offer through the signalling channel. Peers
    * not in this list can still connect by sending an offer *to* this
    * adapter. The natural source for this list is the keyring's
-   * knownPeers map keys. */
+   * knownPeers map keys.
+   *
+   * Used only when {@link keyringSource} is not supplied. With
+   * `keyringSource` set the adapter reads `knownPeers` live from the
+   * keyring on every initiation decision, which is the shape
+   * {@link createMeshClient} wires up so post-construction
+   * {@link applyPairingToken} calls take effect without the consumer
+   * having to call {@link MeshWebRTCAdapter.addKnownPeer} by hand. */
   knownPeerIds?: string[];
+  /** Live keyring source. When supplied, the adapter reads
+   * `knownPeers` from `keyringSource()` on every initiation decision
+   * instead of a Set captured at construction. Combined with the
+   * periodic re-sweep started in {@link MeshWebRTCAdapter.connect},
+   * this makes mutations to `keyring.knownPeers` — including the ones
+   * produced by {@link applyPairingToken} after the mesh client is up
+   * — visible to the dial path within at most one sweep interval. The
+   * crypto layer already re-reads the keyring on every send and
+   * receive; this option closes the same loop for the WebRTC adapter.
+   *
+   * Polly issue #103: without this, a long-lived daemon that pairs a
+   * new device after its mesh client is constructed never dials the
+   * new peer — the adapter's captured Set stays stale even though the
+   * keyring contains the new entry, and the lex-tie-break rule in
+   * {@link MeshWebRTCAdapter.shouldInitiateTo} can leave both peers
+   * waiting for the other to offer indefinitely. */
+  keyringSource?: () => MeshKeyring;
+  /** How often the adapter re-evaluates whether to dial peers in the
+   * signalling roster. The sweep is what catches peers that became
+   * authorised in the keyring after their `peer-joined` notification
+   * already fired — the adapter has no other event to hang the retry
+   * on, so it polls. Cheap: one Map lookup per present peer, fired at
+   * most once per interval. Defaults to 2000ms; tests override to
+   * shorten the failure budget. Set to 0 to disable the sweep
+   * (the captured-set behaviour, kept only for migration). */
+  knownPeersRefreshIntervalMs?: number;
   /** Optional ICE server list override. Defaults to {@link DEFAULT_ICE_SERVERS}. */
   iceServers?: RTCIceServer[];
   /** Optional data channel label. Defaults to "polly-mesh". Applications
@@ -139,8 +173,24 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   /** Peers this adapter is willing to dial. Mutable so callers that pair
    * a new device after construction (e.g. a CLI `add-device` process whose
    * mesh client is long-lived across the pair ceremony) can register the
-   * new peer with {@link addKnownPeer} without restarting the client. */
+   * new peer with {@link addKnownPeer} without restarting the client.
+   *
+   * Used only in the captured-set fallback path — when no
+   * {@link keyringSource} is supplied. With `keyringSource` set, the
+   * authoritative source is the live keyring and this Set is unused. */
   private readonly knownPeers: Set<string>;
+  /** Live keyring source, or undefined when the adapter is operating in
+   * the captured-set fallback shape. See the JSDoc on
+   * {@link MeshWebRTCAdapterOptions.keyringSource}. */
+  private readonly keyringSource: (() => MeshKeyring) | undefined;
+  /** Interval handle for the periodic re-sweep that catches peers
+   * already in the signalling roster when the keyring grew. Cleared in
+   * {@link MeshWebRTCAdapter.disconnect}. */
+  private knownPeersRefreshTimer: ReturnType<typeof setInterval> | undefined;
+  /** Sweep interval. Resolved from
+   * {@link MeshWebRTCAdapterOptions.knownPeersRefreshIntervalMs} at
+   * construction. Defaults to 2000ms; tests override to 100–250ms. */
+  private readonly knownPeersRefreshIntervalMs: number;
   /** Peers currently visible in the signalling roster — populated by
    * {@link handlePeersPresent} / {@link handlePeerJoined} and pruned by
    * {@link handlePeerLeft}. Read by {@link addKnownPeer} to decide
@@ -159,11 +209,28 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private readyResolver: (() => void) | undefined;
 
   /** The peers this adapter will dial. Backward-compatible read accessor
-   * for callers that previously iterated the `knownPeerIds` array; the
-   * underlying storage is now a Set so mutations through
-   * {@link addKnownPeer} are O(1) and survive without re-allocation. */
+   * for callers that previously iterated the `knownPeerIds` array. With
+   * a {@link MeshWebRTCAdapterOptions.keyringSource} configured, the
+   * value is read live from the keyring; otherwise it falls back to the
+   * captured Set populated through the constructor and
+   * {@link addKnownPeer}. */
   get knownPeerIds(): string[] {
+    if (this.keyringSource !== undefined) {
+      return [...this.keyringSource().knownPeers.keys()].filter((id) => id !== this.localPeerId);
+    }
     return [...this.knownPeers];
+  }
+
+  /** True iff `remotePeerId` is currently in the authoritative
+   * knownPeers source — the live keyring when one was supplied, or
+   * the captured Set otherwise. Centralises the membership check so
+   * {@link shouldInitiateTo} and the JSDoc on
+   * {@link MeshWebRTCAdapterOptions.keyringSource} agree on the rule. */
+  private hasKnownPeer(remotePeerId: string): boolean {
+    if (this.keyringSource !== undefined) {
+      return this.keyringSource().knownPeers.has(remotePeerId);
+    }
+    return this.knownPeers.has(remotePeerId);
   }
 
   /** Callback for incoming blob messages. Set by the blob store.
@@ -177,6 +244,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.iceServers = options.iceServers ?? DEFAULT_ICE_SERVERS;
     this.dataChannelLabel = options.dataChannelLabel ?? "polly-mesh";
     this.knownPeers = new Set(options.knownPeerIds ?? []);
+    this.keyringSource = options.keyringSource;
+    this.knownPeersRefreshIntervalMs = options.knownPeersRefreshIntervalMs ?? 2000;
     this.localPeerId = options.peerId;
     const PC = options.RTCPeerConnection ?? globalThis.RTCPeerConnection;
     if (typeof PC !== "function") {
@@ -197,6 +266,79 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * "exactly one channel per pair" after discovery settles. */
   peerSlotCount(): number {
     return this.slots.size;
+  }
+
+  /** Snapshot of the adapter's per-peer state at the moment of the
+   * call. Returned values are plain data — strings and booleans only —
+   * so consumers can log, assert on, or render them without retaining
+   * references into the adapter's internals.
+   *
+   * Polly issue #103 asked for an inspection surface so a consumer
+   * harness can answer "is the mesh layer in a known good state" from
+   * outside polly. This method is that surface. The fields mirror the
+   * three layers of the WebRTC connection lifecycle so a "stuck"
+   * connection can be diagnosed without reaching for the browser
+   * devtools: the SDP signalling state, the ICE checking state, and
+   * the unified RTCPeerConnection connection state. A `dataChannel`
+   * field reports whether the data channel — the thing the mesh
+   * actually carries bytes over — is open.
+   *
+   * Peers visible in the signalling roster but not yet dialled appear
+   * with `slot: undefined`, so a consumer can tell "we know about this
+   * peer in signalling but the WebRTC adapter has not started an
+   * offer yet" from "we have a slot in some negotiation state". */
+  getPeerStateSnapshot(): {
+    localPeerId: string;
+    knownPeerIds: string[];
+    presentPeerIds: string[];
+    peers: Array<{
+      peerId: string;
+      knownInKeyring: boolean;
+      presentInSignalling: boolean;
+      slot:
+        | undefined
+        | {
+            signalingState: string;
+            iceConnectionState: string;
+            connectionState: string;
+            dataChannelState: string;
+            pendingSendCount: number;
+            pendingRemoteIceCount: number;
+          };
+    }>;
+  } {
+    const knownPeerIds = this.knownPeerIds;
+    const presentPeerIds = [...this.presentPeers];
+    const knownPeerSet = new Set(knownPeerIds);
+    const allPeers = new Set<string>();
+    for (const id of knownPeerIds) allPeers.add(id);
+    for (const id of presentPeerIds) allPeers.add(id);
+    for (const id of this.slots.keys()) allPeers.add(id);
+    const peers: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"] = [];
+    for (const peerId of allPeers) {
+      const slot = this.slots.get(peerId);
+      peers.push({
+        peerId,
+        knownInKeyring: knownPeerSet.has(peerId),
+        presentInSignalling: this.presentPeers.has(peerId),
+        slot: slot
+          ? {
+              signalingState: slot.connection.signalingState,
+              iceConnectionState: slot.connection.iceConnectionState,
+              connectionState: slot.connection.connectionState,
+              dataChannelState: slot.channel?.readyState ?? "no-channel",
+              pendingSendCount: slot.pendingSends.length,
+              pendingRemoteIceCount: slot.pendingRemoteIce.length,
+            }
+          : undefined,
+      });
+    }
+    return {
+      localPeerId: this.localPeerId,
+      knownPeerIds,
+      presentPeerIds,
+      peers,
+    };
   }
 
   /** Handle the signalling server's `peer-joined` notification: a new
@@ -247,19 +389,44 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * new entry. Calling this method propagates that into the adapter's
    * own allowlist; if the peer is already in the signalling roster and
    * the tie-break rule names us as the initiator, an SDP offer fires
-   * immediately. No-op if the peer is already known. */
+   * immediately. No-op if the peer is already known.
+   *
+   * When a {@link MeshWebRTCAdapterOptions.keyringSource} is configured
+   * the adapter already reads `knownPeers` live and the periodic sweep
+   * picks up the new entry within
+   * {@link MeshWebRTCAdapterOptions.knownPeersRefreshIntervalMs} on its
+   * own, so explicit calls to this method are not required for
+   * correctness — but remain supported for callers that want the
+   * "dial now if present" prompt without waiting for the next sweep. */
   addKnownPeer(remotePeerId: string): void {
     if (remotePeerId === this.localPeerId) return;
-    if (this.knownPeers.has(remotePeerId)) return;
-    this.knownPeers.add(remotePeerId);
+    if (this.keyringSource === undefined) {
+      // Captured-set fallback path: keep the legacy mutation behaviour
+      // so existing consumers that wire the adapter directly without a
+      // keyringSource still work.
+      if (this.knownPeers.has(remotePeerId)) return;
+      this.knownPeers.add(remotePeerId);
+    }
     if (!this.presentPeers.has(remotePeerId)) return;
     if (!this.shouldInitiateTo(remotePeerId)) return;
     this.createInitiatingSlot(remotePeerId);
   }
 
+  /** Re-evaluate every peer currently in the signalling roster and
+   * dial the ones the keyring authorises that we do not already have
+   * a slot for. The periodic sweep started in {@link connect} calls
+   * this; consumers can call it manually to skip the wait after they
+   * apply a fresh pairing token. Idempotent. */
+  refreshKnownPeers(): void {
+    for (const remotePeerId of this.presentPeers) {
+      if (!this.shouldInitiateTo(remotePeerId)) continue;
+      this.createInitiatingSlot(remotePeerId);
+    }
+  }
+
   private shouldInitiateTo(remotePeerId: string): boolean {
     if (remotePeerId === this.localPeerId) return false;
-    if (!this.knownPeers.has(remotePeerId)) return false;
+    if (!this.hasKnownPeer(remotePeerId)) return false;
     if (this.slots.has(remotePeerId)) return false;
     // Tie-break: the lexicographically higher peer id initiates. This
     // matches the glare-resolution rule in handleOffer, so pre-offer
@@ -295,9 +462,11 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
     this.ready = true;
     this.readyResolver?.();
+    this.startKnownPeersSweep();
   }
 
   disconnect(): void {
+    this.stopKnownPeersSweep();
     for (const slot of this.slots.values()) {
       slot.channel?.close();
       slot.connection.close();
@@ -306,6 +475,26 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.signaling.close();
     this.ready = false;
     this.emit("close");
+  }
+
+  /** Start the periodic re-sweep that catches peers added to the
+   * keyring after their `peer-joined` notification has already fired.
+   * No-op when no keyringSource was supplied — the captured-set
+   * fallback has no live source to re-read, so the sweep would be
+   * useless. No-op when the interval is configured to 0. */
+  private startKnownPeersSweep(): void {
+    if (this.keyringSource === undefined) return;
+    if (this.knownPeersRefreshIntervalMs <= 0) return;
+    if (this.knownPeersRefreshTimer !== undefined) return;
+    this.knownPeersRefreshTimer = setInterval(() => {
+      this.refreshKnownPeers();
+    }, this.knownPeersRefreshIntervalMs);
+  }
+
+  private stopKnownPeersSweep(): void {
+    if (this.knownPeersRefreshTimer === undefined) return;
+    clearInterval(this.knownPeersRefreshTimer);
+    this.knownPeersRefreshTimer = undefined;
   }
 
   /**

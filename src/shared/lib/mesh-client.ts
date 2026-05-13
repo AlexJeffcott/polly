@@ -79,6 +79,19 @@ export interface CreateMeshClientOptions {
      */
     iceCredentialResolver?: () => Promise<RTCIceServer[]>;
     dataChannelLabel?: string;
+    /** How often the mesh client re-evaluates whether to dial peers
+     * already present in the signalling roster against the live
+     * keyring. The sweep is what makes
+     * `applyPairingToken(token, keyring)` calls performed *after* the
+     * mesh client is up take effect on the WebRTC layer without
+     * requiring the consumer to call
+     * {@link MeshClient.refreshKnownPeers} by hand — see polly issue
+     * #103 for the failure mode this closes. Defaults to 2000ms; set
+     * to 0 to disable (the captured-set-only behaviour, kept for
+     * migrations and for the pre-fix demonstration shape in
+     * `examples/mesh-recovery-pair`). Forwarded straight to
+     * {@link MeshWebRTCAdapterOptions.knownPeersRefreshIntervalMs}. */
+    knownPeersRefreshIntervalMs?: MeshWebRTCAdapterOptions["knownPeersRefreshIntervalMs"];
   };
   /** The local peer's keyring — one of three shapes:
    *
@@ -151,6 +164,22 @@ export interface MeshClient {
   networkAdapter: MeshNetworkAdapter;
   /** The underlying WebRTC adapter wrapped by {@link networkAdapter}. */
   webrtcAdapter: MeshWebRTCAdapter;
+  /** Re-evaluate every peer currently in the signalling roster and
+   * dial the ones the keyring now authorises that this client has not
+   * already dialled. Equivalent to
+   * {@link MeshWebRTCAdapter.refreshKnownPeers}; the periodic sweep
+   * inside the WebRTC adapter calls the same code path, so consumers
+   * only need this helper when they want to skip the wait between
+   * sweeps after applying a pair token. Polly issue #103 — the path
+   * the sweep was added to close — is the canonical use case. */
+  refreshKnownPeers(): void;
+  /** Snapshot of the mesh client's per-peer state — keyring
+   * membership, signalling presence, per-slot SDP / ICE /
+   * connectionState / data-channel state, and queued-send / queued-ICE
+   * depth. Plain data, safe to log or render. Exists so a consumer
+   * harness can answer "is the mesh layer in a known good state"
+   * without instrumenting polly internals. Polly issue #103 item 7. */
+  getPeerStateSnapshot(): ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>;
   /** Close the signalling WebSocket, tear down every RTCPeerConnection,
    * and shut the Repo cleanly. Idempotent. */
   close(): Promise<void>;
@@ -175,6 +204,17 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     );
   }
 
+  // Seed the WebRTC adapter with the keyring's current `knownPeers`
+  // snapshot AND wire it to the same live keyring source the crypto
+  // layer uses. The snapshot is kept for the legacy captured-set path
+  // (consumers wiring MeshWebRTCAdapter directly without a source) and
+  // as a "first sweep" hint; the live source is what closes polly
+  // issue #103, where a long-lived daemon's keyring gains entries
+  // through `applyPairingToken` after the adapter is already up and
+  // the captured Set would otherwise never learn about them. The
+  // crypto layer (MeshNetworkAdapter) reads the same source on every
+  // send/receive — see mesh-network-adapter.ts for the matching
+  // contract.
   const knownPeerIds = [...keyring.knownPeers.keys()].filter(
     (id) => id !== options.signaling.peerId
   );
@@ -189,12 +229,16 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     signaling: undefined as unknown as MeshSignalingClient, // wired after signaling construction
     peerId: options.signaling.peerId,
     knownPeerIds,
+    keyringSource,
     ...(resolvedIceServers !== undefined && { iceServers: resolvedIceServers }),
     ...(options.rtc?.dataChannelLabel !== undefined && {
       dataChannelLabel: options.rtc.dataChannelLabel,
     }),
     ...(options.rtc?.RTCPeerConnection !== undefined && {
       RTCPeerConnection: options.rtc.RTCPeerConnection,
+    }),
+    ...(options.rtc?.knownPeersRefreshIntervalMs !== undefined && {
+      knownPeersRefreshIntervalMs: options.rtc.knownPeersRefreshIntervalMs,
     }),
   };
 
@@ -263,6 +307,23 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     signaling,
     networkAdapter,
     webrtcAdapter,
+    refreshKnownPeers: () => {
+      webrtcAdapter?.refreshKnownPeers();
+    },
+    getPeerStateSnapshot: () => {
+      // The closure-captured `webrtcAdapter` is assigned synchronously
+      // before this object is returned, so the optional chain is
+      // belt-and-braces against future construction reorderings.
+      if (!webrtcAdapter) {
+        return {
+          localPeerId: options.signaling.peerId,
+          knownPeerIds: [],
+          presentPeerIds: [],
+          peers: [],
+        };
+      }
+      return webrtcAdapter.getPeerStateSnapshot();
+    },
     close: async () => {
       signaling.close();
       webrtcAdapter?.disconnect();

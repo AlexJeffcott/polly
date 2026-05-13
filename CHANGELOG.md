@@ -5,6 +5,86 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.0] - 2026-05-13
+
+### Fixed
+
+#### `MeshWebRTCAdapter` ignored `knownPeers` mutations made after construction (#103)
+
+The mesh client documented `applyPairingToken(token, keyring)` as a
+post-construction operation whose effects were visible to the next
+send and receive. That was true at the crypto-envelope layer
+(`MeshNetworkAdapter` already re-read the keyring on every message)
+but not at the WebRTC layer: `MeshWebRTCAdapter` snapshotted
+`keyring.knownPeers.keys()` into a private Set at construction and
+never refreshed it. A long-lived daemon — the
+`fairfox daemon start --foreground` shape — that paired a new
+device after its mesh client was up therefore never dialled the new
+peer. Combined with the lex-tie-break rule in `shouldInitiateTo`,
+the failure was a hard deadlock whenever the would-be initiator was
+the side missing the new entry: both sides waited for the other to
+offer, peer counts stayed at zero, no Automerge sync ever flowed.
+
+The fix makes the WebRTC adapter use the same live keyring source
+the crypto layer uses (`createMeshClient` threads the source
+through; direct `MeshWebRTCAdapter` consumers can opt in via the
+new `keyringSource` option), and adds a periodic re-sweep — every
+2000ms by default, configurable via
+`rtc.knownPeersRefreshIntervalMs` on `createMeshClient` and the
+matching option on `MeshWebRTCAdapter` — that retries
+`shouldInitiateTo` against the live keyring for every peer
+currently in the signalling roster. New entries arriving via
+`applyPairingToken` are picked up on the next sweep, with no
+consumer code change required. Two new methods on the `MeshClient`
+handle — `refreshKnownPeers()` (skip the wait between sweeps after
+a known pair event) and `getPeerStateSnapshot()` (plain-data
+snapshot of per-peer keyring/signalling/slot state for consumer
+diagnostics) — close the observability gap noted in item 7 of the
+ticket.
+
+Captured-set behaviour is preserved as a fallback for direct
+`MeshWebRTCAdapter` consumers that do not pass a `keyringSource`.
+
+Verification: `tests/integration/mesh-recovery-pair-stale-known-peers.test.ts`
+constructs the failing-shape diff (≥ 5 unrelated `knownPeers` on
+peer A, peer A's mesh client constructed before B is folded into
+its keyring, lex-greater peer-id as the would-be initiator,
+per-run sentinel propagated through the mesh) and asserts five
+independent corroborating signals: both repos see a peer, the
+per-run sentinel lands on peer B, peer A's snapshot reports peer
+B as known-in-keyring and present-in-signalling, peer A's slot
+for peer B reaches `connectionState=connected`, and the data
+channel reaches `readyState=open`. The test takes ~500ms on the
+post-fix path and times out at 16s on the pre-fix path with a
+clean diff. The companion `examples/mesh-recovery-pair/`
+runnable example exposes the same shape through the public API,
+with a `POLLY_103_DISABLE_FIX=1` env switch that turns off the
+sweep so the same example produces both outcomes against
+post-fix polly — exit 0 on success, exit 1 on contract violation,
+exit 2 on refusal under a false-positive surface.
+
+### Added
+
+- `MeshClient.refreshKnownPeers()` — re-evaluate every peer in the
+  signalling roster against the live keyring and dial newly
+  authorised ones. The periodic sweep calls this internally; the
+  method is exposed for consumers that want to skip the wait
+  after applying a pair token.
+- `MeshClient.getPeerStateSnapshot()` — plain-data snapshot of
+  per-peer state (keyring membership, signalling presence, slot
+  signalingState / iceConnectionState / connectionState /
+  dataChannelState, pending-send and pending-ICE queue depths).
+  Diagnostic surface requested in #103 item 7.
+- `MeshWebRTCAdapterOptions.keyringSource` — opt-in live-keyring
+  source for direct adapter consumers. `createMeshClient` wires
+  this automatically.
+- `MeshWebRTCAdapterOptions.knownPeersRefreshIntervalMs` and the
+  matching `rtc.knownPeersRefreshIntervalMs` on
+  `createMeshClient` — sweep interval, default 2000ms. Set to 0
+  to disable.
+- `examples/mesh-recovery-pair/` — runnable demonstration of the
+  fix shape.
+
 ## [0.48.0] - 2026-05-11
 
 ### Added

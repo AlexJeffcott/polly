@@ -21,6 +21,6 @@
       "@fairfox/polly/actions": ["../src/actions/index.ts"]
     }
   },
-  "include": ["./**/*", "../src/polly-ui/css-modules.d.ts"],
+  "include": ["./**/*", "../src/polly-ui/css-modules.d.ts", "../src/wasm.d.ts"],
   "exclude": ["node_modules"]
 }

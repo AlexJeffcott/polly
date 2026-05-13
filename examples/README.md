@@ -14,6 +14,7 @@ what you're building.
 | [elysia-todo-app](./elysia-todo-app) | Full-stack web app using `@fairfox/polly/elysia`. Eden infers types end-to-end from the Elysia server, the client queues writes offline, and state syncs over WebSocket. Route-level authorization, declarative client effects. |
 | [webrtc-p2p-chat](./webrtc-p2p-chat) | Browser-to-browser chat over WebRTC data channels. The server only handles signalling; message content never reaches it. Demonstrates room-based pairing and connection-state UI. |
 | [team-task-manager](./team-task-manager) | Collaborative task management with role-based access (`owner`/`admin`/`member`), `$constraints()` for workspace-gated operations, urgent-task counts as a verified numeric field, and parameter-traced task priority. Demonstrates the role-and-constraints pattern, not end-to-end encryption. |
+| [mesh-recovery-pair](./mesh-recovery-pair) | Runnable demonstration of polly issue #103. Two werift mesh peers, one with a pre-populated `knownPeers` keyring and one freshly recovered, run against an in-process signalling server. Prints a wire-level transcript and a per-run sentinel that has to traverse the mesh. Toggles between the post-fix and pre-fix-emulated paths via `POLLY_103_DISABLE_FIX`. |
 
 ## Running an example
 
