@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "mesh-large-initial-sync-example",
+      "name": "mesh-large-initial-sync-turn-example",
       "dependencies": {
         "@automerge/automerge": ">= 2.5.0",
         "@fairfox/polly": "file:../..",

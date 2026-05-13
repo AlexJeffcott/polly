@@ -63,6 +63,189 @@ import {
   SYNC_FRAGMENT_THRESHOLD,
 } from "./sync-fragment";
 
+/** Distil an {@link RTCStatsReport} into a {@link TransportSnapshot}.
+ * Resolves the selected candidate pair via the transport stat's
+ * `selectedCandidatePairId` (the W3C-spec field that names the pair
+ * ICE has nominated for the data path), then pulls the candidate-type
+ * labels from the linked candidate stats. Retransmission counters
+ * come off the transport stat where present; some implementations
+ * surface them on the data-channel stat instead — we accept either.
+ *
+ * Out-of-band so the test bed can call it against a bare
+ * {@link RTCPeerConnection} as well, which the polly#105 harness's
+ * `probe-stats.ts` does to validate the stats shape before threading
+ * the result through the polly layer. */
+async function collectTransportSnapshot(
+  connection: RTCPeerConnection,
+  lastDataChannelError: string | undefined
+): Promise<TransportSnapshot> {
+  const at = performance.now();
+  let report: RTCStatsReport | undefined;
+  try {
+    report = await connection.getStats();
+  } catch {
+    return emptyTransportSnapshot(lastDataChannelError, at);
+  }
+  const parsed = partitionStats(report);
+  const selectedPair = selectActivePair(parsed);
+  const selectedCandidatePair = selectedPair
+    ? buildCandidatePairView(selectedPair, parsed.localCands, parsed.remoteCands)
+    : undefined;
+  return {
+    selectedCandidatePair,
+    retransmittedPacketsSent: parsed.retransmittedPacketsSent,
+    retransmittedBytesSent: parsed.retransmittedBytesSent,
+    lastDataChannelError,
+    at,
+  };
+}
+
+interface ParsedStats {
+  localCands: Map<string, Record<string, unknown>>;
+  remoteCands: Map<string, Record<string, unknown>>;
+  pairs: Map<string, Record<string, unknown>>;
+  selectedPairId: string | undefined;
+  retransmittedPacketsSent: number | undefined;
+  retransmittedBytesSent: number | undefined;
+}
+
+function emptyTransportSnapshot(
+  lastDataChannelError: string | undefined,
+  at: number
+): TransportSnapshot {
+  return {
+    selectedCandidatePair: undefined,
+    retransmittedPacketsSent: undefined,
+    retransmittedBytesSent: undefined,
+    lastDataChannelError,
+    at,
+  };
+}
+
+function partitionStats(report: RTCStatsReport): ParsedStats {
+  const out: ParsedStats = {
+    localCands: new Map(),
+    remoteCands: new Map(),
+    pairs: new Map(),
+    selectedPairId: undefined,
+    retransmittedPacketsSent: undefined,
+    retransmittedBytesSent: undefined,
+  };
+  const iter = (report as { values?: () => Iterable<unknown> }).values?.() ?? [];
+  for (const raw of iter) {
+    if (!raw || typeof raw !== "object") continue;
+    const stat = raw as Record<string, unknown>;
+    ingestStat(stat, out);
+  }
+  return out;
+}
+
+function ingestStat(stat: Record<string, unknown>, out: ParsedStats): void {
+  const id = String(stat["id"]);
+  switch (stat["type"]) {
+    case "local-candidate":
+      out.localCands.set(id, stat);
+      return;
+    case "remote-candidate":
+      out.remoteCands.set(id, stat);
+      return;
+    case "candidate-pair":
+      out.pairs.set(id, stat);
+      return;
+    case "transport":
+      ingestTransport(stat, out);
+      return;
+    case "data-channel":
+      ingestDataChannel(stat, out);
+      return;
+  }
+}
+
+function ingestTransport(stat: Record<string, unknown>, out: ParsedStats): void {
+  const selectedId = stat["selectedCandidatePairId"];
+  if (typeof selectedId === "string") out.selectedPairId = selectedId;
+  const rp = stat["retransmittedPacketsSent"];
+  const rb = stat["retransmittedBytesSent"];
+  if (typeof rp === "number") out.retransmittedPacketsSent = rp;
+  if (typeof rb === "number") out.retransmittedBytesSent = rb;
+}
+
+function ingestDataChannel(stat: Record<string, unknown>, out: ParsedStats): void {
+  // Chrome puts SCTP retransmit counters on the data-channel stat for
+  // SCTP-backed channels. werift puts them on the transport. Accept
+  // whichever the underlying impl produces first.
+  const rp = stat["retransmittedPacketsSent"];
+  const rb = stat["retransmittedBytesSent"];
+  if (out.retransmittedPacketsSent === undefined && typeof rp === "number") {
+    out.retransmittedPacketsSent = rp;
+  }
+  if (out.retransmittedBytesSent === undefined && typeof rb === "number") {
+    out.retransmittedBytesSent = rb;
+  }
+}
+
+function selectActivePair(parsed: ParsedStats): Record<string, unknown> | undefined {
+  if (parsed.selectedPairId) {
+    const named = parsed.pairs.get(parsed.selectedPairId);
+    if (named) return named;
+  }
+  for (const pair of parsed.pairs.values()) {
+    if (pair["nominated"]) return pair;
+  }
+  return undefined;
+}
+
+/** Render a {@link PeerSlot} as the plain-data view
+ * {@link MeshWebRTCAdapter.getPeerStateSnapshot} returns. Pulled out
+ * so the snapshot method itself stays under biome's cognitive-
+ * complexity ceiling — every additional optional field would push it
+ * one closer; doing the shape here keeps the per-call diff small. */
+function serialiseSlotView(slot: PeerSlot): {
+  signalingState: string;
+  iceConnectionState: string;
+  connectionState: string;
+  dataChannelState: string;
+  pendingSendCount: number;
+  pendingRemoteIceCount: number;
+  inFlightSync: InFlightSyncSnapshot | undefined;
+  transport: TransportSnapshot | undefined;
+} {
+  return {
+    signalingState: slot.connection.signalingState,
+    iceConnectionState: slot.connection.iceConnectionState,
+    connectionState: slot.connection.connectionState,
+    dataChannelState: slot.channel?.readyState ?? "no-channel",
+    pendingSendCount: slot.pendingSends.length,
+    pendingRemoteIceCount: slot.pendingRemoteIce.length,
+    inFlightSync: slot.inFlightSync ? { ...slot.inFlightSync } : undefined,
+    transport: slot.transport
+      ? {
+          ...slot.transport,
+          selectedCandidatePair: slot.transport.selectedCandidatePair
+            ? { ...slot.transport.selectedCandidatePair }
+            : undefined,
+        }
+      : undefined,
+  };
+}
+
+function buildCandidatePairView(
+  pair: Record<string, unknown>,
+  localCands: Map<string, Record<string, unknown>>,
+  remoteCands: Map<string, Record<string, unknown>>
+): NonNullable<TransportSnapshot["selectedCandidatePair"]> {
+  const local = localCands.get(String(pair["localCandidateId"]));
+  const remote = remoteCands.get(String(pair["remoteCandidateId"]));
+  return {
+    localCandidateType: String(local?.["candidateType"] ?? "?"),
+    remoteCandidateType: String(remote?.["candidateType"] ?? "?"),
+    state: String(pair["state"] ?? ""),
+    nominated: Boolean(pair["nominated"]),
+    bytesSent: Number(pair["bytesSent"] ?? 0),
+    bytesReceived: Number(pair["bytesReceived"] ?? 0),
+  };
+}
+
 /** Standard STUN servers for NAT traversal. In production, callers who
  * need TURN fallback for peers behind symmetric NATs should replace this
  * with their own ICE server list. */
@@ -122,6 +305,27 @@ export interface MeshWebRTCAdapterOptions {
   knownPeersRefreshIntervalMs?: number;
   /** Optional ICE server list override. Defaults to {@link DEFAULT_ICE_SERVERS}. */
   iceServers?: RTCIceServer[];
+  /** Optional ICE transport policy. Defaults to the
+   * {@link RTCPeerConnection} implementation's own default (`"all"` in
+   * Chrome, Firefox, and werift). Set to `"relay"` to force every
+   * candidate pair through a TURN relay — the shape the polly#105
+   * falsification harness needs to exercise the real-transport contract
+   * the polly#104 in-process throttle could not reach. */
+  iceTransportPolicy?: RTCIceTransportPolicy;
+  /** When `true` (the default), polly enforces
+   * {@link iceTransportPolicy} `"relay"` on its side of the signalling
+   * channel by filtering non-relay ICE candidates out of both the SDP
+   * description it forwards and the trickle ICE stream it emits. This
+   * closes the gap exposed by polly#105: Chrome's implementation
+   * already filters at the source, but werift only filters its own
+   * outgoing connectivity checks and still advertises host and srflx
+   * candidates upstream — so a relay-only peer on werift will, against
+   * a peer with the default policy, still pair through a non-relay
+   * candidate (or against a host-derived peer-reflexive remote).
+   * Setting this option to `false` reverts the enforcement and is the
+   * shape used by the `POLLY_105_DISABLE_TURN_FIX=1` falsification
+   * path. Production callers should leave this at the default. */
+  iceRelayEnforcement?: boolean;
   /** Optional data channel label. Defaults to "polly-mesh". Applications
    * that share a signalling server between multiple meshes may want
    * distinct labels per mesh. */
@@ -190,6 +394,46 @@ export interface SyncProgressEvent {
   at: number;
 }
 
+/** Last-seen transport-level summary for a peer slot. Populated
+ * lazily by {@link MeshWebRTCAdapter.refreshTransportStats}, which
+ * the consumer calls (typically from a polling loop in a debugging
+ * harness) so the cost of {@link RTCPeerConnection.getStats} is
+ * incurred only on demand. Polly issue #105 item 7 — exposes the
+ * dimension of the transport that {@link InFlightSyncSnapshot}
+ * doesn't reach: the negotiated ICE candidate pair, the SCTP
+ * retransmission counters, and the last data-channel-level error if
+ * one has been observed.
+ *
+ * Field names mirror the W3C stats spec (`selectedCandidatePairId`,
+ * `localCandidateType`, etc.) so consumers can correlate with the
+ * raw `RTCStatsReport`. werift exposes a stats shape close to the
+ * spec; Chrome exposes the spec itself; this view is implementation-
+ * agnostic. */
+export interface TransportSnapshot {
+  /** ICE-level summary of the pair currently carrying data. */
+  selectedCandidatePair:
+    | {
+        localCandidateType: string;
+        remoteCandidateType: string;
+        state: string;
+        nominated: boolean;
+        bytesSent: number;
+        bytesReceived: number;
+      }
+    | undefined;
+  /** SCTP / data-channel retransmission counters. Some implementations
+   * surface these on the transport stat, others on the data-channel
+   * stat — we expose the values we found, leaving the field undefined
+   * when the underlying impl doesn't surface them. */
+  retransmittedPacketsSent: number | undefined;
+  retransmittedBytesSent: number | undefined;
+  /** Most-recent data-channel error message, if `error` ever fired on
+   * the channel for this peer. Cleared only when the slot is replaced. */
+  lastDataChannelError: string | undefined;
+  /** `performance.now()` at the time the stats were last refreshed. */
+  at: number;
+}
+
 /** Per-peer view of an in-flight initial sync. Populated by
  * {@link MeshWebRTCAdapter.handleSyncFragment} as fragments of a
  * single reassembly arrive, and reset to `undefined` once the
@@ -237,6 +481,15 @@ interface PeerSlot {
   /** Observable snapshot of any reassembly currently in progress for
    * this peer. `undefined` whenever the receive side is idle. */
   inFlightSync: InFlightSyncSnapshot | undefined;
+  /** Last refreshed transport-level summary. `undefined` until the
+   * caller invokes {@link MeshWebRTCAdapter.refreshTransportStats}
+   * (or its idle equivalent on the mesh client). */
+  transport: TransportSnapshot | undefined;
+  /** Sticky cache of the most recent error reported by the data
+   * channel's `onerror` event. Captured on the channel itself so the
+   * value survives transient slot replacements within a single
+   * connection's lifetime. */
+  lastDataChannelError: string | undefined;
 }
 
 /**
@@ -247,6 +500,8 @@ interface PeerSlot {
 export class MeshWebRTCAdapter extends NetworkAdapter {
   readonly signaling: MeshSignalingClient;
   readonly iceServers: RTCIceServer[];
+  readonly iceTransportPolicy: RTCIceTransportPolicy | undefined;
+  private readonly iceRelayEnforcement: boolean;
   readonly dataChannelLabel: string;
   /** Peers this adapter is willing to dial. Mutable so callers that pair
    * a new device after construction (e.g. a CLI `add-device` process whose
@@ -331,6 +586,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     super();
     this.signaling = options.signaling;
     this.iceServers = options.iceServers ?? DEFAULT_ICE_SERVERS;
+    this.iceTransportPolicy = options.iceTransportPolicy;
+    this.iceRelayEnforcement = options.iceRelayEnforcement ?? true;
     this.dataChannelLabel = options.dataChannelLabel ?? "polly-mesh";
     this.knownPeers = new Set(options.knownPeerIds ?? []);
     this.keyringSource = options.keyringSource;
@@ -396,6 +653,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
             pendingSendCount: number;
             pendingRemoteIceCount: number;
             inFlightSync: InFlightSyncSnapshot | undefined;
+            transport: TransportSnapshot | undefined;
           };
     }>;
   } {
@@ -413,17 +671,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
         peerId,
         knownInKeyring: knownPeerSet.has(peerId),
         presentInSignalling: this.presentPeers.has(peerId),
-        slot: slot
-          ? {
-              signalingState: slot.connection.signalingState,
-              iceConnectionState: slot.connection.iceConnectionState,
-              connectionState: slot.connection.connectionState,
-              dataChannelState: slot.channel?.readyState ?? "no-channel",
-              pendingSendCount: slot.pendingSends.length,
-              pendingRemoteIceCount: slot.pendingRemoteIce.length,
-              inFlightSync: slot.inFlightSync ? { ...slot.inFlightSync } : undefined,
-            }
-          : undefined,
+        slot: slot ? serialiseSlotView(slot) : undefined,
       });
     }
     return {
@@ -689,8 +937,89 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
   }
 
+  /** Assemble the {@link RTCConfiguration} every new
+   * {@link RTCPeerConnection} is built with. Centralised so every slot
+   * (initiator and answerer) honours the same iceTransportPolicy. */
+  private buildRtcConfiguration(): RTCConfiguration {
+    const config: RTCConfiguration = { iceServers: this.iceServers };
+    if (this.iceTransportPolicy !== undefined) {
+      config.iceTransportPolicy = this.iceTransportPolicy;
+    }
+    return config;
+  }
+
+  /** Decide whether a local ICE candidate should be relayed through
+   * the signalling channel to the remote peer. Chrome's iceTransport
+   * Policy = "relay" implementation filters non-relay candidates at
+   * the source so the remote peer never sees them; werift's only
+   * filters its own outgoing connectivity checks and still emits host
+   * and srflx candidates upstream, so a remote peer with policy "all"
+   * can pair against them — making relay-only enforcement leaky in
+   * the mixed-implementation case the polly#105 falsification harness
+   * exposes. Mirroring Chrome's filter at this layer gives a uniform
+   * contract on every RTCPeerConnection implementation polly supports.
+   *
+   * The candidate `type` field is the SDP-spec form; we additionally
+   * parse it out of the legacy `candidate` string for implementations
+   * that don't surface the typed field directly (werift exposes the
+   * SDP string only). */
+  private isRelayCandidateInit(init: RTCIceCandidateInit): boolean {
+    const candidateStr = init.candidate ?? "";
+    const m = candidateStr.match(/\btyp\s+(\S+)/i);
+    return m?.[1]?.toLowerCase() === "relay";
+  }
+
+  private shouldSendCandidate(candidate: RTCIceCandidate): boolean {
+    if (!this.iceRelayEnforcement) return true;
+    if (this.iceTransportPolicy !== "relay") return true;
+    const typed = (candidate as unknown as { type?: string }).type;
+    const match = candidate.candidate.match(/\btyp\s+(\S+)/i);
+    const candidateType = (typed ?? match?.[1] ?? "").toLowerCase();
+    return candidateType === "relay";
+  }
+
+  /** Strip non-relay `a=candidate:` lines from an SDP when
+   * iceTransportPolicy is `"relay"`. Some RTCPeerConnection
+   * implementations (werift, notably) embed every gathered candidate
+   * in the SDP regardless of policy, and a remote peer parsing those
+   * via `setRemoteDescription` will pair against them — bypassing the
+   * relay-only contract. Chrome already filters in-SDP candidates by
+   * policy, so this is only load-bearing for werift consumers, but
+   * the SDP rewrite is implementation-agnostic and idempotent. */
+  private filterSdpCandidatesByPolicy(sdp: string | undefined): string | undefined {
+    if (!this.iceRelayEnforcement) return sdp;
+    if (this.iceTransportPolicy !== "relay") return sdp;
+    if (!sdp) return sdp;
+    const lines = sdp.split(/\r?\n/);
+    const filtered: string[] = [];
+    for (const line of lines) {
+      if (!line.startsWith("a=candidate:")) {
+        filtered.push(line);
+        continue;
+      }
+      const m = line.match(/\btyp\s+(\S+)/i);
+      if (m?.[1]?.toLowerCase() === "relay") filtered.push(line);
+    }
+    return filtered.join("\r\n");
+  }
+
+  /** Apply {@link filterSdpCandidatesByPolicy} to an SDP
+   * description ahead of `setLocalDescription` (filter outgoing) or
+   * `setRemoteDescription` (filter incoming). The defensive
+   * receive-side filter exists because we cannot trust the remote
+   * peer's adapter to have stripped its non-relay candidates first —
+   * polly might be talking to a pre-#105 polly, or to a non-polly
+   * peer whose policy enforcement is different. */
+  private applySdpPolicyFilter(description: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
+    if (!this.iceRelayEnforcement) return description;
+    if (this.iceTransportPolicy !== "relay") return description;
+    const filtered = this.filterSdpCandidatesByPolicy(description.sdp);
+    if (filtered === description.sdp) return description;
+    return { ...description, sdp: filtered };
+  }
+
   private createInitiatingSlot(targetId: string): PeerSlot {
-    const connection = new this.RTCPeerConnectionCtor({ iceServers: this.iceServers });
+    const connection = new this.RTCPeerConnectionCtor(this.buildRtcConfiguration());
     const channel = connection.createDataChannel(this.dataChannelLabel, { ordered: true });
     const slot: PeerSlot = {
       connection,
@@ -699,6 +1028,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       pendingFragments: new Map(),
       pendingRemoteIce: [],
       inFlightSync: undefined,
+      transport: undefined,
+      lastDataChannelError: undefined,
     };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
@@ -710,7 +1041,15 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private async initiateOffer(targetId: string, connection: RTCPeerConnection): Promise<void> {
     const offer = await connection.createOffer();
     await connection.setLocalDescription(offer);
-    this.signaling.sendSignal(targetId, { kind: "offer", sdp: offer } satisfies SignalingPayload);
+    const localOffer = connection.localDescription ?? offer;
+    const sdpToSend = this.applySdpPolicyFilter({
+      type: localOffer.type,
+      sdp: localOffer.sdp ?? offer.sdp,
+    });
+    this.signaling.sendSignal(targetId, {
+      kind: "offer",
+      sdp: sdpToSend,
+    } satisfies SignalingPayload);
   }
 
   private async handleOffer(fromPeerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
@@ -729,7 +1068,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       this.slots.delete(fromPeerId);
     }
 
-    const connection = new this.RTCPeerConnectionCtor({ iceServers: this.iceServers });
+    const connection = new this.RTCPeerConnectionCtor(this.buildRtcConfiguration());
     const slot: PeerSlot = {
       connection,
       channel: undefined,
@@ -737,6 +1076,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       pendingFragments: new Map(),
       pendingRemoteIce: [],
       inFlightSync: undefined,
+      transport: undefined,
+      lastDataChannelError: undefined,
     };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -744,13 +1085,18 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       slot.channel = event.channel;
       this.wireDataChannel(fromPeerId, event.channel);
     };
-    await connection.setRemoteDescription(sdp);
+    await connection.setRemoteDescription(this.applySdpPolicyFilter(sdp));
     await this.flushPendingRemoteIce(slot);
     const answer = await connection.createAnswer();
     await connection.setLocalDescription(answer);
+    const localAnswer = connection.localDescription ?? answer;
+    const sdpToSend = this.applySdpPolicyFilter({
+      type: localAnswer.type,
+      sdp: localAnswer.sdp ?? answer.sdp,
+    });
     this.signaling.sendSignal(fromPeerId, {
       kind: "answer",
-      sdp: answer,
+      sdp: sdpToSend,
     } satisfies SignalingPayload);
   }
 
@@ -764,7 +1110,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     // only ever expect an answer while we still have a local offer
     // pending; anything else is benign noise.
     if (slot.connection.signalingState !== "have-local-offer") return;
-    await slot.connection.setRemoteDescription(sdp);
+    await slot.connection.setRemoteDescription(this.applySdpPolicyFilter(sdp));
     await this.flushPendingRemoteIce(slot);
   }
 
@@ -774,6 +1120,17 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   ): Promise<void> {
     const slot = this.slots.get(fromPeerId);
     if (!slot) return;
+    // Receive-side mirror of {@link shouldSendCandidate}: even with a
+    // perfectly behaved peer we cannot assume the SDP and trickle
+    // streams agree on policy enforcement, and a non-polly remote may
+    // not filter at all. Drop anything that isn't relay-typed when
+    // the local policy is `"relay"`.
+    if (
+      this.iceRelayEnforcement &&
+      this.iceTransportPolicy === "relay" &&
+      !this.isRelayCandidateInit(candidate)
+    )
+      return;
     // If the answerer gathers ICE faster than its answer SDP travels
     // back through the signalling relay, candidates can land here before
     // `setRemoteDescription` has run. addIceCandidate throws when
@@ -811,12 +1168,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
 
   private wireConnection(peerId: string, connection: RTCPeerConnection): void {
     connection.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.signaling.sendSignal(peerId, {
-          kind: "ice",
-          candidate: event.candidate.toJSON(),
-        } satisfies SignalingPayload);
-      }
+      if (!event.candidate) return;
+      if (!this.shouldSendCandidate(event.candidate)) return;
+      this.signaling.sendSignal(peerId, {
+        kind: "ice",
+        candidate: event.candidate.toJSON(),
+      } satisfies SignalingPayload);
     };
     connection.onconnectionstatechange = () => {
       const state = connection.connectionState;
@@ -860,6 +1217,56 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
         slot.channel = undefined;
       }
     };
+    // Capture the last data-channel error so a consumer harness can
+    // surface "the wire-level error that took this peer offline" even
+    // if the channel has since closed. Polly issue #105 item 7. The
+    // event shape differs between Chrome (RTCErrorEvent) and werift
+    // (a plain object with `.error`); we narrow to a string for both.
+    channel.onerror = (event) => {
+      const slot = this.slots.get(peerId);
+      if (!slot) return;
+      const ev = event as unknown as { error?: { message?: unknown }; message?: unknown };
+      const message =
+        typeof ev.error?.message === "string"
+          ? ev.error.message
+          : typeof ev.message === "string"
+            ? ev.message
+            : "unknown data channel error";
+      slot.lastDataChannelError = message;
+    };
+  }
+
+  /** Refresh the per-peer {@link TransportSnapshot} for one peer by
+   * pulling {@link RTCPeerConnection.getStats} and distilling the
+   * result. Cheap-ish but not free — getStats walks the underlying
+   * stats graph — so this is opt-in: callers (typically a debugging
+   * harness or a periodic observability loop) invoke it explicitly
+   * and the result lives on the slot for the next
+   * {@link getPeerStateSnapshot}. Returns the refreshed snapshot, or
+   * `undefined` if there is no slot for the peer or stats are
+   * unavailable. Polly issue #105 item 7. */
+  async refreshTransportStats(peerId: string): Promise<TransportSnapshot | undefined> {
+    const slot = this.slots.get(peerId);
+    if (!slot) return undefined;
+    const snapshot = await collectTransportSnapshot(slot.connection, slot.lastDataChannelError);
+    slot.transport = snapshot;
+    return snapshot;
+  }
+
+  /** Refresh transport stats for every active peer slot in one shot.
+   * Returns a map keyed by peerId so a caller can render the result
+   * without re-walking {@link getPeerStateSnapshot}. The underlying
+   * `getStats` calls run concurrently. */
+  async refreshAllTransportStats(): Promise<Map<string, TransportSnapshot>> {
+    const out = new Map<string, TransportSnapshot>();
+    const peerIds = [...this.slots.keys()];
+    const results = await Promise.all(peerIds.map((id) => this.refreshTransportStats(id)));
+    for (let i = 0; i < peerIds.length; i += 1) {
+      const r = results[i];
+      const id = peerIds[i];
+      if (r && id !== undefined) out.set(id, r);
+    }
+    return out;
   }
 
   private dispatchMessage(fromPeerId: string, bytes: Uint8Array): void {

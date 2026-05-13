@@ -78,6 +78,21 @@ export interface CreateMeshClientOptions {
      * the credential window closes.
      */
     iceCredentialResolver?: () => Promise<RTCIceServer[]>;
+    /** Forward of {@link MeshWebRTCAdapterOptions.iceTransportPolicy}.
+     * Set to `"relay"` to force every candidate pair through TURN; the
+     * default leaves the underlying {@link RTCPeerConnection}
+     * implementation's default in place. The
+     * `examples/mesh-large-initial-sync-turn` harness uses `"relay"` to
+     * exercise the polly#105 real-transport contract. */
+    iceTransportPolicy?: MeshWebRTCAdapterOptions["iceTransportPolicy"];
+    /** Forward of {@link MeshWebRTCAdapterOptions.iceRelayEnforcement}.
+     * Defaults to `true`. Set to `false` to bypass the polly#105
+     * relay-only enforcement layer; the
+     * `examples/mesh-large-initial-sync-turn` falsification path
+     * (`POLLY_105_DISABLE_TURN_FIX=1`) does this to reproduce the
+     * pre-#105 candidate-leak shape. Production callers should leave
+     * this at the default. */
+    iceRelayEnforcement?: MeshWebRTCAdapterOptions["iceRelayEnforcement"];
     dataChannelLabel?: string;
     /** How often the mesh client re-evaluates whether to dial peers
      * already present in the signalling roster against the live
@@ -194,6 +209,14 @@ export interface MeshClient {
    * harness can answer "is the mesh layer in a known good state"
    * without instrumenting polly internals. Polly issue #103 item 7. */
   getPeerStateSnapshot(): ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>;
+  /** Refresh every active peer slot's transport-level summary —
+   * selected ICE candidate pair, SCTP retransmission counters, last
+   * data-channel error — and populate it into the next
+   * {@link getPeerStateSnapshot}. Walks {@link RTCPeerConnection.getStats}
+   * once per peer, so it isn't free; consumers that want continuous
+   * visibility should call this on a polling cadence the cost can
+   * absorb. Polly issue #105 item 7. */
+  refreshTransportStats(): Promise<void>;
   /** Close the signalling WebSocket, tear down every RTCPeerConnection,
    * and shut the Repo cleanly. Idempotent. */
   close(): Promise<void>;
@@ -245,6 +268,12 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     knownPeerIds,
     keyringSource,
     ...(resolvedIceServers !== undefined && { iceServers: resolvedIceServers }),
+    ...(options.rtc?.iceTransportPolicy !== undefined && {
+      iceTransportPolicy: options.rtc.iceTransportPolicy,
+    }),
+    ...(options.rtc?.iceRelayEnforcement !== undefined && {
+      iceRelayEnforcement: options.rtc.iceRelayEnforcement,
+    }),
     ...(options.rtc?.dataChannelLabel !== undefined && {
       dataChannelLabel: options.rtc.dataChannelLabel,
     }),
@@ -343,6 +372,10 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
         };
       }
       return webrtcAdapter.getPeerStateSnapshot();
+    },
+    refreshTransportStats: async () => {
+      if (!webrtcAdapter) return;
+      await webrtcAdapter.refreshAllTransportStats();
     },
     close: async () => {
       signaling.close();

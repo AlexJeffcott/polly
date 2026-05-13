@@ -1,11 +1,12 @@
 {
-  "name": "mesh-large-initial-sync-example",
+  "name": "mesh-large-initial-sync-turn-example",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run main.ts",
-    "typecheck": "bunx tsc --noEmit"
+    "start": "POLLY_105_TURN_MODE=real bun run main.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "build:turn-server": "cd pion-turn-server && go build -o pion-turn-server ."
   },
   "dependencies": {
     "@automerge/automerge": ">= 2.5.0",
