@@ -212,7 +212,13 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     for (const frame of wireFrames) {
       channel.deliver(frame);
     }
-    // Reassembly is synchronous; no awaits required.
+    // Reassembly schedules dispatch onto a fresh macrotask when
+    // syncYieldEnabled is on (the default since polly #104), so wait
+    // for the two timer rounds the fragment path uses — one to
+    // dispatch the reassembled bytes, one to emit the deserialised
+    // message — before asserting receipt.
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
     expect(received).toHaveLength(1);
     const reassembled = received[0];
     if (!reassembled) throw new Error("expected emitted message");
@@ -223,7 +229,7 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     expect(data).toEqual(original);
   });
 
-  test("out-of-order fragment delivery still reassembles correctly", () => {
+  test("out-of-order fragment delivery still reassembles correctly", async () => {
     const received: Message[] = [];
     adapter.on("message", (msg) => {
       received.push(msg);
@@ -243,6 +249,9 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     for (const frame of wireFrames) {
       channel.deliver(frame);
     }
+    // Async dispatch — see neighbouring test for the rationale.
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
     expect(received).toHaveLength(1);
     const data = (received[0] as unknown as { data: Uint8Array }).data;
     expect(data).toEqual(payload);

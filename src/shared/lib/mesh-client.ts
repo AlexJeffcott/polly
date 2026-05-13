@@ -92,6 +92,20 @@ export interface CreateMeshClientOptions {
      * `examples/mesh-recovery-pair`). Forwarded straight to
      * {@link MeshWebRTCAdapterOptions.knownPeersRefreshIntervalMs}. */
     knownPeersRefreshIntervalMs?: MeshWebRTCAdapterOptions["knownPeersRefreshIntervalMs"];
+    /** Forward of {@link MeshWebRTCAdapterOptions.syncYieldEnabled}.
+     * Defaults to `true`. The `examples/mesh-large-initial-sync`
+     * example flips this to `false` when `POLLY_104_DISABLE_FIX=1` is
+     * set, to demonstrate the pre-#104 tight-loop behaviour against
+     * post-fix polly. Production callers should leave this at the
+     * default. */
+    syncYieldEnabled?: MeshWebRTCAdapterOptions["syncYieldEnabled"];
+    /** Forward of
+     * {@link MeshWebRTCAdapterOptions.syncFragmentChunkSizeOverride}.
+     * Production callers should leave this undefined. The
+     * `examples/mesh-large-initial-sync` example passes 64 KiB when
+     * `POLLY_104_DISABLE_FIX=1` to recreate the pre-#104
+     * fragmentation bug. */
+    syncFragmentChunkSizeOverride?: MeshWebRTCAdapterOptions["syncFragmentChunkSizeOverride"];
   };
   /** The local peer's keyring — one of three shapes:
    *
@@ -239,6 +253,12 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     }),
     ...(options.rtc?.knownPeersRefreshIntervalMs !== undefined && {
       knownPeersRefreshIntervalMs: options.rtc.knownPeersRefreshIntervalMs,
+    }),
+    ...(options.rtc?.syncYieldEnabled !== undefined && {
+      syncYieldEnabled: options.rtc.syncYieldEnabled,
+    }),
+    ...(options.rtc?.syncFragmentChunkSizeOverride !== undefined && {
+      syncFragmentChunkSizeOverride: options.rtc.syncFragmentChunkSizeOverride,
     }),
   };
 

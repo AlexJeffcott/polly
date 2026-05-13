@@ -59,6 +59,7 @@ import {
   isSyncFragmentType,
   parseSyncFragment,
   reassembleSyncFragments,
+  SYNC_FRAGMENT_CHUNK_SIZE,
   SYNC_FRAGMENT_THRESHOLD,
 } from "./sync-fragment";
 
@@ -130,6 +131,28 @@ export interface MeshWebRTCAdapterOptions {
    * (e.g. `werift` or `@roamhq/wrtc`) when running outside a browser, or
    * to use a custom subclass for tests or instrumentation. */
   RTCPeerConnection?: typeof RTCPeerConnection;
+  /** When `true` (the default), the adapter yields to the event loop
+   * between the points where a large initial sync would otherwise hold
+   * the main thread for tens of seconds: between each batch of
+   * fragmented `RTCDataChannel.send` calls on the sender side, and at
+   * the boundary between reassembling a sync message and dispatching
+   * it (deserialise → MeshNetworkAdapter unwrap → Automerge
+   * `applyChanges`) on the receiver side. Set to `false` to recover
+   * the pre-#104 tight-loop behaviour; this is the configuration the
+   * `POLLY_104_DISABLE_FIX=1` falsification path in
+   * `examples/mesh-large-initial-sync` uses to demonstrate the bug
+   * against post-fix polly. Production callers should leave this at
+   * the default. */
+  syncYieldEnabled?: boolean;
+  /** Override the sync fragment chunk size. Defaults to
+   * {@link SYNC_FRAGMENT_CHUNK_SIZE} (60 KiB), which leaves header
+   * overhead inside werift's hard 64 KiB max-message-size cap.
+   * Setting this to 64 KiB recreates the pre-#104 fragmentation bug,
+   * where peer A's outbound fragments overshoot the cap and werift
+   * rejects them silently — sync stalls forever. Used by the
+   * `POLLY_104_DISABLE_FIX=1` falsification path. Production callers
+   * should leave this at the default. */
+  syncFragmentChunkSizeOverride?: number;
 }
 
 /** Types of signalling payload this adapter exchanges through the
@@ -138,6 +161,58 @@ type SignalingPayload =
   | { kind: "offer"; sdp: RTCSessionDescriptionInit }
   | { kind: "answer"; sdp: RTCSessionDescriptionInit }
   | { kind: "ice"; candidate: RTCIceCandidateInit };
+
+/** Payload of the polly-specific `"sync-progress"` event emitted by
+ * {@link MeshWebRTCAdapter}. Consumers can subscribe via the adapter's
+ * standard `.on()` surface (the same one that carries `peer-candidate`
+ * and `peer-disconnected`) to observe fragment receive and dispatch
+ * activity in real time, without polling
+ * {@link MeshWebRTCAdapter.getPeerStateSnapshot}. Polly issue #104
+ * item 7. */
+export interface SyncProgressEvent {
+  /** Remote peer the fragment or dispatch is for. */
+  peerId: string;
+  /** Lifecycle stage. `fragment-received` fires for each chunk that
+   * arrives during reassembly; `dispatch-applied` fires once the
+   * reassembled message has been emitted upward to Automerge. */
+  kind: "fragment-received" | "dispatch-applied";
+  /** Bytes carried by the chunk that triggered the event. Zero for
+   * `dispatch-applied`. */
+  bytesDelta: number;
+  /** Running total of fragments received for the current reassembly. */
+  chunksReceived: number;
+  /** Running total of bytes received for the current reassembly. */
+  bytesReceived: number;
+  /** Number of reassembled messages whose dispatch has been scheduled
+   * but not yet emitted upward to Automerge. */
+  applyBacklog: number;
+  /** `performance.now()` at event emission. */
+  at: number;
+}
+
+/** Per-peer view of an in-flight initial sync. Populated by
+ * {@link MeshWebRTCAdapter.handleSyncFragment} as fragments of a
+ * single reassembly arrive, and reset to `undefined` once the
+ * reassembled message has been dispatched. Exposed verbatim through
+ * {@link MeshWebRTCAdapter.getPeerStateSnapshot} so a consumer
+ * harness can observe progress mid-stream. Polly issue #104 item 7. */
+export interface InFlightSyncSnapshot {
+  /** Fragments received for the current reassembly. Cleared once
+   * reassembly completes. */
+  chunksReceived: number;
+  /** Bytes received across the fragments of the current reassembly.
+   * The reassembled message will be slightly smaller than this sum
+   * because each fragment carries a small header. */
+  bytesReceived: number;
+  /** `performance.now()` value at the last fragment arrival. */
+  lastChunkAt: number;
+  /** Count of reassembled messages whose dispatch has been
+   * scheduled but not yet run. With the receiver-side `setTimeout(0)`
+   * yield enabled, this is normally 0 or 1; with the yield
+   * disabled (the falsification path) dispatch runs synchronously
+   * and this stays 0. */
+  applyBacklog: number;
+}
 
 /** State tracked for each remote peer. */
 interface PeerSlot {
@@ -159,6 +234,9 @@ interface PeerSlot {
    * remote candidates to pair against. Drained from {@link handleAnswer}
    * and the post-`setRemoteDescription` step of {@link handleOffer}. */
   pendingRemoteIce: RTCIceCandidateInit[];
+  /** Observable snapshot of any reassembly currently in progress for
+   * this peer. `undefined` whenever the receive side is idle. */
+  inFlightSync: InFlightSyncSnapshot | undefined;
 }
 
 /**
@@ -191,6 +269,17 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * {@link MeshWebRTCAdapterOptions.knownPeersRefreshIntervalMs} at
    * construction. Defaults to 2000ms; tests override to 100–250ms. */
   private readonly knownPeersRefreshIntervalMs: number;
+  /** When `true`, the sender side awaits between batches of fragment
+   * sends and the receiver side schedules dispatch via `setTimeout(0)`
+   * so the JS event loop can drain timers (including the consumer's
+   * own setInterval-based liveness probes) between large-message
+   * apply calls. Defaults to `true`; set to `false` only by the
+   * `POLLY_104_DISABLE_FIX` falsification path. */
+  private readonly syncYieldEnabled: boolean;
+  /** Resolved chunk size for fragmenting oversized messages.
+   * Defaults to {@link SYNC_FRAGMENT_CHUNK_SIZE}; can be overridden
+   * via {@link MeshWebRTCAdapterOptions.syncFragmentChunkSizeOverride}. */
+  private readonly syncFragmentChunkSize: number;
   /** Peers currently visible in the signalling roster — populated by
    * {@link handlePeersPresent} / {@link handlePeerJoined} and pruned by
    * {@link handlePeerLeft}. Read by {@link addKnownPeer} to decide
@@ -246,6 +335,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.knownPeers = new Set(options.knownPeerIds ?? []);
     this.keyringSource = options.keyringSource;
     this.knownPeersRefreshIntervalMs = options.knownPeersRefreshIntervalMs ?? 2000;
+    this.syncYieldEnabled = options.syncYieldEnabled ?? true;
+    this.syncFragmentChunkSize = options.syncFragmentChunkSizeOverride ?? SYNC_FRAGMENT_CHUNK_SIZE;
     this.localPeerId = options.peerId;
     const PC = options.RTCPeerConnection ?? globalThis.RTCPeerConnection;
     if (typeof PC !== "function") {
@@ -304,6 +395,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
             dataChannelState: string;
             pendingSendCount: number;
             pendingRemoteIceCount: number;
+            inFlightSync: InFlightSyncSnapshot | undefined;
           };
     }>;
   } {
@@ -329,6 +421,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
               dataChannelState: slot.channel?.readyState ?? "no-channel",
               pendingSendCount: slot.pendingSends.length,
               pendingRemoteIceCount: slot.pendingRemoteIce.length,
+              inFlightSync: slot.inFlightSync ? { ...slot.inFlightSync } : undefined,
             }
           : undefined,
       });
@@ -511,11 +604,20 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       slot = this.createInitiatingSlot(targetId);
     }
     if (slot.channel && slot.channel.readyState === "open") {
-      this.sendBytesMaybeFragmented(slot.channel, bytes);
+      void this.sendBytesMaybeFragmented(slot.channel, bytes);
     } else {
       slot.pendingSends.push(bytes);
     }
   }
+
+  /** Number of consecutive fragment sends after which the sender
+   * yields to the macrotask queue when {@link syncYieldEnabled} is on.
+   * 8 × 64 KiB = 512 KiB of bytes between yields — small enough that
+   * a 5 MB sync produces many yield points (and the JS event loop
+   * drains the consumer's `setInterval` liveness probes between
+   * them), large enough that the per-yield overhead does not dominate
+   * the wire cost. */
+  private static readonly SEND_YIELD_EVERY_N_FRAGMENTS = 8;
 
   /** Send raw wire bytes, fragmenting if they exceed the SCTP maxMessageSize
    *  cap. The default RTCDataChannel limit is 256 KiB in current Chrome and
@@ -523,16 +625,41 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    *  channel, none of which surface as an error to the caller. Fragments
    *  use the same length-prefixed JSON header wire format as ordinary
    *  messages but carry a `sync-fragment` type that the receive path
-   *  detects and reassembles before deserialising. */
-  private sendBytesMaybeFragmented(channel: RTCDataChannel, bytes: Uint8Array<ArrayBuffer>): void {
+   *  detects and reassembles before deserialising.
+   *
+   *  When {@link MeshWebRTCAdapterOptions.syncYieldEnabled} is true (the
+   *  default), the loop awaits the macrotask queue every
+   *  {@link SEND_YIELD_EVERY_N_FRAGMENTS} fragments so the JS event
+   *  loop drains between batches — without this, a 5–8 MB initial
+   *  sync produces 78–125 back-to-back `RTCDataChannel.send` calls in
+   *  a tight loop, starving anything else on the main thread (polly
+   *  issue #104, sender side). When the option is false the legacy
+   *  tight-loop shape is preserved for the falsification path. */
+  private async sendBytesMaybeFragmented(
+    channel: RTCDataChannel,
+    bytes: Uint8Array<ArrayBuffer>
+  ): Promise<void> {
     if (bytes.length <= SYNC_FRAGMENT_THRESHOLD) {
       channel.send(bytes);
       return;
     }
     const id = crypto.randomUUID();
-    const fragments = chunkSyncMessage(bytes, id);
+    const fragments = chunkSyncMessage(bytes, id, this.syncFragmentChunkSize);
+    if (!this.syncYieldEnabled) {
+      for (const fragment of fragments) {
+        channel.send(fragment);
+      }
+      return;
+    }
+    let i = 0;
     for (const fragment of fragments) {
       channel.send(fragment);
+      i += 1;
+      if (i % MeshWebRTCAdapter.SEND_YIELD_EVERY_N_FRAGMENTS === 0 && i < fragments.length) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      }
     }
   }
 
@@ -571,6 +698,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       pendingSends: [],
       pendingFragments: new Map(),
       pendingRemoteIce: [],
+      inFlightSync: undefined,
     };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
@@ -608,6 +736,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       pendingSends: [],
       pendingFragments: new Map(),
       pendingRemoteIce: [],
+      inFlightSync: undefined,
     };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -711,7 +840,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       // was still connecting. The fragmenting helper handles oversized
       // payloads the same way it would on a live send.
       for (const bytes of slot.pendingSends) {
-        this.sendBytesMaybeFragmented(channel, bytes);
+        void this.sendBytesMaybeFragmented(channel, bytes);
       }
       slot.pendingSends = [];
     };
@@ -758,12 +887,91 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
         return;
       }
       const message = this.deserialiseMessage(bytes);
-      this.emit("message", message);
+      this.scheduleEmitMessage(fromPeerId, message, false);
     } catch {
       // Drop malformed messages silently — the MeshNetworkAdapter wrapper
       // also drops on verification failure, so a corrupt frame at this
       // layer is observationally the same as a forgery at the layer above.
     }
+  }
+
+  /** Hand a deserialised Automerge message off to whoever is listening
+   * on this adapter's `"message"` event. When
+   * {@link MeshWebRTCAdapterOptions.syncYieldEnabled} is true (the
+   * default), the emit runs on a fresh macrotask so the crypto-unwrap
+   * and Automerge `applyChanges` chain downstream of this method does
+   * not sit on the same JS stack frame as the wire `onmessage` callback
+   * — that's the receiver-side starvation site polly issue #104
+   * documents. When the option is false the emit is synchronous,
+   * recovering the pre-fix shape used by the falsification path.
+   *
+   * The `viaFragmentPath` argument tags whether this dispatch came out
+   * of a reassembled fragment chain; only those carry an
+   * `inFlightSync` reassembly state worth bookkeeping. Small
+   * single-message dispatches yield but don't touch inFlightSync. */
+  private scheduleEmitMessage(
+    fromPeerId: string,
+    message: Message,
+    viaFragmentPath: boolean
+  ): void {
+    if (!this.syncYieldEnabled) {
+      this.emit("message", message);
+      if (viaFragmentPath) {
+        this.finishInFlightSyncApply(fromPeerId);
+      }
+      return;
+    }
+    if (viaFragmentPath) {
+      const slot = this.slots.get(fromPeerId);
+      if (slot?.inFlightSync) {
+        slot.inFlightSync.applyBacklog += 1;
+      }
+    }
+    setTimeout(() => {
+      try {
+        this.emit("message", message);
+      } finally {
+        if (viaFragmentPath) {
+          this.finishInFlightSyncApply(fromPeerId);
+        }
+      }
+    }, 0);
+  }
+
+  private finishInFlightSyncApply(fromPeerId: string): void {
+    const slot = this.slots.get(fromPeerId);
+    if (!slot?.inFlightSync) return;
+    slot.inFlightSync.applyBacklog = Math.max(0, slot.inFlightSync.applyBacklog - 1);
+    this.emitSyncProgress(fromPeerId, "dispatch-applied", 0);
+    if (slot.inFlightSync.applyBacklog === 0 && slot.pendingFragments.size === 0) {
+      slot.inFlightSync = undefined;
+    }
+  }
+
+  private emitSyncProgress(
+    fromPeerId: string,
+    kind: "fragment-received" | "dispatch-applied",
+    bytesDelta: number
+  ): void {
+    const slot = this.slots.get(fromPeerId);
+    const inFlightSync = slot?.inFlightSync;
+    // The `sync-progress` event is polly-specific; Automerge's
+    // NetworkAdapter event-type union doesn't include it. Cast around
+    // the typed emit so consumers can subscribe via the same `.on(...)`
+    // surface that carries `peer-candidate` and `peer-disconnected`.
+    (
+      this as unknown as {
+        emit: (event: string, payload: SyncProgressEvent) => void;
+      }
+    ).emit("sync-progress", {
+      peerId: fromPeerId,
+      kind,
+      bytesDelta,
+      chunksReceived: inFlightSync?.chunksReceived ?? 0,
+      bytesReceived: inFlightSync?.bytesReceived ?? 0,
+      applyBacklog: inFlightSync?.applyBacklog ?? 0,
+      at: performance.now(),
+    });
   }
 
   private handleSyncFragment(fromPeerId: string, bytes: Uint8Array): void {
@@ -781,10 +989,56 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     // the reassembled message owns its bytes and the wire frame can be
     // garbage-collected.
     entry.chunks.set(header.index, data.slice());
+    if (!slot.inFlightSync) {
+      slot.inFlightSync = {
+        chunksReceived: 0,
+        bytesReceived: 0,
+        lastChunkAt: performance.now(),
+        applyBacklog: 0,
+      };
+    }
+    slot.inFlightSync.chunksReceived += 1;
+    slot.inFlightSync.bytesReceived += data.byteLength;
+    slot.inFlightSync.lastChunkAt = performance.now();
+    this.emitSyncProgress(fromPeerId, "fragment-received", data.byteLength);
     if (entry.chunks.size < entry.total) return;
     slot.pendingFragments.delete(header.id);
     const reassembled = reassembleSyncFragments(entry.chunks, entry.total);
-    this.dispatchMessage(fromPeerId, reassembled);
+    if (!this.syncYieldEnabled) {
+      this.dispatchReassembled(fromPeerId, reassembled);
+      return;
+    }
+    setTimeout(() => {
+      this.dispatchReassembled(fromPeerId, reassembled);
+    }, 0);
+  }
+
+  /** Dispatch a reassembled fragment payload back through
+   * {@link dispatchMessage}, but tagged so the
+   * {@link scheduleEmitMessage} path knows it owes a
+   * `finishInFlightSyncApply` afterwards. Synchronous re-entry into
+   * `dispatchMessage` would lose that signal, so the post-fragment
+   * deserialise+emit is inlined here. */
+  private dispatchReassembled(fromPeerId: string, bytes: Uint8Array): void {
+    try {
+      if (this.onBlobMessage && isBlobMessageType(bytes)) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const headerLen = view.getUint32(0, false);
+        const header = JSON.parse(
+          new TextDecoder().decode(bytes.subarray(4, 4 + headerLen))
+        ) as Record<string, unknown>;
+        const data = bytes.subarray(4 + headerLen);
+        this.onBlobMessage(fromPeerId, header, data);
+        this.finishInFlightSyncApply(fromPeerId);
+        return;
+      }
+      const message = this.deserialiseMessage(bytes);
+      this.scheduleEmitMessage(fromPeerId, message, true);
+    } catch {
+      // Same swallowing rationale as dispatchMessage; record the apply
+      // completion so the inFlightSync state doesn't get stuck.
+      this.finishInFlightSyncApply(fromPeerId);
+    }
   }
 
   /** Peer IDs with an open data channel, suitable for blob requests. */

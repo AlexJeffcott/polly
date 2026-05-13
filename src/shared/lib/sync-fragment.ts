@@ -18,14 +18,25 @@
  */
 
 /** Maximum bytes a single channel.send may carry without fragmentation.
- *  Chosen well below the 256 KiB SCTP cap so the framing header for a
- *  single chunk cannot push the wire frame over the limit. Matches the
- *  blob-transfer chunk size so the two transports have a consistent
- *  per-message footprint on the data channel. */
-export const SYNC_FRAGMENT_THRESHOLD = 64 * 1024;
+ *  Werift (the node-side WebRTC implementation polly recommends for
+ *  CLI/daemon use) enforces a hard 64 KiB (65536 bytes) maxMessageSize
+ *  on its RTCDataChannel — anything larger is rejected with a
+ *  `max-message-size exceeded` error and silently drops the channel
+ *  for that send. Chrome's SCTP cap is 256 KiB and would tolerate
+ *  larger frames, but the threshold is chosen to fit inside werift's
+ *  cap WITH per-fragment header overhead included so a single mesh
+ *  deployment works on both transports. Matches the blob-transfer
+ *  chunk size so the two transports have a consistent per-message
+ *  footprint on the data channel. */
+export const SYNC_FRAGMENT_THRESHOLD = 60 * 1024;
 
-/** Chunk size used when a message exceeds the threshold. */
-export const SYNC_FRAGMENT_CHUNK_SIZE = 64 * 1024;
+/** Chunk size used when a message exceeds the threshold. Left at the
+ *  same value as {@link SYNC_FRAGMENT_THRESHOLD} so the framing
+ *  header (a JSON-encoded `SyncFragmentHeader` of ~90 bytes plus a
+ *  4-byte length prefix) does not push any fragment over werift's
+ *  64 KiB wire limit — see polly issue #104 for the failure mode
+ *  this guards against. */
+export const SYNC_FRAGMENT_CHUNK_SIZE = 60 * 1024;
 
 export interface SyncFragmentHeader {
   type: "sync-fragment";
