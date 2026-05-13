@@ -79,7 +79,16 @@ export {
   resetMeshState,
 } from "./shared/lib/mesh-state";
 // Mesh WebRTC adapter
-export type { MeshWebRTCAdapterOptions } from "./shared/lib/mesh-webrtc-adapter";
+export type {
+  InFlightSyncSnapshot,
+  MeshWebRTCAdapterOptions,
+  SlotInitiationDecision,
+  SlotInitiationRejectionReason,
+  SweepSnapshot,
+  SyncHandshakeAttemptSnapshot,
+  SyncProgressEvent,
+  TransportSnapshot,
+} from "./shared/lib/mesh-webrtc-adapter";
 export { DEFAULT_ICE_SERVERS, MeshWebRTCAdapter } from "./shared/lib/mesh-webrtc-adapter";
 // Pairing and revocation (depend on signing/encryption)
 export type {

@@ -209,6 +209,7 @@ function serialiseSlotView(slot: PeerSlot): {
   pendingRemoteIceCount: number;
   inFlightSync: InFlightSyncSnapshot | undefined;
   transport: TransportSnapshot | undefined;
+  lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
 } {
   return {
     signalingState: slot.connection.signalingState,
@@ -226,6 +227,20 @@ function serialiseSlotView(slot: PeerSlot): {
             : undefined,
         }
       : undefined,
+    lastSyncHandshakeAttempt: { ...slot.lastSyncHandshakeAttempt },
+  };
+}
+
+/** Initial state for {@link PeerSlot.lastSyncHandshakeAttempt}. All
+ * timestamps start `undefined` and become populated as the slot
+ * progresses through the lifecycle. Pulled out so every `PeerSlot`
+ * construction site uses the same shape. */
+function emptySyncHandshakeAttempt(): SyncHandshakeAttemptSnapshot {
+  return {
+    dataChannelOpenedAt: undefined,
+    peerCandidateEmittedAt: undefined,
+    firstOutboundSendAt: undefined,
+    firstInboundMessageAt: undefined,
   };
 }
 
@@ -434,6 +449,111 @@ export interface TransportSnapshot {
   at: number;
 }
 
+/** Reasons the adapter declined to construct an RTC slot for a peer
+ * that appeared in the signalling roster or the keyring. Recorded
+ * per-peer in {@link MeshWebRTCAdapter.getPeerStateSnapshot} so a
+ * consumer harness observing "(no slot)" can tell which gate inside
+ * the adapter stopped construction without having to log-correlate
+ * through three layers of timing. Polly issue #106 item 7.
+ *
+ * - `self`: the peerId equals the local peerId.
+ * - `not-in-keyring`: the live keyring (or captured Set) does not
+ *   currently authorise this peer.
+ * - `not-present`: the peer is not in the signalling roster. The
+ *   adapter only dials peers it has heard about through
+ *   `peers-present` or `peer-joined`; keyring entries that have not
+ *   appeared on signalling are quietly held without a slot.
+ * - `tie-break-other-side`: the lex-tie-break designates the remote
+ *   peer as the initiator; we wait for their offer.
+ * - `slot-already-exists`: a slot exists already, possibly in any
+ *   negotiation state.
+ * - `fatal-error`: an exception was thrown while attempting to build
+ *   the slot. The accompanying {@link SlotInitiationDecision.error}
+ *   string carries the message.
+ */
+export type SlotInitiationRejectionReason =
+  | "self"
+  | "not-in-keyring"
+  | "not-present"
+  | "tie-break-other-side"
+  | "slot-already-exists"
+  | "fatal-error";
+
+/** Most-recent slot-initiation decision for a peer. Computed at
+ * snapshot time so the view always reflects the current state of the
+ * relevant gates; a `decision === "accepted"` value paired with a
+ * `slot === undefined` view on the same snapshot is the load-bearing
+ * signal for "the adapter wants to dial but isn't" — the failure
+ * shape polly#106 documents. */
+export interface SlotInitiationDecision {
+  /** "accepted" means every gate in `shouldInitiateTo` would pass right
+   * now and a sweep tick would construct a slot. "rejected" means at
+   * least one gate failed; the `reason` names it. */
+  decision: "accepted" | "rejected";
+  /** Populated only on `rejected` decisions. */
+  reason: SlotInitiationRejectionReason | undefined;
+  /** If the previous sweep tick caught a synchronous throw while
+   * building this peer's slot, the message is preserved here for the
+   * next snapshot. The reason will be `fatal-error`. */
+  error: string | undefined;
+  /** `performance.now()` at the time the decision was computed. */
+  at: number;
+}
+
+/** Most-recent sync-handshake timeline for a peer slot. Each timestamp
+ * is `performance.now()` of the corresponding event the first time it
+ * fired on the current slot — slots that get evicted and rebuilt start
+ * over. The four fields together describe whether the adapter and the
+ * receiver downstream of it have done their part in initiating sync:
+ *
+ * - `dataChannelOpenedAt`: when the wire is ready to carry bytes.
+ * - `peerCandidateEmittedAt`: when polly emitted `peer-candidate`
+ *   upward; Automerge's network subsystem hooks this event to add the
+ *   peer to its known set and kick off the per-document sync exchange.
+ *   If this is `undefined` long after the data channel has opened,
+ *   polly never signalled "ready" to Automerge — that's a failure in
+ *   the adapter.
+ * - `firstOutboundSendAt`: when polly first dispatched bytes through
+ *   {@link MeshWebRTCAdapter.send} for this peer. If
+ *   `peerCandidateEmittedAt` is set but this is still `undefined`, the
+ *   wrapper above polly (Automerge's NetworkSubsystem, MeshNetworkAdapter)
+ *   never asked the adapter to send anything; that's a failure
+ *   upstream of polly.
+ * - `firstInboundMessageAt`: when polly first emitted a `message` event
+ *   for this peer. If `peerCandidateEmittedAt` is set on the remote and
+ *   `firstOutboundSendAt` is set on the remote but this is `undefined`
+ *   locally, bytes were sent across the wire but never decoded — that
+ *   points at the crypto envelope or the wire fragmenter.
+ *
+ * Polly issue #106 item 7. */
+export interface SyncHandshakeAttemptSnapshot {
+  dataChannelOpenedAt: number | undefined;
+  peerCandidateEmittedAt: number | undefined;
+  firstOutboundSendAt: number | undefined;
+  firstInboundMessageAt: number | undefined;
+}
+
+/** Sweep-loop observability for the periodic dial re-evaluation. The
+ * sweep is what catches peers that were not in the keyring at the time
+ * of their `peer-joined` notification (polly#103) AND peers whose
+ * previous slot failed and got evicted (polly#106). Exposing its tick
+ * counter lets a consumer distinguish "sweep is running but
+ * `shouldInitiateTo` rejected the peer" from "sweep is broken and
+ * never fires" without instrumenting polly internals. */
+export interface SweepSnapshot {
+  /** True iff the sweep timer is currently scheduled — false on the
+   * captured-set fallback path (no keyringSource) or when the interval
+   * is configured to 0. */
+  enabled: boolean;
+  /** Configured interval in milliseconds. 0 means disabled. */
+  intervalMs: number;
+  /** How many times the sweep callback has fired since `connect()`. */
+  runCount: number;
+  /** `performance.now()` at the last tick. `undefined` until the
+   * first tick fires. */
+  lastRunAt: number | undefined;
+}
+
 /** Per-peer view of an in-flight initial sync. Populated by
  * {@link MeshWebRTCAdapter.handleSyncFragment} as fragments of a
  * single reassembly arrive, and reset to `undefined` once the
@@ -490,6 +610,10 @@ interface PeerSlot {
    * value survives transient slot replacements within a single
    * connection's lifetime. */
   lastDataChannelError: string | undefined;
+  /** Per-slot sync-handshake observability. Each field is populated
+   * the first time its event fires on the current slot. Polly issue
+   * #106 item 7. */
+  lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
 }
 
 /**
@@ -551,6 +675,21 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private readonly slots = new Map<string, PeerSlot>();
   private ready = false;
   private readyResolver: (() => void) | undefined;
+  /** Sticky cache of the most recent {@link SlotInitiationDecision}
+   * per peer. Updated on every `shouldInitiateTo` call and on every
+   * caught throw inside the sweep loop, so a snapshot taken at any
+   * moment can answer "why is there no slot for this peer right
+   * now?". Polly issue #106 item 7. */
+  private readonly lastSlotInitiationDecisions = new Map<string, SlotInitiationDecision>();
+  /** Tick count of the periodic sweep — incremented inside the
+   * `setInterval` callback, exposed via {@link getPeerStateSnapshot}.
+   * Lets a consumer rule out "sweep is dead" before chasing the
+   * shouldInitiateTo gates. */
+  private sweepRunCount = 0;
+  /** `performance.now()` at the last sweep tick. Paired with
+   * {@link sweepRunCount} so a stalled sweep is visible at a glance
+   * via the snapshot's `sweep` block. */
+  private lastSweepAt: number | undefined;
 
   /** The peers this adapter will dial. Backward-compatible read accessor
    * for callers that previously iterated the `knownPeerIds` array. With
@@ -639,10 +778,13 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     localPeerId: string;
     knownPeerIds: string[];
     presentPeerIds: string[];
+    sweep: SweepSnapshot;
     peers: Array<{
       peerId: string;
       knownInKeyring: boolean;
       presentInSignalling: boolean;
+      slotInitiationRejectionReason: SlotInitiationRejectionReason | undefined;
+      slotInitiationDecision: SlotInitiationDecision;
       slot:
         | undefined
         | {
@@ -654,6 +796,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
             pendingRemoteIceCount: number;
             inFlightSync: InFlightSyncSnapshot | undefined;
             transport: TransportSnapshot | undefined;
+            lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
           };
     }>;
   } {
@@ -667,10 +810,17 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     const peers: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"] = [];
     for (const peerId of allPeers) {
       const slot = this.slots.get(peerId);
+      const decision = this.snapshotInitiationDecision(peerId);
       peers.push({
         peerId,
         knownInKeyring: knownPeerSet.has(peerId),
         presentInSignalling: this.presentPeers.has(peerId),
+        // Top-level convenience: same value as
+        // `slotInitiationDecision.reason`, hoisted so log lines that
+        // only need the named reason can read it without a nested
+        // access. Polly issue #106 item 7.
+        slotInitiationRejectionReason: decision.reason,
+        slotInitiationDecision: decision,
         slot: slot ? serialiseSlotView(slot) : undefined,
       });
     }
@@ -678,6 +828,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       localPeerId: this.localPeerId,
       knownPeerIds,
       presentPeerIds,
+      sweep: {
+        enabled: this.knownPeersRefreshTimer !== undefined,
+        intervalMs: this.knownPeersRefreshIntervalMs,
+        runCount: this.sweepRunCount,
+        lastRunAt: this.lastSweepAt,
+      },
       peers,
     };
   }
@@ -693,7 +849,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   handlePeerJoined(remotePeerId: string): void {
     this.presentPeers.add(remotePeerId);
     if (!this.shouldInitiateTo(remotePeerId)) return;
-    this.createInitiatingSlot(remotePeerId);
+    this.tryCreateInitiatingSlot(remotePeerId);
   }
 
   /** Handle the signalling server's `peers-present` notification sent
@@ -704,7 +860,31 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     for (const remotePeerId of peerIds) {
       this.presentPeers.add(remotePeerId);
       if (!this.shouldInitiateTo(remotePeerId)) continue;
+      this.tryCreateInitiatingSlot(remotePeerId);
+    }
+  }
+
+  /** Construct an initiating slot inside a per-peer try/catch and
+   * record any throw as a `fatal-error` rejection on the per-peer
+   * decision map so the snapshot surface names it. Every dial entry
+   * point ({@link handlePeerJoined}, {@link handlePeersPresent},
+   * {@link addKnownPeer}, {@link refreshKnownPeers}) routes through
+   * here so a single peer's broken construction can never take down a
+   * batch of peers — pre-#106 a thrown `new RTCPeerConnection()`
+   * inside `handlePeersPresent` would skip every later peer in the
+   * same batch with no observable trace because the signalling
+   * client's frame dispatch swallowed the rejection. */
+  private tryCreateInitiatingSlot(remotePeerId: string): void {
+    try {
       this.createInitiatingSlot(remotePeerId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.lastSlotInitiationDecisions.set(remotePeerId, {
+        decision: "rejected",
+        reason: "fatal-error",
+        error: message,
+        at: performance.now(),
+      });
     }
   }
 
@@ -750,31 +930,85 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
     if (!this.presentPeers.has(remotePeerId)) return;
     if (!this.shouldInitiateTo(remotePeerId)) return;
-    this.createInitiatingSlot(remotePeerId);
+    this.tryCreateInitiatingSlot(remotePeerId);
   }
 
   /** Re-evaluate every peer currently in the signalling roster and
    * dial the ones the keyring authorises that we do not already have
    * a slot for. The periodic sweep started in {@link connect} calls
    * this; consumers can call it manually to skip the wait after they
-   * apply a fresh pairing token. Idempotent. */
+   * apply a fresh pairing token. Idempotent.
+   *
+   * A throw from {@link createInitiatingSlot} for one peer must not
+   * prevent the sweep from continuing to the next one — pre-#106 a
+   * synchronous throw inside `new RTCPeerConnection()` (a real risk
+   * once the page has built dozens of connections and Chrome's
+   * per-page cap is in play) skipped every later peer in the same
+   * sweep, with no observable trace because `setInterval` swallows
+   * the rejection silently. {@link tryCreateInitiatingSlot} caches
+   * the error onto the snapshot's slotInitiationRejectionReason as
+   * `fatal-error` so the failing peer is named instead of disguised
+   * as "(no slot)". */
   refreshKnownPeers(): void {
     for (const remotePeerId of this.presentPeers) {
       if (!this.shouldInitiateTo(remotePeerId)) continue;
-      this.createInitiatingSlot(remotePeerId);
+      this.tryCreateInitiatingSlot(remotePeerId);
     }
   }
 
   private shouldInitiateTo(remotePeerId: string): boolean {
-    if (remotePeerId === this.localPeerId) return false;
-    if (!this.hasKnownPeer(remotePeerId)) return false;
-    if (this.slots.has(remotePeerId)) return false;
+    const reason = this.evaluateInitiation(remotePeerId);
+    this.lastSlotInitiationDecisions.set(remotePeerId, {
+      decision: reason === undefined ? "accepted" : "rejected",
+      reason,
+      error: undefined,
+      at: performance.now(),
+    });
+    return reason === undefined;
+  }
+
+  /** Pure-function form of the gate cascade behind {@link shouldInitiateTo}.
+   * Returns `undefined` when every gate passes (the slot would be
+   * built); otherwise returns the named reason the dial was declined.
+   * Pulling the gates out of the boolean wrapper lets the snapshot
+   * surface name *which* gate stopped construction without the caller
+   * having to re-implement the check. Polly issue #106 item 7.
+   *
+   * The "not-present" gate is checked here even though the inbound
+   * call sites (`handlePeerJoined`, `handlePeersPresent`,
+   * `refreshKnownPeers`, `addKnownPeer`) only invoke `shouldInitiateTo`
+   * for peers in the signalling roster — so on those paths the gate
+   * never fires. It's load-bearing on the snapshot path, where the
+   * reason is computed for every peer the caller might ask about
+   * (including keyring entries that aren't currently signalling). */
+  private evaluateInitiation(remotePeerId: string): SlotInitiationRejectionReason | undefined {
+    if (remotePeerId === this.localPeerId) return "self";
+    if (!this.hasKnownPeer(remotePeerId)) return "not-in-keyring";
+    if (!this.presentPeers.has(remotePeerId)) return "not-present";
+    if (this.slots.has(remotePeerId)) return "slot-already-exists";
     // Tie-break: the lexicographically higher peer id initiates. This
     // matches the glare-resolution rule in handleOffer, so pre-offer
     // filtering eliminates the glare pathway for the common case where
     // both sides learn of each other at roughly the same moment.
-    if (this.localPeerId <= remotePeerId) return false;
-    return true;
+    if (this.localPeerId <= remotePeerId) return "tie-break-other-side";
+    return undefined;
+  }
+
+  /** Compute the latest initiation decision for a peer at snapshot
+   * time. Prefers the cached decision when a sweep tick fixed the
+   * outcome to `fatal-error` (a thrown construction is sticky until
+   * the next successful sweep clears it); otherwise re-evaluates the
+   * gates against current state. Pure read; never mutates the map. */
+  private snapshotInitiationDecision(remotePeerId: string): SlotInitiationDecision {
+    const cached = this.lastSlotInitiationDecisions.get(remotePeerId);
+    if (cached?.reason === "fatal-error") return cached;
+    const reason = this.evaluateInitiation(remotePeerId);
+    return {
+      decision: reason === undefined ? "accepted" : "rejected",
+      reason,
+      error: undefined,
+      at: performance.now(),
+    };
   }
 
   whenReady(): Promise<void> {
@@ -822,13 +1056,30 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * keyring after their `peer-joined` notification has already fired.
    * No-op when no keyringSource was supplied — the captured-set
    * fallback has no live source to re-read, so the sweep would be
-   * useless. No-op when the interval is configured to 0. */
+   * useless. No-op when the interval is configured to 0.
+   *
+   * Each tick increments {@link sweepRunCount} and stamps
+   * {@link lastSweepAt} *before* dispatching to
+   * {@link refreshKnownPeers} so a snapshot can distinguish "sweep is
+   * running but every peer is rejected" from "sweep is dead". An
+   * outer try/catch keeps the timer alive even if the per-peer
+   * try/catch inside `refreshKnownPeers` somehow leaks. Polly issue
+   * #106 item 7. */
   private startKnownPeersSweep(): void {
     if (this.keyringSource === undefined) return;
     if (this.knownPeersRefreshIntervalMs <= 0) return;
     if (this.knownPeersRefreshTimer !== undefined) return;
     this.knownPeersRefreshTimer = setInterval(() => {
-      this.refreshKnownPeers();
+      this.sweepRunCount += 1;
+      this.lastSweepAt = performance.now();
+      try {
+        this.refreshKnownPeers();
+      } catch {
+        // The per-peer try/catch inside refreshKnownPeers should
+        // already have caught construction errors. This outer catch
+        // is a last-resort belt that keeps the interval alive even
+        // if a future change adds a non-per-peer throw site.
+      }
     }, this.knownPeersRefreshIntervalMs);
   }
 
@@ -850,6 +1101,9 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     let slot = this.slots.get(targetId);
     if (!slot) {
       slot = this.createInitiatingSlot(targetId);
+    }
+    if (slot.lastSyncHandshakeAttempt.firstOutboundSendAt === undefined) {
+      slot.lastSyncHandshakeAttempt.firstOutboundSendAt = performance.now();
     }
     if (slot.channel && slot.channel.readyState === "open") {
       void this.sendBytesMaybeFragmented(slot.channel, bytes);
@@ -1030,6 +1284,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       inFlightSync: undefined,
       transport: undefined,
       lastDataChannelError: undefined,
+      lastSyncHandshakeAttempt: emptySyncHandshakeAttempt(),
     };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
@@ -1078,6 +1333,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       inFlightSync: undefined,
       transport: undefined,
       lastDataChannelError: undefined,
+      lastSyncHandshakeAttempt: emptySyncHandshakeAttempt(),
     };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -1178,10 +1434,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     connection.onconnectionstatechange = () => {
       const state = connection.connectionState;
       if (state === "connected") {
-        this.emit("peer-candidate", {
-          peerId: peerId as unknown as PeerId,
-          peerMetadata: {},
-        });
+        this.emitPeerCandidateOnce(peerId);
       } else if (state === "disconnected" || state === "failed" || state === "closed") {
         this.slots.delete(peerId);
         this.emit("peer-disconnected", { peerId: peerId as unknown as PeerId });
@@ -1189,10 +1442,42 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     };
   }
 
+  /** Emit `peer-candidate` upward exactly once per slot lifetime,
+   * stamping the slot's `lastSyncHandshakeAttempt.peerCandidateEmittedAt`
+   * with the moment of emission. The "once" semantics protect Automerge's
+   * NetworkSubsystem from a double-add when both the
+   * `connectionstatechange = connected` event AND the
+   * `dataChannel.onopen` event fire on the same slot — under werift
+   * the former is sometimes flaky, under Chrome the latter sometimes
+   * fires first; pre-#106 only the connection-state path emitted, so a
+   * werift slot whose data channel opened cleanly but whose connection
+   * state never advanced past `connecting` would never signal "ready"
+   * upward. Polly issue #106 Failure B item — closing one named
+   * mechanism for "data channel open, sync never started". */
+  private emitPeerCandidateOnce(peerId: string): void {
+    const slot = this.slots.get(peerId);
+    if (!slot) return;
+    if (slot.lastSyncHandshakeAttempt.peerCandidateEmittedAt !== undefined) return;
+    slot.lastSyncHandshakeAttempt.peerCandidateEmittedAt = performance.now();
+    this.emit("peer-candidate", {
+      peerId: peerId as unknown as PeerId,
+      peerMetadata: {},
+    });
+  }
+
   private wireDataChannel(peerId: string, channel: RTCDataChannel): void {
     channel.onopen = () => {
       const slot = this.slots.get(peerId);
       if (!slot) return;
+      slot.lastSyncHandshakeAttempt.dataChannelOpenedAt = performance.now();
+      // Mirror the connection-state `connected` path: if Automerge has
+      // not yet been told the peer exists (because the connection
+      // state event hasn't fired or fired with a state we don't
+      // forward), the `onopen` callback is a strictly better signal
+      // anyway — bytes can flow now. The dedupe inside
+      // {@link emitPeerCandidateOnce} keeps Automerge's bookkeeping
+      // single-add. Polly issue #106 Failure B.
+      this.emitPeerCandidateOnce(peerId);
       // Drain any pending sends that were queued while the channel
       // was still connecting. The fragmenting helper handles oversized
       // payloads the same way it would on a live send.
@@ -1321,6 +1606,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     message: Message,
     viaFragmentPath: boolean
   ): void {
+    this.stampFirstInboundMessage(fromPeerId);
     if (!this.syncYieldEnabled) {
       this.emit("message", message);
       if (viaFragmentPath) {
@@ -1343,6 +1629,17 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
         }
       }
     }, 0);
+  }
+
+  /** Stamp the slot's `firstInboundMessageAt` the first time a
+   * dispatched (non-fragment, non-blob) message lands for a peer. Pure
+   * observability for {@link SyncHandshakeAttemptSnapshot}; does not
+   * affect dispatch. */
+  private stampFirstInboundMessage(fromPeerId: string): void {
+    const slot = this.slots.get(fromPeerId);
+    if (!slot) return;
+    if (slot.lastSyncHandshakeAttempt.firstInboundMessageAt !== undefined) return;
+    slot.lastSyncHandshakeAttempt.firstInboundMessageAt = performance.now();
   }
 
   private finishInFlightSyncApply(fromPeerId: string): void {

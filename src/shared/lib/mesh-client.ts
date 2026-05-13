@@ -368,6 +368,12 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
           localPeerId: options.signaling.peerId,
           knownPeerIds: [],
           presentPeerIds: [],
+          sweep: {
+            enabled: false,
+            intervalMs: 0,
+            runCount: 0,
+            lastRunAt: undefined,
+          },
           peers: [],
         };
       }

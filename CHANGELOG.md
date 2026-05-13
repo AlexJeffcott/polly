@@ -5,6 +5,116 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.0] - 2026-05-14
+
+### Fixed
+
+#### `MeshWebRTCAdapter` lost dial opportunities and silenced the snapshot when one peer's slot construction threw (#106)
+
+After polly#103 closed the long-lived-daemon sweep gap, polly#104 closed
+the werift fragment cap, and polly#105 closed the relay-only enforcement
+leak, a real Chrome 148 tab paired into a daemon holding a realistic
+keyring (78 known peers, 3 simultaneously on signalling) still left a
+substantial fraction of `peer-joined` notifications without an RTC slot
+— and the slots that did form never started an Automerge sync exchange.
+The user-visible failure was identical to polly#103 and polly#104 —
+paired devices that look paired and never share data — but the
+mechanism inside polly was new, and the snapshot surface from polly#103
+named "(no slot)" without saying which gate had stopped construction.
+
+This release closes two contract gaps the previous three did not reach:
+
+- Every dial entry point — `handlePeerJoined`, `handlePeersPresent`,
+  `addKnownPeer`, and the periodic `refreshKnownPeers` sweep — now
+  routes through a single `tryCreateInitiatingSlot` helper that wraps
+  the per-peer construction in a try/catch. Pre-fix code let any
+  synchronous throw (a real risk under Chrome's per-page peer-connection
+  cap, hostile config, or sustained load) escape into the signalling
+  client's frame dispatch or the `setInterval` callback, taking the
+  whole batch down with it: every peer iterated after the failing one
+  in the same `peers-present` batch lost its dial opportunity, and the
+  next sweep tick re-aborted at the same point. The post-fix per-peer
+  catch records the throw onto the snapshot's
+  `slotInitiationRejectionReason` as `fatal-error`, so the failing peer
+  is named instead of disguised as "(no slot)", and every other peer in
+  the batch keeps its turn.
+- The `peer-candidate` event is now emitted from whichever of two
+  signals fires first — the connection's `connectionstatechange =
+  connected` event (the pre-fix path) or the data channel's `onopen`
+  event (the new path) — deduplicated via a per-slot
+  `peerCandidateEmittedAt` stamp so Automerge's NetworkSubsystem still
+  sees exactly one add per slot lifetime. The reporter's snapshot
+  showed slots reaching `dc=open` without `inFlightSync` ever being
+  populated; one named mechanism for that shape is a werift quirk
+  where `connectionstatechange` doesn't reliably fire `connected` even
+  after DTLS completes. Post-fix, `dc=open` is a sufficient trigger.
+
+The snapshot returned by `MeshClient.getPeerStateSnapshot()` now
+exposes per-peer initiation forensics and a sweep liveness counter so
+the next debugging round can answer "which gate stopped this dial?"
+without instrumenting polly internals:
+
+- `slotInitiationRejectionReason: SlotInitiationRejectionReason | undefined`
+  on each peer — names the gate that rejected this dial right now:
+  `not-in-keyring`, `not-present`, `tie-break-other-side`,
+  `slot-already-exists`, `self`, or `fatal-error`. Computed at snapshot
+  time so it always reflects the current state, except `fatal-error`
+  which sticks to the throw that produced it until the next successful
+  construction.
+- `slotInitiationDecision: SlotInitiationDecision` — the full record
+  including the decision (`accepted` / `rejected`), the reason, the
+  error message (when `fatal-error`), and the timestamp.
+- `lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot` on each slot
+  — the four load-bearing timestamps for the handshake timeline:
+  `dataChannelOpenedAt`, `peerCandidateEmittedAt`,
+  `firstOutboundSendAt`, `firstInboundMessageAt`. A connected slot
+  with `peerCandidateEmittedAt` set but `firstOutboundSendAt` undefined
+  is the polly#106 Failure B shape made observable; the consumer can
+  now tell whether the adapter signalled "ready" upward, whether
+  Automerge dispatched a send through the adapter, and whether bytes
+  actually arrived from the peer.
+- `sweep: SweepSnapshot` — the periodic re-evaluation's tick count,
+  last-fired timestamp, configured interval, and enabled flag. Lets a
+  consumer rule out "sweep is dead" before chasing the
+  `shouldInitiateTo` gates.
+
+Verification: `examples/mesh-slot-initiation-realistic-keyring/`
+constructs the failing-shape diff inside polly's own CI — daemon
+keyring of 66 known peers (60 filler + 6 real), six real peers
+straddling the daemon's lex-tie-break with three arriving via
+`peers-present` and three via `peer-joined`, synthetic-throw
+injection on one real peer's slot construction — and asserts five
+independent corroborating signals: every non-failing real peer is
+slotted, the sweep ran at least twice, every connected slot reaches
+all four `lastSyncHandshakeAttempt` timestamps, the failing peer is
+named with `slotInitiationRejectionReason: "fatal-error"`, and zero
+uncaught errors escape polly's dial path. The companion
+`POLLY_106_DISABLE_FIX=1` switch monkey-patches the dial entry points
+back to the pre-fix shape and asserts the converse: at least one
+uncaught error escapes, and the failing peer's rejection reason is
+NOT `fatal-error` (because only the per-peer try/catch records that
+reason). Both modes write a `transcript.json` with the per-peer
+outcome and the full snapshot, so the post-fix-vs-pre-fix bisect is
+visible by diffing two transcripts.
+
+### Added
+
+- `MeshWebRTCAdapter.tryCreateInitiatingSlot` (private — exposed
+  through every public dial entry point) — single point of per-peer
+  try/catch protection. A throw inside `new RTCPeerConnection()` or
+  `connection.createDataChannel()` for one peer no longer kills the
+  batch.
+- `SlotInitiationRejectionReason`, `SlotInitiationDecision`,
+  `SyncHandshakeAttemptSnapshot`, `SweepSnapshot` — public types
+  exported from `@fairfox/polly/mesh`. Snapshot consumers can now
+  type-check their reads against the named reasons.
+- `slotInitiationRejectionReason`, `slotInitiationDecision`, and
+  `slot.lastSyncHandshakeAttempt` fields on
+  `getPeerStateSnapshot().peers[]`. Top-level `sweep` block on the
+  same snapshot.
+- `examples/mesh-slot-initiation-realistic-keyring/` — runnable
+  falsification harness with `POLLY_106_DISABLE_FIX=1` env switch.
+
 ## [0.53.0] - 2026-05-13
 
 ### Fixed
