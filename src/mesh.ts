@@ -51,7 +51,12 @@ export {
   serialiseKeyring,
 } from "./shared/lib/keyring-storage";
 // Mesh client factory
-export type { CreateMeshClientOptions, MeshClient } from "./shared/lib/mesh-client";
+export type {
+  CreateMeshClientOptions,
+  MeshClient,
+  MeshClientHandleSnapshot,
+  MeshClientPeerStateSnapshot,
+} from "./shared/lib/mesh-client";
 export { createMeshClient } from "./shared/lib/mesh-client";
 // Mesh network adapter (sign-then-encrypt envelopes over any base adapter)
 export type {
@@ -80,6 +85,7 @@ export {
 } from "./shared/lib/mesh-state";
 // Mesh WebRTC adapter
 export type {
+  HandleSyncSnapshot,
   InFlightSyncSnapshot,
   MeshWebRTCAdapterOptions,
   SlotInitiationDecision,

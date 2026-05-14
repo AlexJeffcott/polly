@@ -5,6 +5,112 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.57.0] - 2026-05-14
+
+### Fixed
+
+#### `firstOutboundSendAt` stayed undefined for pre-warmed `$meshState` handles after `peer-candidate` fired (#107)
+
+polly#106 closed with a precise diagnostic ladder for what each
+combination of `lastSyncHandshakeAttempt` timestamps means. The ladder
+pointed at a specific consumer-side fix for the rung where
+`peerCandidateEmittedAt` is set and `firstOutboundSendAt` is still
+undefined — typically "no document handle exists locally". The
+polly#107 failing-shape evidence (real Chrome 148 tab paired against a
+Fly-hosted daemon, fourteen `$meshState` handles pre-warmed via the
+documented factory entry point before the WebRTC slot opens, every
+handle observable as `ready` in `repo.handles` from the moment the
+boot script returns control to the event loop) showed that the ladder
+implicated the consumer for a case the consumer cannot fix.
+
+This release closes the polly⇄Automerge integration gap and revises
+the ladder so it points at the correct layer:
+
+- The mesh client now hooks `peer-candidate` to invoke the
+  synchronizer's `reevaluateDocumentShare` so any `addPeer`/
+  `addDocument` ordering race that leaves a handle un-announced for
+  a freshly-connected peer is closed by an idempotent re-evaluation
+  on the very same tick the peer-candidate fires. `addPeer`
+  iterates existing docSynchronizers and `addDocument`'s
+  `#documentGenerousPeers` reads the current `#peers` set, so the
+  bookkeeping cross-paths cover most local cases; the
+  `reevaluateDocumentShare` hook covers the realistic-keyring shape
+  where multiple handles' lazy `getHandle()` factory chains and the
+  peer-candidate trigger interleave across many microtask hops.
+- A new `MeshClient.reevaluateAllSync()` method exposes the same
+  re-evaluation for explicit invocation by harnesses that need to
+  assert the fix is engaged or that want a deterministic checkpoint
+  after post-construction handle additions.
+- A new `POLLY_107_DISABLE_FIX=1` environment variable reverts the
+  `peer-candidate` hook to the pre-fix shape so the
+  `examples/mesh-handles-exist-no-sync` harness can compare runs.
+
+### Added
+
+#### Per-peer per-handle wire-level observability (#107 item 7)
+
+`MeshClient.getPeerStateSnapshot()` now returns a `slot.handles`
+record keyed by `documentId`, with one entry per handle the local
+replica knows about, populated from the merge of:
+
+- The Repo's `handles[docId].state` (the canonical
+  `ready`/`loading`/`unavailable` lifecycle).
+- The adapter's wire-level bookkeeping:
+  `lastSyncMessageOutAt`, `lastSyncMessageOutSize`,
+  `lastSyncMessageOutType`, `lastSyncMessageInAt`.
+
+A derived `announcedToPeer` boolean — equivalent to
+`lastSyncMessageOutAt !== undefined` — closes the diagnostic gap
+between "handle exists in repo" (observable today via `repo.handles`)
+and "Automerge's NetworkSubsystem has actually told this peer about
+this handle". The polly#107 failing-shape is precisely the case where
+every entry has `state: "ready"` and `announcedToPeer: false`. The
+new `MeshClientHandleSnapshot` and `MeshClientPeerStateSnapshot`
+types are exported from `@fairfox/polly/mesh`; the underlying
+adapter-level `HandleSyncSnapshot` is also exported for advanced
+consumers that wire `MeshWebRTCAdapter` directly.
+
+`MeshNetworkAdapter.wrap` now preserves `documentId` in the outer
+wire envelope so the WebRTC adapter can stamp per-handle bookkeeping
+without parsing the encrypted payload. The inner serialised message
+inside the signed envelope still carries the same `documentId` —
+the outer copy is purely observability; a peer that mismatched the
+two would surface as a divergent receive shape, not a routing
+exploit.
+
+#### Falsification harness `examples/mesh-handles-exist-no-sync` (#107 items 1, 2, 3, 5, 8)
+
+Two-peer werift harness that exercises the documented `$meshState`
+factory entry point with fourteen pre-warmed handles. Asserts that
+post-peer-candidate the receiver's signal values mutate from
+initial-empty to the sender's content (the third-assertion-is-load-bearing
+form the polly#107 ticket specifies). Writes a `transcript.json`
+listing per-handle wire state for post-run inspection. Refusal gates
+forbid running below 5 handles, with no peers present, or with any
+pre-warmed handle in a non-`ready` state. `POLLY_107_DISABLE_FIX=1`
+flips the code path and writes a labelled transcript so the operator
+can compare post-fix and pre-fix-emulated runs.
+
+werift on local loopback in a single bun process does NOT reproduce
+the production Chrome+Fly timing — the standard Automerge flow's
+cross-paths handle the local case fine, with or without the polly#107
+fix engaged. The harness is the load-bearing regression guard for the
+documented entry path and the observability layer; production
+validation of the fix lives in fairfox's Sync diagnostics surface
+against the deployed Fly stack.
+
+### Changed
+
+The diagnostic ladder embedded in the `SyncHandshakeAttemptSnapshot`
+JSDoc has been revised. The polly#106 entry for
+"`peerCandidateEmittedAt` set, `firstOutboundSendAt` undefined" no
+longer pins blame on the consumer's handle-construction path. The
+revised three-rung ladder distinguishes
+"`repo.handles[docId]` non-ready" (consumer fix), "ready but
+`announcedToPeer: false`" (polly#107 polly⇄Automerge gate), and
+"`announcedToPeer: true` everywhere but no send" (polly send-path
+bug).
+
 ## [0.56.0] - 2026-05-14
 
 ### Fixed

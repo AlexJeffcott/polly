@@ -230,12 +230,25 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     const signed = signEnvelope(payloadToSign, message.senderId, keyring.identity.secretKey);
     const signedBytes = encodeSignedEnvelope(signed);
 
-    return {
+    // Preserve `documentId` on the outer envelope so the base adapter
+    // (MeshWebRTCAdapter) can stamp per-handle wire-level bookkeeping
+    // without parsing the encrypted payload. The inner serialised
+    // message also carries documentId, which the receiver uses after
+    // crypto-unwrap; this outer copy is purely for the sender-side
+    // observability path that polly#107 item 7 specifies. The signed
+    // envelope still binds the inner copy, so the outer copy cannot
+    // forge routing — a peer that mismatches the two is observable as
+    // a divergent receive shape, not a routing exploit.
+    const outer: Record<string, unknown> = {
       type: message.type,
       senderId: message.senderId,
       targetId: message.targetId,
       data: signedBytes,
-    } as unknown as Message;
+    };
+    if ("documentId" in message && (message as { documentId?: unknown }).documentId !== undefined) {
+      outer["documentId"] = (message as { documentId: unknown }).documentId;
+    }
+    return outer as unknown as Message;
   }
 
   /**

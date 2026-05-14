@@ -210,7 +210,12 @@ function serialiseSlotView(slot: PeerSlot): {
   inFlightSync: InFlightSyncSnapshot | undefined;
   transport: TransportSnapshot | undefined;
   lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
+  handles: Record<string, HandleSyncSnapshot>;
 } {
+  const handles: Record<string, HandleSyncSnapshot> = {};
+  for (const [docId, snapshot] of slot.handles) {
+    handles[docId] = { ...snapshot };
+  }
   return {
     signalingState: slot.connection.signalingState,
     iceConnectionState: slot.connection.iceConnectionState,
@@ -228,6 +233,7 @@ function serialiseSlotView(slot: PeerSlot): {
         }
       : undefined,
     lastSyncHandshakeAttempt: { ...slot.lastSyncHandshakeAttempt },
+    handles,
   };
 }
 
@@ -515,17 +521,43 @@ export interface SlotInitiationDecision {
  *   the adapter.
  * - `firstOutboundSendAt`: when polly first dispatched bytes through
  *   {@link MeshWebRTCAdapter.send} for this peer. If
- *   `peerCandidateEmittedAt` is set but this is still `undefined`, the
- *   wrapper above polly (Automerge's NetworkSubsystem, MeshNetworkAdapter)
- *   never asked the adapter to send anything; that's a failure
- *   upstream of polly.
+ *   `peerCandidateEmittedAt` is set but this is still `undefined`,
+ *   Automerge's NetworkSubsystem has not asked the adapter to send
+ *   anything. The polly#106 ladder named "no handle locally" as the
+ *   typical cause for this rung; the polly#107 failing-shape evidence
+ *   (fourteen `$meshState` handles pre-warmed in `ready` state,
+ *   `firstOutboundSendAt` still undefined long after peer-candidate
+ *   fires) shows that's a misleading ladder entry. Revised:
+ *
+ *     - If `repo.handles[docId]` is undefined or in a non-`ready`
+ *       state for every doc this peer should sync, the consumer
+ *       fix is real — pre-warm the handles via the documented
+ *       `$meshState(key, initial)` factory before the slot opens.
+ *
+ *     - If `repo.handles[docId]` is `ready` for every doc AND
+ *       `getPeerStateSnapshot().peers[…].slot.handles[docId]
+ *       .announcedToPeer` is `false`, the gate is BETWEEN Automerge's
+ *       NetworkSubsystem and the adapter — not on the consumer's
+ *       handle-construction path. This is the polly#107 surface;
+ *       post-#107 the mesh client hooks `peer-candidate` to invoke
+ *       the synchronizer's `reevaluateDocumentShare` so the
+ *       `addPeer`/`addDocument` ordering race that leaves a handle
+ *       un-announced gets closed by an idempotent re-evaluation.
+ *
+ *     - If `announcedToPeer` becomes `true` for every relevant doc
+ *       and `firstOutboundSendAt` is still undefined, the gap is in
+ *       polly's own send path — that's a polly bug, not an
+ *       Automerge or consumer one.
+ *
  * - `firstInboundMessageAt`: when polly first emitted a `message` event
  *   for this peer. If `peerCandidateEmittedAt` is set on the remote and
  *   `firstOutboundSendAt` is set on the remote but this is `undefined`
  *   locally, bytes were sent across the wire but never decoded — that
  *   points at the crypto envelope or the wire fragmenter.
  *
- * Polly issue #106 item 7. */
+ * Polly issue #106 item 7; polly#107 revised the
+ * `firstOutboundSendAt` rung to point at the polly⇄Automerge gate
+ * rather than the consumer. */
 export interface SyncHandshakeAttemptSnapshot {
   dataChannelOpenedAt: number | undefined;
   peerCandidateEmittedAt: number | undefined;
@@ -578,6 +610,58 @@ export interface InFlightSyncSnapshot {
   applyBacklog: number;
 }
 
+/** Per-handle per-peer sync bookkeeping. Closes the diagnostic gap
+ * between "handle exists in repo" (observable today via `repo.handles`)
+ * and "Automerge's NetworkSubsystem has actually told this peer about
+ * this handle" — the latter being the load-bearing question for the
+ * polly#107 failing shape, where fourteen pre-warmed handles sit in
+ * `ready` state and the peer slot is fully connected, yet Automerge
+ * has not asked the adapter to send a single sync message.
+ *
+ * Each field is stamped from the adapter's own wire path: `out` from
+ * {@link MeshWebRTCAdapter.send}, `in` from {@link dispatchMessage}'s
+ * deserialised view. Combined with the consumer's view of
+ * `repo.handles[documentId].state`, the mesh client's
+ * {@link createMeshClient}-returned `getPeerStateSnapshot` produces the
+ * full per-handle observability the polly#107 ticket asks for in
+ * item 7. */
+export interface HandleSyncSnapshot {
+  /** `performance.now()` of the most recent send through
+   * {@link MeshWebRTCAdapter.send} carrying this `documentId` for this
+   * peer. `undefined` means Automerge has never asked the adapter to
+   * send a sync message for this document — i.e. the handle is NOT
+   * "announced to peer" in the polly#107 sense, regardless of whether
+   * the handle is `ready` in `repo.handles`. */
+  lastSyncMessageOutAt: number | undefined;
+  /** `performance.now()` of the most recent inbound message dispatched
+   * upward for this `documentId` from this peer. `undefined` means we
+   * have never received a sync message for this document from this
+   * peer — they have not announced their copy of this handle to us. */
+  lastSyncMessageInAt: number | undefined;
+  /** Byte length of the most recent outbound sync message (the raw
+   * `RTCDataChannel.send` payload, which is the crypto-wrapped envelope
+   * — not the inner Automerge sync size). `undefined` until the first
+   * outbound send. Used by the polly#107 example's wire-level
+   * transcript to distinguish "Automerge generated an empty sync
+   * message" from "Automerge generated nothing at all". */
+  lastSyncMessageOutSize: number | undefined;
+  /** Type field of the most recent outbound message for this document
+   * to this peer. Typically `"sync"` once handshake has begun, or
+   * `"request"` while the local side is still asking. `undefined`
+   * until the first outbound send. */
+  lastSyncMessageOutType: string | undefined;
+}
+
+/** Initial state for a {@link HandleSyncSnapshot}. */
+function emptyHandleSyncSnapshot(): HandleSyncSnapshot {
+  return {
+    lastSyncMessageOutAt: undefined,
+    lastSyncMessageInAt: undefined,
+    lastSyncMessageOutSize: undefined,
+    lastSyncMessageOutType: undefined,
+  };
+}
+
 /** State tracked for each remote peer. */
 interface PeerSlot {
   connection: RTCPeerConnection;
@@ -614,6 +698,14 @@ interface PeerSlot {
    * the first time its event fires on the current slot. Polly issue
    * #106 item 7. */
   lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
+  /** Per-handle sync bookkeeping for this peer. Keyed by
+   * `documentId`. Entries are created on demand — the first time
+   * {@link MeshWebRTCAdapter.send} dispatches a message carrying a
+   * given documentId to this peer, or the first time a message for
+   * that documentId is dispatched inbound. Polly issue #107 item 7 —
+   * closes the "handle exists in repo but Automerge never announced
+   * it" diagnostic gap. */
+  handles: Map<string, HandleSyncSnapshot>;
 }
 
 /**
@@ -797,6 +889,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
             inFlightSync: InFlightSyncSnapshot | undefined;
             transport: TransportSnapshot | undefined;
             lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
+            handles: Record<string, HandleSyncSnapshot>;
           };
     }>;
   } {
@@ -1105,6 +1198,26 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     if (slot.lastSyncHandshakeAttempt.firstOutboundSendAt === undefined) {
       slot.lastSyncHandshakeAttempt.firstOutboundSendAt = performance.now();
     }
+    // Per-handle wire-level transcript (polly#107 item 5). Automerge
+    // stamps `documentId` on every sync/request/remote-heads/etc.
+    // message; messages without a documentId (the synchronizer never
+    // emits one without it, but the type union allows for legacy
+    // ephemeral envelopes) are skipped here rather than blanketing
+    // every peer's handle map with a noise key. `wrap` in
+    // {@link MeshNetworkAdapter} now preserves `documentId` in the
+    // outer envelope so this stamp survives the crypto layer.
+    const documentId = (message as unknown as { documentId?: string }).documentId;
+    if (typeof documentId === "string") {
+      let handleEntry = slot.handles.get(documentId);
+      if (!handleEntry) {
+        handleEntry = emptyHandleSyncSnapshot();
+        slot.handles.set(documentId, handleEntry);
+      }
+      handleEntry.lastSyncMessageOutAt = performance.now();
+      handleEntry.lastSyncMessageOutSize = bytes.length;
+      handleEntry.lastSyncMessageOutType =
+        typeof message.type === "string" ? message.type : undefined;
+    }
     if (slot.channel && slot.channel.readyState === "open") {
       void this.sendBytesMaybeFragmented(slot.channel, bytes);
     } else {
@@ -1285,6 +1398,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       transport: undefined,
       lastDataChannelError: undefined,
       lastSyncHandshakeAttempt: emptySyncHandshakeAttempt(),
+      handles: new Map(),
     };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
@@ -1334,6 +1448,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       transport: undefined,
       lastDataChannelError: undefined,
       lastSyncHandshakeAttempt: emptySyncHandshakeAttempt(),
+      handles: new Map(),
     };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -1607,6 +1722,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     viaFragmentPath: boolean
   ): void {
     this.stampFirstInboundMessage(fromPeerId);
+    this.stampHandleInbound(fromPeerId, message);
     if (!this.syncYieldEnabled) {
       this.emit("message", message);
       if (viaFragmentPath) {
@@ -1640,6 +1756,22 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     if (!slot) return;
     if (slot.lastSyncHandshakeAttempt.firstInboundMessageAt !== undefined) return;
     slot.lastSyncHandshakeAttempt.firstInboundMessageAt = performance.now();
+  }
+
+  /** Stamp `handles[documentId].lastSyncMessageInAt` for the
+   * per-handle observability layer polly#107 adds. Pure observability;
+   * does not affect dispatch. */
+  private stampHandleInbound(fromPeerId: string, message: Message): void {
+    const documentId = (message as unknown as { documentId?: string }).documentId;
+    if (typeof documentId !== "string") return;
+    const slot = this.slots.get(fromPeerId);
+    if (!slot) return;
+    let entry = slot.handles.get(documentId);
+    if (!entry) {
+      entry = emptyHandleSyncSnapshot();
+      slot.handles.set(documentId, entry);
+    }
+    entry.lastSyncMessageInAt = performance.now();
   }
 
   private finishInFlightSyncApply(fromPeerId: string): void {

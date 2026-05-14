@@ -171,6 +171,161 @@ export async function resolveIceServers(
   return rtc?.iceServers;
 }
 
+/** Build the per-handle entry the polly#107 snapshot enrichment emits.
+ * Combines the Repo-side `state` (the canonical lifecycle) with the
+ * adapter-side wire timestamps. Extracted from the snapshot mapper to
+ * keep the per-peer iteration under the cognitive-complexity ceiling. */
+function buildHandleEntry(
+  state: string,
+  wire:
+    | {
+        lastSyncMessageOutAt: number | undefined;
+        lastSyncMessageInAt: number | undefined;
+        lastSyncMessageOutSize: number | undefined;
+        lastSyncMessageOutType: string | undefined;
+      }
+    | undefined
+): MeshClientHandleSnapshot {
+  return {
+    state,
+    announcedToPeer: wire?.lastSyncMessageOutAt !== undefined,
+    lastSyncMessageOutAt: wire?.lastSyncMessageOutAt,
+    lastSyncMessageInAt: wire?.lastSyncMessageInAt,
+    lastSyncMessageOutSize: wire?.lastSyncMessageOutSize,
+    lastSyncMessageOutType: wire?.lastSyncMessageOutType,
+  };
+}
+
+/** Stringify a Repo handle's `state` value for the enriched snapshot.
+ * Handles whose machine snapshot returns an object collapse to a
+ * coerced string; in practice polly's $meshState always lands on a
+ * leaf string. Returns `"unknown"` when the handle entry itself is
+ * undefined. */
+function stringifyHandleState(handle: { state: unknown } | undefined): string {
+  if (handle === undefined) return "unknown";
+  return typeof handle.state === "string" ? handle.state : String(handle.state ?? "unknown");
+}
+
+/** Enrich one peer's slot view with the per-handle Repo×adapter merge
+ * polly#107 item 7 specifies. Pulled out of the snapshot factory so the
+ * outer factory stays under the cognitive-complexity ceiling and so
+ * the per-iteration code is testable in isolation. */
+function enrichPeerSlot(
+  peer: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"][number],
+  knownHandleIds: string[],
+  repoHandles: Record<string, { state: unknown } | undefined>
+): MeshClientPeerStateSnapshot["peers"][number] {
+  if (!peer.slot) {
+    return { ...peer, slot: undefined } as MeshClientPeerStateSnapshot["peers"][number];
+  }
+  const enriched: Record<string, MeshClientHandleSnapshot> = {};
+  for (const docId of knownHandleIds) {
+    enriched[docId] = buildHandleEntry(
+      stringifyHandleState(repoHandles[docId]),
+      peer.slot.handles[docId]
+    );
+  }
+  for (const docId of Object.keys(peer.slot.handles)) {
+    if (enriched[docId]) continue;
+    enriched[docId] = buildHandleEntry("unknown", peer.slot.handles[docId]);
+  }
+  return { ...peer, slot: { ...peer.slot, handles: enriched } };
+}
+
+/** Lift the synchronizer's `reevaluateDocumentShare` method off a Repo
+ * through a narrowed structural accessor.
+ * `synchronizer.reevaluateDocumentShare` is `@hidden` on the Automerge
+ * type, so we reach for it tolerantly — the worst case is the
+ * polly#107 fix silently degrades to the pre-fix shape, which the
+ * observability layer still surfaces clearly. */
+function getReevaluateDocumentShare(repo: Repo): (() => Promise<void>) | undefined {
+  const sync = (
+    repo as unknown as {
+      synchronizer?: { reevaluateDocumentShare?: () => Promise<void> };
+    }
+  ).synchronizer;
+  const fn = sync?.reevaluateDocumentShare;
+  if (typeof fn !== "function" || sync === undefined) return undefined;
+  return () => fn.call(sync);
+}
+
+/** Install the polly#107 peer-candidate hook on a freshly-constructed
+ * mesh stack. Hides the falsification-gate branch behind a single call
+ * so the outer factory's complexity score stays under the ceiling. */
+function installPolly107SyncReevaluation(networkAdapter: MeshNetworkAdapter, repo: Repo): void {
+  const disable = typeof process !== "undefined" && process.env?.["POLLY_107_DISABLE_FIX"] === "1";
+  if (disable) return;
+  const reevaluate = getReevaluateDocumentShare(repo);
+  if (!reevaluate) return;
+  networkAdapter.on("peer-candidate", () => {
+    void reevaluate().catch(() => {
+      // Synchronizer errors are observable through
+      // getPeerStateSnapshot; suppressing here keeps a single bad doc
+      // from taking down the whole peer-candidate path.
+    });
+  });
+}
+
+/** Per-peer per-handle enrichment polly#107 adds on top of the
+ * {@link MeshWebRTCAdapter} snapshot. `state` and `announcedToPeer`
+ * come from the Repo side (which the adapter cannot see); the wire
+ * timestamps come from the adapter's per-slot bookkeeping. */
+export interface MeshClientHandleSnapshot {
+  /** The local handle's lifecycle state — `"ready"`, `"loading"`,
+   * `"unavailable"`, etc. — as reported by the Repo. `"unknown"` is
+   * stamped when the wire has seen a sync message for a documentId
+   * the local repo hasn't constructed a handle for yet (a remote peer
+   * announcing a doc we haven't touched). */
+  state: string;
+  /** True iff polly's network adapter has dispatched at least one
+   * outbound sync message for this document to this peer. Equivalent
+   * to `lastSyncMessageOutAt !== undefined` but named for the
+   * diagnostic question polly#107 asks the snapshot to answer:
+   * "has Automerge's NetworkSubsystem told this peer about this
+   * handle?". The failing-shape this ticket reports is precisely
+   * the case where every entry has `state: "ready"` and
+   * `announcedToPeer: false`. */
+  announcedToPeer: boolean;
+  /** `performance.now()` of the most recent outbound sync message for
+   * this document to this peer. `undefined` until first send. */
+  lastSyncMessageOutAt: number | undefined;
+  /** `performance.now()` of the most recent inbound message dispatched
+   * upward for this document from this peer. `undefined` until first
+   * receive. */
+  lastSyncMessageInAt: number | undefined;
+  /** Byte length of the most recent outbound message. */
+  lastSyncMessageOutSize: number | undefined;
+  /** Type field of the most recent outbound message — typically
+   * `"sync"` after handshake, `"request"` while the local side is
+   * asking. */
+  lastSyncMessageOutType: string | undefined;
+}
+
+/** The mesh client's enriched per-peer state snapshot. Mirrors the
+ * underlying {@link MeshWebRTCAdapter.getPeerStateSnapshot} shape but
+ * replaces the slot's `handles` map with the Repo-enriched view
+ * polly#107 adds. */
+export interface MeshClientPeerStateSnapshot {
+  localPeerId: string;
+  knownPeerIds: string[];
+  presentPeerIds: string[];
+  sweep: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["sweep"];
+  peers: Array<
+    Omit<ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"][number], "slot"> & {
+      slot:
+        | undefined
+        | (Omit<
+            NonNullable<
+              ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"][number]["slot"]
+            >,
+            "handles"
+          > & {
+            handles: Record<string, MeshClientHandleSnapshot>;
+          });
+    }
+  >;
+}
+
 /** Handle returned by {@link createMeshClient}. */
 export interface MeshClient {
   /** The Automerge Repo. `$meshState` has already been configured against
@@ -204,11 +359,16 @@ export interface MeshClient {
   refreshKnownPeers(): void;
   /** Snapshot of the mesh client's per-peer state — keyring
    * membership, signalling presence, per-slot SDP / ICE /
-   * connectionState / data-channel state, and queued-send / queued-ICE
-   * depth. Plain data, safe to log or render. Exists so a consumer
-   * harness can answer "is the mesh layer in a known good state"
-   * without instrumenting polly internals. Polly issue #103 item 7. */
-  getPeerStateSnapshot(): ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>;
+   * connectionState / data-channel state, queued-send / queued-ICE
+   * depth, and per-peer per-handle sync state (state, announcedToPeer,
+   * last sync message in/out). Plain data, safe to log or render.
+   * Exists so a consumer harness can answer "is the mesh layer in a
+   * known good state, AND has Automerge actually announced every
+   * local handle to every connected peer" without instrumenting polly
+   * internals. Polly issue #103 item 7; polly#107 item 7 added the
+   * per-handle enrichment that this method overlays on top of the
+   * underlying {@link MeshWebRTCAdapter} snapshot. */
+  getPeerStateSnapshot(): MeshClientPeerStateSnapshot;
   /** Refresh every active peer slot's transport-level summary —
    * selected ICE candidate pair, SCTP retransmission counters, last
    * data-channel error — and populate it into the next
@@ -217,6 +377,17 @@ export interface MeshClient {
    * visibility should call this on a polling cadence the cost can
    * absorb. Polly issue #105 item 7. */
   refreshTransportStats(): Promise<void>;
+  /** Force the Automerge synchronizer to re-evaluate every (handle ×
+   * peer) pair and `beginSync` for any pair that should be syncing
+   * but isn't. Called automatically on `peer-candidate` post-#107;
+   * exposed for explicit invocation by harnesses that need to assert
+   * the fix is engaged or that want a deterministic checkpoint after
+   * post-construction handle additions.
+   *
+   * Resolves once the synchronizer's internal `Promise.allSettled`
+   * over per-doc reevaluations resolves. Idempotent: if every pair is
+   * already syncing this is a no-op. Polly issue #107 item 7. */
+  reevaluateAllSync(): Promise<void>;
   /** Close the signalling WebSocket, tear down every RTCPeerConnection,
    * and shut the Repo cleanly. Idempotent. */
   close(): Promise<void>;
@@ -346,6 +517,28 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
 
   configureMeshState(repo);
 
+  // polly#107 — on peer-candidate, force the synchronizer to
+  // re-evaluate every (handle × peer) pair so any handle whose
+  // `addDocument`/`addPeer` ordering race left it un-synced for this
+  // peer gets `beginSync` invoked synchronously after the peer is
+  // registered. The default Automerge flow IS supposed to handle this
+  // through the `addPeer`-iterates-docSynchronizers and
+  // `addDocument`-iterates-#peers cross-paths, but the polly#107
+  // failing-shape evidence (fourteen pre-warmed handles, peer-candidate
+  // fires, firstOutboundSendAt stays `(none)`) shows that path leaves
+  // a gap in the realistic case. `reevaluateDocumentShare` walks every
+  // docSynchronizer and starts a `beginSync` for every peer that
+  // should be syncing but isn't — idempotent for handles that already
+  // started, load-bearing for handles that didn't.
+  //
+  // Falsification gate (POLLY_107_DISABLE_FIX=1): skip the
+  // re-evaluation so the pre-fix shape is preserved. The polly#107
+  // example asserts that pre-fix-emulated runs produce the named
+  // failure "Automerge never invoked NetworkAdapter.send despite N
+  // handles in repo and inbound messages received", which is exactly
+  // the production shape the ticket reports.
+  installPolly107SyncReevaluation(networkAdapter, repo);
+
   await signaling.connect();
 
   return {
@@ -377,7 +570,38 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
           peers: [],
         };
       }
-      return webrtcAdapter.getPeerStateSnapshot();
+      const base = webrtcAdapter.getPeerStateSnapshot() as ReturnType<
+        MeshWebRTCAdapter["getPeerStateSnapshot"]
+      >;
+      // Enrich the adapter view with Repo-side handle state so the
+      // polly#107 item 7 contract is observable in one place. The
+      // adapter sees only the wire path; the Repo's `handles` map
+      // owns the `state` (ready / loading / unavailable) and is the
+      // canonical answer to "what handles does the local replica
+      // hold?". Combining them produces "for each handle this replica
+      // holds, has Automerge announced it to this peer yet?". The
+      // failure shape polly#107 reports is precisely the case where
+      // every entry in `repo.handles` is `ready` and every
+      // corresponding `slot.handles[docId].lastSyncMessageOutAt` is
+      // `undefined`.
+      const repoHandles = repo.handles as unknown as Record<string, { state: unknown } | undefined>;
+      const knownHandleIds = Object.keys(repoHandles);
+      const enrichedPeers: MeshClientPeerStateSnapshot["peers"] = base.peers.map((peer) =>
+        enrichPeerSlot(peer, knownHandleIds, repoHandles)
+      );
+      const out: MeshClientPeerStateSnapshot = {
+        localPeerId: base.localPeerId,
+        knownPeerIds: base.knownPeerIds,
+        presentPeerIds: base.presentPeerIds,
+        sweep: base.sweep,
+        peers: enrichedPeers,
+      };
+      return out;
+    },
+    reevaluateAllSync: async () => {
+      const reevaluate = getReevaluateDocumentShare(repo);
+      if (!reevaluate) return;
+      await reevaluate();
     },
     refreshTransportStats: async () => {
       if (!webrtcAdapter) return;
