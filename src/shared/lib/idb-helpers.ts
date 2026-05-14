@@ -15,6 +15,32 @@
  *  when the storage layer wedges. */
 export const IDB_OPEN_TIMEOUT_MS = 5000;
 
+export type IDBOpenFailureReason = "timeout" | "blocked" | "error";
+
+/** Structured failure for `openIDB`. `reason` distinguishes the three
+ *  recoveries: `timeout` (true zombie, browser restart), `blocked`
+ *  (sibling tab holds an older version open — closing it clears the
+ *  block immediately), and `error` (unexpected `onerror` from the
+ *  request itself). Stays `instanceof Error` for callers that just want
+ *  `console.warn(err)`; `instanceof IDBOpenError` + `err.reason` gives
+ *  structured handling without regexing the message. */
+export class IDBOpenError extends Error {
+  readonly reason: IDBOpenFailureReason;
+  readonly dbName: string;
+  readonly elapsedMs: number;
+
+  constructor(reason: IDBOpenFailureReason, dbName: string, elapsedMs: number, cause?: unknown) {
+    super(
+      `Polly IndexedDB open of '${dbName}' ${reason} after ${elapsedMs}ms`,
+      cause === undefined ? undefined : { cause }
+    );
+    this.name = "IDBOpenError";
+    this.reason = reason;
+    this.dbName = dbName;
+    this.elapsedMs = elapsedMs;
+  }
+}
+
 export interface OpenIDBOptions {
   name: string;
   version: number;
@@ -22,29 +48,35 @@ export interface OpenIDBOptions {
   upgrade: (db: IDBDatabase, event: IDBVersionChangeEvent) => void;
 }
 
+/** Open-request factory. Defaults to `indexedDB.open`; tests override
+ *  it to force the timeout, blocked, or error path without needing a
+ *  real zombie tab — `fake-indexeddb` cannot reproduce the v0.60.0
+ *  no-events fingerprint, so the regression that motivated this whole
+ *  module is otherwise uncoverable. */
+export type IDBOpenFn = (name: string, version: number) => IDBOpenDBRequest;
+
+const defaultOpenFn: IDBOpenFn = (name, version) => indexedDB.open(name, version);
+
 /** Open an IndexedDB database with the Polly#107 timeout guard. */
-export function openIDB(options: OpenIDBOptions): Promise<IDBDatabase> {
+export function openIDB(
+  options: OpenIDBOptions,
+  openFn: IDBOpenFn = defaultOpenFn
+): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
     const start = Date.now();
-    const request = indexedDB.open(options.name, options.version);
+    const request = openFn(options.name, options.version);
     let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      const elapsedMs = Date.now() - start;
-      reject(
-        new Error(
-          `Polly IndexedDB open of '${options.name}' timed out after ${elapsedMs}ms (cross-tab lock or zombie connection?)`
-        )
-      );
-    }, IDB_OPEN_TIMEOUT_MS);
-
-    request.onerror = () => {
+    const elapsed = () => Date.now() - start;
+    const rejectWith = (reason: IDBOpenFailureReason, cause?: unknown) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      reject(request.error);
+      reject(new IDBOpenError(reason, options.name, elapsed(), cause));
     };
+    const timer = setTimeout(() => rejectWith("timeout"), IDB_OPEN_TIMEOUT_MS);
+
+    request.onerror = () => rejectWith("error", request.error);
+    request.onblocked = () => rejectWith("blocked");
     request.onsuccess = () => {
       if (settled) return;
       settled = true;
@@ -64,10 +96,11 @@ export function openIDB(options: OpenIDBOptions): Promise<IDBDatabase> {
  *  being poisoned by one transient failure. */
 export function cachedOpen(
   ref: { promise: Promise<IDBDatabase> | null },
-  options: OpenIDBOptions
+  options: OpenIDBOptions,
+  openFn?: IDBOpenFn
 ): Promise<IDBDatabase> {
   if (ref.promise) return ref.promise;
-  const pending = openIDB(options);
+  const pending = openIDB(options, openFn);
   pending.catch(() => {
     if (ref.promise === pending) ref.promise = null;
   });
