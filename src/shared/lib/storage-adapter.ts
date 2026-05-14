@@ -10,6 +10,15 @@ export interface StorageAdapter {
   remove(keys: string[]): Promise<void>;
 }
 
+/** Polly#107 post-v0.60: hard timeout on `indexedDB.open()`. Healthy
+ * opens land in microseconds; the v0.60.0 fingerprint surfaced a
+ * zombie cross-tab connection that left an open request firing no
+ * events at all (no `success`, no `error`, no `blocked`). 5s is two
+ * orders of magnitude beyond the normal upper bound and short
+ * enough that the operator gets a named failure instead of a hung
+ * page when the storage layer wedges. */
+const IDB_OPEN_TIMEOUT_MS = 5000;
+
 /**
  * IndexedDB adapter for web apps
  */
@@ -25,11 +34,33 @@ export class IndexedDBAdapter implements StorageAdapter {
   private getDB(): Promise<IDBDatabase> {
     if (this.dbPromise) return this.dbPromise;
 
-    this.dbPromise = new Promise((resolve, reject) => {
+    const pending = new Promise<IDBDatabase>((resolve, reject) => {
+      const start = Date.now();
       const request = indexedDB.open(this.dbName, 1);
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const elapsedMs = Date.now() - start;
+        reject(
+          new Error(
+            `Polly IndexedDB open of '${this.dbName}' timed out after ${elapsedMs}ms (cross-tab lock or zombie connection?)`
+          )
+        );
+      }, IDB_OPEN_TIMEOUT_MS);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(request.error);
+      };
+      request.onsuccess = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(request.result);
+      };
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as unknown as IDBOpenDBRequest).result;
@@ -38,8 +69,14 @@ export class IndexedDBAdapter implements StorageAdapter {
         }
       };
     });
-
-    return this.dbPromise;
+    // Drop the cached failed promise on rejection so a subsequent call
+    // can retry — without this a transient open failure poisons the
+    // adapter for the lifetime of the process.
+    pending.catch(() => {
+      if (this.dbPromise === pending) this.dbPromise = null;
+    });
+    this.dbPromise = pending;
+    return pending;
   }
 
   async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {

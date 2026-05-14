@@ -136,12 +136,40 @@ export class IndexedDBBlobCache implements BlobCache {
   private dbPromise: Promise<IDBDatabase> | null = null;
   private readonly urls = new Map<string, string>();
 
+  /** Polly#107 post-v0.60: hard timeout on `indexedDB.open()`. See
+   * the matching note in `storage-adapter.ts` — healthy opens are
+   * sub-millisecond, the v0.60.0 fingerprint surfaced a zombie
+   * cross-tab connection firing no events at all. */
+  private static readonly OPEN_TIMEOUT_MS = 5000;
+
   private openDB(): Promise<IDBDatabase> {
     if (this.dbPromise) return this.dbPromise;
-    this.dbPromise = new Promise((resolve, reject) => {
+    const pending = new Promise<IDBDatabase>((resolve, reject) => {
+      const start = Date.now();
       const request = indexedDB.open(IndexedDBBlobCache.DB_NAME, IndexedDBBlobCache.DB_VERSION);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const elapsedMs = Date.now() - start;
+        reject(
+          new Error(
+            `Polly IndexedDB open of '${IndexedDBBlobCache.DB_NAME}' timed out after ${elapsedMs}ms (cross-tab lock or zombie connection?)`
+          )
+        );
+      }, IndexedDBBlobCache.OPEN_TIMEOUT_MS);
+      request.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(request.error);
+      };
+      request.onsuccess = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(request.result);
+      };
       request.onupgradeneeded = (event) => {
         const db = (event.target as unknown as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(IndexedDBBlobCache.STORE_NAME)) {
@@ -149,7 +177,11 @@ export class IndexedDBBlobCache implements BlobCache {
         }
       };
     });
-    return this.dbPromise;
+    pending.catch(() => {
+      if (this.dbPromise === pending) this.dbPromise = null;
+    });
+    this.dbPromise = pending;
+    return pending;
   }
 
   private async getRecord(hash: string): Promise<IDBRecord | undefined> {

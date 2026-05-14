@@ -5,6 +5,256 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.61.0] - 2026-05-14
+
+### Added
+
+#### `$meshState` storage-operation timeout and `storageOpenError` field (#107 post-v0.60)
+
+The polly#107 v0.60.0 fingerprint from `fairfox.fly.dev` (web-v0.1.38)
+showed `lazyInvocations === lazyReachedRepo === 17`, `lastLoadedRejection`
+absent, and the new ring-buffer log empty. The factories had entered
+`buildHandleFactory` and reached `repo.handles[documentId]`, but none
+reached the `finally` that writes the structured log — they were hung
+mid-`await`, not throwing. The IndexedDB layer below polly (in
+fairfox's case Automerge's `IndexedDBStorageAdapter('fairfox-mesh')`)
+had wedged hard enough that no event fired against the open requests,
+including no `blocked`, no `error`, no `success`. Restarting Chrome
+cleared the zombie connection and a re-capture showed every wrapper
+healthy.
+
+This release bounds the two `await`s inside `buildHandleFactory` with
+a 5s timeout, so a hung storage layer surfaces as a populated
+diagnostic field within seconds instead of as an unbounded factory
+hang:
+
+- A new `meshStateModule.storageOpenError` field on every
+  `MeshClient.getPeerStateSnapshot()` carries
+  `{ operation, documentId, timeoutMs, elapsedMs, message, at }`
+  whenever `cached.whenReady(...)` or
+  `repo.storageSubsystem.loadDoc(...)` exceeds the timeout. The
+  pre-formatted `message` (`"Polly $meshState: storage operation
+  'loadDoc' on document '<id>' timed out after 5000ms"`) is ready
+  to paste into a ticket.
+- The timeout rejection also flows into the existing
+  `lastLoadedRejection` channel so the rejection counter stays
+  consistent with the new field. The `lazyWrappers` row captures
+  `exitReason: "threw"` and the timeout message in `errorMessage`.
+- A module-level `getStorageOpenError()` helper mirrors the
+  snapshot field and is exported from `@fairfox/polly/mesh` for
+  diagnostic dumps that bypass the mesh client; the new type
+  `MeshStateStorageOpenError` is exported from the same subpath.
+
+The JSDoc on `lazyWrappers` now documents the post-v0.60 reading
+guide: empty ring buffer beside non-zero `lazyInvocations` means
+"factories hung mid-await, not throwing" — a state that, in this
+release, is also accompanied by a populated `storageOpenError`
+within `STORAGE_OP_TIMEOUT_MS` of the hang.
+
+#### `$meshState` wrapper-vs-handle off-by-one detection (#107 post-v0.60)
+
+The same v0.60.0 fingerprint, after the IndexedDB recovery, showed
+seventeen healthy `seeded-and-imported` wrapper records against a
+`repoHandleCount` of sixteen — a one-off shape consistent with two
+distinct factory invocations resolving to the same `DocumentId`
+during pre-warm.
+
+- A new `meshStateModule.lazyWrapperDuplicateDocIds` field surfaces
+  one entry per `DocumentId` that appears in more than one wrapper
+  record: `{ docId, keys, recordCount }`. An empty array means the
+  wrapper-to-handle accounting is one-to-one; a populated array
+  names the colliding key(s) and how many records resolved to the
+  shared id.
+- The new `MeshStateLazyWrapperDocIdDuplicate` type is exported
+  from `@fairfox/polly/mesh`.
+
+#### `indexedDB.open()` timeout in polly's own adapters (#107 post-v0.60)
+
+`IndexedDBAdapter` (the `polly-state` database) and
+`IndexedDBBlobCache` (the `polly-blobs` database) now bound their
+own `indexedDB.open()` requests with a matching 5s timeout. A
+failed open also drops the cached `dbPromise` so a subsequent call
+can retry instead of poisoning the adapter for the lifetime of the
+process. The reproduction in fairfox was against a different
+database (`fairfox-mesh`), but the cross-tab zombie-connection
+shape is generic; this gives polly's own storage paths the same
+named-failure-vs-silent-hang contract.
+
+## [0.60.0] - 2026-05-14
+
+### Added
+
+#### `$meshState` per-wrapper structured invocation log (#107 post-v0.59)
+
+The polly#107 v0.59.0 fingerprint from `fairfox.fly.dev` (web-v0.1.37)
+disambiguated nothing the three anticipated v0.59 branches predicted:
+`lazyInvocations === lazyReachedRepo === 17`, `lastLoadedRejection`
+absent, and `repoHandleCount` still 1. Every factory reached the
+first `repo.handles[docId]` access, none of them threw, none of
+their `loaded` promises rejected — and yet sixteen of seventeen
+handles never landed in `repo.handles`. The work between the first
+Repo touch and the local-side registration is the suspect span,
+and a third counter alone would only distinguish two of the three
+surviving hypotheses.
+
+This release replaces the would-be `lazyHandleRegistered` counter
+with a per-invocation structured log so one snapshot read names,
+for each factory call, exactly which exit path was taken and
+whether the Repo registered the handle in spite of the absent
+throw:
+
+- A new `meshStateModule.lazyWrappers` field surfaces an array of
+  `{ key, docId, at, exitReason, handleRegistered, handleState,
+  errorMessage }` records — one per `$mesh*` lazy factory
+  invocation, ring-buffered at 64 entries.
+- `exitReason` names one of four paths through
+  `buildHandleFactory`: `"returned-cached"` (a previously
+  registered ready handle was found), `"loaded-from-storage"`
+  (`repo.storageSubsystem.loadDoc` returned bytes and `repo.find`
+  was used to hydrate), `"seeded-and-imported"` (a fresh document
+  was seeded via `Automerge.from` / `Automerge.save` and committed
+  with `repo.import` + `doneLoading`), and `"threw"` (the catch
+  arm captured the rejection and rethrew). Each value corresponds
+  to a single source line in `mesh-state.ts`.
+- `handleRegistered` is the synchronous peek at
+  `repo.handles[docId] !== undefined` taken in the factory's
+  `finally`, i.e. at the moment the factory would return.
+  `handleState` is the lifecycle state (`"ready"`, `"loading"`,
+  `"unavailable"`) at that same peek.
+- A new module-level helper `getLazyWrappers()` mirrors the
+  snapshot field and is exported from `@fairfox/polly/mesh` for
+  diagnostic dumps that bypass the mesh client; the new types
+  `LazyWrapperExitReason` and `MeshStateLazyWrapperRecord` are
+  exported from the same subpath.
+
+The polly#107 post-v0.59 fingerprints the consumer can read from
+one snapshot dump:
+
+- All seventeen records show `exitReason: "seeded-and-imported"`
+  and `handleRegistered: false` → H-Q1 is confirmed: `repo.import`
+  returns without registering the handle. The next instrumentation
+  point is Automerge's `Repo.import` path itself, not polly's
+  bridge.
+- Sixteen records show `exitReason: "returned-cached"` with
+  `handleRegistered: true` against distinct `docId`s →
+  `repo.handles` was already populated before the wrappers fired
+  (an earlier path is registering and immediately evicting), and
+  `repoHandleCount: 1` at snapshot time is a later eviction story.
+- One record shows `exitReason: "seeded-and-imported"` and
+  `handleRegistered: true`, the other sixteen show
+  `exitReason: "returned-cached"` with the same `docId` →
+  `deriveDocumentId` is producing collisions for the consumer's
+  key set (the keys all hash into the same 16-byte prefix), and
+  the H5-post symptom is a key-derivation bug, not a Repo bug.
+- All seventeen records show `exitReason: "seeded-and-imported"`
+  and `handleRegistered: true` → handles registered and then
+  vanished; instrumentation moves into Automerge's `handles`
+  getter / cache eviction.
+
+## [0.59.0] - 2026-05-14
+
+### Added
+
+#### `$meshState` factory-vs-Repo lazy-load instrumentation (#107 post-H5)
+
+The polly#107 v0.58.0 fingerprint from `fairfox.fly.dev` ruled out
+H5: the consumer's `$meshState` wrappers and `createMeshClient`
+both resolved to the same `mesh-state` module instance. But the
+symptom persisted — `repo.handles` reported a single handle of the
+fourteen the consumer pre-warmed, and that single handle had the
+shape of a placeholder minted by `CollectionSynchronizer` from an
+inbound daemon message rather than from any wrapper's `import()`.
+Two surviving hypotheses: the consumer's wrappers catch a different
+silent throw, or the `loaded` promise rejects and the wrapper does
+not await it.
+
+This release surfaces the boundary between factory entry and Repo
+touch directly on the snapshot, and captures rejections that would
+otherwise vanish:
+
+- New `meshStateModule.lazyInvocations` counter ticks every time a
+  `$mesh*` wrapper's lazy handle factory is invoked (i.e. once per
+  primitive constructed via `$meshState`/`$meshText`/`$meshCounter`/
+  `$meshList`).
+- New `meshStateModule.lazyReachedRepo` counter ticks once a factory
+  invocation actually reaches the Repo subsystem (`repo.handles`,
+  `repo.find`, `repo.import`). If `lazyInvocations` is fourteen and
+  `lazyReachedRepo` is one, the throw lives between factory entry
+  and the first Repo touch — and the gap localises the next
+  instrumentation point.
+- New `meshStateModule.lastLoadedRejection` records the most recent
+  rejection (or synchronous throw) escaping a wrapper's `loaded`
+  promise, as a JSON-safe `{ name, message, stack, at }` breadcrumb.
+  A `.catch` sink is attached at wrapper construction, so a
+  consumer that never awaits `loaded` still leaves a trace the
+  snapshot can surface.
+- New module-level helpers `getLazyInvocations`,
+  `getLazyReachedRepo`, and `getLastLoadedRejection` mirror the
+  snapshot fields and can be read directly from
+  `@fairfox/polly/mesh` for diagnostic dumps that bypass the mesh
+  client.
+
+The post-H5 fingerprint pairs that the consumer can read from one
+snapshot dump:
+
+- `lazyInvocations` matches the consumer's pre-warm count and
+  `lazyReachedRepo` does not → factory throws before any Repo work;
+  inspect `lastLoadedRejection` for the cause.
+- Both counters match the pre-warm count, `lastLoadedRejection` is
+  set, and `repoHandleCount` is still low → the throw is downstream
+  of the first Repo touch (migration step, `whenReady`, sync state
+  hydration) and `lastLoadedRejection.message` names the call site.
+- Both counters match the pre-warm count, `lastLoadedRejection` is
+  undefined, and `repoHandleCount` matches the count → handles
+  registered; the H5-post symptom moves to the Automerge
+  synchroniser layer and out of `mesh-state`'s scope.
+
+## [0.58.0] - 2026-05-14
+
+### Added
+
+#### `mesh-state` module-instance identity diagnostics (#107 H5)
+
+The polly#107 fingerprint returned from `fairfox.fly.dev` against
+v0.57.0's instrumented snapshot showed exactly one handle in
+`client.repo.handles` despite the consumer's `boot.tsx` pre-warming
+fourteen `$meshState` wrappers, with that single handle in
+`state: "loading"` and the wire-level `firstInboundMessageAt` set —
+the canonical fingerprint of `mesh-state.ts`'s `defaultRepo` module
+global being duplicated by the consumer's bundler at build time:
+`createMeshClient` configures one module instance, the wrappers
+resolve a different one, the consumer's handles land in a Repo the
+mesh client never saw.
+
+This release stamps `mesh-state` with a per-import-time module
+identity so a single snapshot read confirms or rules out the
+duplication:
+
+- A new `MESH_STATE_MODULE_ID` constant is exported from
+  `@fairfox/polly/mesh`. The id is freshly generated each time the
+  module is loaded; two distinct module instances produce two
+  distinct ids.
+- New helpers `getMeshStateModuleId()`,
+  `getLastConfiguredRepoPeerId()`, `isMeshStateConfigured()`, and
+  `wasMeshStateResolved()` expose the module-instance bookkeeping
+  for direct inspection.
+- `MeshClient.getPeerStateSnapshot()` now returns a
+  `meshStateModule: { moduleId, configured, lastConfiguredRepoPeerId,
+  wasResolved }` block plus `repoHandleCount` and `repoHandleIds`
+  fields so the consumer can answer "are my wrappers reaching the
+  same module instance the mesh client configured" without leaving
+  the snapshot.
+- The thrown error in `resolveRepo` now names the module instance id
+  in its message; a console.warn is emitted on the same path so the
+  H5 fingerprint leaves a breadcrumb even if the consumer's wrapper
+  layer catches the throw silently.
+
+The H5 fingerprint pair that confirms duplication: on the
+mesh-client side, `configured: true, wasResolved: false`; on the
+consumer's `$meshState` call site, reading `MESH_STATE_MODULE_ID`
+from THEIR import returns a different id from the one the snapshot
+shows.
+
 ## [0.57.0] - 2026-05-14
 
 ### Fixed

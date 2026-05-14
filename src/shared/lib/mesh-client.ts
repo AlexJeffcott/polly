@@ -24,7 +24,21 @@ import { type PeerId, Repo, type StorageAdapterInterface } from "@automerge/auto
 import type { KeyringStorage } from "./keyring-storage";
 import { DEFAULT_MESH_KEY_ID, type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";
 import { MeshSignalingClient, type MeshSignalingClientOptions } from "./mesh-signaling-client";
-import { configureMeshState } from "./mesh-state";
+import {
+  configureMeshState,
+  getLastConfiguredRepoPeerId,
+  getLastLoadedRejection,
+  getLazyInvocations,
+  getLazyReachedRepo,
+  getLazyWrappers,
+  getMeshStateModuleId,
+  getStorageOpenError,
+  isMeshStateConfigured,
+  type MeshStateLazyWrapperRecord,
+  type MeshStateLoadedRejectionBreadcrumb,
+  type MeshStateStorageOpenError,
+  wasMeshStateResolved,
+} from "./mesh-state";
 import { MeshWebRTCAdapter, type MeshWebRTCAdapterOptions } from "./mesh-webrtc-adapter";
 
 /** Options for {@link createMeshClient}. */
@@ -249,6 +263,73 @@ function getReevaluateDocumentShare(repo: Repo): (() => Promise<void>) | undefin
   return () => fn.call(sync);
 }
 
+/** Build the {@link MeshStateModuleDiagnostics} block surfaced on
+ * every {@link MeshClient.getPeerStateSnapshot}. Reads the module
+ * state in one place so both snapshot construction sites (the
+ * pre-adapter early-out and the main path) stay identical. */
+function buildMeshStateModuleDiagnostics(): MeshStateModuleDiagnostics {
+  const lazyWrappers = getLazyWrappers();
+  return {
+    moduleId: getMeshStateModuleId(),
+    configured: isMeshStateConfigured(),
+    lastConfiguredRepoPeerId: getLastConfiguredRepoPeerId(),
+    wasResolved: wasMeshStateResolved(),
+    lazyInvocations: getLazyInvocations(),
+    lazyReachedRepo: getLazyReachedRepo(),
+    lastLoadedRejection: getLastLoadedRejection(),
+    storageOpenError: getStorageOpenError(),
+    lazyWrappers,
+    lazyWrapperDuplicateDocIds: findLazyWrapperDocIdDuplicates(lazyWrappers),
+  };
+}
+
+/** Polly#107 post-v0.60 instrumentation. Walks the lazy-wrapper log
+ * and groups records by `docId`; emits one entry per `docId` that
+ * appears in more than one record. Surfaces the "17 wrappers / 16
+ * `repo.handles`" off-by-one shape that the v0.60.0 single-tab
+ * fingerprint flagged — typically two distinct `$mesh*` consumer
+ * call sites whose logical keys hash to the same Automerge
+ * `DocumentId`, or the same logical key invoked from two consumers
+ * during pre-warm before either factory's `repo.import` committed
+ * the handle. The snapshot can paste this verbatim; an empty array
+ * means the wrapper-to-handle accounting is one-to-one. */
+export interface MeshStateLazyWrapperDocIdDuplicate {
+  /** The `DocumentId` that more than one factory invocation
+   * resolved to. */
+  docId: string;
+  /** Distinct logical keys that derived to this same `DocumentId`.
+   * Length 1 means the same key was registered twice; length > 1
+   * means two different keys hashed to the same id (a SHA-512-prefix
+   * collision in {@link deriveDocumentId}, vanishingly unlikely but
+   * detected for completeness). */
+  keys: string[];
+  /** Total number of records in the lazy-wrapper log that resolved
+   * to this `DocumentId`. Typically 2 for a same-key double-call. */
+  recordCount: number;
+}
+
+function findLazyWrapperDocIdDuplicates(
+  records: readonly MeshStateLazyWrapperRecord[]
+): MeshStateLazyWrapperDocIdDuplicate[] {
+  const byDocId = new Map<string, { keys: Set<string>; count: number }>();
+  for (const record of records) {
+    let entry = byDocId.get(record.docId);
+    if (!entry) {
+      entry = { keys: new Set(), count: 0 };
+      byDocId.set(record.docId, entry);
+    }
+    entry.keys.add(record.key);
+    entry.count++;
+  }
+  const duplicates: MeshStateLazyWrapperDocIdDuplicate[] = [];
+  for (const [docId, entry] of byDocId) {
+    if (entry.count > 1) {
+      duplicates.push({ docId, keys: [...entry.keys], recordCount: entry.count });
+    }
+  }
+  return duplicates;
+}
+
 /** Install the polly#107 peer-candidate hook on a freshly-constructed
  * mesh stack. Hides the falsification-gate branch behind a single call
  * so the outer factory's complexity score stays under the ceiling. */
@@ -301,6 +382,99 @@ export interface MeshClientHandleSnapshot {
   lastSyncMessageOutType: string | undefined;
 }
 
+/** Polly#107 H5 diagnostics: surfaces the `mesh-state` module
+ * instance identity so a single snapshot read tells the operator
+ * whether the consumer's `$meshState` wrappers are resolving against
+ * the same module instance `createMeshClient` configured. A mismatch
+ * here IS the bundle-time module duplication bug. */
+export interface MeshStateModuleDiagnostics {
+  /** The id stamped at import time on the `mesh-state` module
+   * instance THIS mesh client was constructed against. Compare to
+   * the id seen at the `$meshState` call site (also importable as
+   * `MESH_STATE_MODULE_ID` from `@fairfox/polly/mesh`). Two different
+   * ids means the consumer is reaching a duplicated copy of
+   * `mesh-state.ts` — wrappers register handles against a Repo this
+   * mesh client never saw. */
+  moduleId: string;
+  /** `true` iff THIS module instance has a configured `defaultRepo`.
+   * In the H5 scenario, this is `true` for the mesh-client-side
+   * snapshot (because `createMeshClient` always calls
+   * `configureMeshState` on the module it imports), but the same
+   * field read from the consumer's `$meshState` call site would
+   * be `false`. */
+  configured: boolean;
+  /** `peerId` of the most recent Repo wired through
+   * `configureMeshState` against THIS module instance. Compared to
+   * `client.repo.peerId` and the consumer's wrappers' resolved Repo
+   * tells the full story. */
+  lastConfiguredRepoPeerId: string | undefined;
+  /** `true` if any `$meshState`-family wrapper has been called
+   * against THIS module instance at any point. The polly#107 H5
+   * fingerprint pair: `configured: true, wasResolved: false` on
+   * the mesh-client-side snapshot (the wrappers never reached us);
+   * the consumer's wrapper code reading the same field from THEIR
+   * `$meshState` import would see `configured: false, wasResolved:
+   * true` (they're using a module instance no mesh client ever
+   * configured). */
+  wasResolved: boolean;
+  /** Polly#107 post-H5 instrumentation. Count of `$meshState`-family
+   * lazy factory invocations since module load. Once the consumer's
+   * pre-warm pass completes, this equals the number of distinct
+   * `$mesh*` wrappers whose handles the loader actually tried to
+   * resolve. Compared to {@link lazyReachedRepo}: gap = throws
+   * before any Repo work. */
+  lazyInvocations: number;
+  /** Polly#107 post-H5 instrumentation. Count of factory invocations
+   * that reached the Repo subsystem (`repo.handles[...]`, `repo.find`
+   * or `repo.import`) before returning or throwing. If
+   * {@link lazyInvocations} is N and this is N, every wrapper
+   * touched the Repo — any missing handles are downstream of Repo
+   * registration. If this is < N, the gap is the call site to
+   * instrument next. */
+  lazyReachedRepo: number;
+  /** Polly#107 post-H5 instrumentation. Breadcrumb for the most
+   * recent rejection from a `$meshState`-family `loaded` promise
+   * (or its factory). Captured even when the consumer's wrapper
+   * never awaits `loaded` and the rejection would otherwise vanish
+   * silently. `undefined` means no rejection has escaped any
+   * wrapper on THIS module instance since module load. */
+  lastLoadedRejection: MeshStateLoadedRejectionBreadcrumb | undefined;
+  /** Polly#107 post-v0.60 instrumentation. Populated when a storage
+   * read inside `buildHandleFactory` exceeds the internal 5s
+   * timeout — i.e. `cached.whenReady(...)` or
+   * `repo.storageSubsystem.loadDoc(...)` hung. Names the operation,
+   * the document id under attempt, the elapsed time, and a
+   * pre-formatted message ready to paste into a ticket. The v0.60.0
+   * fingerprint diagnosed "factories hung mid-await, not throwing"
+   * indirectly; this field surfaces the same shape within seconds
+   * and in one read. `undefined` means no storage timeout has
+   * occurred since module load. */
+  storageOpenError: MeshStateStorageOpenError | undefined;
+  /** Polly#107 post-v0.59 instrumentation. Per-factory-invocation
+   * structured log — one record per `$mesh*` wrapper's lazy handle
+   * factory call, ring-buffered at 64 entries. Each row names the
+   * exit path (`returned-cached`, `loaded-from-storage`,
+   * `seeded-and-imported`, `threw`) and the synchronous peek at
+   * `repo.handles[docId]` taken in the factory's `finally`. The
+   * v0.59.0 fingerprint had `lazyInvocations === lazyReachedRepo`
+   * and no `lastLoadedRejection`; this field disambiguates which
+   * exit path each "successful" invocation actually took and
+   * whether the Repo registered the handle in spite of the lack of
+   * a thrown error. The smoking gun for H-Q1 is rows with
+   * `exitReason: "seeded-and-imported"` and
+   * `handleRegistered: false`. */
+  lazyWrappers: MeshStateLazyWrapperRecord[];
+  /** Polly#107 post-v0.60 instrumentation. One entry per
+   * `DocumentId` that appears in more than one
+   * {@link lazyWrappers} record — the shape behind the v0.60.0
+   * single-tab fingerprint's "17 wrappers / 16 `repo.handles`"
+   * off-by-one. Empty when wrapper-to-handle accounting is
+   * one-to-one, populated when two factory invocations resolved to
+   * the same `DocumentId` (most commonly the same logical key
+   * registered from two consumer call sites during pre-warm). */
+  lazyWrapperDuplicateDocIds: MeshStateLazyWrapperDocIdDuplicate[];
+}
+
 /** The mesh client's enriched per-peer state snapshot. Mirrors the
  * underlying {@link MeshWebRTCAdapter.getPeerStateSnapshot} shape but
  * replaces the slot's `handles` map with the Repo-enriched view
@@ -324,6 +498,19 @@ export interface MeshClientPeerStateSnapshot {
           });
     }
   >;
+  /** polly#107 H5 diagnostics. See {@link MeshStateModuleDiagnostics}. */
+  meshStateModule: MeshStateModuleDiagnostics;
+  /** Count of handles known to the Repo this client owns. Compared
+   * to the count the consumer's `$meshState` wrappers should have
+   * registered: a mismatch (e.g. consumer pre-warmed 14 wrappers,
+   * snapshot reports 1) confirms the H5 module-duplication
+   * fingerprint without needing a separate read. */
+  repoHandleCount: number;
+  /** All handle ids the Repo this client owns currently caches.
+   * Together with `repoHandleCount` and `meshStateModule.moduleId`,
+   * this answers "did the consumer's wrappers land their handles in
+   * THIS Repo?" in one read. */
+  repoHandleIds: string[];
 }
 
 /** Handle returned by {@link createMeshClient}. */
@@ -568,6 +755,9 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
             lastRunAt: undefined,
           },
           peers: [],
+          meshStateModule: buildMeshStateModuleDiagnostics(),
+          repoHandleCount: Object.keys(repo.handles).length,
+          repoHandleIds: Object.keys(repo.handles),
         };
       }
       const base = webrtcAdapter.getPeerStateSnapshot() as ReturnType<
@@ -595,6 +785,9 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
         presentPeerIds: base.presentPeerIds,
         sweep: base.sweep,
         peers: enrichedPeers,
+        meshStateModule: buildMeshStateModuleDiagnostics(),
+        repoHandleCount: knownHandleIds.length,
+        repoHandleIds: knownHandleIds,
       };
       return out;
     },

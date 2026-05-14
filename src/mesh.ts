@@ -56,6 +56,8 @@ export type {
   MeshClient,
   MeshClientHandleSnapshot,
   MeshClientPeerStateSnapshot,
+  MeshStateLazyWrapperDocIdDuplicate,
+  MeshStateModuleDiagnostics,
 } from "./shared/lib/mesh-client";
 export { createMeshClient } from "./shared/lib/mesh-client";
 // Mesh network adapter (sign-then-encrypt envelopes over any base adapter)
@@ -74,14 +76,30 @@ export type {
 } from "./shared/lib/mesh-signaling-client";
 export { MeshSignalingClient } from "./shared/lib/mesh-signaling-client";
 // Mesh state wrappers
-export type { MeshStateOptions } from "./shared/lib/mesh-state";
+export type {
+  LazyWrapperExitReason,
+  MeshStateLazyWrapperRecord,
+  MeshStateLoadedRejectionBreadcrumb,
+  MeshStateOptions,
+  MeshStateStorageOpenError,
+} from "./shared/lib/mesh-state";
 export {
   $meshCounter,
   $meshList,
   $meshState,
   $meshText,
   configureMeshState,
+  getLastConfiguredRepoPeerId,
+  getLastLoadedRejection,
+  getLazyInvocations,
+  getLazyReachedRepo,
+  getLazyWrappers,
+  getMeshStateModuleId,
+  getStorageOpenError,
+  isMeshStateConfigured,
+  MESH_STATE_MODULE_ID,
   resetMeshState,
+  wasMeshStateResolved,
 } from "./shared/lib/mesh-state";
 // Mesh WebRTC adapter
 export type {
