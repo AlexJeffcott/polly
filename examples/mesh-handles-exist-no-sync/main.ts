@@ -127,8 +127,8 @@ const SNAPSHOT_POLL_INTERVAL_MS = 100;
 
 // ---- Env switches -------------------------------------------------
 
-const DISABLE_FIX = process.env["POLLY_107_DISABLE_FIX"] === "1";
-const VERBOSE = process.env["POLLY_107_TRACE_VERBOSE"] === "1";
+const DISABLE_FIX = process.env.POLLY_107_DISABLE_FIX === "1";
+const VERBOSE = process.env.POLLY_107_TRACE_VERBOSE === "1";
 
 // ---- Logging ------------------------------------------------------
 
@@ -222,13 +222,17 @@ function pickPort(): number {
 
 function startSignalingServer(): ServerHandle {
   const port = pickPort();
-  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
+  const app = new Elysia()
+    .use(signalingServer({ path: "/polly/signaling" }))
+    .listen(port);
   const url = `ws://127.0.0.1:${port}/polly/signaling`;
   log("signal", `listening at ${url}`);
   return {
     url,
     close: async () => {
-      (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+      (
+        app as unknown as { server?: { stop?: (force?: boolean) => void } }
+      ).server?.stop?.(true);
     },
   };
 }
@@ -265,7 +269,8 @@ async function buildPeer(args: {
   const client = await createMeshClient({
     signaling: { url: args.url, peerId: args.peerId },
     rtc: {
-      RTCPeerConnection: WeriftRTCPeerConnection as unknown as typeof globalThis.RTCPeerConnection,
+      RTCPeerConnection:
+        WeriftRTCPeerConnection as unknown as typeof globalThis.RTCPeerConnection,
     },
     keyring: args.keyring,
   });
@@ -310,7 +315,9 @@ async function prewarmAllHandles(client: MeshClient): Promise<
   // Resolve every primitive's documentId via the handle.
   const out = primitives.map((p) => {
     if (!p.primitive.handle) {
-      throw new Error(`pre-warm failed for ${p.key}: handle is undefined after loaded`);
+      throw new Error(
+        `pre-warm failed for ${p.key}: handle is undefined after loaded`,
+      );
     }
     return {
       key: p.key,
@@ -393,7 +400,9 @@ async function waitForPeerCandidate(args: {
   while (Date.now() - start < args.budgetMs) {
     const snapshot = args.receiver.getPeerStateSnapshot();
     const peer = snapshot.peers.find((p) => p.peerId === args.remotePeerId);
-    if (peer?.slot?.lastSyncHandshakeAttempt.peerCandidateEmittedAt !== undefined) {
+    if (
+      peer?.slot?.lastSyncHandshakeAttempt.peerCandidateEmittedAt !== undefined
+    ) {
       return snapshot;
     }
     await sleep(SNAPSHOT_POLL_INTERVAL_MS);
@@ -410,9 +419,15 @@ async function waitForPeerCandidate(args: {
  * receiver sees inbound bytes, but the receiver's signal value
  * never changes from the initial empty state). */
 async function waitForSyncToReceiver(args: {
-  primitives: Array<{ key: string; primitive: ReturnType<typeof $meshState<MeshDoc>> }>;
+  primitives: Array<{
+    key: string;
+    primitive: ReturnType<typeof $meshState<MeshDoc>>;
+  }>;
   budgetMs: number;
-}): Promise<{ syncedAt: number | undefined; perHandleStatus: Map<string, boolean> }> {
+}): Promise<{
+  syncedAt: number | undefined;
+  perHandleStatus: Map<string, boolean>;
+}> {
   const start = Date.now();
   const perHandleStatus = new Map<string, boolean>(
     args.primitives.map((p) => [p.key, false]),
@@ -453,7 +468,8 @@ function evaluateContract(args: {
 }): ContractResult {
   const snapshot = args.receiver.getPeerStateSnapshot();
   const peer = snapshot.peers.find((p) => p.peerId === args.senderPeerId);
-  const firstOutboundSendAt = peer?.slot?.lastSyncHandshakeAttempt.firstOutboundSendAt;
+  const firstOutboundSendAt =
+    peer?.slot?.lastSyncHandshakeAttempt.firstOutboundSendAt;
   const firstOutboundSendAtSet = firstOutboundSendAt !== undefined;
   if (args.disableFix) {
     // Pre-fix-emulated: the production failing-shape requires Chrome
@@ -503,7 +519,7 @@ function evaluateContract(args: {
       .join(", ");
     return {
       pass: false,
-      failureReason: `post-fix: receiver's signal values did not match sender's content within ${SYNC_OBSERVATION_BUDGET_MS}ms. Unsynced: ${unsynced || "(none — but flag still false?)"}. firstOutboundSendAt=${firstOutboundSendAt === undefined ? "(none)" : firstOutboundSendAt.toFixed(0) + "ms"}. This is the polly#107 production-report shape — Automerge never asked the adapter to send sync messages.`,
+      failureReason: `post-fix: receiver's signal values did not match sender's content within ${SYNC_OBSERVATION_BUDGET_MS}ms. Unsynced: ${unsynced || "(none — but flag still false?)"}. firstOutboundSendAt=${firstOutboundSendAt === undefined ? "(none)" : `${firstOutboundSendAt.toFixed(0)}ms`}. This is the polly#107 production-report shape — Automerge never asked the adapter to send sync messages.`,
       perHandleSynced: args.perHandleSynced,
       receiverSnapshot: snapshot,
       firstOutboundSendAtSet,
@@ -573,13 +589,17 @@ function buildTranscript(args: {
   receiverHandles: Array<{ key: string; documentId: string }>;
 }): TranscriptEntry[] {
   const out: TranscriptEntry[] = [];
-  const keyByDocId = new Map(args.receiverHandles.map((h) => [h.documentId, h.key]));
+  const keyByDocId = new Map(
+    args.receiverHandles.map((h) => [h.documentId, h.key]),
+  );
   for (const peer of args.receiverSnapshot.peers) {
     if (!peer.slot) continue;
     for (const [documentId, h] of Object.entries(peer.slot.handles)) {
       out.push({
         peerId: peer.peerId,
-        handleKey: keyByDocId.get(documentId) ?? "(unknown — sender announced unfamiliar doc)",
+        handleKey:
+          keyByDocId.get(documentId) ??
+          "(unknown — sender announced unfamiliar doc)",
         documentId,
         state: h.state,
         announcedToPeer: h.announcedToPeer,
@@ -641,9 +661,15 @@ async function main(): Promise<void> {
     // receiver pre-warming before peer-candidate fires; we do the same
     // here by constructing wrappers on both sides immediately after
     // mesh client construction.
-    log("prewarm", `constructing ${HANDLE_COUNT} $meshState wrappers on sender`);
+    log(
+      "prewarm",
+      `constructing ${HANDLE_COUNT} $meshState wrappers on sender`,
+    );
     const senderHandles = await prewarmAllHandles(sender);
-    log("prewarm", `constructing ${HANDLE_COUNT} $meshState wrappers on receiver`);
+    log(
+      "prewarm",
+      `constructing ${HANDLE_COUNT} $meshState wrappers on receiver`,
+    );
     const receiverHandles = await prewarmAllHandles(receiver);
 
     // Sender writes content into every handle. The receiver's
@@ -669,18 +695,30 @@ async function main(): Promise<void> {
     refuseIfFalsePositiveConditions({
       handleCount: receiverHandles.length,
       receiverSnapshot: receiverSnapshotAtCandidate,
-      receiverHandles: receiverHandles.map((h) => ({ key: h.key, documentId: h.documentId })),
+      receiverHandles: receiverHandles.map((h) => ({
+        key: h.key,
+        documentId: h.documentId,
+      })),
     });
 
     // Now the actual contract: do the receiver's $meshState.value
     // signals mutate to match the sender's content within the budget?
-    log("verify", `waiting up to ${SYNC_OBSERVATION_BUDGET_MS}ms for sync to receiver`);
+    log(
+      "verify",
+      `waiting up to ${SYNC_OBSERVATION_BUDGET_MS}ms for sync to receiver`,
+    );
     const { syncedAt, perHandleStatus } = await waitForSyncToReceiver({
-      primitives: receiverHandles.map((h) => ({ key: h.key, primitive: h.primitive })),
+      primitives: receiverHandles.map((h) => ({
+        key: h.key,
+        primitive: h.primitive,
+      })),
       budgetMs: SYNC_OBSERVATION_BUDGET_MS,
     });
     if (syncedAt !== undefined) {
-      log("verify", `every receiver handle saw sender content at ${syncedAt}ms`);
+      log(
+        "verify",
+        `every receiver handle saw sender content at ${syncedAt}ms`,
+      );
     } else {
       log(
         "verify",
@@ -715,7 +753,10 @@ async function main(): Promise<void> {
     // actually looked like.
     const transcript = buildTranscript({
       receiverSnapshot: contract.receiverSnapshot,
-      receiverHandles: receiverHandles.map((h) => ({ key: h.key, documentId: h.documentId })),
+      receiverHandles: receiverHandles.map((h) => ({
+        key: h.key,
+        documentId: h.documentId,
+      })),
     });
     const transcriptPath = resolvePath(import.meta.dir, "transcript.json");
     await writeFile(
@@ -736,10 +777,16 @@ async function main(): Promise<void> {
     log("transcript", `wrote ${transcriptPath}`);
 
     if (VERBOSE) {
-      logVerbose("snapshot", JSON.stringify(contract.receiverSnapshot, null, 2));
+      logVerbose(
+        "snapshot",
+        JSON.stringify(contract.receiverSnapshot, null, 2),
+      );
     }
   } catch (err) {
-    log("ERROR", err instanceof Error ? err.stack ?? err.message : String(err));
+    log(
+      "ERROR",
+      err instanceof Error ? (err.stack ?? err.message) : String(err),
+    );
     exitCode = 1;
   } finally {
     if (receiver) await receiver.close();
