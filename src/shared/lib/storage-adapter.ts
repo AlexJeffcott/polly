@@ -1,6 +1,8 @@
 // Storage adapters for different execution contexts
 // Automatically chooses the right storage mechanism based on environment
 
+import { cachedOpen, runRequest, runTx } from "./idb-helpers";
+
 /**
  * Universal storage adapter interface
  */
@@ -10,99 +12,42 @@ export interface StorageAdapter {
   remove(keys: string[]): Promise<void>;
 }
 
-/** Polly#107 post-v0.60: hard timeout on `indexedDB.open()`. Healthy
- * opens land in microseconds; the v0.60.0 fingerprint surfaced a
- * zombie cross-tab connection that left an open request firing no
- * events at all (no `success`, no `error`, no `blocked`). 5s is two
- * orders of magnitude beyond the normal upper bound and short
- * enough that the operator gets a named failure instead of a hung
- * page when the storage layer wedges. */
-const IDB_OPEN_TIMEOUT_MS = 5000;
-
 /**
  * IndexedDB adapter for web apps
  */
 export class IndexedDBAdapter implements StorageAdapter {
-  private dbName: string;
-  private storeName = "state";
-  private dbPromise: Promise<IDBDatabase> | null = null;
+  private readonly dbName: string;
+  private readonly storeName = "state";
+  private readonly dbRef: { promise: Promise<IDBDatabase> | null } = { promise: null };
 
   constructor(dbName = "polly-state") {
     this.dbName = dbName;
   }
 
   private getDB(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
-
-    const pending = new Promise<IDBDatabase>((resolve, reject) => {
-      const start = Date.now();
-      const request = indexedDB.open(this.dbName, 1);
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        const elapsedMs = Date.now() - start;
-        reject(
-          new Error(
-            `Polly IndexedDB open of '${this.dbName}' timed out after ${elapsedMs}ms (cross-tab lock or zombie connection?)`
-          )
-        );
-      }, IDB_OPEN_TIMEOUT_MS);
-
-      request.onerror = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(request.error);
-      };
-      request.onsuccess = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(request.result);
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as unknown as IDBOpenDBRequest).result;
+    return cachedOpen(this.dbRef, {
+      name: this.dbName,
+      version: 1,
+      upgrade: (db) => {
         if (!db.objectStoreNames.contains(this.storeName)) {
           db.createObjectStore(this.storeName);
         }
-      };
+      },
     });
-    // Drop the cached failed promise on rejection so a subsequent call
-    // can retry — without this a transient open failure poisons the
-    // adapter for the lifetime of the process.
-    pending.catch(() => {
-      if (this.dbPromise === pending) this.dbPromise = null;
-    });
-    this.dbPromise = pending;
-    return pending;
   }
 
   async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {
     try {
       const db = await this.getDB();
-      const result: Record<string, T> = {};
-
-      await Promise.all(
-        keys.map(
-          (key) =>
-            new Promise<void>((resolve, reject) => {
-              const transaction = db.transaction([this.storeName], "readonly");
-              const store = transaction.objectStore(this.storeName);
-              const request = store.get(key);
-
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () => {
-                if (request.result !== undefined) {
-                  result[key] = request.result as unknown as T;
-                }
-                resolve();
-              };
-            })
-        )
+      const tx = db.transaction(this.storeName, "readonly");
+      const store = tx.objectStore(this.storeName);
+      const pairs = await Promise.all(
+        keys.map(async (key) => [key, await runRequest(store.get(key))] as const)
       );
-
+      const result: Record<string, T> = {};
+      for (const [key, value] of pairs) {
+        if (value !== undefined) result[key] = value as T;
+      }
       return result;
     } catch (error) {
       console.warn("[Polly] IndexedDB get failed:", error);
@@ -113,19 +58,11 @@ export class IndexedDBAdapter implements StorageAdapter {
   async set(items: Record<string, unknown>): Promise<void> {
     try {
       const db = await this.getDB();
-      await Promise.all(
-        Object.entries(items).map(
-          ([key, value]) =>
-            new Promise<void>((resolve, reject) => {
-              const transaction = db.transaction([this.storeName], "readwrite");
-              const store = transaction.objectStore(this.storeName);
-              const request = store.put(value, key);
-
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () => resolve();
-            })
-        )
-      );
+      await runTx(db, this.storeName, "readwrite", (store) => {
+        for (const [key, value] of Object.entries(items)) {
+          store.put(value, key);
+        }
+      });
     } catch (error) {
       console.warn("[Polly] IndexedDB set failed:", error);
     }
@@ -134,19 +71,9 @@ export class IndexedDBAdapter implements StorageAdapter {
   async remove(keys: string[]): Promise<void> {
     try {
       const db = await this.getDB();
-      await Promise.all(
-        keys.map(
-          (key) =>
-            new Promise<void>((resolve, reject) => {
-              const transaction = db.transaction([this.storeName], "readwrite");
-              const store = transaction.objectStore(this.storeName);
-              const request = store.delete(key);
-
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () => resolve();
-            })
-        )
-      );
+      await runTx(db, this.storeName, "readwrite", (store) => {
+        for (const key of keys) store.delete(key);
+      });
     } catch (error) {
       console.warn("[Polly] IndexedDB remove failed:", error);
     }

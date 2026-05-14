@@ -114,29 +114,39 @@ describe("SSL Certificate Requirement", () => {
       stderr: "pipe",
     });
 
-    // Read stdout to check for startup message
+    // Read both streams to check for startup output. The SSL-missing
+    // error goes to stderr, the success line goes to stdout; we only
+    // care about the SSL-missing marker being absent, so capturing
+    // both is what makes the assertion meaningful.
     const decoder = new TextDecoder();
     const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
 
-    const reader = proc.stdout.getReader();
+    const stdoutReader = proc.stdout.getReader();
+    const stderrReader = proc.stderr.getReader();
 
-    // Read for a short time
     const timeout = setTimeout(() => {
       proc.kill();
     }, 2000);
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        stdoutChunks.push(decoder.decode(value));
-
-        // Stop reading once we see the startup message
-        const output = stdoutChunks.join("");
-        if (output.includes("Team Task Manager server running")) {
-          break;
-        }
-      }
+      await Promise.race([
+        (async () => {
+          while (true) {
+            const { done, value } = await stdoutReader.read();
+            if (done) break;
+            stdoutChunks.push(decoder.decode(value));
+          }
+        })(),
+        (async () => {
+          while (true) {
+            const { done, value } = await stderrReader.read();
+            if (done) break;
+            stderrChunks.push(decoder.decode(value));
+          }
+        })(),
+        proc.exited,
+      ]);
     } catch (e) {
       // Expected - we're killing the process
     } finally {
@@ -144,14 +154,13 @@ describe("SSL Certificate Requirement", () => {
       proc.kill();
     }
 
-    const stdout = stdoutChunks.join("");
+    const output = stdoutChunks.join("") + stderrChunks.join("");
 
-    // This will fail with "FAKE CERT" but we're just testing
-    // that it doesn't exit with the SSL missing error
-    // In a real scenario, you'd mock the TLS setup or use real certs
-    expect(
-      stdout.includes("SSL certificates not found") || stdout.includes("Team Task Manager server")
-    ).toBe(true);
+    // The fake cert content will fail TLS init, but that's not what
+    // this test asserts — it asserts that the SSL-missing branch
+    // didn't fire, i.e. the server honoured the CERTS_DIR env var
+    // and saw the files we put there.
+    expect(output).not.toContain("SSL certificates not found");
   });
 
   test("validates SSL certificate file existence", async () => {

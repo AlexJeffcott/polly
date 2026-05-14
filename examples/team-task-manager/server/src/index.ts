@@ -383,7 +383,7 @@ function broadcastToWorkspace(workspaceId: string, data: any, excludeUserId?: st
 }
 
 // Check if SSL certificates exist
-const CERTS_DIR = `${import.meta.dir}/../certs`;
+const CERTS_DIR = process.env.CERTS_DIR ?? `${import.meta.dir}/../certs`;
 const certFile = Bun.file(`${CERTS_DIR}/cert.pem`);
 const keyFile = Bun.file(`${CERTS_DIR}/key.pem`);
 const hasCerts = (await certFile.exists()) && (await keyFile.exists());

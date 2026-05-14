@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.62.0] - 2026-05-14
+
+### Changed
+
+#### Internal IndexedDB facade and atomic storage writes
+
+`IndexedDBAdapter` and `IndexedDBBlobCache` shared a hundred lines of
+duplicated raw IDB plumbing: timed `indexedDB.open()`, cached `dbPromise`,
+request-to-promise wrappers, manual cursor walks, and two copies of the
+polly#107 five-second open timeout. The duplication now lives behind a
+small internal module, `src/shared/lib/idb-helpers.ts`, which exports
+`openIDB`, `cachedOpen`, `runRequest`, `runTx`, and `iterateCursor`. Both
+adapters delegate to it, lose a hundred and thirty-nine net lines of
+boilerplate, and inherit one canonical copy of the polly#107 timeout.
+
+The refactor uncovered an atomicity bug in `IndexedDBAdapter`. The old
+`set` and `remove` created one IndexedDB transaction per key and awaited
+them in parallel, so a single failing key would resolve some writes and
+reject others — the adapter could land a partial write. The new
+implementation runs every key inside a single `readwrite` transaction
+that commits or aborts as a unit.
+
+### Fixed
+
+#### `team-task-manager` example: `CERTS_DIR` env var and SSL test stderr
+
+The `team-task-manager` server hardcoded `${import.meta.dir}/../certs`
+and ignored the `CERTS_DIR` environment variable the SSL test was
+setting. The server now reads `process.env.CERTS_DIR` first and falls
+back to the legacy path, which matches what the test was already trying
+to do.
+
+The matching SSL test only read stdout, so it never saw the SSL-missing
+error that the server prints to stderr. It now reads both streams and
+asserts the negative its own comment already described — the
+SSL-missing branch must not fire when `CERTS_DIR` points at a directory
+with cert files. The full suite goes from `1 fail / 1875 pass` to
+`0 fail / 1876 pass`.
+
 ## [0.61.0] - 2026-05-14
 
 ### Added

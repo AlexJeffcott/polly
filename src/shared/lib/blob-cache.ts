@@ -16,6 +16,7 @@
  */
 
 import type { BlobCache } from "./blob-store";
+import { cachedOpen, iterateCursor, runRequest, runTx } from "./idb-helpers";
 
 // MemoryBlobCache
 
@@ -133,76 +134,33 @@ export class IndexedDBBlobCache implements BlobCache {
   private static readonly DB_VERSION = 1;
   private static readonly STORE_NAME = "blobs";
 
-  private dbPromise: Promise<IDBDatabase> | null = null;
+  private readonly dbRef: { promise: Promise<IDBDatabase> | null } = { promise: null };
   private readonly urls = new Map<string, string>();
 
-  /** Polly#107 post-v0.60: hard timeout on `indexedDB.open()`. See
-   * the matching note in `storage-adapter.ts` — healthy opens are
-   * sub-millisecond, the v0.60.0 fingerprint surfaced a zombie
-   * cross-tab connection firing no events at all. */
-  private static readonly OPEN_TIMEOUT_MS = 5000;
-
   private openDB(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
-    const pending = new Promise<IDBDatabase>((resolve, reject) => {
-      const start = Date.now();
-      const request = indexedDB.open(IndexedDBBlobCache.DB_NAME, IndexedDBBlobCache.DB_VERSION);
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        const elapsedMs = Date.now() - start;
-        reject(
-          new Error(
-            `Polly IndexedDB open of '${IndexedDBBlobCache.DB_NAME}' timed out after ${elapsedMs}ms (cross-tab lock or zombie connection?)`
-          )
-        );
-      }, IndexedDBBlobCache.OPEN_TIMEOUT_MS);
-      request.onerror = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(request.error);
-      };
-      request.onsuccess = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(request.result);
-      };
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as unknown as IDBOpenDBRequest).result;
+    return cachedOpen(this.dbRef, {
+      name: IndexedDBBlobCache.DB_NAME,
+      version: IndexedDBBlobCache.DB_VERSION,
+      upgrade: (db) => {
         if (!db.objectStoreNames.contains(IndexedDBBlobCache.STORE_NAME)) {
           db.createObjectStore(IndexedDBBlobCache.STORE_NAME);
         }
-      };
+      },
     });
-    pending.catch(() => {
-      if (this.dbPromise === pending) this.dbPromise = null;
-    });
-    this.dbPromise = pending;
-    return pending;
   }
 
   private async getRecord(hash: string): Promise<IDBRecord | undefined> {
     const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
-      const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
-      const request = store.get(hash);
-      request.onsuccess = () => resolve(request.result as unknown as IDBRecord | undefined);
-      request.onerror = () => reject(request.error);
-    });
+    const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
+    return runRequest(tx.objectStore(IndexedDBBlobCache.STORE_NAME).get(hash)) as Promise<
+      IDBRecord | undefined
+    >;
   }
 
   private async putRecord(hash: string, record: IDBRecord): Promise<void> {
     const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readwrite");
-      const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
+    await runTx(db, IndexedDBBlobCache.STORE_NAME, "readwrite", (store) => {
       store.put(record, hash);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -227,13 +185,9 @@ export class IndexedDBBlobCache implements BlobCache {
 
   async has(hash: string): Promise<boolean> {
     const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
-      const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
-      const request = store.count(hash);
-      request.onsuccess = () => resolve(request.result > 0);
-      request.onerror = () => reject(request.error);
-    });
+    const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
+    const count = await runRequest(tx.objectStore(IndexedDBBlobCache.STORE_NAME).count(hash));
+    return count > 0;
   }
 
   async delete(hash: string): Promise<void> {
@@ -243,12 +197,8 @@ export class IndexedDBBlobCache implements BlobCache {
       this.urls.delete(hash);
     }
     const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readwrite");
-      const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
+    await runTx(db, IndexedDBBlobCache.STORE_NAME, "readwrite", (store) => {
       store.delete(hash);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -266,23 +216,11 @@ export class IndexedDBBlobCache implements BlobCache {
 
   async size(): Promise<number> {
     const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
-      const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
-      const request = store.openCursor();
-      let total = 0;
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          const value = cursor.value as unknown as IDBRecord;
-          total += value.size;
-          cursor.continue();
-        } else {
-          resolve(total);
-        }
-      };
-      request.onerror = () => reject(request.error);
+    let total = 0;
+    await iterateCursor<IDBRecord>(db, IndexedDBBlobCache.STORE_NAME, (_key, value) => {
+      total += value.size;
     });
+    return total;
   }
 
   async evict(maxBytes: number): Promise<number> {
@@ -290,28 +228,15 @@ export class IndexedDBBlobCache implements BlobCache {
     const candidates: Array<{ hash: string; accessedAt: number; size: number }> = [];
     let totalSize = 0;
 
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
-      const store = tx.objectStore(IndexedDBBlobCache.STORE_NAME);
-      const request = store.openCursor();
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          const value = cursor.value as unknown as IDBRecord;
-          totalSize += value.size;
-          if (!value.pinned) {
-            candidates.push({
-              hash: cursor.key as unknown as string,
-              accessedAt: value.accessedAt,
-              size: value.size,
-            });
-          }
-          cursor.continue();
-        } else {
-          resolve();
-        }
-      };
-      request.onerror = () => reject(request.error);
+    await iterateCursor<IDBRecord>(db, IndexedDBBlobCache.STORE_NAME, (key, value) => {
+      totalSize += value.size;
+      if (!value.pinned) {
+        candidates.push({
+          hash: key as string,
+          accessedAt: value.accessedAt,
+          size: value.size,
+        });
+      }
     });
 
     if (totalSize <= maxBytes) return 0;
