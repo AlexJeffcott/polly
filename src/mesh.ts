@@ -89,6 +89,8 @@ export {
   $meshState,
   $meshText,
   configureMeshState,
+  deriveDocumentId,
+  getDocIdResolver,
   getLastConfiguredRepoPeerId,
   getLastLoadedRejection,
   getLazyInvocations,
@@ -98,9 +100,12 @@ export {
   getStorageOpenError,
   isMeshStateConfigured,
   MESH_STATE_MODULE_ID,
+  registerDocIdResolver,
   resetMeshState,
+  resolveDocumentId,
   wasMeshStateResolved,
 } from "./shared/lib/mesh-state";
+export type { DocIdResolver } from "./shared/lib/mesh-state";
 // Mesh WebRTC adapter
 export type {
   HandleSyncSnapshot,

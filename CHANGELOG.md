@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.63.0] - 2026-05-14
+
+### Added
+
+#### `$meshState` docId resolver hook (fairfox ADR 0008)
+
+`$mesh*` wrappers can now route their key→DocumentId resolution
+through a consumer-installed function instead of (or in addition
+to) the deterministic `deriveDocumentId(key)` hash. The hook is
+designed for document compaction: the consumer maintains a
+runtime index that maps logical keys to the docId of the
+currently-live (post-compaction) document, and `$meshState('mesh:devices')`
+transparently lands on the cleaned doc rather than the bloated
+historical one.
+
+- `registerDocIdResolver(resolver: DocIdResolver | undefined)` —
+  installs (or clears) a synchronous resolver consulted at every
+  `buildHandleFactory` setup. Returning `undefined` from the
+  resolver falls through to the legacy derived id.
+- `resolveDocumentId(key)` — exported convenience that runs the
+  resolver-then-derive chain. Used inside `buildHandleFactory`;
+  also useful to consumers that want to compute the live id of a
+  key without constructing a wrapper.
+- `deriveDocumentId(key)` is now exported so consumers can compute
+  the same hash polly does for any logical key — for seeding a
+  newly-compacted document at a deterministic versioned id like
+  `deriveDocumentId(key + ':v' + timestamp)`.
+- `DocIdResolver` type re-exported alongside the runtime helpers.
+- `resetMeshState()` clears the resolver, restoring legacy
+  derive-only behaviour for tests.
+
+The resolver runs synchronously and is consulted on every wrapper
+construction; consumer code that needs to look up an async index
+typically registers the resolver only after the index has
+hydrated. The resolver must short-circuit on its own index-doc
+key (return `undefined`) to avoid infinite recursion — fairfox's
+index lives at `mesh:document-index` and the resolver returns
+`undefined` for that key, letting it resolve via the derived id.
+
+Backwards-compatible: no resolver installed means the old
+deterministic-id behaviour, identical to v0.62.0.
+
 ## [0.62.0] - 2026-05-14
 
 ### Changed

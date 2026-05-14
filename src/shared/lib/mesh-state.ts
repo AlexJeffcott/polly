@@ -155,6 +155,7 @@ export function resetMeshState(): void {
   lastLoadedRejection = undefined;
   lastStorageOpenError = undefined;
   lazyWrappers = [];
+  docIdResolver = undefined;
 }
 
 /** Returns whether this module instance's `defaultRepo` was ever
@@ -512,10 +513,63 @@ function resolveRepo(option: Repo | undefined): Repo {
 const DOC_ID_DOMAIN = "polly/meshState/v1";
 const keyEncoder = new TextEncoder();
 
-function deriveDocumentId(key: string): DocumentId {
+/**
+ * Domain-separated hash of an application key into a 16-byte
+ * {@link DocumentId}. Exported so consumers can compute the
+ * derived id for any logical key — useful for ADR 0008-style
+ * document compaction where the consumer wants to seed a new doc
+ * at `deriveDocumentId(key + ':v' + timestamp)` and stash that id
+ * in a runtime index. */
+export function deriveDocumentId(key: string): DocumentId {
   const digest = nacl.hash(keyEncoder.encode(`${DOC_ID_DOMAIN}:${key}`));
   const bytes = digest.slice(0, 16);
   return interpretAsDocumentId(bytes as unknown as BinaryDocumentId);
+}
+
+/**
+ * Caller-installed resolver consulted at every `$mesh*` wrapper
+ * lazy construction. Returns the {@link DocumentId} the consumer
+ * wants the logical key to resolve to, or `undefined` to fall back
+ * to the deterministic {@link deriveDocumentId} path.
+ *
+ * Designed for fairfox-style document compaction where a logical
+ * key (e.g. `mesh:devices`) needs to point at a freshly-seeded
+ * cleaned doc instead of the bloated historical one. The consumer
+ * registers a resolver that consults a runtime index document
+ * (e.g. `mesh:document-index`) for the current docId per key,
+ * falling back to derived for keys that haven't been compacted.
+ *
+ * Synchronous: the resolver runs inside `$meshState` construction,
+ * which is called from consumer module-init paths that can't
+ * tolerate an async hop. Consumers that need an async lookup
+ * (e.g. waiting for an index doc to hydrate) typically register
+ * the resolver only after the index has loaded, and the
+ * pre-registration period uses the legacy derived path.
+ *
+ * Note on recursion: a consumer's index doc is itself a `$meshState`
+ * wrapper that goes through this resolver. The resolver must
+ * short-circuit on its own index-doc key (return `undefined`) or
+ * the resolution will recurse infinitely. Per ADR 0008.
+ */
+export type DocIdResolver = (key: string) => DocumentId | undefined;
+
+let docIdResolver: DocIdResolver | undefined;
+
+export function registerDocIdResolver(resolver: DocIdResolver | undefined): void {
+  docIdResolver = resolver;
+}
+
+export function getDocIdResolver(): DocIdResolver | undefined {
+  return docIdResolver;
+}
+
+/**
+ * Resolve a logical `$meshState` key to a {@link DocumentId}. The
+ * caller-installed {@link DocIdResolver} (if any) wins; falls back
+ * to {@link deriveDocumentId}. ADR 0008.
+ */
+export function resolveDocumentId(key: string): DocumentId {
+  return docIdResolver?.(key) ?? deriveDocumentId(key);
 }
 
 /**
@@ -533,7 +587,11 @@ function buildHandleFactory<D>(
   key: string,
   initialDoc: D
 ): () => Promise<DocHandle<D>> {
-  const documentId = deriveDocumentId(key);
+  // ADR 0008: consult the caller-installed resolver first so a
+  // compacted key can point at the freshly-seeded cleaned doc.
+  // Falls back to the deterministic derived id when no resolver is
+  // registered or the resolver returns undefined.
+  const documentId = resolveDocumentId(key);
   return async () => {
     // Polly#107 post-H5: tick on every factory entry. See
     // {@link lazyInvocations} for the diagnostic this enables.
