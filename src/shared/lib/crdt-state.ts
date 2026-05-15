@@ -73,6 +73,20 @@ export interface CrdtStateOptions<T extends VersionedDoc> {
    * responsible for repo lookup, document creation, and any transport-specific
    * setup. The base module calls this once, during hydration. */
   getHandle: () => Promise<DocHandle<T>>;
+  /** Optional reactive redirect. When provided, the primitive runs
+   * this against every doc state (initial load and every `change`
+   * event afterwards). Returning a {@link DocHandle} different from
+   * the currently-bound one tells the primitive to detach from the
+   * current handle and rebind to the returned one — the signal
+   * re-fires with the new doc's state and subsequent writes target
+   * the new handle. Returning `undefined` keeps the current binding.
+   *
+   * Designed for ADR-0008-style document compaction redirects: the
+   * caller (e.g. fairfox) provides a callback that inspects the doc
+   * for a sealed-sentinel field and, if present, resolves the named
+   * `migratedTo` docId via its repo. Continuous, so a peer-synced
+   * sentinel rebinds the wrapper without a reload. */
+  resolveRedirect?: (handle: DocHandle<T>, doc: T) => Promise<DocHandle<T> | undefined>;
   /** Target schema version for the application. If set, migrations run on
    * load to bring the document up to this version before the signal hydrates. */
   schemaVersion?: number;
@@ -108,36 +122,19 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
   const inner = signal<T>(options.initialValue);
   let updating = false;
   let currentHandle: DocHandle<T> | undefined;
+  // Detach handle is bound to the live `currentHandle`; rebind swaps
+  // both the handle reference (used by the signal→remote effect) and
+  // this detacher (called before attaching a fresh listener to the
+  // post-redirect handle).
+  let detachChangeListener: (() => void) | undefined;
+  // Re-entry guard for the change → resolveRedirect → swap →
+  // re-listen chain. The change listener fires synchronously off
+  // Automerge's state machine; without the guard a swap-while-handling
+  // would race the listener attach.
+  let swapping = false;
 
-  const loaded = (async () => {
-    const handle = await options.getHandle();
-    await handle.whenReady();
-    currentHandle = handle;
-
-    // Run any pending schema migrations inside a change block so they land
-    // as a single Automerge operation set.
-    if (options.schemaVersion !== undefined) {
-      const targetVersion = options.schemaVersion;
-      const migrations = options.migrations ?? {};
-      handle.change((doc) => {
-        runMigrations(doc as unknown as Record<string, unknown>, targetVersion, migrations);
-        // runMigrations stamps the version on every intermediate step; make
-        // sure the final value is recorded even when no migrations ran.
-        setDocVersion(doc as unknown as Record<string, unknown>, targetVersion);
-      });
-    }
-
-    // Seed the signal with the hydrated doc state. Raise the guard first so
-    // the 'change' listener we install below does not echo this write back.
-    updating = true;
-    try {
-      inner.value = cloneDoc(handle.doc());
-    } finally {
-      updating = false;
-    }
-
-    // Remote-changes-to-signal binding.
-    handle.on("change", (payload) => {
+  function attachChangeListener(handle: DocHandle<T>): void {
+    const listener = (payload: { doc: T }): void => {
       if (updating) return;
       updating = true;
       try {
@@ -145,12 +142,76 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
       } finally {
         updating = false;
       }
-    });
+      // After every change, see if the doc now points elsewhere
+      // (e.g. a peer-synced compaction sentinel). The async path
+      // runs in the background; the change listener itself stays
+      // synchronous so Automerge's event dispatch isn't blocked.
+      if (options.resolveRedirect && !swapping) {
+        void maybeRebind(handle, payload.doc);
+      }
+    };
+    handle.on("change", listener);
+    detachChangeListener = () => {
+      handle.off("change", listener);
+    };
+  }
 
-    // Signal-to-remote binding. The effect runs once on registration with
-    // the already-hydrated value; the guard makes that first run a no-op at
-    // the handle level because updating is false but the doc already equals
-    // the signal, so Automerge records no new operations.
+  async function maybeRebind(fromHandle: DocHandle<T>, doc: T): Promise<void> {
+    if (!options.resolveRedirect) return;
+    if (swapping) return;
+    swapping = true;
+    try {
+      const next = await options.resolveRedirect(fromHandle, doc);
+      if (!next) return;
+      if (next === currentHandle) return;
+      if (next.documentId === fromHandle.documentId) return;
+      // Detach from the old handle, swap, re-attach, re-fire the signal.
+      detachChangeListener?.();
+      detachChangeListener = undefined;
+      currentHandle = next;
+      attachChangeListener(next);
+      updating = true;
+      try {
+        inner.value = cloneDoc(next.doc());
+      } finally {
+        updating = false;
+      }
+    } finally {
+      swapping = false;
+    }
+  }
+
+  async function followInitialRedirects(start: DocHandle<T>): Promise<DocHandle<T>> {
+    if (!options.resolveRedirect) return start;
+    let handle = start;
+    const seen = new Set<string>([handle.documentId as unknown as string]);
+    for (;;) {
+      const doc = handle.doc();
+      if (!doc) break;
+      const next = await options.resolveRedirect(handle, doc);
+      if (!next || next === handle) break;
+      const nextIdString = next.documentId as unknown as string;
+      if (seen.has(nextIdString)) break;
+      seen.add(nextIdString);
+      handle = next;
+      await handle.whenReady();
+    }
+    return handle;
+  }
+
+  function applyPendingMigrations(handle: DocHandle<T>): void {
+    if (options.schemaVersion === undefined) return;
+    const targetVersion = options.schemaVersion;
+    const migrations = options.migrations ?? {};
+    handle.change((doc) => {
+      runMigrations(doc as unknown as Record<string, unknown>, targetVersion, migrations);
+      // runMigrations stamps the version on every intermediate step; make
+      // sure the final value is recorded even when no migrations ran.
+      setDocVersion(doc as unknown as Record<string, unknown>, targetVersion);
+    });
+  }
+
+  function bindSignalToHandle(): void {
     effect(() => {
       const value = inner.value;
       if (updating) return;
@@ -164,6 +225,42 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
         updating = false;
       }
     });
+  }
+
+  const loaded = (async () => {
+    const initialHandle = await options.getHandle();
+    await initialHandle.whenReady();
+    // Initial redirect check before we attach the listener — a doc
+    // that's already sealed at load time shouldn't fire a write loop
+    // through the change listener; just resolve to the post-redirect
+    // handle up front. The same recursive follow lives in
+    // {@link maybeRebind} for changes that arrive after load.
+    const handle = await followInitialRedirects(initialHandle);
+    currentHandle = handle;
+
+    // Run any pending schema migrations inside a change block so they land
+    // as a single Automerge operation set.
+    applyPendingMigrations(handle);
+
+    // Seed the signal with the hydrated doc state. Raise the guard first so
+    // the 'change' listener we install below does not echo this write back.
+    updating = true;
+    try {
+      inner.value = cloneDoc(handle.doc());
+    } finally {
+      updating = false;
+    }
+
+    // Remote-changes-to-signal binding. Routed through a helper so
+    // {@link maybeRebind} can detach + re-attach against the
+    // post-redirect handle when a sentinel appears.
+    attachChangeListener(handle);
+
+    // Signal-to-remote binding. The effect runs once on registration with
+    // the already-hydrated value; the guard makes that first run a no-op at
+    // the handle level because updating is false but the doc already equals
+    // the signal, so Automerge records no new operations.
+    bindSignalToHandle();
   })();
 
   return {

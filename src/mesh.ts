@@ -75,14 +75,15 @@ export type {
   SignalingMessage as MeshSignalingMessage,
 } from "./shared/lib/mesh-signaling-client";
 export { MeshSignalingClient } from "./shared/lib/mesh-signaling-client";
-// Mesh state wrappers
 export type {
+  DocIdResolver,
   LazyWrapperExitReason,
   MeshStateLazyWrapperRecord,
   MeshStateLoadedRejectionBreadcrumb,
   MeshStateOptions,
   MeshStateStorageOpenError,
 } from "./shared/lib/mesh-state";
+// Mesh state wrappers
 export {
   $meshCounter,
   $meshList,
@@ -97,15 +98,16 @@ export {
   getLazyReachedRepo,
   getLazyWrappers,
   getMeshStateModuleId,
+  getRedirectDetector,
   getStorageOpenError,
   isMeshStateConfigured,
   MESH_STATE_MODULE_ID,
   registerDocIdResolver,
+  registerRedirectDetector,
   resetMeshState,
   resolveDocumentId,
   wasMeshStateResolved,
 } from "./shared/lib/mesh-state";
-export type { DocIdResolver } from "./shared/lib/mesh-state";
 // Mesh WebRTC adapter
 export type {
   HandleSyncSnapshot,

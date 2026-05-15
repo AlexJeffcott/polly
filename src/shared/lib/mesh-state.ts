@@ -573,6 +573,50 @@ export function resolveDocumentId(key: string): DocumentId {
 }
 
 /**
+ * Caller-installed detector consulted after a `$mesh*` wrapper's
+ * handle reaches `ready`. Inspects the loaded doc; returns a
+ * {@link DocumentId} the wrapper should transparently rebind to,
+ * or `undefined` to keep the current handle.
+ *
+ * Designed for fairfox-style document-compaction redirects: when a
+ * doc carries an in-band sentinel field (e.g. `__compaction__`),
+ * the wrapper's first load gets the sealed doc; the detector reads
+ * the sentinel and returns the migrated-to docId; polly swaps to
+ * that handle and the consumer sees the cleaned doc transparently.
+ *
+ * Symmetric with {@link DocIdResolver}: the resolver runs at lazy
+ * construction (synchronous, no doc available); the detector runs
+ * after first load (synchronous over the materialised doc). Either
+ * is sufficient to redirect a wrapper, but the detector is the only
+ * mechanism that works on a device whose redirect-index hasn't yet
+ * synced — the sealed doc carries enough information on its own to
+ * resolve the redirect from local storage.
+ *
+ * The detector is invoked repeatedly along a chain of redirects
+ * with a hard cycle/depth guard (see {@link MAX_REDIRECT_FOLLOWS}),
+ * so a compacted-then-compacted-again doc resolves to the latest
+ * `currentDocId` in one factory call.
+ */
+export type RedirectDetector = (doc: unknown) => DocumentId | undefined;
+
+let redirectDetector: RedirectDetector | undefined;
+
+export function registerRedirectDetector(detector: RedirectDetector | undefined): void {
+  redirectDetector = detector;
+}
+
+export function getRedirectDetector(): RedirectDetector | undefined {
+  return redirectDetector;
+}
+
+/** Hard cap on the redirect-follow loop. A correctly-behaved
+ * detector terminates in one or two hops (sealed → current; rarely
+ * sealed1 → sealed2 → current after a re-compaction). Anything
+ * past this is either a cycle (bug in the detector) or an attacker
+ * trying to wedge the wrapper. */
+const MAX_REDIRECT_FOLLOWS = 8;
+
+/**
  * Build a getHandle factory that resolves a logical key to a DocHandle on
  * the supplied Repo via a deterministic DocumentId. On the first call during
  * a process lifetime — whether the device has never written this key or has
@@ -605,6 +649,7 @@ function buildHandleFactory<D>(
       // past the Repo-identity gate.
       lazyReachedRepo++;
       const docIdString = documentId as unknown as string;
+      let handle: DocHandle<D>;
       if (cached) {
         // Polly#107 post-v0.60: bound the placeholder-handle wait so
         // a wedged storage layer (e.g. zombie IDB connection holding
@@ -618,29 +663,24 @@ function buildHandleFactory<D>(
         );
         if (cached.state === "ready") {
           exitReason = "returned-cached";
-          return cached as unknown as DocHandle<D>;
+          handle = cached as unknown as DocHandle<D>;
+        } else {
+          // Fall through to the load/seed path below.
+          handle = await loadOrSeed<D>(repo, documentId, initialDoc, docIdString, (r) => {
+            exitReason = r;
+          });
         }
+      } else {
+        handle = await loadOrSeed<D>(repo, documentId, initialDoc, docIdString, (r) => {
+          exitReason = r;
+        });
       }
-      // Polly#107 post-v0.60: the `loadDoc()` call drops into
-      // whatever IndexedDB adapter the consumer wired (Automerge's
-      // `IndexedDBStorageAdapter` in fairfox's case). A wedged DB
-      // open or a blocked transaction at this layer is invisible to
-      // polly otherwise; the timeout surfaces it as a populated
-      // `storageOpenError` field on the snapshot.
-      const loadPromise = repo.storageSubsystem?.loadDoc<D>(documentId);
-      const stored = loadPromise
-        ? await withStorageTimeout("loadDoc", docIdString, loadPromise)
-        : undefined;
-      if (stored) {
-        exitReason = "loaded-from-storage";
-        return repo.find<D>(documentId, { allowableStates: ["ready"] });
-      }
-      const seeded = Automerge.save(
-        Automerge.from(initialDoc as unknown as Record<string, unknown>)
-      );
-      const handle = repo.import<D>(seeded, { docId: documentId });
-      handle.doneLoading();
-      exitReason = "seeded-and-imported";
+      // ADR 0008 v3b: the redirect detector runs INSIDE
+      // {@link $crdtState} on every doc change, not here. The
+      // factory's job is to produce the initial handle for the
+      // resolver-derived docId; $crdtState handles continuous
+      // sentinel-follow against the live handle so a peer-synced
+      // sentinel rebinds the wrapper reactively without a reload.
       return handle;
     } catch (err) {
       // Capture the breadcrumb on the module so an otherwise-silent
@@ -669,6 +709,85 @@ function buildHandleFactory<D>(
       });
     }
   };
+}
+
+/** Helper for the load-or-seed arm of {@link buildHandleFactory}.
+ * Extracted so the cached/non-cached arms share one body. */
+async function loadOrSeed<D>(
+  repo: Repo,
+  documentId: DocumentId,
+  initialDoc: D,
+  docIdString: string,
+  setExitReason: (r: LazyWrapperExitReason) => void
+): Promise<DocHandle<D>> {
+  const loadPromise = repo.storageSubsystem?.loadDoc<D>(documentId);
+  const stored = loadPromise
+    ? await withStorageTimeout("loadDoc", docIdString, loadPromise)
+    : undefined;
+  if (stored) {
+    setExitReason("loaded-from-storage");
+    return repo.find<D>(documentId, { allowableStates: ["ready"] });
+  }
+  const seeded = Automerge.save(Automerge.from(initialDoc as unknown as Record<string, unknown>));
+  const handle = repo.import<D>(seeded, { docId: documentId });
+  handle.doneLoading();
+  setExitReason("seeded-and-imported");
+  return handle;
+}
+
+/** Resolve a redirect off a ready handle, walking the detector
+ * chain (up to {@link MAX_REDIRECT_FOLLOWS}) and returning the
+ * final handle. Used by {@link $crdtState}'s continuous-rebind
+ * loop. Symmetric structure to the docId resolver, but works
+ * against the materialised doc once the handle is ready — so a
+ * peer-synced sentinel on the bound doc transparently rebinds the
+ * wrapper to the new docId without a reload. */
+export async function followRedirects<D>(repo: Repo, initial: DocHandle<D>): Promise<DocHandle<D>> {
+  let current = initial;
+  const seen = new Set<string>([current.documentId as unknown as string]);
+  for (let i = 0; i < MAX_REDIRECT_FOLLOWS; i++) {
+    const detector = redirectDetector;
+    if (!detector) {
+      return current;
+    }
+    let nextId: DocumentId | undefined;
+    try {
+      const doc = current.doc();
+      if (!doc) {
+        return current;
+      }
+      nextId = detector(doc);
+    } catch {
+      // Detector threw — keep current handle.
+      return current;
+    }
+    if (!nextId) {
+      return current;
+    }
+    const nextIdString = nextId as unknown as string;
+    if (nextIdString === (current.documentId as unknown as string)) {
+      return current;
+    }
+    if (seen.has(nextIdString)) {
+      // Cycle. Stop following; consumer sees the current handle.
+      return current;
+    }
+    seen.add(nextIdString);
+    try {
+      // `allowableStates: ['ready', 'unavailable']` lets find resolve
+      // when the new doc syncs from a peer OR when polly gives up
+      // and marks it unavailable. The wrapper subscribes to the
+      // handle either way, so a slow-syncing redirect target shows
+      // up in the consumer's UI the moment the bytes arrive.
+      current = await repo.find<D>(nextId, {
+        allowableStates: ["ready", "unavailable"],
+      });
+    } catch {
+      // Find threw — fall back to the previous handle.
+      return current;
+    }
+  }
+  return current;
 }
 
 // $meshState
@@ -712,11 +831,49 @@ export function $meshState<T extends VersionedDoc>(
       primitive: "meshState",
       initialValue,
       getHandle: buildHandleFactory<T>(repo, key, initialValue),
+      resolveRedirect: buildRedirectResolver<T>(repo),
       schemaVersion: options.schemaVersion,
       migrations: options.migrations,
       access: options.access,
     })
   );
+}
+
+/** Compose the caller-registered {@link RedirectDetector} (if any)
+ * with the repo handle the wrapper is operating against, into the
+ * `resolveRedirect` callback {@link $crdtState} consumes. Returns
+ * `undefined` when no detector is registered, so $crdtState skips
+ * the rebind path entirely and behaves exactly as it did pre-v3b.
+ *
+ * The closure captures the repo at construction time, so a later
+ * {@link configureMeshState} call won't redirect an existing
+ * wrapper to a different repo — matching how the initial handle is
+ * resolved. */
+function buildRedirectResolver<T>(
+  repo: Repo
+): ((handle: DocHandle<T>, doc: T) => Promise<DocHandle<T> | undefined>) | undefined {
+  if (!redirectDetector) {
+    // Detector might be registered later; return a callback that
+    // checks at call time rather than locking in undefined now.
+  }
+  return async (_handle, doc) => {
+    const detector = redirectDetector;
+    if (!detector) return undefined;
+    let nextId: DocumentId | undefined;
+    try {
+      nextId = detector(doc);
+    } catch {
+      return undefined;
+    }
+    if (!nextId) return undefined;
+    try {
+      return await repo.find<T>(nextId, {
+        allowableStates: ["ready", "unavailable"],
+      });
+    } catch {
+      return undefined;
+    }
+  };
 }
 
 // $meshText
