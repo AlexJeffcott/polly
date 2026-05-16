@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.0] - 2026-05-16
+
+### Fixed
+
+#### Wedged-slot recovery in `MeshWebRTCAdapter` (polly#109, polly#110)
+
+Two related shapes left peer slots permanently wedged from the
+adapter's own perspective, recoverable only by the signalling WS
+dropping (which forces a wholesale teardown) or by the consumer
+reloading the tab:
+
+- polly#109: `createInitiatingSlot` registered the slot before
+  calling `initiateOffer` as a fire-and-forget promise. A
+  rejection inside `createOffer` or `setLocalDescription` was
+  dropped on the floor; no SDP was set locally, ICE never started
+  gathering, and `connectionState` stayed `new` indefinitely. The
+  recovery sweep hit `slot-already-exists` on every tick and
+  refused to retry.
+
+- polly#110: a remote process killed without an OS-layer FIN
+  (SIGKILL, crash, network partition followed by daemon restart)
+  left the slot at `connectionState === "connected"` while the
+  data channel sent sync traffic into the void. The
+  `onconnectionstatechange` handler only tears the slot down on
+  `disconnected | failed | closed`; the ICE keepalive timer can
+  take many minutes to transition into one of those, and during
+  that window the slot is unrecoverable from the browser's side.
+
+Both are fixed by tearing the wedged slot down so the recovery
+sweep can re-attempt:
+
+- `initiateOffer` is now awaited via `.catch` that records the
+  failure on the per-peer `slotInitiationDecisions` map as
+  `fatal-error` and removes the slot. The `lastSlotInitiationDecisions`
+  surface that `getPeerStateSnapshot()` already exposes shows the
+  named cause; the next sweep re-evaluates and creates a fresh
+  slot.
+- A periodic slot watchdog walks every active slot every
+  `SLOT_WATCHDOG_INTERVAL_MS` (5s default) and tears down two
+  named wedge shapes:
+  - `connectionState` in `new`/`connecting` for longer than
+    `SLOT_NEVER_CONNECTED_TIMEOUT_MS` (30s default) — catches the
+    polly#109 family broadly, including any network condition
+    under which ICE never gathers.
+  - `connectionState === "connected"` AND data channel `open` AND
+    no inbound bytes for longer than `SLOT_IDLE_TIMEOUT_MS`
+    (120s default) — catches the polly#110 application-layer
+    silence shape orders of magnitude before the ICE keepalive
+    timer notices.
+
+New `MeshWebRTCAdapterOptions` knobs (`slotNeverConnectedTimeoutMs`,
+`slotIdleTimeoutMs`, `slotWatchdogIntervalMs`) override the
+defaults. Each setting accepts `0` to disable that specific gate
+or the watchdog entirely.
+
+`getPeerStateSnapshot().peers[…].slot` gains two fields:
+`createdAt` (slot construction `performance.now()`) and
+`lastInboundAt` (most-recent inbound `message` event), so a
+consumer harness can see the watchdog's view of slot liveness
+directly.
+
+The same change also fixes a small bookkeeping issue in
+`onconnectionstatechange`: the `closed` transition that
+`tearDownWedgedSlot` triggers no longer causes a duplicate
+`peer-disconnected` emit.
+
 ## [0.63.0] - 2026-05-14
 
 ### Added

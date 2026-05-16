@@ -211,6 +211,8 @@ function serialiseSlotView(slot: PeerSlot): {
   transport: TransportSnapshot | undefined;
   lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
   handles: Record<string, HandleSyncSnapshot>;
+  createdAt: number;
+  lastInboundAt: number | undefined;
 } {
   const handles: Record<string, HandleSyncSnapshot> = {};
   for (const [docId, snapshot] of slot.handles) {
@@ -234,6 +236,8 @@ function serialiseSlotView(slot: PeerSlot): {
       : undefined,
     lastSyncHandshakeAttempt: { ...slot.lastSyncHandshakeAttempt },
     handles,
+    createdAt: slot.createdAt,
+    lastInboundAt: slot.lastInboundAt,
   };
 }
 
@@ -274,6 +278,33 @@ export const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
 ];
+
+/** Polly issue #109: how long a slot can sit at `connectionState` in
+ * `new` or `connecting` before the watchdog tears it down so the
+ * recovery sweep can re-attempt. Healthy ICE completes in single-digit
+ * seconds; 30s is well past anything legitimate and short enough that
+ * a silent `createOffer`/`setLocalDescription` rejection no longer
+ * leaves an unrecoverable wedged slot. */
+export const SLOT_NEVER_CONNECTED_TIMEOUT_MS = 30_000;
+
+/** Polly issue #110: how long a slot whose data channel is open and
+ * whose `connectionState` is `connected` can have no inbound bytes
+ * before the watchdog assumes the remote process is dead and tears
+ * the slot down. The ICE keepalive timer can take minutes to notice a
+ * remote SIGKILL or network partition; an application-layer
+ * liveness check that runs an order of magnitude faster keeps
+ * paired devices from sending sync traffic into the void after the
+ * remote daemon restarts. 120s is conservative — Automerge's idle
+ * cadence is well below this, so a healthy slot never crosses the
+ * threshold. */
+export const SLOT_IDLE_TIMEOUT_MS = 120_000;
+
+/** Polly issue #109/#110: how often the watchdog evaluates teardown
+ * decisions across every slot. 5s is well below either threshold so
+ * teardown happens promptly after a deadline lapses without
+ * dominating runtime cost (one `connectionState` read per slot per
+ * tick). */
+export const SLOT_WATCHDOG_INTERVAL_MS = 5_000;
 
 /** Options for constructing a {@link MeshWebRTCAdapter}. */
 export interface MeshWebRTCAdapterOptions {
@@ -378,6 +409,22 @@ export interface MeshWebRTCAdapterOptions {
    * `POLLY_104_DISABLE_FIX=1` falsification path. Production callers
    * should leave this at the default. */
   syncFragmentChunkSizeOverride?: number;
+  /** How long a slot can sit at `connectionState` in `new` or
+   * `connecting` before the watchdog tears it down. Defaults to
+   * {@link SLOT_NEVER_CONNECTED_TIMEOUT_MS}. Set to 0 to disable the
+   * gate. Polly issue #109. */
+  slotNeverConnectedTimeoutMs?: number;
+  /** How long a connected slot can have no inbound bytes before the
+   * watchdog tears it down as idle. Defaults to
+   * {@link SLOT_IDLE_TIMEOUT_MS}. Set to 0 to disable the gate.
+   * Polly issue #110. */
+  slotIdleTimeoutMs?: number;
+  /** How often the slot watchdog evaluates teardown decisions.
+   * Defaults to {@link SLOT_WATCHDOG_INTERVAL_MS}; tests override to
+   * tens of milliseconds. Set to 0 to disable the watchdog entirely
+   * (the pre-#109/#110 behaviour, kept only for migration and the
+   * falsification path). */
+  slotWatchdogIntervalMs?: number;
 }
 
 /** Types of signalling payload this adapter exchanges through the
@@ -475,7 +522,10 @@ export interface TransportSnapshot {
  *   negotiation state.
  * - `fatal-error`: an exception was thrown while attempting to build
  *   the slot. The accompanying {@link SlotInitiationDecision.error}
- *   string carries the message.
+ *   string carries the message. This is also stamped when the slot
+ *   watchdog tears a wedged slot down (polly#109's silent throw, or
+ *   polly#110's idle-but-still-`connected` post-mortem), so the next
+ *   sweep tick finds no slot and retries.
  */
 export type SlotInitiationRejectionReason =
   | "self"
@@ -706,6 +756,18 @@ interface PeerSlot {
    * closes the "handle exists in repo but Automerge never announced
    * it" diagnostic gap. */
   handles: Map<string, HandleSyncSnapshot>;
+  /** `performance.now()` at slot construction. The watchdog uses this
+   * to detect slots whose `connectionState` never advances past
+   * `new`/`connecting` — the polly#109 silent-throw shape — by
+   * comparing against {@link SLOT_NEVER_CONNECTED_TIMEOUT_MS}. */
+  createdAt: number;
+  /** `performance.now()` at the most recent inbound `message` event
+   * on this slot's data channel. `undefined` until the first inbound
+   * frame arrives. The watchdog uses this to detect connected slots
+   * whose remote process died without an OS-layer FIN — the polly#110
+   * shape — by comparing against {@link SLOT_IDLE_TIMEOUT_MS} once
+   * the channel has opened. */
+  lastInboundAt: number | undefined;
 }
 
 /**
@@ -782,6 +844,14 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * {@link sweepRunCount} so a stalled sweep is visible at a glance
    * via the snapshot's `sweep` block. */
   private lastSweepAt: number | undefined;
+  /** Watchdog interval (polly#109 + polly#110). Tears down slots that
+   * never reach `connected`, or that look connected but have not
+   * received bytes for {@link slotIdleTimeoutMs}, so the recovery
+   * sweep can re-attempt. Cleared in {@link disconnect}. */
+  private slotWatchdogTimer: ReturnType<typeof setInterval> | undefined;
+  private readonly slotNeverConnectedTimeoutMs: number;
+  private readonly slotIdleTimeoutMs: number;
+  private readonly slotWatchdogIntervalMs: number;
 
   /** The peers this adapter will dial. Backward-compatible read accessor
    * for callers that previously iterated the `knownPeerIds` array. With
@@ -825,6 +895,10 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.knownPeersRefreshIntervalMs = options.knownPeersRefreshIntervalMs ?? 2000;
     this.syncYieldEnabled = options.syncYieldEnabled ?? true;
     this.syncFragmentChunkSize = options.syncFragmentChunkSizeOverride ?? SYNC_FRAGMENT_CHUNK_SIZE;
+    this.slotNeverConnectedTimeoutMs =
+      options.slotNeverConnectedTimeoutMs ?? SLOT_NEVER_CONNECTED_TIMEOUT_MS;
+    this.slotIdleTimeoutMs = options.slotIdleTimeoutMs ?? SLOT_IDLE_TIMEOUT_MS;
+    this.slotWatchdogIntervalMs = options.slotWatchdogIntervalMs ?? SLOT_WATCHDOG_INTERVAL_MS;
     this.localPeerId = options.peerId;
     const PC = options.RTCPeerConnection ?? globalThis.RTCPeerConnection;
     if (typeof PC !== "function") {
@@ -890,6 +964,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
             transport: TransportSnapshot | undefined;
             lastSyncHandshakeAttempt: SyncHandshakeAttemptSnapshot;
             handles: Record<string, HandleSyncSnapshot>;
+            createdAt: number;
+            lastInboundAt: number | undefined;
           };
     }>;
   } {
@@ -1131,10 +1207,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     this.ready = true;
     this.readyResolver?.();
     this.startKnownPeersSweep();
+    this.startSlotWatchdog();
   }
 
   disconnect(): void {
     this.stopKnownPeersSweep();
+    this.stopSlotWatchdog();
     for (const slot of this.slots.values()) {
       slot.channel?.close();
       slot.connection.close();
@@ -1180,6 +1258,124 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     if (this.knownPeersRefreshTimer === undefined) return;
     clearInterval(this.knownPeersRefreshTimer);
     this.knownPeersRefreshTimer = undefined;
+  }
+
+  /** Close a slot's data channel and connection, remove it from the
+   * map, and emit `peer-disconnected` upward so Automerge stops
+   * routing through the dead pair. Used by both the polly#109
+   * `.catch` in {@link createInitiatingSlot} and the polly#109/#110
+   * watchdog in {@link sweepWedgedSlots}. */
+  private tearDownWedgedSlot(peerId: string): void {
+    const slot = this.slots.get(peerId);
+    if (!slot) return;
+    // Delete from the map BEFORE closing the connection. The
+    // `connection.close()` call below transitions the connection to
+    // `closed` synchronously on some implementations, which re-enters
+    // `onconnectionstatechange` — and that handler emits its own
+    // `peer-disconnected` if it sees the slot still mapped. Removing
+    // it first makes the handler's `has(peerId)` check false so we
+    // own the single emit.
+    this.slots.delete(peerId);
+    try {
+      slot.channel?.close();
+    } catch {
+      // werift's data channel `close()` can throw if the underlying
+      // connection has already gone away; swallow so a teardown
+      // never leaks an exception out of the watchdog loop.
+    }
+    try {
+      slot.connection.close();
+    } catch {
+      // Same rationale as above.
+    }
+    this.emit("peer-disconnected", { peerId: peerId as unknown as PeerId });
+  }
+
+  /** Start the slot watchdog (polly#109 + polly#110). Walks every
+   * active slot every {@link slotWatchdogIntervalMs} and tears down
+   * the two named wedge shapes:
+   *
+   * - `connectionState` in `new`/`connecting` for longer than
+   *   {@link slotNeverConnectedTimeoutMs} (polly#109: silent
+   *   `createOffer`/`setLocalDescription` rejection, or a network
+   *   condition under which ICE never gathers).
+   *
+   * - `connectionState === "connected"` AND data channel `open` AND
+   *   no inbound bytes for {@link slotIdleTimeoutMs} (polly#110:
+   *   remote process killed without OS-layer FIN — ICE keepalives
+   *   take many minutes to fail, the slot sends sync traffic into
+   *   the void until then).
+   *
+   * Each teardown stamps `fatal-error` on the per-peer decision so
+   * the named gate is visible on the next snapshot, then emits
+   * `peer-disconnected` so Automerge stops routing through the dead
+   * slot. The next sweep tick re-evaluates and the recovery path
+   * creates a fresh slot. No-op when configured to 0. */
+  private startSlotWatchdog(): void {
+    if (this.slotWatchdogIntervalMs <= 0) return;
+    if (this.slotWatchdogTimer !== undefined) return;
+    this.slotWatchdogTimer = setInterval(() => {
+      try {
+        this.sweepWedgedSlots();
+      } catch {
+        // Belt-and-braces: the per-slot loop already swallows
+        // teardown errors. A non-per-slot throw should still leave
+        // the timer alive.
+      }
+    }, this.slotWatchdogIntervalMs);
+  }
+
+  private stopSlotWatchdog(): void {
+    if (this.slotWatchdogTimer === undefined) return;
+    clearInterval(this.slotWatchdogTimer);
+    this.slotWatchdogTimer = undefined;
+  }
+
+  private sweepWedgedSlots(): void {
+    const now = performance.now();
+    const peerIds = [...this.slots.keys()];
+    for (const peerId of peerIds) {
+      const slot = this.slots.get(peerId);
+      if (!slot) continue;
+      const reason = this.classifyWedgedSlot(slot, now);
+      if (!reason) continue;
+      this.lastSlotInitiationDecisions.set(peerId, {
+        decision: "rejected",
+        reason: "fatal-error",
+        error: reason,
+        at: now,
+      });
+      this.tearDownWedgedSlot(peerId);
+    }
+  }
+
+  /** Decide whether a slot is wedged at the moment of inspection,
+   * returning the human-readable diagnosis when it is. Pulled out of
+   * {@link sweepWedgedSlots} so the per-slot decision stays under
+   * biome's cognitive-complexity ceiling and so a future test can
+   * exercise the gates directly. */
+  private classifyWedgedSlot(slot: PeerSlot, now: number): string | undefined {
+    const state = slot.connection.connectionState;
+    const ageMs = now - slot.createdAt;
+    if (
+      this.slotNeverConnectedTimeoutMs > 0 &&
+      (state === "new" || state === "connecting") &&
+      ageMs > this.slotNeverConnectedTimeoutMs
+    ) {
+      return `slot never reached connected (state=${state}) after ${Math.round(ageMs)}ms`;
+    }
+    if (
+      this.slotIdleTimeoutMs > 0 &&
+      state === "connected" &&
+      slot.channel?.readyState === "open"
+    ) {
+      const lastInbound = slot.lastInboundAt ?? slot.createdAt;
+      const idleMs = now - lastInbound;
+      if (idleMs > this.slotIdleTimeoutMs) {
+        return `slot idle: no inbound bytes for ${Math.round(idleMs)}ms (state=connected, dc=open)`;
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -1399,11 +1595,28 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       lastDataChannelError: undefined,
       lastSyncHandshakeAttempt: emptySyncHandshakeAttempt(),
       handles: new Map(),
+      createdAt: performance.now(),
+      lastInboundAt: undefined,
     };
     this.slots.set(targetId, slot);
     this.wireConnection(targetId, connection);
     this.wireDataChannel(targetId, channel);
-    void this.initiateOffer(targetId, connection);
+    // Pre-#109: `initiateOffer` was fire-and-forget — a rejection in
+    // `createOffer` or `setLocalDescription` was dropped on the floor,
+    // leaving the slot at `signalingState=stable`, ICE never started
+    // gathering, and the recovery sweep hit `slot-already-exists`
+    // forever. The `.catch` here surfaces the failure on the snapshot
+    // surface and removes the wedged slot so the next sweep retries.
+    this.initiateOffer(targetId, connection).catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.lastSlotInitiationDecisions.set(targetId, {
+        decision: "rejected",
+        reason: "fatal-error",
+        error: message,
+        at: performance.now(),
+      });
+      this.tearDownWedgedSlot(targetId);
+    });
     return slot;
   }
 
@@ -1449,6 +1662,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       lastDataChannelError: undefined,
       lastSyncHandshakeAttempt: emptySyncHandshakeAttempt(),
       handles: new Map(),
+      createdAt: performance.now(),
+      lastInboundAt: undefined,
     };
     this.slots.set(fromPeerId, slot);
     this.wireConnection(fromPeerId, connection);
@@ -1551,6 +1766,12 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       if (state === "connected") {
         this.emitPeerCandidateOnce(peerId);
       } else if (state === "disconnected" || state === "failed" || state === "closed") {
+        // Polly#109/#110: `tearDownWedgedSlot` also closes the
+        // connection, which re-enters this handler with
+        // state=closed. Only emit if WE are the path that removed
+        // the slot from the map — otherwise the wedged-slot teardown
+        // would emit `peer-disconnected` twice.
+        if (!this.slots.has(peerId)) return;
         this.slots.delete(peerId);
         this.emit("peer-disconnected", { peerId: peerId as unknown as PeerId });
       }
@@ -1602,6 +1823,16 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       slot.pendingSends = [];
     };
     channel.onmessage = (event) => {
+      // Polly issue #110: stamp inbound liveness at the wire boundary
+      // — before deserialisation/dispatch — so the watchdog's idle
+      // check is driven by "we are still hearing from the peer", not
+      // "we successfully decoded an Automerge message from the peer".
+      // A peer whose wire is healthy but whose envelopes fail
+      // verification is still alive from the transport's point of
+      // view, and the wedge this is meant to catch is bytewise
+      // silence — not protocol-level corruption.
+      const liveSlot = this.slots.get(peerId);
+      if (liveSlot) liveSlot.lastInboundAt = performance.now();
       const data = event.data;
       if (data instanceof ArrayBuffer) {
         this.dispatchMessage(peerId, new Uint8Array(data));
