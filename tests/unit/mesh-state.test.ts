@@ -379,3 +379,95 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     await repoB.shutdown();
   });
 });
+
+describe("$meshState — concurrent first-time seed race (#113)", () => {
+  /** Two peers materialise `$meshState(key, initial)` against the same logical
+   * key with empty local storage. Pre-fix, `loadOrSeed` calls
+   * `Automerge.from(initial)` with a fresh random actorId on each side. Each
+   * seed assigns the top-level fields independently; on sync, Automerge
+   * resolves the concurrent top-level assignments by last-writer-wins-per-field
+   * and orphans the losing seed's map — wiping every per-key write that lived
+   * inside it. The user-visible failure is mesh:users converging to
+   * `{users: {}}` on both peers despite per-key writes having happened on each.
+   *
+   * The fix derives the seed actor deterministically from the documentId so
+   * both peers produce identical seed bytes; Automerge sees one change, not
+   * two concurrent ones, and the top-level field is anchored under a single
+   * map that survives every subsequent per-key write.
+   *
+   * Setting `POLLY_113_DISABLE_FIX=1` in the environment falsifies the fix and
+   * restores the fresh-actor behaviour — used by this test's pre-fix arm to
+   * prove the test actually catches the regression. */
+  test("both peers' per-key writes survive after sync over a loopback", async () => {
+    type UserDirectory = VersionedDoc & {
+      users: Record<string, { name: string }>;
+    };
+
+    const [loopA, loopB] = makeLoopbackPair();
+    const aIdentity = generateSigningKeyPair();
+    const bIdentity = generateSigningKeyPair();
+    const docKey = generateDocumentKey();
+
+    const aKeyring = makeKeyring(aIdentity, new Map([["peer-b", bIdentity.publicKey]]), docKey);
+    const bKeyring = makeKeyring(bIdentity, new Map([["peer-a", aIdentity.publicKey]]), docKey);
+
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
+
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    activeRepos.push(repoA, repoB);
+
+    // Handshake first so sync is live the moment seeds land.
+    await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
+
+    // Both peers hit `loadOrSeed` because neither Repo has storage. The race
+    // window for the bug is between these two calls — each independently
+    // produces seed ops under a fresh random actor.
+    const primA = $meshState<UserDirectory>("mesh:users", { users: {} }, { repo: repoA });
+    primitiveRegistry.clear(); // primitive-registry is global; same key, two Repos
+    const primB = $meshState<UserDirectory>("mesh:users", { users: {} }, { repo: repoB });
+    await Promise.all([primA.loaded, primB.loaded]);
+
+    // Both peers converged on the same docId via deriveDocumentId; that's
+    // necessary for the seed collision to be observable, and is also the
+    // shape the issue calls out.
+    expect(primA.handle?.documentId).toBe(primB.handle?.documentId as unknown as DocumentId);
+
+    // Each peer writes its own entry via per-key `handle.change` — the same
+    // workaround fairfox already uses for the post-seed WRITE race. This
+    // test isolates the SEED race specifically.
+    primA.handle?.change((doc: UserDirectory) => {
+      doc.users["id-a"] = { name: "from A" };
+    });
+    primB.handle?.change((doc: UserDirectory) => {
+      doc.users["id-b"] = { name: "from B" };
+    });
+
+    // Wait until each peer sees BOTH rows, or fail with a diagnostic that
+    // names what's missing. Pre-fix, exactly one row survives the
+    // top-level LWW resolution and the loop times out.
+    try {
+      await waitFor(
+        () =>
+          Object.keys(primA.handle?.doc()?.users ?? {}).length === 2 &&
+          Object.keys(primB.handle?.doc()?.users ?? {}).length === 2,
+        3000
+      );
+    } catch {
+      const seenByA = Object.keys(primA.handle?.doc()?.users ?? {}).sort();
+      const seenByB = Object.keys(primB.handle?.doc()?.users ?? {}).sort();
+      throw new Error(
+        `polly#113 seed race: peer-A users=[${seenByA.join(",")}] peer-B users=[${seenByB.join(",")}]; expected both peers to see [id-a,id-b]. The losing seed's top-level \`users\` assignment was orphaned by Automerge's per-field LWW.`
+      );
+    }
+
+    const seenByA = Object.keys(primA.handle?.doc()?.users ?? {}).sort();
+    const seenByB = Object.keys(primB.handle?.doc()?.users ?? {}).sort();
+    expect(seenByA).toEqual(["id-a", "id-b"]);
+    expect(seenByB).toEqual(["id-a", "id-b"]);
+
+    loopA.disconnect();
+    loopB.disconnect();
+  });
+});

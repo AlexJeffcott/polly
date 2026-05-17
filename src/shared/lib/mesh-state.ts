@@ -711,6 +711,69 @@ function buildHandleFactory<D>(
   };
 }
 
+/** Domain-separated derivation of an Automerge actor id from a {@link DocumentId}.
+ * Two peers that take the {@link loadOrSeed} path concurrently against the
+ * same docId would otherwise each call `Automerge.from(initialDoc)` with a
+ * fresh random actor, producing two independent top-level field assignments
+ * that Automerge resolves by last-writer-wins-per-field on merge — orphaning
+ * the losing seed's map and every per-key write that lived inside it (#113).
+ *
+ * Deriving the seed actor from the docId pins both peers to the same actor.
+ * Combined with a fixed `time: 0` on the seed change (see {@link seedDocumentBytes}),
+ * the seed change carries an identical hash on every peer. Automerge dedupes
+ * by change hash, so the merge sees one change instead of two concurrent
+ * ones and the top-level fields anchor to a single map. Subsequent per-key
+ * writes use the peer's own random actor and merge cleanly.
+ *
+ * The domain prefix is separate from {@link DOC_ID_DOMAIN} so the seed-actor
+ * derivation cannot collide with the docId derivation even if a future
+ * change reuses one of the byte ranges. */
+const SEED_ACTOR_DOMAIN = "polly/meshState/seedActor/v1";
+
+/** Produce the 16-byte hex actor id Automerge uses as the seed's authorship
+ * stamp. 16 bytes (32 hex chars) is the conventional Automerge actor-id
+ * width; the WASM layer accepts any hex string but matching the convention
+ * keeps debug output readable. */
+function deriveSeedActor(documentId: DocumentId): string {
+  const docIdString = documentId as unknown as string;
+  const digest = nacl.hash(keyEncoder.encode(`${SEED_ACTOR_DOMAIN}:${docIdString}`));
+  let hex = "";
+  for (let i = 0; i < 16; i++) {
+    hex += (digest[i] ?? 0).toString(16).padStart(2, "0");
+  }
+  return hex;
+}
+
+/** Build the seed bytes for {@link loadOrSeed}. Pre-#113 this was a single
+ * `Automerge.save(Automerge.from(initialDoc))` call, which produced a fresh
+ * random actor and a `Date.now()`-stamped change on every peer — two peers
+ * seeding the same docId concurrently would then race at the top-level
+ * field-assignment boundary on merge.
+ *
+ * The fix builds the seed deterministically: a docId-derived actor and a
+ * fixed `time: 0` on the change make the seed bytes identical across every
+ * peer that takes this path for the same docId, so Automerge dedupes the
+ * seed change on merge.
+ *
+ * Set `POLLY_113_DISABLE_FIX=1` to restore the pre-fix non-deterministic
+ * behaviour. Used by `tests/unit/mesh-state.test.ts` to prove the
+ * failing-shape repro catches the regression. */
+function seedDocumentBytes<D>(documentId: DocumentId, initialDoc: D): Uint8Array {
+  const disable = typeof process !== "undefined" && process.env?.["POLLY_113_DISABLE_FIX"] === "1";
+  if (disable) {
+    return Automerge.save(Automerge.from(initialDoc as unknown as Record<string, unknown>));
+  }
+  const actor = deriveSeedActor(documentId);
+  const empty = Automerge.init<Record<string, unknown>>({ actor });
+  const seeded = Automerge.change(empty, { time: 0 }, (d: Record<string, unknown>) => {
+    const source = initialDoc as unknown as Record<string, unknown>;
+    for (const key of Object.keys(source)) {
+      d[key] = source[key];
+    }
+  });
+  return Automerge.save(seeded);
+}
+
 /** Helper for the load-or-seed arm of {@link buildHandleFactory}.
  * Extracted so the cached/non-cached arms share one body. */
 async function loadOrSeed<D>(
@@ -728,7 +791,7 @@ async function loadOrSeed<D>(
     setExitReason("loaded-from-storage");
     return repo.find<D>(documentId, { allowableStates: ["ready"] });
   }
-  const seeded = Automerge.save(Automerge.from(initialDoc as unknown as Record<string, unknown>));
+  const seeded = seedDocumentBytes(documentId, initialDoc);
   const handle = repo.import<D>(seeded, { docId: documentId });
   handle.doneLoading();
   setExitReason("seeded-and-imported");

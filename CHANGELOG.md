@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.67.0] - 2026-05-17
+
+### Fixed
+
+#### `$meshState` first-time seed race orphaned per-key writes (polly#113)
+
+`loadOrSeed` in `src/shared/lib/mesh-state.ts` previously called
+`Automerge.save(Automerge.from(initialDoc))` whenever a peer
+materialised a `$mesh*` wrapper against empty local storage. Each
+peer that hit this path produced a brand-new top-level field
+assignment under a freshly-randomised actorId. When two peers seeded
+the same derived `documentId` concurrently — the standard shape for a
+pair of devices booting against a paired-but-never-synced doc — the
+two seeds landed on the wire as concurrent assignments of the same
+top-level field. Automerge resolves that conflict by
+last-writer-wins-per-field at the actor-hash boundary, so the losing
+seed's map and every per-key write that lived on it became orphaned
+in the change graph. The user-visible failure was both peers'
+on-disk replicas converging on `{users: {}}` despite each side having
+written distinct rows to `mesh:users` — the same shape `mesh:devices`
+hit on fairfox's `e2e-revoke-then-write.ts` and the cause of #112's
+post-deferred-revocation `users list` being empty after sync.
+
+The fix builds the seed bytes deterministically. A docId-derived
+actor (16-byte hex digest of `polly/meshState/seedActor/v1:` + docId,
+in a separate domain from `deriveDocumentId`) plus a fixed `time: 0`
+on the seed change produces byte-identical change bytes across every
+peer that takes the seed path for the same docId. Automerge dedupes
+the seed change on merge, so the top-level fields anchor under a
+single map and every per-key write made before or after sync survives.
+The per-key write path is unchanged; consumers that route writes
+through `handle.change(doc => doc.users[id] = entry)` (as fairfox
+already does for `mesh:users` and `mesh:devices`) keep their
+post-seed behaviour. Consumers that haven't moved off whole-doc
+structural writes are unaffected by the seed fix but still benefit
+from the empty-storage path no longer racing.
+
+Setting `POLLY_113_DISABLE_FIX=1` in the environment falsifies the
+fix and restores the pre-fix `Automerge.from(initialDoc)` behaviour.
+The new `tests/unit/mesh-state.test.ts` "concurrent first-time seed
+race (#113)" test runs against this gate to prove the failing-shape
+repro catches the regression: with the fix it converges to both
+peers seeing both rows in ~150 ms; with the gate set it fails with
+`polly#113 seed race: peer-A users=[…] peer-B users=[…]; expected
+both peers to see [id-a,id-b]. The losing seed's top-level \`users\`
+assignment was orphaned by Automerge's per-field LWW.`
+
+A subtle determinism detail worth keeping near the fix:
+`Automerge.from(initial, { actor })` is NOT enough for identical
+change hashes across peers. The `_change` helper internally defaults
+`options.time = Math.floor(Date.now() / 1e3)` (cf.
+`node_modules/@automerge/automerge/dist/cjs/slim.cjs:3209-3211`), so
+two peers a second apart produce different change hashes for
+otherwise-identical seed ops. `seedDocumentBytes` therefore uses
+`Automerge.init({ actor }) + Automerge.change(doc, { time: 0 }, …)`
+rather than `from`, which is what actually makes the seed bytes
+identical and the dedupe land.
+
 ## [0.65.0] - 2026-05-17
 
 ### Added
