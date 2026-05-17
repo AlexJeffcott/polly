@@ -198,7 +198,8 @@ function buildHandleEntry(
         lastSyncMessageOutSize: number | undefined;
         lastSyncMessageOutType: string | undefined;
       }
-    | undefined
+    | undefined,
+  syncStateView: PerPeerDocSyncView
 ): MeshClientHandleSnapshot {
   return {
     state,
@@ -207,6 +208,113 @@ function buildHandleEntry(
     lastSyncMessageInAt: wire?.lastSyncMessageInAt,
     lastSyncMessageOutSize: wire?.lastSyncMessageOutSize,
     lastSyncMessageOutType: wire?.lastSyncMessageOutType,
+    docSynchronizerExists: syncStateView.docSynchronizerExists,
+    docSynchronizerKnowsPeer: syncStateView.docSynchronizerKnowsPeer,
+    peerDocumentStatus: syncStateView.peerDocumentStatus,
+  };
+}
+
+/** Per-(docId, peerId) view into Automerge's `CollectionSynchronizer`.
+ * Built once per snapshot read and consulted from {@link buildHandleEntry}.
+ * Structured this way so the docSynchronizer lookup is paid once per
+ * docId, not once per (docId × peer). */
+interface PerPeerDocSyncView {
+  /** `true` iff Automerge's `CollectionSynchronizer.docSynchronizers`
+   * has an entry for this documentId. A handle that exists in
+   * `repo.handles` but has no corresponding `docSynchronizer` is the
+   * `addDocument`-was-never-called fingerprint — Automerge's
+   * NetworkSubsystem can never invoke `send` for it because no
+   * synchronizer is wired up. */
+  docSynchronizerExists: boolean;
+  /** `true` iff the docSynchronizer for this documentId has registered
+   * this peer in its internal peer list (`#peers`). `false` with
+   * `docSynchronizerExists: true` is the symmetric polly#107 gap: the
+   * synchronizer exists (`addDocument` ran) but `addPeer` was never
+   * called for this peer on this doc — typically because the handle
+   * was created AFTER `peer-candidate` fired and Automerge's
+   * `addDocument`-iterates-known-peers path missed it. `undefined`
+   * when no docSynchronizer exists. */
+  docSynchronizerKnowsPeer: boolean | undefined;
+  /** Automerge's `DocSynchronizer.peerStates[peerId]` — one of
+   * `"unknown"`, `"has"`, `"unavailable"`, `"wants"`. `"unknown"`
+   * with `lastSyncMessageOutAt` set means the local side sent its
+   * opening handshake but never advanced past it; this is the
+   * wedged-pair fingerprint #112 names. `undefined` when no
+   * docSynchronizer exists OR when the synchronizer exists but
+   * doesn't track this peer. */
+  peerDocumentStatus: string | undefined;
+}
+
+/** Minimal structural shape we lift off Automerge's hidden
+ * `Repo.synchronizer` / `CollectionSynchronizer` types. Kept narrow
+ * so a future Automerge bump that renames a private rip doesn't
+ * topple the snapshot path. */
+interface SynchronizerStructural {
+  docSynchronizers?: Record<
+    string,
+    {
+      hasPeer?: (peerId: string) => boolean;
+      peerStates?: Record<string, string>;
+    }
+  >;
+}
+
+const EMPTY_SYNC_VIEW: PerPeerDocSyncView = {
+  docSynchronizerExists: false,
+  docSynchronizerKnowsPeer: undefined,
+  peerDocumentStatus: undefined,
+};
+
+/** Internal — exported for direct unit-test coverage of the #112
+ * structural reader and snapshot wiring. Not part of the public API. */
+export const __test__ = {
+  buildSyncView: (
+    synchronizer: SynchronizerStructural | undefined,
+    docId: string,
+    peerId: string
+  ): PerPeerDocSyncView => buildSyncView(synchronizer, docId, peerId),
+  EMPTY_SYNC_VIEW,
+  getCollectionSynchronizer: (repo: Repo): SynchronizerStructural | undefined =>
+    getCollectionSynchronizer(repo),
+  enrichPeerSlot: (
+    peer: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"][number],
+    knownHandleIds: string[],
+    repoHandles: Record<string, { state: unknown } | undefined>,
+    synchronizer: SynchronizerStructural | undefined
+  ): MeshClientPeerStateSnapshot["peers"][number] =>
+    enrichPeerSlot(peer, knownHandleIds, repoHandles, synchronizer),
+};
+
+function getCollectionSynchronizer(repo: Repo): SynchronizerStructural | undefined {
+  const sync = (repo as unknown as { synchronizer?: SynchronizerStructural }).synchronizer;
+  return sync && typeof sync === "object" ? sync : undefined;
+}
+
+/** Build the per-(docId, peerId) docSynchronizer view for one peer. */
+function buildSyncView(
+  synchronizer: SynchronizerStructural | undefined,
+  docId: string,
+  peerId: string
+): PerPeerDocSyncView {
+  const docSync = synchronizer?.docSynchronizers?.[docId];
+  if (!docSync) return EMPTY_SYNC_VIEW;
+  let knowsPeer: boolean | undefined;
+  try {
+    knowsPeer = typeof docSync.hasPeer === "function" ? docSync.hasPeer(peerId) : undefined;
+  } catch {
+    knowsPeer = undefined;
+  }
+  let status: string | undefined;
+  try {
+    const states = docSync.peerStates;
+    status = states && typeof states === "object" ? states[peerId] : undefined;
+  } catch {
+    status = undefined;
+  }
+  return {
+    docSynchronizerExists: true,
+    docSynchronizerKnowsPeer: knowsPeer,
+    peerDocumentStatus: status,
   };
 }
 
@@ -227,21 +335,28 @@ function stringifyHandleState(handle: { state: unknown } | undefined): string {
 function enrichPeerSlot(
   peer: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"][number],
   knownHandleIds: string[],
-  repoHandles: Record<string, { state: unknown } | undefined>
+  repoHandles: Record<string, { state: unknown } | undefined>,
+  synchronizer: SynchronizerStructural | undefined
 ): MeshClientPeerStateSnapshot["peers"][number] {
   if (!peer.slot) {
     return { ...peer, slot: undefined } as MeshClientPeerStateSnapshot["peers"][number];
   }
+  const peerIdString = peer.peerId as unknown as string;
   const enriched: Record<string, MeshClientHandleSnapshot> = {};
   for (const docId of knownHandleIds) {
     enriched[docId] = buildHandleEntry(
       stringifyHandleState(repoHandles[docId]),
-      peer.slot.handles[docId]
+      peer.slot.handles[docId],
+      buildSyncView(synchronizer, docId, peerIdString)
     );
   }
   for (const docId of Object.keys(peer.slot.handles)) {
     if (enriched[docId]) continue;
-    enriched[docId] = buildHandleEntry("unknown", peer.slot.handles[docId]);
+    enriched[docId] = buildHandleEntry(
+      "unknown",
+      peer.slot.handles[docId],
+      buildSyncView(synchronizer, docId, peerIdString)
+    );
   }
   return { ...peer, slot: { ...peer.slot, handles: enriched } };
 }
@@ -380,6 +495,31 @@ export interface MeshClientHandleSnapshot {
    * `"sync"` after handshake, `"request"` while the local side is
    * asking. */
   lastSyncMessageOutType: string | undefined;
+  /** #112 diagnostic. `true` iff Automerge's `CollectionSynchronizer`
+   * has a `docSynchronizer` entry for this document. A handle in
+   * `repo.handles` with no docSynchronizer is the
+   * `addDocument`-never-ran fingerprint: Automerge's NetworkSubsystem
+   * can never call `send` for it because no synchronizer is wired up. */
+  docSynchronizerExists: boolean;
+  /** #112 diagnostic. `true` iff the docSynchronizer for this document
+   * has this peer in its internal peer list. `false` with
+   * `docSynchronizerExists: true` is the symmetric polly#107 gap —
+   * the synchronizer exists but `addPeer` was never invoked on it for
+   * this peer, typically because the handle was created AFTER
+   * `peer-candidate` fired and Automerge's
+   * `addDocument`-iterates-peers path missed it. `undefined` when no
+   * docSynchronizer exists. */
+  docSynchronizerKnowsPeer: boolean | undefined;
+  /** #112 diagnostic. Automerge's
+   * `DocSynchronizer.peerStates[peerId]` — one of `"unknown"`,
+   * `"has"`, `"unavailable"`, `"wants"`. `"unknown"` together with a
+   * set `lastSyncMessageOutAt` is the wedged-pair fingerprint this
+   * ticket names: the opening handshake left the wire but the
+   * synchronizer never learned whether the remote has the doc, so
+   * `generateSyncMessage` quiesces. `undefined` when no
+   * docSynchronizer exists OR when the synchronizer does not track
+   * this peer. */
+  peerDocumentStatus: string | undefined;
 }
 
 /** Polly#107 H5 diagnostics: surfaces the `mesh-state` module
@@ -776,8 +916,9 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
       // `undefined`.
       const repoHandles = repo.handles as unknown as Record<string, { state: unknown } | undefined>;
       const knownHandleIds = Object.keys(repoHandles);
+      const synchronizer = getCollectionSynchronizer(repo);
       const enrichedPeers: MeshClientPeerStateSnapshot["peers"] = base.peers.map((peer) =>
-        enrichPeerSlot(peer, knownHandleIds, repoHandles)
+        enrichPeerSlot(peer, knownHandleIds, repoHandles, synchronizer)
       );
       const out: MeshClientPeerStateSnapshot = {
         localPeerId: base.localPeerId,

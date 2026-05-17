@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.65.0] - 2026-05-17
+
+### Added
+
+#### Per-(docId, peerId) sync-state diagnostic on `getPeerStateSnapshot()` (polly#112)
+
+`mesh-client.ts` now lifts three more fields off Automerge's hidden
+`CollectionSynchronizer` onto every per-handle entry in
+`getPeerStateSnapshot().peers[…].slot.handles[docId]`:
+
+- `docSynchronizerExists` — `true` iff Automerge has wired a
+  `docSynchronizer` for this document. A handle that lives in
+  `repo.handles` but reports `false` here is the
+  `addDocument`-never-ran fingerprint: `NetworkSubsystem` has no
+  synchronizer to call `send` against, so no sync message will ever
+  leave for this doc no matter how many peers connect.
+- `docSynchronizerKnowsPeer` — `true` iff the docSynchronizer has
+  this peer in its internal peer list. `false` with
+  `docSynchronizerExists: true` is the symmetric polly#107 gap: the
+  synchronizer exists but `addPeer` was never invoked for this peer
+  on this doc, typically because the handle materialised after
+  `peer-candidate` fired and Automerge's
+  `addDocument`-iterates-known-peers path missed it. `undefined`
+  when no docSynchronizer exists.
+- `peerDocumentStatus` — the literal value from
+  `DocSynchronizer.peerStates[peerId]`: one of `"unknown"`,
+  `"has"`, `"wants"`, `"unavailable"`. `"unknown"` together with a
+  set `lastSyncMessageOutAt` is the wedged-pair fingerprint #112
+  was opened to characterise — the opening handshake left the wire
+  but the synchronizer never advanced past it because no inbound
+  response made it back through the local replica's filters.
+
+The reader is structural and try/caught at every field, so a future
+Automerge bump that renames an `@hidden` property degrades to
+`docSynchronizerExists: false` instead of crashing the snapshot.
+
+#### What the diagnostic surfaced in the polly#112 repro
+
+Running the new fields against fairfox's `e2e-user-revocation`
+falsified the polly#107-symmetric hypothesis on the first attempt:
+the revoked side's snapshot shows `peerDocumentStatus: "has"` and
+`docSynchronizerKnowsPeer: true` for every doc including
+`mesh:users`, which is impossible under a synchronizer-side stall.
+The actual cause is upstream of polly's synchronizer — the
+revoking peer's `keyring.revokedPeers` already contains the
+revoked peer's id (added by `revokePeerLocally(...)` at the
+moment of the `users revoke` command), so polly's
+`MeshNetworkAdapter.tryUnwrap` drops every inbound message from
+the revoked peer, and the revocation row itself never has a
+chance to replicate. That's a fairfox-side ordering bug, not a
+polly handshake bug; the diagnostic earned its keep by ruling
+the wrong hypothesis out cheaply.
+
 ## [0.64.0] - 2026-05-16
 
 ### Fixed
