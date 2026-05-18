@@ -34,7 +34,7 @@
  * `extractValue` and `applyWrite` hooks they pass.
  */
 
-import { Counter, type DocHandle, updateText } from "@automerge/automerge-repo/slim";
+import { Automerge, Counter, type DocHandle, updateText } from "@automerge/automerge-repo/slim";
 import { effect, signal } from "@preact/signals";
 import type { Access } from "./access";
 import { type MigratableState, MigrationError, migrationRegistry } from "./migrate-primitive";
@@ -54,6 +54,12 @@ export interface SpecialisedPrimitive<V> extends MigratableState<V> {
   value: V;
   readonly loaded: Promise<void>;
   readonly handle: DocHandle<unknown> | undefined;
+  /** Number of Automerge changes recorded on the current doc, or
+   * `undefined` while {@link loaded} is still pending. Stable proxy
+   * for the incremental-chunk count the storage adapter writes. See
+   * the matching field on {@link CrdtPrimitive} and RFC-041
+   * §History growth. */
+  readonly changeCount: number | undefined;
 }
 
 /** Internal config shape consumed by {@link createSpecialisedPrimitive}. */
@@ -154,6 +160,12 @@ function createSpecialisedPrimitive<V, D extends VersionedDoc>(
     loaded,
     get handle() {
       return currentHandle as unknown as DocHandle<unknown> | undefined;
+    },
+    get changeCount() {
+      if (!currentHandle) return undefined;
+      const doc = currentHandle.doc();
+      if (!doc) return undefined;
+      return Automerge.getAllChanges(doc).length;
     },
   };
 }

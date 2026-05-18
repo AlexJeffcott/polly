@@ -137,6 +137,27 @@ describe("$crdtState — writes", () => {
   });
 });
 
+describe("$crdtState — changeCount", () => {
+  test("is undefined before loaded resolves", () => {
+    const prim = $crdtState(makeOptions<Notes>("notes-cc-1", { title: "", body: "" }));
+    expect(prim.changeCount).toBeUndefined();
+  });
+
+  test("tracks the underlying Automerge change count after writes", async () => {
+    const prim = $crdtState(makeOptions<Notes>("notes-cc-2", { title: "seed", body: "" }));
+    await prim.loaded;
+    const seedCount = prim.changeCount ?? 0;
+    expect(seedCount).toBeGreaterThan(0);
+
+    prim.value = { title: "one", body: "" };
+    await Promise.resolve();
+    prim.value = { title: "two", body: "" };
+    await Promise.resolve();
+
+    expect(prim.changeCount).toBeGreaterThan(seedCount);
+  });
+});
+
 describe("$crdtState — remote changes", () => {
   test("external handle.change calls propagate back to the signal", async () => {
     const prim = $crdtState(makeOptions<Notes>("notes-9", { title: "initial", body: "" }));

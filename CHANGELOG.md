@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.0] - 2026-05-18
+
+### Added
+
+#### `CrdtPrimitive.changeCount` and `SpecialisedPrimitive.changeCount` (polly#115)
+
+The `$crdtState`, `$crdtText`, `$crdtCounter`, `$crdtList` and every
+mesh wrapper built on top of them now expose a
+`readonly changeCount: number | undefined` getter. Before `loaded`
+resolves the value is `undefined`; afterwards it returns
+`Automerge.getAllChanges(handle.doc()).length` — the same number the
+storage adapter approximates one-for-one as incremental chunks on
+disk. Consumers building heartbeat-doc auto-compaction (lease
+renewals, health pings, presence) previously reached past the
+wrapper for `Automerge.getAllChanges`; that escape hatch is no
+longer required for the diagnostic read. The compaction itself
+still lives in the consumer, threaded through
+`registerDocIdResolver` and `registerRedirectDetector` (ADR 0008).
+
+### Changed
+
+#### RFC-041 §History growth clarifies compaction policy is consumer-owned (polly#115)
+
+The original RFC promised a built-in "compact older than N days or
+when history exceeds M operations" policy. The implementation has
+not landed and is unlikely to land before a second consumer of the
+pattern surfaces. The section now states the current shape of the
+seam — `registerDocIdResolver`, `registerRedirectDetector`,
+`changeCount` — and points at polly#115 for the open design
+questions around heartbeat-style auto-compaction, sealed-doc
+storage GC, and per-wrapper policy hints. Consumers do not need to
+read code to learn that the framework hands them the parts and
+leaves the loop to them.
+
 ## [0.67.0] - 2026-05-17
 
 ### Fixed

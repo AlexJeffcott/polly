@@ -23,7 +23,7 @@
  * preserve concurrent-edit semantics) land in Phase 1's crdt-specialised.ts.
  */
 
-import type { DocHandle } from "@automerge/automerge-repo/slim";
+import { Automerge, type DocHandle } from "@automerge/automerge-repo/slim";
 import { effect, signal } from "@preact/signals";
 import type { Access } from "./access";
 import { type MigratableState, MigrationError, migrationRegistry } from "./migrate-primitive";
@@ -54,6 +54,13 @@ export interface CrdtPrimitive<T extends VersionedDoc> extends MigratableState<T
    * Intended for advanced escape hatches; most callers should stay at the
    * signal surface. */
   readonly handle: DocHandle<T> | undefined;
+  /** Number of Automerge changes recorded on the current doc, or
+   * `undefined` while {@link loaded} is still pending. Stable proxy
+   * for the incremental-chunk count the storage adapter writes —
+   * consumers building heartbeat-doc auto-compaction read this to
+   * decide when to seed a fresh successor via
+   * {@link registerRedirectDetector}. See RFC-041 §History growth. */
+  readonly changeCount: number | undefined;
 }
 
 /**
@@ -275,6 +282,12 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
     loaded,
     get handle() {
       return currentHandle;
+    },
+    get changeCount() {
+      if (!currentHandle) return undefined;
+      const doc = currentHandle.doc();
+      if (!doc) return undefined;
+      return Automerge.getAllChanges(doc).length;
     },
   };
 }
