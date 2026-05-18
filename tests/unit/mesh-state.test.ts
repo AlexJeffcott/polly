@@ -470,4 +470,77 @@ describe("$meshState — concurrent first-time seed race (#113)", () => {
     loopA.disconnect();
     loopB.disconnect();
   });
+
+  /** Asymmetric ordering — the exact shape #112 reported. Admin
+   * materialises `mesh:users` first, writes a row, and is steady
+   * before phone ever joins. Phone then attaches to admin with empty
+   * storage, takes the seed path (no stored bytes locally), and
+   * reads.
+   *
+   * Pre-fix: phone's seed used a fresh random actor on the empty-
+   * storage path. The sync merge resolved the concurrent top-level
+   * `users` field assignments by per-field LWW; admin's writes were
+   * orphaned and phone's view stayed `{users: {}}` — admin had
+   * snapshot 1080B + incremental 1099B on disk while phone held
+   * snapshot 125B. The handshake counters quiesced after the initial
+   * exchange because, from Automerge's side, there was nothing more
+   * to send; the bug was upstream of the sync state machine.
+   *
+   * With the deterministic seed (#113) phone's seed bytes are
+   * byte-identical to admin's, so Automerge dedupes on merge and
+   * admin's write survives onto phone's view. */
+  test("late-joining peer with empty storage receives admin's write (#112 ordering)", async () => {
+    type UserDirectory = VersionedDoc & {
+      users: Record<string, { name: string; revoked?: boolean }>;
+    };
+
+    const [loopA, loopB] = makeLoopbackPair();
+    const aIdentity = generateSigningKeyPair();
+    const bIdentity = generateSigningKeyPair();
+    const docKey = generateDocumentKey();
+
+    const aKeyring = makeKeyring(aIdentity, new Map([["peer-b", bIdentity.publicKey]]), docKey);
+    const bKeyring = makeKeyring(bIdentity, new Map([["peer-a", aIdentity.publicKey]]), docKey);
+
+    const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
+    const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
+
+    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
+    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    activeRepos.push(repoA, repoB);
+
+    await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
+
+    const primA = $meshState<UserDirectory>("mesh:users", { users: {} }, { repo: repoA });
+    await primA.loaded;
+    primA.handle?.change((doc: UserDirectory) => {
+      doc.users["phone"] = { name: "Phone", revoked: true };
+    });
+
+    // Admin's write must be visible on admin's own view before phone
+    // joins; otherwise the test is checking the symmetric race rather
+    // than the late-join one.
+    expect(Object.keys(primA.handle?.doc()?.users ?? {})).toEqual(["phone"]);
+
+    primitiveRegistry.clear();
+    const primB = $meshState<UserDirectory>("mesh:users", { users: {} }, { repo: repoB });
+    await primB.loaded;
+
+    expect(primA.handle?.documentId).toBe(primB.handle?.documentId as unknown as DocumentId);
+
+    try {
+      await waitFor(() => Object.keys(primB.handle?.doc()?.users ?? {}).length === 1, 3000);
+    } catch {
+      const seenByA = Object.keys(primA.handle?.doc()?.users ?? {}).sort();
+      const seenByB = Object.keys(primB.handle?.doc()?.users ?? {}).sort();
+      throw new Error(
+        `polly#112 late-join: peer-A users=[${seenByA.join(",")}] peer-B users=[${seenByB.join(",")}]; expected B to see [phone]. Admin's write was orphaned by the seed race on phone's side.`
+      );
+    }
+
+    expect(primB.handle?.doc()?.users["phone"]).toEqual({ name: "Phone", revoked: true });
+
+    loopA.disconnect();
+    loopB.disconnect();
+  });
 });
