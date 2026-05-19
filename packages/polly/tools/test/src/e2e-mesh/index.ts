@@ -36,7 +36,9 @@ export {
   type CapturedConsoleLine,
   type LaunchedPeer,
   type LaunchPeerOptions,
+  type LaunchSecondTabOptions,
   launchPeer,
+  launchSecondTab,
 } from "./launch-peer";
 export {
   type DiagnosticRecorder,

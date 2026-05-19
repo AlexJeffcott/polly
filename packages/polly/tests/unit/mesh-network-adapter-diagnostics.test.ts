@@ -331,17 +331,21 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
       keyringSource: () => keyring,
     });
 
-    // The inner payload must be a valid serialised Message (length-prefixed
-    // JSON header + binary). Send a minimal but valid one.
+    // The inner payload must begin with the Sync control-type tag (RFC-043)
+    // followed by a valid serialised Message (length-prefixed JSON header +
+    // binary). Send a minimal but valid one.
     const headerObj = {
       type: "sync",
       senderId,
       targetId: "us",
     };
     const headerBytes = new TextEncoder().encode(JSON.stringify(headerObj));
-    const inner = new Uint8Array(4 + headerBytes.length);
-    new DataView(inner.buffer).setUint32(0, headerBytes.length, false);
-    inner.set(headerBytes, 4);
+    const serialised = new Uint8Array(4 + headerBytes.length);
+    new DataView(serialised.buffer).setUint32(0, headerBytes.length, false);
+    serialised.set(headerBytes, 4);
+    const inner = new Uint8Array(1 + serialised.byteLength);
+    inner[0] = 0x00; // MESH_CONTROL_TYPE.Sync
+    inner.set(serialised, 1);
 
     const bytes = makeValidSignedBytes(
       senderId,

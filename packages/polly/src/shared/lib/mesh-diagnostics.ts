@@ -45,6 +45,38 @@ export type MeshDiagnostic =
       documentId: string;
       reason?: string;
     }
+  // Control-message dispatch (RFC-043). After signature verification
+  // and decryption, every plaintext payload begins with a one-byte
+  // type tag; the adapter dispatches on it. Tags whose handlers are
+  // not yet wired (revocation, revocation-summary) emit a
+  // `ctrl:*-received` diagnostic and the message is dropped at this
+  // layer until the next RFC-043 PR lands the apply path. Unknown
+  // tags emit `drop:unknown-control-type`. An empty payload (no tag
+  // byte at all) emits `drop:empty-control-payload`.
+  | { kind: "drop:unknown-control-type"; senderId: string; tag: number }
+  | { kind: "drop:empty-control-payload"; senderId: string }
+  | { kind: "drop:control-handler-threw"; senderId: string; tag: number; reason: string }
+  | { kind: "ctrl:revocation-received"; senderId: string }
+  | { kind: "ctrl:revocation-summary-received"; senderId: string }
+  // Revocation lifecycle (RFC-043). `revoke:applied` fires when a
+  // remote revocation lands in the local keyring; `revoke:duplicate`
+  // fires when an already-known revocation arrives again;
+  // `revoke:rejected` fires when verification fails and carries the
+  // RevocationError.code; `revoke:self-targeted` fires when the
+  // local peer is the revocation's target and is the signal that
+  // wakes the application's "you have been revoked" UX.
+  | { kind: "revoke:duplicate"; revokedPeerId: string; issuerId: string }
+  | {
+      kind: "revoke:rejected";
+      senderId: string;
+      reason: string;
+    }
+  | {
+      kind: "revoke:self-targeted";
+      issuerId: string;
+      reason?: string;
+      issuedAt: number;
+    }
   // Pairing-flow transitions.
   | { kind: "pair:invite-issued"; peerId: string }
   | { kind: "pair:invite-accepted"; peerId: string; issuerId: string }

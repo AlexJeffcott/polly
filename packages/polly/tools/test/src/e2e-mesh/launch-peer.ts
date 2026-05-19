@@ -40,6 +40,11 @@ export interface LaunchedPeer {
   readonly peerId: string;
   /** The Puppeteer Page handle. Scripts drive this directly. */
   readonly page: Page;
+  /** The Puppeteer Browser handle. Scripts that need a second tab in
+   *  the same profile call `browser.newPage()` (or use the kit's
+   *  {@link launchSecondTab} helper, which adds the same console + ready
+   *  wiring launchPeer applies to the first tab). */
+  readonly browser: Browser;
   /** Live capture buffer of console lines seen on this peer. */
   readonly console: ReadonlyArray<CapturedConsoleLine>;
   /** Live capture of page-level errors. */
@@ -206,6 +211,7 @@ export async function launchPeer(options: LaunchPeerOptions): Promise<LaunchedPe
   return {
     peerId,
     page,
+    browser,
     console: consoleLines,
     pageErrors,
     assertNoUnexpectedConsole,
@@ -226,6 +232,144 @@ export async function launchPeer(options: LaunchPeerOptions): Promise<LaunchedPe
       }
       try {
         rmSync(userDataDir, { recursive: true, force: true });
+      } catch {
+        // best effort
+      }
+    },
+  };
+}
+
+export interface LaunchSecondTabOptions {
+  /** http://127.0.0.1:<port>/ from serveConsumer. Pass the same URL the
+   *  primary tab loaded so the new tab boots with the same bootstrap
+   *  shim and shares IndexedDB on the existing profile. */
+  consumerUrl: string;
+  /** Override the console allowlist; defaults to MESH_CONSOLE_ALLOWLIST. */
+  consoleAllowlist?: ReadonlyArray<ConsolePattern>;
+  /** Cap how long to wait for the second tab to reach status="ready". */
+  readyTimeoutMs?: number;
+}
+
+/**
+ * Open a second tab inside an existing peer's Puppeteer browser. Boots
+ * the same consumer (same URL, same bootstrap shim, same identity)
+ * and returns a {@link LaunchedPeer} handle whose `close` only
+ * detaches the page — the parent peer owns the browser lifecycle, so
+ * shutting the tab does not tear the original peer down.
+ *
+ * Used by the multi-tab coherence script (RFC-043 adjacent surface,
+ * Phase 2). Tabs share IndexedDB, which is what makes the test
+ * interesting: two `MeshClient` instances on disjoint memory speaking
+ * to the same persisted Automerge state.
+ */
+export async function launchSecondTab(
+  parent: LaunchedPeer,
+  options: LaunchSecondTabOptions
+): Promise<LaunchedPeer> {
+  const {
+    consumerUrl,
+    consoleAllowlist = MESH_CONSOLE_ALLOWLIST,
+    readyTimeoutMs = 15_000,
+  } = options;
+  const page = await parent.browser.newPage();
+
+  const consoleLines: CapturedConsoleLine[] = [];
+  const pageErrors: string[] = [];
+  page.on("console", (msg) => {
+    const level = msg.type();
+    const text = msg.text();
+    const allowed = isAllowedConsoleLine({ level, text }, consoleAllowlist);
+    consoleLines.push({ level, text, allowed });
+  });
+  page.on("pageerror", (err) => {
+    pageErrors.push(err instanceof Error ? err.message : String(err));
+  });
+
+  await page.goto(consumerUrl, { waitUntil: "domcontentloaded" });
+  const deadline = Date.now() + readyTimeoutMs;
+  let ready = false;
+  let lastStatus = "";
+  while (Date.now() < deadline) {
+    lastStatus = await page.evaluate(
+      () => document.querySelector("[data-e2e='status']")?.textContent ?? ""
+    );
+    if (lastStatus === "ready") {
+      ready = true;
+      break;
+    }
+    if (lastStatus.startsWith("error") || lastStatus.startsWith("bootstrap-failed")) {
+      await page.close();
+      throw new Error(`launchSecondTab(${parent.peerId}): consumer reported "${lastStatus}"`);
+    }
+    await new Promise((r) => setTimeout(r, READY_POLL_MS));
+  }
+  if (!ready) {
+    await page.close();
+    throw new Error(
+      `launchSecondTab(${parent.peerId}): consumer did not reach "ready" within ${readyTimeoutMs}ms (last status: "${lastStatus}")`
+    );
+  }
+
+  function assertNoUnexpectedConsole(): void {
+    const bad = consoleLines.filter(
+      (line) =>
+        !line.allowed &&
+        (line.level === "error" || line.level === "warn" || line.level === "warning")
+    );
+    if (bad.length > 0) {
+      const summary = bad.map((l) => `  [${l.level}] ${l.text}`).join("\n");
+      throw new Error(`launchSecondTab(${parent.peerId}): unexpected console output:\n${summary}`);
+    }
+    if (pageErrors.length > 0) {
+      throw new Error(
+        `launchSecondTab(${parent.peerId}): page errors:\n${pageErrors.map((e) => `  ${e}`).join("\n")}`
+      );
+    }
+  }
+
+  async function collectDiagnostics(): Promise<MeshDiagnosticEvent[]> {
+    return page.evaluate(() => {
+      const w = window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] };
+      return w.__pollyE2eDiagnostics ? [...w.__pollyE2eDiagnostics] : [];
+    });
+  }
+
+  async function assertNoSilentDrops(
+    allow: ReadonlyArray<MeshDiagnostic["kind"]> = []
+  ): Promise<void> {
+    const allowed = new Set(allow);
+    const events = await collectDiagnostics();
+    const unexpected = events.filter(
+      (event) => event.kind.startsWith("drop:") && !allowed.has(event.kind)
+    );
+    if (unexpected.length === 0) return;
+    const summary = unexpected
+      .map((event) => {
+        const { kind, timestamp: _ts, ...rest } = event;
+        return `  ${kind} ${JSON.stringify(rest)}`;
+      })
+      .join("\n");
+    throw new MeshAssertionError(
+      `launchSecondTab(${parent.peerId}): unexpected silent-drop diagnostics fired during the e2e run.\n${summary}`,
+      unexpected
+    );
+  }
+
+  let closed = false;
+  return {
+    peerId: parent.peerId,
+    page,
+    browser: parent.browser,
+    console: consoleLines,
+    pageErrors,
+    assertNoUnexpectedConsole,
+    collectDiagnostics,
+    assertNoSilentDrops,
+    close: async () => {
+      if (closed) return;
+      closed = true;
+      try {
+        await page.close();
       } catch {
         // best effort
       }

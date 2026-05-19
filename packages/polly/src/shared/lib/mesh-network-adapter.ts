@@ -67,6 +67,42 @@ import {
 export const DEFAULT_MESH_KEY_ID = "polly-mesh-default";
 
 /**
+ * Control-message type tags. Every mesh message carries a single tag
+ * byte at the front of its plaintext payload, after decryption and
+ * signature verification. The tag discriminates the inner contents so
+ * future control flows (RFC-043 revocation propagation, future RFCs)
+ * can share the same encrypted-signed envelope without re-versioning.
+ *
+ * 0x00 is the default Automerge sync-message channel that polly has
+ * carried since the first cut. 0x01 and 0x02 are reserved for the
+ * revocation flow designed in RFC-043; the adapter recognises them at
+ * receive time but does not yet act on the payload — that lands in
+ * the second RFC-043 PR. Tags 0x03 and above are unassigned; a
+ * receiver that sees one emits `drop:unknown-control-type` and the
+ * message is dropped.
+ *
+ * Wire format break: polly 0.70 and earlier do not prepend the tag
+ * and do not strip it on receive. Mixing 0.70 and 0.71-plus peers on
+ * the same mesh produces garbage on both sides. The break is
+ * acknowledged in RFC-043 and required for the protocol-level
+ * revocation feature; the alternative (a separate WebRTC data
+ * channel) doubles transport complexity.
+ */
+export const MESH_CONTROL_TYPE = {
+  /** Automerge sync message — the default channel. */
+  Sync: 0x00,
+  /** A signed RevocationRecord (RFC-043). Receive-side dispatch is
+   *  wired in this PR; the apply-and-persist behaviour lands in the
+   *  next RFC-043 PR. */
+  Revocation: 0x01,
+  /** A revocation-set summary exchanged on every new peer connection
+   *  to gossip revocations to peers that were offline at issue-time
+   *  (RFC-043). Same staging as Revocation. */
+  RevocationSummary: 0x02,
+} as const;
+export type MeshControlType = (typeof MESH_CONTROL_TYPE)[keyof typeof MESH_CONTROL_TYPE];
+
+/**
  * A mesh keyring holds the local peer's signing identity, the public keys
  * of every peer the local node will accept messages from, the symmetric
  * encryption keys for documents the local node has access to, and the set
@@ -128,6 +164,22 @@ export interface MeshNetworkAdapterOptions {
    * messages. Defaults to true (encrypt + sign, the full $meshState
    * posture). */
   encryptionEnabled?: boolean;
+  /**
+   * Optional handler for non-Sync control messages (RFC-043). Called
+   * after signature verification and decryption with the type tag,
+   * the body bytes that followed the tag, and the verified senderId.
+   * The handler owns the apply-and-persist behaviour for whichever
+   * control flow the tag belongs to; the adapter routes only.
+   *
+   * The handler is called *after* the corresponding `ctrl:*-received`
+   * diagnostic fires, so subscribers observing the low-level signal
+   * see the event before the handler mutates any application state.
+   * Handler exceptions are swallowed by the adapter — a buggy handler
+   * cannot tear the network path — but a diagnostic
+   * `drop:control-handler-threw` is emitted so the failure is
+   * observable.
+   */
+  onControlMessage?: (tag: number, body: Uint8Array, senderId: string) => void;
 }
 
 /**
@@ -144,6 +196,9 @@ export class MeshNetworkAdapter extends NetworkAdapter {
   readonly base: NetworkAdapter;
   readonly keyringSource: () => MeshKeyring;
   readonly encryptionEnabled: boolean;
+  readonly onControlMessage:
+    | ((tag: number, body: Uint8Array, senderId: string) => void)
+    | undefined;
 
   /** Read-only view of the current keyring. Each access calls
    * {@link MeshNetworkAdapterOptions.keyringSource}, so the value
@@ -159,6 +214,7 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     this.base = options.base;
     this.keyringSource = options.keyringSource;
     this.encryptionEnabled = options.encryptionEnabled ?? true;
+    this.onControlMessage = options.onControlMessage;
 
     // Forward lifecycle and peer events from the base adapter.
     this.base.on("close", () => this.emit("close"));
@@ -209,10 +265,18 @@ export class MeshNetworkAdapter extends NetworkAdapter {
    * Wrap an outgoing Automerge message in an encrypt-then-sign envelope.
    * The wrapped payload is returned as a Message with the original sender
    * and target ids and the crypto blob in the `data` field.
+   *
+   * The serialised Automerge message is prefixed with a one-byte
+   * control-type tag (RFC-043). For outgoing Automerge sync this is
+   * always {@link MESH_CONTROL_TYPE.Sync} (0x00); the tag exists so
+   * future control flows (revocation propagation, revocation-set
+   * summaries) can share the same encrypted-signed envelope without
+   * re-versioning the wire format.
    */
   private wrap(message: Message): Message {
     const keyring = this.keyringSource();
     const serialised = serialiseMessage(message);
+    const tagged = prependControlTag(MESH_CONTROL_TYPE.Sync, serialised);
 
     let payloadToSign: Uint8Array;
     if (this.encryptionEnabled) {
@@ -222,10 +286,10 @@ export class MeshNetworkAdapter extends NetworkAdapter {
           `MeshNetworkAdapter: missing document encryption key under id "${DEFAULT_MESH_KEY_ID}". Provision the key in the keyring before sending.`
         );
       }
-      const encrypted = sealEncryptedEnvelope(serialised, DEFAULT_MESH_KEY_ID, docKey);
+      const encrypted = sealEncryptedEnvelope(tagged, DEFAULT_MESH_KEY_ID, docKey);
       payloadToSign = encodeEncryptedEnvelope(encrypted);
     } else {
-      payloadToSign = serialised;
+      payloadToSign = tagged;
     }
 
     const signed = signEnvelope(payloadToSign, message.senderId, keyring.identity.secretKey);
@@ -313,8 +377,8 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     }
 
     if (!this.encryptionEnabled) {
-      // Sign-only mode: the verified payload IS the serialised message.
-      return deserialiseMessage(verifiedPayload);
+      // Sign-only mode: the verified payload IS the tagged plaintext.
+      return this.dispatchTaggedPayload(verifiedPayload, signed.senderId);
     }
 
     // Full encrypt+sign mode: unwrap the encryption envelope.
@@ -353,8 +417,126 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       return undefined;
     }
 
-    return deserialiseMessage(plaintext);
+    return this.dispatchTaggedPayload(plaintext, signed.senderId);
   }
+
+  /**
+   * Dispatch a verified-and-decrypted plaintext payload based on its
+   * one-byte control-type tag (RFC-043). For {@link MESH_CONTROL_TYPE.Sync}
+   * the remainder is the serialised Automerge message and is returned
+   * to the caller. For revocation tags the dispatch emits a
+   * `ctrl:*-received` diagnostic and drops the payload at this layer
+   * pending the next RFC-043 PR. Unknown tags emit
+   * `drop:unknown-control-type` and drop.
+   */
+  private dispatchTaggedPayload(payload: Uint8Array, senderId: string): Message | undefined {
+    if (payload.byteLength < 1) {
+      emitMeshDiagnostic({ kind: "drop:empty-control-payload", senderId });
+      return undefined;
+    }
+    const tag = payload[0] as number;
+    const body = payload.subarray(1);
+    switch (tag) {
+      case MESH_CONTROL_TYPE.Sync:
+        return deserialiseMessage(body);
+      case MESH_CONTROL_TYPE.Revocation:
+        emitMeshDiagnostic({ kind: "ctrl:revocation-received", senderId });
+        this.invokeControlHandler(tag, body, senderId);
+        return undefined;
+      case MESH_CONTROL_TYPE.RevocationSummary:
+        emitMeshDiagnostic({
+          kind: "ctrl:revocation-summary-received",
+          senderId,
+        });
+        this.invokeControlHandler(tag, body, senderId);
+        return undefined;
+      default:
+        emitMeshDiagnostic({
+          kind: "drop:unknown-control-type",
+          senderId,
+          tag,
+        });
+        return undefined;
+    }
+  }
+
+  private invokeControlHandler(tag: number, body: Uint8Array, senderId: string): void {
+    if (!this.onControlMessage) return;
+    try {
+      this.onControlMessage(tag, body, senderId);
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "drop:control-handler-threw",
+        senderId,
+        tag,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Send a control message (RFC-043) to a list of connected peers.
+   * The body is wrapped in the same encrypt-sign envelope Automerge
+   * sync uses; the type tag goes in front so receivers route it to
+   * {@link MeshNetworkAdapterOptions.onControlMessage}.
+   *
+   * The base adapter does not surface its connected-peer set on the
+   * NetworkAdapter interface, so the caller passes the targets
+   * explicitly. The MeshClient layer maintains that list from the
+   * `peer-candidate` / `peer-disconnected` events.
+   */
+  sendControlMessage(
+    tag: MeshControlType,
+    body: Uint8Array,
+    targetPeerIds: ReadonlyArray<PeerId>
+  ): void {
+    if (targetPeerIds.length === 0) return;
+    const keyring = this.keyringSource();
+    const tagged = prependControlTag(tag, body);
+
+    let payloadToSign: Uint8Array;
+    if (this.encryptionEnabled) {
+      const docKey = keyring.documentKeys.get(DEFAULT_MESH_KEY_ID);
+      if (!docKey) {
+        throw new Error(
+          `MeshNetworkAdapter.sendControlMessage: missing document encryption key under id "${DEFAULT_MESH_KEY_ID}".`
+        );
+      }
+      const encrypted = sealEncryptedEnvelope(tagged, DEFAULT_MESH_KEY_ID, docKey);
+      payloadToSign = encodeEncryptedEnvelope(encrypted);
+    } else {
+      payloadToSign = tagged;
+    }
+
+    const senderId = (this.peerId ?? "") as PeerId;
+    const signed = signEnvelope(payloadToSign, senderId, keyring.identity.secretKey);
+    const signedBytes = encodeSignedEnvelope(signed);
+
+    for (const targetId of targetPeerIds) {
+      const outer: Record<string, unknown> = {
+        type: "sync",
+        senderId,
+        targetId,
+        data: signedBytes,
+      };
+      this.base.send(outer as unknown as Message);
+    }
+  }
+}
+
+/**
+ * Prepend a one-byte control-type tag to a payload. The tag goes
+ * inside the encrypted-signed envelope (or directly inside the signed
+ * envelope in sign-only mode), so it is both confidential (encrypted
+ * when encryption is enabled) and authenticated (covered by the
+ * signature). Exposed so future RFC-043 issue helpers can build
+ * tagged payloads without rebuilding this primitive.
+ */
+export function prependControlTag(tag: MeshControlType, body: Uint8Array): Uint8Array {
+  const out = new Uint8Array(body.byteLength + 1);
+  out[0] = tag;
+  out.set(body, 1);
+  return out;
 }
 
 // message serialisation

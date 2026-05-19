@@ -60,6 +60,14 @@ declare global {
      *  next message from that peer. Returns true on success, false
      *  if the bootstrap has not yet completed. */
     __pollyE2eRevoke?: (peerId: string) => boolean;
+    /** Test-only hook: call the MeshClient's revokePeer through the
+     *  RFC-043 protocol path — sign a RevocationRecord, apply locally,
+     *  broadcast to every connected peer. */
+    __pollyE2eRevokeViaProtocol?: (peerId: string, reason?: string) => Promise<boolean>;
+    /** Test-only hook: read the MeshClient's selfRevocation field
+     *  (the parsed record set when another peer issues a revocation
+     *  naming this peer as its target). */
+    __pollyE2eSelfRevocation?: () => unknown;
   }
 }
 
@@ -156,6 +164,19 @@ async function main(): Promise<void> {
   }
 
   configureMeshState(client.repo);
+
+  // RFC-043 test hooks: protocol-path revocation (signs, applies
+  // locally, broadcasts) and a reader for the selfRevocation field
+  // the kit asserts on after a remote peer issues a revocation that
+  // names this peer.
+  window.__pollyE2eRevokeViaProtocol = async (
+    targetPeerId: string,
+    reason?: string
+  ): Promise<boolean> => {
+    await client.revokePeer(targetPeerId, reason);
+    return true;
+  };
+  window.__pollyE2eSelfRevocation = () => client.selfRevocation;
 
   const items = $meshList<string>(listKey, []);
   await items.loaded;

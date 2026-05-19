@@ -22,7 +22,13 @@
 
 import { type PeerId, Repo, type StorageAdapterInterface } from "@automerge/automerge-repo/slim";
 import type { KeyringStorage } from "./keyring-storage";
-import { DEFAULT_MESH_KEY_ID, type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";
+import { emitMeshDiagnostic } from "./mesh-diagnostics";
+import {
+  DEFAULT_MESH_KEY_ID,
+  MESH_CONTROL_TYPE,
+  type MeshKeyring,
+  MeshNetworkAdapter,
+} from "./mesh-network-adapter";
 import { MeshSignalingClient, type MeshSignalingClientOptions } from "./mesh-signaling-client";
 import {
   configureMeshState,
@@ -40,6 +46,19 @@ import {
   wasMeshStateResolved,
 } from "./mesh-state";
 import { MeshWebRTCAdapter, type MeshWebRTCAdapterOptions } from "./mesh-webrtc-adapter";
+import {
+  applyRevocation,
+  createRevocation,
+  decodeRevocation,
+  encodeRevocation,
+  RevocationError,
+  type RevocationRecord,
+} from "./revocation";
+import {
+  decodeRevocationSummary,
+  encodeRevocationSummary,
+  type RevocationSummaryEntry,
+} from "./revocation-summary";
 
 /** Options for {@link createMeshClient}. */
 export interface CreateMeshClientOptions {
@@ -715,6 +734,34 @@ export interface MeshClient {
    * over per-doc reevaluations resolves. Idempotent: if every pair is
    * already syncing this is a no-op. Polly issue #107 item 7. */
   reevaluateAllSync(): Promise<void>;
+  /**
+   * Issue a revocation against `targetPeerId` (RFC-043). The local
+   * keyring is mutated to drop the target immediately; the encoded
+   * signed record is broadcast to every currently-connected peer, who
+   * apply it through the same path on receipt. Past contributions from
+   * the revoked peer stay in any document they already merged into;
+   * future writes are dropped at every peer's adapter once they
+   * receive the revocation.
+   *
+   * Resolves once the local keyring has been mutated and the broadcast
+   * has been handed to the base adapter. Delivery to disconnected
+   * peers happens via the reconnect re-broadcast scheduled by the
+   * next RFC-043 PR.
+   */
+  revokePeer(targetPeerId: string, reason?: string): Promise<void>;
+  /**
+   * If a remote peer has issued a revocation that names the local
+   * peer as its target, this field carries the parsed
+   * {@link RevocationRecord}. Applications observe it to render a
+   * "this device has been revoked by your other device on date X"
+   * UX. The mesh continues to receive other peers' messages so the
+   * application can surface further detail (more revocations from
+   * the same issuer, etc.); only this device's outbound writes are
+   * suppressed.
+   *
+   * Undefined while no self-targeted revocation has been seen.
+   */
+  readonly selfRevocation: RevocationRecord | undefined;
   /** Close the signalling WebSocket, tear down every RTCPeerConnection,
    * and shut the Repo cleanly. Idempotent. */
   close(): Promise<void>;
@@ -823,10 +870,135 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
   webrtcAdapterOptions.signaling = signaling;
   webrtcAdapter = new MeshWebRTCAdapter(webrtcAdapterOptions);
 
+  // RFC-043 state: the set of peer ids with an active mesh connection
+  // (the broadcast target for revocations), the local peer's
+  // self-targeted revocation if any peer has issued one, and the
+  // local revocation store (keyed by revokedPeerId) that drives the
+  // peer-candidate summary gossip in PR 3.
+  const connectedPeerIds = new Set<PeerId>();
+  let selfRevocation: RevocationRecord | undefined;
+  const localPeerId = options.signaling.peerId;
+  const revocationStore = new Map<string, { bytes: Uint8Array; entry: RevocationSummaryEntry }>();
+
+  function storeRevocation(record: RevocationRecord, bytes: Uint8Array): void {
+    const existing = revocationStore.get(record.revokedPeerId);
+    if (existing && existing.entry.issuedAt >= record.issuedAt) return;
+    revocationStore.set(record.revokedPeerId, {
+      bytes,
+      entry: {
+        revokedPeerId: record.revokedPeerId,
+        issuerPeerId: record.issuerPeerId,
+        issuedAt: record.issuedAt,
+      },
+    });
+  }
+
+  const handleRevocationControl = (body: Uint8Array, senderId: string): void => {
+    const keyring = keyringSource();
+    let record: RevocationRecord;
+    try {
+      record = decodeRevocation(body, keyring);
+    } catch (err) {
+      const reason =
+        err instanceof RevocationError
+          ? err.code
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      emitMeshDiagnostic({ kind: "revoke:rejected", senderId, reason });
+      return;
+    }
+    if (record.revokedPeerId === localPeerId) {
+      // RFC-043: self-targeted revocations do not silence the
+      // receiving peer's keyring; the application binds to the
+      // diagnostic + the selfRevocation field on MeshClient to surface
+      // the "you have been revoked" UX.
+      selfRevocation = record;
+      emitMeshDiagnostic({
+        kind: "revoke:self-targeted",
+        issuerId: record.issuerPeerId,
+        ...(record.reason !== undefined && { reason: record.reason }),
+        issuedAt: record.issuedAt,
+      });
+      return;
+    }
+    if (keyring.revokedPeers.has(record.revokedPeerId)) {
+      // Already known. Keep the blob so this peer can gossip it
+      // forward (the latest issuedAt wins inside storeRevocation).
+      storeRevocation(record, body);
+      emitMeshDiagnostic({
+        kind: "revoke:duplicate",
+        revokedPeerId: record.revokedPeerId,
+        issuerId: record.issuerPeerId,
+      });
+      return;
+    }
+    applyRevocation(record, keyring);
+    storeRevocation(record, body);
+    emitMeshDiagnostic({ kind: "revoke:applied", revokedPeerId: record.revokedPeerId });
+  };
+
+  const handleRevocationSummary = (body: Uint8Array, senderId: string): void => {
+    let summary: RevocationSummaryEntry[];
+    try {
+      summary = decodeRevocationSummary(body);
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "revoke:rejected",
+        senderId,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+    // Push every revocation the local peer holds that the remote
+    // peer's summary does not. The remote runs the same algorithm
+    // against this peer's summary, so both sides converge to the
+    // union after one round trip.
+    const remoteKeys = new Set(summary.map((entry) => entry.revokedPeerId));
+    const senderPeerId = senderId as PeerId;
+    for (const stored of revocationStore.values()) {
+      if (remoteKeys.has(stored.entry.revokedPeerId)) continue;
+      networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.Revocation, stored.bytes, [senderPeerId]);
+    }
+  };
+
   const networkAdapter = new MeshNetworkAdapter({
     base: webrtcAdapter,
     keyringSource,
     encryptionEnabled,
+    onControlMessage: (tag, body, senderId) => {
+      if (tag === MESH_CONTROL_TYPE.Revocation) {
+        handleRevocationControl(body, senderId);
+      } else if (tag === MESH_CONTROL_TYPE.RevocationSummary) {
+        handleRevocationSummary(body, senderId);
+      }
+    },
+  });
+
+  function sendSummaryTo(peerId: PeerId): void {
+    const entries = [...revocationStore.values()].map((stored) => stored.entry);
+    const body = encodeRevocationSummary(entries);
+    networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.RevocationSummary, body, [peerId]);
+  }
+
+  // Maintain the connected-peer set from the adapter's lifecycle events.
+  // The set drives revokePeer's broadcast target list; the peer-candidate
+  // hook also kicks off the revocation-summary gossip so a peer that was
+  // offline at issue-time picks the revocation up on reconnect.
+  networkAdapter.on("peer-candidate", (event: { peerId: PeerId }) => {
+    connectedPeerIds.add(event.peerId);
+    try {
+      sendSummaryTo(event.peerId);
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "revoke:rejected",
+        senderId: event.peerId,
+        reason: `summary-send-failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  });
+  networkAdapter.on("peer-disconnected", (event: { peerId: PeerId }) => {
+    connectedPeerIds.delete(event.peerId);
   });
 
   // The Repo's peerId MUST match the mesh peer id we signed the keyring
@@ -940,6 +1112,35 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     refreshTransportStats: async () => {
       if (!webrtcAdapter) return;
       await webrtcAdapter.refreshAllTransportStats();
+    },
+    revokePeer: async (targetPeerId, reason) => {
+      const keyring = keyringSource();
+      const record = createRevocation({
+        issuer: keyring.identity,
+        issuerPeerId: localPeerId,
+        revokedPeerId: targetPeerId,
+        ...(reason !== undefined && { reason }),
+      });
+      const bytes = encodeRevocation(record, keyring.identity);
+      // Apply locally first so the issuer's adapter starts dropping
+      // the target before the broadcast goes out. The receive path
+      // would otherwise have a window where a piggyback message from
+      // the target arrives and is accepted before the issuer's own
+      // keyring has been mutated.
+      applyRevocation(record, keyring);
+      storeRevocation(record, bytes);
+      emitMeshDiagnostic({
+        kind: "revoke:issued",
+        revokedPeerId: targetPeerId,
+        issuerId: localPeerId,
+      });
+      const targets = [...connectedPeerIds];
+      if (targets.length > 0) {
+        networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.Revocation, bytes, targets);
+      }
+    },
+    get selfRevocation(): RevocationRecord | undefined {
+      return selfRevocation;
     },
     close: async () => {
       signaling.close();
