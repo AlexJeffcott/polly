@@ -74,6 +74,7 @@ import {
 import type {
   ComponentRelationship,
   GlobalStateConstraint,
+  MeshOrPeerSignalInfo,
   MessageHandler,
   ResourceInfo,
   StateAssignment,
@@ -96,6 +97,7 @@ export interface HandlerAnalysis {
   stateConstraints: StateConstraint[];
   globalStateConstraints: GlobalStateConstraint[];
   verifiedStates: VerifiedStateInfo[];
+  meshOrPeerSignals: MeshOrPeerSignalInfo[];
   resources: ResourceInfo[];
   warnings: ExtractionWarning[];
 }
@@ -203,6 +205,7 @@ export class HandlerExtractor {
     const stateConstraints: StateConstraint[] = [];
     const globalStateConstraints: GlobalStateConstraint[] = [];
     const verifiedStates: VerifiedStateInfo[] = [];
+    const meshOrPeerSignals: MeshOrPeerSignalInfo[] = [];
     const resources: ResourceInfo[] = [];
     this.warnings = []; // Clear warnings from previous runs
 
@@ -260,6 +263,16 @@ export class HandlerExtractor {
       }
     }
 
+    // polly#117: collect mesh- and peer-scoped signal declarations so
+    // the CLI can warn when a requires/ensures predicate references
+    // one — the verifier currently has no native support for their
+    // cross-peer semantics.
+    for (const filePath of this.analyzedFiles) {
+      const sourceFile = this.project.getSourceFile(filePath);
+      if (!sourceFile) continue;
+      meshOrPeerSignals.push(...this.extractMeshOrPeerSignalsFromFile(sourceFile));
+    }
+
     this.debugLogExtractionResults(handlers.length, invalidMessageTypes.size);
     this.debugLogAnalysisStats(allSourceFiles.length, entryPoints.length);
 
@@ -269,8 +282,57 @@ export class HandlerExtractor {
       stateConstraints,
       globalStateConstraints,
       verifiedStates,
+      meshOrPeerSignals,
       resources,
       warnings: this.warnings,
+    };
+  }
+
+  /**
+   * Walk a source file for `$meshState(id, init)` and `$peerState(id, init)`
+   * calls and return one entry per call, tagged with its scope.
+   */
+  extractMeshOrPeerSignalsFromFile(sourceFile: SourceFile): MeshOrPeerSignalInfo[] {
+    const out: MeshOrPeerSignalInfo[] = [];
+    const filePath = sourceFile.getFilePath();
+    sourceFile.forEachDescendant((node) => {
+      const info = this.recognizeMeshOrPeerStateCall(node, filePath);
+      if (info) out.push(info);
+    });
+    return out;
+  }
+
+  /**
+   * Recognize a `$meshState(...)` or `$peerState(...)` call and return
+   * a descriptor for the resulting signal. Mirrors
+   * `recognizeVerifiedStateCall` but for the mesh/peer family.
+   */
+  private recognizeMeshOrPeerStateCall(
+    node: Node,
+    filePath: string
+  ): MeshOrPeerSignalInfo | null {
+    if (!Node.isCallExpression(node)) return null;
+    const expression = node.getExpression();
+    if (!Node.isIdentifier(expression)) return null;
+
+    const funcName = expression.getText();
+    const kind: "mesh" | "peer" | null =
+      funcName === "$meshState" ? "mesh" : funcName === "$peerState" ? "peer" : null;
+    if (!kind) return null;
+
+    const args = node.getArguments();
+    const keyArg = args[0];
+    if (!keyArg || !Node.isStringLiteral(keyArg)) return null;
+    const key = keyArg.getLiteralValue();
+
+    const variableName = this.getVariableNameFromParent(node) || key;
+
+    return {
+      kind,
+      key,
+      variableName,
+      filePath,
+      line: node.getStartLineNumber(),
     };
   }
 

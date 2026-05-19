@@ -337,6 +337,98 @@ function displayExpressionWarnings(result: ValidationResult): void {
   }
 }
 
+/**
+ * polly#117: warn when a handler's requires/ensures predicate references
+ * a `$meshState` or `$peerState` signal. The verifier has no native
+ * support for the cross-peer semantics of these primitives and silently
+ * checks references as if they were single-context local state. Until
+ * the namespaced-contextStates codegen lands, this warning makes the
+ * silent narrowing loud so consumers do not write meaningful-looking
+ * cross-peer assertions that verify nothing.
+ */
+function displayMeshOrPeerSignalWarnings(
+  analysis: import("./core/model").CodebaseAnalysis
+): void {
+  const signals = analysis.meshOrPeerSignals ?? [];
+  if (signals.length === 0) return;
+
+  const findings: Array<{
+    handler: string;
+    kind: "precondition" | "postcondition";
+    expression: string;
+    signalName: string;
+    signalKind: "mesh" | "peer";
+    location: { file: string; line: number };
+  }> = [];
+
+  for (const handler of analysis.handlers) {
+    const scanConditions = (
+      conditions: Array<{
+        expression: string;
+        location?: { file?: string; line?: number };
+      }>,
+      kind: "precondition" | "postcondition"
+    ): void => {
+      for (const cond of conditions) {
+        for (const sig of signals) {
+          // Match `<varName>.value` as a whole-identifier boundary so
+          // we do not false-positive on e.g. `myThing.value` when the
+          // mesh signal is named `thing`.
+          const pattern = new RegExp(`\\b${sig.variableName}\\.value\\b`);
+          if (pattern.test(cond.expression)) {
+            findings.push({
+              handler: handler.messageType,
+              kind,
+              expression: cond.expression,
+              signalName: sig.variableName,
+              signalKind: sig.kind,
+              location: {
+                file: handler.location.file,
+                line: cond.location?.line ?? handler.location.line,
+              },
+            });
+          }
+        }
+      }
+    };
+    scanConditions(handler.preconditions, "precondition");
+    scanConditions(handler.postconditions, "postcondition");
+  }
+
+  if (findings.length === 0) return;
+
+  console.log(
+    color(
+      `\n⚠️  ${findings.length} predicate(s) reference a $meshState/$peerState signal (polly#117):`,
+      COLORS.yellow
+    )
+  );
+  console.log(
+    color(
+      "   The verifier currently treats these the same as $sharedState — single-context local state.",
+      COLORS.gray
+    )
+  );
+  console.log(
+    color(
+      "   Cross-peer semantics are NOT verified. A green run does not prove the claim across peers.\n",
+      COLORS.gray
+    )
+  );
+
+  for (const f of findings) {
+    console.log(
+      color(
+        `   ⚠  ${f.handler} ${f.kind}: ${f.signalName} is $${f.signalKind}State, not single-context`,
+        COLORS.yellow
+      )
+    );
+    console.log(color(`      ${f.expression}`, COLORS.gray));
+    console.log(color(`      at ${f.location.file}:${f.location.line}`, COLORS.gray));
+    console.log();
+  }
+}
+
 async function verifyCommand() {
   const configPath = path.join(process.cwd(), "specs", "verification.config.ts");
 
@@ -435,6 +527,10 @@ async function runFullVerification(configPath: string) {
   if (exprValidation.warnings.length > 0) {
     displayExpressionWarnings(exprValidation);
   }
+
+  // polly#117: surface mesh- and peer-scoped signal references that
+  // the codegen will silently narrow to single-context state.
+  displayMeshOrPeerSignalWarnings(typedAnalysis);
 
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {

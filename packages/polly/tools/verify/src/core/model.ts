@@ -316,6 +316,20 @@ export type ResourceInfo = {
   sourceSignals: string[];
 };
 
+/**
+ * polly#117: mesh- or peer-scoped signal declaration. Used by the CLI
+ * to warn when a `requires` / `ensures` predicate references one of
+ * these signals — the verifier currently has no native support for
+ * their cross-peer semantics.
+ */
+export type MeshOrPeerSignalInfo = {
+  kind: "mesh" | "peer";
+  key: string;
+  variableName: string;
+  filePath: string;
+  line: number;
+};
+
 export type CodebaseAnalysis = {
   stateType: TypeInfo | null;
   messageTypes: string[];
@@ -326,6 +340,8 @@ export type CodebaseAnalysis = {
   globalStateConstraints?: GlobalStateConstraint[];
   /** Verified states discovered (Issue #27) */
   verifiedStates?: VerifiedStateInfo[];
+  /** Mesh- and peer-scoped signals discovered (polly#117) */
+  meshOrPeerSignals?: MeshOrPeerSignalInfo[];
   /** Resources discovered ($resource calls) */
   resources?: ResourceInfo[];
 };

@@ -57,6 +57,7 @@ export class TypeExtractor {
       stateConstraints: handlerAnalysis.stateConstraints,
       globalStateConstraints: handlerAnalysis.globalStateConstraints,
       verifiedStates: handlerAnalysis.verifiedStates,
+      meshOrPeerSignals: handlerAnalysis.meshOrPeerSignals,
       resources: handlerAnalysis.resources,
     };
   }

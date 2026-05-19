@@ -124,6 +124,32 @@ export type VerifiedStateInfo = {
   fields: string[];
 };
 
+/**
+ * Mesh-scoped or peer-scoped signal declaration discovered by the
+ * analyzer. The verifier currently has no native support for the
+ * cross-peer semantics of `$meshState` / `$peerState` and silently
+ * treats references to these signals as if they were `$sharedState`
+ * (single-context local state). Surfacing them via this type lets the
+ * CLI warn when such a signal is referenced inside a `requires` or
+ * `ensures` predicate — see polly#117.
+ */
+export type MeshOrPeerSignalInfo = {
+  /** Which factory created the signal */
+  kind: "mesh" | "peer";
+
+  /** Document id (first argument to the factory) */
+  key: string;
+
+  /** Variable name holding the signal */
+  variableName: string;
+
+  /** File where the signal is declared */
+  filePath: string;
+
+  /** Line number of declaration */
+  line: number;
+};
+
 // State Mutations (Abstract)
 
 /**
@@ -332,6 +358,8 @@ export type CodebaseAnalysis = {
   globalStateConstraints?: GlobalStateConstraint[];
   /** Verified states discovered (Issue #27) */
   verifiedStates?: VerifiedStateInfo[];
+  /** Mesh- and peer-scoped signals discovered (polly#117) */
+  meshOrPeerSignals?: MeshOrPeerSignalInfo[];
   /** Resources discovered ($resource calls) */
   resources?: ResourceInfo[];
 };
