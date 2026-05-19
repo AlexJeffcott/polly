@@ -3,6 +3,23 @@
 Runnable demonstration for polly issue #103 — the "long-lived daemon
 pairs a new device, peers stay at zero" contract violation.
 
+This example carries two artefacts that both claim the polly#103
+contract holds, but by different means:
+
+- `main.ts` — a wire-level falsification harness that pairs two
+  werift-backed mesh peers against an in-process polly signalling
+  server and asserts the contract over the live transport.
+- `src/`, `specs/verification.config.ts` — an abstract state-machine
+  model of the same race, encoded as polly handlers with
+  `requires`/`ensures` postconditions, suitable for `polly verify` to
+  explore with TLC.
+
+Neither subsumes the other. The wire-level harness exercises the
+real Automerge, WebRTC, and signalling stacks but only checks the
+single interleaving the test ran. The verifier explores every
+ordering of the modelled events within the bounded depth but
+abstracts away the transport. They are complementary evidence.
+
 ## What this example shows
 
 Two werift-backed mesh peers wired up against an in-process polly
@@ -62,6 +79,87 @@ for peer B and the deadlock holds for the lifetime of the process:
 The `[snapshot]` line one above the result shows the giveaway: peer A
 sees peer B in both its keyring and the signalling roster, but holds
 no slot for peer B at all. The dial step never ran.
+
+## The verifier model
+
+`src/state.ts` declares six boolean flags that together capture the
+observable state of the race:
+
+| Flag              | Meaning                                                                    |
+| ----------------- | -------------------------------------------------------------------------- |
+| `aRosterHasB`     | Peer A's signalling roster has reported peer B online.                    |
+| `aKeyringHasB`    | Peer A's `MeshKeyring` contains peer B's signing key.                     |
+| `aAdapterKnowsB`  | Peer A's `MeshWebRTCAdapter.knownPeers` Set contains peer B. **The bug surface.** |
+| `dataChannelOpen` | The WebRTC data channel between A and B is open.                          |
+| `sentinelWritten` | Peer A has written the per-run sentinel into its `$meshState` document.   |
+| `sentinelObserved`| Peer B's local replica has observed the sentinel.                         |
+
+`src/handlers.ts` registers five message handlers — one per wire-level
+event — and chains them via `requires` preconditions:
+
+```
+ROSTER_PEER_JOINED  →  APPLY_PAIR_TOKEN  →  OPEN_DATA_CHANNEL
+                    →  WRITE_SENTINEL    →  RECEIVE_SENTINEL
+```
+
+The polly#103 contract is the `ensures` clause on `APPLY_PAIR_TOKEN`:
+
+```ts
+ensures(
+  aAdapterKnowsB.value === true,
+  "polly#103: applying the pair token must refresh the adapter knownPeers"
+);
+```
+
+The fix is a single line inside the same handler — `aAdapterKnowsB.value
+= true` — marked `POLLY_103_FIX` in the source. Comment that line out,
+re-run `polly verify`, and TLC produces the counterexample:
+
+```
+❌ Verification failed!
+Error: Action property EnsuresAfter_HandleApplyPairToken is violated.
+```
+
+The trace in `specs/tla/generated/tlc-output.log` shows the failing
+interleaving: `ROSTER_PEER_JOINED` delivered, then `APPLY_PAIR_TOKEN`
+delivered, then the post-state has `aKeyringHasB = TRUE` but
+`aAdapterKnowsB = FALSE` — exactly the keyring-vs-adapter divergence
+polly#103 fixed. Restore the line, re-run, watch it pass (8 distinct
+states).
+
+## Running the verifier
+
+```bash
+cd examples/mesh-recovery-pair
+bun install                # postinstall fixes the @fairfox/polly link
+polly verify               # if polly is on PATH
+# or, from inside the repo:
+bun ../../dist/cli/polly.js verify
+```
+
+## What this verifier model does and does not prove
+
+The model is an **abstract state machine over six booleans**. It
+proves the polly#103 contract holds across every reachable
+interleaving of the modelled events under the bounded depth, given
+the temporal constraint that the roster reports B before the pair
+token lands. It does **not** model:
+
+- The actual Automerge merge semantics. `$meshState` propagation here
+  is a single boolean toggle; concurrent writes, conflict resolution,
+  and CRDT-internal seeding (see polly#113) are out of scope.
+- Real WebRTC negotiation. ICE, DTLS, SCTP substates collapse into
+  one `dataChannelOpen` bit.
+- Network non-determinism beyond polly's existing `MessageRouter`
+  model. No partition, no loss, no reorder beyond FIFO.
+- The factory-wiring class of bug from polly#57 / polly#107. Those
+  live in construction paths the verifier cannot see — `main.ts` is
+  the right evidence for that class.
+
+The wire-level harness in `main.ts` covers what the verifier cannot;
+the verifier covers what wall-clock single-run e2e cannot. The point
+of having both is that neither alone is sufficient to claim the
+contract holds.
 
 ## What this example is not
 
