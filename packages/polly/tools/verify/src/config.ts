@@ -130,9 +130,11 @@ export function defineVerification<T extends UnifiedVerificationConfig>(config: 
 export {
   $constraints,
   ensures,
+  forAllPeers,
   hasLength,
   inRange,
   oneOf,
   requires,
+  somePeer,
   stateConstraint,
 } from "./primitives/index.js";

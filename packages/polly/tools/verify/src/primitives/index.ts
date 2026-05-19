@@ -168,6 +168,42 @@ export function stateConstraint(
   void options;
 }
 
+/**
+ * Cross-peer universal quantifier for use inside `requires` and
+ * `ensures` predicates. The runtime is a no-op that simply runs the
+ * predicate against a single dummy context (so the assertion never
+ * triggers at runtime); the verifier recognizes the wrapper in
+ * predicate source and emits a `\A peer \in Contexts \ {ctx} : (...)`
+ * clause that asks TLC to check the inner predicate against every
+ * other context.
+ *
+ * @example
+ * ensures(
+ *   forAllPeers(peer => peer.todos.value.length === todos.value.length),
+ *   "every peer agrees on todo count"
+ * );
+ */
+export function forAllPeers<TPeer>(predicate: (peer: TPeer) => boolean): boolean {
+  void predicate;
+  return true;
+}
+
+/**
+ * Cross-peer existential quantifier for use inside `requires` and
+ * `ensures` predicates. Runtime no-op; the verifier emits a
+ * `\E peer \in Contexts \ {ctx} : (...)` clause.
+ *
+ * @example
+ * ensures(
+ *   somePeer(peer => peer.user.value.loggedIn === true),
+ *   "at least one peer has a logged-in user"
+ * );
+ */
+export function somePeer<TPeer>(predicate: (peer: TPeer) => boolean): boolean {
+  void predicate;
+  return true;
+}
+
 // Re-export for convenience
 export const verify = {
   requires,
@@ -178,4 +214,6 @@ export const verify = {
   hasLength,
   $constraints,
   stateConstraint,
+  forAllPeers,
+  somePeer,
 };

@@ -1666,11 +1666,14 @@ export class TLAGenerator {
   ): void {
     if (postconditions.length === 0) return;
 
-    // Convert each predicate to TLA+ form (post-state, then rebind ctx -> target)
+    // Convert each predicate to TLA+ form (post-state, then rebind ctx -> target).
+    // We rebind both `[ctx]` (contextStates indexing) and `{ctx}` (set-difference
+    // exclusion inside a forAllPeers/somePeer quantifier) so a cross-peer
+    // ensures reads as "for every peer other than the delivery target".
     const predicateClauses = postconditions
       .map((pc) => this.tsExpressionToTLA(pc.expression, true))
       .filter((p) => p && p.length > 0)
-      .map((p) => p.replace(/\[ctx\]/g, "[target]"));
+      .map((p) => p.replace(/\[ctx\]/g, "[target]").replace(/\{ctx\}/g, "{target}"));
 
     if (predicateClauses.length === 0) return;
 
@@ -1917,10 +1920,80 @@ export class TLAGenerator {
    * @param expr - TypeScript expression from requires() or ensures()
    * @param isPrimed - If true, use contextStates' (for postconditions)
    */
+  /**
+   * polly#117: detect a `forAllPeers(<binder> => <body>)` or
+   * `somePeer(<binder> => <body>)` wrapper at the top level of a
+   * predicate. Returns the binder name, body text, and quantifier
+   * kind, or null if the expression is a plain predicate.
+   *
+   * The match is intentionally text-shape based: the analyzer captures
+   * predicate text via `.getText()` at the requires/ensures call site,
+   * so we work with strings throughout the codegen.
+   */
+  private tryExtractPeerScopedPredicate(
+    expr: string
+  ): { binder: string; innerBody: string; kind: "forall" | "exists" } | null {
+    if (typeof expr !== "string") return null;
+    const trimmed = expr.trim();
+    const match = trimmed.match(
+      /^(forAllPeers|somePeer)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=>\s*([\s\S]+)\)\s*$/
+    );
+    if (!match) return null;
+    const fn = match[1];
+    const binder = match[2];
+    const innerBody = match[3];
+    if (!fn || !binder || innerBody === undefined) return null;
+    // Heuristic: the regex `[\s\S]+\)` is greedy and would swallow a
+    // trailing argument inside the arrow body if the wrapper had
+    // extra args; in practice forAllPeers/somePeer take exactly one
+    // arrow-function argument, so this is safe.
+    return {
+      binder,
+      innerBody: innerBody.trim(),
+      kind: fn === "forAllPeers" ? "forall" : "exists",
+    };
+  }
+
   private tsExpressionToTLA(expr: string, isPrimed = false): string {
     // Early return for invalid expressions
     if (!expr || typeof expr !== "string") {
       return expr || "";
+    }
+
+    // polly#117: cross-peer quantifiers — `forAllPeers(peer => ...)` and
+    // `somePeer(peer => ...)`. Detect the wrapper, substitute the
+    // binder's signal references to `contextStates[<binder>]` form,
+    // pass the rest through the normal flattening so that bare
+    // signal references continue to resolve to the executing
+    // context, then wrap with a TLA+ universal/existential
+    // quantifier over `Contexts \ {ctx}`.
+    const scoped = this.tryExtractPeerScopedPredicate(expr);
+    if (scoped) {
+      const binder = scoped.binder;
+      const peerPrefix = isPrimed
+        ? `contextStates'[${binder}]`
+        : `contextStates[${binder}]`;
+      // Pre-substitute `<binder>.<sig>.value.<field>` → `contextStates[<binder>].<sig>_<field>`
+      // before the general flattening sees the expression.
+      let body = scoped.innerBody;
+      const binderRe1 = new RegExp(
+        `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\.([a-zA-Z_][a-zA-Z0-9_.]*)`,
+        "g"
+      );
+      body = body.replace(binderRe1, (_m, sig, path) => {
+        const flat = this.sanitizeFieldName(`${sig}_${String(path).replace(/\./g, "_")}`);
+        return `${peerPrefix}.${flat}`;
+      });
+      const binderRe2 = new RegExp(
+        `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\b(?!\\.)`,
+        "g"
+      );
+      body = body.replace(binderRe2, (_m, sig) => `${peerPrefix}.${sig}`);
+      // Recurse on the remaining body; bare signals continue to use
+      // contextStates[ctx].
+      const innerTLA = this.tsExpressionToTLA(body, isPrimed);
+      const quantifier = scoped.kind === "forall" ? "\\A" : "\\E";
+      return `${quantifier} ${binder} \\in Contexts \\ {ctx} : (${innerTLA})`;
     }
 
     let tla = expr;
