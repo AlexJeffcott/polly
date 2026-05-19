@@ -30,6 +30,18 @@ export type SubsystemConfig = {
 
 export type VerificationConfig = {
   state: StateConfig;
+  /**
+   * polly#117: optional mesh-document declarations. Each key is the
+   * document id (the first argument to a `$meshState` factory call)
+   * and the value declares the field schema. Fields declared here are
+   * emitted into a separate `contextStates[ctx].mesh[<docId>]` slot,
+   * and the codegen adds a `PropagateMeshOp` action that allows
+   * a doc's value on one context to flow to another. Without a
+   * matching declaration here, `$meshState` references continue to
+   * flatten into single-context local state and the CLI emits a
+   * warning at verify time.
+   */
+  mesh?: MeshConfig;
   messages: MessageConfig;
   onBuild: "warn" | "error" | "off";
   onRelease: "warn" | "error" | "off";
@@ -70,6 +82,11 @@ export type BoundedExplorationConfig = {
 };
 
 export type StateConfig = Record<string, FieldConfig>;
+
+/**
+ * polly#117: mesh-document declarations. Maps docId → field schema.
+ */
+export type MeshConfig = Record<string, Record<string, FieldConfig>>;
 
 export type FieldConfig =
   | { type: "boolean" }

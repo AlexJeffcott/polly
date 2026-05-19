@@ -21,6 +21,31 @@ interface SubsystemConfig {
 // Legacy verification configuration
 interface LegacyVerificationConfig {
   state: Record<string, unknown>;
+  /**
+   * polly#117: optional mesh-document declarations. When present, each
+   * key names a `$meshState` document and its value declares the
+   * field-level state schema for that document. The verifier emits a
+   * separate slot in `contextStates[ctx].mesh[<docId>]` for these
+   * fields and adds a `PropagateMeshOp` action that allows the doc's
+   * value on one context to flow to another — modelling Automerge
+   * sync between peers. Mesh references inside `forAllPeers` quantifiers
+   * route through this slot so cross-peer convergence claims are
+   * actually checked.
+   *
+   * @example
+   * ```ts
+   * defineVerification({
+   *   state: { localCounter: { type: "number", min: 0, max: 3 } },
+   *   mesh: {
+   *     todos: {
+   *       entries: { type: "enum", values: ["empty", "one", "many"] },
+   *     },
+   *   },
+   *   messages: { maxInFlight: 2 },
+   * });
+   * ```
+   */
+  mesh?: Record<string, Record<string, unknown>>;
   messages: {
     // Basic bounds
     maxInFlight?: number;

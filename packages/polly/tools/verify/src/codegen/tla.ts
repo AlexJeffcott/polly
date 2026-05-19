@@ -66,6 +66,16 @@ export class TLAGenerator {
   private tabSymmetryEnabled: boolean = false;
   private tabCount: number = 0;
   private moduleName: string = "UserApp";
+  // polly#117: the verification config currently being generated. Stashed
+  // by generate() so private helpers can ask `this.hasMeshConfig()` /
+  // `this.unchangedUserStates()` without threading the config through
+  // every method signature.
+  private currentConfig?: VerificationConfig;
+  // polly#117: signal-variable-name → mesh document id, for routing
+  // signal references in predicates and assignments through the mesh
+  // namespace when the config declares a matching docId. Populated by
+  // generate() from analysis.meshOrPeerSignals.
+  private meshSignalDocs: Map<string, string> = new Map();
 
   /**
    * Create TLA+ generator with optional validators and property generators
@@ -125,6 +135,25 @@ export class TLAGenerator {
   }> {
     if (moduleName) {
       this.moduleName = moduleName;
+    }
+
+    // polly#117: stash the config + mesh-signal map for downstream
+    // helpers. Built once here from analysis.meshOrPeerSignals so we
+    // can answer "is this signal a $meshState document?" anywhere in
+    // the codegen.
+    this.currentConfig = config;
+    this.meshSignalDocs.clear();
+    if (this.hasMeshConfig(config)) {
+      const declaredDocs = new Set(Object.keys(config.mesh ?? {}));
+      const sigs = (analysis as { meshOrPeerSignals?: Array<{ variableName: string; key: string }> })
+        .meshOrPeerSignals;
+      if (sigs) {
+        for (const s of sigs) {
+          if (declaredDocs.has(s.key)) {
+            this.meshSignalDocs.set(s.variableName, s.key);
+          }
+        }
+      }
     }
 
     // Pre-validate inputs
@@ -383,7 +412,7 @@ export class TLAGenerator {
     this.addMessageTypes(config, analysis);
     this.addTabSymmetry(config);
     this.addStateType(config, analysis);
-    this.addVariables();
+    this.addVariables(config);
 
     // Add delivered tracking if temporal properties enabled
     if (this.temporalProperties.length > 0) {
@@ -722,6 +751,109 @@ export class TLAGenerator {
     this.indent--;
     this.line("]");
     this.line("");
+
+    // polly#117: mesh document types and initial value
+    this.addMeshTypes(config);
+  }
+
+  /**
+   * polly#117: emit `MeshDocs` set, per-doc record types, and the
+   * initial mesh-state record. Gated on `config.mesh`.
+   *
+   *   MeshDocs == {"todos", "presence"}
+   *   MeshDoc_todos == [entries: 0..3]
+   *   MeshDoc_presence == [online: BOOLEAN]
+   *   InitialMesh == [
+   *     todos    |-> [entries |-> 0],
+   *     presence |-> [online |-> FALSE]
+   *   ]
+   */
+  private addMeshTypes(config: VerificationConfig): void {
+    if (!this.hasMeshConfig(config)) return;
+    const mesh = config.mesh!;
+    const docIds = Object.keys(mesh).sort();
+
+    this.line("\\* polly#117: declared $meshState documents");
+    this.line(`MeshDocs == {${docIds.map((d) => `"${d}"`).join(", ")}}`);
+    this.line("");
+
+    for (const docId of docIds) {
+      const fields = mesh[docId];
+      if (!fields) continue;
+      const fieldLines: string[] = [];
+      for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+        const tlaType = this.fieldConfigToTLAType(
+          `${docId}_${fieldName}`,
+          fieldConfig as FieldConfig,
+          config
+        );
+        fieldLines.push(`${this.sanitizeFieldName(fieldName)}: ${tlaType}`);
+      }
+      this.line(`\\* Document type for ${docId}`);
+      this.line(`MeshDoc_${this.sanitizeFieldName(docId)} == [${fieldLines.join(", ")}]`);
+      this.line("");
+    }
+
+    this.line("\\* Initial mesh-document values (one record per declared docId)");
+    this.line("InitialMesh == [");
+    this.indent++;
+    const initLines: string[] = [];
+    for (const docId of docIds) {
+      const fields = mesh[docId];
+      if (!fields) continue;
+      const inner: string[] = [];
+      for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+        const initVal = this.fieldConfigInitialValue(
+          `${docId}_${fieldName}`,
+          fieldConfig as FieldConfig,
+          config
+        );
+        inner.push(`${this.sanitizeFieldName(fieldName)} |-> ${initVal}`);
+      }
+      initLines.push(`"${docId}" |-> [${inner.join(", ")}]`);
+    }
+    initLines.forEach((line, i) => {
+      this.line(line + (i < initLines.length - 1 ? "," : ""));
+    });
+    this.indent--;
+    this.line("]");
+    this.line("");
+  }
+
+  /**
+   * Pick a representative initial value from a FieldConfig — used to
+   * seed each mesh document's record at Init time. Mirrors the choices
+   * the existing `writeInitialStateFields` makes for local state.
+   */
+  private fieldConfigInitialValue(
+    _path: string,
+    fieldConfig: FieldConfig,
+    _config: VerificationConfig
+  ): string {
+    const fc = fieldConfig as Record<string, unknown>;
+    if (fc["type"] === "boolean") return "FALSE";
+    if (fc["type"] === "number") {
+      const min = typeof fc["min"] === "number" ? (fc["min"] as number) : 0;
+      return String(min);
+    }
+    if (
+      fc["type"] === "enum" &&
+      Array.isArray(fc["values"]) &&
+      (fc["values"] as unknown[]).length > 0
+    ) {
+      return `"${String((fc["values"] as string[])[0])}"`;
+    }
+    if (fc["type"] === "string") {
+      return typeof fc["initial"] === "string" ? `"${fc["initial"]}"` : '""';
+    }
+    if (fc["type"] === "array") {
+      return "<<>>";
+    }
+    if (Array.isArray((fc as { values?: unknown[] }).values)) {
+      const values = (fc as { values: string[] }).values;
+      if (values.length > 0) return `"${values[0]}"`;
+    }
+    return '"v1"';
   }
 
   private defineValueTypes(): void {
@@ -1102,22 +1234,64 @@ export class TLAGenerator {
     }
   }
 
-  private addVariables(): void {
+  private addVariables(config?: VerificationConfig): void {
     // MessageRouter already defines: ports, messages, pendingRequests, delivered, routingDepth, time
     // We add: contextStates for application state, payload for message payload
+
+    const hasMesh = this.hasMeshConfig(config);
 
     this.line("\\* Application state per context");
     this.line("VARIABLE contextStates");
     this.line("");
+    if (hasMesh) {
+      this.line("\\* polly#117: per-context mesh document replicas. Each context");
+      this.line("\\* carries an independent record per declared $meshState document.");
+      this.line("\\* The PropagateMeshOp action diffuses values between contexts to");
+      this.line("\\* model Automerge sync, and predicate references to mesh-tagged");
+      this.line("\\* signals route through this variable instead of contextStates.");
+      this.line("VARIABLE meshState");
+      this.line("");
+    }
     this.line("\\* Message payload (abstract model - non-deterministically chosen)");
     this.line("\\* In verification, we model payload fields as potentially any valid value");
     this.line("VARIABLE payload");
     this.line("");
     this.line("\\* All variables (extending MessageRouter vars)");
-    this.line(
-      "allVars == <<ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, payload>>"
-    );
+    const allVarsList = hasMesh
+      ? "ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, meshState, payload"
+      : "ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, payload";
+    this.line(`allVars == <<${allVarsList}>>`);
     this.line("");
+  }
+
+  /** polly#117: true iff the config declares at least one mesh document. */
+  private hasMeshConfig(config?: VerificationConfig): boolean {
+    const c = config ?? this.currentConfig;
+    return !!c?.mesh && Object.keys(c.mesh).length > 0;
+  }
+
+  /**
+   * Build the user-state variable list. With `config.mesh` declared,
+   * `meshState` is the second user-state variable alongside
+   * `contextStates`; without it, just `contextStates`. Used by every
+   * UNCHANGED clause emitted by handler and router actions so that
+   * the spec's variable footprint matches the declared schema.
+   */
+  private userStateVars(config?: VerificationConfig): string[] {
+    return this.hasMeshConfig(config) ? ["contextStates", "meshState"] : ["contextStates"];
+  }
+
+  /**
+   * Format an `UNCHANGED` clause that preserves both user-state
+   * variables (or just `contextStates` in the legacy case) plus any
+   * additional MessageRouter variables that should remain unchanged.
+   */
+  private unchangedUserStates(
+    config?: VerificationConfig,
+    andOthers: string[] = []
+  ): string {
+    const all = [...andOthers, ...this.userStateVars(config)];
+    return all.length === 1 ? `UNCHANGED ${all[0]}` : `UNCHANGED <<${all.join(", ")}>>`;
   }
 
   private addInit(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
@@ -1152,6 +1326,9 @@ export class TLAGenerator {
     this.indent++;
     this.line("/\\ Init  \\* MessageRouter's init");
     this.line("/\\ contextStates = [c \\in Contexts |-> InitialState]");
+    if (this.hasMeshConfig(config)) {
+      this.line("/\\ meshState = [c \\in Contexts |-> InitialMesh]");
+    }
     this.line("/\\ payload \\in PayloadType  \\* Non-deterministic initial payload");
     this.indent--;
     this.line("");
@@ -1427,7 +1604,7 @@ export class TLAGenerator {
     this.line("\\* State remains unchanged for all messages");
     this.line("StateTransition(ctx, msgType) ==");
     this.indent++;
-    this.line("UNCHANGED contextStates");
+    this.line(this.unchangedUserStates());
     this.indent--;
     this.line("");
   }
@@ -1440,7 +1617,7 @@ export class TLAGenerator {
     this.line("\\* State remains unchanged for all messages");
     this.line("StateTransition(ctx, msgType) ==");
     this.indent++;
-    this.line("UNCHANGED contextStates");
+    this.line(this.unchangedUserStates());
     this.indent--;
     this.line("");
   }
@@ -1752,7 +1929,27 @@ export class TLAGenerator {
       onBuild: "warn",
       onRelease: "warn",
     };
-    return this.flattenStateConfig(fakeConfig).has(sanitized);
+    if (this.flattenStateConfig(fakeConfig).has(sanitized)) return true;
+    // polly#117: a field that maps to a declared mesh signal + a
+    // declared inner field counts as modeled, since the assignment
+    // will route through meshState rather than contextStates.
+    return this.isMeshAssignmentModeled(field);
+  }
+
+  /**
+   * polly#117: true iff `field` is `<sigName>` or `<sigName>_<innerField>`
+   * for a mesh signal whose docId appears in config.mesh and whose
+   * inner field is declared on the doc record.
+   */
+  private isMeshAssignmentModeled(field: string): boolean {
+    const meshHit = this.classifyAssignmentAsMesh(field);
+    if (!meshHit) return false;
+    const mesh = this.currentConfig?.mesh;
+    if (!mesh) return false;
+    const docConfig = mesh[meshHit.docId];
+    if (!docConfig) return false;
+    if (meshHit.innerField === "") return true; // whole-document write
+    return Object.hasOwn(docConfig, meshHit.innerField);
   }
 
   /**
@@ -1821,7 +2018,7 @@ export class TLAGenerator {
       if (preconditions.length === 0) {
         this.line("\\* No state changes in handler");
       }
-      this.line("/\\ UNCHANGED contextStates");
+      this.line(`/\\ ${this.unchangedUserStates()}`);
       return true; // Signal that UNCHANGED was used
     }
 
@@ -1840,18 +2037,111 @@ export class TLAGenerator {
     }
 
     if (ndetAssignments.length === 0) {
-      // All deterministic — existing codepath
-      const exceptClauses = detAssignments.map((a) => {
-        const tlaValue = this.assignmentValueToTLA(a.value);
-        return `![ctx].${this.sanitizeFieldName(a.field)} = ${tlaValue}`;
-      });
-      this.line(`/\\ contextStates' = [contextStates EXCEPT ${exceptClauses.join(", ")}]`);
+      // All deterministic — partition into local (contextStates) and
+      // mesh-routed (meshState) writes. polly#117: when an assignment's
+      // field belongs to a $meshState signal declared in config.mesh,
+      // emit an EXCEPT against meshState[ctx][docId] instead so the
+      // write lands in the propagating namespace.
+      const partition = this.partitionAssignments(detAssignments);
+      this.emitDeterministicAssignmentPartitions(partition);
       return false;
     }
 
     // Has NDET assignments — delegate to non-deterministic emitter
     this.emitNDETStateUpdates(ndetAssignments, detAssignments);
     return false;
+  }
+
+  /**
+   * polly#117: split assignments into local (contextStates) writes
+   * and mesh-document (meshState[docId]) writes. An assignment is
+   * mesh-routed when its field name equals or is prefixed by a signal
+   * that the parser tagged as `$meshState` and that has a matching
+   * declaration in `config.mesh`.
+   */
+  private partitionAssignments(
+    assignments: Array<{ field: string; value: string | boolean | number | null }>
+  ): {
+    local: Array<{ field: string; value: string | boolean | number | null }>;
+    mesh: Map<string, Array<{ inner: string; value: string | boolean | number | null }>>;
+  } {
+    const local: Array<{ field: string; value: string | boolean | number | null }> = [];
+    const mesh = new Map<
+      string,
+      Array<{ inner: string; value: string | boolean | number | null }>
+    >();
+    for (const a of assignments) {
+      const meshHit = this.classifyAssignmentAsMesh(a.field);
+      if (meshHit) {
+        const list = mesh.get(meshHit.docId) ?? [];
+        list.push({ inner: meshHit.innerField, value: a.value });
+        mesh.set(meshHit.docId, list);
+      } else {
+        local.push(a);
+      }
+    }
+    return { local, mesh };
+  }
+
+  /**
+   * Try to match `field` against a known $meshState signal name. If
+   * the field is exactly the signal name, the whole document is being
+   * replaced (rare — usually the inner field is `<sig>_<key>`). Returns
+   * `null` when the field belongs to a local $sharedState signal.
+   */
+  private classifyAssignmentAsMesh(
+    field: string
+  ): { docId: string; innerField: string } | null {
+    for (const [signalName, docId] of this.meshSignalDocs.entries()) {
+      if (field === signalName) {
+        return { docId, innerField: "" };
+      }
+      const prefix = `${signalName}_`;
+      if (field.startsWith(prefix)) {
+        return { docId, innerField: field.substring(prefix.length) };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Emit the contextStates' and meshState' EXCEPT clauses for a
+   * partitioned assignment set. Either or both may be empty: an
+   * UNCHANGED is emitted for the side that has no writes so the
+   * action's footprint matches `allVars`.
+   */
+  private emitDeterministicAssignmentPartitions(partition: {
+    local: Array<{ field: string; value: string | boolean | number | null }>;
+    mesh: Map<string, Array<{ inner: string; value: string | boolean | number | null }>>;
+  }): void {
+    const { local, mesh } = partition;
+
+    if (local.length > 0) {
+      const exceptClauses = local.map((a) => {
+        const tlaValue = this.assignmentValueToTLA(a.value);
+        return `![ctx].${this.sanitizeFieldName(a.field)} = ${tlaValue}`;
+      });
+      this.line(`/\\ contextStates' = [contextStates EXCEPT ${exceptClauses.join(", ")}]`);
+    } else if (mesh.size > 0) {
+      this.line("/\\ UNCHANGED contextStates");
+    }
+
+    if (mesh.size > 0) {
+      const clauses: string[] = [];
+      for (const [docId, writes] of mesh.entries()) {
+        for (const w of writes) {
+          const tlaValue = this.assignmentValueToTLA(w.value);
+          if (w.inner === "") {
+            clauses.push(`![ctx]["${docId}"] = ${tlaValue}`);
+          } else {
+            clauses.push(`![ctx]["${docId}"].${this.sanitizeFieldName(w.inner)} = ${tlaValue}`);
+          }
+        }
+      }
+      this.line(`/\\ meshState' = [meshState EXCEPT ${clauses.join(", ")}]`);
+    } else if (this.hasMeshConfig() && local.length > 0) {
+      this.line("/\\ UNCHANGED meshState");
+    }
   }
 
   /**
@@ -1973,14 +2263,27 @@ export class TLAGenerator {
       const peerPrefix = isPrimed
         ? `contextStates'[${binder}]`
         : `contextStates[${binder}]`;
-      // Pre-substitute `<binder>.<sig>.value.<field>` → `contextStates[<binder>].<sig>_<field>`
-      // before the general flattening sees the expression.
+      // Pre-substitute `<binder>.<sig>.value.<field>` references before
+      // the general flattening sees the expression. polly#117: a mesh-
+      // declared signal routes through `meshState[<binder>][<docId>]`
+      // so cross-peer assertions actually exercise the propagation
+      // namespace; everything else flattens through
+      // `contextStates[<binder>]` exactly as the executing-context
+      // path would.
       let body = scoped.innerBody;
       const binderRe1 = new RegExp(
         `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\.([a-zA-Z_][a-zA-Z0-9_.]*)`,
         "g"
       );
       body = body.replace(binderRe1, (_m, sig, path) => {
+        const meshDoc = this.meshSignalDocs.get(sig);
+        if (meshDoc !== undefined) {
+          const meshPeerPrefix = isPrimed
+            ? `meshState'[${binder}]["${meshDoc}"]`
+            : `meshState[${binder}]["${meshDoc}"]`;
+          const field = this.sanitizeFieldName(String(path).replace(/\./g, "_"));
+          return `${meshPeerPrefix}.${field}`;
+        }
         const flat = this.sanitizeFieldName(`${sig}_${String(path).replace(/\./g, "_")}`);
         return `${peerPrefix}.${flat}`;
       });
@@ -1988,9 +2291,17 @@ export class TLAGenerator {
         `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\b(?!\\.)`,
         "g"
       );
-      body = body.replace(binderRe2, (_m, sig) => `${peerPrefix}.${sig}`);
+      body = body.replace(binderRe2, (_m, sig) => {
+        const meshDoc = this.meshSignalDocs.get(sig);
+        if (meshDoc !== undefined) {
+          return isPrimed
+            ? `meshState'[${binder}]["${meshDoc}"]`
+            : `meshState[${binder}]["${meshDoc}"]`;
+        }
+        return `${peerPrefix}.${sig}`;
+      });
       // Recurse on the remaining body; bare signals continue to use
-      // contextStates[ctx].
+      // contextStates[ctx] / meshState[ctx][docId] as appropriate.
       const innerTLA = this.tsExpressionToTLA(body, isPrimed);
       const quantifier = scoped.kind === "forall" ? "\\A" : "\\E";
       return `${quantifier} ${binder} \\in Contexts \\ {ctx} : (${innerTLA})`;
@@ -2028,11 +2339,21 @@ export class TLAGenerator {
     // Phase 2b: Replace signal state references with contextStates[ctx]
     // Pattern 1: stateName.value.field -> contextStates[ctx].stateName_field
     // e.g., user.value.loggedIn -> contextStates[ctx].user_loggedIn
-    // The state field name combines signal name and field path
+    // The state field name combines signal name and field path.
+    // polly#117: a signal declared via $meshState whose docId appears
+    // in config.mesh is instead routed through the meshState variable
+    // so the field lives in its own per-context per-doc namespace.
     tla = tla.replace(
       /([a-zA-Z_][a-zA-Z0-9_]*)\.value\.([a-zA-Z_][a-zA-Z0-9_.]*)/g,
       (_match, stateName, path) => {
-        // Combine signal name and field path with underscore separator
+        const meshDoc = this.meshSignalDocs.get(stateName);
+        if (meshDoc !== undefined) {
+          const meshPrefix = isPrimed
+            ? `meshState'[ctx]["${meshDoc}"]`
+            : `meshState[ctx]["${meshDoc}"]`;
+          const field = this.sanitizeFieldName(String(path).replace(/\./g, "_"));
+          return `${meshPrefix}.${field}`;
+        }
         const fullPath = `${stateName}_${path.replace(/\./g, "_")}`;
         return `${statePrefix}.${this.sanitizeFieldName(fullPath)}`;
       }
@@ -2040,8 +2361,13 @@ export class TLAGenerator {
 
     // Pattern 2: stateName.value (without field) -> contextStates[ctx].stateName
     // e.g., todos.value -> contextStates[ctx].todos
-    // This handles direct signal access where the signal name IS the state field
+    // This handles direct signal access where the signal name IS the state field.
+    // polly#117: mesh-declared signals route through meshState[ctx][docId].
     tla = tla.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\.value\b(?!\.)/g, (_match, stateName) => {
+      const meshDoc = this.meshSignalDocs.get(stateName);
+      if (meshDoc !== undefined) {
+        return isPrimed ? `meshState'[ctx]["${meshDoc}"]` : `meshState[ctx]["${meshDoc}"]`;
+      }
       return `${statePrefix}.${stateName}`;
     });
 
@@ -2884,13 +3210,49 @@ export class TLAGenerator {
     );
     this.line("                                           pendingRequests[id]]");
     this.line("                    /\\ time' = time + 1");
-    this.line("                    /\\ UNCHANGED <<delivered, contextStates, payload>>");
+    this.line(
+      `                    /\\ ${this.unchangedUserStates(undefined, ["delivered", "payload"])}`
+    );
     this.line("      /\\ UNCHANGED ports");
     this.indent--;
     this.line("");
   }
 
+  /**
+   * polly#117: emit PropagateMeshOp, the action that diffuses
+   * mesh-document values between contexts. Gated on `config.mesh`.
+   *
+   * The action is intentionally simple: copy the source context's
+   * value for the docId to the destination, requiring only that they
+   * currently differ. This models Automerge sync at the
+   * "eventually-consistent" level — TLC can fire the action at any
+   * reachable state where two contexts disagree on a mesh document,
+   * so cross-peer convergence claims can hold across the explored
+   * state space rather than being trivially violated by every
+   * routing nondeterminism.
+   */
+  private addPropagateMeshOp(): void {
+    if (!this.hasMeshConfig()) return;
+    this.line("\\* polly#117: propagate a mesh-document value from one context to another.");
+    this.line("\\* Models Automerge sync: src and dst must currently disagree on docId, and");
+    this.line("\\* the action copies src's value into dst's record. All other state is fixed.");
+    this.line("PropagateMeshOp(src, dst, docId) ==");
+    this.indent++;
+    this.line("/\\ src # dst");
+    this.line("/\\ meshState[src][docId] # meshState[dst][docId]");
+    this.line(
+      "/\\ meshState' = [meshState EXCEPT ![dst][docId] = meshState[src][docId]]"
+    );
+    this.line(
+      "/\\ UNCHANGED <<ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, payload>>"
+    );
+    this.indent--;
+    this.line("");
+  }
+
   private addNext(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    this.addPropagateMeshOp();
+
     this.line("\\* Next state relation (extends MessageRouter)");
     this.line("UserNext ==");
     this.indent++;
@@ -2904,30 +3266,32 @@ export class TLAGenerator {
       // Use integrated routing + handlers
       // payload is UNCHANGED for non-message actions, but can change non-deterministically
       // when a message is routed (to model any possible payload value)
-      this.line(
-        "\\/ \\E c \\in Contexts : ConnectPort(c) /\\ UNCHANGED <<contextStates, payload>>"
-      );
-      this.line(
-        "\\/ \\E c \\in Contexts : DisconnectPort(c) /\\ UNCHANGED <<contextStates, payload>>"
-      );
+      const userPayload = this.unchangedUserStates(undefined, ["payload"]);
+      this.line(`\\/ \\E c \\in Contexts : ConnectPort(c) /\\ ${userPayload}`);
+      this.line(`\\/ \\E c \\in Contexts : DisconnectPort(c) /\\ ${userPayload}`);
 
       // Always use Tabs set (defined in config as integers or model values for symmetry)
       this.line(
         "\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in Tabs : \\E msgType \\in UserMessageTypes :"
       );
       this.indent++;
-      this.line(
-        "SendMessage(src, targetSet, tab, msgType) /\\ UNCHANGED <<contextStates, payload>>"
-      );
+      this.line(`SendMessage(src, targetSet, tab, msgType) /\\ ${userPayload}`);
       this.indent--;
       this.line("\\/ \\E i \\in 1..Len(messages) : UserRouteMessage(i)");
-      this.line("\\/ CompleteRouting /\\ UNCHANGED <<contextStates, payload>>");
-      this.line(
-        "\\/ \\E i \\in 1..Len(messages) : TimeoutMessage(i) /\\ UNCHANGED <<contextStates, payload>>"
-      );
+      this.line(`\\/ CompleteRouting /\\ ${userPayload}`);
+      this.line(`\\/ \\E i \\in 1..Len(messages) : TimeoutMessage(i) /\\ ${userPayload}`);
+
+      // polly#117: PropagateMeshOp diffuses mesh-document values between
+      // contexts when mesh is declared in config. Models Automerge sync
+      // as a non-deterministic state-equality action.
+      if (this.hasMeshConfig()) {
+        this.line(
+          "\\/ \\E src, dst \\in Contexts : \\E docId \\in MeshDocs : PropagateMeshOp(src, dst, docId)"
+        );
+      }
     } else {
       // No valid handlers, all actions preserve contextStates and payload
-      this.line("\\/ Next /\\ UNCHANGED <<contextStates, payload>>");
+      this.line(`\\/ Next /\\ ${this.unchangedUserStates(undefined, ["payload"])}`);
     }
 
     this.indent--;
