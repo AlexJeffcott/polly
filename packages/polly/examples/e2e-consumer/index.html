@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>polly e2e consumer</title>
+  </head>
+  <body>
+    <h1>polly e2e consumer</h1>
+    <p>Status: <span data-e2e="status">init</span></p>
+    <p>Peer id: <span data-e2e="peer-id">-</span></p>
+    <p>Connected peers: <span data-e2e="peer-count">0</span></p>
+
+    <section>
+      <h2>$meshList items</h2>
+      <ul data-e2e="items"></ul>
+      <input type="text" data-e2e="add-item-input" placeholder="new item" />
+      <button type="button" data-e2e="add-item-button">Add</button>
+    </section>
+
+    <section>
+      <button type="button" data-e2e="disconnect">Disconnect</button>
+    </section>
+
+    <!-- The kit injects window.__pollyE2eBootstrap above this script before -->
+    <!-- serving the page. main.ts reads from it and bootstraps the mesh. -->
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

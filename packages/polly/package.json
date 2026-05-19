@@ -1,0 +1,279 @@
+{
+  "name": "@fairfox/polly",
+  "version": "0.70.0",
+  "private": false,
+  "type": "module",
+  "description": "Multi-execution-context framework with reactive state and cross-context messaging for Chrome extensions, PWAs, and worker-based applications",
+  "workspaces": [
+    "tests"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "polly": "./dist/cli/polly.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./state": {
+      "import": "./dist/src/shared/lib/state.js",
+      "types": "./dist/shared/lib/state.d.ts"
+    },
+    "./resource": {
+      "import": "./dist/src/shared/lib/resource.js",
+      "types": "./dist/shared/lib/resource.d.ts"
+    },
+    "./message-bus": {
+      "import": "./dist/src/shared/lib/message-bus.js",
+      "types": "./dist/shared/lib/message-bus.d.ts"
+    },
+    "./background": {
+      "import": "./dist/src/background/index.js",
+      "types": "./dist/background/index.d.ts"
+    },
+    "./message-router": {
+      "import": "./dist/src/background/message-router.js",
+      "types": "./dist/background/message-router.d.ts"
+    },
+    "./adapters": {
+      "import": "./dist/src/shared/adapters/index.js",
+      "types": "./dist/shared/adapters/index.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/src/shared/lib/errors.js",
+      "types": "./dist/shared/lib/errors.d.ts"
+    },
+    "./guards": {
+      "import": "./dist/src/shared/lib/guards.js",
+      "types": "./dist/src/shared/lib/guards.d.ts"
+    },
+    "./types": {
+      "import": "./dist/src/shared/types/messages.js",
+      "types": "./dist/shared/types/messages.d.ts"
+    },
+    "./verify": {
+      "import": "./dist/tools/verify/src/config.js",
+      "types": "./dist/tools/verify/src/config.d.ts"
+    },
+    "./test": {
+      "import": "./dist/tools/test/src/index.js",
+      "types": "./dist/tools/test/src/index.d.ts"
+    },
+    "./test/browser": {
+      "import": "./dist/tools/test/src/browser/index.js",
+      "types": "./dist/tools/test/src/browser/index.d.ts"
+    },
+    "./test/visual": {
+      "import": "./dist/tools/test/src/visual/index.js",
+      "types": "./dist/tools/test/src/visual/index.d.ts"
+    },
+    "./test/e2e-mesh": {
+      "import": "./dist/tools/test/src/e2e-mesh/index.js",
+      "types": "./dist/tools/test/src/e2e-mesh/index.d.ts"
+    },
+    "./peer": {
+      "import": "./dist/src/peer.js",
+      "types": "./dist/src/peer.d.ts"
+    },
+    "./mesh": {
+      "import": "./dist/src/mesh.js",
+      "types": "./dist/src/mesh.d.ts"
+    },
+    "./mesh/node": {
+      "import": "./dist/src/mesh-node.js",
+      "types": "./dist/src/mesh-node.d.ts"
+    },
+    "./elysia": {
+      "import": "./dist/src/elysia/index.js",
+      "types": "./dist/src/elysia/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/src/client/index.js",
+      "types": "./dist/src/client/index.d.ts"
+    },
+    "./quality": {
+      "import": "./dist/tools/quality/src/index.js",
+      "types": "./dist/tools/quality/src/index.d.ts"
+    },
+    "./actions": {
+      "import": "./dist/src/actions/index.js",
+      "types": "./dist/src/actions/index.d.ts"
+    },
+    "./ui": {
+      "import": "./dist/src/polly-ui/index.js",
+      "types": "./dist/src/polly-ui/index.d.ts"
+    },
+    "./ui/registry": {
+      "import": "./dist/src/polly-ui/registry.js",
+      "types": "./dist/src/polly-ui/registry.d.ts"
+    },
+    "./ui/styles.css": "./dist/src/polly-ui/styles.css",
+    "./ui/theme.css": "./dist/src/polly-ui/theme.css",
+    "./ui/components.css": "./dist/src/polly-ui/index.css",
+    "./ui/markdown": {
+      "import": "./dist/src/polly-ui/markdown.js",
+      "types": "./dist/src/polly-ui/markdown.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "bun run build.ts --watch",
+    "build": "bun run build.ts",
+    "build:prod": "bun run build.ts --prod",
+    "build:lib": "bun scripts/build-polly-ui-registry.ts && bun run build-lib.ts",
+    "build:registry": "bun scripts/build-polly-ui-registry.ts",
+    "build:full-featured": "bun run scripts/build-user-extension.ts ../../examples/full-featured",
+    "build:full-featured:prod": "bun run scripts/build-user-extension.ts ../../examples/full-featured --prod",
+    "typecheck": "bunx tsc --noEmit && bun run --cwd tests typecheck",
+    "typecheck:tests": "bun run --cwd tests typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "bun run --cwd tests test",
+    "test:watch": "bun run --cwd tests test:watch",
+    "test:all": "bun run lint && bun run typecheck && bun run --cwd tests test:all",
+    "test:e2e:visualize": "bun scripts/e2e-visualize.ts",
+    "test:e2e:mesh:fast": "bun scripts/e2e-mesh-offline-online-drain.ts",
+    "test:e2e:mesh": "bun scripts/e2e-mesh-offline-online-drain.ts && bun scripts/e2e-mesh-revocation-prebaked.ts && bun scripts/e2e-mesh-three-peer-convergence.ts && bun scripts/e2e-mesh-revocation-runtime.ts",
+    "check": "bun scripts/check.ts",
+    "prepublishOnly": "bun run typecheck && bun run lint && bun run --cwd tests test && bun run build:lib",
+    "publish:public": "npm publish --access public --otp=$(pass-cli item totp --output json --item-id Rdr--oUgHp-IfyjoTB7vhMPHfNt6Oz2JpXfS1WrdQMQ9damDMPOvKiOxxpCZqp92WgqXnfY68cSXWdQ_JVMNMQ== --share-id Ixmpll6U5ioU_1P4fzUbarQNANRPU51O68xzFblTB08S0HUfw4dhQaNAv4Yv7Sud_Vf8ps4mnQUFqdvN-eTRdQ== | jq -r '.totp')"
+  },
+  "devDependencies": {
+    "@automerge/automerge-repo": "2.5.5",
+    "@automerge/automerge-repo-network-websocket": "2.5.5",
+    "@automerge/automerge-repo-storage-indexeddb": "2.5.5",
+    "@automerge/automerge-repo-storage-nodefs": "2.5.5",
+    "@biomejs/biome": "2.4.14",
+    "@elysiajs/eden": "1.4.9",
+    "@types/bun": "1.3.13",
+    "@types/chrome": "0.1.40",
+    "@types/pixelmatch": "5.2.6",
+    "@types/pngjs": "6.0.5",
+    "@types/ws": "8.18.1",
+    "dompurify": "3.4.2",
+    "elysia": "1.4.28",
+    "fast-check": "4.7.0",
+    "marked": "18.0.3",
+    "pixelmatch": "7.2.0",
+    "pngjs": "7.0.0",
+    "puppeteer": "24.42.0",
+    "tweetnacl": "1.0.3",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "dependencies": {
+    "@preact/signals": "2.9.0",
+    "@preact/signals-core": "1.14.2",
+    "preact": "10.29.1",
+    "ts-morph": "28.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">= 5.9.3",
+    "preact": "^10.28.1",
+    "@preact/signals": "^2.5.1",
+    "elysia": ">= 1.4.0",
+    "@elysiajs/eden": ">= 1.2.0",
+    "@automerge/automerge": ">= 3.2.0",
+    "@automerge/automerge-repo": ">= 2.5.0",
+    "@automerge/automerge-repo-network-websocket": ">= 2.5.0",
+    "@automerge/automerge-repo-storage-indexeddb": ">= 2.5.0",
+    "@automerge/automerge-repo-storage-nodefs": ">= 2.5.0",
+    "ws": ">= 8.0.0",
+    "tweetnacl": ">= 1.0.0",
+    "werift": ">= 0.19.0",
+    "@roamhq/wrtc": ">= 0.8.0",
+    "marked": ">= 12.0.0",
+    "dompurify": ">= 3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "elysia": {
+      "optional": true
+    },
+    "@elysiajs/eden": {
+      "optional": true
+    },
+    "@automerge/automerge": {
+      "optional": true
+    },
+    "@automerge/automerge-repo": {
+      "optional": true
+    },
+    "@automerge/automerge-repo-network-websocket": {
+      "optional": true
+    },
+    "@automerge/automerge-repo-storage-indexeddb": {
+      "optional": true
+    },
+    "@automerge/automerge-repo-storage-nodefs": {
+      "optional": true
+    },
+    "ws": {
+      "optional": true
+    },
+    "tweetnacl": {
+      "optional": true
+    },
+    "werift": {
+      "optional": true
+    },
+    "@roamhq/wrtc": {
+      "optional": true
+    },
+    "marked": {
+      "optional": true
+    },
+    "dompurify": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "multi-context",
+    "chrome-extension",
+    "browser-extension",
+    "web-extension",
+    "pwa",
+    "web-workers",
+    "service-workers",
+    "framework",
+    "reactive",
+    "state-management",
+    "messaging",
+    "cross-context",
+    "preact",
+    "signals",
+    "typescript",
+    "distributed",
+    "concurrent"
+  ],
+  "author": "Alex Jeffcott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlexJeffcott/polly"
+  },
+  "bugs": {
+    "url": "https://github.com/AlexJeffcott/polly/issues"
+  },
+  "homepage": "https://github.com/AlexJeffcott/polly#readme",
+  "trustedDependencies": [
+    "node-datachannel"
+  ],
+  "overrides": {
+    "basic-ftp": "^5.3.1",
+    "brace-expansion": "^2.0.3",
+    "file-type": "^21.3.1",
+    "ip-address": "^10.1.1",
+    "minimatch": "^9.0.6",
+    "uuid": "^14.0.0"
+  }
+}

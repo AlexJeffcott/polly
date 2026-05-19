@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "webrtc-p2p-chat-server",
   "version": "0.1.0",
   "type": "module",
   "private": true,

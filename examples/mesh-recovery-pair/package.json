@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "bun run main.ts",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "verify": "polly verify"
   },
   "dependencies": {
-    "@fairfox/polly": "link:../..",
+    "@fairfox/polly": "workspace:*",
+    "@preact/signals": "2.5.1",
     "elysia": ">= 1.4.0",
     "werift": ">= 0.19.0"
   },

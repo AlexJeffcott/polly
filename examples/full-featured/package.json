@@ -21,11 +21,12 @@
     "visualize:serve": "polly visualize --serve"
   },
   "dependencies": {
-    "@fairfox/polly": "link:../..",
+    "@fairfox/polly": "workspace:*",
     "preact": "10.29.1",
     "@preact/signals": "2.5.1"
   },
   "devDependencies": {
+    "@types/bun": "1.3.13",
     "@types/chrome": "0.1.32",
     "typescript": "5.9.3"
   }

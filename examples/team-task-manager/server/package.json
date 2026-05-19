@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "1.4.2",
-    "@fairfox/polly": "file:../../..",
+    "@fairfox/polly": "workspace:*",
     "elysia": "1.4.28"
   },
   "devDependencies": {

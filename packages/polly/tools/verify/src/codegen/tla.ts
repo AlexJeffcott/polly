@@ -1,0 +1,3980 @@
+// TLA+ specification generator
+
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import type { MessageHandler } from "../core/model";
+import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
+import type {
+  CodebaseAnalysis,
+  FieldAnalysis,
+  FieldConfig,
+  StateAssignment,
+  SubsystemConfig,
+  VerificationCondition,
+  VerificationConfig,
+} from "../types";
+import { type Invariant, InvariantExtractor, InvariantGenerator } from "./invariants";
+import type { RoundTripResult, RoundTripValidator } from "./round-trip";
+import { type TemporalProperty, TemporalPropertyGenerator, TemporalTLAGenerator } from "./temporal";
+import type { TLAValidator, ValidationError } from "./tla-validator";
+
+/**
+ * Validation report from all validators
+ */
+export type ValidationReport = {
+  syntaxValidation: {
+    passed: boolean;
+    errors: ValidationError[];
+  };
+  sanyValidation: {
+    passed: boolean;
+    result: SANYValidationResult | null;
+  };
+  roundTripValidation: {
+    passed: boolean;
+    result: RoundTripResult | null;
+  };
+};
+
+/**
+ * Validation error thrown when generation produces invalid TLA+
+ */
+export class TLAValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly report: ValidationReport
+  ) {
+    super(message);
+    this.name = "TLAValidationError";
+  }
+}
+
+export class TLAGenerator {
+  private lines: string[] = [];
+  private indent = 0;
+  private extractedInvariants: Invariant[] = [];
+  private temporalProperties: TemporalProperty[] = [];
+  private symmetrySets: string[] = [];
+  // Map from messageType to resolved unique action name (handles collisions)
+  private resolvedActionNames: Map<string, string> = new Map();
+  // Sanitized payload-field name → TLA+ domain string (e.g. '{"a","b"}', '0..N', 'BOOLEAN').
+  // Populated by deriveParamDomains() before PayloadType emission. Empty when a parameter
+  // cannot be linked to a config.state field — collectPayloadFields falls back to inferFieldType.
+  private paramDomains: Map<string, string> = new Map();
+  // Tab symmetry state
+  private tabSymmetryEnabled: boolean = false;
+  private tabCount: number = 0;
+  private moduleName: string = "UserApp";
+  // polly#117: the verification config currently being generated. Stashed
+  // by generate() so private helpers can ask `this.hasMeshConfig()` /
+  // `this.unchangedUserStates()` without threading the config through
+  // every method signature.
+  private currentConfig?: VerificationConfig;
+  // polly#117: signal-variable-name → mesh document id, for routing
+  // signal references in predicates and assignments through the mesh
+  // namespace when the config declares a matching docId. Populated by
+  // generate() from analysis.meshOrPeerSignals.
+  private meshSignalDocs: Map<string, string> = new Map();
+
+  /**
+   * Create TLA+ generator with optional validators and property generators
+   *
+   * If validators are provided, generate() will automatically validate
+   * the generated spec and throw TLAValidationError if invalid.
+   *
+   * If enableInvariants or enableTemporalProperties is true, the generator
+   * will extract and include these properties in the spec.
+   */
+  constructor(
+    private options?: {
+      validator?: TLAValidator;
+      sanyRunner?: SANYRunner;
+      roundTripValidator?: RoundTripValidator;
+      enableInvariants?: boolean;
+      enableTemporalProperties?: boolean;
+      projectPath?: string; // Required if enableInvariants is true
+    }
+  ) {}
+
+  /**
+   * Check if a string is a valid TLA+ identifier
+   * TLA+ identifiers must:
+   * - Start with a letter (a-zA-Z)
+   * - Contain only letters, digits, and underscores
+   * - Not be empty
+   */
+  private isValidTLAIdentifier(s: string): boolean {
+    if (!s || s.length === 0) {
+      return false;
+    }
+    // TLA+ identifiers: start with letter, contain only alphanumeric + underscore
+    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s);
+  }
+
+  /**
+   * Generate TLA+ specification with optional validation
+   *
+   * If validators were provided in constructor, this method will:
+   * 1. Pre-validate inputs
+   * 2. Generate spec
+   * 3. Fast syntax validation
+   * 4. SANY validation (full grammar)
+   * 5. Round-trip validation
+   *
+   * Throws TLAValidationError if validation fails.
+   */
+  async generate(
+    config: VerificationConfig,
+    analysis: CodebaseAnalysis,
+    moduleName?: string
+  ): Promise<{
+    spec: string;
+    cfg: string;
+    validation?: ValidationReport;
+  }> {
+    if (moduleName) {
+      this.moduleName = moduleName;
+    }
+
+    // polly#117: stash the config + mesh-signal map for downstream
+    // helpers. Built once here from analysis.meshOrPeerSignals so we
+    // can answer "is this signal a $meshState document?" anywhere in
+    // the codegen.
+    this.currentConfig = config;
+    this.meshSignalDocs.clear();
+    if (this.hasMeshConfig(config)) {
+      const declaredDocs = new Set(Object.keys(config.mesh ?? {}));
+      const sigs = (
+        analysis as { meshOrPeerSignals?: Array<{ variableName: string; key: string }> }
+      ).meshOrPeerSignals;
+      if (sigs) {
+        for (const s of sigs) {
+          if (declaredDocs.has(s.key)) {
+            this.meshSignalDocs.set(s.variableName, s.key);
+          }
+        }
+      }
+    }
+
+    // Pre-validate inputs
+    this.validateInputs(config, analysis);
+
+    // Extract invariants and temporal properties if enabled
+    this.extractInvariantsIfEnabled();
+    this.generateTemporalPropertiesIfEnabled(analysis);
+
+    // Generate spec and config
+    this.lines = [];
+    this.indent = 0;
+    const spec = this.generateSpec(config, analysis);
+    const cfg = this.generateConfig(config);
+
+    // If no validators provided, return immediately (backward compatibility)
+    if (!this.hasValidators()) {
+      return { spec, cfg };
+    }
+
+    // Perform all validations
+    const validation = await this.performAllValidations(spec, config, analysis);
+
+    return { spec, cfg, validation };
+  }
+
+  /**
+   * Check if any validators are configured
+   */
+  private hasValidators(): boolean {
+    return !!(
+      this.options?.validator ||
+      this.options?.sanyRunner ||
+      this.options?.roundTripValidator
+    );
+  }
+
+  /**
+   * Extract invariants from project if enabled
+   */
+  private extractInvariantsIfEnabled(): void {
+    if (this.options?.enableInvariants && this.options.projectPath) {
+      const extractor = new InvariantExtractor();
+      const result = extractor.extractInvariants(this.options.projectPath);
+      this.extractedInvariants = result.invariants;
+
+      if (result.warnings.length > 0 && process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] Invariant extraction warnings:");
+        for (const warning of result.warnings) {
+          console.log(`  - ${warning}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Generate temporal properties if enabled
+   */
+  private generateTemporalPropertiesIfEnabled(analysis: CodebaseAnalysis): void {
+    if (this.options?.enableTemporalProperties) {
+      const generator = new TemporalPropertyGenerator();
+      this.temporalProperties = generator.generateProperties(analysis);
+    }
+  }
+
+  /**
+   * Perform all validations and return report
+   */
+  private async performAllValidations(
+    spec: string,
+    config: VerificationConfig,
+    analysis: CodebaseAnalysis
+  ): Promise<ValidationReport> {
+    // Fast syntax validation
+    const syntaxErrors = this.performSyntaxValidation(spec);
+
+    // SANY validation (full grammar)
+    const sanyResult = await this.performSANYValidation(spec);
+
+    // Round-trip validation
+    const roundTripResult = await this.performRoundTripValidation(config, analysis, spec);
+
+    // Build validation report
+    const validation: ValidationReport = {
+      syntaxValidation: {
+        passed: syntaxErrors.length === 0,
+        errors: syntaxErrors,
+      },
+      sanyValidation: {
+        passed: sanyResult ? sanyResult.valid : true,
+        result: sanyResult,
+      },
+      roundTripValidation: {
+        passed: roundTripResult ? roundTripResult.valid : true,
+        result: roundTripResult,
+      },
+    };
+
+    // If any validation failed, throw error
+    if (
+      !validation.syntaxValidation.passed ||
+      !validation.sanyValidation.passed ||
+      !validation.roundTripValidation.passed
+    ) {
+      throw new TLAValidationError(this.buildValidationErrorMessage(validation), validation);
+    }
+
+    return validation;
+  }
+
+  /**
+   * Perform fast syntax validation
+   */
+  private performSyntaxValidation(spec: string): ValidationError[] {
+    const syntaxErrors: ValidationError[] = [];
+    if (this.options?.validator) {
+      const moduleErrors = this.options.validator.validateModuleStructure(spec);
+      syntaxErrors.push(...moduleErrors);
+    }
+    return syntaxErrors;
+  }
+
+  /**
+   * Perform SANY validation
+   */
+  private async performSANYValidation(spec: string): Promise<SANYValidationResult | null> {
+    if (!this.options?.sanyRunner) {
+      return null;
+    }
+
+    // Write spec to temp file for SANY
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-sany-"));
+    const specPath = path.join(tempDir, "UserApp.tla");
+    fs.writeFileSync(specPath, spec);
+
+    try {
+      return await this.options.sanyRunner.validateSpec(specPath);
+    } finally {
+      // Cleanup temp file
+      try {
+        fs.rmSync(tempDir, { recursive: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  /**
+   * Perform round-trip validation
+   */
+  private async performRoundTripValidation(
+    config: VerificationConfig,
+    analysis: CodebaseAnalysis,
+    spec: string
+  ): Promise<RoundTripResult | null> {
+    if (!this.options?.roundTripValidator) {
+      return null;
+    }
+
+    return await this.options.roundTripValidator.validate(config, analysis, spec);
+  }
+
+  /**
+   * Pre-validate inputs before generation
+   */
+  private validateInputs(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    // Validate message types are valid TLA+ identifiers
+    for (const messageType of analysis.messageTypes) {
+      if (!this.isValidTLAIdentifier(messageType)) {
+        throw new Error(
+          `Invalid message type '${messageType}'. TLA+ identifiers must start with a letter and contain only letters, digits, and underscores.`
+        );
+      }
+    }
+
+    // State field names are sanitized (dots → underscores) during generation,
+    // so we don't validate them here as strict TLA+ identifiers
+  }
+
+  /**
+   * Build user-friendly error message from validation report
+   */
+  private buildValidationErrorMessage(validation: ValidationReport): string {
+    const messages: string[] = ["TLA+ generation validation failed:"];
+
+    this.appendSyntaxErrors(validation, messages);
+    this.appendSANYErrors(validation, messages);
+    this.appendRoundTripErrors(validation, messages);
+
+    return messages.join("\n");
+  }
+
+  /**
+   * Append syntax validation errors to message array
+   */
+  private appendSyntaxErrors(validation: ValidationReport, messages: string[]): void {
+    if (!validation.syntaxValidation.passed) {
+      messages.push(`\n  Syntax errors (${validation.syntaxValidation.errors.length}):`);
+      for (const error of validation.syntaxValidation.errors.slice(0, 5)) {
+        const location = error.line ? ` at line ${error.line}` : "";
+        messages.push(`    - ${error.message}${location}`);
+      }
+      if (validation.syntaxValidation.errors.length > 5) {
+        messages.push(`    ... and ${validation.syntaxValidation.errors.length - 5} more`);
+      }
+    }
+  }
+
+  /**
+   * Append SANY validation errors to message array
+   */
+  private appendSANYErrors(validation: ValidationReport, messages: string[]): void {
+    if (!validation.sanyValidation.passed && validation.sanyValidation.result) {
+      messages.push(
+        `\n  SANY validation errors (${validation.sanyValidation.result.errors.length}):`
+      );
+      for (const error of validation.sanyValidation.result.errors.slice(0, 5)) {
+        const location = error.line ? ` at line ${error.line}` : "";
+        messages.push(`    - ${error.message}${location}`);
+        if (error.suggestion) {
+          messages.push(`      Suggestion: ${error.suggestion}`);
+        }
+      }
+      if (validation.sanyValidation.result.errors.length > 5) {
+        messages.push(`    ... and ${validation.sanyValidation.result.errors.length - 5} more`);
+      }
+    }
+  }
+
+  /**
+   * Append round-trip validation errors to message array
+   */
+  private appendRoundTripErrors(validation: ValidationReport, messages: string[]): void {
+    if (!validation.roundTripValidation.passed && validation.roundTripValidation.result) {
+      messages.push(
+        `\n  Round-trip validation errors (${validation.roundTripValidation.result.errors.length}):`
+      );
+      for (const error of validation.roundTripValidation.result.errors.slice(0, 5)) {
+        messages.push(`    - ${error.message}`);
+      }
+      if (validation.roundTripValidation.result.errors.length > 5) {
+        messages.push(
+          `    ... and ${validation.roundTripValidation.result.errors.length - 5} more`
+        );
+      }
+    }
+  }
+
+  private generateSpec(config: VerificationConfig, analysis: CodebaseAnalysis): string {
+    this.lines = [];
+    this.indent = 0;
+
+    this.addHeader();
+    this.addExtends();
+    this.addConstants(config);
+    this.addMessageTypes(config, analysis);
+    this.addTabSymmetry(config);
+    this.addStateType(config, analysis);
+    this.addVariables(config);
+
+    // Add delivered tracking if temporal properties enabled
+    if (this.temporalProperties.length > 0) {
+      this.addDeliveredTracking();
+    }
+
+    this.addInit(config, analysis);
+    this.addActions(config, analysis);
+    this.addRouteWithHandlers(config, analysis);
+    this.addNext(config, analysis);
+    this.addSpec();
+    this.addInvariants(config, analysis);
+
+    // Add temporal properties if enabled
+    if (this.temporalProperties.length > 0) {
+      this.addTemporalProperties();
+    }
+
+    // Module-end marker — must be the last line of the spec, AFTER any
+    // temporal properties have been emitted.
+    this.line("=============================================================================");
+
+    return this.lines.join("\n");
+  }
+
+  private generateConfig(config: VerificationConfig): string {
+    const lines: string[] = [];
+
+    this.addConfigHeader(lines);
+    this.addBasicConstants(lines, config);
+    this.addProjectSpecificConstants(lines, config.messages);
+    this.addStateBoundsConstants(lines, config.state);
+    this.addInvariantsSection(lines);
+    this.addTemporalPropertiesSection(lines);
+    this.addConstraintSection(lines);
+    this.addSymmetrySection(lines, config);
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Add config file header
+   */
+  private addConfigHeader(lines: string[]): void {
+    lines.push("SPECIFICATION UserSpec");
+    lines.push("");
+    lines.push("\\* Constants");
+    lines.push("CONSTANTS");
+  }
+
+  /**
+   * Add basic constants (Contexts, MaxMessages)
+   */
+  private addBasicConstants(lines: string[], config: VerificationConfig): void {
+    lines.push("  Contexts = {background, content, popup}");
+    lines.push(`  MaxMessages = ${config.messages.maxInFlight || 3}`);
+    // NULL is a model value used for null/undefined
+    lines.push("  NULL = NULL");
+
+    // Tier 1 Optimization: Per-message bounds
+    if (config.messages.perMessageBounds) {
+      for (const [msgType, bound] of Object.entries(config.messages.perMessageBounds)) {
+        const constName = `MaxMessages_${msgType}`;
+        lines.push(`  ${constName} = ${bound}`);
+      }
+    }
+  }
+
+  /**
+   * Add project-specific constants (maxWorkers, maxRenderers, etc.)
+   */
+  private addProjectSpecificConstants(
+    lines: string[],
+    messages: VerificationConfig["messages"]
+  ): void {
+    let hasProjectConstant = false;
+
+    if ("maxWorkers" in messages && messages.maxWorkers !== undefined) {
+      lines.push(`  MaxWorkers = ${messages.maxWorkers}`);
+      hasProjectConstant = true;
+    }
+    if ("maxRenderers" in messages && messages.maxRenderers !== undefined) {
+      lines.push(`  MaxRenderers = ${messages.maxRenderers}`);
+      hasProjectConstant = true;
+    }
+    if ("maxContexts" in messages && messages.maxContexts !== undefined) {
+      lines.push(`  MaxContexts = ${messages.maxContexts}`);
+      hasProjectConstant = true;
+    }
+    if ("maxClients" in messages && messages.maxClients !== undefined && !hasProjectConstant) {
+      lines.push(`  MaxClients = ${messages.maxClients}`);
+      hasProjectConstant = true;
+    }
+
+    // Handle tab constants - either model values for symmetry or integer set
+    if (this.tabSymmetryEnabled) {
+      // Tab symmetry: use model value assignments
+      for (let i = 0; i < this.tabCount; i++) {
+        lines.push(`  Tab${i} = Tab${i}`);
+      }
+      // Define Tabs as the set of model values
+      const tabValues = Array.from({ length: this.tabCount }, (_, i) => `Tab${i}`).join(", ");
+      lines.push(`  Tabs = {${tabValues}}`);
+    } else if (
+      "maxTabs" in messages &&
+      messages.maxTabs !== undefined &&
+      messages.maxTabs !== null
+    ) {
+      // Standard integer-based tabs with explicit maxTabs
+      const tabValues = Array.from({ length: messages.maxTabs + 1 }, (_, i) => i).join(", ");
+      lines.push(`  Tabs = {${tabValues}}`);
+    } else if (hasProjectConstant) {
+      lines.push("  Tabs = {0}");
+    } else {
+      lines.push("  Tabs = {0, 1}");
+    }
+
+    lines.push("  TimeoutLimit = 3");
+  }
+
+  /**
+   * Add state bounds constants
+   */
+  private addStateBoundsConstants(lines: string[], state: VerificationConfig["state"]): void {
+    for (const [field, fieldConfig] of Object.entries(state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      const constName = this.fieldToConstName(field);
+
+      if ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) {
+        lines.push(`  ${constName}_MaxLength = ${fieldConfig.maxLength}`);
+      }
+      if ("max" in fieldConfig && fieldConfig.max !== null) {
+        lines.push(`  ${constName}_Max = ${fieldConfig.max}`);
+      }
+      if ("maxSize" in fieldConfig && fieldConfig.maxSize !== null) {
+        lines.push(`  ${constName}_MaxSize = ${fieldConfig.maxSize}`);
+      }
+    }
+  }
+
+  /**
+   * Add invariants section to config
+   */
+  private addInvariantsSection(lines: string[]): void {
+    lines.push("");
+    lines.push("\\* Invariants to check");
+    lines.push("INVARIANTS");
+    lines.push("  TypeOK");
+    lines.push("  NoRoutingLoops");
+    lines.push("  UserStateTypeInvariant");
+
+    for (const inv of this.extractedInvariants) {
+      lines.push(`  ${inv.name}`);
+    }
+  }
+
+  /**
+   * Add temporal properties section to config
+   */
+  private addTemporalPropertiesSection(lines: string[]): void {
+    if (this.temporalProperties.length === 0) return;
+
+    lines.push("");
+    lines.push("\\* Temporal properties to check");
+    lines.push("PROPERTIES");
+    for (const prop of this.temporalProperties) {
+      lines.push(`  ${prop.name}`);
+    }
+  }
+
+  /**
+   * Add constraint section to config
+   */
+  private addConstraintSection(lines: string[]): void {
+    lines.push("");
+    lines.push("\\* State constraint");
+    lines.push("CONSTRAINT");
+    lines.push("  StateConstraint");
+  }
+
+  /**
+   * Add symmetry section to config for Tier 1 optimization
+   *
+   * IMPORTANT (Issue #16): TLA+ config files only support ONE SYMMETRY declaration.
+   * this.symmetrySets should only contain one element after addSymmetrySets() processes
+   * the configuration (either a single group or a combined set).
+   */
+  private addSymmetrySection(lines: string[], _config: VerificationConfig): void {
+    if (!this.symmetrySets || this.symmetrySets.length === 0) {
+      return;
+    }
+
+    // Defensive assertion: TLA+ only allows one SYMMETRY declaration
+    if (this.symmetrySets.length > 1) {
+      throw new Error(
+        `Internal error: TLA+ config files only support ONE SYMMETRY declaration (Issue #16), ` +
+          `but ${this.symmetrySets.length} sets were prepared. This should have been handled in addSymmetrySets().`
+      );
+    }
+
+    lines.push("");
+    lines.push("\\* Symmetry sets for state space reduction");
+    for (const setName of this.symmetrySets) {
+      lines.push(`SYMMETRY ${setName}`);
+    }
+  }
+
+  private addHeader(): void {
+    this.line(`------------------------- MODULE ${this.moduleName} -------------------------`);
+    this.line("(*");
+    this.line("  Auto-generated TLA+ specification for web extension");
+    this.line("  ");
+    this.line("  Generated from:");
+    this.line("    - TypeScript type definitions");
+    this.line("    - Verification configuration");
+    this.line("  ");
+    this.line("  This spec extends MessageRouter with:");
+    this.line("    - Application-specific state types");
+    this.line("    - Message type definitions");
+    this.line("    - State transition actions");
+    this.line("*)");
+    this.line("");
+  }
+
+  private addExtends(): void {
+    this.line("EXTENDS MessageRouter");
+    this.line("");
+  }
+
+  private addConstants(config: VerificationConfig): void {
+    // MessageRouter already defines: Contexts, MaxMessages, Tabs, TimeoutLimit
+    // We add application-specific constants and per-message bounds constants
+    // NULL is always needed for null/undefined value representation
+
+    const hasStateConstants = this.hasCustomConstants(config.state);
+    const hasPerMessageBounds =
+      config.messages.perMessageBounds && Object.keys(config.messages.perMessageBounds).length > 0;
+
+    this.line("\\* Application-specific constants");
+    this.line("CONSTANTS");
+    this.indent++;
+
+    // NULL is always needed - used for null/undefined values in state
+    this.line("NULL");
+
+    // Add state-related constants (NULL was already added, so start with comma)
+    if (hasStateConstants) {
+      this.generateConstantDeclarations(config.state, false);
+    }
+
+    // Add per-message bounds constants (Tier 1 optimization)
+    if (hasPerMessageBounds && config.messages.perMessageBounds) {
+      for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
+        const constName = `MaxMessages_${msgType}`;
+        this.line(`,${constName}`);
+      }
+    }
+
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * Check if config has any custom constants
+   */
+  private hasCustomConstants(state: VerificationConfig["state"]): boolean {
+    return Object.values(state).some((fieldConfig) => {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) return false;
+      return (
+        ("maxLength" in fieldConfig && fieldConfig.maxLength !== null) ||
+        ("max" in fieldConfig && fieldConfig.max !== null) ||
+        ("maxSize" in fieldConfig && fieldConfig.maxSize !== null)
+      );
+    });
+  }
+
+  /**
+   * Generate constant declarations for all state fields
+   * @param state - State configuration
+   * @param firstConstant - Whether this is the first constant (no comma prefix)
+   */
+  private generateConstantDeclarations(
+    state: VerificationConfig["state"],
+    firstConstant = true
+  ): void {
+    let first = firstConstant;
+
+    for (const [field, fieldConfig] of Object.entries(state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      const constName = this.fieldToConstName(field);
+      first = this.addFieldConstants(field, fieldConfig, constName, first);
+    }
+  }
+
+  /**
+   * Add constants for a single field
+   */
+  private addFieldConstants(
+    field: string,
+    fieldConfig: Record<string, unknown>,
+    constName: string,
+    first: boolean
+  ): boolean {
+    let isFirst = first;
+
+    if ("maxLength" in fieldConfig && fieldConfig["maxLength"] !== null) {
+      this.line(`${isFirst ? "" : ","}${constName}_MaxLength  \\* Max length for ${field}`);
+      isFirst = false;
+    }
+    if ("max" in fieldConfig && fieldConfig["max"] !== null) {
+      this.line(`${isFirst ? "" : ","}${constName}_Max       \\* Max value for ${field}`);
+      isFirst = false;
+    }
+    if ("maxSize" in fieldConfig && fieldConfig["maxSize"] !== null) {
+      this.line(`${isFirst ? "" : ","}${constName}_MaxSize   \\* Max size for ${field}`);
+      isFirst = false;
+    }
+
+    return isFirst;
+  }
+
+  private addStateType(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
+    // Define Value type for generic sequences and maps
+    this.defineValueTypes();
+
+    // Generate State type definition
+    this.line("\\* Application state type definition");
+    this.line("State == [");
+    this.indent++;
+
+    const stateFields = this.collectStateFields(config, _analysis);
+    this.writeStateFields(stateFields);
+
+    this.indent--;
+    this.line("]");
+    this.line("");
+
+    // polly#117: mesh document types and initial value
+    this.addMeshTypes(config);
+  }
+
+  /**
+   * polly#117: emit `MeshDocs` set, per-doc record types, and the
+   * initial mesh-state record. Gated on `config.mesh`.
+   *
+   *   MeshDocs == {"todos", "presence"}
+   *   MeshDoc_todos == [entries: 0..3]
+   *   MeshDoc_presence == [online: BOOLEAN]
+   *   InitialMesh == [
+   *     todos    |-> [entries |-> 0],
+   *     presence |-> [online |-> FALSE]
+   *   ]
+   */
+  private addMeshTypes(config: VerificationConfig): void {
+    const mesh = config.mesh;
+    if (!mesh || Object.keys(mesh).length === 0) return;
+    const docIds = Object.keys(mesh).sort();
+
+    this.line("\\* polly#117: declared $meshState documents");
+    this.line(`MeshDocs == {${docIds.map((d) => `"${d}"`).join(", ")}}`);
+    this.line("");
+
+    for (const docId of docIds) {
+      const fields = mesh[docId];
+      if (!fields) continue;
+      const fieldLines: string[] = [];
+      for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+        const tlaType = this.fieldConfigToTLAType(
+          `${docId}_${fieldName}`,
+          fieldConfig as FieldConfig,
+          config
+        );
+        fieldLines.push(`${this.sanitizeFieldName(fieldName)}: ${tlaType}`);
+      }
+      this.line(`\\* Document type for ${docId}`);
+      this.line(`MeshDoc_${this.sanitizeFieldName(docId)} == [${fieldLines.join(", ")}]`);
+      this.line("");
+    }
+
+    this.line("\\* Initial mesh-document values (one record per declared docId)");
+    this.line("InitialMesh == [");
+    this.indent++;
+    const initLines: string[] = [];
+    for (const docId of docIds) {
+      const fields = mesh[docId];
+      if (!fields) continue;
+      const inner: string[] = [];
+      for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+        const initVal = this.fieldConfigInitialValue(
+          `${docId}_${fieldName}`,
+          fieldConfig as FieldConfig,
+          config
+        );
+        inner.push(`${this.sanitizeFieldName(fieldName)} |-> ${initVal}`);
+      }
+      initLines.push(`"${docId}" |-> [${inner.join(", ")}]`);
+    }
+    initLines.forEach((line, i) => {
+      this.line(line + (i < initLines.length - 1 ? "," : ""));
+    });
+    this.indent--;
+    this.line("]");
+    this.line("");
+  }
+
+  /**
+   * Pick a representative initial value from a FieldConfig — used to
+   * seed each mesh document's record at Init time. Mirrors the choices
+   * the existing `writeInitialStateFields` makes for local state.
+   */
+  private fieldConfigInitialValue(
+    _path: string,
+    fieldConfig: FieldConfig,
+    _config: VerificationConfig
+  ): string {
+    const fc = fieldConfig as Record<string, unknown>;
+    if (fc["type"] === "boolean") return "FALSE";
+    if (fc["type"] === "number") {
+      const min = typeof fc["min"] === "number" ? (fc["min"] as number) : 0;
+      return String(min);
+    }
+    if (
+      fc["type"] === "enum" &&
+      Array.isArray(fc["values"]) &&
+      (fc["values"] as unknown[]).length > 0
+    ) {
+      return `"${String((fc["values"] as string[])[0])}"`;
+    }
+    if (fc["type"] === "string") {
+      return typeof fc["initial"] === "string" ? `"${fc["initial"]}"` : '""';
+    }
+    if (fc["type"] === "array") {
+      return "<<>>";
+    }
+    if (Array.isArray((fc as { values?: unknown[] }).values)) {
+      const values = (fc as { values: string[] }).values;
+      if (values.length > 0) return `"${values[0]}"`;
+    }
+    return '"v1"';
+  }
+
+  private defineValueTypes(): void {
+    this.line("\\* Generic value type for sequences and maps");
+    this.line("\\* Bounded to 2 values to reduce state space (2^n vs 3^n)");
+    this.line('Value == {"v1", "v2"}');
+    this.line("");
+
+    this.line("\\* Generic key type for maps");
+    this.line("\\* Bounded to allow model checking");
+    this.line('Keys == {"k1", "k2"}');
+    this.line("");
+  }
+
+  private collectStateFields(config: VerificationConfig, _analysis: CodebaseAnalysis): string[] {
+    const stateFields: string[] = [];
+
+    // Add fields from config.state (with recursive flattening for nested objects)
+    for (const [fieldPath, fieldConfig] of Object.entries(config.state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      // Recursively collect fields from nested configurations
+      this.collectNestedFields(fieldPath, fieldConfig, config, stateFields);
+    }
+
+    // Add fields from analysis
+    for (const fieldAnalysis of _analysis.fields) {
+      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") continue;
+
+      const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
+      if (stateFields.some((f) => f.startsWith(`${fieldName}:`))) continue;
+
+      const tlaType = this.inferTLATypeFromAnalysis(fieldAnalysis);
+      stateFields.push(`${fieldName}: ${tlaType}`);
+    }
+
+    return stateFields;
+  }
+
+  /**
+   * Recursively collect fields from nested configurations, flattening nested objects
+   */
+  private collectNestedFields(
+    prefix: string,
+    fieldConfig: FieldConfig,
+    config: VerificationConfig,
+    stateFields: string[]
+  ): void {
+    // Check if this is a leaf field (has a type we can translate)
+    const tlaType = this.fieldConfigToTLAType(prefix, fieldConfig, config);
+
+    // If we got a non-default type or this config has type indicators, it's a leaf field
+    if (tlaType !== "Value" || this.hasTypeIndicators(fieldConfig)) {
+      const fieldName = this.sanitizeFieldName(prefix);
+      stateFields.push(`${fieldName}: ${tlaType}`);
+      return;
+    }
+
+    // Otherwise, it's a nested object - recurse into its properties
+    for (const [key, value] of Object.entries(fieldConfig)) {
+      if (typeof value !== "object" || value === null) continue;
+
+      // Skip special keys that aren't nested state fields
+      if (key === "item" || key === "element") {
+        // These are array element configs, not nested state
+        continue;
+      }
+
+      const nestedPath = `${prefix}_${key}`;
+      this.collectNestedFields(nestedPath, value as unknown as FieldConfig, config, stateFields);
+    }
+  }
+
+  /**
+   * Check if a field config has type indicators (not just nested structure)
+   */
+  private hasTypeIndicators(fieldConfig: FieldConfig): boolean {
+    return (
+      "type" in fieldConfig ||
+      "values" in fieldConfig ||
+      "maxLength" in fieldConfig ||
+      "min" in fieldConfig ||
+      "max" in fieldConfig ||
+      "maxSize" in fieldConfig ||
+      "abstract" in fieldConfig
+    );
+  }
+
+  private writeStateFields(fields: string[]): void {
+    if (fields.length === 0) {
+      this.line("dummy: BOOLEAN  \\* Placeholder for empty state");
+      return;
+    }
+
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i];
+      const suffix = i < fields.length - 1 ? "," : "";
+      this.line(`${field}${suffix}`);
+    }
+  }
+
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex filtering logic needed for optimization
+  private addMessageTypes(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    if (analysis.messageTypes.length === 0) {
+      // No message types found, skip
+      return;
+    }
+
+    // Debug: Log the config.messages object
+    if (process.env["POLLY_DEBUG"]) {
+      console.log("[DEBUG] [TLAGenerator] Full config keys:", Object.keys(config));
+      console.log(
+        "[DEBUG] [TLAGenerator] config.messages:",
+        JSON.stringify(config.messages, null, 2)
+      );
+      console.log("[DEBUG] [TLAGenerator] config.messages.include:", config.messages.include);
+      console.log("[DEBUG] [TLAGenerator] config.messages.exclude:", config.messages.exclude);
+      console.log("[DEBUG] [TLAGenerator] analysis.messageTypes:", analysis.messageTypes);
+    }
+
+    // Filter out invalid TLA+ identifiers
+    let validMessageTypes: string[] = [];
+    const invalidMessageTypes: string[] = [];
+
+    for (const msgType of analysis.messageTypes) {
+      if (this.isValidTLAIdentifier(msgType)) {
+        validMessageTypes.push(msgType);
+      } else {
+        invalidMessageTypes.push(msgType);
+      }
+    }
+
+    // Log warnings about invalid message types
+    if (invalidMessageTypes.length > 0 && process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[WARN] [TLAGenerator] Filtered out ${invalidMessageTypes.length} invalid message type(s):`
+      );
+      for (const invalid of invalidMessageTypes) {
+        console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
+      }
+    }
+
+    // Debug: Log message types before filtering
+    if (process.env["POLLY_DEBUG"]) {
+      console.log(
+        `[DEBUG] [TLAGenerator] Valid message types before filtering (${validMessageTypes.length}):`,
+        validMessageTypes
+      );
+    }
+
+    // Apply Tier 1 Optimization: Message filtering (Issue #12)
+    const originalCount = validMessageTypes.length;
+    const filteredOut: string[] = [];
+
+    // Debug: Check if config.messages.include is accessible
+    if (process.env["POLLY_DEBUG"]) {
+      console.log("[DEBUG] [TLAGenerator] Checking filter conditions:");
+      console.log("[DEBUG]   - config.messages.include exists:", !!config.messages.include);
+      console.log(
+        "[DEBUG]   - config.messages.include.length:",
+        config.messages.include?.length ?? "N/A"
+      );
+      console.log(
+        "[DEBUG]   - First condition result:",
+        !!(config.messages.include && config.messages.include.length > 0)
+      );
+    }
+
+    if (config.messages.include && config.messages.include.length > 0) {
+      // Include mode: only keep specified message types
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] Entering include mode filtering");
+      }
+      const included = new Set(config.messages.include);
+      const beforeFilter = validMessageTypes;
+      validMessageTypes = validMessageTypes.filter((msg) => included.has(msg));
+      filteredOut.push(...beforeFilter.filter((msg) => !included.has(msg)));
+
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] After include filtering:");
+        console.log("[DEBUG]   - validMessageTypes:", validMessageTypes);
+        console.log("[DEBUG]   - filteredOut:", filteredOut);
+      }
+    } else if (config.messages.exclude && config.messages.exclude.length > 0) {
+      // Exclude mode: filter out specified message types
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] Entering exclude mode filtering");
+      }
+      const excluded = new Set(config.messages.exclude);
+      const beforeFilter = validMessageTypes;
+      validMessageTypes = validMessageTypes.filter((msg) => !excluded.has(msg));
+      filteredOut.push(...beforeFilter.filter((msg) => excluded.has(msg)));
+
+      if (process.env["POLLY_DEBUG"]) {
+        console.log("[DEBUG] [TLAGenerator] After exclude filtering:");
+        console.log("[DEBUG]   - validMessageTypes:", validMessageTypes);
+        console.log("[DEBUG]   - filteredOut:", filteredOut);
+      }
+    } else if (process.env["POLLY_DEBUG"]) {
+      // Debug: Log when no filtering is applied
+      console.log("[DEBUG] [TLAGenerator] No include/exclude filtering applied");
+      console.log("[DEBUG]   - Reason: Neither include nor exclude conditions met");
+    }
+
+    // Log message filtering optimization
+    if (filteredOut.length > 0) {
+      const filterMode = config.messages.include ? "include" : "exclude";
+      console.log(
+        `[INFO] [TLAGenerator] Message filtering (${filterMode}): ${originalCount} → ${validMessageTypes.length} message types`
+      );
+      if (process.env["POLLY_DEBUG"]) {
+        console.log(`[INFO]   Filtered out: ${filteredOut.join(", ")}`);
+      }
+    } else if (config.messages.include || config.messages.exclude) {
+      // If we have filters but nothing was filtered out, that's suspicious
+      console.log("[WARN] [TLAGenerator] Message filters configured but no types were filtered");
+    }
+
+    if (validMessageTypes.length === 0) {
+      // No valid message types, skip
+      return;
+    }
+
+    this.line("\\* Message types from application");
+    const messageTypeSet = validMessageTypes.map((t) => `"${t}"`).join(", ");
+    this.line(`UserMessageTypes == {${messageTypeSet}}`);
+    this.line("");
+
+    // Apply Tier 1 Optimization: Symmetry reduction
+    if (config.messages.symmetry && config.messages.symmetry.length > 0) {
+      this.addSymmetrySets(config.messages.symmetry, validMessageTypes);
+    }
+  }
+
+  /**
+   * Add symmetry set definitions for Tier 1 optimization
+   *
+   * IMPORTANT: TLA+ config files only support ONE SYMMETRY declaration (Issue #16).
+   * However, we can achieve independent symmetry groups by using the union of permutations:
+   *   Symmetry == Permutations(Set1) \cup Permutations(Set2)
+   *
+   * This is the standard approach used in real TLA+ specs (e.g., Paxos, SimpleAllocator).
+   * It preserves independent group semantics while using a single SYMMETRY declaration.
+   */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: branches reflect distinct symmetry-group cases
+  private addSymmetrySets(symmetryGroups: string[][], validMessageTypes: string[]): void {
+    const validTypes = new Set(validMessageTypes);
+
+    this.line("\\* Symmetry sets for state space reduction (Tier 1 optimization)");
+
+    // Collect all valid symmetry groups
+    const validSymmetryGroups: string[][] = [];
+
+    for (let i = 0; i < symmetryGroups.length; i++) {
+      const group = symmetryGroups[i];
+      if (!group || group.length < 2) continue;
+
+      // Filter to only valid message types in this group
+      const validGroupTypes = group.filter((t) => validTypes.has(t));
+      if (validGroupTypes.length < 2) {
+        if (process.env["POLLY_DEBUG"]) {
+          console.log(
+            `[WARN] [TLAGenerator] Symmetry group ${i + 1} has < 2 valid types, skipping`
+          );
+        }
+        continue;
+      }
+
+      validSymmetryGroups.push(validGroupTypes);
+    }
+
+    // If no valid symmetry groups, return early
+    if (validSymmetryGroups.length === 0) {
+      return;
+    }
+
+    // Generate individual symmetry set definitions
+    for (let i = 0; i < validSymmetryGroups.length; i++) {
+      const group = validSymmetryGroups[i];
+      if (!group) continue;
+      const setName = `SymmetrySet${i + 1}`;
+      const setValues = group.map((t) => `"${t}"`).join(", ");
+      this.line(`${setName} == {${setValues}}`);
+    }
+
+    this.line("");
+
+    // Use union of Permutations for independent symmetry groups
+    // This is the standard approach used in Paxos, SimpleAllocator, etc.
+    if (validSymmetryGroups.length > 1) {
+      this.line("\\* Independent symmetry groups via union of permutations");
+      this.line("\\* Standard TLA+ pattern (see: Paxos, SimpleAllocator)");
+      const permutationsUnion = validSymmetryGroups
+        .map((_, i) => `Permutations(SymmetrySet${i + 1})`)
+        .join(" \\cup ");
+      this.line(`Symmetry == ${permutationsUnion}`);
+
+      console.log(
+        `[INFO] [TLAGenerator] Symmetry reduction: ${validSymmetryGroups.length} independent symmetry groups ` +
+          `(${validSymmetryGroups.map((g) => g.length).join(", ")} message types)`
+      );
+    } else {
+      // Single symmetry group
+      this.line(`Symmetry == Permutations(SymmetrySet1)`);
+      const onlyGroup = validSymmetryGroups[0];
+      console.log(
+        `[INFO] [TLAGenerator] Symmetry reduction: 1 symmetry group with ${onlyGroup?.length ?? 0} message types`
+      );
+    }
+
+    // Store "Symmetry" for config generation (single identifier)
+    this.symmetrySets = ["Symmetry"];
+
+    this.line("");
+  }
+
+  /**
+   * Add tab symmetry definitions for Tier 1 optimization
+   *
+   * When tabSymmetry is enabled, tabs are represented as model values instead of integers.
+   * This enables TLC's symmetry optimization to reduce state space significantly.
+   *
+   * Generates:
+   *   CONSTANTS Tab0, Tab1, ... (in spec)
+   *   Tabs == {Tab0, Tab1, ...}
+   *   TabSymmetry == Permutations(Tabs)
+   *
+   * If combined with message symmetry, also generates:
+   *   AllSymmetry == Symmetry \cup TabSymmetry
+   */
+  private addTabSymmetry(config: VerificationConfig): void {
+    if (!config.messages.tabSymmetry) {
+      return;
+    }
+
+    const maxTabs = config.messages.maxTabs ?? 1;
+    this.tabCount = maxTabs + 1; // 0..maxTabs = maxTabs+1 values
+    this.tabSymmetryEnabled = true;
+
+    this.line("\\* Tab symmetry constants for state space reduction (Tier 1 optimization)");
+    this.line("CONSTANTS");
+    this.indent++;
+
+    // Generate Tab0, Tab1, ..., TabN constants
+    const tabConstants: string[] = [];
+    for (let i = 0; i <= maxTabs; i++) {
+      tabConstants.push(`Tab${i}`);
+    }
+    this.line(tabConstants.join(", "));
+    this.indent--;
+    this.line("");
+
+    // Tabs is a CONSTANT in MessageRouter.tla, assigned via config file as {Tab0, Tab1, ...}
+
+    // Generate TabSymmetry permutations
+    this.line("TabSymmetry == Permutations(Tabs)");
+    this.line("");
+
+    // Check if we need to combine with message symmetry
+    const hasMessageSymmetry = this.symmetrySets.length > 0 && this.symmetrySets[0] === "Symmetry";
+
+    if (hasMessageSymmetry) {
+      // Combine both symmetries using union
+      this.line("\\* Combined symmetry: message types and tabs");
+      this.line("AllSymmetry == Symmetry \\cup TabSymmetry");
+      this.line("");
+      // Update symmetrySets to use the combined set
+      this.symmetrySets = ["AllSymmetry"];
+      console.log(
+        `[INFO] [TLAGenerator] Combined symmetry: message symmetry + ${this.tabCount} tabs as model values`
+      );
+    } else {
+      // Tab symmetry only
+      this.symmetrySets = ["TabSymmetry"];
+      console.log(
+        `[INFO] [TLAGenerator] Tab symmetry enabled: ${this.tabCount} tabs as model values`
+      );
+    }
+  }
+
+  private addVariables(config?: VerificationConfig): void {
+    // MessageRouter already defines: ports, messages, pendingRequests, delivered, routingDepth, time
+    // We add: contextStates for application state, payload for message payload
+
+    const hasMesh = this.hasMeshConfig(config);
+
+    this.line("\\* Application state per context");
+    this.line("VARIABLE contextStates");
+    this.line("");
+    if (hasMesh) {
+      this.line("\\* polly#117: per-context mesh document replicas. Each context");
+      this.line("\\* carries an independent record per declared $meshState document.");
+      this.line("\\* The PropagateMeshOp action diffuses values between contexts to");
+      this.line("\\* model Automerge sync, and predicate references to mesh-tagged");
+      this.line("\\* signals route through this variable instead of contextStates.");
+      this.line("VARIABLE meshState");
+      this.line("");
+    }
+    this.line("\\* Message payload (abstract model - non-deterministically chosen)");
+    this.line("\\* In verification, we model payload fields as potentially any valid value");
+    this.line("VARIABLE payload");
+    this.line("");
+    this.line("\\* All variables (extending MessageRouter vars)");
+    const allVarsList = hasMesh
+      ? "ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, meshState, payload"
+      : "ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, payload";
+    this.line(`allVars == <<${allVarsList}>>`);
+    this.line("");
+  }
+
+  /** polly#117: true iff the config declares at least one mesh document. */
+  private hasMeshConfig(config?: VerificationConfig): boolean {
+    const c = config ?? this.currentConfig;
+    return !!c?.mesh && Object.keys(c.mesh).length > 0;
+  }
+
+  /**
+   * Build the user-state variable list. With `config.mesh` declared,
+   * `meshState` is the second user-state variable alongside
+   * `contextStates`; without it, just `contextStates`. Used by every
+   * UNCHANGED clause emitted by handler and router actions so that
+   * the spec's variable footprint matches the declared schema.
+   */
+  private userStateVars(config?: VerificationConfig): string[] {
+    return this.hasMeshConfig(config) ? ["contextStates", "meshState"] : ["contextStates"];
+  }
+
+  /**
+   * Format an `UNCHANGED` clause that preserves both user-state
+   * variables (or just `contextStates` in the legacy case) plus any
+   * additional MessageRouter variables that should remain unchanged.
+   */
+  private unchangedUserStates(config?: VerificationConfig, andOthers: string[] = []): string {
+    const all = [...andOthers, ...this.userStateVars(config)];
+    return all.length === 1 ? `UNCHANGED ${all[0]}` : `UNCHANGED <<${all.join(", ")}>>`;
+  }
+
+  private addInit(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
+    // Resolve param→state-field domain links before PayloadType emits so payload
+    // fields are typed by the modeled state field's declared domain (issue #72).
+    this.deriveParamDomains(config, _analysis);
+
+    // Generate InitialState first
+    this.line("\\* Initial application state");
+    this.line("InitialState == [");
+    this.indent++;
+
+    const fields = this.collectInitialStateFields(config, _analysis);
+    this.writeInitialStateFields(fields);
+
+    this.indent--;
+    this.line("]");
+    this.line("");
+
+    // Payload type definition - includes handler parameter names for tracing
+    const payloadFields = this.collectPayloadFields(_analysis);
+    const payloadFieldDefs = payloadFields
+      .map((f) => `${this.sanitizeFieldName(f.name)}: ${f.type}`)
+      .join(", ");
+    this.line(`\\* Payload modeled with fields: ${payloadFields.map((f) => f.name).join(", ")}`);
+    this.line(`PayloadType == [${payloadFieldDefs}]`);
+    this.line("");
+
+    // Init extends MessageRouter's Init
+    this.line("\\* Initial state (extends MessageRouter)");
+    this.line("UserInit ==");
+    this.indent++;
+    this.line("/\\ Init  \\* MessageRouter's init");
+    this.line("/\\ contextStates = [c \\in Contexts |-> InitialState]");
+    if (this.hasMeshConfig(config)) {
+      this.line("/\\ meshState = [c \\in Contexts |-> InitialMesh]");
+    }
+    this.line("/\\ payload \\in PayloadType  \\* Non-deterministic initial payload");
+    this.indent--;
+    this.line("");
+  }
+
+  private static readonly PAYLOAD_EXCLUDED = new Set([
+    "state",
+    "msg",
+    "message",
+    "event",
+    "ctx",
+    "context",
+  ]);
+  private static readonly BOOL_PARAM_PATTERN = /^(is|has|should|can|will|did)[A-Z]/;
+  private static readonly NUMERIC_PAYLOAD_PATTERN =
+    /payload\.([a-zA-Z_][a-zA-Z0-9_]*)\s*[><=!]+\s*\d/;
+  private static readonly PAYLOAD_REF_PATTERN = /payload\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+
+  private static inferFieldType(name: string): "Value" | "BOOLEAN" {
+    return TLAGenerator.BOOL_PARAM_PATTERN.test(name) ? "BOOLEAN" : "Value";
+  }
+
+  /**
+   * Build a flat map (sanitized field name → FieldConfig) for O(1) lookup against
+   * StateAssignment.field. Mirrors collectNestedInitialValues' join-with-"_" recursion
+   * (tla.ts:1247-1271) so keys match what the extractor emits at
+   * tools/analysis/src/extract/handlers.ts:1552 for nested writes like user.role → user_role.
+   */
+  private flattenStateConfig(config: VerificationConfig): Map<string, FieldConfig> {
+    const out = new Map<string, FieldConfig>();
+    const recurse = (prefix: string, fc: FieldConfig): void => {
+      if (this.hasTypeIndicators(fc)) {
+        out.set(this.sanitizeFieldName(prefix), fc);
+        return;
+      }
+      for (const [key, value] of Object.entries(fc)) {
+        if (typeof value !== "object" || value === null) continue;
+        if (key === "item" || key === "element") continue;
+        recurse(`${prefix}_${key}`, value as unknown as FieldConfig);
+      }
+    };
+    for (const [fieldPath, fc] of Object.entries(config.state)) {
+      if (typeof fc !== "object" || fc === null) continue;
+      recurse(fieldPath, fc);
+    }
+    return out;
+  }
+
+  /**
+   * Walk every handler assignment whose value is "param:<name>" and resolve <name>
+   * to a TLA+ domain by looking up the assignment.field in the flattened state config.
+   * Populates this.paramDomains so collectPayloadFields can type the payload field by
+   * the modeled state field's declared domain (enum, bounded number, BOOLEAN).
+   *
+   * On miss (no matching state field, or field config maps to "Value"): leaves the
+   * entry absent — collectPayloadFields falls back to the existing name-based heuristic.
+   *
+   * On conflict (same param name written into state fields with different TLA+ domains):
+   * throws with a precise error naming both handlers and both fields. Silent fallback to
+   * "Value" would re-introduce the bug this method exists to fix.
+   */
+  private deriveParamDomains(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    this.paramDomains.clear();
+    const fieldMap = this.flattenStateConfig(config);
+    const provenance = new Map<string, { msg: string; field: string; domain: string }>();
+    for (const handler of analysis.handlers) {
+      for (const a of handler.assignments ?? []) {
+        this.recordParamDomain(handler.messageType, a, fieldMap, provenance, config);
+      }
+    }
+  }
+
+  /** Process a single assignment for param:X markers and update paramDomains. */
+  private recordParamDomain(
+    messageType: string,
+    a: StateAssignment,
+    fieldMap: Map<string, FieldConfig>,
+    provenance: Map<string, { msg: string; field: string; domain: string }>,
+    config: VerificationConfig
+  ): void {
+    if (typeof a.value !== "string" || !a.value.startsWith("param:")) return;
+    const paramName = this.sanitizeFieldName(a.value.substring(6));
+    const fieldKey = this.sanitizeFieldName(a.field);
+    const fc = fieldMap.get(fieldKey);
+    if (!fc) return;
+    const tlaType = this.fieldConfigToTLAType(fieldKey, fc, config);
+    if (tlaType === "Value") return;
+    const prior = provenance.get(paramName);
+    if (prior && prior.domain !== tlaType) {
+      throw new Error(
+        `PayloadType conflict: parameter "${paramName}" is written to multiple state fields with incompatible TLA+ domains.\n` +
+          `  - Handler "${prior.msg}" assigns it to field "${prior.field}" with domain ${prior.domain}\n` +
+          `  - Handler "${messageType}" assigns it to field "${a.field}" with domain ${tlaType}\n` +
+          `Either rename one parameter, split the handlers across subsystems, or set both fields to the same domain in your verification config.`
+      );
+    }
+    this.paramDomains.set(paramName, tlaType);
+    provenance.set(paramName, { msg: messageType, field: a.field, domain: tlaType });
+  }
+
+  private collectPayloadFields(analysis: CodebaseAnalysis): { name: string; type: string }[] {
+    const fields = new Map<string, string>();
+    for (const f of ["id", "text", "userId"]) fields.set(f, "Value");
+    // Config-derived param domains are always emitted, regardless of whether the
+    // bare param name appears in handler.parameters. Real-world extractors often
+    // record the outer arg name (e.g. "payload") in parameters while the linked
+    // param name (e.g. "theme") only appears inside `param:X` assignment markers.
+    for (const [name, domain] of this.paramDomains) {
+      fields.set(name, domain);
+    }
+    for (const handler of analysis.handlers) {
+      this.addHandlerParams(handler.parameters, fields);
+      this.addPayloadRefsFromHandler(handler, fields);
+    }
+    return Array.from(fields.entries()).map(([name, type]) => ({ name, type }));
+  }
+
+  private addHandlerParams(params: string[] | undefined, fields: Map<string, string>): void {
+    if (!params) return;
+    for (const param of params) {
+      if (TLAGenerator.PAYLOAD_EXCLUDED.has(param)) continue;
+      const sanitized = this.sanitizeFieldName(param);
+      const configDomain = this.paramDomains.get(sanitized);
+      if (configDomain) {
+        // Config-derived domain wins, even if a name-based heuristic already set this entry.
+        // It is strictly more precise (named enum vs catch-all Value/BOOLEAN).
+        fields.set(param, configDomain);
+        continue;
+      }
+      if (fields.has(param)) continue;
+      fields.set(param, TLAGenerator.inferFieldType(param));
+    }
+  }
+
+  /** Collect condition/assignment text strings from a handler */
+  private collectHandlerTexts(handler: {
+    preconditions?: VerificationCondition[];
+    postconditions?: VerificationCondition[];
+    assignments?: StateAssignment[];
+  }): string[] {
+    const texts: string[] = [];
+    for (const c of [...(handler.preconditions ?? []), ...(handler.postconditions ?? [])]) {
+      texts.push(typeof c === "string" ? c : (c.expression ?? ""));
+    }
+    for (const a of handler.assignments ?? []) {
+      if (typeof a.value === "string") texts.push(a.value);
+    }
+    return texts;
+  }
+
+  /** Extract payload.xxx field references from handler conditions and assignments */
+  private addPayloadRefsFromHandler(
+    handler: {
+      preconditions?: VerificationCondition[];
+      postconditions?: VerificationCondition[];
+      assignments?: StateAssignment[];
+    },
+    fields: Map<string, string>
+  ): void {
+    for (const text of this.collectHandlerTexts(handler)) {
+      const numMatch = TLAGenerator.NUMERIC_PAYLOAD_PATTERN.exec(text);
+      if (numMatch?.[1]) fields.set(numMatch[1], "0..2");
+      for (const m of text.matchAll(TLAGenerator.PAYLOAD_REF_PATTERN)) {
+        const name = m[1];
+        if (name && !fields.has(name)) fields.set(name, TLAGenerator.inferFieldType(name));
+      }
+    }
+  }
+
+  private collectInitialStateFields(
+    config: VerificationConfig,
+    _analysis: CodebaseAnalysis
+  ): string[] {
+    const fields: string[] = [];
+
+    // Add fields from config.state (with recursive flattening for nested objects)
+    for (const [fieldPath, fieldConfig] of Object.entries(config.state)) {
+      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+
+      // Recursively collect initial values from nested configurations
+      this.collectNestedInitialValues(fieldPath, fieldConfig, fields);
+    }
+
+    // Add fields from analysis
+    for (const fieldAnalysis of _analysis.fields) {
+      if (!fieldAnalysis.path || typeof fieldAnalysis.path !== "string") continue;
+
+      const fieldName = this.sanitizeFieldName(fieldAnalysis.path);
+      if (fields.some((f) => f.startsWith(`${fieldName} |->`))) continue;
+
+      const initialValue = this.getInitialValueFromAnalysis(fieldAnalysis);
+      fields.push(`${fieldName} |-> ${initialValue}`);
+    }
+
+    return fields;
+  }
+
+  /**
+   * Recursively collect initial values from nested configurations
+   */
+  private collectNestedInitialValues(
+    prefix: string,
+    fieldConfig: FieldConfig,
+    fields: string[]
+  ): void {
+    // Check if this is a leaf field (has type indicators)
+    if (this.hasTypeIndicators(fieldConfig)) {
+      const fieldName = this.sanitizeFieldName(prefix);
+      const initialValue = this.getInitialValue(fieldConfig);
+      fields.push(`${fieldName} |-> ${initialValue}`);
+      return;
+    }
+
+    // Otherwise, it's a nested object - recurse into its properties
+    for (const [key, value] of Object.entries(fieldConfig)) {
+      if (typeof value !== "object" || value === null) continue;
+
+      // Skip special keys that aren't nested state fields
+      if (key === "item" || key === "element") {
+        continue;
+      }
+
+      const nestedPath = `${prefix}_${key}`;
+      this.collectNestedInitialValues(nestedPath, value as unknown as FieldConfig, fields);
+    }
+  }
+
+  private writeInitialStateFields(fields: string[]): void {
+    if (fields.length === 0) {
+      this.line("dummy |-> FALSE  \\* Placeholder for empty state");
+      return;
+    }
+
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i];
+      const suffix = i < fields.length - 1 ? "," : "";
+      this.line(`${field}${suffix}`);
+    }
+  }
+
+  private addActions(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    this.line("\\* =============================================================================");
+    this.line("\\* Application-specific actions");
+    this.line("\\* =============================================================================");
+    this.line("");
+
+    if (analysis.handlers.length === 0) {
+      this.generateNoHandlersStub();
+      return;
+    }
+
+    const { validHandlers, invalidHandlers } = this.filterHandlersByValidity(analysis.handlers);
+    this.logInvalidHandlers(invalidHandlers);
+
+    if (validHandlers.length === 0) {
+      this.generateNoValidHandlersStub();
+      return;
+    }
+
+    // Resolve action names before generation to handle naming collisions
+    this.resolveActionNamesForHandlers(validHandlers);
+
+    const handlersByType = this.groupHandlersByType(validHandlers);
+    this.generateHandlerActions(handlersByType, config, analysis.stateConstraints ?? []);
+    this.generateStateTransitionDispatcher(handlersByType);
+  }
+
+  /**
+   * Generate stub for no handlers found
+   */
+  private generateNoHandlersStub(): void {
+    this.line("\\* No message handlers found in codebase");
+    this.line("\\* State remains unchanged for all messages");
+    this.line("StateTransition(ctx, msgType) ==");
+    this.indent++;
+    this.line(this.unchangedUserStates());
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * Generate stub for no valid handlers
+   */
+  private generateNoValidHandlersStub(): void {
+    this.line("\\* No valid message handlers found (all had invalid TLA+ identifiers)");
+    this.line("\\* State remains unchanged for all messages");
+    this.line("StateTransition(ctx, msgType) ==");
+    this.indent++;
+    this.line(this.unchangedUserStates());
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * Filter handlers into valid and invalid based on TLA+ identifier rules
+   */
+  private filterHandlersByValidity(handlers: MessageHandler[]): {
+    validHandlers: MessageHandler[];
+    invalidHandlers: MessageHandler[];
+  } {
+    const validHandlers: MessageHandler[] = [];
+    const invalidHandlers: MessageHandler[] = [];
+
+    for (const handler of handlers) {
+      if (this.isValidTLAIdentifier(handler.messageType)) {
+        validHandlers.push(handler);
+      } else {
+        invalidHandlers.push(handler);
+      }
+    }
+
+    return { validHandlers, invalidHandlers };
+  }
+
+  /**
+   * Log warnings about invalid handlers
+   */
+  private logInvalidHandlers(invalidHandlers: MessageHandler[]): void {
+    if (invalidHandlers.length === 0 || !process.env["POLLY_DEBUG"]) return;
+
+    console.log(
+      `[WARN] [TLAGenerator] Filtered out ${invalidHandlers.length} handler(s) with invalid message types:`
+    );
+    for (const handler of invalidHandlers) {
+      console.log(
+        `[WARN]   - "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
+      );
+    }
+  }
+
+  /**
+   * Group handlers by message type
+   */
+  private groupHandlersByType(handlers: MessageHandler[]): Map<string, MessageHandler[]> {
+    const handlersByType = new Map<string, MessageHandler[]>();
+
+    for (const handler of handlers) {
+      if (!handlersByType.has(handler.messageType)) {
+        handlersByType.set(handler.messageType, []);
+      }
+      handlersByType.get(handler.messageType)?.push(handler);
+    }
+
+    return handlersByType;
+  }
+
+  /**
+   * Generate handler actions for all message types
+   */
+  private generateHandlerActions(
+    handlersByType: Map<string, MessageHandler[]>,
+    config: VerificationConfig,
+    stateConstraints: Array<{
+      field: string;
+      messageType: string;
+      requires?: string;
+      ensures?: string;
+      message?: string;
+    }>
+  ): void {
+    this.line("\\* State transitions extracted from message handlers");
+    this.line("");
+
+    for (const [messageType, handlers] of handlersByType.entries()) {
+      // Find state constraints for this message type
+      const constraintsForMessage = stateConstraints.filter((c) => c.messageType === messageType);
+      this.generateHandlerAction(messageType, handlers, config, constraintsForMessage);
+    }
+  }
+
+  /**
+   * Generate main StateTransition dispatcher
+   */
+  private generateStateTransitionDispatcher(handlersByType: Map<string, MessageHandler[]>): void {
+    this.line("\\* Main state transition action");
+    this.line("StateTransition(ctx, msgType) ==");
+    this.indent++;
+
+    const messageTypes = Array.from(handlersByType.keys());
+    for (let i = 0; i < messageTypes.length; i++) {
+      const msgType = messageTypes[i];
+      if (!msgType) continue;
+      const actionName = this.getResolvedActionName(msgType);
+
+      if (i === 0) {
+        this.line(`IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
+        // If this is the only message type, add ELSE clause
+        if (messageTypes.length === 1) {
+          this.line("ELSE FALSE  \\* Unknown message type - action disabled");
+        }
+      } else if (i === messageTypes.length - 1) {
+        this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
+        this.line("ELSE FALSE  \\* Unknown message type - action disabled");
+      } else {
+        this.line(`ELSE IF msgType = "${msgType}" THEN ${actionName}(ctx)`);
+      }
+    }
+
+    this.indent--;
+    this.line("");
+  }
+
+  private generateHandlerAction(
+    messageType: string,
+    handlers: MessageHandler[],
+    config: VerificationConfig,
+    stateConstraints: Array<{
+      field: string;
+      requires?: string;
+      ensures?: string;
+      message?: string;
+    }>
+  ): void {
+    const actionName = this.getResolvedActionName(messageType);
+
+    this.line(`\\* Handler for ${messageType}`);
+    this.line(`${actionName}(ctx) ==`);
+    this.indent++;
+
+    // Collect conditions and assignments
+    const allPreconditions = handlers.flatMap((h) => h.preconditions);
+    const allAssignments = handlers.flatMap((h) => h.assignments);
+    const allPostconditions = handlers.flatMap((h) => h.postconditions);
+
+    // Wire in state-level constraints as preconditions
+    for (const constraint of stateConstraints) {
+      if (constraint.requires) {
+        allPreconditions.push({
+          expression: constraint.requires,
+          message: constraint.message,
+          location: { line: 0, column: 0 },
+        });
+      }
+    }
+
+    // Wire in state-level constraints as postconditions
+    for (const constraint of stateConstraints) {
+      if (constraint.ensures) {
+        allPostconditions.push({
+          expression: constraint.ensures,
+          message: constraint.message,
+          location: { line: 0, column: 0 },
+        });
+      }
+    }
+
+    // Emit preconditions
+    this.emitPreconditions(allPreconditions);
+
+    // Process and emit assignments
+    const validAssignments = this.processAssignments(allAssignments, config.state);
+    this.emitStateUpdates(validAssignments, allPreconditions);
+
+    this.indent--;
+    this.line("");
+
+    // Postconditions are NOT emitted as conjuncts in the action body.
+    //
+    // From 0.33.0 through 0.34.0 the codegen wrapped each ensures() in
+    // TLC's Assert(P, "msg") and added it as a conjunct here. Issue #74
+    // confirmed empirically that this still acted as a guard: when the
+    // EXCEPT primes a value that fails the predicate, TLC's action
+    // evaluator catches the resulting EvalException and treats the
+    // binding as not-a-successor, so the buggy transition simply doesn't
+    // fire and the model still verifies green.
+    //
+    // The fix lifts each postcondition into a per-handler step-temporal
+    // property (`[][P]_allVars`) emitted into the PROPERTIES section.
+    // The property's predicate fires only on (s, s') pairs that just
+    // delivered a message of this msgType, and reads the post-state via
+    // contextStates'[target]. Failures surface as ordinary TLC property
+    // violations with a clean counterexample, instead of silently
+    // disabling the action.
+    this.recordPostconditionProperty(messageType, actionName, allPostconditions);
+  }
+
+  /**
+   * Record per-handler postconditions as a step-temporal property.
+   *
+   * For a handler `HandleX(ctx)` with one or more `ensures(P_i, msg_i)`
+   * postconditions, emit:
+   *
+   *   EnsuresAfter_HandleX ==
+   *     [][
+   *       \A m \in 1..Len(messages) :
+   *         (messages[m].status = "pending"
+   *          /\ messages'[m].status = "delivered"
+   *          /\ messages[m].msgType = "X")
+   *         => LET target == messages'[m].deliveredTo IN
+   *              (target \in Contexts /\ ports[target] = "connected")
+   *              => /\ <P_1 with [ctx] -> [target]>
+   *                 /\ <P_2 with [ctx] -> [target]>
+   *                 ...
+   *     ]_allVars
+   *
+   * The LET binds `target` to the single context the action actually
+   * routed to (recorded by RouteMessage / UserRouteMessage in the
+   * message's `deliveredTo` field). Earlier revisions used
+   * `\A target \in messages[m].targets`, which false-positived whenever
+   * a multi-target send routed to one target and the property's
+   * predicate read the post-state of an untouched sibling target
+   * (issue #75).
+   *
+   * TLC handles `[][P]_allVars` as a safety property: no liveness
+   * machinery, no fairness needed. A wrong-target write trips the
+   * property and TLC reports a real counterexample.
+   */
+  private recordPostconditionProperty(
+    messageType: string,
+    actionName: string,
+    postconditions: Array<{ expression: string; message?: string }>
+  ): void {
+    if (postconditions.length === 0) return;
+
+    // Convert each predicate to TLA+ form (post-state, then rebind ctx -> target).
+    // We rebind both `[ctx]` (contextStates indexing) and `{ctx}` (set-difference
+    // exclusion inside a forAllPeers/somePeer quantifier) so a cross-peer
+    // ensures reads as "for every peer other than the delivery target".
+    const predicateClauses = postconditions
+      .map((pc) => this.tsExpressionToTLA(pc.expression, true))
+      .filter((p) => p && p.length > 0)
+      .map((p) => p.replace(/\[ctx\]/g, "[target]").replace(/\{ctx\}/g, "{target}"));
+
+    if (predicateClauses.length === 0) return;
+
+    // Multi-line conjunction so the generated TLA+ stays readable.
+    const conjunction =
+      predicateClauses.length === 1
+        ? predicateClauses[0]
+        : predicateClauses.map((c) => `             /\\ ${c}`).join("\n");
+
+    const propertyName = `EnsuresAfter_${actionName}`;
+    const messages = postconditions
+      .map((pc) => pc.message)
+      .filter((m): m is string => Boolean(m))
+      .join("; ");
+
+    // Build the inner step predicate as a single string. We hand-format
+    // the lines so the generated spec is readable in a counterexample.
+    const target =
+      `\n  \\A m \\in 1..Len(messages) :\n` +
+      `    (messages[m].status = "pending"\n` +
+      `     /\\ messages'[m].status = "delivered"\n` +
+      `     /\\ messages[m].msgType = "${messageType}")\n` +
+      `    => LET target == messages'[m].deliveredTo IN\n` +
+      `         (target \\in Contexts /\\ ports[target] = "connected")\n` +
+      `         =>\n` +
+      (predicateClauses.length === 1 ? `         ${predicateClauses[0]}` : conjunction);
+
+    this.temporalProperties.push({
+      name: propertyName,
+      description:
+        messages.length > 0
+          ? `ensures(...) for ${messageType}: ${messages}`
+          : `ensures(...) for ${messageType}`,
+      type: "step-always",
+      target,
+    });
+  }
+
+  /**
+   * Emit precondition checks
+   */
+  private emitPreconditions(preconditions: Array<{ expression: string; message?: string }>): void {
+    for (const precondition of preconditions) {
+      const tlaExpr = this.tsExpressionToTLA(precondition.expression);
+      const comment = precondition.message ? ` \\* ${precondition.message}` : "";
+      this.line(`/\\ ${tlaExpr}${comment}`);
+    }
+  }
+
+  /**
+   * Process assignments, filtering and mapping null values
+   */
+  private processAssignments(
+    assignments: Array<{ field: string; value: string | boolean | number | null }>,
+    state: VerificationConfig["state"]
+  ): Array<{ field: string; value: string | boolean | number | null }> {
+    return assignments
+      .filter((a) => this.isFieldModeled(a.field, state))
+      .filter((a) => this.shouldIncludeAssignment(a, state))
+      .map((a) => this.mapNullAssignment(a, state));
+  }
+
+  /**
+   * True iff the assignment's target field has a matching entry in the
+   * (flattened) state config. Drops assignments to fields that aren't part of
+   * the modeled state — without this filter, an EXCEPT for an unmodeled field
+   * (e.g. user.name when the config only declares user.loggedIn and
+   * user.role) widens contextStates to carry payload values that no invariant
+   * constrains, and the state space explodes for no checking benefit.
+   */
+  private isFieldModeled(field: string, state: VerificationConfig["state"]): boolean {
+    const sanitized = this.sanitizeFieldName(field);
+    const fakeConfig: VerificationConfig = {
+      state,
+      messages: { maxInFlight: null },
+      onBuild: "warn",
+      onRelease: "warn",
+    };
+    if (this.flattenStateConfig(fakeConfig).has(sanitized)) return true;
+    // polly#117: a field that maps to a declared mesh signal + a
+    // declared inner field counts as modeled, since the assignment
+    // will route through meshState rather than contextStates.
+    return this.isMeshAssignmentModeled(field);
+  }
+
+  /**
+   * polly#117: true iff `field` is `<sigName>` or `<sigName>_<innerField>`
+   * for a mesh signal whose docId appears in config.mesh and whose
+   * inner field is declared on the doc record.
+   */
+  private isMeshAssignmentModeled(field: string): boolean {
+    const meshHit = this.classifyAssignmentAsMesh(field);
+    if (!meshHit) return false;
+    const mesh = this.currentConfig?.mesh;
+    if (!mesh) return false;
+    const docConfig = mesh[meshHit.docId];
+    if (!docConfig) return false;
+    if (meshHit.innerField === "") return true; // whole-document write
+    return Object.hasOwn(docConfig, meshHit.innerField);
+  }
+
+  /**
+   * Check if assignment should be included
+   */
+  private shouldIncludeAssignment(
+    assignment: { field: string; value: string | boolean | number | null },
+    state: VerificationConfig["state"]
+  ): boolean {
+    if (assignment.value !== null) return true;
+
+    const fieldConfig = state[assignment.field];
+    if (!fieldConfig || typeof fieldConfig !== "object") return false;
+
+    // Abstract or nullable fields: null maps to TLA+ NULL
+    if ("abstract" in fieldConfig && fieldConfig.abstract) return true;
+    if ("nullable" in fieldConfig && fieldConfig.nullable) return true;
+
+    // Non-abstract fields with values: map null to last value (legacy behaviour)
+    return !!("values" in fieldConfig && fieldConfig.values);
+  }
+
+  /**
+   * Map null assignment to a valid value if possible.
+   * Abstract and nullable fields preserve null (becomes TLA+ NULL).
+   * Non-abstract enum fields map null to the last declared value (legacy).
+   */
+  private mapNullAssignment(
+    assignment: { field: string; value: string | boolean | number | null },
+    state: VerificationConfig["state"]
+  ): { field: string; value: string | boolean | number | null } {
+    if (assignment.value !== null) return assignment;
+
+    const fieldConfig = state[assignment.field];
+    if (!fieldConfig || typeof fieldConfig !== "object") return assignment;
+
+    // Abstract or nullable fields: preserve null → TLA+ NULL
+    if ("abstract" in fieldConfig && fieldConfig.abstract) return assignment;
+    if ("nullable" in fieldConfig && fieldConfig.nullable) return assignment;
+
+    // Non-abstract fields with values: map null to last value (legacy)
+    if ("values" in fieldConfig && fieldConfig.values) {
+      const nullValue = fieldConfig.values[fieldConfig.values.length - 1] ?? null;
+      return { ...assignment, value: nullValue };
+    }
+
+    return assignment;
+  }
+
+  /**
+   * Emit state updates or UNCHANGED
+   * @returns true if UNCHANGED was used (postconditions should be skipped)
+   *
+   * Emits actual state transitions when valid assignments are extracted:
+   * - user_loggedIn = true -> contextStates' = [contextStates EXCEPT ![ctx].user_loggedIn = TRUE]
+   *
+   * Falls back to UNCHANGED when no assignments are extracted (complex expressions,
+   * array operations, spreads, etc.)
+   */
+  private emitStateUpdates(
+    validAssignments: Array<{ field: string; value: string | boolean | number | null }>,
+    preconditions: Array<{ expression: string; message?: string }>
+  ): boolean {
+    if (validAssignments.length === 0) {
+      // No valid assignments - use UNCHANGED
+      if (preconditions.length === 0) {
+        this.line("\\* No state changes in handler");
+      }
+      this.line(`/\\ ${this.unchangedUserStates()}`);
+      return true; // Signal that UNCHANGED was used
+    }
+
+    // Partition into NDET-prefixed and deterministic assignments
+    const ndetAssignments: Array<{ field: string; value: string }> = [];
+    const detAssignments: Array<{
+      field: string;
+      value: string | boolean | number | null;
+    }> = [];
+    for (const a of validAssignments) {
+      if (typeof a.value === "string" && a.value.startsWith("NDET:")) {
+        ndetAssignments.push({ field: a.field, value: a.value });
+      } else {
+        detAssignments.push(a);
+      }
+    }
+
+    if (ndetAssignments.length === 0) {
+      // All deterministic — partition into local (contextStates) and
+      // mesh-routed (meshState) writes. polly#117: when an assignment's
+      // field belongs to a $meshState signal declared in config.mesh,
+      // emit an EXCEPT against meshState[ctx][docId] instead so the
+      // write lands in the propagating namespace.
+      const partition = this.partitionAssignments(detAssignments);
+      this.emitDeterministicAssignmentPartitions(partition);
+      return false;
+    }
+
+    // Has NDET assignments — delegate to non-deterministic emitter
+    this.emitNDETStateUpdates(ndetAssignments, detAssignments);
+    return false;
+  }
+
+  /**
+   * polly#117: split assignments into local (contextStates) writes
+   * and mesh-document (meshState[docId]) writes. An assignment is
+   * mesh-routed when its field name equals or is prefixed by a signal
+   * that the parser tagged as `$meshState` and that has a matching
+   * declaration in `config.mesh`.
+   */
+  private partitionAssignments(
+    assignments: Array<{ field: string; value: string | boolean | number | null }>
+  ): {
+    local: Array<{ field: string; value: string | boolean | number | null }>;
+    mesh: Map<string, Array<{ inner: string; value: string | boolean | number | null }>>;
+  } {
+    const local: Array<{ field: string; value: string | boolean | number | null }> = [];
+    const mesh = new Map<
+      string,
+      Array<{ inner: string; value: string | boolean | number | null }>
+    >();
+    for (const a of assignments) {
+      const meshHit = this.classifyAssignmentAsMesh(a.field);
+      if (meshHit) {
+        const list = mesh.get(meshHit.docId) ?? [];
+        list.push({ inner: meshHit.innerField, value: a.value });
+        mesh.set(meshHit.docId, list);
+      } else {
+        local.push(a);
+      }
+    }
+    return { local, mesh };
+  }
+
+  /**
+   * Try to match `field` against a known $meshState signal name. If
+   * the field is exactly the signal name, the whole document is being
+   * replaced (rare — usually the inner field is `<sig>_<key>`). Returns
+   * `null` when the field belongs to a local $sharedState signal.
+   */
+  private classifyAssignmentAsMesh(field: string): { docId: string; innerField: string } | null {
+    for (const [signalName, docId] of this.meshSignalDocs.entries()) {
+      if (field === signalName) {
+        return { docId, innerField: "" };
+      }
+      const prefix = `${signalName}_`;
+      if (field.startsWith(prefix)) {
+        return { docId, innerField: field.substring(prefix.length) };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Emit the contextStates' and meshState' EXCEPT clauses for a
+   * partitioned assignment set. Either or both may be empty: an
+   * UNCHANGED is emitted for the side that has no writes so the
+   * action's footprint matches `allVars`.
+   */
+  private emitDeterministicAssignmentPartitions(partition: {
+    local: Array<{ field: string; value: string | boolean | number | null }>;
+    mesh: Map<string, Array<{ inner: string; value: string | boolean | number | null }>>;
+  }): void {
+    const { local, mesh } = partition;
+
+    if (local.length > 0) {
+      const exceptClauses = local.map((a) => {
+        const tlaValue = this.assignmentValueToTLA(a.value);
+        return `![ctx].${this.sanitizeFieldName(a.field)} = ${tlaValue}`;
+      });
+      this.line(`/\\ contextStates' = [contextStates EXCEPT ${exceptClauses.join(", ")}]`);
+    } else if (mesh.size > 0) {
+      this.line("/\\ UNCHANGED contextStates");
+    }
+
+    if (mesh.size > 0) {
+      const clauses: string[] = [];
+      for (const [docId, writes] of mesh.entries()) {
+        for (const w of writes) {
+          const tlaValue = this.assignmentValueToTLA(w.value);
+          if (w.inner === "") {
+            clauses.push(`![ctx]["${docId}"] = ${tlaValue}`);
+          } else {
+            clauses.push(`![ctx]["${docId}"].${this.sanitizeFieldName(w.inner)} = ${tlaValue}`);
+          }
+        }
+      }
+      this.line(`/\\ meshState' = [meshState EXCEPT ${clauses.join(", ")}]`);
+    } else if (this.hasMeshConfig() && local.length > 0) {
+      this.line("/\\ UNCHANGED meshState");
+    }
+  }
+
+  /**
+   * Emit non-deterministic state updates with \E quantifiers.
+   *
+   * NDET:FILTER on field `f` →
+   *   \E newLen \in 0..Len(contextStates[ctx].f) :
+   *     contextStates' = [contextStates EXCEPT ![ctx].f = SubSeq(@, 1, newLen)]
+   *
+   * NDET:MAP on field `f` →
+   *   \E mapIdx \in 1..Len(contextStates[ctx].f) :
+   *     \E mapVal \in Value :
+   *       contextStates' = [contextStates EXCEPT ![ctx].f = [@ EXCEPT ![mapIdx] = mapVal]]
+   */
+  private emitNDETStateUpdates(
+    ndetAssignments: Array<{ field: string; value: string }>,
+    detAssignments: Array<{
+      field: string;
+      value: string | boolean | number | null;
+    }>
+  ): void {
+    // Build deterministic EXCEPT clauses (combined with any NDET EXCEPT)
+    const detExceptClauses = detAssignments.map((a) => {
+      const tlaValue = this.assignmentValueToTLA(a.value);
+      return `![ctx].${this.sanitizeFieldName(a.field)} = ${tlaValue}`;
+    });
+
+    // Collect NDET EXCEPT clauses and their quantifier wrappers
+    const ndetExceptClauses: string[] = [];
+    const quantifierOpeners: string[] = [];
+
+    for (const a of ndetAssignments) {
+      const fieldName = this.sanitizeFieldName(a.field);
+      const fieldRef = `contextStates[ctx].${fieldName}`;
+
+      if (a.value === "NDET:FILTER") {
+        quantifierOpeners.push(`/\\ \\E newLen_${fieldName} \\in 0..Len(${fieldRef}) :`);
+        ndetExceptClauses.push(`![ctx].${fieldName} = SubSeq(@, 1, newLen_${fieldName})`);
+      } else if (a.value === "NDET:MAP") {
+        quantifierOpeners.push(`/\\ \\E mapIdx_${fieldName} \\in 1..Len(${fieldRef}) :`);
+        quantifierOpeners.push(`\\E mapVal_${fieldName} \\in Value :`);
+        ndetExceptClauses.push(
+          `![ctx].${fieldName} = [@ EXCEPT ![mapIdx_${fieldName}] = mapVal_${fieldName}]`
+        );
+      }
+    }
+
+    // Emit quantifier lines with increasing indent
+    for (const opener of quantifierOpeners) {
+      this.line(opener);
+      this.indent++;
+    }
+
+    // Emit combined EXCEPT clause
+    const allExceptClauses = [...detExceptClauses, ...ndetExceptClauses];
+    this.line(`/\\ contextStates' = [contextStates EXCEPT ${allExceptClauses.join(", ")}]`);
+
+    // Restore indent
+    for (const _opener of quantifierOpeners) {
+      this.indent--;
+    }
+  }
+
+  /**
+   * Translate TypeScript expression to TLA+ syntax
+   * @param expr - TypeScript expression from requires() or ensures()
+   * @param isPrimed - If true, use contextStates' (for postconditions)
+   */
+  /**
+   * polly#117: detect a `forAllPeers(<binder> => <body>)` or
+   * `somePeer(<binder> => <body>)` wrapper at the top level of a
+   * predicate. Returns the binder name, body text, and quantifier
+   * kind, or null if the expression is a plain predicate.
+   *
+   * The match is intentionally text-shape based: the analyzer captures
+   * predicate text via `.getText()` at the requires/ensures call site,
+   * so we work with strings throughout the codegen.
+   */
+  private tryExtractPeerScopedPredicate(
+    expr: string
+  ): { binder: string; innerBody: string; kind: "forall" | "exists" } | null {
+    if (typeof expr !== "string") return null;
+    const trimmed = expr.trim();
+    const match = trimmed.match(
+      /^(forAllPeers|somePeer)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=>\s*([\s\S]+)\)\s*$/
+    );
+    if (!match) return null;
+    const fn = match[1];
+    const binder = match[2];
+    const innerBody = match[3];
+    if (!fn || !binder || innerBody === undefined) return null;
+    // Heuristic: the regex `[\s\S]+\)` is greedy and would swallow a
+    // trailing argument inside the arrow body if the wrapper had
+    // extra args; in practice forAllPeers/somePeer take exactly one
+    // arrow-function argument, so this is safe.
+    return {
+      binder,
+      innerBody: innerBody.trim(),
+      kind: fn === "forAllPeers" ? "forall" : "exists",
+    };
+  }
+
+  private tsExpressionToTLA(expr: string, isPrimed = false): string {
+    // Early return for invalid expressions
+    if (!expr || typeof expr !== "string") {
+      return expr || "";
+    }
+
+    // polly#117: cross-peer quantifiers — `forAllPeers(peer => ...)` and
+    // `somePeer(peer => ...)`. Detect the wrapper, substitute the
+    // binder's signal references to `contextStates[<binder>]` form,
+    // pass the rest through the normal flattening so that bare
+    // signal references continue to resolve to the executing
+    // context, then wrap with a TLA+ universal/existential
+    // quantifier over `Contexts \ {ctx}`.
+    const scoped = this.tryExtractPeerScopedPredicate(expr);
+    if (scoped) {
+      const binder = scoped.binder;
+      const peerPrefix = isPrimed ? `contextStates'[${binder}]` : `contextStates[${binder}]`;
+      // Pre-substitute `<binder>.<sig>.value.<field>` references before
+      // the general flattening sees the expression. polly#117: a mesh-
+      // declared signal routes through `meshState[<binder>][<docId>]`
+      // so cross-peer assertions actually exercise the propagation
+      // namespace; everything else flattens through
+      // `contextStates[<binder>]` exactly as the executing-context
+      // path would.
+      let body = scoped.innerBody;
+      const binderRe1 = new RegExp(
+        `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\.([a-zA-Z_][a-zA-Z0-9_.]*)`,
+        "g"
+      );
+      body = body.replace(binderRe1, (_m, sig, path) => {
+        const meshDoc = this.meshSignalDocs.get(sig);
+        if (meshDoc !== undefined) {
+          const meshPeerPrefix = isPrimed
+            ? `meshState'[${binder}]["${meshDoc}"]`
+            : `meshState[${binder}]["${meshDoc}"]`;
+          const field = this.sanitizeFieldName(String(path).replace(/\./g, "_"));
+          return `${meshPeerPrefix}.${field}`;
+        }
+        const flat = this.sanitizeFieldName(`${sig}_${String(path).replace(/\./g, "_")}`);
+        return `${peerPrefix}.${flat}`;
+      });
+      const binderRe2 = new RegExp(
+        `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\b(?!\\.)`,
+        "g"
+      );
+      body = body.replace(binderRe2, (_m, sig) => {
+        const meshDoc = this.meshSignalDocs.get(sig);
+        if (meshDoc !== undefined) {
+          return isPrimed
+            ? `meshState'[${binder}]["${meshDoc}"]`
+            : `meshState[${binder}]["${meshDoc}"]`;
+        }
+        return `${peerPrefix}.${sig}`;
+      });
+      // Recurse on the remaining body; bare signals continue to use
+      // contextStates[ctx] / meshState[ctx][docId] as appropriate.
+      const innerTLA = this.tsExpressionToTLA(body, isPrimed);
+      const quantifier = scoped.kind === "forall" ? "\\A" : "\\E";
+      return `${quantifier} ${binder} \\in Contexts \\ {ctx} : (${innerTLA})`;
+    }
+
+    let tla = expr;
+
+    // Replace state references with contextStates[ctx] or contextStates'[ctx]
+    const statePrefix = isPrimed ? "contextStates'[ctx]" : "contextStates[ctx]";
+
+    // Phase 0: Handle complex expressions FIRST (before state replacements)
+    // These must come first because they have special operators (?., ??, ?) that
+    // would be mangled by later replacements
+    tla = this.translateComplexExpressions(tla, statePrefix);
+
+    // Ensure tla is still a valid string after complex expression translation
+    if (!tla || typeof tla !== "string") {
+      return expr;
+    }
+
+    // Phase 1: Handle array/collection operations and string methods before generic replacements
+    tla = this.translateArrayOperations(tla, statePrefix);
+    if (!tla || typeof tla !== "string") {
+      return expr;
+    }
+
+    tla = this.translateStringMethods(tla);
+    if (!tla || typeof tla !== "string") {
+      return expr;
+    }
+
+    // Phase 2a: Replace single quotes with double quotes (TLA+ uses double quotes for strings)
+    tla = tla.replace(/'([^']+)'/g, '"$1"');
+
+    // Phase 2b: Replace signal state references with contextStates[ctx]
+    // Pattern 1: stateName.value.field -> contextStates[ctx].stateName_field
+    // e.g., user.value.loggedIn -> contextStates[ctx].user_loggedIn
+    // The state field name combines signal name and field path.
+    // polly#117: a signal declared via $meshState whose docId appears
+    // in config.mesh is instead routed through the meshState variable
+    // so the field lives in its own per-context per-doc namespace.
+    tla = tla.replace(
+      /([a-zA-Z_][a-zA-Z0-9_]*)\.value\.([a-zA-Z_][a-zA-Z0-9_.]*)/g,
+      (_match, stateName, path) => {
+        const meshDoc = this.meshSignalDocs.get(stateName);
+        if (meshDoc !== undefined) {
+          const meshPrefix = isPrimed
+            ? `meshState'[ctx]["${meshDoc}"]`
+            : `meshState[ctx]["${meshDoc}"]`;
+          const field = this.sanitizeFieldName(String(path).replace(/\./g, "_"));
+          return `${meshPrefix}.${field}`;
+        }
+        const fullPath = `${stateName}_${path.replace(/\./g, "_")}`;
+        return `${statePrefix}.${this.sanitizeFieldName(fullPath)}`;
+      }
+    );
+
+    // Pattern 2: stateName.value (without field) -> contextStates[ctx].stateName
+    // e.g., todos.value -> contextStates[ctx].todos
+    // This handles direct signal access where the signal name IS the state field.
+    // polly#117: mesh-declared signals route through meshState[ctx][docId].
+    tla = tla.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\.value\b(?!\.)/g, (_match, stateName) => {
+      const meshDoc = this.meshSignalDocs.get(stateName);
+      if (meshDoc !== undefined) {
+        return isPrimed ? `meshState'[ctx]["${meshDoc}"]` : `meshState[ctx]["${meshDoc}"]`;
+      }
+      return `${statePrefix}.${stateName}`;
+    });
+
+    // Phase 2c: Replace state references with contextStates[ctx] or contextStates'[ctx]
+    tla = tla.replace(/state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (_match, path) => {
+      return `${statePrefix}.${this.sanitizeFieldName(path)}`;
+    });
+
+    // Replace payload.field with payload.field (no change needed, but sanitize)
+    tla = tla.replace(/payload\.([a-zA-Z_][a-zA-Z0-9_.]*)/g, (_match, path) => {
+      return `payload.${this.sanitizeFieldName(path)}`;
+    });
+
+    // Phase 3: Replace comparison operators
+    tla = tla.replace(/===/g, "=");
+    tla = tla.replace(/!==/g, "#");
+    tla = tla.replace(/!=/g, "#");
+    tla = tla.replace(/==/g, "=");
+
+    // Phase 4: Replace logical operators
+    tla = tla.replace(/&&/g, "/\\");
+    tla = tla.replace(/\|\|/g, "\\/");
+
+    // Replace negation operator (careful with !== already handled)
+    // Match ! that's not part of !== or !=
+    tla = tla.replace(/!([^=])/g, "~$1");
+    tla = tla.replace(/!$/g, "~"); // Handle ! at end of string
+
+    // Phase 5: Replace boolean literals
+    tla = tla.replace(/\btrue\b/g, "TRUE");
+    tla = tla.replace(/\bfalse\b/g, "FALSE");
+
+    // Replace null
+    tla = tla.replace(/\bnull\b/g, "NULL");
+
+    // Phase 6: Replace less than / greater than comparisons
+    tla = tla.replace(/</g, "<");
+    tla = tla.replace(/>/g, ">");
+    tla = tla.replace(/<=/g, "<=");
+    tla = tla.replace(/>=/g, ">=");
+
+    // Phase 7: Convert bare identifiers (function parameters) to payload references
+    // These are identifiers that aren't:
+    // - Already prefixed (contextStates, payload, msg, Len, etc.)
+    // - TLA+ keywords/literals (TRUE, FALSE, NULL, IF, THEN, ELSE, etc.)
+    // - Quantified variables (after \E, \A, CHOOSE, \in, :)
+    tla = this.convertFunctionParamsToPayload(tla);
+
+    return tla;
+  }
+
+  /**
+   * Convert bare identifiers (likely function parameters) to payload.identifier
+   * In the verified state pattern, function parameters are the message payload.
+   *
+   * Only converts identifiers that are clearly standalone variables, not:
+   * - Inside string literals
+   * - Property accesses (after .)
+   * - Quantified variables
+   * - TLA+ keywords
+   */
+  private convertFunctionParamsToPayload(tla: string): string {
+    // TLA+ keywords and built-in operators to skip
+    const tlaKeywords = new Set([
+      "TRUE",
+      "FALSE",
+      "NULL",
+      "IF",
+      "THEN",
+      "ELSE",
+      "LET",
+      "IN",
+      "CASE",
+      "OTHER",
+      "CHOOSE",
+      "EXCEPT",
+      "DOMAIN",
+      "SUBSET",
+      "UNION",
+      "UNCHANGED",
+      "Len",
+      "Cardinality",
+      "SubSeq",
+      "Append",
+      "Head",
+      "Tail",
+      "Seq",
+      "ctx",
+      "payload",
+      "msg",
+      "state", // Don't convert 'state' - it's handled separately
+      "contextStates",
+    ]);
+
+    // First, extract quantified variable names to skip them
+    const quantifiedVars = new Set<string>();
+    const quantifierPattern = /\\[EA]\s+(\w+)\s+\\in|CHOOSE\s+(\w+)\s+\\in/g;
+    for (const qMatch of tla.matchAll(quantifierPattern)) {
+      if (qMatch[1]) quantifiedVars.add(qMatch[1]);
+      if (qMatch[2]) quantifiedVars.add(qMatch[2]);
+    }
+
+    // Track string literal positions to skip content inside quotes
+    const stringRanges: Array<{ start: number; end: number }> = [];
+    const stringPattern = /"[^"]*"/g;
+    for (const sMatch of tla.matchAll(stringPattern)) {
+      stringRanges.push({ start: sMatch.index, end: sMatch.index + sMatch[0].length });
+    }
+
+    // Check if an offset is inside a string literal
+    const isInsideString = (offset: number): boolean => {
+      return stringRanges.some((range) => offset >= range.start && offset < range.end);
+    };
+
+    // Now find bare identifiers that should become payload.identifier
+    // Only match identifiers that appear as standalone comparisons (e.g., = id, # id)
+    // This is more conservative than matching all bare identifiers
+    const result = tla.replace(
+      /([=#<>]\s*)([a-z][a-zA-Z0-9_]*)(\s*[/#\\)<>,]|\s*$)/g,
+      (match, prefix, ident, suffix, offset) => {
+        // Skip if inside a string literal
+        if (isInsideString(offset + prefix.length)) return match;
+
+        // Skip if it's a TLA+ keyword
+        if (tlaKeywords.has(ident)) return match;
+
+        // Skip if it's a quantified variable
+        if (quantifiedVars.has(ident)) return match;
+
+        // Skip if it looks like a TLA+ operator (all caps)
+        if (ident === ident.toUpperCase() && ident.length > 1) return match;
+
+        // Skip common false positives
+        if (["in", "of", "or", "and", "not"].includes(ident.toLowerCase())) return match;
+
+        // This is likely a function parameter - convert to payload.identifier
+        return `${prefix}payload.${ident}${suffix}`;
+      }
+    );
+
+    return result;
+  }
+
+  /**
+   * Translate JavaScript array/collection operations to TLA+ equivalents
+   *
+   * Examples:
+   * - items.length -> Len(items)
+   * - items.includes(x) -> x \in items
+   * - items[0] -> items[1]  (1-based indexing)
+   * - items.some(i => i.active) -> \E item \in items : item.active
+   * - items.every(i => i.active) -> \A item \in items : item.active
+   * - items.find(i => i.id === x) -> CHOOSE item \in items : item.id = x
+   * - hasLength(arr, { max: 99 }) -> Len(arr) <= 99
+   * - inRange(value, min, max) -> value >= min /\ value <= max
+   * - oneOf(value, [...]) -> value \in {...}
+   */
+  private translateArrayOperations(expr: string, _statePrefix: string): string {
+    if (!expr || typeof expr !== "string") {
+      return expr || "";
+    }
+
+    let result = expr;
+
+    // Verification helper functions (hasLength, inRange, oneOf)
+    // These must be translated FIRST before other array operations
+
+    // hasLength(arr, { max: N }) -> Len(arr) <= N
+    // hasLength(arr, { min: M }) -> Len(arr) >= M
+    // hasLength(arr, { min: M, max: N }) -> Len(arr) >= M /\ Len(arr) <= N
+    result = result.replace(
+      /hasLength\(([^,]+),\s*\{\s*(?:min:\s*(\d+))?\s*,?\s*(?:max:\s*(\d+))?\s*\}\)/g,
+      (_match, arrayRef, minVal, maxVal) => {
+        const constraints: string[] = [];
+        const arr = arrayRef.trim();
+        if (minVal !== undefined) {
+          constraints.push(`Len(${arr}) >= ${minVal}`);
+        }
+        if (maxVal !== undefined) {
+          constraints.push(`Len(${arr}) <= ${maxVal}`);
+        }
+        if (constraints.length === 0) {
+          return "TRUE"; // No constraints specified
+        }
+        return constraints.join(" /\\ ");
+      }
+    );
+
+    // inRange(value, min, max) -> value >= min /\ value <= max
+    result = result.replace(
+      /inRange\(([^,]+),\s*(\d+),\s*(\d+)\)/g,
+      (_match, valueRef, minVal, maxVal) => {
+        const val = valueRef.trim();
+        return `${val} >= ${minVal} /\\ ${val} <= ${maxVal}`;
+      }
+    );
+
+    // oneOf(value, [v1, v2, v3]) -> value \in {v1, v2, v3}
+    result = result.replace(/oneOf\(([^,]+),\s*\[([^\]]+)\]\)/g, (_match, valueRef, valuesStr) => {
+      const val = valueRef.trim();
+      // Convert array values to set notation
+      const values = valuesStr.split(",").map((v: string) => v.trim());
+      return `${val} \\in {${values.join(", ")}}`;
+    });
+
+    // Array.length -> Len(array)
+    // Match: identifier.length or state.field.length
+    result = result.replace(/(\w+(?:\.\w+)*)\.length\b/g, (_match, arrayRef) => {
+      // If it's a state reference, keep it for later replacement
+      if (arrayRef.startsWith("state.")) {
+        return `Len(${arrayRef})`;
+      }
+      return `Len(${arrayRef})`;
+    });
+
+    // Array.includes(item) -> item \in array
+    result = result.replace(/(\w+(?:\.\w+)*)\.includes\(([^)]+)\)/g, (_match, arrayRef, item) => {
+      return `${item.trim()} \\in ${arrayRef}`;
+    });
+
+    // Array[index] -> Array[index+1] (convert to 1-based indexing)
+    // Handle nested indices: arr[0][1] -> arr[1][2]
+    // Pattern matches either: identifier OR closing bracket, followed by [number]
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\[(\d+)\]|\]\[(\d+)\]/g,
+      (_match, identPart, index1, index2) => {
+        if (identPart) {
+          // First bracket after identifier: items[0]
+          const newIndex = Number.parseInt(index1, 10) + 1;
+          return `${identPart}[${newIndex}]`;
+        }
+        // Subsequent bracket after ]: ][1]
+        const newIndex = Number.parseInt(index2, 10) + 1;
+        return `][${newIndex}]`;
+      }
+    );
+
+    // Array.some(lambda) -> \E item \in array : condition
+    // Match: array.some(item => condition) or array.some((item) => condition)
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.some\(\(?(\w+)\)?\s*=>\s*([^)]+)\)/g,
+      (_match, arrayRef, param, condition) => {
+        // Transform lambda parameter in condition
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `param` is a TypeScript identifier extracted from typed AST analysis, never user input.
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
+        return `\\E ${param} \\in ${arrayRef} : ${tlaCondition}`;
+      }
+    );
+
+    // Array.every(lambda) -> \A item \in array : condition
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.every\(\(?(\w+)\)?\s*=>\s*([^)]+)\)/g,
+      (_match, arrayRef, param, condition) => {
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `param` is a TypeScript identifier extracted from typed AST analysis, never user input.
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
+        return `\\A ${param} \\in ${arrayRef} : ${tlaCondition}`;
+      }
+    );
+
+    // Array.find(lambda) -> CHOOSE item \in array : condition
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.find\(\(?(\w+)\)?\s*=>\s*([^)]+)\)/g,
+      (_match, arrayRef, param, condition) => {
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `param` is a TypeScript identifier extracted from typed AST analysis, never user input.
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
+        return `CHOOSE ${param} \\in ${arrayRef} : ${tlaCondition}`;
+      }
+    );
+
+    // Array.filter(lambda).length -> Cardinality({item \in array : condition})
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.filter\(\(?(\w+)\)?\s*=>\s*([^)]+)\)\.length/g,
+      (_match, arrayRef, param, condition) => {
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `param` is a TypeScript identifier extracted from typed AST analysis, never user input.
+        const tlaCondition = condition.replace(new RegExp(`\\b${param}\\.`, "g"), `${param}.`);
+        return `Cardinality({${param} \\in ${arrayRef} : ${tlaCondition}})`;
+      }
+    );
+
+    // String.startsWith(prefix) -> SubSeq(str, 1, Len(prefix)) = prefix
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.startsWith\("([^"]+)"\)/g,
+      (_match, strRef, prefix) => {
+        return `SubSeq(${strRef}, 1, ${prefix.length}) = "${prefix}"`;
+      }
+    );
+
+    // String.endsWith(suffix) -> SubSeq(str, Len(str)-Len(suffix)+1, Len(str)) = suffix
+    result = result.replace(/(\w+(?:\.\w+)*)\.endsWith\("([^"]+)"\)/g, (_match, strRef, suffix) => {
+      return `SubSeq(${strRef}, Len(${strRef})-${suffix.length}+1, Len(${strRef})) = "${suffix}"`;
+    });
+
+    // String.includes(substring) -> \E i \in 1..Len(str) : SubSeq(str, i, i+Len(sub)-1) = sub
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.includes\("([^"]+)"\)/g,
+      (_match, strRef, substring) => {
+        return `\\E i \\in 1..Len(${strRef}) : SubSeq(${strRef}, i, i+${substring.length}-1) = "${substring}"`;
+      }
+    );
+
+    // String.slice(start, end?).length -> Len(SubSeq(...))
+    // Handle chained .length first before translating slice
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.slice\((-?\d+)(?:,\s*(-?\d+))?\)\.length/g,
+      (_match, strRef, start, end) => {
+        const startNum = Number.parseInt(start, 10);
+        if (end !== undefined) {
+          const endNum = Number.parseInt(end, 10);
+          if (startNum < 0 && endNum < 0) {
+            return `Len(SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}) - ${Math.abs(endNum)}))`;
+          }
+          if (startNum < 0) {
+            return `Len(SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, ${endNum}))`;
+          }
+          if (endNum < 0) {
+            return `Len(SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}) - ${Math.abs(endNum)}))`;
+          }
+          return `Len(SubSeq(${strRef}, ${startNum + 1}, ${endNum}))`;
+        }
+        if (startNum < 0) {
+          return `Len(SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef})))`;
+        }
+        return `Len(SubSeq(${strRef}, ${startNum + 1}, Len(${strRef})))`;
+      }
+    );
+
+    // String.substring(start, end?).length -> Len(SubSeq(...))
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.substring\((\d+)(?:,\s*(\d+))?\)\.length/g,
+      (_match, strRef, start, end) => {
+        const startNum = Number.parseInt(start, 10);
+        if (end !== undefined) {
+          const endNum = Number.parseInt(end, 10);
+          if (startNum > endNum) {
+            return `Len(SubSeq(${strRef}, ${endNum + 1}, ${startNum}))`;
+          }
+          return `Len(SubSeq(${strRef}, ${startNum + 1}, ${endNum}))`;
+        }
+        return `Len(SubSeq(${strRef}, ${startNum + 1}, Len(${strRef})))`;
+      }
+    );
+
+    // String.slice(start, end?) -> SubSeq(str, start+1, end?) (1-based indexing)
+    // slice(start) → SubSeq(str, start+1, Len(str))
+    result = result.replace(/(\w+(?:\.\w+)*)\.slice\((-?\d+)\)(?!,)/g, (_match, strRef, start) => {
+      const startNum = Number.parseInt(start, 10);
+      if (startNum < 0) {
+        // Negative index: slice(-2) → SubSeq(str, Len(str) - 2 + 1, Len(str))
+        return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}))`;
+      }
+      // Positive index: slice(1) → SubSeq(str, 2, Len(str))
+      return `SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}))`;
+    });
+
+    // slice(start, end) → SubSeq(str, start+1, end)
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.slice\((-?\d+),\s*(-?\d+)\)/g,
+      (_match, strRef, start, end) => {
+        const startNum = Number.parseInt(start, 10);
+        const endNum = Number.parseInt(end, 10);
+
+        if (startNum < 0 && endNum < 0) {
+          return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, Len(${strRef}) - ${Math.abs(endNum)})`;
+        }
+        if (startNum < 0) {
+          return `SubSeq(${strRef}, Len(${strRef}) - ${Math.abs(startNum)} + 1, ${endNum})`;
+        }
+        if (endNum < 0) {
+          return `SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}) - ${Math.abs(endNum)})`;
+        }
+        // Both positive: slice(0, 3) → SubSeq(str, 1, 3)
+        return `SubSeq(${strRef}, ${startNum + 1}, ${endNum})`;
+      }
+    );
+
+    // String.substring(start, end?) -> SubSeq(str, start+1, end?) (1-based indexing)
+    // substring(start) → SubSeq(str, start+1, Len(str))
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.substring\((\d+)\)(?!,)/g,
+      (_match, strRef, start) => {
+        const startNum = Number.parseInt(start, 10);
+        return `SubSeq(${strRef}, ${startNum + 1}, Len(${strRef}))`;
+      }
+    );
+
+    // substring(start, end) → SubSeq(str, start+1, end)
+    // substring auto-swaps if start > end
+    result = result.replace(
+      /(\w+(?:\.\w+)*)\.substring\((\d+),\s*(\d+)\)/g,
+      (_match, strRef, start, end) => {
+        const startNum = Number.parseInt(start, 10);
+        const endNum = Number.parseInt(end, 10);
+
+        // substring auto-swaps indices if start > end
+        if (startNum > endNum) {
+          return `SubSeq(${strRef}, ${endNum + 1}, ${startNum})`;
+        }
+        return `SubSeq(${strRef}, ${startNum + 1}, ${endNum})`;
+      }
+    );
+
+    return result;
+  }
+
+  /**
+   * Translate complex JavaScript expressions to TLA+
+   *
+   * Handles:
+   * - Ternary operators: a ? b : c → IF a THEN b ELSE c
+   * - Nullish coalescing: a ?? b → IF a # NULL THEN a ELSE b
+   * - Optional chaining: a?.b → IF a # NULL THEN a.b ELSE NULL
+   * - Logical short-circuit: a && b → IF a THEN b ELSE FALSE
+   */
+  private translateComplexExpressions(expr: string, _statePrefix: string): string {
+    if (!expr || typeof expr !== "string") {
+      return expr || "";
+    }
+
+    let result = expr;
+
+    // Phase 1: Handle optional chaining (must come before other operators)
+    result = this.translateOptionalChaining(result);
+
+    // Phase 2: Handle nullish coalescing (before ternary to avoid ?? being confused with ?)
+    result = this.translateNullishCoalescing(result);
+
+    // Phase 3: Handle ternary operators (after nullish so ?? doesn't interfere)
+    result = this.translateTernary(result);
+
+    // Phase 4: Handle logical short-circuit (advanced)
+    // && and || are handled later as simple operators
+    // This is for special cases where we want IF-THEN-ELSE semantics
+
+    return result;
+  }
+
+  /**
+   * Translate ternary operator: condition ? trueValue : falseValue
+   * → IF condition THEN trueValue ELSE falseValue
+   *
+   * Handles nested ternaries recursively
+   */
+  private translateTernary(expr: string): string {
+    if (!expr || typeof expr !== "string" || !expr.includes("?")) {
+      return expr || "";
+    }
+
+    // Match ternary pattern: condition ? true_expr : false_expr
+    // Use a simple approach for non-nested ternaries first
+    // Pattern: anything ? anything : anything (non-greedy)
+    const ternaryRegex = /([^?]+)\?([^:]+):([^:?]+)/;
+
+    let result = expr;
+    let match: RegExpMatchArray | null;
+    let iterations = 0;
+    const maxIterations = 10; // Prevent infinite loops
+
+    // Process ternaries from innermost to outermost (right to left)
+    match = result.match(ternaryRegex);
+    while (match && iterations < maxIterations) {
+      const condition = match[1]?.trim();
+      const trueVal = match[2]?.trim();
+      const falseVal = match[3]?.trim();
+
+      const tlaIf = `IF ${condition} THEN ${trueVal} ELSE ${falseVal}`;
+
+      // Replace the matched ternary
+      if (match[0]) {
+        result = result.replace(match[0], tlaIf);
+      }
+      iterations++;
+      match = result.match(ternaryRegex);
+    }
+
+    return result;
+  }
+
+  /**
+   * Translate nullish coalescing: a ?? b → IF a # NULL THEN a ELSE b
+   *
+   * Note: JavaScript ?? checks for null or undefined, but TLA+ only has NULL
+   */
+  private translateNullishCoalescing(expr: string): string {
+    if (!expr || typeof expr !== "string" || !expr.includes("??")) {
+      return expr || "";
+    }
+
+    // Match: expr ?? defaultValue
+    // Use non-greedy matching to handle multiple ?? in sequence
+    const nullishRegex = /([^?]+)\?\?([^?]+)/;
+
+    let result = expr;
+    let match: RegExpMatchArray | null;
+    let iterations = 0;
+    const maxIterations = 10;
+
+    match = result.match(nullishRegex);
+    while (match && iterations < maxIterations) {
+      const value = match[1]?.trim();
+      const defaultVal = match[2]?.trim();
+
+      const tlaIf = `IF ${value} # NULL THEN ${value} ELSE ${defaultVal}`;
+
+      if (match[0]) {
+        result = result.replace(match[0], tlaIf);
+      }
+      iterations++;
+      match = result.match(nullishRegex);
+    }
+
+    return result;
+  }
+
+  /**
+   * Translate optional chaining: a?.b?.c → IF a # NULL /\ a.b # NULL THEN a.b.c ELSE NULL
+   *
+   * Strategy: Convert each ?. to explicit null check iteratively
+   * Supports: a?.b, a?.[0], a?.['prop'], chained a?.b?.c
+   */
+  private translateOptionalChaining(expr: string): string {
+    // If no optional chaining, return as-is
+    if (!expr.includes("?.")) {
+      return expr;
+    }
+
+    let result = expr;
+    let iteration = 0;
+    const maxIterations = 10;
+    let previousResult = "";
+
+    // Iteratively process ?. operators until none remain or no changes made
+    while (result.includes("?.") && iteration < maxIterations && result !== previousResult) {
+      previousResult = result;
+
+      // Pattern 1: identifier?.property (simple property access)
+      // Matches: a?.b, user?.name, etc.
+      result = result.replace(
+        /(\w+(?:\.\w+)*)\?\.(\w+)(?!\?\.)/g,
+        (_match, obj, prop) => `IF ${obj} # NULL THEN ${obj}.${prop} ELSE NULL`
+      );
+
+      // Pattern 2: (expression)?.property (parenthesized expression)
+      // Matches: (a.b.c)?.d, (user)?.name, etc.
+      result = result.replace(
+        /\(([^)]+)\)\?\.(\w+)/g,
+        (_match, expr, prop) => `IF (${expr}) # NULL THEN (${expr}).${prop} ELSE NULL`
+      );
+
+      // Pattern 3: identifier?.[index] (bracket notation with number)
+      // Matches: items?.[0], arr?.[5], etc.
+      // TLA+ uses 1-based indexing, so [0] becomes [1]
+      result = result.replace(/(\w+(?:\.\w+)*)\?\.\[(\d+)\]/g, (_match, obj, index) => {
+        const tlaIndex = Number.parseInt(index, 10) + 1; // Convert to 1-based
+        return `IF ${obj} # NULL THEN ${obj}[${tlaIndex}] ELSE NULL`;
+      });
+
+      // Pattern 4: identifier?.['property'] or identifier?.["property"]
+      // Matches: obj?.['name'], user?.["id"], etc.
+      result = result.replace(
+        /(\w+(?:\.\w+)*)\?\.\[['"](\w+)['"]\]/g,
+        (_match, obj, prop) => `IF ${obj} # NULL THEN ${obj}.${prop} ELSE NULL`
+      );
+
+      iteration++;
+    }
+
+    // If ?. still remains after max iterations, warn and return original
+    if (result.includes("?.") && iteration >= maxIterations) {
+      // Return original rather than partially translated to avoid confusing output
+      return expr;
+    }
+
+    return result;
+  }
+
+  /**
+   * Translate string methods to TLA+ operators
+   *
+   * - str.startsWith(prefix) → SubSeq(str, 1, Len(prefix)) = prefix
+   * - str.endsWith(suffix) → SubSeq(str, Len(str) - Len(suffix) + 1, Len(str)) = suffix
+   * - str.includes(sub) → \E i \in 1..Len(str) : SubSeq(str, i, i + Len(sub) - 1) = sub
+   */
+  private translateStringMethods(expr: string): string {
+    if (!expr || typeof expr !== "string") {
+      return expr || "";
+    }
+
+    let result = expr;
+
+    // String.startsWith(prefix)
+    result = result.replace(/(\w+(?:\.\w+)*)\.startsWith\(([^)]+)\)/g, (_match, str, prefix) => {
+      const trimmedPrefix = prefix.trim();
+      return `SubSeq(${str}, 1, Len(${trimmedPrefix})) = ${trimmedPrefix}`;
+    });
+
+    // String.endsWith(suffix)
+    result = result.replace(/(\w+(?:\.\w+)*)\.endsWith\(([^)]+)\)/g, (_match, str, suffix) => {
+      const trimmedSuffix = suffix.trim();
+      return `SubSeq(${str}, Len(${str}) - Len(${trimmedSuffix}) + 1, Len(${str})) = ${trimmedSuffix}`;
+    });
+
+    // String.includes(substring) - more complex, uses existential quantifier
+    result = result.replace(/(\w+(?:\.\w+)*)\.includes\(([^)]+)\)/g, (_match, str, substring) => {
+      const trimmedSub = substring.trim();
+      return `\\E i \\in 1..Len(${str}) : SubSeq(${str}, i, i + Len(${trimmedSub}) - 1) = ${trimmedSub}`;
+    });
+
+    return result;
+  }
+
+  private messageTypeToActionName(messageType: string): string {
+    // Defensive check: this method should only be called with valid TLA+ identifiers
+    // (filtering happens earlier, but this adds an extra layer of safety)
+    if (!this.isValidTLAIdentifier(messageType)) {
+      // Sanitize by removing all invalid characters and replacing with underscores
+      const sanitized = messageType.replace(/[^a-zA-Z0-9_]/g, "_");
+      // Ensure it starts with a letter
+      const validStart = sanitized.match(/[a-zA-Z]/);
+      if (!validStart) {
+        // No letters at all, can't create a valid identifier
+        return "HandleInvalidMessageType";
+      }
+      // Use the sanitized version from the first letter onwards
+      const validIdentifier = sanitized.slice(sanitized.indexOf(validStart[0]));
+      return this.messageTypeToActionName(validIdentifier);
+    }
+
+    // Convert USER_LOGIN -> HandleUserLogin
+    return `Handle${messageType
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join("")}`;
+  }
+
+  /**
+   * Resolve action names for all handlers, detecting and handling collisions.
+   * When two different messageTypes would produce the same action name,
+   * use the origin to differentiate (e.g., HandleFnConnected for state handlers).
+   */
+  private resolveActionNamesForHandlers(handlers: MessageHandler[]): void {
+    this.resolvedActionNames.clear();
+    const actionNameToMessageTypes = this.groupHandlersByActionName(handlers);
+    this.resolveCollisions(actionNameToMessageTypes);
+  }
+
+  /**
+   * Group handlers by their base action name for collision detection.
+   */
+  private groupHandlersByActionName(
+    handlers: MessageHandler[]
+  ): Map<string, Array<{ messageType: string; origin?: "event" | "stateHandler" }>> {
+    const actionNameToMessageTypes = new Map<
+      string,
+      Array<{ messageType: string; origin?: "event" | "stateHandler" }>
+    >();
+
+    for (const handler of handlers) {
+      const baseActionName = this.messageTypeToActionName(handler.messageType);
+      if (!actionNameToMessageTypes.has(baseActionName)) {
+        actionNameToMessageTypes.set(baseActionName, []);
+      }
+      const existing = actionNameToMessageTypes.get(baseActionName);
+      if (existing && !existing.some((e) => e.messageType === handler.messageType)) {
+        existing.push({ messageType: handler.messageType, origin: handler.origin });
+      }
+    }
+
+    return actionNameToMessageTypes;
+  }
+
+  /**
+   * Resolve naming collisions by using origin to differentiate action names.
+   */
+  private resolveCollisions(
+    actionNameToMessageTypes: Map<
+      string,
+      Array<{ messageType: string; origin?: "event" | "stateHandler" }>
+    >
+  ): void {
+    for (const [baseActionName, messageTypes] of actionNameToMessageTypes.entries()) {
+      if (messageTypes.length === 1) {
+        const entry = messageTypes[0];
+        if (entry) {
+          this.resolvedActionNames.set(entry.messageType, baseActionName);
+        }
+        continue;
+      }
+      // Collision detected - use origin to differentiate
+      for (const entry of messageTypes) {
+        const resolvedName =
+          entry.origin === "stateHandler"
+            ? baseActionName.replace(/^Handle/, "HandleFn")
+            : baseActionName;
+        this.resolvedActionNames.set(entry.messageType, resolvedName);
+      }
+    }
+  }
+
+  /**
+   * Get the resolved action name for a message type.
+   * Must call resolveActionNamesForHandlers first.
+   */
+  private getResolvedActionName(messageType: string): string {
+    const resolved = this.resolvedActionNames.get(messageType);
+    if (resolved) {
+      return resolved;
+    }
+    // Fallback to base conversion if not pre-resolved
+    return this.messageTypeToActionName(messageType);
+  }
+
+  private assignmentValueToTLA(value: string | boolean | number | null): string {
+    if (typeof value === "boolean") {
+      return value ? "TRUE" : "FALSE";
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    if (value === null) {
+      return "NULL"; // Will need to handle this based on type
+    }
+    if (typeof value === "string") {
+      // Safety guard: NDET markers must be handled by emitNDETStateUpdates,
+      // never reach this function
+      if (value.startsWith("NDET:")) {
+        throw new Error(
+          `NDET marker "${value}" reached assignmentValueToTLA — should have been partitioned in emitStateUpdates`
+        );
+      }
+      // Handle parameter references from shorthand property assignments
+      if (value.startsWith("param:")) {
+        const paramName = value.substring(6);
+        return `payload.${this.sanitizeFieldName(paramName)}`;
+      }
+      // Check if this is already a TLA+ expression (compound operator or array mutation)
+      // These contain @ (current value reference) or TLA+ operators
+      if (this.isTLAExpression(value)) {
+        // Replace undefined variable references with placeholder from Value set
+        return this.sanitizeTLAExpression(value);
+      }
+      return `"${value}"`; // Regular string literal
+    }
+    return "NULL";
+  }
+
+  /**
+   * Sanitize TLA+ expressions by replacing undefined variables with placeholders
+   * Uses "v1" from our bounded Value set for abstract model checking
+   */
+  private sanitizeTLAExpression(expr: string): string {
+    // Pattern to match Append(@, identifier) where identifier is not quoted
+    const appendPattern = /Append\(@,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
+
+    return expr.replace(appendPattern, (match, varName) => {
+      // If it's already a string literal or number, keep it
+      if (/^".*"$/.test(varName) || /^\d+$/.test(varName)) {
+        return match;
+      }
+
+      // Replace with placeholder from Value set for abstract model checking
+      return 'Append(@, "v1")';
+    });
+  }
+
+  /**
+   * Check if a string value is a TLA+ expression (not a literal string)
+   * TLA+ expressions contain:
+   * - @ (current value reference for EXCEPT)
+   * - TLA+ operators: Append, SubSeq, Tail, Len, Head, etc.
+   * - TLA+ syntax: \o (concatenation), << >> (sequences)
+   */
+  private isTLAExpression(value: string): boolean {
+    // Check for @ symbol (used in EXCEPT expressions)
+    if (value.includes("@")) {
+      return true;
+    }
+
+    // Check for TLA+ sequence operators
+    const tlaOperators = [
+      "Append",
+      "SubSeq",
+      "Tail",
+      "Head",
+      "Len",
+      "\\o", // Concatenation
+      "<<", // Sequence start
+      "Cardinality", // Set cardinality
+      "CHOOSE", // Choice operator
+      "\\E", // Exists quantifier
+      "\\A", // Forall quantifier
+    ];
+
+    return tlaOperators.some((op) => value.includes(op));
+  }
+
+  private addRouteWithHandlers(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    this.line("\\* =============================================================================");
+    this.line("\\* Message Routing with State Transitions");
+    this.line("\\* =============================================================================");
+    this.line("");
+
+    if (analysis.handlers.length === 0) {
+      // No handlers, just use base routing
+      return;
+    }
+
+    this.line("\\* Route a message and invoke its handler");
+    this.line("UserRouteMessage(msgIndex) ==");
+    this.indent++;
+    this.line("/\\ msgIndex \\in 1..Len(messages)");
+    this.line("/\\ LET msg == messages[msgIndex]");
+    this.line('   IN /\\ msg.status = "pending"');
+    this.line("      /\\ routingDepth' = routingDepth + 1");
+    this.line("      /\\ routingDepth < 5");
+    this.line("      /\\ \\E target \\in msg.targets :");
+    this.line('            /\\ IF target \\in Contexts /\\ ports[target] = "connected"');
+    this.line("               THEN \\* Successful delivery - route AND invoke handler");
+    this.line(
+      '                    /\\ messages\' = [messages EXCEPT ![msgIndex].status = "delivered",'
+    );
+    this.line(
+      "                                                   ![msgIndex].deliveredTo = target]"
+    );
+    this.line("                    /\\ delivered' = delivered \\union {msg.id}");
+    this.line(
+      "                    /\\ pendingRequests' = [id \\in DOMAIN pendingRequests \\ {msg.id} |->"
+    );
+    this.line("                                           pendingRequests[id]]");
+    this.line("                    /\\ time' = time + 1");
+    this.line(
+      "                    /\\ \\E p \\in PayloadType : payload' = p  \\* Non-deterministic payload"
+    );
+    this.line("                    /\\ StateTransition(target, msg.msgType)");
+    this.line("               ELSE \\* Port not connected - message fails");
+    this.line(
+      '                    /\\ messages\' = [messages EXCEPT ![msgIndex].status = "failed"]'
+    );
+    this.line(
+      "                    /\\ pendingRequests' = [id \\in DOMAIN pendingRequests \\ {msg.id} |->"
+    );
+    this.line("                                           pendingRequests[id]]");
+    this.line("                    /\\ time' = time + 1");
+    this.line(
+      `                    /\\ ${this.unchangedUserStates(undefined, ["delivered", "payload"])}`
+    );
+    this.line("      /\\ UNCHANGED ports");
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * polly#117: emit PropagateMeshOp, the action that diffuses
+   * mesh-document values between contexts. Gated on `config.mesh`.
+   *
+   * The action is intentionally simple: copy the source context's
+   * value for the docId to the destination, requiring only that they
+   * currently differ. This models Automerge sync at the
+   * "eventually-consistent" level — TLC can fire the action at any
+   * reachable state where two contexts disagree on a mesh document,
+   * so cross-peer convergence claims can hold across the explored
+   * state space rather than being trivially violated by every
+   * routing nondeterminism.
+   */
+  private addPropagateMeshOp(): void {
+    if (!this.hasMeshConfig()) return;
+    this.line("\\* polly#117: propagate a mesh-document value from one context to another.");
+    this.line("\\* Models Automerge sync: src and dst must currently disagree on docId, and");
+    this.line("\\* the action copies src's value into dst's record. All other state is fixed.");
+    this.line("PropagateMeshOp(src, dst, docId) ==");
+    this.indent++;
+    this.line("/\\ src # dst");
+    this.line("/\\ meshState[src][docId] # meshState[dst][docId]");
+    this.line("/\\ meshState' = [meshState EXCEPT ![dst][docId] = meshState[src][docId]]");
+    this.line(
+      "/\\ UNCHANGED <<ports, messages, pendingRequests, delivered, routingDepth, time, contextStates, payload>>"
+    );
+    this.indent--;
+    this.line("");
+  }
+
+  private addNext(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    this.addPropagateMeshOp();
+
+    this.line("\\* Next state relation (extends MessageRouter)");
+    this.line("UserNext ==");
+    this.indent++;
+
+    // Check if there are any valid handlers (not just any handlers)
+    const hasValidHandlers = analysis.handlers.some((h) =>
+      this.isValidTLAIdentifier(h.messageType)
+    );
+
+    if (hasValidHandlers) {
+      // Use integrated routing + handlers
+      // payload is UNCHANGED for non-message actions, but can change non-deterministically
+      // when a message is routed (to model any possible payload value)
+      const userPayload = this.unchangedUserStates(undefined, ["payload"]);
+      this.line(`\\/ \\E c \\in Contexts : ConnectPort(c) /\\ ${userPayload}`);
+      this.line(`\\/ \\E c \\in Contexts : DisconnectPort(c) /\\ ${userPayload}`);
+
+      // Always use Tabs set (defined in config as integers or model values for symmetry)
+      this.line(
+        "\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in Tabs : \\E msgType \\in UserMessageTypes :"
+      );
+      this.indent++;
+      this.line(`SendMessage(src, targetSet, tab, msgType) /\\ ${userPayload}`);
+      this.indent--;
+      this.line("\\/ \\E i \\in 1..Len(messages) : UserRouteMessage(i)");
+      this.line(`\\/ CompleteRouting /\\ ${userPayload}`);
+      this.line(`\\/ \\E i \\in 1..Len(messages) : TimeoutMessage(i) /\\ ${userPayload}`);
+
+      // polly#117: PropagateMeshOp diffuses mesh-document values between
+      // contexts when mesh is declared in config. Models Automerge sync
+      // as a non-deterministic state-equality action.
+      if (this.hasMeshConfig()) {
+        this.line(
+          "\\/ \\E src, dst \\in Contexts : \\E docId \\in MeshDocs : PropagateMeshOp(src, dst, docId)"
+        );
+      }
+    } else {
+      // No valid handlers, all actions preserve contextStates and payload
+      this.line(`\\/ Next /\\ ${this.unchangedUserStates(undefined, ["payload"])}`);
+    }
+
+    this.indent--;
+    this.line("");
+  }
+
+  private addSpec(): void {
+    this.line("\\* Specification");
+    this.line("UserSpec == UserInit /\\ [][UserNext]_allVars /\\ WF_allVars(UserNext)");
+    this.line("");
+  }
+
+  private addInvariants(config: VerificationConfig, _analysis: CodebaseAnalysis): void {
+    this.line("\\* =============================================================================");
+    this.line("\\* Application Invariants");
+    this.line("\\* =============================================================================");
+    this.line("");
+
+    this.line("\\* TypeOK and NoRoutingLoops are inherited from MessageRouter");
+    this.line("");
+
+    this.line("\\* Application state type invariant");
+    this.line("UserStateTypeInvariant ==");
+    this.indent++;
+    this.line("\\A ctx \\in Contexts :");
+    this.indent++;
+    this.line("contextStates[ctx] \\in State");
+    this.indent--;
+    this.indent--;
+    this.line("");
+
+    // Add extracted invariants from JSDoc
+    if (this.extractedInvariants.length > 0) {
+      this.line("\\* Extracted invariants from code annotations");
+      this.line("");
+
+      const invGenerator = new InvariantGenerator();
+      const tlaInvariants = invGenerator.generateTLAInvariants(this.extractedInvariants, (expr) =>
+        this.tsExpressionToTLA(expr, false)
+      );
+
+      for (const invDef of tlaInvariants) {
+        this.line(invDef);
+        this.line("");
+      }
+    }
+
+    // Add Tier 2 Optimization: Temporal constraints
+    if (config.tier2?.temporalConstraints && config.tier2.temporalConstraints.length > 0) {
+      this.addTemporalConstraints(config.tier2.temporalConstraints);
+    }
+
+    this.line("\\* State constraint to bound state space");
+    this.addStateConstraint(config, _analysis);
+
+    // Module-end marker is emitted separately so temporal properties (if
+    // any) land inside the module rather than after its closing line.
+  }
+
+  /**
+   * Add temporal constraint invariants (Tier 2 optimization)
+   */
+  private addTemporalConstraints(
+    constraints: Array<{ before: string; after: string; description?: string }>
+  ): void {
+    this.line("\\* Tier 2: Temporal constraint invariants");
+    this.line("\\* Enforce ordering requirements between message types");
+    this.line("");
+
+    for (let i = 0; i < constraints.length; i++) {
+      const constraint = constraints[i];
+      if (!constraint) continue;
+      const invName = `TemporalConstraint${i + 1}`;
+
+      if (constraint.description) {
+        this.line(`\\* ${constraint.description}`);
+      }
+      this.line(`${invName} ==`);
+      this.indent++;
+      this.line(
+        `\\* If ${constraint.after} has been delivered, then ${constraint.before} must have been delivered`
+      );
+      this.line(
+        `(\\E i \\in 1..Len(messages) : messages[i].id \\in delivered /\\ messages[i].msgType = "${constraint.after}")`
+      );
+      this.line("=>");
+      this.line(
+        `(\\E i \\in 1..Len(messages) : messages[i].id \\in delivered /\\ messages[i].msgType = "${constraint.before}")`
+      );
+      this.indent--;
+      this.line("");
+
+      // Track this invariant for config generation
+      this.extractedInvariants.push({
+        name: invName,
+        description:
+          constraint.description || `${constraint.before} must happen before ${constraint.after}`,
+        expression: `${constraint.before} happens-before ${constraint.after}`,
+        location: { file: "", line: 0 },
+      });
+    }
+  }
+
+  /**
+   * Generate StateConstraint with per-message bounds support (Tier 1 optimization),
+   * bounded exploration (Tier 2 optimization), and user-defined state constraints
+   */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multiple constraint types require nested conditionals
+  private addStateConstraint(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    const hasPerMessageBounds =
+      config.messages.perMessageBounds && Object.keys(config.messages.perMessageBounds).length > 0;
+    const hasBoundedExploration = config.tier2?.boundedExploration?.maxDepth !== undefined;
+    const hasUserConstraints = (analysis.globalStateConstraints?.length ?? 0) > 0;
+
+    const needsConjunction = hasPerMessageBounds || hasBoundedExploration || hasUserConstraints;
+
+    this.line("StateConstraint ==");
+    this.indent++;
+
+    if (needsConjunction) {
+      // Multiple constraints
+      this.line("/\\ Len(messages) <= MaxMessages");
+
+      // Tier 1: Per-message bounds
+      if (hasPerMessageBounds && config.messages.perMessageBounds) {
+        for (const [msgType, _bound] of Object.entries(config.messages.perMessageBounds)) {
+          const constName = `MaxMessages_${msgType}`;
+          this.line(
+            `/\\ Cardinality({m \\in DOMAIN messages : messages[m].msgType = "${msgType}"}) <= ${constName}`
+          );
+        }
+      }
+
+      // Tier 2: Bounded exploration (depth limit)
+      if (hasBoundedExploration && config.tier2?.boundedExploration?.maxDepth) {
+        this.line(
+          `/\\ TLCGet("level") <= ${config.tier2.boundedExploration.maxDepth} \\* Tier 2: Bounded exploration`
+        );
+      }
+
+      // User-defined state constraints (stateConstraint() calls)
+      if (hasUserConstraints && analysis.globalStateConstraints) {
+        for (const constraint of analysis.globalStateConstraints) {
+          const tlaExpr = this.tsExpressionToTLA(constraint.expression, false);
+          this.line(`\\* ${constraint.name}${constraint.message ? `: ${constraint.message}` : ""}`);
+          this.line(`/\\ \\A ctx \\in Contexts : (${tlaExpr})`);
+        }
+      }
+    } else {
+      // Simple global bound only
+      this.line("Len(messages) <= MaxMessages");
+    }
+
+    this.indent--;
+    this.line("");
+
+    // Log bounded exploration
+    if (hasBoundedExploration && config.tier2?.boundedExploration?.maxDepth) {
+      console.log(
+        `[INFO] [TLAGenerator] Tier 2: Bounded exploration with maxDepth = ${config.tier2.boundedExploration.maxDepth}`
+      );
+    }
+
+    // Log user-defined state constraints
+    if (hasUserConstraints && analysis.globalStateConstraints) {
+      console.log(
+        `[INFO] [TLAGenerator] ${analysis.globalStateConstraints.length} user-defined state constraint(s) added to CONSTRAINT clause`
+      );
+    }
+  }
+
+  /**
+   * Add delivered tracking variables for temporal properties
+   */
+  private addDeliveredTracking(): void {
+    this.line("");
+    const tempGenerator = new TemporalTLAGenerator();
+    const deliveredVars = tempGenerator.generateDeliveredVariables();
+    this.line(deliveredVars);
+    this.line("");
+  }
+
+  /**
+   * Add temporal property definitions
+   */
+  private addTemporalProperties(): void {
+    this.line("\\* =============================================================================");
+    this.line("\\* Temporal Properties");
+    this.line("\\* =============================================================================");
+    this.line("");
+
+    const tempGenerator = new TemporalTLAGenerator();
+    const tlaProperties = tempGenerator.generateTLAProperties(this.temporalProperties);
+
+    for (const propDef of tlaProperties) {
+      this.line(propDef);
+      this.line("");
+    }
+
+    // Module-end marker is emitted by the top-level generator so it
+    // always lands as the last line of the spec.
+  }
+
+  private fieldConfigToTLAType(
+    _fieldPath: string,
+    fieldConfig: FieldConfig,
+    _config: VerificationConfig
+  ): string {
+    // Try each type pattern in order
+    const typeResult =
+      this.tryAbstractType(fieldConfig) ||
+      this.tryBooleanType(fieldConfig) ||
+      this.tryEnumType(fieldConfig) ||
+      this.tryArrayType(fieldConfig) ||
+      this.tryExplicitNumberType(fieldConfig) ||
+      this.tryNumberType(fieldConfig) ||
+      this.tryStringType(fieldConfig) ||
+      this.tryMapType(fieldConfig);
+
+    return typeResult || "Value";
+  }
+
+  /**
+   * Try to match abstract type pattern
+   * Abstract fields use the generic Value type for model checking.
+   * Nullable abstract fields include NULL in the union.
+   */
+  private tryAbstractType(fieldConfig: FieldConfig): string | null {
+    if ("abstract" in fieldConfig && fieldConfig.abstract === true) {
+      if ("nullable" in fieldConfig && fieldConfig.nullable === true) {
+        return "Value \\union {NULL}";
+      }
+      return "Value";
+    }
+    return null;
+  }
+
+  /**
+   * Try to match boolean type pattern
+   */
+  private tryBooleanType(fieldConfig: FieldConfig): string | null {
+    if ("type" in fieldConfig && fieldConfig.type === "boolean") {
+      return "BOOLEAN";
+    }
+
+    // Check for boolean array: [true, false] or [false, true]
+    if (Array.isArray(fieldConfig)) {
+      if (
+        fieldConfig.length === 2 &&
+        typeof fieldConfig[0] === "boolean" &&
+        typeof fieldConfig[1] === "boolean"
+      ) {
+        return "BOOLEAN";
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Try to match enum type pattern
+   */
+  private tryEnumType(fieldConfig: FieldConfig): string | null {
+    if ("type" in fieldConfig && fieldConfig.type === "enum" && fieldConfig.values) {
+      const values = fieldConfig.values.map((v: string) => `"${v}"`).join(", ");
+      return `{${values}}`;
+    }
+    return null;
+  }
+
+  /**
+   * Try to match array type pattern
+   */
+  private tryArrayType(fieldConfig: FieldConfig): string | null {
+    if ("maxLength" in fieldConfig) {
+      return "Seq(Value)";
+    }
+    return null;
+  }
+
+  /**
+   * Try to match explicit number type: { type: "number", min?, max? }
+   */
+  private tryExplicitNumberType(fieldConfig: FieldConfig): string | null {
+    if ("type" in fieldConfig && fieldConfig.type === "number") {
+      const min = "min" in fieldConfig && fieldConfig.min != null ? fieldConfig.min : 0;
+      const max = "max" in fieldConfig && fieldConfig.max != null ? fieldConfig.max : 100;
+      return `${min}..${max}`;
+    }
+    return null;
+  }
+
+  /**
+   * Try to match number type pattern
+   */
+  private tryNumberType(fieldConfig: FieldConfig): string | null {
+    if ("min" in fieldConfig && "max" in fieldConfig) {
+      const min = fieldConfig.min || 0;
+      const max = fieldConfig.max || 100;
+      return `${min}..${max}`;
+    }
+    return null;
+  }
+
+  /**
+   * Try to match string type pattern
+   */
+  private tryStringType(fieldConfig: FieldConfig): string | null {
+    if (!("values" in fieldConfig)) return null;
+
+    if (fieldConfig.values && Array.isArray(fieldConfig.values)) {
+      const values = fieldConfig.values.map((v: string) => `"${v}"`).join(", ");
+      return `{${values}}`;
+    }
+
+    return "STRING";
+  }
+
+  /**
+   * Try to match map type pattern
+   */
+  private tryMapType(fieldConfig: FieldConfig): string | null {
+    if ("maxSize" in fieldConfig) {
+      return "[Keys -> Value]";
+    }
+    return null;
+  }
+
+  private getInitialValueFromAnalysis(fieldAnalysis: FieldAnalysis): string {
+    const typeInfo = fieldAnalysis.type;
+
+    switch (typeInfo.kind) {
+      case "boolean":
+        return "FALSE";
+      case "string":
+        return this.getInitialStringValue(typeInfo, fieldAnalysis.bounds);
+      case "number":
+        return this.getInitialNumberValue(fieldAnalysis.bounds);
+      case "enum":
+        return this.getInitialEnumValue(typeInfo);
+      case "array":
+        return "<<>>";
+      case "set":
+        return "{}";
+      case "map":
+        return "[x \\in {} |-> NULL]";
+      case "object":
+        return "NULL";
+      case "null":
+        return "NULL";
+      case "union":
+        return this.getInitialUnionValue(typeInfo, fieldAnalysis);
+      default:
+        return "NULL";
+    }
+  }
+
+  /**
+   * Get initial value for string type
+   */
+  private getInitialStringValue(
+    typeInfo: { enumValues?: string[] },
+    bounds?: { values?: string[] }
+  ): string {
+    if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
+      return `"${typeInfo.enumValues[0]}"`;
+    }
+    if (bounds?.values && bounds.values.length > 0) {
+      return `"${bounds.values[0]}"`;
+    }
+    return '""';
+  }
+
+  /**
+   * Get initial value for number type
+   */
+  private getInitialNumberValue(bounds?: { min?: number }): string {
+    if (bounds?.min !== undefined) {
+      return `${bounds.min}`;
+    }
+    return "0";
+  }
+
+  /**
+   * Get initial value for enum type
+   */
+  private getInitialEnumValue(typeInfo: { enumValues?: string[] }): string {
+    if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
+      return `"${typeInfo.enumValues[0]}"`;
+    }
+    return '""';
+  }
+
+  /**
+   * Get initial value for union type
+   */
+  private getInitialUnionValue(
+    typeInfo: { unionTypes?: Array<{ kind: string }> },
+    fieldAnalysis: FieldAnalysis
+  ): string {
+    if (typeInfo.unionTypes && typeInfo.unionTypes.length > 0) {
+      const firstType =
+        typeInfo.unionTypes.find((t) => t.kind !== "null") || typeInfo.unionTypes[0];
+      return this.getInitialValueFromAnalysis({
+        ...fieldAnalysis,
+        type: firstType as unknown as FieldAnalysis["type"],
+      });
+    }
+    return "NULL";
+  }
+
+  private inferTLATypeFromAnalysis(fieldAnalysis: FieldAnalysis): string {
+    const typeInfo = fieldAnalysis.type;
+
+    // Handle nullable types
+    const makeNullable = (baseType: string): string => {
+      return typeInfo.nullable ? `${baseType} \\union {NULL}` : baseType;
+    };
+
+    // Convert TypeKind to TLA+ type
+    switch (typeInfo.kind) {
+      case "boolean":
+        return makeNullable("BOOLEAN");
+
+      case "string":
+        // Check if there are enum values
+        if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
+          const values = typeInfo.enumValues.map((v) => `"${v}"`).join(", ");
+          return makeNullable(`{${values}}`);
+        }
+        // Check bounds for bounded strings
+        if (fieldAnalysis.bounds?.values && fieldAnalysis.bounds.values.length > 0) {
+          const values = fieldAnalysis.bounds.values.map((v) => `"${v}"`).join(", ");
+          return makeNullable(`{${values}}`);
+        }
+        return makeNullable("STRING");
+
+      case "number":
+        // Check for numeric bounds
+        if (fieldAnalysis.bounds?.min !== undefined && fieldAnalysis.bounds?.max !== undefined) {
+          return makeNullable(`${fieldAnalysis.bounds.min}..${fieldAnalysis.bounds.max}`);
+        }
+        return makeNullable("Int");
+
+      case "enum":
+        if (typeInfo.enumValues && typeInfo.enumValues.length > 0) {
+          const values = typeInfo.enumValues.map((v) => `"${v}"`).join(", ");
+          return makeNullable(`{${values}}`);
+        }
+        return makeNullable("STRING");
+
+      case "array":
+        // Sequence type
+        if (typeInfo.elementType) {
+          // For now, use simplified Value type
+          return makeNullable("Seq(Value)");
+        }
+        return makeNullable("Seq(Value)");
+
+      case "set":
+        // Set type
+        return makeNullable("SUBSET Value");
+
+      case "map":
+        // Function type (TLA+ records/functions)
+        return makeNullable("[Keys -> Value]");
+
+      case "object":
+        // For nested objects, we'd need recursive handling
+        // For now, use generic Value
+        return makeNullable("Value");
+
+      case "union":
+        // For unions, try to find a common representation
+        // For now, use generic Value
+        return makeNullable("Value");
+
+      case "null":
+        return "NULL";
+      default:
+        return "Value";
+    }
+  }
+
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Config type discrimination requires multiple conditionals
+  private getInitialValue(fieldConfig: FieldConfig): string {
+    // Handle abstract fields - use value from bounded Value set
+    if ("abstract" in fieldConfig && fieldConfig.abstract === true) {
+      if ("nullable" in fieldConfig && fieldConfig.nullable === true) {
+        return "NULL"; // Nullable abstract fields start as NULL
+      }
+      return '"v1"'; // Default value from Value set
+    }
+
+    // Check for boolean array: [true, false]
+    if (Array.isArray(fieldConfig)) {
+      if (fieldConfig.length > 0 && typeof fieldConfig[0] === "boolean") {
+        return fieldConfig[0] ? "TRUE" : "FALSE";
+      }
+      // String array
+      if (fieldConfig.length > 0 && typeof fieldConfig[0] === "string") {
+        return `"${fieldConfig[0]}"`;
+      }
+    }
+
+    if ("type" in fieldConfig) {
+      if (fieldConfig.type === "boolean") {
+        return "FALSE";
+      }
+      if (fieldConfig.type === "enum" && fieldConfig.values && fieldConfig.values.length > 0) {
+        return `"${fieldConfig.values[0]}"`;
+      }
+      // Handle array type
+      if (fieldConfig.type === "array") {
+        return "<<>>"; // Empty sequence
+      }
+      // Handle string type
+      if (fieldConfig.type === "string") {
+        return '""'; // Empty string
+      }
+      // Handle explicit number type
+      if (fieldConfig.type === "number") {
+        return String("min" in fieldConfig && fieldConfig.min != null ? fieldConfig.min : 0);
+      }
+    }
+
+    if ("maxLength" in fieldConfig) {
+      return "<<>>"; // Empty sequence
+    }
+
+    if ("min" in fieldConfig) {
+      return String(fieldConfig.min || 0);
+    }
+
+    if ("values" in fieldConfig && fieldConfig.values && fieldConfig.values.length > 0) {
+      return `"${fieldConfig.values[0]}"`;
+    }
+
+    if ("maxSize" in fieldConfig) {
+      // Map with all keys mapped to default value
+      return '[k \\in Keys |-> "v1"]';
+    }
+
+    return "0"; // Default fallback
+  }
+
+  private fieldToConstName(fieldPath: string): string {
+    return fieldPath.replace(/\./g, "_").toUpperCase();
+  }
+
+  private sanitizeFieldName(fieldPath: string): string {
+    return fieldPath.replace(/\./g, "_");
+  }
+
+  private line(content: string): void {
+    if (content === "") {
+      this.lines.push("");
+    } else {
+      const indentation = "  ".repeat(this.indent);
+      this.lines.push(indentation + content);
+    }
+  }
+}
+
+export async function generateTLA(
+  config: VerificationConfig,
+  analysis: CodebaseAnalysis
+): Promise<{ spec: string; cfg: string; validation?: ValidationReport }> {
+  const generator = new TLAGenerator();
+  return await generator.generate(config, analysis);
+}
+
+/**
+ * Filter messages.perMessageBounds to only the subsystem's handlers, then
+ * layer the subsystem-level bounds override on top in-place. Mutates the
+ * passed messages object.
+ */
+function applySubsystemBounds(
+  messages: VerificationConfig["messages"],
+  subsystem: SubsystemConfig,
+  handlerNames: Set<string>
+): void {
+  if (messages.perMessageBounds) {
+    const filtered: Record<string, number> = {};
+    for (const [msg, bound] of Object.entries(messages.perMessageBounds)) {
+      if (handlerNames.has(msg)) {
+        filtered[msg] = bound;
+      }
+    }
+    messages.perMessageBounds = filtered;
+  }
+
+  const override = subsystem.bounds;
+  if (!override) return;
+
+  if (override.maxInFlight !== undefined) {
+    messages.maxInFlight = override.maxInFlight;
+  }
+  if (override.perMessageBounds) {
+    const merged: Record<string, number> = { ...(messages.perMessageBounds ?? {}) };
+    for (const [msg, bound] of Object.entries(override.perMessageBounds)) {
+      if (handlerNames.has(msg)) {
+        merged[msg] = bound;
+      }
+    }
+    messages.perMessageBounds = merged;
+  }
+}
+
+/**
+ * Generate a filtered TLA+ spec for a single subsystem.
+ *
+ * Filters the config's state/messages and analysis's handlers/messageTypes
+ * to only those belonging to the subsystem, then delegates to the standard generator.
+ */
+export async function generateSubsystemTLA(
+  _subsystemName: string,
+  subsystem: SubsystemConfig,
+  config: VerificationConfig,
+  analysis: CodebaseAnalysis
+): Promise<{ spec: string; cfg: string; validation?: ValidationReport }> {
+  const stateFields = new Set(subsystem.state);
+  const handlerNames = new Set(subsystem.handlers);
+
+  // Filter state config to only subsystem fields
+  const filteredState: Record<string, unknown> = {};
+  for (const [field, fieldConfig] of Object.entries(config.state)) {
+    if (stateFields.has(field)) {
+      filteredState[field] = fieldConfig;
+    }
+  }
+
+  // Filter messages config
+  const filteredMessages = {
+    ...config.messages,
+    include: subsystem.handlers, // only include this subsystem's handlers
+  };
+  // Remove exclude since we're using explicit include
+  filteredMessages.exclude = undefined;
+
+  // Filter perMessageBounds to only relevant handlers, then layer the
+  // per-subsystem bounds override on top. A subsystem with no parameterised
+  // handlers can safely run at higher maxInFlight to exercise multi-step
+  // ensures (handlers reachable only after another handler has fired) without
+  // forcing every other subsystem to pay the same exploration cost.
+  applySubsystemBounds(filteredMessages, subsystem, handlerNames);
+
+  // Build filtered config
+  const filteredConfig: VerificationConfig = {
+    ...config,
+    state: filteredState as unknown as VerificationConfig["state"],
+    messages: filteredMessages,
+    subsystems: undefined, // don't recurse
+  };
+
+  // Filter temporal constraints to only those involving subsystem handlers
+  if (filteredConfig.tier2?.temporalConstraints) {
+    filteredConfig.tier2 = {
+      ...filteredConfig.tier2,
+      temporalConstraints: filteredConfig.tier2.temporalConstraints.filter(
+        (tc) => handlerNames.has(tc.before) && handlerNames.has(tc.after)
+      ),
+    };
+  }
+
+  // Filter globalStateConstraints to only those referencing subsystem state fields.
+  // Expression uses signalName.value.field pattern; config uses signalName.field (dot notation).
+  // Convert subsystem state fields to the signal.value.field patterns they represent.
+  const subsystemFieldPatterns = subsystem.state.map((field) => {
+    // "user.loggedIn" -> matches "user.value.loggedIn" in expression
+    const dotIdx = field.indexOf(".");
+    if (dotIdx >= 0) {
+      return `${field.substring(0, dotIdx)}.value.${field.substring(dotIdx + 1)}`;
+    }
+    // "todos" -> matches "todos.value" in expression
+    return `${field}.value`;
+  });
+
+  const filteredGlobalStateConstraints = (analysis.globalStateConstraints ?? []).filter(
+    (constraint) =>
+      subsystemFieldPatterns.some((pattern) => constraint.expression.includes(pattern))
+  );
+
+  // Filter analysis to only subsystem handlers/messageTypes
+  const filteredAnalysis: CodebaseAnalysis = {
+    ...analysis,
+    messageTypes: analysis.messageTypes.filter((mt) => handlerNames.has(mt)),
+    handlers: analysis.handlers.filter((h) => handlerNames.has(h.messageType)),
+    globalStateConstraints: filteredGlobalStateConstraints,
+  };
+
+  const generator = new TLAGenerator();
+  return await generator.generate(filteredConfig, filteredAnalysis, `UserApp_${_subsystemName}`);
+}
