@@ -20,6 +20,13 @@ export default defineVerification({
   },
 
   messages: {
+    // maxInFlight: 2 catches APPLY_PAIR_TOKEN's ensures (the polly#103
+    // contract proper) but leaves the trailing handlers in the chain
+    // — OPEN_DATA_CHANNEL through RECEIVE_SENTINEL — vacuously verified
+    // because their messages are never delivered in any reachable
+    // state. Raising maxInFlight to 5 makes the chain reachable but
+    // the state space exceeds the Docker pool budget. The README
+    // documents which ensures are exercised and which are not.
     maxInFlight: 2,
     maxTabs: 1,
 

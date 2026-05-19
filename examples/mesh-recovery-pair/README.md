@@ -139,11 +139,34 @@ bun ../../dist/cli/polly.js verify
 
 ## What this verifier model does and does not prove
 
-The model is an **abstract state machine over six booleans**. It
-proves the polly#103 contract holds across every reachable
-interleaving of the modelled events under the bounded depth, given
-the temporal constraint that the roster reports B before the pair
-token lands. It does **not** model:
+The model is an **abstract state machine over six booleans**. Under
+the bounded `maxInFlight: 2` / `maxDepth: 4` configuration it
+exercises the front of the chain:
+
+- `EnsuresAfter_HandleRosterPeerJoined` — checked.
+- `EnsuresAfter_HandleApplyPairToken` — **checked. This is where the
+  polly#103 contract lives.** Comment out the `POLLY_103_FIX` line
+  and TLC produces the counterexample.
+
+The remaining three handlers — `OPEN_DATA_CHANNEL`, `WRITE_SENTINEL`,
+`RECEIVE_SENTINEL` — are **never delivered** in any reachable state
+at this bound, because TLC's `MaxMessages` constraint caps cumulative
+message count at `maxInFlight` and the temporal-constraint
+serialisation forces them to wait. Their `EnsuresAfter_*` properties
+are therefore vacuously true. Raising `maxInFlight` to 5 (the chain
+length) makes the trailing properties reachable but pushes the
+explored state space past 30M distinct states in 10+ minutes, beyond
+the documented Docker pool ceiling.
+
+This is a real limit of the current verifier shape for chain-style
+models, not a quirk of this example: any `EnsuresAfter_*` whose
+handler sits N-deep in a serial chain needs `maxInFlight ≥ N` to be
+exercised, and the state-space cost of that often makes it
+unverifiable in practice. The honest claim this model carries is
+**"the polly#103 contract holds at the pair-token handler"**, not
+"the full sync chain converges."
+
+The model does **not** model:
 
 - The actual Automerge merge semantics. `$meshState` propagation here
   is a single boolean toggle; concurrent writes, conflict resolution,
