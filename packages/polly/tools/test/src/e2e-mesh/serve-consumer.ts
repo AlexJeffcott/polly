@@ -18,11 +18,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { BunPlugin } from "bun";
 
-const repoRoot = resolve(__dirname, "../../../..");
-const consumerEntry = resolve(repoRoot, "examples/e2e-consumer/main.ts");
-const consumerHtml = resolve(repoRoot, "examples/e2e-consumer/index.html");
+// __dirname here is packages/polly/tools/test/src/e2e-mesh. The consumer
+// lives at packages/polly/examples/e2e-consumer so it inherits polly's
+// node_modules at bundle time; placing it at the monorepo root would
+// require it to declare its own workspace entry plus polly's runtime
+// dependencies, which is more coupling than the test deserves.
+const pollyRoot = resolve(__dirname, "../../../..");
+const consumerEntry = resolve(pollyRoot, "examples/e2e-consumer/main.ts");
+const consumerHtml = resolve(pollyRoot, "examples/e2e-consumer/index.html");
 const automergeBase64Path = resolve(
-  repoRoot,
+  pollyRoot,
   "node_modules/@automerge/automerge/dist/mjs/entrypoints/fullfat_base64.js"
 );
 

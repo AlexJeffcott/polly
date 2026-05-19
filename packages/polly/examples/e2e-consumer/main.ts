@@ -21,14 +21,14 @@
  */
 
 import { effect } from "@preact/signals";
-import { createMeshClient, type MeshClient } from "../../packages/polly/src/shared/lib/mesh-client";
+import { createMeshClient, type MeshClient } from "../../src/shared/lib/mesh-client";
 import {
   type MeshDiagnosticEvent,
   subscribeToMeshDiagnostics,
-} from "../../packages/polly/src/shared/lib/mesh-diagnostics";
-import { DEFAULT_MESH_KEY_ID, type MeshKeyring } from "../../packages/polly/src/shared/lib/mesh-network-adapter";
-import { $meshList, configureMeshState } from "../../packages/polly/src/shared/lib/mesh-state";
-import { signingKeyPairFromSecret } from "../../packages/polly/src/shared/lib/signing";
+} from "../../src/shared/lib/mesh-diagnostics";
+import { DEFAULT_MESH_KEY_ID, type MeshKeyring } from "../../src/shared/lib/mesh-network-adapter";
+import { $meshList, configureMeshState } from "../../src/shared/lib/mesh-state";
+import { signingKeyPairFromSecret } from "../../src/shared/lib/signing";
 
 interface BootstrapSpec {
   peerId: string;
