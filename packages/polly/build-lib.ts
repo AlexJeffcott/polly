@@ -72,6 +72,7 @@ const libResult = await Bun.build({
     "tools/test/src/browser/index.ts",
     "tools/test/src/visual/index.ts",
     "tools/test/src/adapters/index.ts",
+    "tools/test/src/e2e-mesh/index.ts",
   ],
   outdir: DIST_DIR,
   target: "browser",

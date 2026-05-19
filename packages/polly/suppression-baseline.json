@@ -1,0 +1,338 @@
+[
+  {
+    "file": "scripts/check-suppression-justifications.ts",
+    "text": "* eslint-disable. Each is a deliberate choice to downgrade a tool's"
+  },
+  {
+    "file": "scripts/fix-as-casting.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Source-text scanning with many skip rules is inherently branchy."
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: open applies two layers of overrides plus optional onOpen — branchy by design."
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: submit funnels FormData, validate, onSubmit, errorState, and close — one-path-per-stage by design."
+  },
+  {
+    "file": "src/background/message-router.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message routing requires conditional logic for different targets"
+  },
+  {
+    "file": "src/client/wrapper.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Queue processing requires complex branching logic"
+  },
+  {
+    "file": "src/client/wrapper.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: Error logging is intentional"
+  },
+  {
+    "file": "src/client/wrapper.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: Error logging is intentional"
+  },
+  {
+    "file": "src/client/wrapper.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: Error logging is intentional"
+  },
+  {
+    "file": "src/elysia/plugin.ts",
+    "text": "// @ts-expect-error - Elysia context types from optional peer dependency"
+  },
+  {
+    "file": "src/elysia/plugin.ts",
+    "text": "// @ts-expect-error - Elysia context types from optional peer dependency"
+  },
+  {
+    "file": "src/elysia/plugin.ts",
+    "text": "// @ts-expect-error - Elysia WebSocket types from optional peer dependency"
+  },
+  {
+    "file": "src/elysia/plugin.ts",
+    "text": "// @ts-expect-error - Elysia WebSocket types from optional peer dependency"
+  },
+  {
+    "file": "src/elysia/plugin.ts",
+    "text": "// @ts-expect-error - Elysia WebSocket types from optional peer dependency"
+  },
+  {
+    "file": "src/polly-ui/ActionInput.tsx",
+    "text": "// biome-ignore lint/a11y/useSemanticElements: <button> would swallow text selection and add default styling; div with role=button is the inline-edit idiom."
+  },
+  {
+    "file": "src/polly-ui/ActionInput.tsx",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard handler encodes the saveOn × variant matrix."
+  },
+  {
+    "file": "src/polly-ui/ActionInput.tsx",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two render branches times two variants times four saveOn triggers; branching is inherent to the primitive."
+  },
+  {
+    "file": "src/polly-ui/Button.tsx",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat prop-to-class composition plus one anchor/button branch; splitting would just hide the mapping."
+  },
+  {
+    "file": "src/polly-ui/css-modules.d.ts",
+    "text": "// biome-ignore lint/style/noDefaultExport: CSS-module imports are default-exported by convention."
+  },
+  {
+    "file": "src/polly-ui/Layout.tsx",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: sixteen optional prop-to-custom-property mappings; flat and linear."
+  },
+  {
+    "file": "src/polly-ui/Surface.tsx",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop-to-custom-property mapping; flat and linear, mirrors Layout.tsx."
+  },
+  {
+    "file": "src/polly-ui/TextInput.tsx",
+    "text": "// biome-ignore lint/a11y/noAutofocus: opt-in prop — caller requests autofocus explicitly (e.g. form opens to this field)."
+  },
+  {
+    "file": "src/polly-ui/TextInput.tsx",
+    "text": "// biome-ignore lint/a11y/noAutofocus: opt-in prop — caller requests autofocus explicitly (e.g. form opens to this field)."
+  },
+  {
+    "file": "src/polly-ui/Toast.tsx",
+    "text": "// biome-ignore lint/a11y/noStaticElementInteractions: viewport pauses auto-dismiss on hover; it is a container, not an interactive control itself."
+  },
+  {
+    "file": "src/shared/lib/mesh-network-adapter.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: seven silent-drop branches each emit one typed diagnostic — the per-branch contract is the source of truth the mesh-diagnostics stream advertises."
+  },
+  {
+    "file": "src/shared/lib/message-bus.ts",
+    "text": "// biome-ignore lint/complexity/noBannedTypes: Function type needed for dynamic handler map"
+  },
+  {
+    "file": "src/shared/lib/message-bus.ts",
+    "text": "// biome-ignore lint/complexity/noBannedTypes: Need to accept user-defined message types beyond ExtensionMessage"
+  },
+  {
+    "file": "src/shared/lib/message-bus.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message handling requires routing logic for different message types"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Sync effect requires coordination of multiple state change scenarios"
+  },
+  {
+    "file": "src/wasm.d.ts",
+    "text": "// biome-ignore lint/style/noDefaultExport: TypeScript module declarations for asset imports require default export."
+  },
+  {
+    "file": "tests/setup.ts",
+    "text": "// @ts-expect-error — pass-through to original setTimeout"
+  },
+  {
+    "file": "tests/setup.ts",
+    "text": "// @ts-expect-error — pass-through to original setTimeout"
+  },
+  {
+    "file": "tests/setup.ts",
+    "text": "// @ts-expect-error — wrapping setTimeout to intercept xstate cycle errors"
+  },
+  {
+    "file": "tests/unit/messages.test.ts",
+    "text": "// @ts-expect-error - should not have endpoint property"
+  },
+  {
+    "file": "tools/analysis/src/extract/flows.ts",
+    "text": "// biome-ignore lint/suspicious/noExplicitAny: Type guard for dynamic JSDoc support"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: AST traversal for state mutations requires multiple pattern checks"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Field extraction requires traversing nested object structures"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handler extraction requires analyzing multiple patterns and file boundaries"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: handler extraction requires branching logic"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Import following requires conditional logic for package boundaries, caching, and recursion"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: State mutation detection requires complex AST pattern matching"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: WebSocket handler extraction requires analyzing multiple callback patterns"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: glob resolution with error handling"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Monorepo detection requires iterating workspaces and scoring candidates"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Project detection requires checking many project types"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "// biome-ignore lint/suspicious/noExplicitAny: Mapping partial handler objects to complete MessageHandler interface"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "// biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "// biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability"
+  },
+  {
+    "file": "tools/quality/src/css/check-layout.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-file visitor covers filetype, suppression, and pattern loop."
+  },
+  {
+    "file": "tools/quality/src/css/check-quality.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-file nested rule loop; readable as written."
+  },
+  {
+    "file": "tools/quality/src/css/check-unused.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: filetype dispatch with nested matchAll scans; flat branches."
+  },
+  {
+    "file": "tools/quality/src/css/check-unused.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: three-way reference check (other CSS, same CSS self-count, TS references)."
+  },
+  {
+    "file": "tools/quality/src/css/check-vars.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: nested for + matchAll per file is linear and readable as written."
+  },
+  {
+    "file": "tools/quality/src/css/shared.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: recursive walk with skip sets is inherently branchy."
+  },
+  {
+    "file": "tools/quality/src/logger.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI output is the whole point of the default sink."
+  },
+  {
+    "file": "tools/quality/src/logger.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI output is the whole point of the default sink."
+  },
+  {
+    "file": "tools/quality/src/logger.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI output is the whole point of the default sink."
+  },
+  {
+    "file": "tools/quality/src/no-as-casting.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Pattern-matching advice is a linear chain of if-returns."
+  },
+  {
+    "file": "tools/quality/src/no-as-casting.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Source-text scanning with many skip rules is inherently branchy."
+  },
+  {
+    "file": "tools/test/src/adapters/logger.mock.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: Mock logger intentionally uses console for testing"
+  },
+  {
+    "file": "tools/test/src/adapters/storage.mock.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Mock storage needs to handle multiple key types"
+  },
+  {
+    "file": "tools/test/src/test-utils.ts",
+    "text": "// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op for mocks"
+  },
+  {
+    "file": "tools/test/src/test-utils.ts",
+    "text": "// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op for mocks"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/message-types.test.ts",
+    "text": "// biome-ignore lint/suspicious/noTemplateCurlyInString: Testing TypeScript template literal syntax"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/message-types.test.ts",
+    "text": "// biome-ignore lint/suspicious/noTemplateCurlyInString: Testing TypeScript template literal syntax"
+  },
+  {
+    "file": "tools/verify/src/adapters/web-extension/index.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Subsystem orchestration requires sequential steps with branching"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: branches reflect distinct symmetry-group cases"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex filtering logic needed for optimization"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Config type discrimination requires multiple conditionals"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multiple constraint types require nested conditionals"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Config validation requires complex pattern matching"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Subsystem validation requires checking multiple cross-references"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Validation requires checking multiple conditions"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Validation requires checking multiple conditions"
+  },
+  {
+    "file": "tools/verify/src/primitives/index.ts",
+    "text": "// @ts-expect-error - Dynamic import path resolves correctly at runtime"
+  }
+]

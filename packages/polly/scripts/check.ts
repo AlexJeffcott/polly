@@ -144,6 +144,14 @@ async function checkServerImports(): Promise<boolean> {
   return (await spawn(["bun", "scripts/check-no-server-imports.ts"])) === 0;
 }
 
+async function checkNoTodoTests(): Promise<boolean> {
+  return (await spawn(["bun", "scripts/check-no-todo-tests.ts"])) === 0;
+}
+
+async function checkSuppressions(): Promise<boolean> {
+  return (await spawn(["bun", "scripts/check-suppression-justifications.ts"])) === 0;
+}
+
 interface MustIgnoreEntry {
   pattern: string;
   filename: string;
@@ -241,6 +249,8 @@ const KNOWN_CHECKS = [
   "casts",
   "boundaries",
   "server-imports",
+  "todo-tests",
+  "suppressions",
   "all",
 ] as const;
 
@@ -261,6 +271,8 @@ Subcommands:
   casts           no-as-casting type-assertion ban
   boundaries      src/ vs tools/ vs cli/ vs scripts/ direction
   server-imports  no node:/bun: imports in browser-targeted code
+  todo-tests      no it.todo / test.failing forms under tests/
+  suppressions    new biome-ignore/ts-ignore must carry a ticket reference
   all             every check above
 
 Options:
@@ -290,6 +302,10 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
       return checkBoundaries();
     case "server-imports":
       return checkServerImports();
+    case "todo-tests":
+      return checkNoTodoTests();
+    case "suppressions":
+      return checkSuppressions();
     case "all":
       return runAll(verbose);
   }
@@ -307,6 +323,8 @@ async function runAll(verbose: boolean): Promise<boolean> {
     { name: "Casts", fn: () => checkCasts() },
     { name: "Module Boundaries", fn: () => checkBoundaries() },
     { name: "Server Imports", fn: () => checkServerImports() },
+    { name: "No .todo/.failing tests", fn: () => checkNoTodoTests() },
+    { name: "Suppression Justifications", fn: () => checkSuppressions() },
   ];
 
   const results: CheckResult[] = [];

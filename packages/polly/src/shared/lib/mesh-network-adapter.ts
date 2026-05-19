@@ -52,6 +52,7 @@ import {
   openEnvelope as openEncryptedEnvelope,
   sealEnvelope as sealEncryptedEnvelope,
 } from "./encryption";
+import { emitMeshDiagnostic } from "./mesh-diagnostics";
 import {
   decodeSignedEnvelope,
   encodeSignedEnvelope,
@@ -251,17 +252,24 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     return outer as unknown as Message;
   }
 
-  /**
-   * Try to unwrap an incoming crypto-wrapped message. Returns the original
-   * Message on success, undefined on verification or decryption failure.
-   */
+  // Try to unwrap an incoming crypto-wrapped message. Returns the original
+  // Message on success, undefined on verification or decryption failure.
+  // Each silent-drop branch emits one typed diagnostic via
+  // mesh-diagnostics; the per-branch mapping is the contract that module
+  // advertises, which is why the function reads as seven sequential
+  // checks rather than a collapsed helper.
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: seven silent-drop branches each emit one typed diagnostic — the per-branch contract is the source of truth the mesh-diagnostics stream advertises.
   private tryUnwrap(message: Message): Message | undefined {
     if (!message.data) return undefined;
 
     let signed: ReturnType<typeof decodeSignedEnvelope>;
     try {
       signed = decodeSignedEnvelope(message.data);
-    } catch {
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "drop:malformed-signed-envelope",
+        reason: err instanceof Error ? err.message : String(err),
+      });
       return undefined;
     }
 
@@ -276,18 +284,31 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     // public key is still present in knownPeers. The revocation set is the
     // authoritative "this peer is no longer trusted" marker.
     if (keyring.revokedPeers.has(signed.senderId)) {
+      emitMeshDiagnostic({
+        kind: "drop:revoked-peer",
+        senderId: signed.senderId,
+      });
       return undefined;
     }
 
     const senderKey = keyring.knownPeers.get(signed.senderId);
     if (!senderKey) {
+      emitMeshDiagnostic({
+        kind: "drop:unknown-peer",
+        senderId: signed.senderId,
+      });
       return undefined;
     }
 
     let verifiedPayload: Uint8Array;
     try {
       verifiedPayload = openSignedEnvelope(signed, senderKey);
-    } catch {
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "drop:bad-signature",
+        senderId: signed.senderId,
+        reason: err instanceof Error ? err.message : String(err),
+      });
       return undefined;
     }
 
@@ -300,19 +321,35 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     let encrypted: ReturnType<typeof decodeEncryptedEnvelope>;
     try {
       encrypted = decodeEncryptedEnvelope(verifiedPayload);
-    } catch {
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "drop:malformed-encrypted-envelope",
+        senderId: signed.senderId,
+        reason: err instanceof Error ? err.message : String(err),
+      });
       return undefined;
     }
 
     const docKey = keyring.documentKeys.get(encrypted.documentId);
     if (!docKey) {
+      emitMeshDiagnostic({
+        kind: "drop:missing-doc-key",
+        senderId: signed.senderId,
+        documentId: encrypted.documentId,
+      });
       return undefined;
     }
 
     let plaintext: Uint8Array;
     try {
       plaintext = openEncryptedEnvelope(encrypted, docKey);
-    } catch {
+    } catch (err) {
+      emitMeshDiagnostic({
+        kind: "drop:bad-decryption",
+        senderId: signed.senderId,
+        documentId: encrypted.documentId,
+        reason: err instanceof Error ? err.message : String(err),
+      });
       return undefined;
     }
 
