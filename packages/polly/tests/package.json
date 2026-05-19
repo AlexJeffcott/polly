@@ -9,8 +9,8 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:all": "bun test",
-    "build:full-featured": "bun run ../scripts/build-user-extension.ts ../examples/full-featured",
-    "build:full-featured:prod": "bun run ../scripts/build-user-extension.ts ../examples/full-featured --prod"
+    "build:full-featured": "bun run ../scripts/build-user-extension.ts ../../../examples/full-featured",
+    "build:full-featured:prod": "bun run ../scripts/build-user-extension.ts ../../../examples/full-featured --prod"
   },
   "devDependencies": {
     "@types/bun": "1.3.13",

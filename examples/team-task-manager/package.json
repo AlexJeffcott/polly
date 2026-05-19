@@ -2,10 +2,6 @@
   "name": "team-task-manager",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "server",
-    "client"
-  ],
   "scripts": {
     "setup:ssl": "bun scripts/setup-ssl.ts",
     "dev:server": "cd server && bun run dev",

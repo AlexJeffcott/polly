@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "elysia-todo-app-server",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -14,7 +14,7 @@
   "dependencies": {
     "@elysiajs/cors": "1.4.2",
     "@fairfox/polly": "workspace:*",
-    "@preact/signals-core": "2.5.1",
+    "@preact/signals-core": "1.14.2",
     "elysia": "1.4.28"
   },
   "devDependencies": {

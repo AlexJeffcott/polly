@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "webrtc-p2p-chat-client",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@elysiajs/html": "1.2.0",
-    "@fairfox/polly": "link:../..",
+    "@fairfox/polly": "workspace:*",
     "@preact/signals": "2.5.1",
     "elysia": "1.4.28",
     "preact": "10.29.1",

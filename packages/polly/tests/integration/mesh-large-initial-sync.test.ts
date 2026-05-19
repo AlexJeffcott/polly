@@ -33,7 +33,15 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
-const EXAMPLE_DIR = resolve(import.meta.dir, "..", "..", "examples", "mesh-large-initial-sync");
+const EXAMPLE_DIR = resolve(
+  import.meta.dir,
+  "..",
+  "..",
+  "..",
+  "..",
+  "examples",
+  "mesh-large-initial-sync"
+);
 const EXAMPLE_ENTRY = resolve(EXAMPLE_DIR, "main.ts");
 
 interface RunResult {

@@ -1,0 +1,43 @@
+{
+  "name": "polly-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Monorepo root for @fairfox/polly and its example consumers",
+  "workspaces": [
+    "packages/*",
+    "packages/polly/tests",
+    "examples/minimal",
+    "examples/todo-list",
+    "examples/full-featured",
+    "examples/mesh-handles-exist-no-sync",
+    "examples/mesh-large-initial-sync",
+    "examples/mesh-large-initial-sync-turn",
+    "examples/mesh-recovery-pair",
+    "examples/mesh-slot-initiation-realistic-keyring",
+    "examples/webrtc-p2p-chat/client",
+    "examples/webrtc-p2p-chat/server",
+    "examples/blob-share/server",
+    "examples/blob-share/client",
+    "examples/team-task-manager/server",
+    "examples/team-task-manager/client",
+    "examples/elysia-todo-app/server",
+    "examples/elysia-todo-app/client"
+  ],
+  "scripts": {
+    "build": "bun run --filter @fairfox/polly build",
+    "build:lib": "bun run --filter @fairfox/polly build:lib",
+    "lint": "bun run --filter @fairfox/polly lint",
+    "lint:fix": "bun run --filter @fairfox/polly lint:fix",
+    "format": "bun run --filter @fairfox/polly format",
+    "typecheck": "bun run --filter @fairfox/polly typecheck",
+    "test": "bun run --filter @fairfox/polly test",
+    "test:all": "bun run --filter @fairfox/polly test:all && bun run test:examples",
+    "test:examples": "echo '\\n=== Testing Examples ===' && bun run test:example:minimal && bun run test:example:todo-list && bun run test:example:full-featured",
+    "test:example:minimal": "echo '\\n--- Minimal Example ---' && bun run --cwd examples/minimal test:all",
+    "test:example:todo-list": "echo '\\n--- Todo List ---' && bun run --cwd examples/todo-list test:all",
+    "test:example:full-featured": "echo '\\n--- Full Featured ---' && bun run --cwd examples/full-featured test:all",
+    "check": "bun run --filter @fairfox/polly check",
+    "publish:public": "bun run --filter @fairfox/polly publish:public"
+  }
+}
