@@ -14,6 +14,7 @@ import { generateConfig } from "./codegen/config";
 import { validateConfig } from "./config/parser";
 import type { UnifiedVerificationConfig } from "./config/types";
 import { analyzeCodebase } from "./extract/types";
+import { isSeedFixDisabled, meshSeedCfg } from "./runner/mesh-seed";
 
 const COLORS = {
   reset: "\x1b[0m",
@@ -589,6 +590,19 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
     maxDepth,
   });
 
+  // polly#114: when the project declares $meshState documents, also
+  // model-check the concurrent first-time seed — the polly#113 race that
+  // lived entirely outside verification. A failure here is reported and
+  // exits before the project-spec result.
+  const meshSeed = await runMeshSeedGuard(docker, specDir, config);
+  if (meshSeed && !meshSeed.success) {
+    console.log(color("\n❌ Mesh seed-race guard failed (polly#113 / polly#114)\n", COLORS.red));
+    displayVerificationResults(meshSeed, specDir);
+  }
+  if (meshSeed) {
+    console.log(color("✓ Mesh seed-race guard passed (MeshSeed.tla)\n", COLORS.green));
+  }
+
   // Display results
   displayVerificationResults(result, specDir);
 }
@@ -967,6 +981,74 @@ function findAndCopyBaseSpec(specDir: string): void {
       console.log(color(`   - ${searchPath}`, COLORS.gray));
     }
   }
+}
+
+/**
+ * polly#114: locate the directory holding the committed MeshSeed.tla /
+ * MeshSeed.cfg pair. Mirrors findAndCopyBaseSpec's search order.
+ */
+function findMeshSeedSpecDir(): string | null {
+  const candidates = [
+    path.join(process.cwd(), "specs", "tla"),
+    path.join(__dirname, "..", "specs", "tla"),
+    path.join(__dirname, "..", "..", "specs", "tla"),
+    path.join(process.cwd(), "node_modules", "@fairfox", "polly-verify", "specs", "tla"),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, "MeshSeed.tla"))) return dir;
+  }
+  return null;
+}
+
+/**
+ * polly#114: model-check the concurrent first-time $meshState seed.
+ *
+ * When the project declares mesh documents the seed path is in scope —
+ * and the polly#113 race (two devices materialising the same document
+ * concurrently, forking it permanently) lived entirely outside the
+ * verify pipeline. This runs MeshSeed.tla alongside the project spec.
+ *
+ * `POLLY_113_DISABLE_FIX=1` — the same toggle seedDocumentBytes honours
+ * to restore the pre-fix non-deterministic seed — flips the spec's
+ * SeedDeterministic constant to FALSE. Under it TLC reports a
+ * SeedConvergence violation and verification fails, so a regression in
+ * the seed path cannot land green.
+ *
+ * Returns undefined (guard skipped) when no mesh documents are declared.
+ */
+async function runMeshSeedGuard(
+  docker: Awaited<ReturnType<typeof setupDocker>>,
+  specDir: string,
+  config: unknown
+): Promise<Parameters<typeof displayVerificationResults>[0] | undefined> {
+  const mesh = (config as { mesh?: Record<string, unknown> }).mesh;
+  if (!mesh || Object.keys(mesh).length === 0) return undefined;
+
+  const sourceDir = findMeshSeedSpecDir();
+  if (!sourceDir) {
+    console.log(color("⚠️  MeshSeed.tla not found — skipping seed-race guard", COLORS.yellow));
+    return undefined;
+  }
+
+  const fixDisabled = isSeedFixDisabled();
+  fs.copyFileSync(path.join(sourceDir, "MeshSeed.tla"), path.join(specDir, "MeshSeed.tla"));
+  // One source of truth for Peers / invariants / properties: the
+  // committed cfg. Only the SeedDeterministic constant is rewritten.
+  const baseCfg = fs.readFileSync(path.join(sourceDir, "MeshSeed.cfg"), "utf8");
+  fs.writeFileSync(
+    path.join(specDir, "MeshSeed.cfg"),
+    meshSeedCfg(baseCfg, { disableFix: fixDisabled })
+  );
+
+  console.log(
+    color(
+      `⚙️  Running mesh seed-race guard (MeshSeed.tla, SeedDeterministic = ${
+        fixDisabled ? "FALSE" : "TRUE"
+      })...`,
+      COLORS.blue
+    )
+  );
+  return docker.runTLC(path.join(specDir, "MeshSeed.tla"), { workers: 1 });
 }
 
 async function setupDocker(): Promise<{

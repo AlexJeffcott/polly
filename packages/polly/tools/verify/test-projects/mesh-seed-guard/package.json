@@ -1,0 +1,6 @@
+{
+  "name": "test-mesh-seed-guard",
+  "version": "1.0.0",
+  "description": "Verify fixture: a $meshState app that exercises the polly#114 mesh codegen and the polly#113 seed-race guard",
+  "main": "src/background/index.ts"
+}

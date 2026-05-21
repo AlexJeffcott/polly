@@ -140,6 +140,7 @@
     "test:watch": "bun run --cwd tests test:watch",
     "test:all": "bun run lint && bun run typecheck && bun run --cwd tests test:all",
     "test:e2e:visualize": "bun scripts/e2e-visualize.ts",
+    "test:e2e:verify-mesh-seed": "bun scripts/e2e-verify-mesh-seed.ts",
     "test:e2e:mesh:fast": "bun scripts/e2e-mesh-offline-online-drain.ts",
     "test:e2e:mesh": "bun scripts/e2e-mesh-offline-online-drain.ts && bun scripts/e2e-mesh-revocation-prebaked.ts && bun scripts/e2e-mesh-three-peer-convergence.ts && bun scripts/e2e-mesh-revocation-runtime.ts && bun scripts/e2e-mesh-revocation-propagation.ts && bun scripts/e2e-mesh-revocation-offline-catchup.ts && bun scripts/e2e-mesh-corrupted-state-recovery.ts",
     "check": "bun scripts/check.ts",

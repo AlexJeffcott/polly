@@ -1,7 +1,7 @@
 # TLA+ Formal Specifications for Polly
 
 This directory contains formal specifications for Polly's distributed
-protocols using TLA+ (Temporal Logic of Actions). There are three specs:
+protocols using TLA+ (Temporal Logic of Actions). There are four specs:
 
 - **MessageRouter.tla** — the original message-routing spec for the web
   extension's cross-context message bus. Single-writer, routing-focused,
@@ -20,6 +20,16 @@ protocols using TLA+ (Temporal Logic of Actions). There are three specs:
   an op from outside its access set), revocation convergence (once a
   peer is revoked, honest peers drop its future ops), and no-fabrication
   (every op in any replica has a known producer).
+
+- **MeshSeed.tla** — the `$meshState` concurrent first-time seed
+  (polly#114). Model-checks the polly#113 race: two devices materialising
+  the same document concurrently against empty storage. Its single
+  `SeedDeterministic` constant is TRUE for the shipped fix and FALSE for
+  the pre-fix seed; under FALSE, TLC reports a `SeedConvergence`
+  violation. The verify CLI runs this spec whenever a project declares
+  `mesh:` documents and flips the constant when `POLLY_113_DISABLE_FIX`
+  is set, so a regression in `seedDocumentBytes` cannot land green.
+  `scripts/e2e-verify-mesh-seed.ts` runs both directions through TLC.
 
 Each spec has a companion `.cfg` file with the small bounded constants
 TLC uses when model-checking the spec exhaustively.
