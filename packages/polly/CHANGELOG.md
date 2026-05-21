@@ -97,6 +97,42 @@ corrupted-state recovery.
 A verifier model lands alongside the mesh-recovery-pair wire-level
 test harness.
 
+## [0.70.0] - 2026-05-19
+
+### Added
+
+#### `$meshState` verifier support
+
+`$meshState` documents are namespaced into their own verifier state
+slot with a propagation action, and the predicate language gains the
+`forAllPeers` and `somePeer` cross-peer quantifiers for genuine
+cross-peer claims. `polly verify` warns when a predicate references a
+`$meshState` or `$peerState` signal whose cross-peer semantics it does
+not yet model. This is the groundwork the mesh codegen built on in
+0.72.0.
+
+#### Observable mesh diagnostics and a Puppeteer e2e kit
+
+Mesh diagnostics are exposed for observation, and a Puppeteer-based
+end-to-end kit is added for driving real two-peer mesh scenarios.
+
+### Changed
+
+#### Monorepo restructure
+
+`polly` and the examples move into `packages/`, and every example
+becomes a workspace member (`"@fairfox/polly": "workspace:*"`). This
+replaces the previous `link:`-protocol setup — which produced broken
+`~/.bun/install` symlinks — so `polly verify` works on a fresh
+`bun install`.
+
+## [0.69.0] - 2026-05-18
+
+### Added
+
+- Asymmetric-join regression test for the polly#112 sync-view
+  diagnostic.
+
 ## [0.68.0] - 2026-05-18
 
 ### Added
