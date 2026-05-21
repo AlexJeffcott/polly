@@ -8,14 +8,19 @@
     display: inline-block;
   }
 
+  /*
+   * The menu is a popover, so once shown it lives in the top layer —
+   * `position` resolves against the viewport, not the `.dropdown`
+   * wrapper. Dropdown.tsx pins it with `position: fixed` and explicit
+   * `top`/`left` measured from the trigger; the values here are the
+   * pre-script fallback. See issue #128.
+   */
   .menu {
-    position: absolute;
+    position: fixed;
     inset: unset;
-    top: 100%;
-    left: 0;
+    margin: 0;
     z-index: var(--polly-z-raised);
     min-width: 160px;
-    margin: var(--polly-space-xs) 0 0;
     padding: var(--polly-space-xs) 0;
     border: var(--polly-border-width-default) solid var(--polly-border);
     border-radius: var(--polly-radius-md);
@@ -24,10 +29,5 @@
     box-sizing: border-box;
     overflow-y: auto;
     max-height: 280px;
-  }
-
-  .alignRight {
-    left: auto;
-    right: 0;
   }
 }
