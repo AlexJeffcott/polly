@@ -30,6 +30,7 @@ import { type BunPlugin, Glob } from "bun";
 import { Elysia } from "elysia";
 import puppeteer, { type Page } from "puppeteer";
 import { signalingServer } from "../../../../src/elysia/signaling-server-plugin";
+import { errMessage, type FileTally, runSuite } from "./runner-core";
 
 // Automerge WASM fix
 // Bun.build's target: "browser" picks Automerge's fullfat_bundler.js which
@@ -92,18 +93,6 @@ const browser = await puppeteer.launch({
   protocolTimeout: 30_000,
 });
 
-let totalPassed = 0;
-let totalFailed = 0;
-
-/** A transient CDP timeout (renderer stall) — retryable, unlike a red test. */
-function isProtocolError(err: unknown): boolean {
-  return err instanceof Error && err.name === "ProtocolError";
-}
-
-function errMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
 /**
  * Build, serve, and run one test file on a fresh page. Returns its
  * pass/fail tally. Build failures and test timeouts are reported here
@@ -111,7 +100,7 @@ function errMessage(err: unknown): string {
  * renderer) propagates to the caller so it can retry the file; the
  * page and server are always cleaned up first.
  */
-async function runFile(testFile: string): Promise<{ passed: number; failed: number }> {
+async function runFile(testFile: string): Promise<FileTally> {
   const buildResult = await Bun.build({
     entrypoints: [testFile],
     target: "browser",
@@ -217,33 +206,9 @@ async function runFile(testFile: string): Promise<{ passed: number; failed: numb
   }
 }
 
-for (const testFile of testFiles) {
-  const shortName = testFile.replace(`${testDir}/`, "");
-  console.log(`\n[browser-runner] running ${shortName}`);
-
-  let result: { passed: number; failed: number };
-  try {
-    result = await runFile(testFile);
-  } catch (err) {
-    if (isProtocolError(err)) {
-      console.log(`  ⚠️  protocol error (${errMessage(err)}) — retrying once on a fresh page`);
-      try {
-        result = await runFile(testFile);
-      } catch (retryErr) {
-        console.log(`  ❌ retry failed: ${errMessage(retryErr)}`);
-        result = { passed: 0, failed: 1 };
-      }
-    } else {
-      // A non-protocol error: record the file as failed and keep going,
-      // never abort the whole suite.
-      console.log(`  ❌ ${errMessage(err)}`);
-      result = { passed: 0, failed: 1 };
-    }
-  }
-
-  totalPassed += result.passed;
-  totalFailed += result.failed;
-}
+const { passed: totalPassed, failed: totalFailed } = await runSuite(testFiles, runFile, {
+  label: (testFile) => testFile.replace(`${testDir}/`, ""),
+});
 
 await browser.close();
 (signalingApp as unknown as { server?: { stop?: (f?: boolean) => void } }).server?.stop?.(true);
