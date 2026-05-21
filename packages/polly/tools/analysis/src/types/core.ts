@@ -148,6 +148,12 @@ export type MeshOrPeerSignalInfo = {
 
   /** Line number of declaration */
   line: number;
+
+  /** polly#114: read/write access predicate source text, when the
+   * declaration supplies an `access` option. Captured as expression
+   * text — the runtime access *set* (a set of peer keys) cannot be
+   * resolved statically, but the predicate that gates it can be shown. */
+  access?: { read: string; write: string };
 };
 
 // State Mutations (Abstract)

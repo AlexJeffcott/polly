@@ -323,6 +323,7 @@ export class HandlerExtractor {
     const key = keyArg.getLiteralValue();
 
     const variableName = this.getVariableNameFromParent(node) || key;
+    const access = this.extractMeshAccess(args[2]);
 
     return {
       kind,
@@ -330,7 +331,34 @@ export class HandlerExtractor {
       variableName,
       filePath,
       line: node.getStartLineNumber(),
+      ...(access ? { access } : {}),
     };
+  }
+
+  /**
+   * polly#114: pull the read/write predicate source text out of a
+   * `$meshState` / `$peerState` declaration's `access` option. The
+   * runtime access set cannot be resolved statically; the predicate
+   * expression that gates it can, and is what the visualiser labels.
+   */
+  private extractMeshAccess(
+    optionsArg: Node | undefined
+  ): { read: string; write: string } | undefined {
+    if (!optionsArg || !Node.isObjectLiteralExpression(optionsArg)) return undefined;
+    const accessProp = optionsArg.getProperty("access");
+    if (!accessProp || !Node.isPropertyAssignment(accessProp)) return undefined;
+    const accessObj = accessProp.getInitializer();
+    if (!accessObj || !Node.isObjectLiteralExpression(accessObj)) return undefined;
+
+    const predicateText = (name: string): string | undefined => {
+      const prop = accessObj.getProperty(name);
+      if (!prop || !Node.isPropertyAssignment(prop)) return undefined;
+      return prop.getInitializer()?.getText().replace(/\s+/g, " ").trim();
+    };
+    const read = predicateText("read");
+    const write = predicateText("write");
+    if (read === undefined && write === undefined) return undefined;
+    return { read: read ?? "unset", write: write ?? "unset" };
   }
 
   /**

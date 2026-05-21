@@ -226,7 +226,12 @@ export class StructurizrDSLGenerator {
       seen.add(sig.key);
 
       const kindLabel = sig.kind === "mesh" ? "Mesh Document" : "Peer Document";
-      const description = `${kindLabel} — deriveDocumentId('${sig.key}')`;
+      // polly#114: the access predicates gate the document; show them on
+      // the label when declared (the runtime access set is not static).
+      const access = sig.access
+        ? ` · access read=${this.clip(sig.access.read)} write=${this.clip(sig.access.write)}`
+        : "";
+      const description = `${kindLabel} — deriveDocumentId('${sig.key}')${access}`;
       parts.push(
         `      ${this.meshDocId(sig.key)} = container "${this.escape(sig.key)}" "${this.escape(description)}" "$${sig.kind}State" {`
       );
@@ -240,6 +245,11 @@ export class StructurizrDSLGenerator {
    *  from the context container ids. */
   private meshDocId(key: string): string {
     return `mesh_doc_${this.toId(key)}`;
+  }
+
+  /** Clip predicate text so a mesh-document label stays readable. */
+  private clip(text: string, max = 32): string {
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
   }
 
   /**

@@ -45,6 +45,21 @@ describe("mesh primitives in the architecture diagram (polly#114)", () => {
     expect(dsl).toMatch(/-> extension\.mesh_doc_chat_presence "syncs chat-presence"/);
   });
 
+  test("captures the access option and labels the node with it", () => {
+    const signals = analysis.meshOrPeerSignals ?? [];
+    // chat-rooms declares an access option; chat-presence does not.
+    const rooms = signals.find((s) => s.key === "chat-rooms");
+    expect(rooms?.access).toEqual({
+      read: "() => true",
+      write: "(identity) => identity !== undefined",
+    });
+    expect(signals.find((s) => s.key === "chat-presence")?.access).toBeUndefined();
+
+    // The read predicate reaches the chat-rooms node's label.
+    const dsl = generateStructurizrDSL(analysis);
+    expect(dsl).toMatch(/mesh_doc_chat_rooms = container[^\n]*access read=\(\) => true/);
+  });
+
   test("a project with no mesh state emits no mesh containers", () => {
     const meshFree: ArchitectureAnalysis = {
       projectRoot: "/x",
