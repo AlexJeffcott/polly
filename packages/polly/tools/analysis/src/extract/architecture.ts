@@ -58,7 +58,7 @@ export class ArchitectureAnalyzer {
       this.options.tsConfigPath,
       contextOverrides.size > 0 ? contextOverrides : undefined
     );
-    const { handlers } = handlerExtractor.extractHandlers();
+    const { handlers, meshOrPeerSignals } = handlerExtractor.extractHandlers();
 
     // 3. Analyze each context
     const contexts = this.analyzeContexts(entryPoints, handlers);
@@ -92,6 +92,7 @@ export class ArchitectureAnalyzer {
       contexts,
       messageFlows,
       integrations,
+      ...(meshOrPeerSignals.length > 0 ? { meshOrPeerSignals } : {}),
       ...(adrs.adrs.length > 0 ? { adrs } : {}),
       ...(repository ? { repository } : {}),
     };

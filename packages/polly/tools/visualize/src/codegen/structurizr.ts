@@ -169,6 +169,10 @@ export class StructurizrDSLGenerator {
       parts.push(this.generateContainer(contextType, contextInfo));
     }
 
+    // polly#114: mesh/peer documents as first-class nodes
+    const meshDocs = this.generateMeshDocuments();
+    if (meshDocs) parts.push(meshDocs);
+
     // Generate relationships between containers
     parts.push(this.generateContainerRelationships());
 
@@ -203,6 +207,61 @@ export class StructurizrDSLGenerator {
     parts.push("      }");
 
     return parts.join("\n");
+  }
+
+  /**
+   * polly#114: emit each declared $meshState / $peerState document as a
+   * first-class container — a distributed data store the contexts sync
+   * against. Deduplicated by key: the same logical document may be
+   * declared in more than one file (one copy per device).
+   */
+  private generateMeshDocuments(): string {
+    const signals = this.analysis.meshOrPeerSignals ?? [];
+    if (signals.length === 0) return "";
+
+    const parts: string[] = [];
+    const seen = new Set<string>();
+    for (const sig of signals) {
+      if (seen.has(sig.key)) continue;
+      seen.add(sig.key);
+
+      const kindLabel = sig.kind === "mesh" ? "Mesh Document" : "Peer Document";
+      const description = `${kindLabel} — deriveDocumentId('${sig.key}')`;
+      parts.push(
+        `      ${this.meshDocId(sig.key)} = container "${this.escape(sig.key)}" "${this.escape(description)}" "$${sig.kind}State" {`
+      );
+      parts.push(`        tags "${kindLabel}"`);
+      parts.push("      }");
+    }
+    return parts.join("\n");
+  }
+
+  /** Stable DSL identifier for a mesh/peer document, namespaced away
+   *  from the context container ids. */
+  private meshDocId(key: string): string {
+    return `mesh_doc_${this.toId(key)}`;
+  }
+
+  /**
+   * Best-effort map from a source file to the context that owns it, used
+   * to draw the edge from a context to the mesh document it declares.
+   * With a single context every file belongs to it; otherwise the
+   * context whose entry-point directory most specifically contains the
+   * file wins. No match leaves the document a node with no edge.
+   */
+  private contextForFilePath(filePath: string): string | undefined {
+    const contextKeys = Object.keys(this.analysis.contexts);
+    if (contextKeys.length === 1) return contextKeys[0];
+    let best: { context: string; length: number } | undefined;
+    for (const [context, info] of Object.entries(this.analysis.contexts)) {
+      const entry = info.entryPoint;
+      if (!entry) continue;
+      const dir = entry.slice(0, entry.lastIndexOf("/") + 1);
+      if (dir.length > 0 && filePath.includes(dir)) {
+        if (!best || dir.length > best.length) best = { context, length: dir.length };
+      }
+    }
+    return best?.context;
   }
 
   /**
@@ -763,8 +822,30 @@ export class StructurizrDSLGenerator {
     parts.push(...this.generateUserRelationships());
     parts.push(...this.generateMessageFlowRelationships());
     parts.push(...this.generateExternalAPIRelationships());
+    parts.push(...this.generateMeshRelationships());
 
     return parts.join("\n");
+  }
+
+  /**
+   * polly#114: edge from each context to the mesh / peer documents it
+   * declares — the static replication surface.
+   */
+  private generateMeshRelationships(): string[] {
+    const signals = this.analysis.meshOrPeerSignals ?? [];
+    const parts: string[] = [];
+    const seen = new Set<string>();
+    for (const sig of signals) {
+      const context = this.contextForFilePath(sig.filePath);
+      if (!context) continue;
+      const edgeKey = `${context}->${sig.key}`;
+      if (seen.has(edgeKey)) continue;
+      seen.add(edgeKey);
+      parts.push(
+        `      extension.${context} -> extension.${this.meshDocId(sig.key)} "syncs ${this.escape(sig.key)}"`
+      );
+    }
+    return parts;
   }
 
   /**

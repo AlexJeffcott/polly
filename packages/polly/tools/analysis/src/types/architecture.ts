@@ -1,6 +1,6 @@
 // Types for architecture analysis (used by visualize)
 
-import type { MessageHandler } from "./core";
+import type { MeshOrPeerSignalInfo, MessageHandler } from "./core";
 
 // Context Information
 
@@ -264,6 +264,11 @@ export type ArchitectureAnalysis = {
 
   /** External integrations */
   integrations: ExternalIntegration[];
+
+  /** polly#114: $meshState / $peerState document declarations found in
+   * the codebase, so the visualiser can render mesh primitives as
+   * first-class nodes. */
+  meshOrPeerSignals?: MeshOrPeerSignalInfo[];
 
   /** Architecture Decision Records */
   adrs?: ADRCollection;

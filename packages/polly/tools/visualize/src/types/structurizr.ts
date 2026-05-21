@@ -321,6 +321,18 @@ export const DEFAULT_ELEMENT_STYLES: Record<string, ElementStyle> = {
     background: DEFAULT_COLORS.container,
     color: DEFAULT_COLORS.textLight,
   },
+  // polly#114: $meshState / $peerState documents — distributed data
+  // stores, drawn as cylinders to read as such alongside Database.
+  "Mesh Document": {
+    shape: "Cylinder",
+    background: DEFAULT_COLORS.subscribeHandler,
+    color: DEFAULT_COLORS.textLight,
+  },
+  "Peer Document": {
+    shape: "Cylinder",
+    background: DEFAULT_COLORS.queryHandler,
+    color: DEFAULT_COLORS.textDark,
+  },
 };
 
 /**
