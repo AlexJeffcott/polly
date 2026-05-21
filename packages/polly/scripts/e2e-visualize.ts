@@ -26,8 +26,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const REPO = path.resolve(import.meta.dir, "..");
-const POLLY_CLI = path.join(REPO, "cli", "polly.ts");
+// This script lives in packages/polly/scripts. The polly CLI is in the
+// package; the example projects live at the monorepo root — the two are
+// not the same directory since the monorepo restructure.
+const PACKAGE_DIR = path.resolve(import.meta.dir, "..");
+const REPO_ROOT = path.resolve(import.meta.dir, "..", "..", "..");
+const POLLY_CLI = path.join(PACKAGE_DIR, "cli", "polly.ts");
 // Use structurizr/structurizr (the consolidated successor); structurizr/cli is
 // deprecated and its `validate` command silently no-ops on invalid input.
 const STRUCTURIZR_IMAGE = "structurizr/structurizr:latest";
@@ -75,7 +79,7 @@ const cases: Case[] = [
     label: "elysia-todo-app",
     examplePath: "examples/elysia-todo-app",
     cwdSubpath: "server",
-    expectedWorkspace: "server",
+    expectedWorkspace: "elysia-todo-app-server",
     expectedContainers: ["server"],
     expectedComponents: [
       "login_handler",
@@ -95,7 +99,7 @@ const cases: Case[] = [
     label: "webrtc-p2p-chat",
     examplePath: "examples/webrtc-p2p-chat",
     cwdSubpath: "server",
-    expectedWorkspace: "server",
+    expectedWorkspace: "webrtc-p2p-chat-server",
     expectedContainers: ["server"],
     expectedComponents: [
       "join_room_handler",
@@ -168,7 +172,7 @@ async function runOne(c: Case): Promise<Result> {
   const start = Date.now();
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), `e2e-viz-${c.label}-`));
   const exampleCopy = path.join(tmpRoot, path.basename(c.examplePath));
-  copyExample(path.join(REPO, c.examplePath), exampleCopy);
+  copyExample(path.join(REPO_ROOT, c.examplePath), exampleCopy);
 
   const cwd = c.cwdSubpath ? path.join(exampleCopy, c.cwdSubpath) : exampleCopy;
 
@@ -308,7 +312,7 @@ async function describeDockerStatus(): Promise<string> {
 
 async function main(): Promise<void> {
   console.log("E2E: polly visualize --generate\n");
-  console.log(`  Repo:      ${REPO}`);
+  console.log(`  Repo:      ${REPO_ROOT}`);
   console.log(`  CLI entry: ${POLLY_CLI}`);
   console.log(`  Docker:    ${await describeDockerStatus()}`);
   console.log();
