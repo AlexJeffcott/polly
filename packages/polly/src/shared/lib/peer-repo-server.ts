@@ -46,6 +46,7 @@ import type { Repo as RepoType } from "@automerge/automerge-repo/slim";
 import type { WebSocketServerAdapter as WebSocketServerAdapterType } from "@automerge/automerge-repo-network-websocket";
 import type { NodeFSStorageAdapter as NodeFSStorageAdapterType } from "@automerge/automerge-repo-storage-nodefs";
 import type * as wsType from "ws";
+import type { SweepResult } from "./sweep-sealed";
 
 // `@types/ws` uses CJS `export = WebSocket` with WebSocketServer hanging off
 // the namespace. Under the project's bundler module resolution, the
@@ -83,6 +84,58 @@ export interface PeerRepoServer {
    * underlying WebSocket server. Returns a promise that resolves once the
    * tear-down is complete. */
   close: () => Promise<void>;
+  /**
+   * Garbage-collect sealed mesh-doc bytes from {@link storage}. Walks the
+   * storage adapter, removes documents the `isSealed` predicate
+   * recognises as sealed longer ago than `olderThan`, and skips any
+   * document with an open handle on {@link repo}. With `dryRun`, reports
+   * the candidates without removing anything.
+   *
+   * Convenience binding of the standalone `sweepSealed` to this server's
+   * `repo` and `storage`. See `sweepSealed` for the full contract,
+   * including the redirect-index-not-yet-synced hazard that `olderThan`
+   * is sized to bound. polly never runs this on a timer — call it
+   * explicitly. */
+  sweepSealed: (options: {
+    isSealed: (doc: unknown) => number | undefined;
+    olderThan: number;
+    dryRun?: boolean;
+  }) => Promise<SweepResult>;
+}
+
+/**
+ * Recover every documentId from a NodeFS storage tree.
+ *
+ * automerge-repo's NodeFS adapter shards each document two levels deep —
+ * the first two characters of the documentId, then the remainder — so
+ * the directory structure is itself the document list. A real document
+ * is a directory (holding `snapshot` / `incremental` chunk
+ * subdirectories); flat files such as the storage-adapter-id are
+ * skipped. A missing storage directory (a server that has never
+ * written) yields an empty list.
+ */
+async function listNodeFSDocumentIds(baseDirectory: string): Promise<string[]> {
+  const [{ readdir }, { join }] = await Promise.all([
+    import("node:fs/promises"),
+    import("node:path"),
+  ]);
+  let shards: string[];
+  try {
+    shards = await readdir(baseDirectory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  const documentIds: string[] = [];
+  for (const shard of shards) {
+    const entries = await readdir(join(baseDirectory, shard), {
+      withFileTypes: true,
+    }).catch((): import("node:fs").Dirent[] => []);
+    for (const entry of entries) {
+      if (entry.isDirectory()) documentIds.push(shard + entry.name);
+    }
+  }
+  return documentIds;
 }
 
 /**
@@ -133,7 +186,11 @@ export async function createPeerRepoServer(
   const adapter = new WebSocketServerAdapter(
     wss as unknown as ConstructorParameters<typeof WebSocketServerAdapter>[0]
   );
-  const storage = new NodeFSStorageAdapter(options.storagePath);
+  // Resolve the storage path explicitly so sweepSealed can enumerate the
+  // directory: NodeFSStorageAdapter keeps its baseDirectory private, and
+  // its default (when storagePath is omitted) is "automerge-repo-data".
+  const storagePath = options.storagePath ?? "automerge-repo-data";
+  const storage = new NodeFSStorageAdapter(storagePath);
 
   const repo = new Repo({
     network: [adapter],
@@ -153,6 +210,18 @@ export async function createPeerRepoServer(
     webSocketServer: wss,
     adapter,
     storage,
+    sweepSealed: async (sweepOptions) => {
+      // The NodeFS adapter's loadRange can't take an empty prefix, so the
+      // generic sweep can't enumerate it. Recover the documentId list
+      // from the storage directory and hand it to the sweep, which then
+      // loads each document by its own prefix.
+      const documentIds = await listNodeFSDocumentIds(storagePath);
+      // Dynamic import keeps sweep-sealed.ts — which statically imports
+      // Automerge — out of this file's module graph, preserving the
+      // no-static-automerge property the rest of this file relies on.
+      const { sweepSealed } = await import("./sweep-sealed");
+      return sweepSealed({ repo, storage, documentIds, ...sweepOptions });
+    },
     close: async () => {
       // Forcibly terminate any still-open client sockets before closing the
       // server, otherwise wss.close() can hang waiting for orderly drain when

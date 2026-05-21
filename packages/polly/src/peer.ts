@@ -76,3 +76,12 @@ export {
   SCHEMA_VERSION_FIELD,
   SchemaVersionError,
 } from "./shared/lib/schema-version";
+// Sealed-doc storage GC (polly#121)
+export type {
+  KeptDoc,
+  KeptReason,
+  SweepResult,
+  SweepSealedOptions,
+  SweptDoc,
+} from "./shared/lib/sweep-sealed";
+export { sweepSealed } from "./shared/lib/sweep-sealed";
