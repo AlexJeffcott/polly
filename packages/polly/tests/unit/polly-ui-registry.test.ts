@@ -36,6 +36,21 @@ describe("polly-ui registry", () => {
     expect(form?.replaces).toContain("form");
   });
 
+  test("registers the issue-123 primitives (Text, Cluster, Code, ActionSelect)", () => {
+    const names = new Set(pollyUiComponents.map((c) => c.name));
+    expect(names.has("Text")).toBe(true);
+    expect(names.has("Cluster")).toBe(true);
+    expect(names.has("Code")).toBe(true);
+    expect(names.has("ActionSelect")).toBe(true);
+  });
+
+  test("ActionSelect and Select both replace the native select element", () => {
+    const select = pollyUiComponents.find((c) => c.name === "Select");
+    const actionSelect = pollyUiComponents.find((c) => c.name === "ActionSelect");
+    expect(select?.replaces).toContain("select");
+    expect(actionSelect?.replaces).toContain("select");
+  });
+
   test("every token name starts with `polly-`", () => {
     for (const t of pollyUiTokens) {
       expect(t.name.startsWith("polly-")).toBe(true);

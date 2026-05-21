@@ -66,6 +66,16 @@
     line-height: var(--polly-line-height-tight);
   }
 
+  /* Monospace baseline for inline code, keyboard, and sample text so a
+   * bare <code> reads correctly without a consumer class. The <Code>
+   * component layers the tinted-pill treatment on top; this rule only
+   * guarantees the font. :where() keeps specificity at zero so any
+   * class or id wins. */
+  :where(code, kbd, samp, pre) {
+    font-family: var(--polly-font-mono);
+    font-size: var(--polly-text-sm);
+  }
+
   /* Text overflow utilities. Both are opt-in: any element receives the
    * behaviour by carrying the data attribute. They stay compatible with
    * Layout (a grid) because the utilities change the element's OWN display,

@@ -1,0 +1,36 @@
+@layer polly-components {
+  .text {
+    font-family: inherit;
+    color: var(--polly-text);
+  }
+
+  .muted {
+    color: var(--polly-text-muted);
+  }
+
+  .xs {
+    font-size: var(--polly-text-xs);
+  }
+  .sm {
+    font-size: var(--polly-text-sm);
+  }
+  .md {
+    font-size: var(--polly-text-md);
+  }
+  .lg {
+    font-size: var(--polly-text-lg);
+  }
+  .xl {
+    font-size: var(--polly-text-xl);
+  }
+
+  .normal {
+    font-weight: var(--polly-weight-normal);
+  }
+  .medium {
+    font-weight: var(--polly-weight-medium);
+  }
+  .bold {
+    font-weight: var(--polly-weight-bold);
+  }
+}

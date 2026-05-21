@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "cd packages/polly && bun test ./tests/unit ./src"
+  },
+  "coverageAnalysis": "off",
+  "checkers": [],
+  "reporters": ["clear-text", "progress", "html"],
+  "mutate": [
+    "packages/polly/src/shared/lib/validation.ts",
+    "packages/polly/src/shared/lib/constraints.ts",
+    "packages/polly/src/shared/lib/state.ts",
+    "packages/polly/src/shared/lib/access.ts",
+    "packages/polly/src/shared/lib/crdt-state.ts",
+    "packages/polly/src/shared/lib/crdt-specialised.ts",
+    "packages/polly/src/shared/lib/guards.ts",
+    "packages/polly/src/shared/lib/revocation.ts"
+  ],
+  "thresholds": {
+    "high": 90,
+    "low": 70,
+    "break": null
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.git/**",
+    "**/.stryker-tmp/**",
+    "**/reports/**"
+  ],
+  "timeoutMS": 60000,
+  "concurrency": 2
+}

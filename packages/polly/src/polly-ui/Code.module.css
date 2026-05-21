@@ -1,0 +1,26 @@
+@layer polly-components {
+  .code {
+    font-family: var(--polly-font-mono);
+    font-size: var(--polly-text-sm);
+    padding: 0.1em var(--polly-space-xs);
+    border-radius: var(--polly-radius-sm);
+    background-color: var(--polly-surface-sunken);
+    color: var(--polly-text);
+    word-break: break-word;
+  }
+
+  .block {
+    margin: 0;
+    padding: var(--polly-space-md);
+    border-radius: var(--polly-radius-md);
+    background-color: var(--polly-surface-sunken);
+    overflow-x: auto;
+  }
+
+  .block code {
+    font-family: var(--polly-font-mono);
+    font-size: var(--polly-text-sm);
+    color: var(--polly-text);
+    white-space: pre;
+  }
+}

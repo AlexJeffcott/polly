@@ -28,7 +28,7 @@
 import { resolve } from "node:path";
 import { type BunPlugin, Glob } from "bun";
 import { Elysia } from "elysia";
-import puppeteer from "puppeteer";
+import puppeteer, { type Page } from "puppeteer";
 import { signalingServer } from "../../../../src/elysia/signaling-server-plugin";
 
 // Automerge WASM fix
@@ -80,19 +80,38 @@ const signalingApp = new Elysia()
 console.log(`[browser-runner] signaling server on ws://127.0.0.1:${signalingPort}/polly/signaling`);
 
 // Launch browser
+//
+// protocolTimeout caps how long any single CDP call (e.g. page.evaluate)
+// waits before throwing. Puppeteer's default is 180s, so a stalled
+// renderer hangs the runner for three minutes. 30s fails fast while
+// still tolerating a slow-but-healthy initial sync.
 
 const browser = await puppeteer.launch({
   headless,
   args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  protocolTimeout: 30_000,
 });
 
 let totalPassed = 0;
 let totalFailed = 0;
 
-for (const testFile of testFiles) {
-  const shortName = testFile.replace(`${testDir}/`, "");
-  console.log(`\n[browser-runner] running ${shortName}`);
+/** A transient CDP timeout (renderer stall) — retryable, unlike a red test. */
+function isProtocolError(err: unknown): boolean {
+  return err instanceof Error && err.name === "ProtocolError";
+}
 
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Build, serve, and run one test file on a fresh page. Returns its
+ * pass/fail tally. Build failures and test timeouts are reported here
+ * (not thrown). A thrown error (e.g. a ProtocolError from a stalled
+ * renderer) propagates to the caller so it can retry the file; the
+ * page and server are always cleaned up first.
+ */
+async function runFile(testFile: string): Promise<{ passed: number; failed: number }> {
   const buildResult = await Bun.build({
     entrypoints: [testFile],
     target: "browser",
@@ -112,15 +131,13 @@ for (const testFile of testFiles) {
     for (const log of buildResult.logs) {
       console.log(`     ${log}`);
     }
-    totalFailed += 1;
-    continue;
+    return { passed: 0, failed: 1 };
   }
 
   const jsText = await buildResult.outputs[0]?.text();
   if (!jsText) {
     console.log("  ❌ build produced no output");
-    totalFailed += 1;
-    continue;
+    return { passed: 0, failed: 1 };
   }
 
   const html = `<!DOCTYPE html>
@@ -136,60 +153,96 @@ for (const testFile of testFiles) {
     },
   });
 
-  const page = await browser.newPage();
-  page.on("console", (msg) => {
-    const text = msg.text();
-    if (text.includes("[test]")) {
-      console.log(`  ${text}`);
+  let page: Page | undefined;
+  try {
+    page = await browser.newPage();
+    page.on("console", (msg) => {
+      const text = msg.text();
+      if (text.includes("[test]")) {
+        console.log(`  ${text}`);
+      }
+    });
+    page.on("pageerror", (err: unknown) => {
+      console.log(`  ❌ page error: ${errMessage(err)}`);
+    });
+
+    await page.goto(`http://127.0.0.1:${server.port}/`, { waitUntil: "domcontentloaded" });
+
+    const timeout = 15_000;
+    const deadline = Date.now() + timeout;
+    let finished = false;
+    while (Date.now() < deadline) {
+      finished = await page.evaluate(
+        () => (window as unknown as Record<string, unknown>)["__done"] === true
+      );
+      if (finished) break;
+      await new Promise((r) => setTimeout(r, 100));
     }
-  });
-  page.on("pageerror", (err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.log(`  ❌ page error: ${msg}`);
-  });
 
-  await page.goto(`http://127.0.0.1:${server.port}/`, { waitUntil: "domcontentloaded" });
+    if (!finished) {
+      console.log(`  ❌ timed out after ${timeout}ms`);
+      return { passed: 0, failed: 1 };
+    }
 
-  const timeout = 15_000;
-  const deadline = Date.now() + timeout;
-  let finished = false;
-  while (Date.now() < deadline) {
-    finished = await page.evaluate(
-      () => (window as unknown as Record<string, unknown>)["__done"] === true
+    const results = await page.evaluate(
+      () =>
+        (window as unknown as Record<string, unknown>)["__testResults"] as unknown as Array<{
+          name: string;
+          passed: boolean;
+          error?: string;
+        }>
     );
-    if (finished) break;
-    await new Promise((r) => setTimeout(r, 100));
-  }
 
-  if (!finished) {
-    console.log(`  ❌ timed out after ${timeout}ms`);
-    totalFailed += 1;
-    await page.close();
+    let passed = 0;
+    let failed = 0;
+    for (const r of results ?? []) {
+      if (r.passed) {
+        console.log(`  ✅ ${r.name}`);
+        passed += 1;
+      } else {
+        console.log(`  ❌ ${r.name}: ${r.error}`);
+        failed += 1;
+      }
+    }
+    return { passed, failed };
+  } finally {
+    // Always run, even on the error path. close() can itself throw a
+    // ProtocolError under a stall — swallow it so cleanup completes.
+    if (page) {
+      await page.close().catch(() => {
+        // ignore — page may already be gone after a stall
+      });
+    }
     server.stop();
-    continue;
   }
+}
 
-  const results = await page.evaluate(
-    () =>
-      (window as unknown as Record<string, unknown>)["__testResults"] as unknown as Array<{
-        name: string;
-        passed: boolean;
-        error?: string;
-      }>
-  );
+for (const testFile of testFiles) {
+  const shortName = testFile.replace(`${testDir}/`, "");
+  console.log(`\n[browser-runner] running ${shortName}`);
 
-  for (const r of results ?? []) {
-    if (r.passed) {
-      console.log(`  ✅ ${r.name}`);
-      totalPassed += 1;
+  let result: { passed: number; failed: number };
+  try {
+    result = await runFile(testFile);
+  } catch (err) {
+    if (isProtocolError(err)) {
+      console.log(`  ⚠️  protocol error (${errMessage(err)}) — retrying once on a fresh page`);
+      try {
+        result = await runFile(testFile);
+      } catch (retryErr) {
+        console.log(`  ❌ retry failed: ${errMessage(retryErr)}`);
+        result = { passed: 0, failed: 1 };
+      }
     } else {
-      console.log(`  ❌ ${r.name}: ${r.error}`);
-      totalFailed += 1;
+      // A non-protocol error: record the file as failed and keep going,
+      // never abort the whole suite.
+      console.log(`  ❌ ${errMessage(err)}`);
+      result = { passed: 0, failed: 1 };
     }
   }
 
-  await page.close();
-  server.stop();
+  totalPassed += result.passed;
+  totalFailed += result.failed;
 }
 
 await browser.close();

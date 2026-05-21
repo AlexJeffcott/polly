@@ -13,8 +13,10 @@ export {
   ActionInput,
   type ActionInputProps,
   type ActionInputSaveOn,
+  type ActionInputType,
   type ActionInputVariant,
 } from "./ActionInput.tsx";
+export { ActionSelect, type ActionSelectProps } from "./ActionSelect.tsx";
 export { Badge, type BadgeProps, type BadgeVariant } from "./Badge.tsx";
 export {
   Button,
@@ -25,6 +27,8 @@ export {
 } from "./Button.tsx";
 export { Card, type CardProps, type CardSlotProps } from "./Card.tsx";
 export { Checkbox, type CheckboxProps } from "./Checkbox.tsx";
+export { Cluster, type ClusterProps } from "./Cluster.tsx";
+export { Code, type CodeProps } from "./Code.tsx";
 export { Collapsible, type CollapsibleProps } from "./Collapsible.tsx";
 export { ConfirmDialog, type ConfirmOptions, confirm } from "./ConfirmDialog.tsx";
 export { Dropdown, type DropdownProps } from "./Dropdown.tsx";
@@ -35,6 +39,13 @@ export { Select, type SelectOption, type SelectProps } from "./Select.tsx";
 export { Skeleton, type SkeletonProps, type SkeletonVariant } from "./Skeleton.tsx";
 export { Surface, type SurfaceProps, type SurfaceVariant } from "./Surface.tsx";
 export { type Tab, Tabs, type TabsProps } from "./Tabs.tsx";
+export {
+  Text,
+  type TextProps,
+  type TextSize,
+  type TextTone,
+  type TextWeight,
+} from "./Text.tsx";
 export { TextInput, type TextInputProps } from "./TextInput.tsx";
 export { Toast, type ToastViewportProps } from "./Toast.tsx";
 export { Toggle, type ToggleProps } from "./Toggle.tsx";

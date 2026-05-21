@@ -385,6 +385,11 @@ export const pollyUiComponents: readonly PollyUiComponent[] = [
     importPath: "@fairfox/polly/ui",
   },
   {
+    name: "ActionSelect",
+    replaces: ["select"],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
     name: "Badge",
     replaces: [],
     importPath: "@fairfox/polly/ui",
@@ -401,6 +406,16 @@ export const pollyUiComponents: readonly PollyUiComponent[] = [
   },
   {
     name: "Checkbox",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Cluster",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Code",
     replaces: [],
     importPath: "@fairfox/polly/ui",
   },
@@ -441,6 +456,11 @@ export const pollyUiComponents: readonly PollyUiComponent[] = [
   },
   {
     name: "Surface",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Text",
     replaces: [],
     importPath: "@fairfox/polly/ui",
   },

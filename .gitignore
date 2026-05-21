@@ -53,3 +53,7 @@ test-results
 # claude worktrees
 .claude/worktrees/
 .cache/
+
+# Stryker mutation testing
+.stryker-tmp/
+reports/

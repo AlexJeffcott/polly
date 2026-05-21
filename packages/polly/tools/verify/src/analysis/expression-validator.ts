@@ -146,12 +146,18 @@ function checkUnmodeledFields(
   stateConfig: Record<string, unknown>,
   messageType: string,
   conditionType: "requires" | "ensures",
-  location: { file: string; line: number; column: number }
+  location: { file: string; line: number; column: number },
+  meshSignalNames: ReadonlySet<string>
 ): ExpressionWarning[] {
   const warnings: ExpressionWarning[] = [];
   const refs = extractFieldRefs(expression);
 
   for (const ref of refs) {
+    // polly#117: a reference into a $meshState/$peerState signal is
+    // not "unmodeled" — it lives in the mesh namespace (or is flagged
+    // separately by the mesh/peer signal warning). Skip it here so the
+    // two checks do not both fire on the same predicate.
+    if (meshSignalNames.has(ref.split(".")[0] ?? ref)) continue;
     if (!fieldInConfig(ref, configKeys, stateConfig)) {
       warnings.push({
         kind: "unmodeled_field",
@@ -304,7 +310,8 @@ function checkWeakPostconditions(
 
 export function validateExpressions(
   handlers: MessageHandler[],
-  stateConfig: Record<string, unknown>
+  stateConfig: Record<string, unknown>,
+  meshSignalNames: ReadonlySet<string> = new Set()
 ): ValidationResult {
   const warnings: ExpressionWarning[] = [];
   let validCount = 0;
@@ -346,7 +353,8 @@ export function validateExpressions(
             stateConfig,
             handler.messageType,
             type,
-            loc
+            loc,
+            meshSignalNames
           )
         );
       }

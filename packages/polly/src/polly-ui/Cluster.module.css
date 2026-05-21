@@ -1,0 +1,21 @@
+@layer polly-components {
+  .cluster {
+    /* Reset so nested Clusters don't inherit ancestor tokens. */
+    --c-gap: 0;
+    --c-p: 0;
+    --c-jc: flex-start;
+    --c-ai: center;
+
+    display: flex;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    gap: var(--c-gap);
+    padding: var(--c-p);
+    justify-content: var(--c-jc);
+    align-items: var(--c-ai);
+  }
+
+  .inline {
+    display: inline-flex;
+  }
+}

@@ -52,13 +52,56 @@ describe("Mesh-state codegen (polly#117)", () => {
     };
   });
 
-  test("declares MeshDocs, doc record type, and InitialMesh", async () => {
+  test("declares MeshDocs, doc record type, and InitialMesh as a function", async () => {
     const { spec } = await generator.generate(baseConfig, baseAnalysis);
 
     expect(spec).toContain('MeshDocs == {"todos"}');
     expect(spec).toContain("MeshDoc_todos == [entries: 0..3]");
-    expect(spec).toContain("InitialMesh == [");
-    expect(spec).toContain('"todos" |-> [entries |-> 0]');
+    // InitialMesh is a function over MeshDocs — TLA+ record fields
+    // must be identifiers, so docIds cannot be record keys.
+    expect(spec).toContain("InitialMesh ==");
+    expect(spec).toContain("[d \\in MeshDocs |->");
+    expect(spec).toContain('CASE d = "todos" -> [entries |-> 0]');
+    // A quoted-string record key does not parse in TLA+.
+    expect(spec).not.toContain('"todos" |-> ');
+  });
+
+  test("sanitises a hyphenated docId into a valid TLA+ identifier", async () => {
+    baseConfig.mesh = { "doc-id": { count: { type: "number", min: 0, max: 3 } } };
+    baseAnalysis.meshOrPeerSignals = [
+      {
+        kind: "mesh",
+        key: "doc-id",
+        variableName: "doc",
+        filePath: "/fixture/state.ts",
+        line: 1,
+      },
+    ];
+
+    const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+    // The identifier form is sanitised (hyphen illegal in TLA+ names)...
+    expect(spec).toContain("MeshDoc_doc_id == [count: 0..3]");
+    expect(spec).not.toContain("MeshDoc_doc-id");
+    // ...but the string-key form keeps the original docId verbatim.
+    expect(spec).toContain('MeshDocs == {"doc-id"}');
+    expect(spec).toContain('CASE d = "doc-id" -> [count |-> 0]');
+  });
+
+  test("forAllPeers with a parenthesised binder `(peer) =>` is translated", async () => {
+    baseAnalysis.handlers[0]!.postconditions = [
+      {
+        expression: "forAllPeers((peer) => peer.todos.value.entries === todos.value.entries)",
+        location: { line: 1, column: 1 },
+      },
+    ];
+
+    const { spec } = await generator.generate(baseConfig, baseAnalysis);
+
+    expect(spec).toContain("\\A peer \\in Contexts \\");
+    expect(spec).toContain('meshState\'[peer]["todos"].entries');
+    // The raw arrow-function body must not survive untranslated.
+    expect(spec).not.toContain("peer.todos.value");
   });
 
   test("declares meshState variable and initializes it per context", async () => {

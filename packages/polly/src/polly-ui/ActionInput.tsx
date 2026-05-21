@@ -13,6 +13,12 @@
  *   "enter"      commit on Enter (single-line) or Cmd/Ctrl+Enter (multi-line)
  *   "cmd-enter"  commit only on Cmd/Ctrl+Enter
  *   "explicit"   never auto-commit — caller wires a save button with data-action
+ *   "input"      commit on every keystroke — for filter-as-you-type fields;
+ *                the field stays in edit mode rather than toggling to view
+ *
+ * `inputType` sets the native input type for the single-line variant —
+ * "text" (default), "date", "time", "number", and friends — so a date
+ * or numeric field commits through the action system like any other.
  *
  * Layout-shift-free: view and edit modes share padding, border width,
  * font, and line-height so the toggle causes no reflow.
@@ -21,9 +27,21 @@
 import type { JSX } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import classes from "./ActionInput.module.css";
+import { dispatchAction } from "./internal/dispatch-action.ts";
 
-export type ActionInputSaveOn = "blur" | "enter" | "cmd-enter" | "explicit";
+export type ActionInputSaveOn = "blur" | "enter" | "cmd-enter" | "explicit" | "input";
 export type ActionInputVariant = "single" | "multi";
+export type ActionInputType =
+  | "text"
+  | "date"
+  | "datetime-local"
+  | "time"
+  | "month"
+  | "week"
+  | "number"
+  | "email"
+  | "url"
+  | "tel";
 
 export type ActionInputProps = {
   /** Current value to render in view mode and seed the edit buffer. */
@@ -33,6 +51,8 @@ export type ActionInputProps = {
   /** Commit trigger. Default: "blur". */
   saveOn?: ActionInputSaveOn;
   variant?: ActionInputVariant;
+  /** Native input type for the single-line variant. Default: "text". */
+  inputType?: ActionInputType;
   placeholder?: string;
   disabled?: boolean;
   /** Extra data-action-* attributes to include at commit (e.g. entity id). */
@@ -44,11 +64,14 @@ export type ActionInputProps = {
   className?: string;
 };
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two render branches times two variants times four saveOn triggers; branching is inherent to the primitive.
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two render branches times two variants times five saveOn triggers; branching is inherent to the primitive.
 export function ActionInput(props: ActionInputProps): JSX.Element {
   const variant = props.variant ?? "single";
   const saveOn = props.saveOn ?? "blur";
-  const [mode, setMode] = useState<"view" | "edit">("view");
+  // "input" mode is a permanently-editable filter field — it never has a
+  // view mode to toggle back to, so it starts in edit.
+  const live = saveOn === "input";
+  const [mode, setMode] = useState<"view" | "edit">(live ? "edit" : "view");
   const [draft, setDraft] = useState(props.value);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -57,11 +80,13 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
   }, [props.value, mode]);
 
   useEffect(() => {
-    if (mode === "edit" && inputRef.current) {
+    // Don't steal focus on mount for a live filter field; only pull focus
+    // when the user has explicitly toggled a view field into edit mode.
+    if (mode === "edit" && !live && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select?.();
     }
-  }, [mode]);
+  }, [mode, live]);
 
   const enterEdit = useCallback(() => {
     if (props.disabled) return;
@@ -71,39 +96,20 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
 
   const commit = useCallback(
     (next: string) => {
-      if (next === props.value) {
-        setMode("view");
-        return;
+      if (next !== props.value) {
+        dispatchAction(props.action, { ...(props.actionData ?? {}), value: next });
       }
-      const dataAttrs: Record<string, string> = {
-        ...(props.actionData ?? {}),
-        value: next,
-      };
-      const hidden = document.createElement("button");
-      hidden.setAttribute("data-action", props.action);
-      for (const [key, value] of Object.entries(dataAttrs)) {
-        const dashKey = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-        hidden.setAttribute(`data-action-${dashKey}`, value);
-      }
-      hidden.style.position = "fixed";
-      hidden.style.opacity = "0";
-      hidden.style.pointerEvents = "none";
-      hidden.tabIndex = -1;
-      document.body.appendChild(hidden);
-      try {
-        hidden.click();
-      } finally {
-        hidden.remove();
-      }
-      setMode("view");
+      // A live filter field stays editable; every other trigger returns
+      // to view mode once the value is committed.
+      if (!live) setMode("view");
     },
-    [props.action, props.actionData, props.value]
+    [props.action, props.actionData, props.value, live]
   );
 
   const cancel = useCallback(() => {
     setDraft(props.value);
-    setMode("view");
-  }, [props.value]);
+    if (!live) setMode("view");
+  }, [props.value, live]);
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard handler encodes the saveOn × variant matrix.
   const onKeyDown = (event: JSX.TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -169,11 +175,14 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
     "data-variant": variant,
     placeholder: props.placeholder,
     value: draft,
-    onInput: (e: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setDraft(e.currentTarget.value),
+    onInput: (e: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const next = e.currentTarget.value;
+      setDraft(next);
+      if (live) commit(next);
+    },
     onBlur: () => {
       if (saveOn === "blur") commit(draft);
-      else cancel();
+      else if (!live) cancel();
     },
     onKeyDown,
     "aria-label": props.ariaLabel ?? "Edit",
@@ -195,7 +204,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
       ref={(el) => {
         inputRef.current = el;
       }}
-      type="text"
+      type={props.inputType ?? "text"}
       {...(common as unknown as JSX.HTMLAttributes<HTMLInputElement>)}
     />
   );

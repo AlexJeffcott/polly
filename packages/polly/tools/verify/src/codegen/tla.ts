@@ -791,14 +791,23 @@ export class TLAGenerator {
         fieldLines.push(`${this.sanitizeFieldName(fieldName)}: ${tlaType}`);
       }
       this.line(`\\* Document type for ${docId}`);
-      this.line(`MeshDoc_${this.sanitizeFieldName(docId)} == [${fieldLines.join(", ")}]`);
+      // The docId is sanitised into a valid TLA+ identifier here —
+      // docIds routinely contain `-`/`:` (e.g. "mesh:devices") which
+      // are illegal in an identifier but fine as the string keys used
+      // everywhere else (MeshDocs, meshState[ctx][docId]).
+      this.line(`MeshDoc_${this.sanitizeIdentifier(docId)} == [${fieldLines.join(", ")}]`);
       this.line("");
     }
 
-    this.line("\\* Initial mesh-document values (one record per declared docId)");
-    this.line("InitialMesh == [");
+    // InitialMesh is a FUNCTION over MeshDocs, not a record: docIds are
+    // string keys, and TLA+ record fields must be identifiers. Per-doc
+    // shapes differ, so each is selected by a CASE arm.
+    this.line("\\* Initial mesh-document values — a function keyed by docId");
+    this.line("InitialMesh ==");
     this.indent++;
-    const initLines: string[] = [];
+    this.line("[d \\in MeshDocs |->");
+    this.indent++;
+    const caseArms: string[] = [];
     for (const docId of docIds) {
       const fields = mesh[docId];
       if (!fields) continue;
@@ -811,14 +820,24 @@ export class TLAGenerator {
         );
         inner.push(`${this.sanitizeFieldName(fieldName)} |-> ${initVal}`);
       }
-      initLines.push(`"${docId}" |-> [${inner.join(", ")}]`);
+      caseArms.push(`d = "${docId}" -> [${inner.join(", ")}]`);
     }
-    initLines.forEach((line, i) => {
-      this.line(line + (i < initLines.length - 1 ? "," : ""));
+    caseArms.forEach((arm, i) => {
+      const prefix = i === 0 ? "CASE " : "  [] ";
+      const suffix = i === caseArms.length - 1 ? "]" : "";
+      this.line(prefix + arm + suffix);
     });
-    this.indent--;
-    this.line("]");
+    this.indent -= 2;
     this.line("");
+  }
+
+  /**
+   * Make an arbitrary key safe to embed inside a TLA+ identifier:
+   * replace every character that is not a letter, digit, or
+   * underscore. Used for docIds, which are free-form strings.
+   */
+  private sanitizeIdentifier(key: string): string {
+    return key.replace(/[^A-Za-z0-9_]/g, "_");
   }
 
   /**
@@ -2221,8 +2240,11 @@ export class TLAGenerator {
   ): { binder: string; innerBody: string; kind: "forall" | "exists" } | null {
     if (typeof expr !== "string") return null;
     const trimmed = expr.trim();
+    // The arrow binder may be parenthesised — `(peer) =>` — which is
+    // what the analyzer captures once the source has been formatted.
+    // Accept both `peer =>` and `(peer) =>`.
     const match = trimmed.match(
-      /^(forAllPeers|somePeer)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=>\s*([\s\S]+)\)\s*$/
+      /^(forAllPeers|somePeer)\s*\(\s*\(?\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)?\s*=>\s*([\s\S]+)\)\s*$/
     );
     if (!match) return null;
     const fn = match[1];

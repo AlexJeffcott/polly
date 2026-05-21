@@ -68,7 +68,11 @@ export const DEFAULT_SHARED_COMPONENT_RULES: SharedComponentRule[] = [
     element: "<textarea>",
     replacement: '<ActionInput variant="multi">',
   },
-  { pattern: /<select[\s>]/, element: "<select>", replacement: "<Select>" },
+  {
+    pattern: /<select[\s>]/,
+    element: "<select>",
+    replacement: "<Select> or <ActionSelect>",
+  },
   { pattern: /<form[\s>]/, element: "<form>", replacement: "<ActionForm>" },
   { pattern: /<dialog[\s>]/, element: "<dialog>", replacement: "<Modal>" },
 ];
