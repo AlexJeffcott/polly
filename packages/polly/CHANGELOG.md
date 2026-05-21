@@ -33,6 +33,24 @@ fixture exercises the mesh codegen end-to-end, and
 `scripts/e2e-verify-mesh-seed.ts` runs the guard both directions
 through TLC.
 
+#### UI primitive `data-*` / `aria-*` passthrough (polly#125)
+
+`Text`, `Cluster`, `Code`, `ActionInput` and `ActionSelect` now forward
+arbitrary `data-*` and `aria-*` attributes onto their rendered root
+element, so a primitive that also needs a test hook or an a11y
+attribute stays a single element. Consumer attributes never override
+the primitive's own `data-polly-*` hooks.
+
+#### UI primitive gaps from the fairfox migration (polly#126)
+
+`Text` gains semantic status tones (`danger`, `warning`, `success`),
+an `italic` option, and a token-backed `leading` control. `Surface`
+gains `position: absolute`, `maxHeight`, an `overflow` prop, a
+`borderStyle` (`dashed`), and a `transform` escape for centring a fixed
+banner. A `data-polly-wrap` utility wraps long unbreakable strings in
+full; `data-polly-interactive` now also sets `cursor: pointer`; and
+`Button` forwards `download` when rendering as a link.
+
 ### Changed
 
 #### Browser test runner resilience is now regression-tested (polly#120)
