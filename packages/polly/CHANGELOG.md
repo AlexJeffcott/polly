@@ -5,6 +5,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.0] - 2026-05-21
+
+### Added
+
+#### `Repo.sweepSealed()` — storage-adapter GC of sealed mesh-doc bytes (polly#121)
+
+A compacted `$meshState` document leaves its predecessor's bytes in
+storage indefinitely. `sweepSealed` is the missing collection step: it
+walks the storage adapter, identifies sealed documents via a
+consumer-supplied `isSealed` predicate, and removes those with no open
+handle that were sealed longer ago than `olderThan` — with a `dryRun`
+mode that reports candidates (id, sealed-at, byte size) without
+deleting. Shipped as a standalone `sweepSealed` and a
+`PeerRepoServer.sweepSealed` convenience method, both exported from
+`@fairfox/polly/peer`.
+
+#### `MeshSeed.tla` — formal guard for the concurrent-seed race (polly#114)
+
+`polly verify` now model-checks the `$meshState` concurrent first-time
+seed. When a project declares `mesh:` documents the CLI runs
+`MeshSeed.tla` alongside the project spec; a regression in the
+polly#113 seed path — restored by the `POLLY_113_DISABLE_FIX`
+environment variable — fails verification with a `SeedConvergence`
+violation instead of landing green. A new `mesh-seed-guard` verify
+fixture exercises the mesh codegen end-to-end, and
+`scripts/e2e-verify-mesh-seed.ts` runs the guard both directions
+through TLC.
+
+### Changed
+
+#### Browser test runner resilience is now regression-tested (polly#120)
+
+The runner's per-file suite loop is extracted into a pure `runSuite`
+function with unit coverage proving a transient `ProtocolError` is
+contained to one file and never aborts the whole run.
+
+### Fixed
+
+- Corrected the publishing flow so the release script runs cleanly.
+
+## [0.72.0] - 2026-05-21
+
+### Added
+
+#### UI primitive gaps closed (polly#123)
+
+Four new primitives in `@fairfox/polly/ui`: `Text` (muted and
+secondary text via `tone`/`size`/`weight`), `Cluster` (flex-wrap
+layout for reflowing rows), `Code` (inline and block code), and
+`ActionSelect` (an action-dispatching single select). `ActionInput`
+gains an `inputType` option (`date`, `datetime-local`, `time`, and
+more) and a live, per-keystroke `saveOn: "input"` mode.
+
+#### Mesh-signal warnings in `polly verify`
+
+The verifier now surfaces `$meshState` and `$peerState` signal
+references whose cross-peer semantics it does not check, with a fix
+suggestion to declare the document under `mesh:`.
+
+#### Stryker mutation-testing configuration
+
+A `stryker.conf.json` lays the groundwork for mutation-testing Polly's
+primitives (polly#124).
+
+### Fixed
+
+#### Browser test runner no longer aborts on a transient CDP timeout (polly#120)
+
+A renderer stall in one test file previously failed every file. The
+runner now passes an explicit `protocolTimeout` to Puppeteer and
+retries a file once on a `ProtocolError` before recording it as
+failed, so a momentary stall is contained.
+
+## [0.71.0] - 2026-05-19
+
+### Added
+
+#### RFC-043 revocation propagation
+
+Peer revocation records now propagate across the mesh: a peer that
+learns of a revocation relays it onward, so an offline peer catches up
+on reconnect. Adds `revocation-summary.ts`, revocation handling in
+`mesh-network-adapter.ts` and `mesh-client.ts`, the
+`RFC-043-revocation-propagation.md` design note, and end-to-end
+scripts for revocation propagation, offline catch-up, and
+corrupted-state recovery.
+
+#### Verifier model for the mesh-recovery-pair harness (polly#116)
+
+A verifier model lands alongside the mesh-recovery-pair wire-level
+test harness.
+
 ## [0.68.0] - 2026-05-18
 
 ### Added
