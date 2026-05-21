@@ -33,6 +33,14 @@ fixture exercises the mesh codegen end-to-end, and
 `scripts/e2e-verify-mesh-seed.ts` runs the guard both directions
 through TLC.
 
+#### `$meshState` documents are first-class in the visualiser (polly#114)
+
+`polly visualize` now renders each `$meshState` / `$peerState` document
+as a first-class node — a distributed data store drawn as a cylinder,
+labelled with its key and `deriveDocumentId` symbol, with an edge from
+the context that declares it. A codebase that uses mesh state no longer
+looks, in the architecture diagram, exactly like one that does not.
+
 #### UI primitive `data-*` / `aria-*` passthrough (polly#125)
 
 `Text`, `Cluster`, `Code`, `ActionInput` and `ActionSelect` now forward
