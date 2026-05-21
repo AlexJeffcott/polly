@@ -333,6 +333,13 @@ export const DEFAULT_ELEMENT_STYLES: Record<string, ElementStyle> = {
     background: DEFAULT_COLORS.queryHandler,
     color: DEFAULT_COLORS.textDark,
   },
+  // polly#114: the mesh transport adapters — drawn as pipes to read as
+  // a dependency chain rather than discrete services.
+  "Mesh Transport": {
+    shape: "Pipe",
+    background: DEFAULT_COLORS.service,
+    color: DEFAULT_COLORS.textLight,
+  },
 };
 
 /**

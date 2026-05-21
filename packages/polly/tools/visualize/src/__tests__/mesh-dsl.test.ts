@@ -60,6 +60,29 @@ describe("mesh primitives in the architecture diagram (polly#114)", () => {
     expect(dsl).toMatch(/mesh_doc_chat_rooms = container[^\n]*access read=\(\) => true/);
   });
 
+  test("emits the mesh transport stack as a dependency chain", () => {
+    const dsl = generateStructurizrDSL(analysis);
+    // The four transport nodes.
+    expect(dsl).toContain('mesh_net_adapter = container "MeshNetworkAdapter"');
+    expect(dsl).toContain('mesh_webrtc_adapter = container "MeshWebRTCAdapter"');
+    expect(dsl).toContain('mesh_signaling_client = container "MeshSignalingClient"');
+    expect(dsl).toContain('mesh_signaling_endpoint = container "Signalling endpoint"');
+    // Chained, not a single arrow.
+    expect(dsl).toContain('extension.mesh_net_adapter -> extension.mesh_webrtc_adapter "wraps"');
+    expect(dsl).toContain(
+      'extension.mesh_webrtc_adapter -> extension.mesh_signaling_client "negotiates via"'
+    );
+    expect(dsl).toContain(
+      'extension.mesh_signaling_client -> extension.mesh_signaling_endpoint "connects to"'
+    );
+    // Each mesh document routes through the transport head.
+    expect(dsl).toMatch(
+      /extension\.mesh_doc_chat_rooms -> extension\.mesh_net_adapter "syncs through"/
+    );
+    // No $peerState in this fixture — no relay hop.
+    expect(dsl).not.toContain("peer_relay");
+  });
+
   test("a project with no mesh state emits no mesh containers", () => {
     const meshFree: ArchitectureAnalysis = {
       projectRoot: "/x",

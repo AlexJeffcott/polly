@@ -24,6 +24,35 @@ import {
 // Re-export the enhanced type
 export type StructurizrDSLOptions = EnhancedDSLOptions;
 
+/**
+ * polly#114: polly's fixed mesh transport stack. A consumer calls
+ * createMeshClient and the adapter chain is wired internally, so the
+ * stack is a known template rendered whenever the project uses
+ * $meshState — not something extracted from consumer code.
+ */
+const MESH_TRANSPORT_NODES = [
+  {
+    id: "mesh_net_adapter",
+    name: "MeshNetworkAdapter",
+    description: "Signs and encrypts every mesh operation",
+  },
+  {
+    id: "mesh_webrtc_adapter",
+    name: "MeshWebRTCAdapter",
+    description: "Peer-to-peer WebRTC data channels",
+  },
+  {
+    id: "mesh_signaling_client",
+    name: "MeshSignalingClient",
+    description: "WebRTC offer/answer signalling",
+  },
+  {
+    id: "mesh_signaling_endpoint",
+    name: "Signalling endpoint",
+    description: "The rendezvous server peers exchange WebRTC offers through",
+  },
+] as const;
+
 export class StructurizrDSLGenerator {
   private analysis: ArchitectureAnalysis;
   private options: StructurizrDSLOptions;
@@ -172,6 +201,10 @@ export class StructurizrDSLGenerator {
     // polly#114: mesh/peer documents as first-class nodes
     const meshDocs = this.generateMeshDocuments();
     if (meshDocs) parts.push(meshDocs);
+
+    // polly#114: the transport stack mesh documents sync through
+    const meshTransport = this.generateMeshTransport();
+    if (meshTransport) parts.push(meshTransport);
 
     // Generate relationships between containers
     parts.push(this.generateContainerRelationships());
@@ -833,6 +866,7 @@ export class StructurizrDSLGenerator {
     parts.push(...this.generateMessageFlowRelationships());
     parts.push(...this.generateExternalAPIRelationships());
     parts.push(...this.generateMeshRelationships());
+    parts.push(...this.generateMeshTransportRelationships());
 
     return parts.join("\n");
   }
@@ -853,6 +887,78 @@ export class StructurizrDSLGenerator {
       seen.add(edgeKey);
       parts.push(
         `      extension.${context} -> extension.${this.meshDocId(sig.key)} "syncs ${this.escape(sig.key)}"`
+      );
+    }
+    return parts;
+  }
+
+  /** Whether the project declares mesh and/or peer documents. */
+  private meshSignalKinds(): { mesh: boolean; peer: boolean } {
+    const signals = this.analysis.meshOrPeerSignals ?? [];
+    return {
+      mesh: signals.some((s) => s.kind === "mesh"),
+      peer: signals.some((s) => s.kind === "peer"),
+    };
+  }
+
+  /**
+   * polly#114: emit polly's mesh transport stack as a dependency chain.
+   * Rendered whenever the project uses $meshState —
+   * MeshNetworkAdapter → MeshWebRTCAdapter → MeshSignalingClient → the
+   * signalling endpoint. $peerState adds the always-on relay as its own
+   * hop. The chain is fixed: consumers call createMeshClient, which
+   * wires the adapters internally.
+   */
+  private generateMeshTransport(): string {
+    const { mesh, peer } = this.meshSignalKinds();
+    if (!mesh && !peer) return "";
+
+    const parts: string[] = [];
+    if (mesh) {
+      for (const node of MESH_TRANSPORT_NODES) {
+        parts.push(
+          `      ${node.id} = container "${node.name}" "${this.escape(node.description)}" "Mesh Transport" {`
+        );
+        parts.push('        tags "Mesh Transport"');
+        parts.push("      }");
+      }
+    }
+    if (peer) {
+      parts.push(
+        `      peer_relay = container "Peer relay" "${this.escape("The always-on relay $peerState syncs through")}" "Peer Transport" {`
+      );
+      parts.push('        tags "Mesh Transport"');
+      parts.push("      }");
+    }
+    return parts.join("\n");
+  }
+
+  /**
+   * polly#114: chain the transport stack and route every mesh / peer
+   * document through it.
+   */
+  private generateMeshTransportRelationships(): string[] {
+    const { mesh, peer } = this.meshSignalKinds();
+    const parts: string[] = [];
+
+    if (mesh) {
+      parts.push('      extension.mesh_net_adapter -> extension.mesh_webrtc_adapter "wraps"');
+      parts.push(
+        '      extension.mesh_webrtc_adapter -> extension.mesh_signaling_client "negotiates via"'
+      );
+      parts.push(
+        '      extension.mesh_signaling_client -> extension.mesh_signaling_endpoint "connects to"'
+      );
+    }
+    if (!mesh && !peer) return parts;
+
+    const seen = new Set<string>();
+    for (const sig of this.analysis.meshOrPeerSignals ?? []) {
+      if (seen.has(sig.key)) continue;
+      seen.add(sig.key);
+      const target = sig.kind === "mesh" ? "mesh_net_adapter" : "peer_relay";
+      parts.push(
+        `      extension.${this.meshDocId(sig.key)} -> extension.${target} "syncs through"`
       );
     }
     return parts;
