@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.1] - 2026-05-21
+
+### Fixed
+
+#### `<Dropdown>` menu renders anchored to its trigger (polly#128)
+
+A shown popover is promoted to the browser's top layer, where CSS
+positioning resolves against the viewport rather than the element's
+DOM ancestor. `<Dropdown>` placed its menu with `position: absolute;
+top: 100%; left: 0` — an assumption that holds only outside the top
+layer — so the menu, and with it every `<Select>` and
+`<ActionSelect>`, opened in the viewport's bottom-left corner,
+off-screen. The menu is now pinned with `position: fixed` and
+coordinates measured from the trigger inside the popover's
+`beforetoggle` event, which runs before the first paint. It sits
+directly below the trigger, clamps horizontally to stay within the
+viewport, flips above the trigger when there is more room there, and
+re-pins on scroll and resize.
+
 ## [0.73.0] - 2026-05-21
 
 ### Added

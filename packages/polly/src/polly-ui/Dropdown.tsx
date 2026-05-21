@@ -1,6 +1,12 @@
 /**
  * Dropdown — trigger button + popover menu using the native Popover API.
  *
+ * A shown popover is promoted to the browser's top layer, where CSS
+ * positioning resolves against the viewport rather than the `.dropdown`
+ * wrapper — so the menu cannot be placed with `position: absolute`
+ * alone. Instead it is pinned with `position: fixed` and coordinates
+ * measured from the trigger; see `positionMenu` below (issue #128).
+ *
  * The menu element gets `popover="auto"` and a unique `data-overlay-id`.
  * `closeTopOverlay()` from @fairfox/polly/actions finds the topmost
  * `[data-overlay-id]` element and dispatches `overlay:close` — the
@@ -28,6 +34,11 @@ export type DropdownProps = {
 
 let dropdownCounter = 0;
 
+/** Gap in px the menu leaves between itself and the trigger. */
+const MENU_GAP = 4;
+/** Minimum gap in px the menu keeps from every viewport edge. */
+const VIEWPORT_PADDING = 8;
+
 export function Dropdown(props: DropdownProps): JSX.Element {
   const { isOpen, trigger, children, align = "left", multiSelect = false, className, id } = props;
 
@@ -53,6 +64,80 @@ export function Dropdown(props: DropdownProps): JSX.Element {
       menu.removeEventListener("overlay:close", onOverlayClose);
     };
   }, [popoverId, isOpen]);
+
+  useEffect(() => {
+    const menu = menuRef.current;
+    const trigger = triggerRef.current;
+    if (!menu || !trigger) return;
+
+    // Pin the top-layer menu to its trigger with viewport coordinates.
+    // Run from `beforetoggle` this happens synchronously before the
+    // popover paints, so the menu is correct on its first frame — no
+    // flash. Run from scroll/resize it keeps the menu pinned.
+    const positionMenu = (): void => {
+      const t = trigger.getBoundingClientRect();
+
+      // A not-yet-shown popover is `display: none` and has no box to
+      // measure. Force layout for the duration of the (synchronous)
+      // read, then restore — nothing paints in between. Clearing the
+      // inline max-height first measures the menu's natural size.
+      const prevDisplay = menu.style.display;
+      menu.style.maxHeight = "";
+      menu.style.display = "block";
+      const menuWidth = menu.offsetWidth;
+      const menuHeight = menu.offsetHeight;
+      menu.style.display = prevDisplay;
+
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = document.documentElement.clientHeight;
+
+      // Horizontal: align left edges (right edges when align="right"),
+      // then clamp so the menu never overflows a viewport edge.
+      let left = align === "right" ? t.right - menuWidth : t.left;
+      const maxLeft = Math.max(VIEWPORT_PADDING, viewportWidth - menuWidth - VIEWPORT_PADDING);
+      left = Math.min(Math.max(left, VIEWPORT_PADDING), maxLeft);
+
+      // Vertical: below the trigger by default; flip above when that
+      // leaves more room. Cap the height to the space available so the
+      // menu always stays on-screen.
+      const spaceBelow = viewportHeight - t.bottom - MENU_GAP - VIEWPORT_PADDING;
+      const spaceAbove = t.top - MENU_GAP - VIEWPORT_PADDING;
+      let top: number;
+      if (menuHeight <= spaceBelow || spaceBelow >= spaceAbove) {
+        top = t.bottom + MENU_GAP;
+        if (menuHeight > spaceBelow) {
+          menu.style.maxHeight = `${Math.max(spaceBelow, 0)}px`;
+        }
+      } else {
+        const available = Math.max(spaceAbove, 0);
+        menu.style.maxHeight = `${available}px`;
+        top = t.top - MENU_GAP - Math.min(menuHeight, available);
+      }
+
+      menu.style.position = "fixed";
+      menu.style.margin = "0";
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
+    };
+
+    const onBeforeToggle = (e: Event): void => {
+      if ((e as Event & { newState?: string }).newState === "open") {
+        positionMenu();
+      }
+    };
+    const onReposition = (): void => {
+      if (menu.matches(":popover-open")) positionMenu();
+    };
+
+    menu.addEventListener("beforetoggle", onBeforeToggle);
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
+    return () => {
+      menu.removeEventListener("beforetoggle", onBeforeToggle);
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
+    };
+  }, [align]);
 
   useSignalEffect(() => {
     const menu = menuRef.current;
@@ -85,9 +170,6 @@ export function Dropdown(props: DropdownProps): JSX.Element {
   const parts = [classes["dropdown"] ?? ""];
   if (className) parts.push(className);
 
-  const menuParts = [classes["menu"] ?? ""];
-  if (align === "right") menuParts.push(classes["alignRight"] ?? "");
-
   return (
     <div id={id} class={parts.filter(Boolean).join(" ")} data-polly-ui data-polly-dropdown>
       <button ref={triggerRef} type="button" class={classes["trigger"]}>
@@ -97,7 +179,8 @@ export function Dropdown(props: DropdownProps): JSX.Element {
         ref={menuRef}
         id={popoverId}
         role="listbox"
-        class={menuParts.filter(Boolean).join(" ")}
+        class={classes["menu"] ?? ""}
+        data-align={align}
         popover="auto"
         data-overlay-id={popoverId}
         onToggle={handleToggle}
