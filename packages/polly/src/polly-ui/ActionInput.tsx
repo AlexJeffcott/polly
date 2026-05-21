@@ -28,6 +28,7 @@ import type { JSX } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import classes from "./ActionInput.module.css";
 import { dispatchAction } from "./internal/dispatch-action.ts";
+import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 
 export type ActionInputSaveOn = "blur" | "enter" | "cmd-enter" | "explicit" | "input";
 export type ActionInputVariant = "single" | "multi";
@@ -43,7 +44,7 @@ export type ActionInputType =
   | "url"
   | "tel";
 
-export type ActionInputProps = {
+export type ActionInputProps = PassthroughAttrs & {
   /** Current value to render in view mode and seed the edit buffer. */
   value: string;
   /** Action name to dispatch on commit. Receives data-action-value=<new value>. */
@@ -134,12 +135,17 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
 
   const className = props.className ? `${classes["root"]} ${props.className}` : classes["root"];
 
+  // Consumer data-*/aria-* forwarded onto whichever element is the root
+  // for the current mode; the primitive's own attributes win on collision.
+  const passthrough = collectPassthrough(props);
+
   if (mode === "view") {
     const rendered = props.renderView ? props.renderView(props.value) : props.value;
     const isEmpty = props.value.length === 0;
     return (
       // biome-ignore lint/a11y/useSemanticElements: <button> would swallow text selection and add default styling; div with role=button is the inline-edit idiom.
       <div
+        {...passthrough}
         class={`${className} ${classes["view"]}`}
         data-polly-ui
         data-polly-action-input
@@ -168,6 +174,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
   }
 
   const common = {
+    ...passthrough,
     class: `${classes["edit"]} ${classes["root"]}`,
     "data-polly-ui": true,
     "data-polly-action-input": true,

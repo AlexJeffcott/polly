@@ -8,6 +8,33 @@
     color: var(--polly-text-muted);
   }
 
+  /* Status tones — semantic error/warning/success copy, drawn from the
+   * --polly-status-*-text token family so they track light/dark theme. */
+  .danger {
+    color: var(--polly-status-danger-text);
+  }
+  .warning {
+    color: var(--polly-status-warning-text);
+  }
+  .success {
+    color: var(--polly-status-success-text);
+  }
+
+  .italic {
+    font-style: italic;
+  }
+
+  /* Line height — token-backed leading for body copy. */
+  .tight {
+    line-height: var(--polly-line-height-tight);
+  }
+  .base {
+    line-height: var(--polly-line-height-base);
+  }
+  .loose {
+    line-height: var(--polly-line-height-loose);
+  }
+
   .xs {
     font-size: var(--polly-text-xs);
   }

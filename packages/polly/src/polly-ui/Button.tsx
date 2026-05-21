@@ -46,6 +46,7 @@ type ButtonAsButton = BaseButtonProps & {
   href?: never;
   target?: never;
   rel?: never;
+  download?: never;
   type?: "button" | "submit" | "reset";
 };
 
@@ -53,6 +54,9 @@ type ButtonAsLink = BaseButtonProps & {
   href: string;
   target?: string;
   rel?: string;
+  /** Forwarded to the rendered <a> so a Button-as-link can offer a file
+   * download. An empty string uses the resource's own filename. */
+  download?: string;
   type?: never;
 };
 
@@ -140,6 +144,7 @@ export function Button(props: ButtonProps): JSX.Element {
         href={disabled ? undefined : props.href}
         target={"target" in props ? props.target : undefined}
         rel={"rel" in props ? props.rel : undefined}
+        download={"download" in props ? props.download : undefined}
         aria-disabled={disabled}
         aria-label={ariaLabel}
         data-polly-ui

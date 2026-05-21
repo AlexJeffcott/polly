@@ -104,6 +104,15 @@
     min-inline-size: 0;
   }
 
+  /* data-polly-wrap — full, unbounded wrapping of a long unbreakable
+   * string: a pairing URL, a recovery blob, a hex id. Where truncate and
+   * clamp HIDE overflow, wrap breaks the string so all of it stays
+   * visible. min-inline-size: 0 lets it shrink inside a Layout grid track. */
+  [data-polly-wrap] {
+    overflow-wrap: anywhere;
+    min-inline-size: 0;
+  }
+
   /* Honour reduced-motion by zeroing every motion token. The components
    * read only these tokens for their transitions, so a consumer preference
    * of "reduce" makes every animation instant. */
@@ -130,6 +139,12 @@
   [data-polly-interactive]:not([data-polly-hit-target="none"]) {
     min-inline-size: 44px;
     min-block-size: 44px;
+  }
+
+  /* Pointer affordance for non-<Button> clickables — whole-row click
+   * targets and the like. Applies regardless of hit-target sizing. */
+  [data-polly-interactive] {
+    cursor: pointer;
   }
 
   /* Scroll lock — toggled by OverlayRoot when the overlay stack is

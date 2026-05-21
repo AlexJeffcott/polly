@@ -18,10 +18,11 @@ import { useSignal } from "@preact/signals";
 import type { JSX } from "preact";
 import { Dropdown } from "./Dropdown.tsx";
 import { dispatchAction } from "./internal/dispatch-action.ts";
+import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 import classes from "./Select.module.css";
 import type { SelectOption } from "./Select.tsx";
 
-export type ActionSelectProps = {
+export type ActionSelectProps = PassthroughAttrs & {
   /** Current value — matched against `options` to render the trigger label. */
   value: string;
   /** Selectable options. */
@@ -80,6 +81,7 @@ export function ActionSelect(props: ActionSelectProps): JSX.Element {
 
   return (
     <div
+      {...collectPassthrough(props)}
       id={id}
       class={parts.filter(Boolean).join(" ")}
       data-polly-ui

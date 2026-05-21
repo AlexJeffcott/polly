@@ -37,7 +37,9 @@ type BorderSides =
   | "block"
   | "inline";
 type Shadow = "none" | "sm" | "md" | "lg";
-type Position = "static" | "relative" | "sticky" | "fixed";
+type Position = "static" | "relative" | "absolute" | "sticky" | "fixed";
+type BorderStyle = "solid" | "dashed";
+type Overflow = "visible" | "hidden" | "auto" | "scroll";
 
 /**
  * Arbitrary `data-*` and `aria-*` attributes forwarded to the rendered element
@@ -68,6 +70,8 @@ export type SurfaceProps = SurfaceDataAttrs & {
   border?: Border;
   borderWidth?: BorderWidth;
   borderSides?: BorderSides;
+  /** Border line style. Default: `'solid'`. */
+  borderStyle?: BorderStyle;
   shadow?: Shadow;
 
   /** display: inline-block — Surface flows inline with surrounding text. */
@@ -75,11 +79,19 @@ export type SurfaceProps = SurfaceDataAttrs & {
   width?: string;
   height?: string;
   minHeight?: string;
+  /** Maximum block size — a Surface that shrinks to content but is capped. */
+  maxHeight?: string;
   maxInlineSize?: string;
+
+  /** Overflow behaviour. `'auto'` makes a height-capped Surface scroll. */
+  overflow?: Overflow;
 
   position?: Position;
   /** Any CSS inset value (`'0'`, `'auto auto 1rem 1rem'`, `'1rem'`, …). */
   inset?: string;
+  /** CSS transform — e.g. `'translateX(-50%)'` to centre a fixed banner
+   * paired with `inset: '… auto … 50%'`. The sanctioned transform escape. */
+  transform?: string;
   zIndex?: number;
 
   className?: string;
@@ -225,6 +237,8 @@ export function Surface(props: SurfaceProps): JSX.Element {
   const position = props.position ?? v.position;
   const inset = props.inset ?? v.inset;
   const zIndex = props.zIndex ?? v.zIndex;
+  // polly#126: no variant sets these, so they resolve straight from props.
+  const { maxHeight, overflow, borderStyle, transform } = props;
 
   // A bordered surface needs a width. If the consumer asked for a border but
   // didn't pick a width, infer 'default' so the border renders.
@@ -238,12 +252,16 @@ export function Surface(props: SurfaceProps): JSX.Element {
   if (border) style["--s-border-color"] = borderColorValue(border);
   if (borderWidth) style["--s-border-width"] = borderWidthValue(borderWidth);
   if (shadow) style["--s-shadow"] = shadowValue(shadow);
+  if (borderStyle) style["--s-border-style"] = borderStyle;
   if (width) style["--s-w"] = width;
   if (height) style["--s-h"] = height;
   if (minHeight) style["--s-mh"] = minHeight;
+  if (maxHeight) style["--s-maxh"] = maxHeight;
   if (maxInlineSize) style["--s-mis"] = maxInlineSize;
+  if (overflow) style["--s-overflow"] = overflow;
   if (position) style["--s-position"] = position;
   if (inset) style["--s-inset"] = inset;
+  if (transform) style["--s-transform"] = transform;
   if (zIndex !== undefined) style["--s-z"] = String(zIndex);
 
   if (props.style) {

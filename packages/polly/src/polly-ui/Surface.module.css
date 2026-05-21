@@ -6,19 +6,23 @@
     --s-radius: 0;
     --s-border-color: transparent;
     --s-border-width: 0;
+    --s-border-style: solid;
     --s-shadow: none;
     --s-w: auto;
     --s-h: auto;
     --s-mh: auto;
+    --s-maxh: none;
     --s-mis: none;
+    --s-overflow: visible;
     --s-position: static;
     --s-inset: auto;
+    --s-transform: none;
     --s-z: auto;
 
     box-sizing: border-box;
     padding: var(--s-p);
     background: var(--s-bg);
-    border-style: solid;
+    border-style: var(--s-border-style);
     border-color: var(--s-border-color);
     border-width: var(--s-border-width);
     border-radius: var(--s-radius);
@@ -26,9 +30,12 @@
     inline-size: var(--s-w);
     block-size: var(--s-h);
     min-block-size: var(--s-mh);
+    max-block-size: var(--s-maxh);
     max-inline-size: var(--s-mis);
+    overflow: var(--s-overflow);
     position: var(--s-position);
     inset: var(--s-inset);
+    transform: var(--s-transform);
     z-index: var(--s-z);
   }
 
@@ -39,29 +46,30 @@
 
   /* borderSides — flip border-style per logical side so RTL is handled by the
    * browser. Each modifier suppresses the all-sides default and re-enables
-   * only the sides the consumer asked for. */
+   * only the sides the consumer asked for, honouring --s-border-style so a
+   * dashed or solid line applies consistently. */
   .sides-block-start {
     border-style: none;
-    border-block-start-style: solid;
+    border-block-start-style: var(--s-border-style);
   }
   .sides-block-end {
     border-style: none;
-    border-block-end-style: solid;
+    border-block-end-style: var(--s-border-style);
   }
   .sides-inline-start {
     border-style: none;
-    border-inline-start-style: solid;
+    border-inline-start-style: var(--s-border-style);
   }
   .sides-inline-end {
     border-style: none;
-    border-inline-end-style: solid;
+    border-inline-end-style: var(--s-border-style);
   }
   .sides-block {
     border-style: none;
-    border-block-style: solid;
+    border-block-style: var(--s-border-style);
   }
   .sides-inline {
     border-style: none;
-    border-inline-style: solid;
+    border-inline-style: var(--s-border-style);
   }
 }

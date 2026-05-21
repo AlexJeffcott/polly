@@ -9,8 +9,9 @@
 
 import type { ComponentChildren, JSX } from "preact";
 import classes from "./Code.module.css";
+import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 
-export type CodeProps = {
+export type CodeProps = PassthroughAttrs & {
   children: ComponentChildren;
   /** Render as a block (<pre><code>) instead of an inline span. */
   block?: boolean;
@@ -21,11 +22,21 @@ export type CodeProps = {
 export function Code(props: CodeProps): JSX.Element {
   const { children, block, className, id } = props;
 
+  // Consumer data-*/aria-* spread first; the explicit attributes after
+  // win on any collision.
+  const passthrough = collectPassthrough(props);
+
   if (block) {
     const parts = [classes["block"]];
     if (className) parts.push(className);
     return (
-      <pre id={id} class={parts.filter(Boolean).join(" ")} data-polly-ui data-polly-code="block">
+      <pre
+        {...passthrough}
+        id={id}
+        class={parts.filter(Boolean).join(" ")}
+        data-polly-ui
+        data-polly-code="block"
+      >
         <code>{children}</code>
       </pre>
     );
@@ -34,7 +45,13 @@ export function Code(props: CodeProps): JSX.Element {
   const parts = [classes["code"]];
   if (className) parts.push(className);
   return (
-    <code id={id} class={parts.filter(Boolean).join(" ")} data-polly-ui data-polly-code="inline">
+    <code
+      {...passthrough}
+      id={id}
+      class={parts.filter(Boolean).join(" ")}
+      data-polly-ui
+      data-polly-code="inline"
+    >
       {children}
     </code>
   );

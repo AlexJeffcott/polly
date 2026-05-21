@@ -122,6 +122,11 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     default: "1.15",
   },
   {
+    name: "polly-line-height-loose",
+    category: "typography",
+    default: "1.7",
+  },
+  {
     name: "polly-line-height-tight",
     category: "typography",
     default: "1.25",

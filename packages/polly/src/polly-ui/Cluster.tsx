@@ -16,8 +16,9 @@
 
 import { type ComponentChildren, createElement, type JSX } from "preact";
 import classes from "./Cluster.module.css";
+import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 
-export type ClusterProps = {
+export type ClusterProps = PassthroughAttrs & {
   children: ComponentChildren;
 
   /** Polymorphic element (div, nav, ul, …). Defaults to 'div'. */
@@ -57,6 +58,8 @@ export function Cluster(props: ClusterProps): JSX.Element {
   return createElement(
     as,
     {
+      // Consumer data-*/aria-* first; the primitive's own attributes win.
+      ...collectPassthrough(props),
       id,
       class: parts.filter(Boolean).join(" "),
       style,

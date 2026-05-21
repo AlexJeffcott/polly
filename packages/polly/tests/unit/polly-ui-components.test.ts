@@ -26,6 +26,8 @@ const { h, render } = await import("preact");
 const { Text } = await import("../../src/polly-ui/Text.tsx");
 const { Cluster } = await import("../../src/polly-ui/Cluster.tsx");
 const { Code } = await import("../../src/polly-ui/Code.tsx");
+const { Surface } = await import("../../src/polly-ui/Surface.tsx");
+const { Button } = await import("../../src/polly-ui/Button.tsx");
 const { ActionInput } = await import("../../src/polly-ui/ActionInput.tsx");
 const { ActionSelect } = await import("../../src/polly-ui/ActionSelect.tsx");
 const { dispatchAction } = await import("../../src/polly-ui/internal/dispatch-action.ts");
@@ -76,6 +78,38 @@ describe("Text", () => {
     expect(el.tagName).toBe("LABEL");
     expect(el.getAttribute("for")).toBe("field-1");
   });
+
+  // polly#126: status tones, italic, leading.
+  test("status tones mark the element via the data hook", () => {
+    for (const tone of ["danger", "warning", "success"] as const) {
+      const el = rendered(mount(h(Text, { tone, children: "status" })));
+      expect(el.getAttribute("data-polly-text")).toBe(tone);
+    }
+  });
+
+  test("italic and leading apply without an inline style", () => {
+    const el = rendered(mount(h(Text, { italic: true, leading: "loose", children: "body" })));
+    // The classes are hashed; assert no inline style leaked in instead.
+    expect(el.getAttribute("style")).toBeNull();
+    expect(el.textContent).toBe("body");
+  });
+
+  // polly#125: data-* / aria-* passthrough.
+  test("forwards data-* and aria-* attributes onto the element", () => {
+    const el = rendered(
+      mount(h(Text, { as: "p", "data-tasks-empty": "true", "aria-label": "empty", children: "" }))
+    );
+    expect(el.tagName).toBe("P");
+    expect(el.getAttribute("data-tasks-empty")).toBe("true");
+    expect(el.getAttribute("aria-label")).toBe("empty");
+  });
+
+  test("passthrough cannot override the primitive's own data-polly-* attrs", () => {
+    const el = rendered(
+      mount(h(Text, { tone: "muted", "data-polly-text": "hacked", children: "x" }))
+    );
+    expect(el.getAttribute("data-polly-text")).toBe("muted");
+  });
 });
 
 describe("Cluster", () => {
@@ -102,6 +136,12 @@ describe("Cluster", () => {
     expect(el.style.getPropertyValue("--c-ai")).toBe("start");
     expect(el.style.getPropertyValue("--c-p")).toBe("4px");
   });
+
+  test("forwards data-* passthrough attributes (polly#125)", () => {
+    const el = rendered(mount(h(Cluster, { "data-chip-row": "true", children: "x" })));
+    expect(el.getAttribute("data-chip-row")).toBe("true");
+    expect(el.getAttribute("data-polly-cluster")).toBe("true");
+  });
 });
 
 describe("Code", () => {
@@ -116,6 +156,55 @@ describe("Code", () => {
     expect(pre.tagName).toBe("PRE");
     expect(pre.getAttribute("data-polly-code")).toBe("block");
     expect(pre.firstElementChild?.tagName).toBe("CODE");
+  });
+
+  test("forwards data-* passthrough on both inline and block (polly#125)", () => {
+    const inline = rendered(mount(h(Code, { "data-token": "abc", children: "x" })));
+    expect(inline.getAttribute("data-token")).toBe("abc");
+    const block = rendered(mount(h(Code, { block: true, "data-token": "abc", children: "x" })));
+    expect(block.getAttribute("data-token")).toBe("abc");
+    expect(block.getAttribute("data-polly-code")).toBe("block");
+  });
+});
+
+describe("Surface (polly#126)", () => {
+  test("position='absolute' bridges to the --s-position custom property", () => {
+    const el = rendered(mount(h(Surface, { position: "absolute", children: "x" })));
+    expect(el.style.getPropertyValue("--s-position")).toBe("absolute");
+  });
+
+  test("maxHeight, overflow, borderStyle and transform bridge to custom properties", () => {
+    const el = rendered(
+      mount(
+        h(Surface, {
+          maxHeight: "70vh",
+          overflow: "auto",
+          borderStyle: "dashed",
+          transform: "translateX(-50%)",
+          children: "x",
+        })
+      )
+    );
+    expect(el.style.getPropertyValue("--s-maxh")).toBe("70vh");
+    expect(el.style.getPropertyValue("--s-overflow")).toBe("auto");
+    expect(el.style.getPropertyValue("--s-border-style")).toBe("dashed");
+    expect(el.style.getPropertyValue("--s-transform")).toBe("translateX(-50%)");
+  });
+});
+
+describe("Button (polly#126)", () => {
+  test("forwards `download` when rendering as a link", () => {
+    const el = rendered(
+      mount(h(Button, { href: "/extension.zip", download: "extension.zip", label: "Download" }))
+    );
+    expect(el.tagName).toBe("A");
+    expect(el.getAttribute("download")).toBe("extension.zip");
+  });
+
+  test("a plain <button> Button has no download attribute", () => {
+    const el = rendered(mount(h(Button, { label: "Click" })));
+    expect(el.tagName).toBe("BUTTON");
+    expect(el.getAttribute("download")).toBeNull();
   });
 });
 
@@ -194,6 +283,18 @@ describe("ActionInput", () => {
 
     expect(seen).toContain("ab");
   });
+
+  test("forwards data-* passthrough in both view and edit modes (polly#125)", () => {
+    const view = rendered(
+      mount(h(ActionInput, { value: "v", action: "a", "data-field": "title" }))
+    );
+    expect(view.getAttribute("data-field")).toBe("title");
+    const edit = rendered(
+      mount(h(ActionInput, { value: "", action: "a", saveOn: "input", "data-field": "q" }))
+    );
+    expect(edit.tagName).toBe("INPUT");
+    expect(edit.getAttribute("data-field")).toBe("q");
+  });
 });
 
 describe("ActionSelect", () => {
@@ -230,5 +331,21 @@ describe("ActionSelect", () => {
     );
     expect(el.getAttribute("data-state")).toBe("empty");
     expect(el.textContent).toContain("Pick one");
+  });
+
+  test("forwards data-* passthrough onto the outermost element (polly#125)", () => {
+    const el = rendered(
+      mount(
+        h(ActionSelect, {
+          value: "open",
+          action: "task:set-status",
+          disabled: true,
+          "data-status-select": "true",
+          options: [{ value: "open", label: "Open" }],
+        })
+      )
+    );
+    expect(el.getAttribute("data-status-select")).toBe("true");
+    expect(el.getAttribute("data-polly-action-select")).not.toBeNull();
   });
 });

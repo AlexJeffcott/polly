@@ -103,6 +103,7 @@
     --polly-line-height-tight: 1.25;
     --polly-line-height-heading: 1.15;
     --polly-line-height-base: 1.5;
+    --polly-line-height-loose: 1.7;
 
     /* Z-index scale */
     --polly-z-base: 0;
