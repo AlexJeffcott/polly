@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.74.1] - 2026-05-22
+
+### Fixed
+
+#### Survivor re-discovers a peer that rejoins after a topology change (polly#133)
+
+When a mesh peer dies and another peer later joins under a peerId an
+earlier session had already used, a surviving peer could fail to
+reconnect to the newcomer. The survivor still held a `PeerSlot` from
+the peerId's previous incarnation: `handlePeerJoined` saw
+`slot-already-exists` and declined to re-dial, and the glare rule in
+`handleOffer` made the lexicographically-higher survivor ignore the
+newcomer's offer as well. The pair stayed apart until the idle-slot
+watchdog reaped the dead slot two minutes later — long after the
+request that prompted the rejoin had given up. A CLI command re-run
+from the same keyring, which derives the same peerId every time, is
+the canonical trigger.
+
+A `peer-joined` or `peers-present` frame is now treated as proof that
+the remote peer's signalling presence is fresh: a slot held for that
+peerId is torn down before the dial path runs, so the survivor
+rebuilds the connection immediately. The one slot shape that survives
+the check is a data channel still `open` on a `connected` connection —
+the peer kept its direct WebRTC session across a signalling reconnect,
+and signalling churn is irrelevant to it. A young, still-negotiating
+handshake is also left untouched, so a duplicate discovery frame
+cannot restart a connection that simply is not done yet.
+
 ## [0.74.0] - 2026-05-22
 
 ### Fixed

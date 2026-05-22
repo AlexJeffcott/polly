@@ -1014,9 +1014,17 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * theirs), open an initiating slot and fire the SDP offer. Otherwise
    * do nothing — either we are not interested in this peer, we are
    * already connected, or the other side is the one expected to
-   * initiate. */
+   * initiate.
+   *
+   * A `peer-joined` for a peerId we already hold a slot for is first
+   * routed through {@link evictStaleSlotForRejoin}: the notification is
+   * authoritative proof the remote peer's signalling presence is fresh,
+   * so a slot left over from an earlier incarnation of the same peerId
+   * is torn down rather than left to wedge rediscovery. Polly issue
+   * #133. */
   handlePeerJoined(remotePeerId: string): void {
     this.presentPeers.add(remotePeerId);
+    this.evictStaleSlotForRejoin(remotePeerId);
     if (!this.shouldInitiateTo(remotePeerId)) return;
     this.tryCreateInitiatingSlot(remotePeerId);
   }
@@ -1024,13 +1032,71 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   /** Handle the signalling server's `peers-present` notification sent
    * once to a newcomer. Applies the same filter as handlePeerJoined to
    * every listed peer, so a device joining into an established lobby
-   * dials every knownPeer it is meant to initiate to in one pass. */
+   * dials every knownPeer it is meant to initiate to in one pass.
+   *
+   * Like {@link handlePeerJoined}, each listed peer is first run
+   * through {@link evictStaleSlotForRejoin} so a `peers-present` frame
+   * received on a signalling *reconnect* clears any stale slot before
+   * the dial path re-evaluates it. Polly issue #133. */
   handlePeersPresent(peerIds: string[]): void {
     for (const remotePeerId of peerIds) {
       this.presentPeers.add(remotePeerId);
+      this.evictStaleSlotForRejoin(remotePeerId);
       if (!this.shouldInitiateTo(remotePeerId)) continue;
       this.tryCreateInitiatingSlot(remotePeerId);
     }
+  }
+
+  /** Tear down a slot left over from an earlier incarnation of a peer
+   * that has just (re)appeared in the signalling roster, so the dial
+   * path can rebuild it.
+   *
+   * A `peer-joined` / `peers-present` frame is authoritative proof that
+   * the remote peer's signalling presence is fresh: its
+   * {@link MeshSignalingClient} has just sent a `join`. If we are still
+   * holding a slot for that peerId, the slot belongs to a previous
+   * incarnation — *unless* the peer kept a live WebRTC session across
+   * its own signalling reconnect, in which case the data channel is
+   * still `open` on a `connected` connection and the slot is genuinely
+   * sound (peers talk directly once the channel is up; signalling is
+   * intermittent). That one shape is kept; every other shape is stale.
+   *
+   * Polly issue #133: before this, a stale slot wedged rediscovery of a
+   * peer that reuses its peerId across short-lived sessions (a CLI
+   * `chat send` re-run from the same keyring is the canonical case).
+   * The `slot-already-exists` gate in {@link evaluateInitiation}
+   * blocked the survivor from re-dialling, and {@link handleOffer}'s
+   * glare rule made the lexicographically-higher survivor ignore the
+   * newcomer's offer too — so the pair never reconnected until the
+   * {@link slotIdleTimeoutMs} watchdog reaped the corpse, far too late
+   * for the request that triggered the rejoin.
+   *
+   * A handshake that is still young and negotiating (`new`/`connecting`
+   * within {@link slotNeverConnectedTimeoutMs}) is left alone — a
+   * duplicate frame arriving mid-handshake must not nuke a connection
+   * that simply is not done yet. */
+  private evictStaleSlotForRejoin(remotePeerId: string): void {
+    const slot = this.slots.get(remotePeerId);
+    if (!slot) return;
+    const state = slot.connection.connectionState;
+    // The peer kept a live, data-carrying channel across its signalling
+    // reconnect — the slot is sound, keep it.
+    if (state === "connected" && slot.channel?.readyState === "open") return;
+    // A handshake still in flight and young enough to plausibly
+    // complete — don't restart it on a duplicate discovery frame.
+    if (
+      this.slotNeverConnectedTimeoutMs > 0 &&
+      (state === "new" || state === "connecting") &&
+      performance.now() - slot.createdAt < this.slotNeverConnectedTimeoutMs
+    ) {
+      return;
+    }
+    // Anything else — a stuck or dead connection, or one whose channel
+    // never opened — is a stale slot from an earlier incarnation.
+    // tearDownWedgedSlot removes it from the map and emits
+    // `peer-disconnected` so Automerge stops routing through it; the
+    // caller's dial path then rebuilds against the fresh peer.
+    this.tearDownWedgedSlot(remotePeerId);
   }
 
   /** Construct an initiating slot inside a per-peer try/catch and
