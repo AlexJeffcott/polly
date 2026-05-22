@@ -23,6 +23,8 @@ export type SelectProps<T = string> = {
   placeholder?: string;
   multiSelect?: boolean;
   disabled?: boolean;
+  /** Apply a comfortable minimum width to the trigger. Default: sizes to content. */
+  wide?: boolean;
   className?: string;
   id?: string;
 };
@@ -44,6 +46,7 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
     placeholder = "Select\u2026",
     multiSelect = false,
     disabled = false,
+    wide = false,
     className,
     id,
   } = props;
@@ -77,13 +80,15 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
     selected.value = new Set();
   };
 
-  const triggerClass = isEmpty.value
-    ? `${classes["trigger"]} ${classes["placeholder"]}`
-    : classes["trigger"];
-  const triggerButton = (
-    <button type="button" class={triggerClass} disabled={disabled}>
-      {displayText.value}
-    </button>
+  const triggerParts = [classes["trigger"] ?? ""];
+  if (isEmpty.value) triggerParts.push(classes["placeholder"] ?? "");
+  if (wide) triggerParts.push(classes["triggerWide"] ?? "");
+  const triggerClass = triggerParts.filter(Boolean).join(" ");
+  const triggerContent = (
+    <>
+      <span class={classes["triggerLabel"]}>{displayText.value}</span>
+      <span class={classes["caret"]} aria-hidden="true" />
+    </>
   );
 
   const parts = [classes["select"] ?? ""];
@@ -92,7 +97,13 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
   return (
     <div id={id} class={parts.filter(Boolean).join(" ")} data-polly-ui data-polly-select>
       {label !== undefined && <span class={classes["label"]}>{label}</span>}
-      <Dropdown isOpen={isOpen} trigger={triggerButton} multiSelect={multiSelect}>
+      <Dropdown
+        isOpen={isOpen}
+        trigger={triggerContent}
+        triggerClassName={triggerClass}
+        triggerDisabled={disabled}
+        multiSelect={multiSelect}
+      >
         {multiSelect && (
           <div class={classes["actions"]}>
             <Layout columns="1fr 1fr" gap="var(--polly-space-xs)">

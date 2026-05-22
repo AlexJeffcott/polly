@@ -30,6 +30,8 @@ const { Surface } = await import("../../src/polly-ui/Surface.tsx");
 const { Button } = await import("../../src/polly-ui/Button.tsx");
 const { ActionInput } = await import("../../src/polly-ui/ActionInput.tsx");
 const { ActionSelect } = await import("../../src/polly-ui/ActionSelect.tsx");
+const { Select } = await import("../../src/polly-ui/Select.tsx");
+const { signal } = await import("@preact/signals");
 const { dispatchAction } = await import("../../src/polly-ui/internal/dispatch-action.ts");
 
 function mount<P>(vnode: VNode<P>): HTMLElement {
@@ -347,5 +349,85 @@ describe("ActionSelect", () => {
     );
     expect(el.getAttribute("data-status-select")).toBe("true");
     expect(el.getAttribute("data-polly-action-select")).not.toBeNull();
+  });
+
+  test("trigger is a single <button> carrying a caret affordance (polly#131)", () => {
+    const el = rendered(
+      mount(
+        h(ActionSelect, {
+          value: "open",
+          action: "task:set-status",
+          options: [
+            { value: "open", label: "Open" },
+            { value: "done", label: "Done" },
+          ],
+        })
+      )
+    );
+    const button = el.querySelector("[data-polly-dropdown] > button");
+    // The interactive element is the styled box itself — not a styled
+    // <span> nested inside an unstyled <button>.
+    expect(button).not.toBeNull();
+    expect(button?.textContent).toContain("Open");
+    // A caret marks it as a dropdown; it is hidden from the a11y tree.
+    const caret = button?.querySelector('[aria-hidden="true"]');
+    expect(caret).not.toBeNull();
+    // Nothing interactive is nested inside the trigger button.
+    expect(button?.querySelector("button, select, input")).toBeNull();
+  });
+
+  test("disabled trigger renders as static text with no caret (polly#131)", () => {
+    const el = rendered(
+      mount(
+        h(ActionSelect, {
+          value: "open",
+          action: "task:set-status",
+          disabled: true,
+          options: [{ value: "open", label: "Open" }],
+        })
+      )
+    );
+    // No Dropdown, no interactive trigger, no caret affordance.
+    expect(el.querySelector("[data-polly-dropdown]")).toBeNull();
+    expect(el.querySelector("button")).toBeNull();
+    expect(el.querySelector('[aria-hidden="true"]')).toBeNull();
+    expect(el.textContent).toContain("Open");
+  });
+});
+
+describe("Select", () => {
+  test("trigger is the <button> itself, with a caret, no nested button (polly#131)", () => {
+    const el = rendered(
+      mount(
+        h(Select, {
+          selected: signal(new Set(["a"])),
+          options: [
+            { value: "a", label: "Alpha" },
+            { value: "b", label: "Beta" },
+          ],
+        })
+      )
+    );
+    const button = el.querySelector("[data-polly-dropdown] > button");
+    expect(button).not.toBeNull();
+    expect(button?.textContent).toContain("Alpha");
+    expect(button?.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    // The old shape nested a styled <button> inside Dropdown's button.
+    expect(button?.querySelector("button")).toBeNull();
+  });
+
+  test("disabled propagates to the trigger button (polly#131)", () => {
+    const el = rendered(
+      mount(
+        h(Select, {
+          selected: signal(new Set<string>()),
+          disabled: true,
+          options: [{ value: "a", label: "Alpha" }],
+        })
+      )
+    );
+    const button = el.querySelector("[data-polly-dropdown] > button");
+    expect(button).not.toBeNull();
+    expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 });

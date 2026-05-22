@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.74.0] - 2026-05-22
+
+### Fixed
+
+#### `<ActionSelect>` and `<Select>` triggers render as proper dropdowns (polly#131)
+
+`<Dropdown>` wraps whatever trigger it is given in its own `<button>`.
+`<ActionSelect>` passed it a styled `<span>`, so the visible bordered
+box and the focusable, clickable element were two different DOM nodes
+that could drift apart; `<Select>` passed a styled `<button>`, nesting
+one button inside another. Neither trigger carried a caret, so the
+control was indistinguishable from a plain text input, and a
+hardcoded `min-width: 140px` made every select wider than its
+contents needed.
+
+`<Dropdown>` now accepts `triggerClassName` and `triggerDisabled`
+props and styles its own button directly, so the border, background,
+and a `▾` caret all land on the single interactive element. The
+trigger sizes to its content by default; a new `wide` prop on
+`<Select>` and `<ActionSelect>` opts back into a comfortable minimum
+width where it is wanted. A disabled `<ActionSelect>` still renders as
+static text, now without a caret.
+
 ## [0.73.1] - 2026-05-21
 
 ### Fixed

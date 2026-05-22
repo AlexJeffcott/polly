@@ -9,9 +9,11 @@
  * <ActionInput> and <ActionForm>, with no synthetic signal or bridging
  * `effect` required.
  *
- * Composes <Dropdown> for the menu. The trigger is a plain <span> (not a
- * nested <button>) so the Dropdown's own button is the single
- * interactive element. A disabled ActionSelect renders as static text.
+ * Composes <Dropdown> for the menu. The trigger styling is applied
+ * directly to Dropdown's own <button> via `triggerClassName`, so the
+ * visible box and the interactive element are one and the same node —
+ * no styled <span> nested inside an unstyled <button>. A disabled
+ * ActionSelect renders as static text without a caret.
  */
 
 import { useSignal } from "@preact/signals";
@@ -36,6 +38,8 @@ export type ActionSelectProps = PassthroughAttrs & {
   /** Trigger text shown when `value` matches no option. Default: "Select…". */
   placeholder?: string;
   disabled?: boolean;
+  /** Apply a comfortable minimum width to the trigger. Default: sizes to content. */
+  wide?: boolean;
   className?: string;
   id?: string;
 };
@@ -56,6 +60,7 @@ export function ActionSelect(props: ActionSelectProps): JSX.Element {
     label,
     placeholder = "Select…",
     disabled = false,
+    wide = false,
     className,
     id,
   } = props;
@@ -72,9 +77,10 @@ export function ActionSelect(props: ActionSelectProps): JSX.Element {
     dispatchAction(action, { ...(actionData ?? {}), value: next });
   };
 
-  const triggerClass = isEmpty
-    ? `${classes["trigger"]} ${classes["placeholder"]}`
-    : classes["trigger"];
+  const triggerParts = [classes["trigger"] ?? ""];
+  if (isEmpty) triggerParts.push(classes["placeholder"] ?? "");
+  if (wide) triggerParts.push(classes["triggerWide"] ?? "");
+  const triggerClass = triggerParts.filter(Boolean).join(" ");
 
   const parts = [classes["select"] ?? ""];
   if (className) parts.push(className);
@@ -91,10 +97,19 @@ export function ActionSelect(props: ActionSelectProps): JSX.Element {
       {label !== undefined && <span class={classes["label"]}>{label}</span>}
       {disabled ? (
         <span class={triggerClass} aria-disabled="true">
-          {displayText}
+          <span class={classes["triggerLabel"]}>{displayText}</span>
         </span>
       ) : (
-        <Dropdown isOpen={isOpen} trigger={<span class={triggerClass}>{displayText}</span>}>
+        <Dropdown
+          isOpen={isOpen}
+          triggerClassName={triggerClass}
+          trigger={
+            <>
+              <span class={classes["triggerLabel"]}>{displayText}</span>
+              <span class={classes["caret"]} aria-hidden="true" />
+            </>
+          }
+        >
           {options.map((opt) => {
             const isSelected = opt.value === value;
             const optClass = isSelected
