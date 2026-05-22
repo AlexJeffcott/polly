@@ -8,13 +8,15 @@
 // docs/architecture.dsl contains pinned context and component
 // identifiers.
 //
-// Scope: --generate only. --export wraps Docker and warrants its own
-// script.
+// Scope: `generate`, with and without `--snapshot`. `--export` wraps
+// Docker and warrants its own script.
 //
 // Examples covered:
 //   minimal           — single-package extension, runs at example root
 //   elysia-todo-app   — workspace, runs from server/
 //   webrtc-p2p-chat   — workspace, runs from server/
+//   mesh-overlay      — polly#127: `generate --snapshot` overlays a
+//                       captured MeshClientPeerStateSnapshot
 //
 // On failure the tmp dir is retained and printed so the generated DSL
 // can be inspected in place. On success the tmp dir is removed.
@@ -51,6 +53,10 @@ type Case = {
   minComponents: number;
   expectedExternalSystems?: string[];
   minRelationships?: number;
+  /** polly#127: snapshot file (relative to the run cwd) passed via
+   * `generate --snapshot`. When set, the DSL is checked for the runtime
+   * mesh overlay. */
+  snapshot?: string;
 };
 
 type Result = {
@@ -114,6 +120,19 @@ const cases: Case[] = [
     ],
     minComponents: 9,
   },
+  {
+    // polly#127: the mesh-app fixture declares two $meshState documents;
+    // its committed snapshot.json overlays runtime peers and
+    // sync-state-coloured edges onto them through the real CLI.
+    label: "mesh-overlay",
+    examplePath: "packages/polly/tools/visualize/src/__tests__/fixtures/mesh-app",
+    cwdSubpath: "",
+    expectedWorkspace: "test-mesh-app",
+    expectedContainers: ["server", "mesh_doc_chat_rooms", "mesh_doc_chat_presence"],
+    expectedComponents: [],
+    minComponents: 0,
+    snapshot: "snapshot.json",
+  },
 ];
 
 let dockerProbe: Promise<boolean> | null = null;
@@ -176,7 +195,8 @@ async function runOne(c: Case): Promise<Result> {
 
   const cwd = c.cwdSubpath ? path.join(exampleCopy, c.cwdSubpath) : exampleCopy;
 
-  const proc = Bun.spawn(["bun", POLLY_CLI, "visualize"], {
+  const cliArgs = c.snapshot ? ["visualize", "generate", "--snapshot", c.snapshot] : ["visualize"];
+  const proc = Bun.spawn(["bun", POLLY_CLI, ...cliArgs], {
     cwd,
     stdout: "pipe",
     stderr: "pipe",
@@ -280,6 +300,38 @@ function checkDsl(c: Case, dsl: string): string[] {
     if (relCount < c.minRelationships) {
       failures.push(`expected ≥${c.minRelationships} relationships, got ${relCount}`);
     }
+  }
+
+  if (c.snapshot) failures.push(...checkOverlay(dsl));
+
+  return failures;
+}
+
+/**
+ * polly#127: assert the runtime mesh overlay reached the DSL — a peer
+ * `person` node, status-coloured edges into the static mesh documents,
+ * a snapshot-only node, and the `sync:*` relationship styles.
+ */
+function checkOverlay(dsl: string): string[] {
+  const failures: string[] = [];
+
+  if (!dsl.includes('person "peer-aa11"')) {
+    failures.push("overlay peer node peer-aa11 not found");
+  }
+  if (!dsl.includes('tags "Local Mesh Peer"')) {
+    failures.push("local peer is not tagged");
+  }
+  for (const tag of ["sync:has", "sync:wants", "sync:unavailable", "sync:unknown"]) {
+    if (!dsl.includes(`tags "${tag}"`)) failures.push(`overlay edge tag ${tag} not found`);
+    if (!dsl.includes(`relationship "${tag}"`)) {
+      failures.push(`overlay relationship style ${tag} not found`);
+    }
+  }
+  if (!/->\s*extension\.mesh_doc_chat_rooms\b/.test(dsl)) {
+    failures.push("overlay edge into mesh_doc_chat_rooms not found");
+  }
+  if (!dsl.includes('tags "Snapshot Document"')) {
+    failures.push("snapshot-only document node not found");
   }
 
   return failures;

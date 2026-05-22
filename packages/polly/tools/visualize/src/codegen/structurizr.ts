@@ -1,11 +1,17 @@
 // Structurizr DSL generator
 
+import { deriveDocumentId } from "../../../../src/shared/lib/derive-document-id";
+import type {
+  MeshClientHandleSnapshot,
+  MeshClientPeerStateSnapshot,
+} from "../../../../src/shared/lib/mesh-client";
 import type {
   ArchitectureAnalysis,
   ContextInfo,
   MessageFlow,
   MessageHandler,
 } from "../../../analysis/src";
+import { collectSnapshotPeerIds } from "../mesh-snapshot";
 import type {
   ComponentGroup,
   ComponentProperties,
@@ -19,6 +25,8 @@ import {
   DEFAULT_ELEMENT_STYLES,
   DEFAULT_RELATIONSHIP_STYLES,
   DEFAULT_THEME,
+  MESH_OVERLAY_ELEMENT_STYLES,
+  MESH_OVERLAY_RELATIONSHIP_STYLES,
 } from "../types/structurizr";
 
 // Re-export the enhanced type
@@ -53,9 +61,65 @@ const MESH_TRANSPORT_NODES = [
   },
 ] as const;
 
+/**
+ * polly#127: the four `peerDocumentStatus` buckets the overlay colours
+ * by. Automerge reports `"has"`, `"wants"`, `"unavailable"`, and
+ * `"unknown"`; an absent status (handle exists but the synchronizer
+ * has not learned the peer's state yet) also folds into `"unknown"`.
+ */
+type SyncStatus = "has" | "wants" | "unavailable" | "unknown";
+
+/** Reduce a handle snapshot to its overlay status bucket. */
+function syncStatusOf(handle: MeshClientHandleSnapshot): SyncStatus {
+  const status = handle.peerDocumentStatus;
+  if (status === "has" || status === "wants" || status === "unavailable") {
+    return status;
+  }
+  return "unknown";
+}
+
+/** A runtime peer node synthesised from the snapshot. */
+interface OverlayPeer {
+  /** DSL identifier (`peer_<id>`). */
+  id: string;
+  /** Raw peer id from the snapshot. */
+  peerId: string;
+  /** True for the peer whose snapshot this is. */
+  isLocal: boolean;
+}
+
+/** A status-coloured replication edge from a peer to a mesh document. */
+interface OverlayEdge {
+  /** Source peer DSL identifier. */
+  fromId: string;
+  /** Fully-qualified target document reference. */
+  toRef: string;
+  /** The `peerDocumentStatus` bucket — drives the `sync:<status>` tag. */
+  status: SyncStatus;
+  /** Edge label, reflecting the #112 synchronizer diagnostics. */
+  label: string;
+}
+
+/** A mesh document the snapshot references but static analysis missed. */
+interface SnapshotOnlyDoc {
+  /** DSL identifier (`mesh_doc_<id>`). */
+  id: string;
+  /** The resolved document id. */
+  docId: string;
+}
+
+/** Everything the snapshot contributes to the diagram. */
+interface OverlayPlan {
+  peers: OverlayPeer[];
+  edges: OverlayEdge[];
+  snapshotOnlyDocs: SnapshotOnlyDoc[];
+}
+
 export class StructurizrDSLGenerator {
   private analysis: ArchitectureAnalysis;
   private options: StructurizrDSLOptions;
+  /** polly#127: memoised runtime-snapshot overlay plan. */
+  private overlayPlanCache: OverlayPlan | undefined;
 
   constructor(analysis: ArchitectureAnalysis, options: StructurizrDSLOptions = {}) {
     this.analysis = analysis;
@@ -75,10 +139,14 @@ export class StructurizrDSLGenerator {
         theme: options.styles?.theme || DEFAULT_THEME,
         elements: {
           ...DEFAULT_ELEMENT_STYLES,
+          // polly#127: overlay element styles only join the set when a
+          // snapshot is supplied, keeping the static diagram unchanged.
+          ...(options.snapshot ? MESH_OVERLAY_ELEMENT_STYLES : {}),
           ...options.styles?.elements,
         },
         relationships: {
           ...DEFAULT_RELATIONSHIP_STYLES,
+          ...(options.snapshot ? MESH_OVERLAY_RELATIONSHIP_STYLES : {}),
           ...options.styles?.relationships,
         },
       },
@@ -132,6 +200,11 @@ export class StructurizrDSLGenerator {
 
     parts.push("  model {");
     parts.push(this.generatePeople());
+
+    // polly#127: runtime mesh peers synthesised from a captured snapshot
+    const meshPeers = this.generateMeshPeers();
+    if (meshPeers) parts.push(meshPeers);
+
     parts.push(this.generateExternalSystems());
     parts.push(this.generateMainSystem());
 
@@ -201,6 +274,11 @@ export class StructurizrDSLGenerator {
     // polly#114: mesh/peer documents as first-class nodes
     const meshDocs = this.generateMeshDocuments();
     if (meshDocs) parts.push(meshDocs);
+
+    // polly#127: documents the runtime snapshot references but static
+    // analysis never found
+    const snapshotDocs = this.generateSnapshotOnlyDocuments();
+    if (snapshotDocs) parts.push(snapshotDocs);
 
     // polly#114: the transport stack mesh documents sync through
     const meshTransport = this.generateMeshTransport();
@@ -867,6 +945,7 @@ export class StructurizrDSLGenerator {
     parts.push(...this.generateExternalAPIRelationships());
     parts.push(...this.generateMeshRelationships());
     parts.push(...this.generateMeshTransportRelationships());
+    parts.push(...this.generateMeshOverlayRelationships());
 
     return parts.join("\n");
   }
@@ -960,6 +1039,187 @@ export class StructurizrDSLGenerator {
       parts.push(
         `      extension.${this.meshDocId(sig.key)} -> extension.${target} "syncs through"`
       );
+    }
+    return parts;
+  }
+
+  /**
+   * polly#127: resolve the captured snapshot into the peers, edges, and
+   * snapshot-only documents it contributes. Memoised — the result is
+   * read by the model, system, and relationship passes.
+   */
+  private getOverlayPlan(): OverlayPlan | undefined {
+    const snapshot = this.options.snapshot;
+    if (!snapshot) return undefined;
+    if (!this.overlayPlanCache) {
+      this.overlayPlanCache = this.buildOverlayPlan(snapshot);
+    }
+    return this.overlayPlanCache;
+  }
+
+  /** Build the overlay plan from a validated snapshot. */
+  private buildOverlayPlan(snapshot: MeshClientPeerStateSnapshot): OverlayPlan {
+    const docIdToNode = this.buildDocIdNodeMap();
+    const { peers, peerDslById } = this.buildOverlayPeers(snapshot);
+    const { edges, snapshotOnlyDocs } = this.buildOverlayEdges(snapshot, docIdToNode, peerDslById);
+    return { peers, edges, snapshotOnlyDocs };
+  }
+
+  /**
+   * Resolve each static mesh/peer signal's logical key to its Automerge
+   * document id, so a snapshot handle (keyed by document id) can be
+   * matched back to the static `mesh_doc_*` node.
+   */
+  private buildDocIdNodeMap(): Map<string, string> {
+    const docIdToNode = new Map<string, string>();
+    const seenKeys = new Set<string>();
+    for (const sig of this.analysis.meshOrPeerSignals ?? []) {
+      if (seenKeys.has(sig.key)) continue;
+      seenKeys.add(sig.key);
+      docIdToNode.set(String(deriveDocumentId(sig.key)), this.meshDocId(sig.key));
+    }
+    return docIdToNode;
+  }
+
+  /** Synthesise one peer node per distinct peer id, with collision-safe
+   * DSL identifiers. */
+  private buildOverlayPeers(snapshot: MeshClientPeerStateSnapshot): {
+    peers: OverlayPeer[];
+    peerDslById: Map<string, string>;
+  } {
+    const peers: OverlayPeer[] = [];
+    const peerDslById = new Map<string, string>();
+    const usedPeerIds = new Set<string>();
+    for (const peerId of collectSnapshotPeerIds(snapshot)) {
+      const base = `peer_${this.toId(peerId)}`;
+      let id = base;
+      let suffix = 2;
+      while (usedPeerIds.has(id)) id = `${base}_${suffix++}`;
+      usedPeerIds.add(id);
+      peerDslById.set(peerId, id);
+      peers.push({ id, peerId, isLocal: peerId === snapshot.localPeerId });
+    }
+    return { peers, peerDslById };
+  }
+
+  /** Walk every peer's handles into status edges, collecting any
+   * document the snapshot mentions that static analysis never found. */
+  private buildOverlayEdges(
+    snapshot: MeshClientPeerStateSnapshot,
+    docIdToNode: Map<string, string>,
+    peerDslById: Map<string, string>
+  ): { edges: OverlayEdge[]; snapshotOnlyDocs: SnapshotOnlyDoc[] } {
+    const edges: OverlayEdge[] = [];
+    const snapshotOnlyDocs: SnapshotOnlyDoc[] = [];
+    const snapshotOnlyById = new Map<string, string>();
+    for (const peer of snapshot.peers) {
+      const handles = peer.slot?.handles;
+      const fromId = peerDslById.get(peer.peerId);
+      if (!handles || !fromId) continue;
+      for (const [docId, handle] of Object.entries(handles)) {
+        const nodeId = this.resolveOverlayDocNode(
+          docId,
+          docIdToNode,
+          snapshotOnlyById,
+          snapshotOnlyDocs
+        );
+        const status = syncStatusOf(handle);
+        edges.push({
+          fromId,
+          toRef: `extension.${nodeId}`,
+          status,
+          label: this.overlayEdgeLabel(status, handle),
+        });
+      }
+    }
+    return { edges, snapshotOnlyDocs };
+  }
+
+  /** Map a snapshot handle's document id onto a diagram node: a static
+   * `mesh_doc_*` node when one matches, otherwise a snapshot-only node
+   * registered on first sight. */
+  private resolveOverlayDocNode(
+    docId: string,
+    docIdToNode: Map<string, string>,
+    snapshotOnlyById: Map<string, string>,
+    snapshotOnlyDocs: SnapshotOnlyDoc[]
+  ): string {
+    const staticNode = docIdToNode.get(docId);
+    if (staticNode) return staticNode;
+    const existing = snapshotOnlyById.get(docId);
+    if (existing) return existing;
+    const nodeId = `mesh_doc_${this.toId(docId)}`;
+    snapshotOnlyById.set(docId, nodeId);
+    snapshotOnlyDocs.push({ id: nodeId, docId });
+    return nodeId;
+  }
+
+  /**
+   * polly#127: the edge label carries the status and, when the #112
+   * synchronizer diagnostics show a degraded handle, the fingerprint —
+   * a missing docSynchronizer or a synchronizer that never learned the
+   * peer.
+   */
+  private overlayEdgeLabel(status: SyncStatus, handle: MeshClientHandleSnapshot): string {
+    if (!handle.docSynchronizerExists) return `${status} · no synchronizer`;
+    if (handle.docSynchronizerKnowsPeer === false) return `${status} · peer not added`;
+    return status;
+  }
+
+  /**
+   * polly#127: emit each runtime peer as a `person` at model scope. The
+   * local peer is tagged distinctly from the remote peers.
+   */
+  private generateMeshPeers(): string {
+    const plan = this.getOverlayPlan();
+    if (!plan || plan.peers.length === 0) return "";
+
+    const parts: string[] = [];
+    for (const peer of plan.peers) {
+      const tag = peer.isLocal ? "Local Mesh Peer" : "Mesh Peer";
+      const description = peer.isLocal ? "Local mesh peer (this node)" : "Runtime mesh peer";
+      parts.push(`    ${peer.id} = person "${this.escape(peer.peerId)}" "${description}" {`);
+      parts.push(`      tags "${tag}"`);
+      parts.push("    }");
+    }
+    return parts.join("\n");
+  }
+
+  /**
+   * polly#127: emit a container for each document the snapshot
+   * references that the static analysis did not find — drawn distinctly
+   * so it reads as runtime-only rather than dropped.
+   */
+  private generateSnapshotOnlyDocuments(): string {
+    const plan = this.getOverlayPlan();
+    if (!plan || plan.snapshotOnlyDocs.length === 0) return "";
+
+    const parts: string[] = [];
+    for (const doc of plan.snapshotOnlyDocs) {
+      const description = `Mesh document seen only in the runtime snapshot — docId ${doc.docId}`;
+      parts.push(
+        `      ${doc.id} = container "${this.escape(doc.docId)}" "${this.escape(description)}" "snapshot" {`
+      );
+      parts.push('        tags "Snapshot Document"');
+      parts.push("      }");
+    }
+    return parts.join("\n");
+  }
+
+  /**
+   * polly#127: emit a `sync:<status>`-tagged edge from each peer to the
+   * mesh document it holds a handle for, colour-coded by the live
+   * `peerDocumentStatus`.
+   */
+  private generateMeshOverlayRelationships(): string[] {
+    const plan = this.getOverlayPlan();
+    if (!plan) return [];
+
+    const parts: string[] = [];
+    for (const edge of plan.edges) {
+      parts.push(`      ${edge.fromId} -> ${edge.toRef} "${this.escape(edge.label)}" {`);
+      parts.push(`        tags "sync:${edge.status}"`);
+      parts.push("      }");
     }
     return parts;
   }

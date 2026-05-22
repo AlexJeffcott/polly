@@ -3,9 +3,11 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { MeshClientPeerStateSnapshot } from "../../../src/shared/lib/mesh-client";
 import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
 import type { ArchitectureAnalysis } from "../../analysis/src/types/architecture";
 import { generateStructurizrDSL } from "./codegen/structurizr";
+import { collectSnapshotPeerIds, loadMeshSnapshot, MeshSnapshotError } from "./mesh-snapshot";
 import { exportDiagrams } from "./runner/export";
 
 const COLORS = {
@@ -28,7 +30,7 @@ async function main() {
   switch (command) {
     case "--generate":
     case "generate":
-      await generateCommand();
+      await generateCommand(args.slice(1));
       break;
 
     case "--export":
@@ -49,22 +51,78 @@ async function main() {
       break;
 
     default:
-      await generateCommand();
+      await generateCommand(args);
   }
 }
 
-async function generateCommand() {
+async function generateCommand(args: string[]) {
   console.log(color("\n📊 Analyzing architecture...\n", COLORS.blue));
 
   try {
+    const { snapshotPath } = parseGenerateArgs(args);
+    const snapshot = snapshotPath ? loadAndReportSnapshot(snapshotPath) : undefined;
     const { tsConfigPath, projectRoot } = findAndDisplayProjectConfig();
     const analysis = await analyzeAndDisplayResults(tsConfigPath, projectRoot);
-    const dslPath = generateAndWriteDSL(analysis);
+    const dslPath = generateAndWriteDSL(analysis, snapshot);
     displayNextSteps(dslPath);
   } catch (_error) {
     // Error details logged by underlying functions
     process.exit(1);
   }
+}
+
+/** Parse the options `polly visualize generate` accepts. */
+function parseGenerateArgs(args: string[]): { snapshotPath?: string } {
+  const result: { snapshotPath?: string } = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--snapshot") {
+      const next = args[i + 1];
+      if (!next || next.startsWith("--")) {
+        console.log(color("\n✗ --snapshot requires a file path\n", COLORS.red));
+        process.exit(1);
+      }
+      result.snapshotPath = next;
+      i++;
+    } else if (arg?.startsWith("--snapshot=")) {
+      result.snapshotPath = arg.slice("--snapshot=".length);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * polly#127: load a captured `MeshClientPeerStateSnapshot`. A malformed
+ * file is a clear error and a non-zero exit with no partial DSL. An
+ * empty snapshot (no peers beyond the local node) falls back to the
+ * static diagram with a warning.
+ */
+function loadAndReportSnapshot(snapshotPath: string): MeshClientPeerStateSnapshot | undefined {
+  let snapshot: MeshClientPeerStateSnapshot;
+  try {
+    snapshot = loadMeshSnapshot(snapshotPath);
+  } catch (error) {
+    const message = error instanceof MeshSnapshotError ? error.message : String(error);
+    console.log(color(`\n✗ Snapshot error: ${message}\n`, COLORS.red));
+    process.exit(1);
+  }
+
+  const isEmpty =
+    snapshot.knownPeerIds.length === 0 &&
+    snapshot.presentPeerIds.length === 0 &&
+    snapshot.peers.length === 0;
+  if (isEmpty) {
+    console.log(
+      color("⚠ Snapshot has no peers — generating the static diagram only.", COLORS.yellow)
+    );
+    return undefined;
+  }
+
+  const peerCount = collectSnapshotPeerIds(snapshot).length;
+  console.log(color(`✓ Loaded runtime snapshot: ${peerCount} peer(s)`, COLORS.green));
+  return snapshot;
 }
 
 function findAndDisplayProjectConfig(): { tsConfigPath: string; projectRoot: string } {
@@ -127,7 +185,10 @@ function displayArchitectureSummary(analysis: ArchitectureAnalysis): void {
   }
 }
 
-function generateAndWriteDSL(analysis: ArchitectureAnalysis): string {
+function generateAndWriteDSL(
+  analysis: ArchitectureAnalysis,
+  snapshot?: MeshClientPeerStateSnapshot
+): string {
   console.log(color("\n📝 Generating Structurizr DSL...\n", COLORS.blue));
 
   const contextTypes = Object.keys(analysis.contexts);
@@ -135,6 +196,7 @@ function generateAndWriteDSL(analysis: ArchitectureAnalysis): string {
     includeDynamicDiagrams: true,
     includeComponentDiagrams: true,
     componentDiagramContexts: contextTypes.length > 0 ? contextTypes : ["background"],
+    snapshot,
   });
 
   const outputDir = path.join(process.cwd(), "docs");
@@ -305,6 +367,10 @@ ${color("Commands:", COLORS.blue)}
   ${color("bun visualize", COLORS.green)}
   ${color("bun visualize --generate", COLORS.green)}
     Analyze codebase and generate Structurizr DSL
+
+  ${color("bun visualize generate --snapshot <path>", COLORS.green)}
+    Overlay a captured MeshClientPeerStateSnapshot — runtime mesh peers
+    and sync-state-coloured replication edges — onto the diagram
 
   ${color("bun visualize --export", COLORS.green)}
     Generate static HTML site with interactive diagrams (requires Docker)

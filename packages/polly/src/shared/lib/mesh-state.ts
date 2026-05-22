@@ -40,10 +40,8 @@
 
 import {
   Automerge,
-  type BinaryDocumentId,
   type DocHandle,
   type DocumentId,
-  interpretAsDocumentId,
   type Repo,
 } from "@automerge/automerge-repo/slim";
 import nacl from "tweetnacl";
@@ -58,6 +56,7 @@ import {
   type TextDoc,
 } from "./crdt-specialised";
 import { $crdtState, type CrdtPrimitive } from "./crdt-state";
+import { deriveDocumentId } from "./derive-document-id";
 import type { Migrations, VersionedDoc } from "./schema-version";
 
 /** Common option shape across all four $mesh* primitives. */
@@ -502,29 +501,17 @@ function resolveRepo(option: Repo | undefined): Repo {
   return repo;
 }
 
-/**
- * Domain-separated hash of an application key into a 16-byte
- * {@link BinaryDocumentId}. SHA-512 via tweetnacl (already a dep for signing);
- * the first 16 bytes give a DocumentId with uniform distribution across the
- * Automerge id space. The domain prefix pins the derivation to $meshState so
- * that the same logical key used in a different Polly subsystem would
- * produce a different id.
- */
-const DOC_ID_DOMAIN = "polly/meshState/v1";
+/** Shared text encoder for the domain-separated key hashes in this
+ * module (the seed-actor derivation below). */
 const keyEncoder = new TextEncoder();
 
 /**
  * Domain-separated hash of an application key into a 16-byte
- * {@link DocumentId}. Exported so consumers can compute the
- * derived id for any logical key — useful for ADR 0008-style
- * document compaction where the consumer wants to seed a new doc
- * at `deriveDocumentId(key + ':v' + timestamp)` and stash that id
- * in a runtime index. */
-export function deriveDocumentId(key: string): DocumentId {
-  const digest = nacl.hash(keyEncoder.encode(`${DOC_ID_DOMAIN}:${key}`));
-  const bytes = digest.slice(0, 16);
-  return interpretAsDocumentId(bytes as unknown as BinaryDocumentId);
-}
+ * {@link DocumentId}. Lives in the {@link ./derive-document-id} leaf
+ * module so tooling can resolve a key without the mesh runtime;
+ * re-exported here to keep `@fairfox/polly/mesh` imports unchanged.
+ */
+export { deriveDocumentId };
 
 /**
  * Caller-installed resolver consulted at every `$mesh*` wrapper
@@ -725,8 +712,8 @@ function buildHandleFactory<D>(
  * ones and the top-level fields anchor to a single map. Subsequent per-key
  * writes use the peer's own random actor and merge cleanly.
  *
- * The domain prefix is separate from {@link DOC_ID_DOMAIN} so the seed-actor
- * derivation cannot collide with the docId derivation even if a future
+ * The domain prefix is separate from the docId derivation's prefix so
+ * the seed-actor derivation cannot collide with it even if a future
  * change reuses one of the byte ranges. */
 const SEED_ACTOR_DOMAIN = "polly/meshState/seedActor/v1";
 

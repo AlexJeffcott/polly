@@ -1,5 +1,7 @@
 // Strict types for Structurizr DSL generation
 
+import type { MeshClientPeerStateSnapshot } from "../../../../src/shared/lib/mesh-client";
+
 /**
  * Shape options for elements in Structurizr diagrams
  */
@@ -241,6 +243,14 @@ export interface StructurizrDSLOptions {
 
   /** Deployment nodes */
   deploymentNodes?: DeploymentNode[];
+
+  /**
+   * polly#127: a captured `MeshClientPeerStateSnapshot`. When present,
+   * the generator overlays runtime mesh peers and status-coloured
+   * replication edges onto the static `mesh_doc_*` nodes. Absent, the
+   * static diagram is emitted unchanged.
+   */
+  snapshot?: MeshClientPeerStateSnapshot;
 }
 
 /**
@@ -364,6 +374,63 @@ export const DEFAULT_RELATIONSHIP_STYLES: Record<string, RelationshipStyle> = {
     style: "Solid",
     thickness: 3,
     color: DEFAULT_COLORS.database,
+  },
+};
+
+/**
+ * polly#127: element styles for the runtime mesh-overlay. Merged into
+ * the style set only when a snapshot is supplied, so the static
+ * diagram stays byte-identical without one.
+ */
+export const MESH_OVERLAY_ELEMENT_STYLES: Record<string, ElementStyle> = {
+  // A runtime peer synthesised from the snapshot — another device's
+  // copy of the mesh, not part of this codebase.
+  "Mesh Peer": {
+    shape: "Person",
+    background: "#495057",
+    color: DEFAULT_COLORS.textLight,
+  },
+  // The peer whose snapshot this is — the local node.
+  "Local Mesh Peer": {
+    shape: "Person",
+    background: DEFAULT_COLORS.messageHandler,
+    color: DEFAULT_COLORS.textLight,
+  },
+  // A mesh document the snapshot references but the static analysis
+  // never found — drawn dashed to read as "runtime only".
+  "Snapshot Document": {
+    shape: "Cylinder",
+    background: "#adb5bd",
+    color: DEFAULT_COLORS.textDark,
+    border: "Dashed",
+  },
+};
+
+/**
+ * polly#127: relationship styles colouring each `peerDocumentStatus`.
+ * Keyed by the `sync:<status>` tag emitted on overlay edges. Merged in
+ * only alongside a snapshot.
+ */
+export const MESH_OVERLAY_RELATIONSHIP_STYLES: Record<string, RelationshipStyle> = {
+  "sync:has": {
+    color: "#2f9e44",
+    style: "Solid",
+    thickness: 3,
+  },
+  "sync:wants": {
+    color: "#f08c00",
+    style: "Dashed",
+    thickness: 2,
+  },
+  "sync:unavailable": {
+    color: "#e03131",
+    style: "Dashed",
+    thickness: 2,
+  },
+  "sync:unknown": {
+    color: "#868e96",
+    style: "Dotted",
+    thickness: 2,
   },
 };
 
