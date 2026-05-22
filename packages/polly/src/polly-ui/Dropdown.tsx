@@ -29,6 +29,15 @@ export type DropdownProps = {
   align?: "left" | "right";
   multiSelect?: boolean;
   className?: string;
+  /**
+   * Class applied to the trigger <button> in place of Dropdown's own
+   * default. Lets a composing component (Select, ActionSelect) style
+   * the single interactive element directly, with no styled node
+   * nested inside the button.
+   */
+  triggerClassName?: string;
+  /** Disables the trigger <button>. */
+  triggerDisabled?: boolean;
   id?: string;
 };
 
@@ -40,7 +49,17 @@ const MENU_GAP = 4;
 const VIEWPORT_PADDING = 8;
 
 export function Dropdown(props: DropdownProps): JSX.Element {
-  const { isOpen, trigger, children, align = "left", multiSelect = false, className, id } = props;
+  const {
+    isOpen,
+    trigger,
+    children,
+    align = "left",
+    multiSelect = false,
+    className,
+    triggerClassName,
+    triggerDisabled = false,
+    id,
+  } = props;
 
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -172,7 +191,12 @@ export function Dropdown(props: DropdownProps): JSX.Element {
 
   return (
     <div id={id} class={parts.filter(Boolean).join(" ")} data-polly-ui data-polly-dropdown>
-      <button ref={triggerRef} type="button" class={classes["trigger"]}>
+      <button
+        ref={triggerRef}
+        type="button"
+        class={triggerClassName ?? classes["trigger"] ?? ""}
+        disabled={triggerDisabled}
+      >
         {trigger}
       </button>
       <div

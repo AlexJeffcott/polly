@@ -11,9 +11,18 @@
     color: var(--polly-text-muted);
   }
 
+  /*
+   * The trigger is the single interactive element — applied directly
+   * to <Select>'s <button> and, via Dropdown's `triggerClassName`, to
+   * <ActionSelect>'s <button>. inline-flex lays out the label and the
+   * caret as siblings; intrinsic width by default (`.triggerWide`
+   * opts into a minimum).
+   */
   .trigger {
-    display: inline-block;
-    min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--polly-space-sm);
+    max-width: 100%;
     padding: var(--polly-space-sm) var(--polly-space-md);
     border: var(--polly-border-width-default) solid var(--polly-border);
     border-radius: var(--polly-radius-sm);
@@ -23,14 +32,40 @@
     color: var(--polly-text);
     text-align: left;
     cursor: pointer;
+  }
+
+  .trigger:disabled,
+  .trigger[aria-disabled="true"] {
+    opacity: var(--polly-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  /* Opt-in: widen short selects to a comfortable minimum. */
+  .triggerWide {
+    min-width: 140px;
+  }
+
+  /* The label shrinks (min-width: 0) so long text ellipsis-truncates
+     while the caret keeps its intrinsic size. */
+  .triggerLabel {
+    flex: 1 1 auto;
+    min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .trigger:disabled {
-    opacity: var(--polly-opacity-disabled);
-    cursor: not-allowed;
+  .caret {
+    flex: none;
+    color: var(--polly-text-muted);
+    pointer-events: none;
+  }
+
+  .caret::before {
+    content: "\25BE";
+    display: block;
+    font-size: var(--polly-text-xs);
+    line-height: 1;
   }
 
   .placeholder {
