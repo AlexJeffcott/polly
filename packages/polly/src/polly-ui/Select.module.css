@@ -59,13 +59,20 @@
     flex: none;
     color: var(--polly-text-muted);
     pointer-events: none;
+    transition: transform var(--polly-motion-fast) ease;
   }
 
   .caret::before {
     content: "\25BE";
     display: block;
-    font-size: var(--polly-text-xs);
+    font-size: var(--polly-text-md);
     line-height: 1;
+  }
+
+  /* When the dropdown is open the trigger carries data-open="true"
+     (set by Dropdown); flip the caret to point up. */
+  .trigger[data-open="true"] .caret {
+    transform: rotate(180deg);
   }
 
   .placeholder {

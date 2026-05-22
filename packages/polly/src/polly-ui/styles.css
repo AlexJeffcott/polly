@@ -113,6 +113,15 @@
     min-inline-size: 0;
   }
 
+  /* renderMarkdown output (polly#135). A fenced code block carries no
+   * polly class — it is raw sanitised HTML — so a long, unbreakable
+   * command line would stretch the page rather than scroll. Bound the
+   * <pre> to its container and let it scroll, matching <Code block>. */
+  [data-polly-markdown] pre {
+    max-inline-size: 100%;
+    overflow-x: auto;
+  }
+
   /* Honour reduced-motion by zeroing every motion token. The components
    * read only these tokens for their transitions, so a consumer preference
    * of "reduce" makes every animation instant. */

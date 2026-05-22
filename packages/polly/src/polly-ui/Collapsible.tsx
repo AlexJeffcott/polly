@@ -11,7 +11,9 @@ import type { ComponentChildren, JSX } from "preact";
 import classes from "./Collapsible.module.css";
 
 export type CollapsibleProps = {
-  summary: string;
+  /** Disclosure header. A string for the common case, or any node —
+   * e.g. a muted, small <Text> — when the header needs styling. */
+  summary: ComponentChildren;
   children: ComponentChildren;
   defaultOpen?: boolean;
   className?: string;

@@ -440,13 +440,33 @@ export const pollyUiComponents: readonly PollyUiComponent[] = [
     importPath: "@fairfox/polly/ui",
   },
   {
+    name: "FileInput",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Html",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
     name: "Layout",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Link",
     replaces: [],
     importPath: "@fairfox/polly/ui",
   },
   {
     name: "Modal",
     replaces: ["dialog"],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Output",
+    replaces: [],
     importPath: "@fairfox/polly/ui",
   },
   {

@@ -43,6 +43,9 @@ export type TextProps = PassthroughAttrs & {
   /** Italic emphasis — for hints and asides — without an inline style. */
   italic?: boolean;
 
+  /** Line-through — for completed todo items and superseded copy. */
+  strikethrough?: boolean;
+
   /** Token-backed line height. 'loose' suits multi-line body copy. */
   leading?: TextLeading;
 
@@ -60,6 +63,7 @@ export function Text(props: TextProps): JSX.Element {
     size,
     weight,
     italic,
+    strikethrough,
     leading,
     className,
     id,
@@ -70,6 +74,7 @@ export function Text(props: TextProps): JSX.Element {
   if (size) parts.push(classes[size]);
   if (weight) parts.push(classes[weight]);
   if (italic) parts.push(classes["italic"]);
+  if (strikethrough) parts.push(classes["strikethrough"]);
   if (leading) parts.push(classes[leading]);
   if (className) parts.push(className);
 

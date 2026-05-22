@@ -33,7 +33,9 @@ export type DropdownProps = {
    * Class applied to the trigger <button> in place of Dropdown's own
    * default. Lets a composing component (Select, ActionSelect) style
    * the single interactive element directly, with no styled node
-   * nested inside the button.
+   * nested inside the button. The trigger also carries a
+   * `data-open="true|false"` attribute mirroring `isOpen`, so the
+   * class can style open-state affordances (e.g. a rotating caret).
    */
   triggerClassName?: string;
   /** Disables the trigger <button>. */
@@ -196,6 +198,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
         type="button"
         class={triggerClassName ?? classes["trigger"] ?? ""}
         disabled={triggerDisabled}
+        data-open={isOpen.value ? "true" : "false"}
       >
         {trigger}
       </button>
