@@ -1,0 +1,127 @@
+{
+  "localPeerId": "peer-local-7c1d",
+  "knownPeerIds": ["peer-aa11", "peer-bb22", "peer-cc33"],
+  "presentPeerIds": ["peer-aa11", "peer-bb22"],
+  "sweep": {
+    "enabled": true,
+    "intervalMs": 15000,
+    "runCount": 12,
+    "lastRunAt": 184320.5
+  },
+  "peers": [
+    {
+      "peerId": "peer-aa11",
+      "knownInKeyring": true,
+      "presentInSignalling": true,
+      "slotInitiationDecision": {
+        "decision": "accepted",
+        "at": 184100.2
+      },
+      "slot": {
+        "signalingState": "stable",
+        "iceConnectionState": "connected",
+        "connectionState": "connected",
+        "dataChannelState": "open",
+        "pendingSendCount": 0,
+        "pendingRemoteIceCount": 0,
+        "lastSyncHandshakeAttempt": {
+          "dataChannelOpenedAt": 184010.0,
+          "peerCandidateEmittedAt": 184011.0,
+          "firstOutboundSendAt": 184012.0,
+          "firstInboundMessageAt": 184013.0
+        },
+        "createdAt": 184000.0,
+        "lastInboundAt": 184300.0,
+        "handles": {
+          "f7sSXAhTsVrbgbbMtQYATUVQbRy": {
+            "state": "ready",
+            "announcedToPeer": true,
+            "lastSyncMessageOutAt": 184200.0,
+            "lastSyncMessageInAt": 184250.0,
+            "lastSyncMessageOutSize": 512,
+            "lastSyncMessageOutType": "sync",
+            "docSynchronizerExists": true,
+            "docSynchronizerKnowsPeer": true,
+            "peerDocumentStatus": "has"
+          },
+          "2TWmaxBiQmvJtCrtQ6PTj4NX5eVE": {
+            "state": "ready",
+            "announcedToPeer": true,
+            "lastSyncMessageOutAt": 184210.0,
+            "lastSyncMessageInAt": 184220.0,
+            "lastSyncMessageOutSize": 96,
+            "lastSyncMessageOutType": "sync",
+            "docSynchronizerExists": true,
+            "docSynchronizerKnowsPeer": true,
+            "peerDocumentStatus": "wants"
+          }
+        }
+      }
+    },
+    {
+      "peerId": "peer-bb22",
+      "knownInKeyring": true,
+      "presentInSignalling": true,
+      "slotInitiationDecision": {
+        "decision": "accepted",
+        "at": 184105.7
+      },
+      "slot": {
+        "signalingState": "stable",
+        "iceConnectionState": "connected",
+        "connectionState": "connected",
+        "dataChannelState": "open",
+        "pendingSendCount": 1,
+        "pendingRemoteIceCount": 0,
+        "lastSyncHandshakeAttempt": {
+          "dataChannelOpenedAt": 184020.0,
+          "peerCandidateEmittedAt": 184021.0,
+          "firstOutboundSendAt": 184022.0
+        },
+        "createdAt": 184005.0,
+        "lastInboundAt": 184260.0,
+        "handles": {
+          "f7sSXAhTsVrbgbbMtQYATUVQbRy": {
+            "state": "ready",
+            "announcedToPeer": true,
+            "lastSyncMessageOutAt": 184230.0,
+            "lastSyncMessageOutSize": 512,
+            "lastSyncMessageOutType": "request",
+            "docSynchronizerExists": true,
+            "docSynchronizerKnowsPeer": false,
+            "peerDocumentStatus": "unavailable"
+          },
+          "3WvsPq9LxKmNbHgTfRcDaEuY7zJ2": {
+            "state": "unknown",
+            "announcedToPeer": false,
+            "lastSyncMessageInAt": 184240.0,
+            "docSynchronizerExists": false
+          }
+        }
+      }
+    },
+    {
+      "peerId": "peer-cc33",
+      "knownInKeyring": true,
+      "presentInSignalling": false,
+      "slotInitiationRejectionReason": "not-present-in-signalling",
+      "slotInitiationDecision": {
+        "decision": "rejected",
+        "reason": "not-present-in-signalling",
+        "at": 184108.1
+      }
+    }
+  ],
+  "meshStateModule": {
+    "moduleId": "mesh-state@a1b2c3",
+    "configured": true,
+    "lastConfiguredRepoPeerId": "peer-local-7c1d",
+    "wasResolved": true,
+    "lazyInvocations": 2,
+    "lazyReachedRepo": 2,
+    "lazyWrappers": [],
+    "lazyWrapperDuplicateDocIds": []
+  },
+  "repoHandleCount": 2,
+  "repoHandleIds": ["f7sSXAhTsVrbgbbMtQYATUVQbRy", "2TWmaxBiQmvJtCrtQ6PTj4NX5eVE"]
+}
