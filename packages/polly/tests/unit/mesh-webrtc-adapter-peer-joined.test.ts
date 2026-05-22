@@ -44,6 +44,7 @@ class FakeDataChannel {
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: ArrayBuffer | Uint8Array }) => void) | null = null;
   onclose: (() => void) | null = null;
+  onerror: ((ev: unknown) => void) | null = null;
   readyState = "connecting";
   close(): void {
     this.readyState = "closed";
@@ -53,12 +54,28 @@ class FakeDataChannel {
 }
 
 class FakePeerConnection {
+  // Every FakePeerConnection registers itself here so a test can reach
+  // the connection the adapter built for a peer and drive its
+  // `connectionState` — the polly#133 stale-slot tests need to put a
+  // slot into a dead or fully-live shape after construction.
+  static instances: FakePeerConnection[] = [];
+  static reset(): void {
+    FakePeerConnection.instances = [];
+  }
   onicecandidate: ((ev: { candidate: unknown }) => void) | null = null;
   onconnectionstatechange: (() => void) | null = null;
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null;
   connectionState = "new";
+  /** The data channel handed back from {@link createDataChannel} on an
+   * initiating slot, exposed so a test can flip its `readyState`. */
+  lastDataChannel: FakeDataChannel | undefined;
+  constructor() {
+    FakePeerConnection.instances.push(this);
+  }
   createDataChannel(_label: string, _options: unknown): FakeDataChannel {
-    return new FakeDataChannel();
+    const channel = new FakeDataChannel();
+    this.lastDataChannel = channel;
+    return channel;
   }
   async createOffer(): Promise<RTCSessionDescriptionInit> {
     return { type: "offer", sdp: "v=0\r\nfake\r\n" };
@@ -111,14 +128,17 @@ function createSignalingStub(peerId: string): {
 
 function buildAdapter(
   localPeerId: string,
-  knownPeerIds: string[]
+  knownPeerIds: string[],
+  overrides: { slotNeverConnectedTimeoutMs?: number } = {}
 ): { adapter: MeshWebRTCAdapter; sent: SentSignal[] } {
+  FakePeerConnection.reset();
   const { client, sent } = createSignalingStub(localPeerId);
   const adapter = new MeshWebRTCAdapter({
     signaling: client,
     peerId: localPeerId,
     knownPeerIds,
     RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
+    ...overrides,
   });
   return { adapter, sent };
 }
@@ -255,6 +275,123 @@ describe("MeshWebRTCAdapter peer-discovery dispatch", () => {
       adapter.handlePeerJoined("peer-b");
       await new Promise((r) => setTimeout(r, 0));
       expect(adapter.peerSlotCount()).toBe(2);
+    });
+  });
+
+  // ─── Polly issue #133 ──────────────────────────────────────────────────────
+  // A peer that reuses its peerId across short-lived sessions (a CLI
+  // `chat send` re-run from the same keyring is the canonical case)
+  // rejoins the signalling server under the same id. Before the fix, a
+  // slot left over from the peer's previous session wedged
+  // rediscovery: `evaluateInitiation`'s `slot-already-exists` gate
+  // refused the re-dial, so the survivor never reconnected until the
+  // idle watchdog reaped the corpse minutes later. handlePeerJoined /
+  // handlePeersPresent now treat the discovery frame as authoritative
+  // proof of a fresh signalling presence and evict a stale slot.
+  describe("stale-slot eviction on peer rejoin (polly#133)", () => {
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+
+    test("evicts a dead slot and re-dials when the peer rejoins", async () => {
+      // peer-b > peer-a, so peer-b is the initiator toward peer-a.
+      const { adapter, sent } = buildAdapter("peer-b", ["peer-a"]);
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      expect(sent).toHaveLength(1);
+      expect(adapter.peerSlotCount()).toBe(1);
+
+      // The peer's process exited; its connection died but the slot was
+      // never cleaned up (no `peer-left` reached us). Drive the fake
+      // connection into a terminal state to model the corpse.
+      const connection = FakePeerConnection.instances[0];
+      expect(connection).toBeDefined();
+      if (connection) connection.connectionState = "failed";
+
+      let disconnected = 0;
+      adapter.on("peer-disconnected", () => {
+        disconnected += 1;
+      });
+
+      // The same peerId rejoins the signalling roster.
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+
+      // The stale slot was torn down (one peer-disconnected emit) and a
+      // fresh offer fired against the reincarnated peer.
+      expect(disconnected).toBe(1);
+      expect(sent).toHaveLength(2);
+      expect(sent[1]?.targetPeerId).toBe("peer-a");
+      expect(adapter.peerSlotCount()).toBe(1);
+    });
+
+    test("keeps a live slot whose channel survived the peer's signalling reconnect", async () => {
+      const { adapter, sent } = buildAdapter("peer-b", ["peer-a"]);
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      expect(sent).toHaveLength(1);
+
+      // The slot is fully established — connection `connected`, data
+      // channel `open`. A `peer-joined` here means the peer reconnected
+      // its signalling socket but kept the direct WebRTC session.
+      const connection = FakePeerConnection.instances[0];
+      expect(connection).toBeDefined();
+      if (connection) {
+        connection.connectionState = "connected";
+        if (connection.lastDataChannel) connection.lastDataChannel.readyState = "open";
+      }
+
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+
+      // The healthy slot is left intact — no teardown, no re-dial.
+      expect(sent).toHaveLength(1);
+      expect(adapter.peerSlotCount()).toBe(1);
+    });
+
+    test("leaves a young in-flight handshake alone on a duplicate frame", async () => {
+      // Default slotNeverConnectedTimeoutMs (30s): a slot created
+      // moments ago is still negotiating and must not be restarted.
+      const { adapter, sent } = buildAdapter("peer-b", ["peer-a"]);
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      expect(sent).toHaveLength(1);
+      expect(adapter.peerSlotCount()).toBe(1);
+    });
+
+    test("evicts a slot stuck negotiating past the never-connected deadline", async () => {
+      // Tiny deadline so a slot that never leaves `new` counts as stale
+      // by the time the peer's next discovery frame arrives.
+      const { adapter, sent } = buildAdapter("peer-b", ["peer-a"], {
+        slotNeverConnectedTimeoutMs: 1,
+      });
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      expect(sent).toHaveLength(1);
+
+      // Let the slot age past the 1ms deadline while still at `new`.
+      await new Promise((r) => setTimeout(r, 10));
+
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      expect(sent).toHaveLength(2);
+      expect(adapter.peerSlotCount()).toBe(1);
+    });
+
+    test("handlePeersPresent also evicts a stale slot on a signalling reconnect", async () => {
+      const { adapter, sent } = buildAdapter("peer-b", ["peer-a"]);
+      adapter.handlePeerJoined("peer-a");
+      await flush();
+      expect(sent).toHaveLength(1);
+
+      const connection = FakePeerConnection.instances[0];
+      if (connection) connection.connectionState = "failed";
+
+      // A reconnected signalling client receives a fresh peers-present.
+      adapter.handlePeersPresent(["peer-a"]);
+      await flush();
+      expect(sent).toHaveLength(2);
+      expect(adapter.peerSlotCount()).toBe(1);
     });
   });
 });
