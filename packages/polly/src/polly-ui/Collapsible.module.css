@@ -5,13 +5,7 @@
     overflow: hidden;
   }
 
-  /* Flex row so the disclosure caret sits at the trailing edge and the
-     summary content takes the remaining inline space — matches the
-     Select trigger's right-side caret (polly#137). */
   .summary {
-    display: flex;
-    align-items: center;
-    gap: var(--polly-space-sm);
     padding: var(--polly-space-sm) var(--polly-space-md);
     cursor: pointer;
     font-family: inherit;
@@ -27,22 +21,16 @@
     display: none;
   }
 
-  /* Decorative caret — semantics live on the native <details>/<summary>;
-     this pseudo-element only signals the open state visually. Reads
-     from the shared --polly-caret-* tokens (polly#137). */
-  .summary::after {
-    content: var(--polly-caret-glyph);
-    display: block;
-    flex: none;
-    margin-inline-start: auto;
-    font-size: var(--polly-caret-size);
-    line-height: 1;
-    color: var(--polly-caret-color);
-    transition: transform var(--polly-motion-fast) ease;
+  .summary::before {
+    content: "\25B6";
+    display: inline-block;
+    margin-right: var(--polly-space-sm);
+    font-size: var(--polly-text-xs);
+    transition: transform var(--polly-motion-fast);
   }
 
-  .collapsible[open] > .summary::after {
-    transform: rotate(180deg);
+  .collapsible[open] > .summary::before {
+    transform: rotate(90deg);
   }
 
   .summary:hover {

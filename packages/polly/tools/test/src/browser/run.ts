@@ -82,24 +82,29 @@ console.log(`[browser-runner] signaling server on ws://127.0.0.1:${signalingPort
 
 // Launch browser
 //
-// protocolTimeout caps how long any single CDP call (e.g. page.evaluate)
-// waits before throwing. Puppeteer's default is 180s, so a stalled
-// renderer hangs the runner for three minutes. 30s fails fast while
-// still tolerating a slow-but-healthy initial sync.
+// No `protocolTimeout` override: results arrive via `page.exposeFunction`
+// (a push from the page over CDP `Runtime.bindingCalled` events), not via
+// polled `page.evaluate` calls. Without a long-running `Runtime.callFunctionOn`
+// on the hot path there is no protocol round-trip for a busy renderer to
+// stall, so the timeout the previous polling design had to guard against
+// is no longer reachable (polly#138).
 
 const browser = await puppeteer.launch({
   headless,
   args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  protocolTimeout: 30_000,
 });
 
 /**
  * Build, serve, and run one test file on a fresh page. Returns its
- * pass/fail tally. Build failures and test timeouts are reported here
- * (not thrown). A thrown error (e.g. a ProtocolError from a stalled
- * renderer) propagates to the caller so it can retry the file; the
- * page and server are always cleaned up first.
+ * pass/fail tally. Build failures are reported here (not thrown);
+ * a page-level uncaught error propagates so the suite records the
+ * file as failed. The page and server are always cleaned up first.
  */
+interface TestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+}
 async function runFile(testFile: string): Promise<FileTally> {
   const buildResult = await Bun.build({
     entrypoints: [testFile],
@@ -144,47 +149,38 @@ async function runFile(testFile: string): Promise<FileTally> {
 
   let page: Page | undefined;
   try {
-    page = await browser.newPage();
-    page.on("console", (msg) => {
+    const newPage = await browser.newPage();
+    page = newPage;
+    newPage.on("console", (msg) => {
       const text = msg.text();
       if (text.includes("[test]")) {
         console.log(`  ${text}`);
       }
     });
-    page.on("pageerror", (err: unknown) => {
-      console.log(`  ❌ page error: ${errMessage(err)}`);
+
+    // Push-based reporting (polly#138): the page calls back into Node via
+    // `__pollyReport(results)` when its in-page suite has finished. We
+    // bind that function and the page-error channel to a single Promise
+    // before navigating, then `await` it — no `page.evaluate` polling
+    // and no CDP timeout for a busy renderer to trip.
+    const outcome = new Promise<TestResult[]>((resolve, reject) => {
+      newPage
+        .exposeFunction("__pollyReport", (results: TestResult[]) => {
+          resolve(results);
+        })
+        .catch(reject);
+      newPage.on("pageerror", (err: unknown) => {
+        reject(err instanceof Error ? err : new Error(errMessage(err)));
+      });
     });
 
-    await page.goto(`http://127.0.0.1:${server.port}/`, { waitUntil: "domcontentloaded" });
+    await newPage.goto(`http://127.0.0.1:${server.port}/`, { waitUntil: "domcontentloaded" });
 
-    const timeout = 15_000;
-    const deadline = Date.now() + timeout;
-    let finished = false;
-    while (Date.now() < deadline) {
-      finished = await page.evaluate(
-        () => (window as unknown as Record<string, unknown>)["__done"] === true
-      );
-      if (finished) break;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-
-    if (!finished) {
-      console.log(`  ❌ timed out after ${timeout}ms`);
-      return { passed: 0, failed: 1 };
-    }
-
-    const results = await page.evaluate(
-      () =>
-        (window as unknown as Record<string, unknown>)["__testResults"] as unknown as Array<{
-          name: string;
-          passed: boolean;
-          error?: string;
-        }>
-    );
+    const results = await outcome;
 
     let passed = 0;
     let failed = 0;
-    for (const r of results ?? []) {
+    for (const r of results) {
       if (r.passed) {
         console.log(`  ✅ ${r.name}`);
         passed += 1;
@@ -195,11 +191,9 @@ async function runFile(testFile: string): Promise<FileTally> {
     }
     return { passed, failed };
   } finally {
-    // Always run, even on the error path. close() can itself throw a
-    // ProtocolError under a stall — swallow it so cleanup completes.
     if (page) {
       await page.close().catch(() => {
-        // ignore — page may already be gone after a stall
+        // ignore — page may already be gone after an uncaught error
       });
     }
     server.stop();

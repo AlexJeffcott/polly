@@ -83,7 +83,7 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
   {
     name: "polly-caret-size",
     category: "sizing",
-    default: "var(--polly-text-md)",
+    default: "var(--polly-text-xl)",
   },
   {
     name: "polly-control-height-lg",

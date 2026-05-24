@@ -216,7 +216,15 @@ export function cleanup(container: Element): void {
 }
 
 /**
- * Run all registered tests and write results to window.__testResults.
+ * Run all registered tests and report the tally to the Node-side runner.
+ *
+ * The runner injects `window.__pollyReport` (via Puppeteer's
+ * `page.exposeFunction`) before navigating, so reporting is a single
+ * push from the page to the runner — no polling, no waiting on a long-
+ * running CDP call from the Node side. Polled `page.evaluate` was the
+ * root cause of the intermittent `Runtime.callFunctionOn` stalls
+ * tracked in polly#138.
+ *
  * Call this at the end of every .browser.ts test file.
  */
 export async function done(): Promise<void> {
@@ -236,8 +244,14 @@ export async function done(): Promise<void> {
     }
   }
 
-  (window as unknown as Record<string, unknown>)["__testResults"] = results;
-  (window as unknown as Record<string, unknown>)["__done"] = true;
+  const report = (window as unknown as Record<string, unknown>)["__pollyReport"];
+  if (typeof report !== "function") {
+    throw new Error(
+      "harness.done(): window.__pollyReport is not defined. " +
+        "This harness must be driven by the Polly browser test runner."
+    );
+  }
+  (report as (r: TestResult[]) => void)(results);
 }
 
 /**
