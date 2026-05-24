@@ -80,13 +80,12 @@
     --polly-control-height-md: 2.25rem;
     --polly-control-height-lg: 2.75rem;
 
-    /* Disclosure caret — one glyph, one size, one colour shared across
-     * every disclosure-style primitive (Collapsible, Select / ActionSelect)
-     * so the indicator reads the same wherever it appears. Rotation
-     * magnitude stays per-use: a future primitive may want a quarter
-     * turn instead of a half turn (polly#137). */
+    /* Disclosure caret for dropdown-style triggers (Select, ActionSelect).
+     * Collapsible runs its own left-side marker — that's a different
+     * affordance from a dropdown's right-side ▾ and shouldn't track
+     * these tokens (polly#137). */
     --polly-caret-glyph: "\25BE";
-    --polly-caret-size: var(--polly-text-md);
+    --polly-caret-size: var(--polly-text-xl);
     --polly-caret-color: var(--polly-text-muted);
 
     /* Motion */
