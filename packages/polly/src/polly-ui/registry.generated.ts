@@ -71,6 +71,21 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     default: "4px",
   },
   {
+    name: "polly-caret-color",
+    category: "other",
+    default: "var(--polly-text-muted)",
+  },
+  {
+    name: "polly-caret-glyph",
+    category: "other",
+    default: '"\\25BE"',
+  },
+  {
+    name: "polly-caret-size",
+    category: "sizing",
+    default: "var(--polly-text-md)",
+  },
+  {
     name: "polly-control-height-lg",
     category: "sizing",
     default: "2.75rem",

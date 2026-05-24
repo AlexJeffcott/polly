@@ -57,15 +57,15 @@
 
   .caret {
     flex: none;
-    color: var(--polly-text-muted);
+    color: var(--polly-caret-color);
     pointer-events: none;
     transition: transform var(--polly-motion-fast) ease;
   }
 
   .caret::before {
-    content: "\25BE";
+    content: var(--polly-caret-glyph);
     display: block;
-    font-size: var(--polly-text-md);
+    font-size: var(--polly-caret-size);
     line-height: 1;
   }
 
