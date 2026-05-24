@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.2] - 2026-05-24
+
+### Fixed
+
+#### Restore the Collapsible's left-side caret (polly#137 follow-up)
+
+The previous fix unified the disclosure caret across `<Collapsible>`
+and the Select-family triggers by moving the Collapsible to a right-
+side ▾. That flattened a distinction worth keeping: a Collapsible
+discloses a panel of content; a dropdown trigger opens a menu. The
+two affordances should look different.
+
+The Collapsible's marker returns to a left-side ▶ that rotates to ▼
+on open. The dropdown triggers (`<Select>`, `<ActionSelect>`) keep
+the right-side ▾ they have settled on, now sized at `--polly-text-xl`
+so it is legible from across a form. The shared `--polly-caret-*`
+tokens still drive the dropdown-style controls; `<Collapsible>` no
+longer references them.
+
+#### Browser test runner no longer flakes on a transient CDP timeout (polly#138)
+
+The browser test runner drove each page by polling `window.__done`
+with `page.evaluate` every 100ms until the in-page suite finished.
+Every call was a `Runtime.callFunctionOn` round-trip, and a briefly
+busy renderer (GC, paint, sync work) could stall any one of them past
+Puppeteer's protocol timeout. The thrown `ProtocolError` looked like
+a runner bug, the previous workaround tried to absorb it with a
+single retry, and the flake still escaped roughly once in three to
+five runs.
+
+Results now arrive by push rather than poll. The runner exposes a
+`__pollyReport` function on `window` before navigating; the in-page
+harness's `done()` calls it once with the final tally. The runner
+awaits a single Promise that resolves on that callback or rejects on
+a page-level uncaught error. There is no periodic
+`Runtime.callFunctionOn`, no `protocolTimeout` override, and no
+retry branch — the failure mode they were patching no longer exists.
+
+Per-file isolation, the property polly#120 guarded, is unchanged: a
+thrown error from one file still fails only that file and the rest
+of the suite continues.
+
 ## [0.74.1] - 2026-05-22
 
 ### Fixed
