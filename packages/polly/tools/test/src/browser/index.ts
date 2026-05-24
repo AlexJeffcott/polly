@@ -3,9 +3,10 @@
  * applications.
  *
  * Provides a lightweight describe/test/expect harness that runs inside a
- * Puppeteer-launched browser tab. Results are recorded on window.__testResults
- * and polled by the companion runner (run.ts). Applications import this
- * module in their *.browser.ts test files and call done() at the end.
+ * Puppeteer-launched browser tab. Results are pushed back to the companion
+ * runner (run.ts) via a function the runner exposes on `window.__pollyReport`
+ * before navigating. Applications import this module in their *.browser.ts
+ * test files and call done() at the end.
  *
  * @example
  * ```typescript
