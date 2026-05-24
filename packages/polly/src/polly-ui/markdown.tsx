@@ -14,6 +14,10 @@
  *
  * <ActionInput value={note.body} action="note:update" variant="multi" renderView={renderMarkdown} />
  * ```
+ *
+ * The wrapper carries `data-polly-markdown` so styles.css can keep a
+ * fenced code block width-bounded — a long command line would
+ * otherwise push a narrow viewport sideways (polly#135).
  */
 
 import DOMPurify from "dompurify";
@@ -23,5 +27,5 @@ import type { JSX } from "preact";
 export function renderMarkdown(value: string): JSX.Element {
   const html = marked.parse(value, { async: false }) as unknown as string;
   const clean = DOMPurify.sanitize(html);
-  return <div dangerouslySetInnerHTML={{ __html: clean }} />;
+  return <div data-polly-ui data-polly-markdown dangerouslySetInnerHTML={{ __html: clean }} />;
 }

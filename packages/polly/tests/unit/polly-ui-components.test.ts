@@ -31,6 +31,13 @@ const { Button } = await import("../../src/polly-ui/Button.tsx");
 const { ActionInput } = await import("../../src/polly-ui/ActionInput.tsx");
 const { ActionSelect } = await import("../../src/polly-ui/ActionSelect.tsx");
 const { Select } = await import("../../src/polly-ui/Select.tsx");
+const { Dropdown } = await import("../../src/polly-ui/Dropdown.tsx");
+const { Layout } = await import("../../src/polly-ui/Layout.tsx");
+const { Collapsible } = await import("../../src/polly-ui/Collapsible.tsx");
+const { Output } = await import("../../src/polly-ui/Output.tsx");
+const { Link } = await import("../../src/polly-ui/Link.tsx");
+const { Html } = await import("../../src/polly-ui/Html.tsx");
+const { FileInput } = await import("../../src/polly-ui/FileInput.tsx");
 const { signal } = await import("@preact/signals");
 const { dispatchAction } = await import("../../src/polly-ui/internal/dispatch-action.ts");
 
@@ -429,5 +436,172 @@ describe("Select", () => {
     const button = el.querySelector("[data-polly-dropdown] > button");
     expect(button).not.toBeNull();
     expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("Dropdown", () => {
+  test("closed trigger carries data-open=false for open-state styling", () => {
+    const el = rendered(
+      mount(h(Dropdown, { isOpen: signal(false), trigger: "Pick", children: h("div", {}, "menu") }))
+    );
+    // The caret-rotation CSS keys off data-open on the trigger; the
+    // attribute must be present (not just absent) so the closed state
+    // is an explicit selector target.
+    const button = el.querySelector("[data-polly-dropdown] > button");
+    expect(button?.getAttribute("data-open")).toBe("false");
+  });
+});
+
+// ── polly#135: gaps surfaced migrating fairfox off raw HTML ──────────
+
+describe("Text — strikethrough (polly#135)", () => {
+  test("strikethrough applies without an inline style", () => {
+    const el = rendered(mount(h(Text, { strikethrough: true, children: "done" })));
+    expect(el.getAttribute("style")).toBeNull();
+    expect(el.textContent).toBe("done");
+  });
+});
+
+describe("title passthrough (polly#135)", () => {
+  test("Text forwards the native title attribute", () => {
+    const el = rendered(mount(h(Text, { title: "relay online", children: "●" })));
+    expect(el.getAttribute("title")).toBe("relay online");
+  });
+
+  test("Layout forwards title and data-* attributes", () => {
+    const el = rendered(mount(h(Layout, { title: "grid", "data-region": "main", children: "x" })));
+    expect(el.getAttribute("title")).toBe("grid");
+    expect(el.getAttribute("data-region")).toBe("main");
+    expect(el.getAttribute("data-polly-layout")).toBe("true");
+  });
+
+  test("Surface forwards the native title attribute", () => {
+    const el = rendered(mount(h(Surface, { title: "peer status", children: "x" })));
+    expect(el.getAttribute("title")).toBe("peer status");
+  });
+});
+
+describe("Collapsible — node summary (polly#135)", () => {
+  test("summary accepts a styled node, not only a string", () => {
+    const el = rendered(
+      mount(
+        h(Collapsible, {
+          summary: h(Text, { tone: "muted", children: "Done (3)" }),
+          children: "body",
+        })
+      )
+    );
+    const summary = el.querySelector("summary");
+    expect(summary?.textContent).toBe("Done (3)");
+    // The styled node survives — a bare-string summary could not carry this.
+    expect(summary?.querySelector("[data-polly-text]")).not.toBeNull();
+  });
+});
+
+describe("Surface — dark-scheme theming (polly#135)", () => {
+  test("scheme sets data-polly-theme so the token subtree retints", () => {
+    const el = rendered(mount(h(Surface, { scheme: "dark", children: "x" })));
+    expect(el.getAttribute("data-polly-theme")).toBe("dark");
+  });
+
+  test("no scheme leaves data-polly-theme unset", () => {
+    const el = rendered(mount(h(Surface, { children: "x" })));
+    expect(el.getAttribute("data-polly-theme")).toBeNull();
+  });
+
+  test("borderColor overrides the token and infers a width", () => {
+    const el = rendered(mount(h(Surface, { borderColor: "#ff8680", children: "x" })));
+    expect(el.style.getPropertyValue("--s-border-color")).toBe("#ff8680");
+    // A raw colour with no explicit width still renders a border.
+    expect(el.style.getPropertyValue("--s-border-width")).not.toBe("");
+  });
+
+  test("pointerEvents bridges to the --s-pe custom property", () => {
+    const el = rendered(mount(h(Surface, { pointerEvents: "none", children: "x" })));
+    expect(el.style.getPropertyValue("--s-pe")).toBe("none");
+  });
+});
+
+// renderMarkdown's data-polly-markdown hook (polly#135) is not unit-tested
+// here: DOMPurify only exposes `.sanitize` against a real browser window,
+// which happy-dom does not provide. The change is a two-attribute addition
+// to the returned wrapper; the issue's `ui-screenshots` harness verifies
+// the overflow behaviour it enables.
+
+describe("Output (polly#135)", () => {
+  test("renders a read-only <pre> with the data hook", () => {
+    const el = rendered(mount(h(Output, { children: "mesh snapshot" })));
+    expect(el.tagName).toBe("PRE");
+    expect(el.getAttribute("data-polly-output")).not.toBeNull();
+    expect(el.textContent).toBe("mesh snapshot");
+  });
+
+  test("forwards data-action for a tap-to-select-all gesture", () => {
+    const el = rendered(
+      mount(h(Output, { "data-action": "diag:select-all", tabIndex: 0, children: "x" }))
+    );
+    expect(el.getAttribute("data-action")).toBe("diag:select-all");
+    expect(el.getAttribute("tabindex")).toBe("0");
+  });
+});
+
+describe("Link (polly#135)", () => {
+  test("renders an <a> with href and the data hook", () => {
+    const el = rendered(mount(h(Link, { href: "/extension.zip", children: "Download" })));
+    expect(el.tagName).toBe("A");
+    expect(el.getAttribute("href")).toBe("/extension.zip");
+    expect(el.getAttribute("data-polly-link")).not.toBeNull();
+  });
+
+  test("external opens a new tab with a safe rel", () => {
+    const el = rendered(mount(h(Link, { href: "https://x.test", external: true, children: "x" })));
+    expect(el.getAttribute("target")).toBe("_blank");
+    expect(el.getAttribute("rel")).toContain("noopener");
+  });
+
+  test("a non-external Link sets no target", () => {
+    const el = rendered(mount(h(Link, { href: "/local", children: "x" })));
+    expect(el.getAttribute("target")).toBeNull();
+  });
+});
+
+describe("Html (polly#135)", () => {
+  test("renders trusted raw markup inside the data-hooked wrapper", () => {
+    const el = rendered(mount(h(Html, { html: "<b>bold</b>" })));
+    expect(el.getAttribute("data-polly-html")).not.toBeNull();
+    expect(el.querySelector("b")?.textContent).toBe("bold");
+  });
+
+  test("polymorphic `as` picks the wrapper element", () => {
+    const el = rendered(mount(h(Html, { html: "x", as: "span" })));
+    expect(el.tagName).toBe("SPAN");
+  });
+});
+
+describe("FileInput (polly#135)", () => {
+  test("renders a label wrapping a hidden native file input", () => {
+    const el = rendered(
+      mount(h(FileInput, { onFiles: () => {}, label: "Scan image", accept: "image/*" }))
+    );
+    expect(el.tagName).toBe("LABEL");
+    expect(el.getAttribute("data-polly-file-input")).not.toBeNull();
+    const input = asInput(el.querySelector("input") as Element);
+    expect(input.type).toBe("file");
+    expect(input.accept).toBe("image/*");
+    expect(el.textContent).toContain("Scan image");
+  });
+
+  test("disabled propagates to the native input", () => {
+    const el = rendered(mount(h(FileInput, { onFiles: () => {}, disabled: true })));
+    const input = asInput(el.querySelector("input") as Element);
+    expect(input.disabled).toBe(true);
+  });
+
+  test("an empty selection does not fire onFiles", () => {
+    let called = false;
+    const el = rendered(mount(h(FileInput, { onFiles: () => (called = true) })));
+    const input = asInput(el.querySelector("input") as Element);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(called).toBe(false);
   });
 });

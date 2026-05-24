@@ -1,0 +1,23 @@
+@layer polly-components {
+  .link {
+    color: var(--polly-accent);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    border-radius: var(--polly-radius-sm);
+    cursor: pointer;
+  }
+
+  .link:hover {
+    color: var(--polly-accent-hover);
+  }
+
+  /* Subtle: no rule until hover — for dense link grids and card links
+     where a permanent underline would be visual noise. */
+  .subtle {
+    text-decoration: none;
+  }
+
+  .subtle:hover {
+    text-decoration: underline;
+  }
+}

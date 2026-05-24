@@ -18,6 +18,7 @@
     --s-inset: auto;
     --s-transform: none;
     --s-z: auto;
+    --s-pe: auto;
 
     box-sizing: border-box;
     padding: var(--s-p);
@@ -37,6 +38,7 @@
     inset: var(--s-inset);
     transform: var(--s-transform);
     z-index: var(--s-z);
+    pointer-events: var(--s-pe);
   }
 
   .inline {

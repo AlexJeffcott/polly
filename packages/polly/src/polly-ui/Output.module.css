@@ -1,0 +1,24 @@
+@layer polly-components {
+  .output {
+    margin: 0;
+    padding: var(--polly-space-md);
+    border: var(--polly-border-width-default) solid var(--polly-border);
+    border-radius: var(--polly-radius-md);
+    background-color: var(--polly-surface-sunken);
+    font-family: var(--polly-font-mono);
+    font-size: var(--polly-text-sm);
+    color: var(--polly-text);
+    /* Wrap by default — a diagnostic dump should stay on screen rather
+       than push a narrow viewport sideways. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-inline-size: 100%;
+  }
+
+  /* Opt out of wrapping: keep lines intact and scroll horizontally. */
+  .scroll {
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+  }
+}

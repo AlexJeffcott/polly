@@ -9,9 +9,10 @@
  */
 
 import { type ComponentChildren, createElement, type JSX } from "preact";
+import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 import classes from "./Layout.module.css";
 
-export type LayoutProps = {
+export type LayoutProps = PassthroughAttrs & {
   children: ComponentChildren;
 
   /** Polymorphic element (div, section, header, nav, …). Defaults to 'div'. */
@@ -142,6 +143,9 @@ export function Layout(props: LayoutProps): JSX.Element {
   return createElement(
     as,
     {
+      // Consumer data-*/aria-*/title first; the primitive's own
+      // attributes below win on any collision.
+      ...collectPassthrough(props),
       id,
       className: combined,
       style,

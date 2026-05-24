@@ -40,15 +40,17 @@ type Shadow = "none" | "sm" | "md" | "lg";
 type Position = "static" | "relative" | "absolute" | "sticky" | "fixed";
 type BorderStyle = "solid" | "dashed";
 type Overflow = "visible" | "hidden" | "auto" | "scroll";
+type Scheme = "dark" | "light";
 
 /**
- * Arbitrary `data-*` and `aria-*` attributes forwarded to the rendered element
- * so consumers (Modal, Toast, Card, etc.) can compose Surface without losing
- * DOM hooks or ARIA semantics.
+ * Arbitrary `data-*`, `aria-*`, and `title` attributes forwarded to the
+ * rendered element so consumers (Modal, Toast, Card, etc.) can compose
+ * Surface without losing DOM hooks, ARIA semantics, or a native tooltip.
  */
 export type SurfaceDataAttrs = {
   [dataAttr: `data-${string}`]: string | number | boolean | undefined;
   [ariaAttr: `aria-${string}`]: string | number | boolean | undefined;
+  title?: string;
 };
 
 export type SurfaceProps = SurfaceDataAttrs & {
@@ -72,7 +74,24 @@ export type SurfaceProps = SurfaceDataAttrs & {
   borderSides?: BorderSides;
   /** Border line style. Default: `'solid'`. */
   borderStyle?: BorderStyle;
+  /** Any CSS colour, overriding the token the `border` prop would pick.
+   * For one-off rings (a cutout ring, a focus halo) that no semantic
+   * border token expresses. Implies a border width when none is set. */
+  borderColor?: string;
   shadow?: Shadow;
+
+  /**
+   * Retint the token subtree so descendant `Text`/`Button` read the
+   * right contrast on a dark (or forced-light) Surface — error
+   * banners, camera overlays, chat bubbles. Sets `data-polly-theme`,
+   * so every `--polly-*` colour token flips for the subtree; no inline
+   * `--polly-text` override needed (polly#135).
+   */
+  scheme?: Scheme;
+
+  /** `'none'` makes a decorative Surface (a scan-frame overlay) ignore
+   * the pointer so clicks fall through to what is behind it. */
+  pointerEvents?: "none" | "auto";
 
   /** display: inline-block — Surface flows inline with surrounding text. */
   inline?: boolean;
@@ -237,22 +256,26 @@ export function Surface(props: SurfaceProps): JSX.Element {
   const position = props.position ?? v.position;
   const inset = props.inset ?? v.inset;
   const zIndex = props.zIndex ?? v.zIndex;
-  // polly#126: no variant sets these, so they resolve straight from props.
-  const { maxHeight, overflow, borderStyle, transform } = props;
+  // polly#126/#135: no variant sets these, so they resolve straight from props.
+  const { maxHeight, overflow, borderStyle, transform, borderColor, scheme, pointerEvents } = props;
 
-  // A bordered surface needs a width. If the consumer asked for a border but
-  // didn't pick a width, infer 'default' so the border renders.
-  const borderWidth =
-    props.borderWidth ?? v.borderWidth ?? (border && border !== "none" ? "default" : undefined);
+  // A bordered surface needs a width. If the consumer asked for a border —
+  // by name or by raw colour — but didn't pick a width, infer 'default'
+  // so the border renders.
+  const wantsBorder = (border !== undefined && border !== "none") || borderColor !== undefined;
+  const borderWidth = props.borderWidth ?? v.borderWidth ?? (wantsBorder ? "default" : undefined);
 
   const style: Record<string, string> = {};
   if (padding) style["--s-p"] = padding;
   if (background) style["--s-bg"] = bgValue(background);
   if (radius) style["--s-radius"] = radiusValue(radius);
   if (border) style["--s-border-color"] = borderColorValue(border);
+  // A raw borderColor wins over whatever token `border` resolved to.
+  if (borderColor) style["--s-border-color"] = borderColor;
   if (borderWidth) style["--s-border-width"] = borderWidthValue(borderWidth);
   if (shadow) style["--s-shadow"] = shadowValue(shadow);
   if (borderStyle) style["--s-border-style"] = borderStyle;
+  if (pointerEvents) style["--s-pe"] = pointerEvents;
   if (width) style["--s-w"] = width;
   if (height) style["--s-h"] = height;
   if (minHeight) style["--s-mh"] = minHeight;
@@ -278,7 +301,7 @@ export function Surface(props: SurfaceProps): JSX.Element {
   for (const key of Object.keys(props)) {
     const isData = key.startsWith("data-");
     const isAria = key.startsWith("aria-");
-    if (!isData && !isAria) continue;
+    if (!isData && !isAria && key !== "title") continue;
     if (key === "data-polly-surface") continue;
     if (key === "aria-label" || key === "aria-labelledby" || key === "aria-describedby") continue;
     const value = (props as unknown as Record<string, unknown>)[key];
@@ -302,6 +325,7 @@ export function Surface(props: SurfaceProps): JSX.Element {
       "aria-labelledby": props["aria-labelledby"],
       "aria-describedby": props["aria-describedby"],
       "data-polly-surface": variant,
+      "data-polly-theme": scheme,
       ...passthrough,
     },
     props.children
