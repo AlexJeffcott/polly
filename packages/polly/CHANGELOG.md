@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.76.0] - 2026-05-25
+
+### Added
+
+#### Width tokens for controls and dropdown menus
+
+Five new semantic tokens in `theme.css` give consumers a single
+override point for the minimum and maximum width of polly controls
+and the dropdown menu surface: `--polly-control-min-width-sm`,
+`--polly-control-min-width-md`, `--polly-control-min-width-lg`,
+`--polly-control-max-width`, `--polly-menu-min-width`, and
+`--polly-menu-max-width`. Internal CSS replaces the previous
+hard-coded pixel values, so a toolbar with tight horizontal space
+can now retheme the same tokens that the rest of the application
+sees without forking component CSS.
+
+#### `bounded` prop on Button
+
+Buttons with user-supplied labels could grow past their container
+and break surrounding layouts. The new opt-in `bounded` prop caps
+the button at `--polly-control-max-width` and ellipsis-truncates
+the label, preserving the surrounding row. Existing buttons are
+unaffected: the default remains unbounded so static labels like
+"OK" or "Save" continue to size to content.
+
+#### Select multi-select collapses to "N selected"
+
+A multi-select trigger that previously rendered every chosen
+option's label as a comma-joined string now collapses to
+"N selected" once more than two options are picked. The
+truncation point matches the most common reading of a populated
+multi-select while still showing one or two selections in full.
+The full label list remains available through the menu itself.
+
+### Changed
+
+#### Smooth RTL across polly UI primitives
+
+Checkbox, Toggle, Collapsible, and Select now use logical CSS
+properties (`margin-inline-start`, `text-align: start`) so RTL
+layouts mirror correctly without per-component overrides. Where a
+logical property would otherwise be downleveled by the CSS bundler
+into language-keyed fallbacks (`inset-inline-start` on the Toggle
+thumb), the source uses an explicit `[dir="rtl"]` override and
+documents the constraint inline. Collapsible's disclosure caret
+mirrors under RTL so the closed/open glyphs resolve to the
+expected direction.
+
+Dropdown's menu now detects the document direction at position time
+and treats the default `align="left"` as inline-start alignment.
+Under RTL a default-aligned dropdown anchors to the trigger's right
+edge and grows toward the inline-end, matching the behaviour of
+native popovers. Existing explicit `align="left"` / `align="right"`
+remain physical.
+
+### Fixed
+
+#### Dropdown menu width no longer stretches with long option labels
+
+The menu's `min-width: 160px` is gone in favour of
+`var(--polly-menu-min-width)`, and a matching `max-width:
+var(--polly-menu-max-width)` was added. Long options that
+previously stretched the menu past readability now ellipsis-
+truncate inside a bounded panel.
+
 ## [0.75.3] - 2026-05-25
 
 ### Fixed
