@@ -1,0 +1,127 @@
+@import "@fairfox/polly/ui/theme.css";
+@import "@fairfox/polly/ui/styles.css";
+
+body {
+  margin: 0;
+  padding: var(--polly-space-xl);
+  background-color: var(--polly-surface);
+  color: var(--polly-text);
+  font-family: var(--polly-font-sans);
+  font-size: var(--polly-text-md);
+  line-height: 1.5;
+}
+
+.showcase-root {
+  max-width: var(--polly-measure-page);
+  margin: 0 auto;
+}
+
+.showcase-section {
+  margin: var(--polly-space-xl) 0;
+  padding: var(--polly-space-lg);
+  border: var(--polly-border-width-default) solid var(--polly-border);
+  border-radius: var(--polly-radius-md);
+}
+
+.showcase-section-title {
+  margin: 0 0 var(--polly-space-md);
+  font-size: var(--polly-text-lg);
+  font-weight: var(--polly-weight-bold);
+  border-bottom: var(--polly-border-width-default) solid var(--polly-border);
+  padding-bottom: var(--polly-space-sm);
+}
+
+.showcase-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--polly-space-md);
+  align-items: center;
+  margin: var(--polly-space-sm) 0;
+}
+
+.showcase-row-label {
+  flex: 0 0 8rem;
+  font-size: var(--polly-text-sm);
+  color: var(--polly-text-muted);
+}
+
+.showcase-narrow {
+  max-width: 8rem;
+}
+
+.showcase-wide {
+  width: 40rem;
+  max-width: 100%;
+}
+
+.showcase-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--polly-space-xs);
+  padding: var(--polly-space-sm) var(--polly-space-md);
+  margin: var(--polly-space-md) 0;
+  background-color: var(--polly-surface-raised);
+  border: var(--polly-border-width-default) solid var(--polly-border);
+  border-radius: var(--polly-radius-md);
+}
+
+.showcase-chip {
+  padding: var(--polly-space-xs) var(--polly-space-md);
+  border: var(--polly-border-width-default) solid var(--polly-border);
+  border-radius: var(--polly-radius-sm);
+  background-color: var(--polly-surface);
+  color: var(--polly-text);
+  font-family: inherit;
+  font-size: var(--polly-text-sm);
+  cursor: pointer;
+}
+
+.showcase-chip:hover {
+  background-color: var(--polly-surface-sunken);
+}
+
+.showcase-chip-active {
+  background-color: var(--polly-accent);
+  border-color: var(--polly-accent);
+  color: var(--polly-accent-contrast);
+}
+
+.showcase-chip-active:hover {
+  background-color: var(--polly-accent-hover);
+}
+
+/* Custom Dropdown trigger styling — demonstrates how a consumer
+ * overrides Dropdown's intentionally minimal default via the
+ * triggerClassName prop. */
+.showcase-dropdown-trigger {
+  padding: var(--polly-space-sm) var(--polly-space-lg);
+  border: var(--polly-border-width-default) solid var(--polly-border);
+  border-radius: var(--polly-radius-sm);
+  background-color: var(--polly-surface-sunken);
+  color: var(--polly-text);
+  font-family: inherit;
+  font-size: var(--polly-text-md);
+  cursor: pointer;
+}
+
+.showcase-dropdown-trigger:hover {
+  background-color: color-mix(in srgb, var(--polly-surface-sunken) 80%, var(--polly-text));
+}
+
+/* Inline label wrapper for showcase form fields. Keeps the visible
+ * field name attached to its input for accessibility (axe label rule)
+ * without overhauling polly's TextInput API. */
+.showcase-field-label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--polly-space-xs);
+}
+
+.showcase-field-name {
+  font-size: var(--polly-text-xs);
+  color: var(--polly-text-muted);
+}
