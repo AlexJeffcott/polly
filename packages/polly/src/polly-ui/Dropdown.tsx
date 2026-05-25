@@ -118,8 +118,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
       // is the trigger's *right* edge — flip the anchor so the menu
       // grows toward the inline-end like its native counterpart.
       const isRtl =
-        getComputedStyle(trigger).direction === "rtl" ||
-        document.documentElement.dir === "rtl";
+        getComputedStyle(trigger).direction === "rtl" || document.documentElement.dir === "rtl";
       const physicalRight = (isRtl && align === "left") || align === "right";
       let left = physicalRight ? t.right - menuWidth : t.left;
       const maxLeft = Math.max(VIEWPORT_PADDING, viewportWidth - menuWidth - VIEWPORT_PADDING);
