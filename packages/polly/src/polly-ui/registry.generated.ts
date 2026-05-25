@@ -101,6 +101,26 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     default: "1.75rem",
   },
   {
+    name: "polly-control-max-width",
+    category: "other",
+    default: "20rem",
+  },
+  {
+    name: "polly-control-min-width-lg",
+    category: "sizing",
+    default: "12rem",
+  },
+  {
+    name: "polly-control-min-width-md",
+    category: "sizing",
+    default: "9rem",
+  },
+  {
+    name: "polly-control-min-width-sm",
+    category: "sizing",
+    default: "6rem",
+  },
+  {
     name: "polly-danger",
     category: "color",
     default: "#b3261e",
@@ -155,6 +175,16 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     name: "polly-measure-prose",
     category: "sizing",
     default: "68ch",
+  },
+  {
+    name: "polly-menu-max-width",
+    category: "other",
+    default: "24rem",
+  },
+  {
+    name: "polly-menu-min-width",
+    category: "sizing",
+    default: "10rem",
   },
   {
     name: "polly-motion-base",

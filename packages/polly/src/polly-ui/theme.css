@@ -80,6 +80,25 @@
     --polly-control-height-md: 2.25rem;
     --polly-control-height-lg: 2.75rem;
 
+    /* Control widths — caps and floors for Button, Select, Dropdown
+     * triggers so semi-dynamic labels (multi-select joins, user-
+     * supplied button text) don't collapse a control to a few pixels
+     * or blow out a row. The min ladder mirrors the height ladder;
+     * the max is a single cap intended to be overridden in tight
+     * toolbars. Triggers and bounded buttons ellipsis-truncate when
+     * label width crosses the max. */
+    --polly-control-min-width-sm: 6rem;
+    --polly-control-min-width-md: 9rem;
+    --polly-control-min-width-lg: 12rem;
+    --polly-control-max-width: 20rem;
+
+    /* Dropdown menu width caps. Distinct from trigger widths because
+     * a menu may legitimately be wider than its trigger (long option
+     * labels) but should still ellipsis-truncate before stretching
+     * past readability. */
+    --polly-menu-min-width: 10rem;
+    --polly-menu-max-width: 24rem;
+
     /* Disclosure caret for dropdown-style triggers (Select, ActionSelect).
      * Collapsible runs its own left-side marker — that's a different
      * affordance from a dropdown's right-side ▾ and shouldn't track

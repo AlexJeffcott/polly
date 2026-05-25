@@ -41,6 +41,16 @@
     background-color: var(--polly-accent);
   }
 
+  /* Why physical `left` + an explicit `[dir="rtl"]` override instead of
+   * `inset-inline-start`: Bun's CSS bundler downlevels `inset-inline-*`
+   * into `:lang(ar, he, …)` fallback selectors because its default
+   * browser targets predate `:dir()` (Chrome 87, Safari 14 — `:dir()`
+   * needs Chrome 89 / Safari 16.4). That fallback keys off the document
+   * `lang`, not `dir`, so flipping `dir="rtl"` at runtime no longer
+   * repositions the thumb. The bundler leaves `[dir="rtl"]` selectors
+   * alone, so we stay correct without needing a matching `lang` set.
+   * Revert to `inset-inline-start` if Bun exposes a `targets` option or
+   * starts emitting `:dir()` for recent-enough targets. */
   .thumb {
     display: block;
     position: absolute;
@@ -53,12 +63,25 @@
     transition: transform var(--polly-motion-fast);
   }
 
+  [dir="rtl"] .thumb {
+    left: auto;
+    right: 2px;
+  }
+
+  /* `translateX` is a physical axis — under RTL the thumb still
+   * needs to travel toward the inline-end, which is *negative* X in
+   * a flipped writing mode. Mirror the offset rather than expressing
+   * it logically (CSS has no `translateInlineEnd`). */
   .thumbChecked {
     transform: translateX(16px);
   }
 
+  [dir="rtl"] .thumbChecked {
+    transform: translateX(-16px);
+  }
+
   .label {
-    margin-left: var(--polly-space-sm);
+    margin-inline-start: var(--polly-space-sm);
     vertical-align: middle;
   }
 }

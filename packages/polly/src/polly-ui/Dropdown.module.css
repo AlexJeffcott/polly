@@ -20,7 +20,8 @@
     inset: unset;
     margin: 0;
     z-index: var(--polly-z-raised);
-    min-width: 160px;
+    min-width: var(--polly-menu-min-width);
+    max-width: var(--polly-menu-max-width);
     padding: var(--polly-space-xs) 0;
     border: var(--polly-border-width-default) solid var(--polly-border);
     border-radius: var(--polly-radius-md);

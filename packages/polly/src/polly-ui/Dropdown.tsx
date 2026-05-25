@@ -113,8 +113,15 @@ export function Dropdown(props: DropdownProps): JSX.Element {
       const viewportHeight = document.documentElement.clientHeight;
 
       // Horizontal: align left edges (right edges when align="right"),
-      // then clamp so the menu never overflows a viewport edge.
-      let left = align === "right" ? t.right - menuWidth : t.left;
+      // then clamp so the menu never overflows a viewport edge. Under
+      // RTL the "left" default reads as the inline-start edge, which
+      // is the trigger's *right* edge — flip the anchor so the menu
+      // grows toward the inline-end like its native counterpart.
+      const isRtl =
+        getComputedStyle(trigger).direction === "rtl" ||
+        document.documentElement.dir === "rtl";
+      const physicalRight = (isRtl && align === "left") || align === "right";
+      let left = physicalRight ? t.right - menuWidth : t.left;
       const maxLeft = Math.max(VIEWPORT_PADDING, viewportWidth - menuWidth - VIEWPORT_PADDING);
       left = Math.min(Math.max(left, VIEWPORT_PADDING), maxLeft);
 

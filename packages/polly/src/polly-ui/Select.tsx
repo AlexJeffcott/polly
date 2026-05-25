@@ -29,8 +29,17 @@ export type SelectProps<T = string> = {
   id?: string;
 };
 
-function formatSelected<T>(options: SelectOption<T>[], selected: Set<T>): string {
+const MULTI_SELECT_LABEL_THRESHOLD = 2;
+
+function formatSelected<T>(
+  options: SelectOption<T>[],
+  selected: Set<T>,
+  multiSelect: boolean
+): string {
   if (selected.size === 0) return "";
+  if (multiSelect && selected.size > MULTI_SELECT_LABEL_THRESHOLD) {
+    return `${selected.size} selected`;
+  }
   const labels: string[] = [];
   for (const opt of options) {
     if (selected.has(opt.value)) labels.push(opt.label);
@@ -54,7 +63,7 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
   const isOpen = useSignal(false);
 
   const displayText = useComputed(() => {
-    const text = formatSelected(options, selected.value);
+    const text = formatSelected(options, selected.value, multiSelect);
     return text.length > 0 ? text : placeholder;
   });
 

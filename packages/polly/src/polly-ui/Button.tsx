@@ -28,6 +28,10 @@ type BaseButtonProps = {
   disabled?: boolean;
   fullWidth?: boolean;
   circle?: boolean;
+  /** Cap the button width at `--polly-control-max-width` and ellipsis-
+   * truncate the label. Use for user-supplied or otherwise unbounded
+   * labels so a long string doesn't blow out the row. */
+  bounded?: boolean;
   className?: string;
   title?: string;
   icon?: VNode;
@@ -92,6 +96,7 @@ export function Button(props: ButtonProps): JSX.Element {
     disabled = false,
     fullWidth = false,
     circle = false,
+    bounded = false,
     className,
     title,
     icon,
@@ -107,6 +112,7 @@ export function Button(props: ButtonProps): JSX.Element {
   if (sc) parts.push(sc);
   if (circle) parts.push(classes["btnCircle"] ?? "");
   if (fullWidth) parts.push(classes["btnFullWidth"] ?? "");
+  if (bounded) parts.push(classes["btnBounded"] ?? "");
   if (className) parts.push(className);
   const buttonClass = parts.filter(Boolean).join(" ");
 

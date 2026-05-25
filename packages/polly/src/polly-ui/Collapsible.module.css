@@ -24,13 +24,25 @@
   .summary::before {
     content: "\25B6";
     display: inline-block;
-    margin-right: var(--polly-space-sm);
+    margin-inline-end: var(--polly-space-sm);
     font-size: var(--polly-text-xs);
     transition: transform var(--polly-motion-fast);
   }
 
+  /* The marker points ▶ (right) when closed, ▼ (down) when open. In
+   * RTL the closed state should point ◀ (left) instead — mirror the
+   * glyph so the rotate-90 open state still resolves to a downward
+   * arrow. */
+  [dir="rtl"] .summary::before {
+    transform: scaleX(-1);
+  }
+
   .collapsible[open] > .summary::before {
     transform: rotate(90deg);
+  }
+
+  [dir="rtl"] .collapsible[open] > .summary::before {
+    transform: rotate(-90deg);
   }
 
   .summary:hover {

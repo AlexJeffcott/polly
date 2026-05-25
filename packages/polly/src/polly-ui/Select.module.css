@@ -22,7 +22,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--polly-space-sm);
-    max-width: 100%;
+    max-width: min(100%, var(--polly-control-max-width));
     padding: var(--polly-space-sm) var(--polly-space-md);
     border: var(--polly-border-width-default) solid var(--polly-border);
     border-radius: var(--polly-radius-sm);
@@ -30,7 +30,7 @@
     font-family: inherit;
     font-size: var(--polly-text-md);
     color: var(--polly-text);
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
 
@@ -42,7 +42,7 @@
 
   /* Opt-in: widen short selects to a comfortable minimum. */
   .triggerWide {
-    min-width: 140px;
+    min-width: var(--polly-control-min-width-md);
   }
 
   /* The label shrinks (min-width: 0) so long text ellipsis-truncates
@@ -111,8 +111,11 @@
     font-family: inherit;
     font-size: var(--polly-text-sm);
     color: var(--polly-text);
-    text-align: left;
+    text-align: start;
     cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .option:hover {
@@ -125,7 +128,7 @@
 
   .optionCheck {
     accent-color: var(--polly-accent);
-    margin-right: var(--polly-space-sm);
+    margin-inline-end: var(--polly-space-sm);
     vertical-align: middle;
     pointer-events: none;
   }

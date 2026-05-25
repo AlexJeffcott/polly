@@ -124,4 +124,15 @@
   .btnFullWidth {
     width: 100%;
   }
+
+  /* Opt-in: cap the button width and ellipsis-truncate the label.
+   * For buttons whose label is user-supplied or otherwise unbounded.
+   * Static-label buttons rarely need this — leaving it opt-in keeps
+   * existing layouts untouched. */
+  .btnBounded {
+    max-width: var(--polly-control-max-width);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
