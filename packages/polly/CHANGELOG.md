@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.3] - 2026-05-25
+
+### Fixed
+
+#### Trigger of the last dropdown in the document no longer reopens after close (polly#140)
+
+A dropdown rendered last in the DOM would close and immediately
+reopen when the user clicked its trigger a second time. Clicking
+outside still closed it cleanly, and earlier dropdowns on the page
+behaved correctly; only the bottom-most one flipped back open. The
+trace through the affected click read `mousedown, beforetoggle:closed,
+click, beforetoggle:open`, with the native `popovertarget` invocation
+arriving after a redundant close had already fired.
+
+The document-level `mousedown` handler in `event-delegation.ts` was
+the cause on two counts. First, it ran on every mousedown whose
+target lay outside any `[data-overlay-id]` element — and a dropdown
+trigger button is a sibling of its popover, never inside it, so the
+handler fired on every trigger click and raced the native popover
+toggle. Second, `closeTopOverlay()` resolved "the top overlay" by DOM
+order alone, dispatching `overlay:close` at the last
+`[data-overlay-id]` in the document whether or not it was actually
+open. For non-last dropdowns the spurious close hit a closed popover
+and went unnoticed; for the last dropdown it closed the very menu
+the user was about to toggle, and the click's native open then
+landed on a closed popover and reopened it.
+
+The handler now ignores mousedowns originating on a
+`button[popovertarget]`, leaving native `popover=auto` light-dismiss
+to do its job, and `closeTopOverlay()` scopes its lookup to
+overlays in an open state (`:popover-open`, or `dialog[open]`) so it
+cannot dispatch a close at an unrelated, already-closed popover.
+
 ## [0.75.2] - 2026-05-24
 
 ### Fixed

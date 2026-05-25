@@ -52,7 +52,9 @@ export function parseActionData(element: HTMLElement): Record<string, string> {
  * Overlays mark themselves with `data-overlay-id`.
  */
 export function closeTopOverlay(): void {
-  const overlays = document.querySelectorAll("[data-overlay-id]");
+  const overlays = document.querySelectorAll(
+    "[data-overlay-id]:popover-open, dialog[data-overlay-id][open]"
+  );
   if (overlays.length === 0) return;
   const topOverlay = overlays[overlays.length - 1];
   if (!topOverlay) return;
@@ -122,6 +124,7 @@ export function installEventDelegation(
     if (!(event.target instanceof Element)) return;
     const clickedOverlay = event.target.closest("[data-overlay-id]");
     if (clickedOverlay) return;
+    if (event.target.closest("button[popovertarget]")) return;
     if (options.onOutsideOverlayClick) {
       options.onOutsideOverlayClick();
     } else {
