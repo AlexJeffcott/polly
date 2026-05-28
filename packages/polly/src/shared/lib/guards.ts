@@ -34,3 +34,31 @@ export function hasKeyInObject<K extends string>(
 export function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
 }
+
+/**
+ * Compile-time exhaustiveness check for discriminated unions.
+ *
+ * A string-literal union is decorative without one: add a third
+ * variant and nothing flags the `switch` statements that only handled
+ * the first two — the new case silently falls through whatever
+ * `default` arm exists. Placing `assertNever` in that `default` arm
+ * turns the gap into a type error, because `value` is only assignable
+ * to `never` when every other case has already been handled. The
+ * moment a variant is added and a switch forgets it, `value` is no
+ * longer `never` and the call fails to type-check.
+ *
+ * ```ts
+ * switch (event.kind) {
+ *   case "a": return handleA(event);
+ *   case "b": return handleB(event);
+ *   default: return assertNever(event);
+ * }
+ * ```
+ *
+ * The `throw` is the runtime backstop for the case TypeScript cannot
+ * see — a value arriving from outside the type system (a parsed JSON
+ * body, a `postMessage` payload) that violates the declared union.
+ */
+export function assertNever(value: never): never {
+  throw new Error(`assertNever: unexpected value ${JSON.stringify(value)}`);
+}
