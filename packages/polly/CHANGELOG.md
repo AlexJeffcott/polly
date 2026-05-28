@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.1] - 2026-05-28
+
+### Fixed
+
+#### Verifier translates arithmetic RHS in object-literal signal updates (polly#147)
+
+A signal update written as an object literal —
+`signal.value = { foo: <expr> }` — ran its property initializers
+through a literal-only extractor, so any non-literal right-hand side
+(arithmetic, a field reference, an index access) was silently dropped
+and the generated action became an `UNCHANGED` stub. The canonical
+mint/revoke counter, `signal.value = { outstanding: signal.value.outstanding + 1 }`,
+left `outstanding` pinned at its initial value, so a `>= 1` ensures
+could never be satisfied and TLC reported a real-looking property
+violation that was really an extractor gap. Translatable initializers —
+arithmetic, member/index access, parenthesized and unary forms — are now
+captured and translated to TLA+ at codegen time, mirroring how
+`state.foo += 1` keeps its right-hand side, so a bounded counter
+produces a real `EXCEPT` update and its `EnsuresAfter_*` step-property
+is checkable again. Call and conditional expressions remain unsupported
+and are surfaced as a `POLLY_DEBUG` warning rather than silently dropped.
+
 ## [0.77.0] - 2026-05-28
 
 ### Added
