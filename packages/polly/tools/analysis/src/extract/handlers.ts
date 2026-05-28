@@ -1685,7 +1685,48 @@ export class HandlerExtractor {
     const paramName = this.extractPayloadPropertyParam(initializer);
     if (paramName !== null) {
       assignments.push({ field, value: `param:${paramName}` });
+      return;
     }
+
+    // polly#147: a non-literal initializer that is a translatable expression —
+    // arithmetic on the signal's own field (`outstanding + 1`), a copy of
+    // another field, an index access — is captured verbatim and translated to
+    // TLA+ at codegen time, mirroring how `state.foo += 1` keeps its RHS via
+    // `right.getText()`. Without this the assignment was silently dropped, so a
+    // counter `signal.value = { outstanding: signal.value.outstanding + 1 }`
+    // generated an UNCHANGED stub and its bounded-counter ensures could never
+    // be anchored.
+    if (this.isTranslatableInitializer(initializer)) {
+      assignments.push({ field, value: `EXPR:${initializer.getText()}` });
+      return;
+    }
+
+    if (process.env["POLLY_DEBUG"]) {
+      const on = signalName ? ` on ${signalName}.value` : "";
+      console.log(
+        `[WARN] dropped object-literal property '${name}'${on} — initializer kind ${initializer.getKindName()} is not translatable to TLA+`
+      );
+    }
+  }
+
+  /**
+   * Whether an object-literal property initializer is an expression the codegen
+   * translator (`tsExpressionToTLA`) handles reliably (polly#147). Literals and
+   * payload-parameter references are resolved before this is reached; this
+   * covers arithmetic, member/index access, and (un)parenthesized unary forms.
+   * Call and conditional expressions are deliberately excluded — they translate
+   * unreliably and would risk emitting invalid TLA+ rather than being caught
+   * here and surfaced as a warning.
+   */
+  private isTranslatableInitializer(node: Node): boolean {
+    return (
+      Node.isBinaryExpression(node) ||
+      Node.isPropertyAccessExpression(node) ||
+      Node.isElementAccessExpression(node) ||
+      Node.isPrefixUnaryExpression(node) ||
+      Node.isPostfixUnaryExpression(node) ||
+      Node.isParenthesizedExpression(node)
+    );
   }
 
   /**

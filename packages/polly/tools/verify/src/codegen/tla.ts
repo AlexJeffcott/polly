@@ -3171,6 +3171,14 @@ export class TLAGenerator {
         const paramName = value.substring(6);
         return `payload.${this.sanitizeFieldName(paramName)}`;
       }
+      // polly#147: a captured object-literal expression RHS (e.g.
+      // "sessionsMachine.value.outstanding + 1"). Translate it like a
+      // requires/ensures expression — signal references flatten to
+      // contextStates[ctx].<field> (pre-state, unprimed, valid inside the
+      // EXCEPT clause), arithmetic and operators pass through.
+      if (value.startsWith("EXPR:")) {
+        return this.tsExpressionToTLA(value.substring(5), false);
+      }
       // Check if this is already a TLA+ expression (compound operator or array mutation)
       // These contain @ (current value reference) or TLA+ operators
       if (this.isTLAExpression(value)) {
