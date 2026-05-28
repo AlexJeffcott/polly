@@ -1,0 +1,13 @@
+{
+  "testRunner": "command",
+  "commandRunner": { "command": "exit 0" },
+  "coverageAnalysis": "off",
+  "checkers": [],
+  "reporters": ["json"],
+  "plugins": ["@fairfox/polly/stryker"],
+  "ignorers": ["polly-verify"],
+  "mutate": ["src/machine.js"],
+  "tempDirName": ".stryker-tmp",
+  "concurrency": 1,
+  "timeoutMS": 30000
+}

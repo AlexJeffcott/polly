@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+#### Stryker ignorer for verify primitives (polly#143)
+
+A new `@fairfox/polly/stryker` export ships a Stryker `Ignore` plugin
+that excludes mutations inside `requires`, `ensures`, `invariant`,
+`stateConstraint`, `forAllPeers`, and `somePeer` callsites. These
+primitives are runtime no-ops — compiled away in production,
+translated to TLA+ assertions in verification — so a mutation inside
+one cannot be observed or killed by any test and always survives. On a
+downstream project mutating six state-machine specs that noise alone
+dragged the mutation score to 21%. Consumers add the plugin and ignorer
+to their config:
+
+```json
+{
+  "plugins": ["@fairfox/polly/stryker"],
+  "ignorers": ["polly-verify"]
+}
+```
+
+or spread the exported `pollyStrykerPreset` into a `stryker.conf.mjs`.
+Set `"polly": { "excludeVerifyCallsites": false }` to keep the plugin
+listed but disabled. `scripts/e2e-stryker-verify.ts` drives a real
+Stryker run through the plugin loader and instrumenter, with a
+falsification gate that confirms the survivors return when the flag is
+off.
+
 ## [0.76.0] - 2026-05-25
 
 ### Added
