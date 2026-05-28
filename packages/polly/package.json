@@ -70,6 +70,10 @@
       "import": "./dist/tools/test/src/browser/index.js",
       "types": "./dist/tools/test/src/browser/index.d.ts"
     },
+    "./test/contrast": {
+      "import": "./dist/tools/test/src/contrast/index.js",
+      "types": "./dist/tools/test/src/contrast/index.d.ts"
+    },
     "./test/visual": {
       "import": "./dist/tools/test/src/visual/index.js",
       "types": "./dist/tools/test/src/visual/index.d.ts"

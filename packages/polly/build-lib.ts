@@ -70,6 +70,9 @@ const libResult = await Bun.build({
     "tools/test/src/index.ts",
     "tools/test/src/test-utils.ts",
     "tools/test/src/browser/index.ts",
+    // WCAG contrast helpers (polly#141) — browser-target so getComputedStyle
+    // and Element type against the DOM lib.
+    "tools/test/src/contrast/index.ts",
     "tools/test/src/visual/index.ts",
     "tools/test/src/adapters/index.ts",
     "tools/test/src/e2e-mesh/index.ts",
