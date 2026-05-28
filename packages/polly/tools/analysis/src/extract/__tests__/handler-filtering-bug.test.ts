@@ -84,14 +84,15 @@ export function routeMessage(msg: Message) {
     expect(analysis.messageTypes).not.toContain("{ ok: true; value: t }");
     expect(analysis.messageTypes).not.toContain("ok");
 
-    // **CRITICAL**: handlers array should also be filtered!
-    // This is what the bug was about - handlers with invalid message types
-    // were not filtered even though messageTypes was filtered
+    // **CRITICAL**: extraction-artifact handlers must still be dropped.
+    // polly#144 keeps representable non-identifier types (routes,
+    // colon-namespaced messages), but a leaked object-type text like
+    // "{ ok: true; value: t }" is not a real message type — it carries TS
+    // type-expression punctuation and must never reach the handlers array.
     for (const handler of analysis.handlers) {
-      // Every handler should have a valid TLA+ identifier as messageType
-      expect(handler.messageType).toMatch(
-        /^[a-zA-Z][a-zA-Z0-9_]*$/,
-        `Handler at ${handler.location.file}:${handler.location.line} has invalid messageType: "${handler.messageType}"`
+      expect(handler.messageType).not.toMatch(
+        /[{}();<>=]/,
+        `Handler at ${handler.location.file}:${handler.location.line} has extraction-artifact messageType: "${handler.messageType}"`
       );
     }
 
@@ -100,7 +101,7 @@ export function routeMessage(msg: Message) {
     expect(handlerTypes).toContain("query");
     expect(handlerTypes).toContain("command");
 
-    // Verify invalid handlers are NOT present
+    // Verify extraction-artifact handlers are NOT present
     expect(handlerTypes).not.toContain("{ ok: true; value: t }");
     expect(handlerTypes).not.toContain("ok");
     expect(handlerTypes).not.toContain("value");
@@ -164,7 +165,7 @@ function handleCommand(): Result<void> {
     }
   });
 
-  test("should filter handlers extracted via .on() with invalid types", async () => {
+  test("keeps colon-namespaced .on() handlers but drops object-literal artifacts", async () => {
     const tsConfigPath = path.join(tempDir, "tsconfig.json");
     fs.writeFileSync(
       tsConfigPath,
@@ -197,12 +198,12 @@ emitter.on('query', (data) => {
   console.log('query:', data);
 });
 
-// Invalid handler (contains special characters)
+// Colon-namespaced WS message — representable, kept (polly#144)
 emitter.on('user:login', (data) => {
   console.log('login:', data);
 });
 
-// Invalid handler (object literal syntax)
+// Object-literal artifact — carries TS type punctuation, must be dropped
 emitter.on('{ type: error }', (data) => {
   console.log('error:', data);
 });
@@ -211,18 +212,18 @@ emitter.on('{ type: error }', (data) => {
 
     const analysis = await analyzeCodebase({ tsConfigPath });
 
-    // Should only include handlers with valid TLA+ identifiers
     const handlerTypes = analysis.handlers.map((h) => h.messageType);
     expect(handlerTypes).toContain("authenticate");
     expect(handlerTypes).toContain("query");
 
-    // Should NOT include handlers with invalid identifiers
-    expect(handlerTypes).not.toContain("user:login");
+    // polly#144: colon-namespaced messages are representable and kept...
+    expect(handlerTypes).toContain("user:login");
+    // ...but object-literal extraction artifacts are still dropped.
     expect(handlerTypes).not.toContain("{ type: error }");
 
-    // All handlers must be valid
+    // No handler should carry TS type-expression punctuation
     for (const handler of analysis.handlers) {
-      expect(handler.messageType).toMatch(/^[a-zA-Z][a-zA-Z0-9_]*$/);
+      expect(handler.messageType).not.toMatch(/[{}();<>=]/);
     }
   });
 });
