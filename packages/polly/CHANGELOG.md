@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.77.0] - 2026-05-28
 
 ### Added
 
@@ -34,6 +34,24 @@ listed but disabled. `scripts/e2e-stryker-verify.ts` drives a real
 Stryker run through the plugin loader and instrumenter, with a
 falsification gate that confirms the survivors return when the flag is
 off.
+
+### Fixed
+
+#### Verifier no longer drops non-identifier message handlers (polly#144)
+
+The TLA+ generator silently discarded every handler whose `messageType`
+was not a bare TLA+ identifier — HTTP routes like `POST /register/options`,
+colon-namespaced messages like `chat:send`. With the handlers gone it
+emitted a "No message handlers found" stub, so TLC explored an empty
+state machine, reported a pass, and registered zero ensures while the
+run looked successful. The generator now keeps any representable message
+type: it is emitted as a quoted TLA+ string literal and its action name
+is sanitized (`POST /register/options` → `HandlePostRegisterOptions`).
+Only genuinely unrepresentable strings (no letter) and TS
+type-expression artifacts are dropped, and dropped handlers are now
+logged unconditionally rather than only under `POLLY_DEBUG`. A subsystem
+of HTTP routes now produces real `EnsuresAfter_*` step-properties, so its
+per-subsystem ensures count is a meaningful signal again.
 
 ## [0.76.0] - 2026-05-25
 
