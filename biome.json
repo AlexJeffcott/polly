@@ -14,6 +14,8 @@
       "!**/.next",
       "!**/build",
       "!**/coverage",
+      "!**/reports",
+      "!**/.stryker-tmp",
       "!**/vendor",
       "!**/build*.ts",
       "!**/examples/**/docs",
