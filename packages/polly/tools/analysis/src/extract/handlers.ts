@@ -253,7 +253,7 @@ export class HandlerExtractor {
 
           if (!exists) {
             handlers.push(handler);
-            if (this.isValidTLAIdentifier(handler.messageType)) {
+            if (this.canRepresentAsTLAAction(handler.messageType)) {
               messageTypes.add(handler.messageType);
             } else {
               invalidMessageTypes.add(handler.messageType);
@@ -418,7 +418,7 @@ export class HandlerExtractor {
       const syntheticHandlers = this.createResourceHandlers(resource, context);
       for (const handler of syntheticHandlers) {
         handlers.push(handler);
-        if (this.isValidTLAIdentifier(handler.messageType)) {
+        if (this.canRepresentAsTLAAction(handler.messageType)) {
           messageTypes.add(handler.messageType);
         } else {
           invalidMessageTypes.add(handler.messageType);
@@ -523,7 +523,7 @@ export class HandlerExtractor {
     invalidMessageTypes: Set<string>
   ): void {
     for (const handler of handlers) {
-      if (this.isValidTLAIdentifier(handler.messageType)) {
+      if (this.canRepresentAsTLAAction(handler.messageType)) {
         messageTypes.add(handler.messageType);
       } else {
         invalidMessageTypes.add(handler.messageType);
@@ -541,18 +541,16 @@ export class HandlerExtractor {
   }
 
   /**
-   * Check if a string is a valid TLA+ identifier
-   * TLA+ identifiers must:
-   * - Start with a letter (a-zA-Z)
-   * - Contain only letters, digits, and underscores
-   * - Not be empty
+   * Check whether a message type can be represented in the generated TLA+
+   * (polly#144). Message types become quoted string literals and are sanitized
+   * into `Handle…` action names, so HTTP routes ("POST /register/options") and
+   * colon-namespaced messages ("chat:send") are all representable — the only
+   * requirement is at least one letter to anchor the action name. Strings
+   * carrying TS type-expression punctuation (`{}();<>=`) are rejected as
+   * extraction artifacts rather than real message types.
    */
-  private isValidTLAIdentifier(s: string): boolean {
-    if (!s || s.length === 0) {
-      return false;
-    }
-    // TLA+ identifiers: start with letter, contain only alphanumeric + underscore
-    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s);
+  private canRepresentAsTLAAction(s: string): boolean {
+    return typeof s === "string" && /[a-zA-Z]/.test(s) && !/[{}();<>=]/.test(s);
   }
 
   /**

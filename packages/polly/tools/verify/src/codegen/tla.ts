@@ -113,6 +113,23 @@ export class TLAGenerator {
   }
 
   /**
+   * Check whether a message type can be represented in the generated TLA+
+   * (polly#144). A message type is only ever emitted as a quoted string literal
+   * (legal TLA+ for any characters) and sanitized into a `Handle…` action name,
+   * so the sole requirement is that it carries at least one letter to anchor
+   * that action name. HTTP routes ("POST /register/options") and
+   * colon-namespaced messages ("chat:send") all qualify; only empty,
+   * whitespace, or all-symbol strings are genuinely unrepresentable.
+   *
+   * We also reject strings carrying TS type-expression punctuation
+   * (`{}();<>=`) — those are extraction artifacts (e.g. a leaked object-type
+   * text like "{ ok: true; value: t }"), not real message types.
+   */
+  private canRepresentAsTLAAction(s: string): boolean {
+    return typeof s === "string" && /[a-zA-Z]/.test(s) && !/[{}();<>=]/.test(s);
+  }
+
+  /**
    * Generate TLA+ specification with optional validation
    *
    * If validators were provided in constructor, this method will:
@@ -321,11 +338,14 @@ export class TLAGenerator {
    * Pre-validate inputs before generation
    */
   private validateInputs(_config: VerificationConfig, analysis: CodebaseAnalysis): void {
-    // Validate message types are valid TLA+ identifiers
+    // polly#144: message types are emitted as quoted string literals and
+    // sanitized into action names, so non-identifier types (HTTP routes,
+    // colon-namespaced messages) are valid. Reject only the genuinely
+    // unrepresentable ones — strings with no letter to form an action name.
     for (const messageType of analysis.messageTypes) {
-      if (!this.isValidTLAIdentifier(messageType)) {
+      if (!this.canRepresentAsTLAAction(messageType)) {
         throw new Error(
-          `Invalid message type '${messageType}'. TLA+ identifiers must start with a letter and contain only letters, digits, and underscores.`
+          `Unrepresentable message type '${messageType}'. A message type must contain at least one letter so it can be sanitized into a TLA+ action name.`
         );
       }
     }
@@ -994,25 +1014,28 @@ export class TLAGenerator {
       console.log("[DEBUG] [TLAGenerator] analysis.messageTypes:", analysis.messageTypes);
     }
 
-    // Filter out invalid TLA+ identifiers
+    // polly#144: keep every representable message type. The type is emitted
+    // below as a quoted string literal (TLA-safe for routes/colon names) and
+    // sanitized into an action name elsewhere; only drop the unrepresentable
+    // ones (no letter to anchor an action name).
     let validMessageTypes: string[] = [];
     const invalidMessageTypes: string[] = [];
 
     for (const msgType of analysis.messageTypes) {
-      if (this.isValidTLAIdentifier(msgType)) {
+      if (this.canRepresentAsTLAAction(msgType)) {
         validMessageTypes.push(msgType);
       } else {
         invalidMessageTypes.push(msgType);
       }
     }
 
-    // Log warnings about invalid message types
+    // Log warnings about unrepresentable message types
     if (invalidMessageTypes.length > 0 && process.env["POLLY_DEBUG"]) {
       console.log(
-        `[WARN] [TLAGenerator] Filtered out ${invalidMessageTypes.length} invalid message type(s):`
+        `[WARN] [TLAGenerator] Dropped ${invalidMessageTypes.length} unrepresentable message type(s):`
       );
       for (const invalid of invalidMessageTypes) {
-        console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
+        console.log(`[WARN]   - "${invalid}" (no letter to form a TLA+ action name)`);
       }
     }
 
@@ -1640,7 +1663,10 @@ export class TLAGenerator {
   }
 
   /**
-   * Filter handlers into valid and invalid based on TLA+ identifier rules
+   * Partition handlers by whether their message type is representable in TLA+
+   * (polly#144). Representable handlers — including HTTP routes and
+   * colon-namespaced messages — keep their full pre/post/assignment work;
+   * only genuinely unrepresentable ones (no letter) are set aside.
    */
   private filterHandlersByValidity(handlers: MessageHandler[]): {
     validHandlers: MessageHandler[];
@@ -1650,7 +1676,7 @@ export class TLAGenerator {
     const invalidHandlers: MessageHandler[] = [];
 
     for (const handler of handlers) {
-      if (this.isValidTLAIdentifier(handler.messageType)) {
+      if (this.canRepresentAsTLAAction(handler.messageType)) {
         validHandlers.push(handler);
       } else {
         invalidHandlers.push(handler);
@@ -1661,13 +1687,13 @@ export class TLAGenerator {
   }
 
   /**
-   * Log warnings about invalid handlers
+   * Log warnings about unrepresentable handlers
    */
   private logInvalidHandlers(invalidHandlers: MessageHandler[]): void {
     if (invalidHandlers.length === 0 || !process.env["POLLY_DEBUG"]) return;
 
     console.log(
-      `[WARN] [TLAGenerator] Filtered out ${invalidHandlers.length} handler(s) with invalid message types:`
+      `[WARN] [TLAGenerator] Dropped ${invalidHandlers.length} handler(s) with unrepresentable message types:`
     );
     for (const handler of invalidHandlers) {
       console.log(
@@ -3064,22 +3090,49 @@ export class TLAGenerator {
     >
   ): void {
     for (const [baseActionName, messageTypes] of actionNameToMessageTypes.entries()) {
-      if (messageTypes.length === 1) {
-        const entry = messageTypes[0];
-        if (entry) {
-          this.resolvedActionNames.set(entry.messageType, baseActionName);
-        }
+      const single = messageTypes.length === 1 ? messageTypes[0] : undefined;
+      if (single) {
+        this.resolvedActionNames.set(single.messageType, baseActionName);
         continue;
       }
-      // Collision detected - use origin to differentiate
-      for (const entry of messageTypes) {
-        const resolvedName =
-          entry.origin === "stateHandler"
-            ? baseActionName.replace(/^Handle/, "HandleFn")
-            : baseActionName;
-        this.resolvedActionNames.set(entry.messageType, resolvedName);
-      }
+      this.resolveCollidingGroup(baseActionName, messageTypes);
     }
+  }
+
+  /**
+   * Resolve a group of message types that share a base action name. Origin
+   * differentiates event vs stateHandler; polly#144 then appends a
+   * deterministic numeric suffix so distinct message types that sanitize to
+   * the same name (e.g. "task:tree-cloned" and "task/tree/cloned") never
+   * collapse onto one action.
+   */
+  private resolveCollidingGroup(
+    baseActionName: string,
+    messageTypes: Array<{ messageType: string; origin?: "event" | "stateHandler" }>
+  ): void {
+    const usedNames = new Set<string>();
+    for (const entry of messageTypes) {
+      const originName =
+        entry.origin === "stateHandler"
+          ? baseActionName.replace(/^Handle/, "HandleFn")
+          : baseActionName;
+      this.resolvedActionNames.set(entry.messageType, this.uniquify(originName, usedNames));
+    }
+  }
+
+  /**
+   * Return `name`, or `name_N` for the smallest N >= 2 not already in `used`,
+   * recording the result in `used`.
+   */
+  private uniquify(name: string, used: Set<string>): string {
+    let candidate = name;
+    let suffix = 2;
+    while (used.has(candidate)) {
+      candidate = `${name}_${suffix}`;
+      suffix++;
+    }
+    used.add(candidate);
+    return candidate;
   }
 
   /**
@@ -3271,9 +3324,10 @@ export class TLAGenerator {
     this.line("UserNext ==");
     this.indent++;
 
-    // Check if there are any valid handlers (not just any handlers)
+    // Check if there are any representable handlers (polly#144 — routes and
+    // colon-namespaced messages count, not just bare TLA+ identifiers).
     const hasValidHandlers = analysis.handlers.some((h) =>
-      this.isValidTLAIdentifier(h.messageType)
+      this.canRepresentAsTLAAction(h.messageType)
     );
 
     if (hasValidHandlers) {

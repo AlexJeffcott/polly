@@ -147,7 +147,7 @@ export function handleMessage(msg: Message) {
     }
   });
 
-  test("should reject invalid TLA+ identifiers", async () => {
+  test("keeps representable non-identifier types, drops type-expression artifacts", async () => {
     // Create a tsconfig.json
     const tsConfigPath = path.join(tempDir, "tsconfig.json");
     fs.writeFileSync(
@@ -165,15 +165,17 @@ export function handleMessage(msg: Message) {
       })
     );
 
-    // Create a test file with invalid message types
+    // Create a test file mixing representable non-identifier types with a
+    // genuine type-expression artifact (polly#144).
     const testFile = path.join(tempDir, "invalid-messages.ts");
     fs.writeFileSync(
       testFile,
       `
-// These should be filtered out:
+// Representable, kept (emitted as quoted literals, sanitized into actions):
 // - Starting with digit: '123event'
 // - Containing special chars: 'event-type', 'event.type', 'event:type'
-// - Complex types: '{ ok: true }'
+// Dropped — TS type-expression artifact, not a real message type:
+// - '{ ok: true }'
 
 export interface Message {
   type: '123event' | 'event-type' | 'event.type' | 'event:type' | '{ ok: true }';
@@ -201,10 +203,12 @@ export function handleMessage(msg: Message) {
       tsConfigPath,
     });
 
-    // Check that invalid types are filtered out
-    const invalidTypes = ["123event", "event-type", "event.type", "event:type", "{ ok: true }"];
-    for (const invalidType of invalidTypes) {
-      expect(analysis.messageTypes).not.toContain(invalidType);
+    // polly#144: representable non-identifier types are kept...
+    const keptTypes = ["123event", "event-type", "event.type", "event:type"];
+    for (const keptType of keptTypes) {
+      expect(analysis.messageTypes).toContain(keptType);
     }
+    // ...but the type-expression artifact is dropped.
+    expect(analysis.messageTypes).not.toContain("{ ok: true }");
   });
 });

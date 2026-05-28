@@ -73,67 +73,79 @@ export class TypeExtractor {
   }
 
   /**
-   * Filter and log message types, keeping only valid TLA+ identifiers
+   * Filter and log message types, keeping every type that can be represented
+   * in TLA+ (polly#144). A message type is only ever emitted as a *quoted*
+   * string literal ("POST /register/options") and turned into an action name
+   * via sanitization, so non-identifier types like HTTP routes and
+   * colon-namespaced WS messages are perfectly representable. We drop only the
+   * genuinely unrepresentable ones — strings with no letter to anchor an action
+   * name (empty, whitespace, all-symbol).
    */
   private filterAndLogMessageTypes(
     messageTypes: string[],
     handlerMessageTypes: Set<string>
   ): string[] {
     const allMessageTypes = Array.from(new Set([...messageTypes, ...handlerMessageTypes]));
-    const validMessageTypes: string[] = [];
-    const invalidMessageTypes: string[] = [];
+    const keptMessageTypes: string[] = [];
+    const droppedMessageTypes: string[] = [];
 
     for (const msgType of allMessageTypes) {
-      if (this.isValidTLAIdentifier(msgType)) {
-        validMessageTypes.push(msgType);
+      if (this.canRepresentAsTLAAction(msgType)) {
+        keptMessageTypes.push(msgType);
       } else {
-        invalidMessageTypes.push(msgType);
+        droppedMessageTypes.push(msgType);
       }
     }
 
-    this.logInvalidMessageTypes(invalidMessageTypes);
-    return validMessageTypes;
+    this.logDroppedMessageTypes(droppedMessageTypes);
+    return keptMessageTypes;
   }
 
   /**
-   * Log warnings about invalid message types
+   * Log warnings about unrepresentable message types. Unlike the old
+   * invalid-identifier path this is unconditional (not POLLY_DEBUG-gated):
+   * silently dropping handlers was the core failure mode in polly#144.
    */
-  private logInvalidMessageTypes(invalidMessageTypes: string[]): void {
-    if (invalidMessageTypes.length === 0 || !process.env["POLLY_DEBUG"]) return;
+  private logDroppedMessageTypes(droppedMessageTypes: string[]): void {
+    if (droppedMessageTypes.length === 0) return;
 
-    console.log(`[WARN] Filtered out ${invalidMessageTypes.length} invalid message type(s):`);
-    for (const invalid of invalidMessageTypes) {
-      console.log(`[WARN]   - "${invalid}" (not a valid TLA+ identifier)`);
+    console.log(
+      `[WARN] Dropped ${droppedMessageTypes.length} unrepresentable message type(s) (no letter to form a TLA+ action name):`
+    );
+    for (const dropped of droppedMessageTypes) {
+      console.log(`[WARN]   - "${dropped}"`);
     }
   }
 
   /**
-   * Filter and log handlers, keeping only those with valid TLA+ identifier message types
+   * Filter and log handlers, keeping every handler whose message type is
+   * representable in TLA+ (polly#144 — HTTP routes and colon-namespaced
+   * messages included).
    */
   private filterAndLogHandlers(
     handlers: Array<{ messageType: string; location: { file: string; line: number } }>
   ) {
-    const validHandlers = handlers.filter((h) => this.isValidTLAIdentifier(h.messageType));
+    const keptHandlers = handlers.filter((h) => this.canRepresentAsTLAAction(h.messageType));
 
-    this.logInvalidHandlers(handlers, validHandlers);
-    return validHandlers;
+    this.logDroppedHandlers(handlers, keptHandlers);
+    return keptHandlers;
   }
 
   /**
-   * Log warnings about filtered handlers
+   * Log warnings about dropped handlers (unconditional — see polly#144).
    */
-  private logInvalidHandlers(
+  private logDroppedHandlers(
     allHandlers: Array<{ messageType: string; location: { file: string; line: number } }>,
-    validHandlers: Array<{ messageType: string }>
+    keptHandlers: Array<{ messageType: string }>
   ): void {
-    const filteredHandlerCount = allHandlers.length - validHandlers.length;
-    if (filteredHandlerCount === 0 || !process.env["POLLY_DEBUG"]) return;
+    const droppedHandlerCount = allHandlers.length - keptHandlers.length;
+    if (droppedHandlerCount === 0) return;
 
     console.log(
-      `[WARN] Filtered out ${filteredHandlerCount} handler(s) with invalid message types:`
+      `[WARN] Dropped ${droppedHandlerCount} handler(s) with unrepresentable message types:`
     );
     for (const handler of allHandlers) {
-      if (!this.isValidTLAIdentifier(handler.messageType)) {
+      if (!this.canRepresentAsTLAAction(handler.messageType)) {
         console.log(
           `[WARN]   - Handler for "${handler.messageType}" at ${handler.location.file}:${handler.location.line}`
         );
@@ -142,18 +154,16 @@ export class TypeExtractor {
   }
 
   /**
-   * Check if a string is a valid TLA+ identifier
-   * TLA+ identifiers must:
-   * - Start with a letter (a-zA-Z)
-   * - Contain only letters, digits, and underscores
-   * - Not be empty
+   * Check whether a message type can be represented in the generated TLA+
+   * (polly#144). The type itself becomes a quoted string literal, so the only
+   * hard requirement is that it contains at least one letter — enough to
+   * sanitize into a valid `Handle…` action name. Everything else (slashes,
+   * colons, spaces, leading digits) is fine. Strings carrying TS
+   * type-expression punctuation (`{}();<>=`) are rejected as extraction
+   * artifacts rather than real message types.
    */
-  private isValidTLAIdentifier(s: string): boolean {
-    if (!s || s.length === 0) {
-      return false;
-    }
-    // TLA+ identifiers: start with letter, contain only alphanumeric + underscore
-    return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(s);
+  private canRepresentAsTLAAction(s: string): boolean {
+    return typeof s === "string" && /[a-zA-Z]/.test(s) && !/[{}();<>=]/.test(s);
   }
 
   /**
