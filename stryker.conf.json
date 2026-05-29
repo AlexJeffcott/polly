@@ -16,7 +16,12 @@
     "packages/polly/src/shared/lib/crdt-state.ts",
     "packages/polly/src/shared/lib/crdt-specialised.ts",
     "packages/polly/src/shared/lib/guards.ts",
-    "packages/polly/src/shared/lib/revocation.ts"
+    "packages/polly/src/shared/lib/revocation.ts",
+    "packages/polly/src/shared/lib/peer-state.ts",
+    "packages/polly/src/shared/lib/primitive-registry.ts",
+    "packages/polly/src/shared/lib/migrate-primitive.ts",
+    "packages/polly/src/shared/lib/schema-version.ts",
+    "packages/polly/src/shared/lib/revocation-summary.ts"
   ],
   "thresholds": {
     "high": 90,
@@ -31,5 +36,5 @@
     "**/reports/**"
   ],
   "timeoutMS": 60000,
-  "concurrency": 2
+  "concurrency": 6
 }
