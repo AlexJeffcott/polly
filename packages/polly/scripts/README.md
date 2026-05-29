@@ -8,6 +8,17 @@
 bun run build
 ```
 
+## Vendoring polly into another codebase
+
+**`vendor-polly.sh`** — copies a mesh-free / UI-free / test-free slice of
+polly (core framework + `verify` + `visualize`) into a target directory. See
+[vendoring-recipe.md](./vendoring-recipe.md) for the full recipe, the
+dependency-boundary rationale, and known limitations.
+
+```bash
+scripts/vendor-polly.sh <source-polly-pkg-dir> <target-dir> [--check]
+```
+
 ## For Extension Users
 
 **`build-user-extension.ts`** - Build script users can copy for their own extensions
