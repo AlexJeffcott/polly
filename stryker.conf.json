@@ -27,7 +27,14 @@
     "packages/polly/src/shared/lib/primitive-registry.ts",
     "packages/polly/src/shared/lib/migrate-primitive.ts",
     "packages/polly/src/shared/lib/schema-version.ts",
-    "packages/polly/src/shared/lib/revocation-summary.ts"
+    "packages/polly/src/shared/lib/revocation-summary.ts",
+    "packages/polly/src/shared/lib/signing.ts",
+    "packages/polly/src/shared/lib/mesh-diagnostics.ts",
+    "packages/polly/src/shared/lib/peer-relay-adapter.ts",
+    "packages/polly/src/shared/lib/mesh-signaling-client.ts",
+    "packages/polly/src/shared/lib/mesh-network-adapter.ts",
+    "packages/polly/src/shared/lib/mesh-client.ts",
+    "packages/polly/src/shared/lib/mesh-webrtc-adapter.ts"
   ],
   "thresholds": {
     "high": 90,
@@ -41,6 +48,6 @@
     "**/.stryker-tmp/**",
     "**/reports/**"
   ],
-  "timeoutMS": 60000,
+  "timeoutMS": 90000,
   "concurrency": 6
 }

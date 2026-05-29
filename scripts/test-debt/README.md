@@ -104,10 +104,23 @@ file/suite-level theatre signal works today.
 
 ## Polly notes (monorepo specifics)
 
-- **Scope.** `mutate` covers the 13 `shared/lib` primitives. The mesh runtime
-  (`mesh-state.ts`, the adapter stack, `signing.ts`) is deferred — see polly#124.
-  Bringing it in is cheap now that coverage is `"all"` (only covered mutants run),
-  but each module still costs a full-suite pass per mutant (see static mutants below).
+- **Scope.** `mutate` covers 20 `shared/lib` modules: the 13 pure-logic primitives
+  plus the mesh I/O stack (`signing`, `mesh-diagnostics`, `peer-relay-adapter`,
+  `mesh-signaling-client`, `mesh-network-adapter`, `mesh-client`,
+  `mesh-webrtc-adapter`) brought in once coverage `"all"` made uncovered paths free
+  (instant NoCoverage) — polly#124 Phase 3. `mesh-state.ts` stays out: its seed path
+  is guarded by a dedicated runtime determinism test and a TLA+ spec, and its lazy
+  factory is timing-bound (see polly#124 Phase 2 / `tools/verify/MUTATION-ORACLE-SPIKE.md`).
+  The mesh modules surfaced large gaps — `mesh-signaling-client` and
+  `peer-relay-adapter` are 0% (no test executes them at all), `mesh-client` and
+  `mesh-webrtc-adapter` carry hundreds of NoCoverage + Survived mutants. That is the
+  measurement Phase 3 set out to take; closing those gaps is follow-up work.
+
+- **Timeouts inflate runtime.** Mutating async/retry code in `signing` (36) and
+  `mesh-network-adapter` (41) produces hangs that only resolve at `timeoutMS` (90s).
+  They score correctly (a timeout is a detected mutant) but stretch the 20-module run
+  to ~90min. Raising concurrency or lowering `timeoutMS` trades wall-clock against the
+  risk of flagging a slow-but-correct test as a false timeout-kill.
 
 - **Two test directories, run from the repo root.** Stryker's bun runner spawns
   `bun test` from the sandbox root, not `packages/polly`, so `bun.testFiles` are
