@@ -100,13 +100,25 @@ export class DockerRunner {
       throw new Error(`Config file not found: ${cfgPath}`);
     }
 
-    // Clean up any leftover state files from previous interrupted runs
+    // Clean up any leftover state files from previous interrupted runs.
+    // Older versions of the runner let TLC's -metadir default to
+    // <work>/states, so stale dirs may still exist on the host bind mount.
     const statesDir = path.join(specDir, "states");
     if (fs.existsSync(statesDir)) {
       fs.rmSync(statesDir, { recursive: true, force: true });
     }
 
-    // Run TLC in Docker
+    // Run TLC in Docker.
+    //
+    // -metadir points TLC's state pool at a container-internal path
+    // (/tmp/states on the overlay filesystem) instead of letting it default to
+    // <work>/states, which under our bind mount lands on the host via Docker
+    // Desktop's file-share layer (VirtioFS/osxfs). Large runs spill millions of
+    // small state-pool files; that layer isn't built for sustained small-file
+    // IO and surfaces transient "No such file or directory" mid-run failures.
+    // Keeping the state pool inside the container hits the native filesystem at
+    // native speed, and with --rm + -cleanup it dies with the container, so no
+    // multi-GB dirs leak back onto the host. See issue #152.
     const args = [
       "run",
       "--rm",
@@ -117,6 +129,8 @@ export class DockerRunner {
       "-workers",
       `${options?.workers || 1}`,
       "-cleanup", // Delete state files after model checking to prevent disk space issues
+      "-metadir",
+      "/tmp/states", // container-internal state pool, off the host bind mount (#152)
     ];
 
     // Add depth limit if maxDepth is configured (bounded model checking)
@@ -203,6 +217,16 @@ export class DockerRunner {
    * Extract error message from TLC output
    */
   private extractError(output: string): string {
+    // A state-pool write/read failing against a states/.../<n> path is almost
+    // never a real model problem — it's the Docker Desktop file-share layer
+    // dropping a small-file IO under sustained load. Since #152 we write the
+    // state pool to a container-internal -metadir, so this should no longer
+    // occur; if it does, point the consumer at the IO issue rather than letting
+    // them chase a phantom spec error.
+    if (/StatePool\w*\.run/.test(output) && /states\/.*No such file or directory/.test(output)) {
+      return "TLC state-pool IO failure (states/.../<n>: No such file or directory). This is a Docker filesystem flake, not a spec error — re-run the verification. See issue #152.";
+    }
+
     const errorMatch = output.match(/Error: (.*?)(?:\n|$)/);
     if (errorMatch?.[1]) {
       return errorMatch[1];
