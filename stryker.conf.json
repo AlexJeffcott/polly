@@ -1,13 +1,19 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "packageManager": "npm",
-  "testRunner": "command",
-  "commandRunner": {
-    "command": "cd packages/polly && bun test ./tests/unit ./src"
+  "testRunner": "bun",
+  "plugins": ["stryker-mutator-bun-runner"],
+  "bun": {
+    "testFiles": [
+      "packages/polly/tests/unit/**/*.test.ts",
+      "packages/polly/src/**/*.test.ts"
+    ],
+    "timeout": 30000
   },
-  "coverageAnalysis": "off",
+  "coverageAnalysis": "all",
+  "disableBail": true,
   "checkers": [],
-  "reporters": ["clear-text", "progress", "html"],
+  "reporters": ["json", "clear-text", "progress", "html"],
   "mutate": [
     "packages/polly/src/shared/lib/validation.ts",
     "packages/polly/src/shared/lib/constraints.ts",
