@@ -142,5 +142,81 @@ describe("DockerRunner", () => {
         rmSyncSpy.mockRestore();
       }
     });
+
+    test("writes the state pool to a container-internal -metadir (#152)", async () => {
+      const docker = new DockerRunner();
+
+      let capturedArgs: string[] = [];
+
+      const runCommandSpy = spyOn(docker, "runCommand").mockImplementation(
+        async (_cmd: string, args: string[]) => {
+          capturedArgs = args;
+          return { exitCode: 0, stdout: "0 states generated", stderr: "" };
+        }
+      );
+
+      const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
+
+      try {
+        await docker.runTLC("/path/to/spec.tla", { workers: 1 });
+
+        // The state pool must be pointed off the host bind mount so it doesn't
+        // traverse Docker Desktop's file-share layer during large runs.
+        expect(capturedArgs).toContain("-metadir");
+        const metadirIndex = capturedArgs.indexOf("-metadir");
+        expect(capturedArgs[metadirIndex + 1]).toBe("/tmp/states");
+
+        // It must point at a container-internal path, never back into /work
+        // (the bind mount).
+        expect(capturedArgs[metadirIndex + 1]).not.toContain("/work");
+
+        // -metadir must come before the spec file, like the other TLC flags.
+        const specIndex = capturedArgs.indexOf("spec.tla");
+        expect(metadirIndex).toBeLessThan(specIndex);
+      } finally {
+        runCommandSpy.mockRestore();
+        existsSyncSpy.mockRestore();
+        rmSyncSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("parseTLCOutput", () => {
+    test("reports a state-pool IO flake distinctly from a spec error (#152)", async () => {
+      const docker = new DockerRunner();
+
+      const ioFailureOutput = [
+        "Error: when writing the disk (StatePoolWriter.run):",
+        "states/26-05-28-19-38-39/22403 (No such file or directory)",
+      ].join("\n");
+
+      const runCommandSpy = spyOn(docker, "runCommand").mockImplementation(async () => ({
+        exitCode: 1,
+        stdout: ioFailureOutput,
+        stderr: "",
+      }));
+
+      const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
+
+      try {
+        const result = await docker.runTLC("/path/to/spec.tla", { workers: 1 });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("state-pool IO failure");
+        expect(result.error).toContain("re-run");
+        // It must NOT be reported as a generic/spec error.
+        expect(result.error).not.toBe("Unknown error occurred during model checking");
+      } finally {
+        runCommandSpy.mockRestore();
+        existsSyncSpy.mockRestore();
+        rmSyncSpy.mockRestore();
+      }
+    });
   });
 });
