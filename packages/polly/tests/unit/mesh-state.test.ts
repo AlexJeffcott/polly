@@ -36,6 +36,7 @@ import {
   $meshText,
   configureMeshState,
   resetMeshState,
+  seedDocumentBytes,
 } from "@/shared/lib/mesh-state";
 import { migrationRegistry } from "@/shared/lib/migrate-primitive";
 import { primitiveRegistry } from "@/shared/lib/primitive-registry";
@@ -542,5 +543,42 @@ describe("$meshState — concurrent first-time seed race (#113)", () => {
 
     loopA.disconnect();
     loopB.disconnect();
+  });
+});
+
+describe("$meshState — seed byte determinism (#113/#114)", () => {
+  // seedDocumentBytes is where the #113 fix lives. The loopback race test
+  // above proves cross-peer *merge* convergence, but both peers seed within
+  // the same millisecond, so it cannot catch a regression that only diverges
+  // when two devices seed at different wall-clock times — the `time: 0` half
+  // of the fix. (Verified: dropping `time: 0` survives the full unit suite
+  // and the TLA+ seed verifier; see tools/verify/MUTATION-ORACLE-SPIKE.md.)
+  // deriveSeedActor treats the DocumentId as an opaque string it hashes, so
+  // any stable, distinct strings exercise the actor-derivation contract.
+  const docId = "2XzGLTRxBs5q9GZpwY5jwGSMNKBi" as unknown as DocumentId;
+  const otherDocId = "4Nkp2vQwYbR8sT1uX6yZ9aBcDeFg" as unknown as DocumentId;
+  const initial = { title: "hello", body: "world", items: ["a", "b"] };
+
+  test("seed bytes are independent of wall-clock time (the `time: 0` lever)", () => {
+    const realNow = Date.now;
+    try {
+      Date.now = () => 1_000;
+      const early = seedDocumentBytes(docId, initial);
+      Date.now = () => 9_999_999_999;
+      const late = seedDocumentBytes(docId, initial);
+      expect(late).toEqual(early);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test("two peers seeding the same docId produce byte-identical documents", () => {
+    // Distinct calls stand in for two devices; the docId-derived actor pins
+    // both to the same authorship stamp, so the bytes must match exactly.
+    expect(seedDocumentBytes(docId, initial)).toEqual(seedDocumentBytes(docId, initial));
+  });
+
+  test("different docIds produce different seed bytes (actor is docId-derived)", () => {
+    expect(seedDocumentBytes(docId, initial)).not.toEqual(seedDocumentBytes(otherDocId, initial));
   });
 });
