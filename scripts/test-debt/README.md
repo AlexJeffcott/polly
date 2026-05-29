@@ -111,10 +111,11 @@ file/suite-level theatre signal works today.
   (instant NoCoverage) — polly#124 Phase 3. `mesh-state.ts` stays out: its seed path
   is guarded by a dedicated runtime determinism test and a TLA+ spec, and its lazy
   factory is timing-bound (see polly#124 Phase 2 / `tools/verify/MUTATION-ORACLE-SPIKE.md`).
-  The mesh modules surfaced large gaps — `mesh-signaling-client` and
-  `peer-relay-adapter` are 0% (no test executes them at all), `mesh-client` and
-  `mesh-webrtc-adapter` carry hundreds of NoCoverage + Survived mutants. That is the
-  measurement Phase 3 set out to take; closing those gaps is follow-up work.
+  The mesh modules surfaced large gaps. `mesh-signaling-client` was 0% (no test
+  executed it) and has since been brought to 86% with a fake-WebSocket suite;
+  `peer-relay-adapter` is still 0%, and `mesh-client` / `mesh-webrtc-adapter` carry
+  hundreds of NoCoverage + Survived mutants. Surfacing those was the measurement
+  Phase 3 set out to take; closing the remaining gaps is follow-up work.
 
 - **Timeouts inflate runtime.** Mutating async/retry code in `signing` (36) and
   `mesh-network-adapter` (41) produces hangs that only resolve at `timeoutMS` (90s).
