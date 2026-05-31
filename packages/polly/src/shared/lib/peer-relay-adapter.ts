@@ -58,6 +58,11 @@ export interface CreatePeerStateClientOptions {
   sign?: boolean;
   /** Keyring for the signing layer. Required when `sign` is true. */
   keyring?: MeshKeyring;
+  /** Network-adapter factory. Defaults to constructing a real
+   * `WebSocketClientAdapter` against `url`. Injecting a factory lets tests (or
+   * instrumentation) substitute a fake adapter so they stay off the network —
+   * the production path leaves this unset. */
+  adapterFactory?: (url: string, retryInterval?: number) => WebSocketClientAdapter;
 }
 
 export interface PeerStateClient {
@@ -92,7 +97,9 @@ export function createPeerStateClient(options: CreatePeerStateClientOptions): Pe
     );
   }
 
-  const adapter = new WebSocketClientAdapter(options.url, options.retryInterval);
+  const adapter = options.adapterFactory
+    ? options.adapterFactory(options.url, options.retryInterval)
+    : new WebSocketClientAdapter(options.url, options.retryInterval);
   const connectionState = signal<PeerRelayConnectionState>("connecting");
 
   // The WebSocketClientAdapter is itself an EventEmitter (via Automerge's
