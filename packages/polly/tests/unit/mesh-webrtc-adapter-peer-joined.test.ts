@@ -395,3 +395,71 @@ describe("MeshWebRTCAdapter peer-discovery dispatch", () => {
     });
   });
 });
+
+describe("MeshWebRTCAdapter connection-state changes (wireConnection)", () => {
+  // Drive the RTCPeerConnection.onconnectionstatechange handler the adapter
+  // wires up, which mutation testing showed was executed but barely asserted.
+  const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  async function joinedSlot(): Promise<{
+    adapter: MeshWebRTCAdapter;
+    events: Array<[string, string]>;
+    connection: FakePeerConnection;
+  }> {
+    const { adapter } = buildAdapter("peer-b", ["peer-a"]);
+    const events: Array<[string, string]> = [];
+    adapter.on("peer-candidate", (e: { peerId: unknown }) =>
+      events.push(["candidate", e.peerId as string])
+    );
+    adapter.on("peer-disconnected", (e: { peerId: unknown }) =>
+      events.push(["disconnected", e.peerId as string])
+    );
+    adapter.handlePeerJoined("peer-a");
+    await flush();
+    const connection = FakePeerConnection.instances[0];
+    if (!connection) throw new Error("expected a connection to have been built");
+    return { adapter, events, connection };
+  }
+
+  test("emits peer-candidate when the connection reaches 'connected'", async () => {
+    const { events, connection } = await joinedSlot();
+    connection.connectionState = "connected";
+    connection.onconnectionstatechange?.();
+    expect(events).toContainEqual(["candidate", "peer-a"]);
+  });
+
+  test("emits peer-candidate at most once across repeated 'connected' events", async () => {
+    const { events, connection } = await joinedSlot();
+    connection.connectionState = "connected";
+    connection.onconnectionstatechange?.();
+    connection.onconnectionstatechange?.();
+    expect(events.filter(([kind]) => kind === "candidate")).toHaveLength(1);
+  });
+
+  test("a non-terminal state change emits nothing and keeps the slot", async () => {
+    const { adapter, events, connection } = await joinedSlot();
+    connection.connectionState = "connecting";
+    connection.onconnectionstatechange?.();
+    expect(events).toEqual([]);
+    expect(adapter.peerSlotCount()).toBe(1);
+  });
+
+  for (const terminal of ["disconnected", "failed", "closed"] as const) {
+    test(`evicts the slot and emits peer-disconnected on '${terminal}'`, async () => {
+      const { adapter, events, connection } = await joinedSlot();
+      connection.connectionState = terminal;
+      connection.onconnectionstatechange?.();
+      expect(events).toContainEqual(["disconnected", "peer-a"]);
+      expect(adapter.peerSlotCount()).toBe(0);
+    });
+  }
+
+  test("does not emit peer-disconnected twice when teardown re-enters the handler", async () => {
+    const { events, connection } = await joinedSlot();
+    connection.connectionState = "failed";
+    connection.onconnectionstatechange?.();
+    connection.connectionState = "closed";
+    connection.onconnectionstatechange?.();
+    expect(events.filter(([kind]) => kind === "disconnected")).toHaveLength(1);
+  });
+});
