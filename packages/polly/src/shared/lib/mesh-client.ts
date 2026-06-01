@@ -302,6 +302,15 @@ export const __test__ = {
     synchronizer: SynchronizerStructural | undefined
   ): MeshClientPeerStateSnapshot["peers"][number] =>
     enrichPeerSlot(peer, knownHandleIds, repoHandles, synchronizer),
+  // polly#124: revocation decision cores + already-pure diagnostics helpers,
+  // pinned directly rather than through the integration-only factory.
+  shouldReplaceRevocation,
+  storeRevocationInto,
+  revocationsMissingFromSummary,
+  classifyIncomingRevocation,
+  findLazyWrapperDocIdDuplicates,
+  getReevaluateDocumentShare,
+  installPolly107SyncReevaluation,
 };
 
 function getCollectionSynchronizer(repo: Repo): SynchronizerStructural | undefined {
@@ -462,6 +471,72 @@ function findLazyWrapperDocIdDuplicates(
     }
   }
   return duplicates;
+}
+
+// ─── RFC-043 revocation decision cores ───────────────────────────────────────
+// Extracted from the createMeshClient closures so the load-bearing logic — the
+// last-write-wins store guard, the gossip diff, and the incoming-revocation
+// classification — is unit-testable in isolation (polly#124). The closures
+// below delegate to these; the I/O (decode/apply/emit/send) stays in the
+// closure.
+
+type StoredRevocation = { bytes: Uint8Array; entry: RevocationSummaryEntry };
+
+/** Whether an incoming revocation should overwrite what the store already
+ * holds for that revoked peer. The De Morgan dual of the original skip-guard
+ * `existing && existing.issuedAt >= record.issuedAt`: store when there is no
+ * existing record, or the incoming one is strictly newer. Equal `issuedAt`
+ * keeps the existing record (last-write-wins on a strict newer-than). */
+function shouldReplaceRevocation(
+  existing: StoredRevocation | undefined,
+  record: RevocationRecord
+): boolean {
+  return existing === undefined || record.issuedAt > existing.entry.issuedAt;
+}
+
+function storeRevocationInto(
+  store: Map<string, StoredRevocation>,
+  record: RevocationRecord,
+  bytes: Uint8Array
+): void {
+  const existing = store.get(record.revokedPeerId);
+  if (!shouldReplaceRevocation(existing, record)) return;
+  store.set(record.revokedPeerId, {
+    bytes,
+    entry: {
+      revokedPeerId: record.revokedPeerId,
+      issuerPeerId: record.issuerPeerId,
+      issuedAt: record.issuedAt,
+    },
+  });
+}
+
+/** The encoded revocations the local store holds that the remote peer's summary
+ * does not — the bytes to push so both sides converge to the union after one
+ * round trip. Membership is keyed by `revokedPeerId`. */
+function revocationsMissingFromSummary(
+  store: Map<string, StoredRevocation>,
+  summary: readonly RevocationSummaryEntry[]
+): Uint8Array[] {
+  const remoteKeys = new Set(summary.map((entry) => entry.revokedPeerId));
+  const missing: Uint8Array[] = [];
+  for (const stored of store.values()) {
+    if (remoteKeys.has(stored.entry.revokedPeerId)) continue;
+    missing.push(stored.bytes);
+  }
+  return missing;
+}
+
+/** Classify an incoming revocation. Branch order is load-bearing: a
+ * self-targeted record is `"self"` even if it also appears in `revokedPeers`. */
+function classifyIncomingRevocation(
+  record: RevocationRecord,
+  localPeerId: string,
+  revokedPeers: ReadonlySet<string>
+): "self" | "duplicate" | "apply" {
+  if (record.revokedPeerId === localPeerId) return "self";
+  if (revokedPeers.has(record.revokedPeerId)) return "duplicate";
+  return "apply";
 }
 
 /** Install the polly#107 peer-candidate hook on a freshly-constructed
@@ -881,16 +956,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
   const revocationStore = new Map<string, { bytes: Uint8Array; entry: RevocationSummaryEntry }>();
 
   function storeRevocation(record: RevocationRecord, bytes: Uint8Array): void {
-    const existing = revocationStore.get(record.revokedPeerId);
-    if (existing && existing.entry.issuedAt >= record.issuedAt) return;
-    revocationStore.set(record.revokedPeerId, {
-      bytes,
-      entry: {
-        revokedPeerId: record.revokedPeerId,
-        issuerPeerId: record.issuerPeerId,
-        issuedAt: record.issuedAt,
-      },
-    });
+    storeRevocationInto(revocationStore, record, bytes);
   }
 
   const handleRevocationControl = (body: Uint8Array, senderId: string): void => {
@@ -908,34 +974,36 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
       emitMeshDiagnostic({ kind: "revoke:rejected", senderId, reason });
       return;
     }
-    if (record.revokedPeerId === localPeerId) {
-      // RFC-043: self-targeted revocations do not silence the
-      // receiving peer's keyring; the application binds to the
-      // diagnostic + the selfRevocation field on MeshClient to surface
-      // the "you have been revoked" UX.
-      selfRevocation = record;
-      emitMeshDiagnostic({
-        kind: "revoke:self-targeted",
-        issuerId: record.issuerPeerId,
-        ...(record.reason !== undefined && { reason: record.reason }),
-        issuedAt: record.issuedAt,
-      });
-      return;
+    switch (classifyIncomingRevocation(record, localPeerId, keyring.revokedPeers)) {
+      case "self":
+        // RFC-043: self-targeted revocations do not silence the
+        // receiving peer's keyring; the application binds to the
+        // diagnostic + the selfRevocation field on MeshClient to surface
+        // the "you have been revoked" UX.
+        selfRevocation = record;
+        emitMeshDiagnostic({
+          kind: "revoke:self-targeted",
+          issuerId: record.issuerPeerId,
+          ...(record.reason !== undefined && { reason: record.reason }),
+          issuedAt: record.issuedAt,
+        });
+        return;
+      case "duplicate":
+        // Already known. Keep the blob so this peer can gossip it
+        // forward (the latest issuedAt wins inside storeRevocation).
+        storeRevocation(record, body);
+        emitMeshDiagnostic({
+          kind: "revoke:duplicate",
+          revokedPeerId: record.revokedPeerId,
+          issuerId: record.issuerPeerId,
+        });
+        return;
+      case "apply":
+        applyRevocation(record, keyring);
+        storeRevocation(record, body);
+        emitMeshDiagnostic({ kind: "revoke:applied", revokedPeerId: record.revokedPeerId });
+        return;
     }
-    if (keyring.revokedPeers.has(record.revokedPeerId)) {
-      // Already known. Keep the blob so this peer can gossip it
-      // forward (the latest issuedAt wins inside storeRevocation).
-      storeRevocation(record, body);
-      emitMeshDiagnostic({
-        kind: "revoke:duplicate",
-        revokedPeerId: record.revokedPeerId,
-        issuerId: record.issuerPeerId,
-      });
-      return;
-    }
-    applyRevocation(record, keyring);
-    storeRevocation(record, body);
-    emitMeshDiagnostic({ kind: "revoke:applied", revokedPeerId: record.revokedPeerId });
   };
 
   const handleRevocationSummary = (body: Uint8Array, senderId: string): void => {
@@ -954,11 +1022,9 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     // peer's summary does not. The remote runs the same algorithm
     // against this peer's summary, so both sides converge to the
     // union after one round trip.
-    const remoteKeys = new Set(summary.map((entry) => entry.revokedPeerId));
     const senderPeerId = senderId as PeerId;
-    for (const stored of revocationStore.values()) {
-      if (remoteKeys.has(stored.entry.revokedPeerId)) continue;
-      networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.Revocation, stored.bytes, [senderPeerId]);
+    for (const bytes of revocationsMissingFromSummary(revocationStore, summary)) {
+      networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.Revocation, bytes, [senderPeerId]);
     }
   };
 
