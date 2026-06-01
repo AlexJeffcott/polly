@@ -41,7 +41,7 @@ Bun.serve({
 				if (transpiled.outputs.length > 0) {
 					return new Response(transpiled.outputs[0], {
 						headers: {
-							"Content-Type": "application/javascript",
+							"Content-Type": "application/javascript; charset=utf-8",
 						},
 					});
 				}

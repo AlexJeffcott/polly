@@ -111,7 +111,7 @@ export class ViewerServer {
    */
   private serveMainPage(dsl: string): Response {
     return new Response(this.generateViewerHTML(dsl), {
-      headers: { "Content-Type": "text/html" },
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
 
@@ -120,7 +120,7 @@ export class ViewerServer {
    */
   private serveDslFile(dsl: string): Response {
     return new Response(dsl, {
-      headers: { "Content-Type": "text/plain" },
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
 
@@ -160,7 +160,11 @@ export class ViewerServer {
     const content = fs.readFileSync(filePath);
     const ext = path.extname(fileName).toLowerCase();
     const contentType =
-      ext === ".png" ? "image/png" : ext === ".svg" ? "image/svg+xml" : "application/octet-stream";
+      ext === ".png"
+        ? "image/png"
+        : ext === ".svg"
+          ? "image/svg+xml; charset=utf-8"
+          : "application/octet-stream";
 
     return new Response(content, {
       headers: { "Content-Type": contentType },

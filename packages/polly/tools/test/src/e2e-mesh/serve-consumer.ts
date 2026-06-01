@@ -89,11 +89,13 @@ export async function serveConsumer(options: ServeConsumerOptions): Promise<Serv
     fetch(req) {
       const url = new URL(req.url);
       if (url.pathname === "/" || url.pathname === "/index.html") {
-        return new Response(html, { headers: { "Content-Type": "text/html" } });
+        return new Response(html, {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
       }
       if (url.pathname === "/main.js") {
         return new Response(jsText, {
-          headers: { "Content-Type": "application/javascript" },
+          headers: { "Content-Type": "application/javascript; charset=utf-8" },
         });
       }
       return new Response("not found", { status: 404 });
