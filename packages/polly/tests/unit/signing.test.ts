@@ -173,3 +173,107 @@ describe("encodeSignedEnvelope and decodeSignedEnvelope", () => {
     expect(() => openEnvelope(decoded, pair.publicKey)).toThrow(SigningError);
   });
 });
+
+/** Run a throwing function and return the SigningError it raised, failing
+ * loudly if it threw something else or nothing at all. */
+function catchSigningError(fn: () => unknown): SigningError {
+  try {
+    fn();
+  } catch (e) {
+    if (e instanceof SigningError) return e;
+    throw e;
+  }
+  throw new Error("expected a SigningError to be thrown");
+}
+
+describe("SigningError codes and messages", () => {
+  test("a SigningError carries the SigningError name", () => {
+    const err = catchSigningError(() => signingKeyPairFromSecret(new Uint8Array(10)));
+    expect(err.name).toBe("SigningError");
+  });
+
+  test("signingKeyPairFromSecret reports invalid-secret-key with the byte counts", () => {
+    const err = catchSigningError(() => signingKeyPairFromSecret(new Uint8Array(10)));
+    expect(err.code).toBe("invalid-secret-key");
+    expect(err.message).toContain(`${SECRET_KEY_BYTES} bytes`);
+    expect(err.message).toContain("got 10");
+  });
+
+  test("sign reports invalid-secret-key with the byte counts", () => {
+    const err = catchSigningError(() => sign(text("x"), new Uint8Array(5)));
+    expect(err.code).toBe("invalid-secret-key");
+    expect(err.message).toContain(`${SECRET_KEY_BYTES} bytes`);
+    expect(err.message).toContain("got 5");
+  });
+
+  test("verify reports invalid-public-key for a wrong-length public key", () => {
+    const err = catchSigningError(() =>
+      verify(text("x"), new Uint8Array(SIGNATURE_BYTES), new Uint8Array(8))
+    );
+    expect(err.code).toBe("invalid-public-key");
+    expect(err.message).toContain(`${PUBLIC_KEY_BYTES} bytes`);
+    expect(err.message).toContain("got 8");
+  });
+
+  test("verify reports invalid-signature-length for a wrong-length signature", () => {
+    const err = catchSigningError(() =>
+      verify(text("x"), new Uint8Array(9), new Uint8Array(PUBLIC_KEY_BYTES))
+    );
+    expect(err.code).toBe("invalid-signature-length");
+    expect(err.message).toContain(`${SIGNATURE_BYTES} bytes`);
+    expect(err.message).toContain("got 9");
+  });
+
+  test("openEnvelope reports envelope-malformed naming the sender on a bad signature", () => {
+    const pair = generateSigningKeyPair();
+    const other = generateSigningKeyPair();
+    const env = signEnvelope(text("payload"), "peer-x", pair.secretKey);
+    const err = catchSigningError(() => openEnvelope(env, other.publicKey));
+    expect(err.code).toBe("envelope-malformed");
+    expect(err.message).toContain("peer-x");
+  });
+
+  test("decode reports envelope-malformed with the minimum-length hint on a too-short blob", () => {
+    const err = catchSigningError(() => decodeSignedEnvelope(new Uint8Array(10)));
+    expect(err.code).toBe("envelope-malformed");
+    expect(err.message).toContain("too short");
+    // The hint is the prefix+signature minimum (4 + 64 = 68); a corrupted
+    // arithmetic operator in the template would print a different number.
+    expect(err.message).toContain(`${4 + SIGNATURE_BYTES}`);
+  });
+
+  test("decode reports envelope-malformed naming the declared sender length when truncated", () => {
+    // A blob long enough to clear the prefix+signature floor (>= 68) but
+    // whose declared sender length leaves no room for the signature — the
+    // second length guard. A modest senderLen keeps the signature term the
+    // deciding factor, so the guard's full `4 + senderLen + SIGNATURE_BYTES`
+    // sum is exercised rather than dominated by an enormous senderLen.
+    const blob = new Uint8Array(4 + SIGNATURE_BYTES + 2);
+    const senderLen = 20;
+    new DataView(blob.buffer).setUint32(0, senderLen, false);
+    const err = catchSigningError(() => decodeSignedEnvelope(blob));
+    expect(err.code).toBe("envelope-malformed");
+    expect(err.message).toContain("truncated");
+    expect(err.message).toContain(`${senderLen}`);
+  });
+});
+
+describe("decodeSignedEnvelope length boundaries", () => {
+  test("decodes a minimal 68-byte envelope (empty sender, empty payload)", () => {
+    const pair = generateSigningKeyPair();
+    const env = signEnvelope(new Uint8Array(0), "", pair.secretKey);
+    const encoded = encodeSignedEnvelope(env);
+    // 4-byte prefix + 0 sender bytes + 64 signature + 0 payload.
+    expect(encoded.length).toBe(4 + SIGNATURE_BYTES);
+    // The floor guard is strictly less-than, so the boundary length decodes.
+    const decoded = decodeSignedEnvelope(encoded);
+    expect(decoded.senderId).toBe("");
+    expect(decoded.payload.length).toBe(0);
+  });
+
+  test("throws one byte below the prefix+signature floor", () => {
+    expect(() => decodeSignedEnvelope(new Uint8Array(4 + SIGNATURE_BYTES - 1))).toThrow(
+      SigningError
+    );
+  });
+});
