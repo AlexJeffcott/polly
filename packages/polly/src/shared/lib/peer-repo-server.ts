@@ -113,8 +113,11 @@ export interface PeerRepoServer {
  * subdirectories); flat files such as the storage-adapter-id are
  * skipped. A missing storage directory (a server that has never
  * written) yields an empty list.
+ *
+ * Exported for unit testing only — not re-exported from the package's
+ * public entry points.
  */
-async function listNodeFSDocumentIds(baseDirectory: string): Promise<string[]> {
+export async function listNodeFSDocumentIds(baseDirectory: string): Promise<string[]> {
   const [{ readdir }, { join }] = await Promise.all([
     import("node:fs/promises"),
     import("node:path"),

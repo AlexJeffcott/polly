@@ -35,7 +35,8 @@
     "packages/polly/src/shared/lib/mesh-network-adapter.ts",
     "packages/polly/src/shared/lib/mesh-client.ts",
     "packages/polly/src/shared/lib/mesh-webrtc-adapter.ts",
-    "packages/polly/src/shared/lib/storage-adapter.ts"
+    "packages/polly/src/shared/lib/storage-adapter.ts",
+    "packages/polly/src/shared/lib/peer-repo-server.ts"
   ],
   "thresholds": {
     "high": 90,
