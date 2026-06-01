@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.3] - 2026-06-01
+
+### Fixed
+
+#### Persisted state merges with defaults on hydration (polly#158)
+
+`$persistedState`/`$sharedState` hydration replaced the signal value with the
+stored blob outright. A state shape that gained a field over time rehydrated
+that field as `undefined` for any user whose persisted value predated it,
+crashing consumers that indexed or iterated it — a `Cannot read properties of
+undefined` that only reproduced on a cold load. Hydration now reconciles the
+stored value against the current defaults: plain objects shallow-merge so keys
+added since the value was persisted inherit their defaults, while primitives and
+arrays are still replaced wholesale. The merge runs before validation, so a
+single missing optional key no longer makes the `validator` discard the user's
+entire persisted state.
+
+#### Text assets served with `charset=utf-8` (polly#157)
+
+A text asset served without an explicit charset is decoded by the browser as
+Latin-1, turning a UTF-8 glyph into mojibake — and an HTML `<meta charset>` does
+not govern externally-linked assets. Polly's serving surfaces now declare
+`charset=utf-8` on text content types: the PWA template dev server (scaffolded
+into consumer apps), the `visualize` viewer (HTML page, DSL source, SVG
+diagrams), and the e2e-mesh consumer server.
+
+#### Browser test runner no longer deadlocks on CWD or hangs (polly#159)
+
+Spawning the browser runner with a working directory above the package
+containing the tests deadlocked: a file printed `running …` and never reported.
+Three causes are fixed. `exposeFunction` is now awaited before `goto`, so a page
+that calls `__pollyReport` before the binding finishes wiring no longer loses
+its result silently. The Automerge base64 redirect path is resolved from polly's
+own install (via `import.meta.dir`) rather than `process.cwd()`, so a dependency
+hoisted elsewhere in a consumer monorepo no longer yields a broken bundle. And a
+per-file timeout (default 60s, override with `POLLY_BROWSER_TIMEOUT_MS`) fails
+the file instead of hanging the whole suite forever.
+
 ## [0.77.2] - 2026-05-28
 
 ### Added
