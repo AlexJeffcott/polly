@@ -37,9 +37,16 @@ import { errMessage, type FileTally, runSuite } from "./runner-core";
 // does a static .wasm import that Bun can't wire up. Redirect to the
 // base64 variant which embeds the WASM as a string and self-initialises.
 
+// Resolve Automerge relative to polly's own install, not the runner's CWD.
+// `dist/mjs/entrypoints/fullfat_base64.js` is not in the package's `exports`
+// map, so it cannot be resolved by subpath — resolve the package entry and
+// derive the root. A CWD-relative path silently failed to exist when the
+// dependency was hoisted differently in a consumer monorepo (polly#159).
+const automergeMarker = "@automerge/automerge";
+const automergeEntry = Bun.resolveSync(automergeMarker, import.meta.dir);
 const automergeBase64Path = resolve(
-  process.cwd(),
-  "node_modules/@automerge/automerge/dist/mjs/entrypoints/fullfat_base64.js"
+  automergeEntry.slice(0, automergeEntry.lastIndexOf(automergeMarker) + automergeMarker.length),
+  "dist/mjs/entrypoints/fullfat_base64.js"
 );
 
 const automergeBase64Plugin: BunPlugin = {
@@ -159,24 +166,49 @@ async function runFile(testFile: string): Promise<FileTally> {
     });
 
     // Push-based reporting (polly#138): the page calls back into Node via
-    // `__pollyReport(results)` when its in-page suite has finished. We
-    // bind that function and the page-error channel to a single Promise
-    // before navigating, then `await` it — no `page.evaluate` polling
-    // and no CDP timeout for a busy renderer to trip.
+    // `__pollyReport(results)` when its in-page suite has finished.
+    let reportResolve!: (results: TestResult[]) => void;
+    let reportReject!: (err: Error) => void;
     const outcome = new Promise<TestResult[]>((resolve, reject) => {
-      newPage
-        .exposeFunction("__pollyReport", (results: TestResult[]) => {
-          resolve(results);
-        })
-        .catch(reject);
-      newPage.on("pageerror", (err: unknown) => {
-        reject(err instanceof Error ? err : new Error(errMessage(err)));
-      });
+      reportResolve = resolve;
+      reportReject = reject;
+    });
+
+    // Wire the report channel BEFORE navigating. `exposeFunction` is async;
+    // if the page were allowed to load first it could call `__pollyReport`
+    // before the binding existed, and the result would be lost forever —
+    // the deadlock seen when the runner's CWD was outside the test package
+    // (polly#159).
+    await newPage.exposeFunction("__pollyReport", (results: TestResult[]) => {
+      reportResolve(results);
+    });
+    newPage.on("pageerror", (err: unknown) => {
+      reportReject(err instanceof Error ? err : new Error(errMessage(err)));
     });
 
     await newPage.goto(`http://127.0.0.1:${server.port}/`, { waitUntil: "domcontentloaded" });
 
-    const results = await outcome;
+    // Bound the wait so a page that never reports (a swallowed error, a hung
+    // renderer) fails the file instead of hanging the whole suite forever
+    // (polly#159). Override via POLLY_BROWSER_TIMEOUT_MS.
+    const timeoutMs = Number(process.env["POLLY_BROWSER_TIMEOUT_MS"] ?? 60000);
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutTimer = setTimeout(() => {
+        reject(
+          new Error(
+            `timed out after ${timeoutMs}ms waiting for __pollyReport — the in-page suite never reported`
+          )
+        );
+      }, timeoutMs);
+    });
+
+    let results: TestResult[];
+    try {
+      results = await Promise.race([outcome, timeout]);
+    } finally {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+    }
 
     let passed = 0;
     let failed = 0;
