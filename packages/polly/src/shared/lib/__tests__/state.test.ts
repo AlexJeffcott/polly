@@ -87,3 +87,76 @@ describe("State Primitives", () => {
     expect(state2.value).toBe(10);
   });
 });
+
+// A storage adapter pre-seeded with a value that predates a later state shape.
+function seededStorage(seed: Record<string, unknown>) {
+  const store = new Map<string, unknown>(Object.entries(seed));
+  return {
+    async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {
+      const out: Record<string, T> = {};
+      for (const k of keys) {
+        if (store.has(k)) out[k] = store.get(k) as T;
+      }
+      return out;
+    },
+    async set(items: Record<string, unknown>): Promise<void> {
+      for (const [k, v] of Object.entries(items)) store.set(k, v);
+    },
+    async remove(keys: string[]): Promise<void> {
+      for (const k of keys) store.delete(k);
+    },
+  };
+}
+
+describe("Persisted state hydration merges with defaults (#158)", () => {
+  test("backfills a field added after the value was persisted", async () => {
+    // Stored blob predates the `b` field.
+    const storage = seededStorage({ "view:158-add": { a: 1 } });
+    const s = $persistedState("view:158-add", { a: 1, b: "default" }, { storage });
+    await s.loaded;
+
+    expect(s.value.a).toBe(1);
+    expect(s.value.b).toBe("default"); // not undefined
+  });
+
+  test("stored values still override defaults", async () => {
+    const storage = seededStorage({ "view:158-override": { a: 1, b: "stored" } });
+    const s = $persistedState("view:158-override", { a: 1, b: "default" }, { storage });
+    await s.loaded;
+
+    expect(s.value.b).toBe("stored");
+  });
+
+  test("primitive state is replaced wholesale, not merged", async () => {
+    const storage = seededStorage({ "view:158-prim": "stored" });
+    const s = $persistedState("view:158-prim", "default", { storage });
+    await s.loaded;
+
+    expect(s.value).toBe("stored");
+  });
+
+  test("array state is replaced wholesale, not merged", async () => {
+    const storage = seededStorage({ "view:158-arr": [3, 4] });
+    const s = $persistedState("view:158-arr", [1, 2], { storage });
+    await s.loaded;
+
+    expect(s.value).toEqual([3, 4]);
+  });
+
+  test("validator backfills instead of discarding the user's other fields", async () => {
+    // User had changed `a` to 99 before `b` existed in the shape.
+    const storage = seededStorage({ "view:158-valid": { a: 99 } });
+    const validator = (v: unknown): v is { a: number; b: string } =>
+      typeof v === "object" &&
+      v !== null &&
+      typeof (v as Record<string, unknown>)["a"] === "number" &&
+      typeof (v as Record<string, unknown>)["b"] === "string";
+    const s = $persistedState("view:158-valid", { a: 1, b: "default" }, { storage, validator });
+    await s.loaded;
+
+    // Without the merge, {a:99} fails validation and the whole blob is
+    // discarded back to the initial value — losing the user's a=99. With the
+    // merge, the backfilled {a:99, b:"default"} passes and a=99 survives.
+    expect(s.value).toEqual({ a: 99, b: "default" });
+  });
+});

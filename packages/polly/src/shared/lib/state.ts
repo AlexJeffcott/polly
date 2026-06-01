@@ -373,6 +373,25 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   return sig;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Backfill keys added to the state shape since a value was persisted.
+ *
+ * Stored plain objects are shallow-merged over the current defaults so that a
+ * field added in a later release rehydrates to its default rather than
+ * `undefined`. Primitives and arrays are replaced wholesale — merging those
+ * would corrupt them.
+ */
+function reconcileWithDefaults<T>(defaults: T, stored: unknown): T {
+  if (isPlainObject(defaults) && isPlainObject(stored)) {
+    return { ...defaults, ...stored } as T;
+  }
+  return stored as T;
+}
+
 async function loadFromStorage<T>(
   key: string,
   sig: Signal<T>,
@@ -384,7 +403,9 @@ async function loadFromStorage<T>(
     const result = await storage.get([key, `${key}:clock`]);
 
     if (result[key] !== undefined) {
-      const storedValue = result[key];
+      // sig still holds the initial value here, so it is the default base
+      // for backfilling keys the persisted blob predates.
+      const storedValue = reconcileWithDefaults(sig.peek(), result[key]);
 
       // Validate stored value if validator provided
       if (validator) {
