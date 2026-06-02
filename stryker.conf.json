@@ -39,7 +39,8 @@
     "packages/polly/src/shared/lib/peer-repo-server.ts",
     "packages/polly/src/shared/lib/handler-execution-tracker.ts",
     "packages/polly/src/shared/lib/adapter-factory.ts",
-    "packages/polly/src/shared/lib/context-helpers.ts"
+    "packages/polly/src/shared/lib/context-helpers.ts",
+    "packages/polly/src/shared/lib/context-specific-helpers.ts"
   ],
   "thresholds": {
     "high": 90,
