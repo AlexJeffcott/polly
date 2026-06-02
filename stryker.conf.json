@@ -1,13 +1,19 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "packageManager": "npm",
-  "testRunner": "command",
-  "commandRunner": {
-    "command": "cd packages/polly && bun test ./tests/unit ./src"
+  "testRunner": "bun",
+  "plugins": ["stryker-mutator-bun-runner"],
+  "bun": {
+    "testFiles": [
+      "packages/polly/tests/unit/**/*.test.ts",
+      "packages/polly/src/**/*.test.ts"
+    ],
+    "timeout": 30000
   },
-  "coverageAnalysis": "off",
+  "coverageAnalysis": "all",
+  "disableBail": true,
   "checkers": [],
-  "reporters": ["clear-text", "progress", "html"],
+  "reporters": ["json", "clear-text", "progress", "html"],
   "mutate": [
     "packages/polly/src/shared/lib/validation.ts",
     "packages/polly/src/shared/lib/constraints.ts",
@@ -16,7 +22,25 @@
     "packages/polly/src/shared/lib/crdt-state.ts",
     "packages/polly/src/shared/lib/crdt-specialised.ts",
     "packages/polly/src/shared/lib/guards.ts",
-    "packages/polly/src/shared/lib/revocation.ts"
+    "packages/polly/src/shared/lib/revocation.ts",
+    "packages/polly/src/shared/lib/peer-state.ts",
+    "packages/polly/src/shared/lib/primitive-registry.ts",
+    "packages/polly/src/shared/lib/migrate-primitive.ts",
+    "packages/polly/src/shared/lib/schema-version.ts",
+    "packages/polly/src/shared/lib/revocation-summary.ts",
+    "packages/polly/src/shared/lib/signing.ts",
+    "packages/polly/src/shared/lib/mesh-diagnostics.ts",
+    "packages/polly/src/shared/lib/peer-relay-adapter.ts",
+    "packages/polly/src/shared/lib/mesh-signaling-client.ts",
+    "packages/polly/src/shared/lib/mesh-network-adapter.ts",
+    "packages/polly/src/shared/lib/mesh-client.ts",
+    "packages/polly/src/shared/lib/mesh-webrtc-adapter.ts",
+    "packages/polly/src/shared/lib/storage-adapter.ts",
+    "packages/polly/src/shared/lib/peer-repo-server.ts",
+    "packages/polly/src/shared/lib/handler-execution-tracker.ts",
+    "packages/polly/src/shared/lib/adapter-factory.ts",
+    "packages/polly/src/shared/lib/context-helpers.ts",
+    "packages/polly/src/shared/lib/context-specific-helpers.ts"
   ],
   "thresholds": {
     "high": 90,
@@ -30,6 +54,6 @@
     "**/.stryker-tmp/**",
     "**/reports/**"
   ],
-  "timeoutMS": 60000,
-  "concurrency": 2
+  "timeoutMS": 90000,
+  "concurrency": 6
 }

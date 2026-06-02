@@ -10,11 +10,12 @@
  * sending a "join" with the local peer id, and then using sendSignal()
  * to forward SDP and ICE messages to specific target peers.
  *
- * Because this client is browser-only in its first incarnation — it
- * assumes the global `WebSocket` is available — it cannot be exercised
- * under bun:test the way the server-side plugin is. The first validation
- * of this code path is either a Playwright harness or a human running
- * the browser-side example that consumes it.
+ * The client defaults to the global `WebSocket` but accepts any
+ * constructor via {@link MeshSignalingClientOptions.WebSocket}, so it is
+ * exercised under bun:test with a controllable socket double — see
+ * `tests/unit/mesh-signaling-client.test.ts`, which drives the join
+ * handshake, frame routing, the send paths, and the reconnect backoff
+ * in-process. A Playwright harness still covers the real-browser socket.
  */
 
 /** A signal message either sent to or received from the signalling server.

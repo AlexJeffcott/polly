@@ -744,8 +744,14 @@ function deriveSeedActor(documentId: DocumentId): string {
  *
  * Set `POLLY_113_DISABLE_FIX=1` to restore the pre-fix non-deterministic
  * behaviour. Used by `tests/unit/mesh-state.test.ts` to prove the
- * failing-shape repro catches the regression. */
-function seedDocumentBytes<D>(documentId: DocumentId, initialDoc: D): Uint8Array {
+ * failing-shape repro catches the regression.
+ *
+ * Exported for that test only — `src/mesh.ts` re-exports the mesh API by
+ * name and does not include this, so it is not part of the public surface.
+ * The test pins the two determinism properties the loopback race test
+ * cannot reach: byte-identity across peers and independence from wall-clock
+ * time (the `time: 0` lever, which a same-millisecond loopback seed hides). */
+export function seedDocumentBytes<D>(documentId: DocumentId, initialDoc: D): Uint8Array {
   const disable = typeof process !== "undefined" && process.env?.["POLLY_113_DISABLE_FIX"] === "1";
   if (disable) {
     return Automerge.save(Automerge.from(initialDoc as unknown as Record<string, unknown>));

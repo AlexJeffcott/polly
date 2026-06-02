@@ -34,6 +34,9 @@
     "typecheck": "bun run --filter @fairfox/polly typecheck",
     "test": "bun run --filter @fairfox/polly test",
     "mutation": "stryker run",
+    "test-debt": "bun scripts/test-debt/report.ts",
+    "test-debt:decisions": "bun scripts/test-debt/decisions.ts",
+    "test-debt:verify": "bun scripts/test-debt/verify-matrix.ts --run",
     "test:all": "bun run --filter @fairfox/polly test:all && bun run test:examples",
     "test:examples": "echo '\\n=== Testing Examples ===' && bun run test:example:minimal && bun run test:example:todo-list && bun run test:example:full-featured && bun run test:example:showcase",
     "test:example:minimal": "echo '\\n--- Minimal Example ---' && bun run --cwd examples/minimal test:all",
@@ -44,6 +47,10 @@
     "publish:public": "bun run --filter @fairfox/polly publish:public"
   },
   "devDependencies": {
-    "@stryker-mutator/core": "9.6.1"
+    "@stryker-mutator/core": "9.6.1",
+    "stryker-mutator-bun-runner": "0.4.0"
+  },
+  "patchedDependencies": {
+    "stryker-mutator-bun-runner@0.4.0": "patches/stryker-mutator-bun-runner@0.4.0.patch"
   }
 }

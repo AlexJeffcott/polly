@@ -142,3 +142,101 @@ describe("encodeEncryptedEnvelope and decodeEncryptedEnvelope", () => {
     expect(() => decodeEncryptedEnvelope(new Uint8Array(2))).toThrow(EncryptionError);
   });
 });
+
+/** Run a throwing function and return the EncryptionError it raised, failing
+ * loudly if it threw something else or nothing at all. */
+function catchEncryptionError(fn: () => unknown): EncryptionError {
+  try {
+    fn();
+  } catch (e) {
+    if (e instanceof EncryptionError) return e;
+    throw e;
+  }
+  throw new Error("expected an EncryptionError to be thrown");
+}
+
+describe("EncryptionError codes and messages", () => {
+  test("an EncryptionError carries the EncryptionError name", () => {
+    const err = catchEncryptionError(() => encrypt(new Uint8Array(1), new Uint8Array(8)));
+    expect(err.name).toBe("EncryptionError");
+  });
+
+  test("encrypt reports invalid-key-length with the byte counts", () => {
+    const err = catchEncryptionError(() => encrypt(new Uint8Array(1), new Uint8Array(8)));
+    expect(err.code).toBe("invalid-key-length");
+    expect(err.message).toContain(`${KEY_BYTES} bytes`);
+    expect(err.message).toContain("got 8");
+  });
+
+  test("decrypt reports invalid-key-length with the byte counts", () => {
+    const err = catchEncryptionError(() => decrypt(new Uint8Array(40), new Uint8Array(5)));
+    expect(err.code).toBe("invalid-key-length");
+    expect(err.message).toContain(`${KEY_BYTES} bytes`);
+    expect(err.message).toContain("got 5");
+  });
+
+  test("decryptOrThrow reports decrypt-failed on a wrong key", () => {
+    const key = generateDocumentKey();
+    const wrong = generateDocumentKey();
+    const sealed = encrypt(new TextEncoder().encode("secret"), key);
+    const err = catchEncryptionError(() => decryptOrThrow(sealed, wrong));
+    expect(err.code).toBe("decrypt-failed");
+    expect(err.message).toContain("Failed to decrypt");
+  });
+
+  test("decode reports envelope-malformed with the byte count on a too-short blob", () => {
+    const err = catchEncryptionError(() => decodeEncryptedEnvelope(new Uint8Array(2)));
+    expect(err.code).toBe("envelope-malformed");
+    expect(err.message).toContain("too short");
+    expect(err.message).toContain("2 bytes");
+  });
+
+  test("decode reports envelope-malformed naming the declared id length when truncated", () => {
+    // Length >= 4 (clears the prefix floor) but the declared id length
+    // overruns the buffer — the second length guard.
+    const blob = new Uint8Array(8);
+    new DataView(blob.buffer).setUint32(0, 1000, false);
+    const err = catchEncryptionError(() => decodeEncryptedEnvelope(blob));
+    expect(err.code).toBe("envelope-malformed");
+    expect(err.message).toContain("truncated");
+    expect(err.message).toContain("1000");
+  });
+});
+
+describe("decrypt length floor", () => {
+  test("round-trips an empty payload whose sealed blob sits exactly at the nonce+tag floor", () => {
+    const key = generateDocumentKey();
+    const sealed = encrypt(new Uint8Array(0), key);
+    // nonce (24) + tag (16) + zero-length ciphertext = exactly 40 bytes.
+    expect(sealed.length).toBe(NONCE_BYTES + TAG_BYTES);
+    // The length guard is strictly less-than, so a blob exactly at the floor
+    // is decrypted rather than rejected outright.
+    const opened = decrypt(sealed, key);
+    expect(opened).toBeDefined();
+    expect((opened as Uint8Array).length).toBe(0);
+  });
+
+  test("returns undefined one byte below the nonce+tag floor", () => {
+    const key = generateDocumentKey();
+    expect(decrypt(new Uint8Array(NONCE_BYTES + TAG_BYTES - 1), key)).toBeUndefined();
+  });
+});
+
+describe("decodeEncryptedEnvelope length boundaries", () => {
+  test("decodes a bare 4-byte blob (zero-length id, empty sealed)", () => {
+    // idLen 0 in exactly the 4-byte prefix: the floor guard is strictly
+    // less-than, so this minimal frame decodes rather than being rejected.
+    const decoded = decodeEncryptedEnvelope(new Uint8Array(4));
+    expect(decoded.documentId).toBe("");
+    expect(decoded.sealed.length).toBe(0);
+  });
+
+  test("decodes when the total length exactly equals the declared id span", () => {
+    // length 8, idLen 4 → 8 === 4 + idLen, so the second guard's strict
+    // less-than lets it through with an empty sealed blob.
+    const blob = new Uint8Array(8);
+    new DataView(blob.buffer).setUint32(0, 4, false);
+    const decoded = decodeEncryptedEnvelope(blob);
+    expect(decoded.sealed.length).toBe(0);
+  });
+});
