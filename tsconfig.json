@@ -1,0 +1,7 @@
+{
+  "//": "Root tsconfig exists solely so tooling that resolves JSX from the repo-root cwd (notably the Stryker bun-runner, which spawns `bun test` from the sandbox root) transpiles polly-ui .tsx with preact rather than defaulting to react. It intentionally has no `include`/`files`/`references`, so it drives no build; every package and example carries its own tsconfig. Keep the jsx settings in sync with packages/polly/tsconfig.json.",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  }
+}

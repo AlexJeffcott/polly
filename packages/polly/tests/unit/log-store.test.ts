@@ -246,6 +246,39 @@ test("LogStore - LOGS_GET filters by timestamp", async () => {
   expect(log0.message).toBe("Recent log");
 });
 
+test("LogStore - LOGS_GET 'since' filter is inclusive of the boundary", async () => {
+  const boundary = Date.now();
+
+  await bus.send({
+    type: "LOG",
+    level: "info",
+    message: "Exactly on boundary",
+    source: "background",
+    timestamp: boundary,
+  });
+  await bus.send({
+    type: "LOG",
+    level: "info",
+    message: "One before boundary",
+    source: "background",
+    timestamp: boundary - 1,
+  });
+
+  // `since` uses `>=`, so a log whose timestamp equals `since` must be
+  // returned and the one a millisecond earlier must not. Pins the boundary
+  // against a `>=` → `>` off-by-one.
+  const response = await bus.send({
+    type: "LOGS_GET",
+    filters: { since: boundary },
+  });
+  if (!response || !("logs" in response)) throw new Error("Invalid response");
+
+  expect(response.logs).toHaveLength(1);
+  const log0 = response.logs[0];
+  if (!log0) throw new Error("Log entry not found");
+  expect(log0.message).toBe("Exactly on boundary");
+});
+
 test("LogStore - LOGS_GET limits results", async () => {
   // Add 5 logs
   for (let i = 0; i < 5; i++) {
