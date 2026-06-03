@@ -3,9 +3,18 @@ import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 import { TLAGenerator } from "../tla";
 
 /**
- * Tests to ensure TLA+ code generation rejects invalid TLA+ identifiers
- * from message types. This prevents the bug from issue #11 where invalid
- * TypeScript type syntax makes it through to TLA+ generation.
+ * Tests to ensure TLA+ code generation rejects message types that cannot be
+ * represented as a TLA+ action. This prevents the bug from issue #11 where
+ * invalid TypeScript type syntax (e.g. an inferred object-literal type) makes
+ * it through to TLA+ generation.
+ *
+ * polly#144 narrowed "invalid": message types are emitted as quoted string
+ * literals and sanitized into action names, so non-identifier types (HTTP
+ * routes, dashed/dotted/colon-namespaced names) ARE representable. Only the
+ * genuinely unrepresentable ones are rejected — those with no letter to seed an
+ * action name, or those containing the TLA-structural characters `{}();<>=`
+ * (which is what an inferred object-literal type like `{ ok: true; value: t }`
+ * carries). The thrown error is "Unrepresentable message type '<type>'.".
  */
 describe("TLA+ Code Generation Validation", () => {
   const mockConfig: VerificationConfig = {
@@ -27,7 +36,7 @@ describe("TLA+ Code Generation Validation", () => {
         // Valid types
         "query",
         "command",
-        // Invalid types that somehow got through
+        // Unrepresentable: inferred object-literal types carry `{`, `}`, `;`
         "{ ok: true; value: t }",
         "{ ok: false; error: e }",
       ],
@@ -71,23 +80,27 @@ describe("TLA+ Code Generation Validation", () => {
 
     const generator = new TLAGenerator();
 
-    // Should throw an error for invalid message types
+    // Should throw for the unrepresentable object-literal message types
     await expect(async () => {
       await generator.generate(mockConfig, analysis);
-    }).toThrow(/Invalid message type.*TLA\+ identifiers must start with a letter/);
+    }).toThrow(/Unrepresentable message type/);
   });
 
-  test("should only include valid message types in UserMessageTypes set", async () => {
+  test("rejects unrepresentable message types but accepts non-identifier ones (polly#144)", async () => {
     const analysis: CodebaseAnalysis = {
       stateType: null,
       messageTypes: [
         "authenticate",
         "query",
         "command",
-        // Invalid types (should cause error)
+        // Unrepresentable: contain TLA-structural characters {}();<>=
         "{ ok: true; value: t }",
         "{ ok: false; error: e }",
-        "123invalid", // starts with number
+        // polly#144: these are REPRESENTABLE now (emitted as quoted string
+        // literals + sanitized into action names), so they do NOT error —
+        // they are simply unreachable here because the {...} types above
+        // trigger the throw first.
+        "123invalid",
         "has-dash",
         "has.dot",
         "has:colon",
@@ -98,10 +111,10 @@ describe("TLA+ Code Generation Validation", () => {
 
     const generator = new TLAGenerator();
 
-    // Should throw an error for invalid message types
+    // Should throw for the unrepresentable {...} message types.
     await expect(async () => {
       await generator.generate(mockConfig, analysis);
-    }).toThrow(/Invalid message type/);
+    }).toThrow(/Unrepresentable message type/);
   });
 
   test("should handle edge cases in message type names", async () => {
@@ -114,23 +127,22 @@ describe("TLA+ Code Generation Validation", () => {
         "message123",
         "MESSAGE_TYPE",
         "message_type_with_underscores",
-        // Invalid edge cases
+        // Unrepresentable: no letter to seed an action name. The empty string
+        // is first in iteration order, so it triggers the throw.
         "",
         " ",
         "123",
+        // polly#144: everything below IS representable now (a letter plus no
+        // {}();<>=), so it would NOT error on its own — only the no-letter
+        // entries above do. Kept here to document the relaxed contract.
         "!invalid",
         "in valid",
         "in-valid",
         "in.valid",
         "in:valid",
-        "in;valid",
         "in,valid",
-        "in{valid",
-        "in}valid",
         "in[valid",
         "in]valid",
-        "in(valid",
-        "in)valid",
       ],
       fields: [],
       handlers: [],
@@ -138,10 +150,10 @@ describe("TLA+ Code Generation Validation", () => {
 
     const generator = new TLAGenerator();
 
-    // Should throw an error for invalid message types
+    // Should throw for the no-letter (unrepresentable) message types.
     await expect(async () => {
       await generator.generate(mockConfig, analysis);
-    }).toThrow(/Invalid message type/);
+    }).toThrow(/Unrepresentable message type/);
   });
 
   test("should validate TLA+ identifier in messageTypeToActionName", async () => {

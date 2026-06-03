@@ -141,13 +141,18 @@
             "noForEach": "off",
             "noBannedTypes": "off"
           },
+          "performance": {
+            "noDelete": "off"
+          },
           "style": {
             "useForOf": "off",
             "noNonNullAssertion": "off"
           },
           "suspicious": {
             "noExplicitAny": "off",
-            "noEmptyBlockStatements": "off"
+            "noEmptyBlockStatements": "off",
+            "noConsole": "off",
+            "noAssignInExpressions": "off"
           }
         }
       }

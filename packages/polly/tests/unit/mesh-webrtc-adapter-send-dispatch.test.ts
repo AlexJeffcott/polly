@@ -419,7 +419,12 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
   test("clears inFlightSync once a fragmented message fully reassembles", () => {
     const { adapter, channel, slot } = build({ syncYieldEnabled: false });
     const progress: Array<{ kind: string }> = [];
-    adapter.on("sync-progress", (e: { kind: string }) => progress.push(e));
+    // `sync-progress` is polly-specific, outside Automerge's typed event map
+    // (production emits it via the same cast); subscribe through the cast.
+    (adapter as unknown as { on(ev: string, cb: (e: { kind: string }) => void): void }).on(
+      "sync-progress",
+      (e) => progress.push(e)
+    );
     const frags = fragmentsFor(adapter, "msg-A", 2);
     channel.deliver(frags[0] as Uint8Array);
     // Mid-reassembly: the in-flight state exists.

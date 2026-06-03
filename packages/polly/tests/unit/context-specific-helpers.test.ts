@@ -12,6 +12,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { ExtensionAdapters } from "@/shared/adapters";
 import {
   createBackgroundHelpers,
   createContentScriptHelpers,
@@ -20,7 +21,6 @@ import {
   createPopupHelpers,
   createSidePanelHelpers,
 } from "@/shared/lib/context-specific-helpers";
-import type { ExtensionAdapters } from "@/shared/adapters";
 
 type AnyGlobal = Record<string, unknown>;
 function setGlobal(name: string, value: unknown): void {
@@ -319,7 +319,7 @@ describe("createPopupHelpers", () => {
   test("getCurrentTab queries the active tab in the current window", async () => {
     const { adapters, calls } = makeAdapters();
     const tab = await createPopupHelpers(adapters).getCurrentTab();
-    expect(tab).toEqual({ id: 1, active: true });
+    expect(tab as unknown).toEqual({ id: 1, active: true });
     expect(calls.query).toEqual([{ active: true, currentWindow: true }]);
   });
 
@@ -457,7 +457,7 @@ describe("createSidePanelHelpers", () => {
   test("getCurrentTab queries the active tab in the current window", async () => {
     const { adapters, calls } = makeAdapters();
     const tab = await createSidePanelHelpers(adapters).getCurrentTab();
-    expect(tab).toEqual({ id: 1, active: true });
+    expect(tab as unknown).toEqual({ id: 1, active: true });
     expect(calls.query).toEqual([{ active: true, currentWindow: true }]);
   });
 
@@ -486,7 +486,7 @@ describe("createBackgroundHelpers", () => {
   test("getAllTabs queries with an empty filter", async () => {
     const { adapters, calls } = makeAdapters();
     const tabs = await createBackgroundHelpers(adapters).getAllTabs();
-    expect(tabs).toEqual([{ id: 1, active: true }]);
+    expect(tabs as unknown).toEqual([{ id: 1, active: true }]);
     expect(calls.query).toEqual([{}]);
   });
 

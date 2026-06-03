@@ -244,7 +244,7 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
       "peer-3" as PeerId,
     ]);
     expect(senderBase.sent).toHaveLength(3);
-    expect(senderBase.sent.map((m) => m.targetId)).toEqual(["peer-1", "peer-2", "peer-3"]);
+    expect(senderBase.sent.map((m) => String(m.targetId))).toEqual(["peer-1", "peer-2", "peer-3"]);
   });
 
   test("is a no-op when there are no target peers", () => {

@@ -93,7 +93,7 @@ function build(knownPeerIds: string[]): {
   const channels = new Map<string, FakeDataChannel>();
   let nextPeerId: string | undefined;
   class CapturingPC extends FakePeerConnection {
-    createDataChannel(label: string, options: unknown): FakeDataChannel {
+    override createDataChannel(label: string, options: unknown): FakeDataChannel {
       const channel = super.createDataChannel(label, options);
       if (nextPeerId) channels.set(nextPeerId, channel);
       return channel;

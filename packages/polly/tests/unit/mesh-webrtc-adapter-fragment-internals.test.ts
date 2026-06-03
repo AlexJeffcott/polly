@@ -171,7 +171,12 @@ describe("handleSyncFragment per-chunk accounting", () => {
   test("emits a fragment-received beat with a running chunk/byte count", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
     const progress: SyncProgress[] = [];
-    adapter.on("sync-progress", (e: SyncProgress) => progress.push(e));
+    // `sync-progress` is polly-specific, outside Automerge's typed event map
+    // (production emits it via the same cast); subscribe through the cast.
+    (adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }).on(
+      "sync-progress",
+      (e) => progress.push(e)
+    );
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(60) }));
     const frags = fragment(wire, "msg-A", 3);
     channel.deliver(frags[0] as Uint8Array);
@@ -185,7 +190,12 @@ describe("handleSyncFragment per-chunk accounting", () => {
   test("accumulates the chunk count across chunks rather than resetting inFlightSync", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
     const progress: SyncProgress[] = [];
-    adapter.on("sync-progress", (e: SyncProgress) => progress.push(e));
+    // `sync-progress` is polly-specific, outside Automerge's typed event map
+    // (production emits it via the same cast); subscribe through the cast.
+    (adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }).on(
+      "sync-progress",
+      (e) => progress.push(e)
+    );
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(60) }));
     const frags = fragment(wire, "msg-A", 3);
     channel.deliver(frags[0] as Uint8Array);

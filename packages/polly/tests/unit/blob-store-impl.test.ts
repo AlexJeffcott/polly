@@ -51,7 +51,7 @@ class FakeMeshAdapter {
     const parsed = parseBlobMessage(msg);
     if (!parsed) return false;
     // Deliver with this adapter's id as the sender, mirroring the wire.
-    target.onBlobMessage(this.id, parsed.header as Record<string, unknown>, parsed.data);
+    target.onBlobMessage(this.id, parsed.header as unknown as Record<string, unknown>, parsed.data);
     return true;
   }
 

@@ -17,7 +17,9 @@ import { deriveDocumentId } from "@/shared/lib/derive-document-id";
 /** Recompute the expected id straight from the documented recipe, so a
  * mutated domain prefix, separator, or slice length in the implementation
  * diverges from this and fails the assertion. */
-function expectedId(key: string): string {
+// Return type inferred as DocumentId (interpretAsDocumentId's brand) so it
+// compares directly against deriveDocumentId's DocumentId result.
+function expectedId(key: string) {
   const digest = nacl.hash(new TextEncoder().encode(`polly/meshState/v1:${key}`));
   return interpretAsDocumentId(digest.slice(0, 16) as unknown as BinaryDocumentId);
 }

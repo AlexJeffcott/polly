@@ -64,16 +64,8 @@ describe("encodeRevocationSummary", () => {
   });
 
   test("is order-independent: differently-ordered inputs encode identically", () => {
-    const a = encodeRevocationSummary([
-      entry("z", "m", 9),
-      entry("a", "m", 1),
-      entry("a", "m", 2),
-    ]);
-    const b = encodeRevocationSummary([
-      entry("a", "m", 2),
-      entry("z", "m", 9),
-      entry("a", "m", 1),
-    ]);
+    const a = encodeRevocationSummary([entry("z", "m", 9), entry("a", "m", 1), entry("a", "m", 2)]);
+    const b = encodeRevocationSummary([entry("a", "m", 2), entry("z", "m", 9), entry("a", "m", 1)]);
     expect(new TextDecoder().decode(a)).toBe(new TextDecoder().decode(b));
   });
 
@@ -138,7 +130,10 @@ describe("decodeRevocationSummary", () => {
 
   test("reports the offending entry index in the message", () => {
     const bytes = new TextEncoder().encode(
-      JSON.stringify([{ r: "x", i: "y", t: 1 }, { r: "x", i: "y" }])
+      JSON.stringify([
+        { r: "x", i: "y", t: 1 },
+        { r: "x", i: "y" },
+      ])
     );
     expect(() => decodeRevocationSummary(bytes)).toThrow(/entry 1 /);
   });
