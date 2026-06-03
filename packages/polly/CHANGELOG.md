@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.0] - 2026-06-03
+
+### Added
+
+#### Capability and coupled-field checks for the verifier (polly#160)
+
+`defineVerification()` gains two opt-in, backward-compatible keys that catch "a
+capability granted without its precondition" — an omission spread across
+handlers that mutation testing, by construction, cannot find: it mutates code
+that exists, and this class of bug is a statement that was never written.
+
+`capabilities: [{ name, enabledBy, requires }]` desugars to a TLA+ safety
+invariant `enabledBy ⟹ requires`, checked at every reachable state. When some
+path enables the capability without establishing its precondition, TLC reports
+the violation with a counterexample trace. The implication reuses the existing
+expression translator, and capability expressions are validated up front — a
+bare identifier that would silently produce a vacuous invariant is rejected, as
+is a reference to a field absent from the modelled state.
+
+`coupledFields: [[fieldA, fieldB]]` is the fast, static companion: a warning when
+a single handler writes a strict subset of a field group (one half of a pair
+without the other). It never fails verification — a legitimately staged
+transition trips it — so it is a hint, while the capability invariant is the
+sound, whole-state proof.
+
 ## [0.77.3] - 2026-06-01
 
 ### Fixed
