@@ -6,6 +6,7 @@ import * as path from "node:path";
 import type { MessageHandler } from "../core/model";
 import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
 import type {
+  CapabilityConfig,
   CodebaseAnalysis,
   FieldAnalysis,
   FieldConfig,
@@ -3399,6 +3400,14 @@ export class TLAGenerator {
     this.indent--;
     this.line("");
 
+    // polly#160: desugar capability declarations into safety invariants BEFORE
+    // the render below, so they flow through the same generateTLAInvariants /
+    // INVARIANTS-clause path as JSDoc invariants (field names match by
+    // construction via tsExpressionToTLA).
+    if (config.capabilities && config.capabilities.length > 0) {
+      this.addCapabilityInvariants(config.capabilities);
+    }
+
     // Add extracted invariants from JSDoc
     if (this.extractedInvariants.length > 0) {
       this.line("\\* Extracted invariants from code annotations");
@@ -3425,6 +3434,30 @@ export class TLAGenerator {
 
     // Module-end marker is emitted separately so temporal properties (if
     // any) land inside the module rather than after its closing line.
+  }
+
+  /**
+   * polly#160 (A3): desugar capability declarations into safety invariants.
+   *
+   * A capability `{name, enabledBy, requires}` becomes "granting the capability
+   * implies its precondition holds": `enabledBy => requires`, encoded as the
+   * material implication `(!(enabledBy)) || (requires)`. The explicit
+   * disjunction is deliberate: tsExpressionToTLA has no `=>` rewrite rule (a
+   * bare `=>` survives only by accident), but it does translate `!`→`~`,
+   * `||`→`\/`, and the `state.`/`.value` field forms, yielding
+   * `(~(...)) \/ (...)`. Pushed onto extractedInvariants so the existing render
+   * + INVARIANTS-clause path picks them up.
+   */
+  private addCapabilityInvariants(capabilities: CapabilityConfig[]): void {
+    for (const cap of capabilities) {
+      this.extractedInvariants.push({
+        name: `Capability_${cap.name}`,
+        description: cap.message
+          ? `polly#160 capability: ${cap.message}`
+          : `polly#160 capability: ${cap.name} requires its precondition`,
+        expression: `(!(${cap.enabledBy})) || (${cap.requires})`,
+      });
+    }
   }
 
   /**

@@ -504,6 +504,57 @@ function getMaxDepth(config: UnifiedVerificationConfig): number | undefined {
   return undefined;
 }
 
+/**
+ * polly#160 (A2): coupled-field write-coupling lint. WARNS only — a legitimate
+ * staged transition (one handler sets each field) trips the per-handler subset
+ * check, so this never fails the run. The sound, whole-state detector is the
+ * `capabilities` TLA+ invariant. Runs in runFullVerification before the
+ * subsystem/monolithic branch, so it covers both paths.
+ */
+async function runCoupledFieldsLint(
+  config: UnifiedVerificationConfig,
+  analysis: import("./core/model").CodebaseAnalysis
+): Promise<void> {
+  const groups = (config as { coupledFields?: string[][] }).coupledFields ?? [];
+  if (groups.length === 0) return;
+
+  const { checkCoupledFields } = await import("./analysis/coupled-fields");
+  const result = checkCoupledFields(groups, analysis.handlers);
+
+  if (result.valid) {
+    console.log(color("✓ Coupled fields: verified (no partial-subset writes)", COLORS.green));
+    console.log();
+    return;
+  }
+
+  console.log(color("⚠️  Coupled-field violations detected:\n", COLORS.yellow));
+  for (const v of result.violations) {
+    console.log(
+      color(
+        `   • Handler "${v.handler}" writes {${v.written.join(", ")}} but not {${v.missing.join(
+          ", "
+        )}} of coupled group {${v.group.join(", ")}}`,
+        COLORS.yellow
+      )
+    );
+  }
+  console.log();
+  console.log(
+    color(
+      "   These fields are declared to move together; a capability granted without its",
+      COLORS.yellow
+    )
+  );
+  console.log(
+    color(
+      "   precondition is a likely cause. Co-write the full group in each handler, or model",
+      COLORS.yellow
+    )
+  );
+  console.log(color("   the relationship with a `capabilities` invariant.", COLORS.yellow));
+  console.log();
+}
+
 async function runFullVerification(configPath: string) {
   // Load config
   const config = await loadVerificationConfig(configPath);
@@ -536,6 +587,10 @@ async function runFullVerification(configPath: string) {
     Object.keys((typedConfig as { mesh?: Record<string, unknown> }).mesh ?? {})
   );
   displayMeshOrPeerSignalWarnings(typedAnalysis, declaredMeshDocs);
+
+  // polly#160: coupled-field write-coupling lint (warn-only). One call here
+  // covers both the subsystem and monolithic paths below.
+  await runCoupledFieldsLint(typedConfig, typedAnalysis);
 
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {

@@ -1,0 +1,6 @@
+{
+  "name": "test-capability-guard",
+  "version": "1.0.0",
+  "description": "Verify fixture (polly#160): a handler grants a capability without its precondition, which the generated capability invariant must catch.",
+  "main": "src/background/index.ts"
+}

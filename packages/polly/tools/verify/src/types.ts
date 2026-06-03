@@ -14,6 +14,12 @@ export type {
   VerificationCondition,
 } from "../../analysis/src/index.ts";
 
+// polly#160: capability declarations are authored on the public config arms
+// (config/types.ts) and consumed here on the internal VerificationConfig.
+export type { CapabilityConfig } from "./config/types";
+
+import type { CapabilityConfig } from "./config/types";
+
 export type SubsystemConfig = {
   state: string[]; // Field names from parent state config
   handlers: string[]; // Message type names
@@ -52,6 +58,11 @@ export type VerificationConfig = {
 
   // Subsystem-scoped verification (compositional)
   subsystems?: Record<string, SubsystemConfig>;
+
+  // polly#160: directional capability invariants (desugar to TLA+ safety
+  // invariants) + symmetric write-coupling lint groups (static warning only).
+  capabilities?: CapabilityConfig[];
+  coupledFields?: string[][];
 
   // Tier 2 Optimizations (controlled approximations)
   tier2?: {
@@ -117,7 +128,15 @@ export type MessageConfig = {
 };
 
 export type ConfigIssue = {
-  type: "incomplete" | "null_placeholder" | "unrealistic_bound" | "invalid_value";
+  type:
+    | "incomplete"
+    | "null_placeholder"
+    | "unrealistic_bound"
+    | "invalid_value"
+    // polly#160
+    | "capability_unknown_field"
+    | "capability_empty_expression"
+    | "coupled_unknown_field";
   severity: "error" | "warning";
   field?: string;
   location?: { line: number; column: number };

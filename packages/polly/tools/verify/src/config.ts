@@ -6,6 +6,19 @@
 
 // Configuration Types (inlined to avoid heavy dependencies)
 
+// polly#160: a directional capability whose grant requires a precondition.
+// Desugars to a TLA+ safety invariant `(enabledBy) => (requires)`. enabledBy /
+// requires are TS boolean expressions in the requires()/ensures() dialect
+// referencing state via `state.` / signal `.value` form (e.g. "state.authReady").
+// Inlined here (like SubsystemConfig) so this authoring entry point stays
+// dependency-light; the canonical type is CapabilityConfig in config/types.ts.
+interface CapabilityConfig {
+  name: string;
+  enabledBy: string;
+  requires: string;
+  message?: string;
+}
+
 // Subsystem configuration for compositional verification
 interface SubsystemConfig {
   state: string[]; // Field names from parent state config
@@ -88,6 +101,10 @@ interface LegacyVerificationConfig {
       criticalPaths?: string[][]; // Sequences of message types that must be fully explored
     };
   };
+
+  // polly#160: directional capability invariants + write-coupling lint groups
+  capabilities?: CapabilityConfig[];
+  coupledFields?: string[][];
 }
 
 // Adapter-based configuration (for future use)
@@ -99,6 +116,10 @@ interface AdapterVerificationConfig {
     [key: string]: unknown;
   };
   onBuild?: "warn" | "error" | "off";
+
+  // polly#160: directional capability invariants + write-coupling lint groups
+  capabilities?: CapabilityConfig[];
+  coupledFields?: string[][];
 }
 
 // Union type for both config formats

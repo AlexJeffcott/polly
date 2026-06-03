@@ -14,8 +14,9 @@ export type Invariant = {
   description: string;
   /** JavaScript expression that should always be true */
   expression: string;
-  /** Source location */
-  location: {
+  /** Source location. Omitted for synthesised invariants (e.g. polly#160
+   *  capabilities) that have no originating source line. */
+  location?: {
     file: string;
     line: number;
   };

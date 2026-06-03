@@ -3,6 +3,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ConfigIssue, ValidationResult, VerificationConfig } from "../types";
+import { validateCapabilities, validateCoupledFields } from "./capability-validation";
 
 export class ConfigValidator {
   private issues: ConfigIssue[] = [];
@@ -167,6 +168,10 @@ export class ConfigValidator {
     if (config.subsystems) {
       this.validateSubsystems(config.subsystems, config.state, config.messages);
     }
+
+    // polly#160: validate capability + coupled-field declarations.
+    this.issues.push(...validateCapabilities(config.capabilities, config.state));
+    this.issues.push(...validateCoupledFields(config.coupledFields, config.state));
   }
 
   private findNullPlaceholders(obj: unknown, path: string): void {

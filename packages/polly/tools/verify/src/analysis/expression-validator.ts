@@ -67,8 +67,12 @@ export function extractFieldRefs(expression: string): string[] {
 /**
  * Check if a field reference matches a key in the state config.
  * Tries both dot-form (user.loggedIn) and underscore-form (user_loggedIn).
+ *
+ * Exported (polly#160) so capability/coupled-field validation reuses the exact
+ * same field-name resolution the expression validator and codegen use, rather
+ * than re-deriving the dot/underscore tolerance.
  */
-function fieldInConfig(
+export function fieldInConfig(
   fieldRef: string,
   configKeys: Set<string>,
   stateConfig?: Record<string, unknown>
