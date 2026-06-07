@@ -363,9 +363,9 @@ function displayExpressionWarnings(result: ValidationResult): void {
 function displayMeshOrPeerSignalWarnings(
   analysis: import("./core/model").CodebaseAnalysis,
   declaredMeshDocs: ReadonlySet<string>
-): void {
+): number {
   const findings = computeMeshOrPeerSignalFindings(analysis, declaredMeshDocs);
-  if (findings.length === 0) return;
+  if (findings.length === 0) return 0;
 
   const hasUndeclaredMesh = findings.some((f) => f.signalKind === "mesh");
   const hasPeer = findings.some((f) => f.signalKind === "peer");
@@ -418,6 +418,133 @@ function displayMeshOrPeerSignalWarnings(
     console.log(color(`      at ${f.location.file}:${f.location.line}`, COLORS.gray));
     console.log();
   }
+
+  return findings.length;
+}
+
+/**
+ * polly#160 (Ask #1): does the operator want a fail-closed run? `--strict`
+ * (or POLLY_VERIFY_STRICT=1) turns model-coverage gaps and unverified
+ * mesh/peer signals from warnings into a non-zero exit, so a silently
+ * unmodelled path cannot pass with a green check.
+ */
+function isStrictMode(): boolean {
+  return process.argv.includes("--strict") || process.env.POLLY_VERIFY_STRICT === "1";
+}
+
+/**
+ * polly#160 (Ask #1): render the model-coverage report — which declared state
+ * fields are written by which handlers, which are written by none, and which
+ * mutators pin no postcondition. Clean specs get a one-line confirmation.
+ */
+function displayModelCoverage(
+  report: import("./analysis/model-coverage").ModelCoverageReport
+): void {
+  const { unwrittenFields, unconstrainedMutators, fieldCoverage } = report;
+
+  if (unwrittenFields.length === 0 && unconstrainedMutators.length === 0) {
+    console.log(
+      color(
+        `✓ Model coverage: all ${fieldCoverage.length} declared field(s) written by a modelled handler`,
+        COLORS.green
+      )
+    );
+    console.log();
+    return;
+  }
+
+  if (unwrittenFields.length > 0) {
+    console.log(
+      color(
+        `\n⚠️  ${unwrittenFields.length} declared state field(s) written by NO modelled handler (polly#160):`,
+        COLORS.yellow
+      )
+    );
+    for (const f of unwrittenFields) {
+      console.log(color(`   • ${f}`, COLORS.yellow));
+    }
+    console.log(
+      color(
+        "   The model carries a variable no transition can change. Either it is dead",
+        COLORS.gray
+      )
+    );
+    console.log(
+      color(
+        "   state (drop it from the verified surface) or its mutating path was never",
+        COLORS.gray
+      )
+    );
+    console.log(
+      color("   modelled — the omission class both TLC and mutation testing miss.", COLORS.gray)
+    );
+    console.log();
+  }
+
+  if (unconstrainedMutators.length > 0) {
+    console.log(
+      color(
+        `ℹ️  ${unconstrainedMutators.length} handler(s) mutate declared state with no ensures() postcondition:`,
+        COLORS.gray
+      )
+    );
+    for (const m of unconstrainedMutators) {
+      console.log(
+        color(
+          `   • ${m.handler} writes {${m.fields.join(", ")}} — ${m.location.file}:${m.location.line}`,
+          COLORS.gray
+        )
+      );
+    }
+    console.log(
+      color(
+        "   The checker explores these transitions but asserts nothing about their effect.",
+        COLORS.gray
+      )
+    );
+    console.log();
+  }
+}
+
+/**
+ * polly#160 (Ask #1): compute and render the model-coverage report, then —
+ * under --strict — fail closed before the expensive TLC pass when the model
+ * has an unwritten declared field or an unverified mesh/peer signal. Extracted
+ * from runFullVerification to keep that orchestrator within complexity limits.
+ */
+async function runModelCoverage(
+  typedConfig: UnifiedVerificationConfig,
+  typedAnalysis: import("./core/model").CodebaseAnalysis,
+  meshFindingCount: number
+): Promise<void> {
+  const { computeModelCoverage, strictCoverageReasons } = await import("./analysis/model-coverage");
+  const stateFields = Object.keys((typedConfig as { state?: Record<string, unknown> }).state ?? {});
+  const coverage = computeModelCoverage(stateFields, typedAnalysis.handlers);
+  displayModelCoverage(coverage);
+
+  if (!isStrictMode()) return;
+
+  const reasons = strictCoverageReasons(coverage, meshFindingCount);
+
+  if (reasons.length === 0) {
+    console.log(color("✓ Strict mode: model coverage complete", COLORS.green));
+    console.log();
+    return;
+  }
+
+  console.log(color("❌ Strict mode: model coverage incomplete\n", COLORS.red));
+  for (const reason of reasons) {
+    console.log(color(`   • ${reason}`, COLORS.red));
+  }
+  console.log();
+  console.log(
+    color("   --strict fails closed on these so an unmodelled path cannot pass with a", COLORS.gray)
+  );
+  console.log(
+    color("   green check. Re-run without --strict to treat them as warnings.", COLORS.gray)
+  );
+  console.log();
+  process.exit(1);
 }
 
 async function verifyCommand() {
@@ -586,11 +713,14 @@ async function runFullVerification(configPath: string) {
   const declaredMeshDocs = new Set(
     Object.keys((typedConfig as { mesh?: Record<string, unknown> }).mesh ?? {})
   );
-  displayMeshOrPeerSignalWarnings(typedAnalysis, declaredMeshDocs);
+  const meshFindingCount = displayMeshOrPeerSignalWarnings(typedAnalysis, declaredMeshDocs);
 
   // polly#160: coupled-field write-coupling lint (warn-only). One call here
   // covers both the subsystem and monolithic paths below.
   await runCoupledFieldsLint(typedConfig, typedAnalysis);
+
+  // polly#160 (Ask #1): model-coverage report + optional fail-closed gate.
+  await runModelCoverage(typedConfig, typedAnalysis, meshFindingCount);
 
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {
@@ -1233,6 +1363,11 @@ ${color("Commands:", COLORS.blue)}
 
   ${color("bun verify", COLORS.green)}
     Run verification (validates config, generates specs, runs TLC)
+
+  ${color("bun verify --strict", COLORS.green)}
+    Fail closed (non-zero exit) on model-coverage gaps: a declared state
+    field no handler writes, or an unverified $meshState/$peerState predicate.
+    Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
 
   ${color("bun verify --setup", COLORS.green)}
     Analyze codebase and generate configuration file

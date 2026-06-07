@@ -1,0 +1,6 @@
+{
+  "name": "test-coverage-strict",
+  "version": "1.0.0",
+  "description": "Verify fixture (polly#160 Ask #1): a declared state field with no modelled writer; `polly verify --strict` must fail closed.",
+  "main": "src/background/index.ts"
+}
