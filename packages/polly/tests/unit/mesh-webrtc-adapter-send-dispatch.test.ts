@@ -471,3 +471,40 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
     expect(slot().inFlightSync).toBeDefined();
   });
 });
+
+describe("MeshWebRTCAdapter inbound frame type handling (polly#161)", () => {
+  test("dispatches a frame delivered as a raw Uint8Array, not only an ArrayBuffer", () => {
+    // The browser stack hands `onmessage` an ArrayBuffer (the `deliver`
+    // helper's path); werift hands a Uint8Array. Drive the Uint8Array branch
+    // directly so it is not left as covered-but-undetected theatre.
+    const { adapter, channel } = build({ syncYieldEnabled: false });
+    const received: Message[] = [];
+    adapter.on("message", (m: Message) => received.push(m));
+    const wire = (
+      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
+    ).serialiseMessage(makeMessage({ data: new Uint8Array([5, 6, 7]) }));
+    channel.onmessage?.({ data: wire });
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]?.data as Uint8Array)).toEqual([5, 6, 7]);
+  });
+});
+
+describe("MeshWebRTCAdapter data-channel onclose (polly#161)", () => {
+  test("the current channel's onclose clears the slot's channel reference", () => {
+    const { channel, slot } = build({ open: true });
+    expect(slot().channel).toBe(channel);
+    channel.close();
+    expect(slot().channel).toBeUndefined();
+  });
+
+  test("a stale channel's onclose does not clear a newer channel", () => {
+    // A signalling reconnect can swap in a fresh data channel while the old
+    // one's close fires late. The guard must only null the slot's channel
+    // when the closing channel is still the current one (polly#133 family).
+    const { channel, slot } = build({ open: true });
+    const fresh = new FakeDataChannel();
+    slot().channel = fresh;
+    channel.close();
+    expect(slot().channel).toBe(fresh);
+  });
+});
