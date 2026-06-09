@@ -145,6 +145,10 @@ function makeKeyring(
   };
 }
 
+const SYNC_FIND_TIMEOUT_MS = 2000;
+
+// (bounded so a mutant that stalls cross-repo sync fails fast instead of
+// hanging to Stryker's 90s timeoutMS — see polly#161)
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
   timeoutMs = 2000
@@ -258,7 +262,9 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     await handleA.whenReady();
 
     // B finds the doc by id; the sync messages are mesh-encrypted on the wire.
-    const handleB = await repoB.find<Notes>(handleA.documentId);
+    const handleB = await repoB.find<Notes>(handleA.documentId, {
+      signal: AbortSignal.timeout(SYNC_FIND_TIMEOUT_MS),
+    });
     await waitFor(() => handleB.doc().title === "encrypted");
     expect(handleB.doc().body).toBe("secret body");
 
@@ -370,7 +376,9 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     // incoming message because `keyringSource` is called per-message.
     bKeyring = makeKeyring(bIdentity, new Map([["peer-a", aIdentity.publicKey]]), docKey);
 
-    const handleB = await repoB.find<Notes>(handleA.documentId);
+    const handleB = await repoB.find<Notes>(handleA.documentId, {
+      signal: AbortSignal.timeout(SYNC_FIND_TIMEOUT_MS),
+    });
     await waitFor(() => handleB.doc().title === "post-pair");
     expect(handleB.doc().body).toBe("shows up after reload");
 

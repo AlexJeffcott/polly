@@ -102,6 +102,13 @@ function makeLoopbackPair(): [LoopbackAdapter, LoopbackAdapter] {
   return [a, b];
 }
 
+/** Bound on every cross-repo `find` in these two-repo loopback tests. On the
+ * happy path the document syncs in well under this; a mutant that breaks the
+ * sign/verify/wrap path stalls the sync, and without a bound `find` would hang
+ * to Stryker's 90s `timeoutMS` (scored a slow Timeout-kill). Aborting at 2s
+ * turns that into a fast, ordinary Killed. */
+const SYNC_FIND_TIMEOUT_MS = 2000;
+
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
   timeoutMs = 2000
@@ -490,7 +497,9 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const handleA = repoA.create<Doc>({ title: "from-honest-a" });
     await handleA.whenReady();
 
-    const handleB = await repoB.find<Doc>(handleA.documentId);
+    const handleB = await repoB.find<Doc>(handleA.documentId, {
+      signal: AbortSignal.timeout(SYNC_FIND_TIMEOUT_MS),
+    });
     await waitFor(() => handleB.doc().title === "from-honest-a");
     expect(handleB.doc().title).toBe("from-honest-a");
 
@@ -530,7 +539,9 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     // First, sync a document while everything is trusted.
     const handleA = repoA.create<Doc>({ title: "before-revocation" });
     await handleA.whenReady();
-    const handleB = await repoB.find<Doc>(handleA.documentId);
+    const handleB = await repoB.find<Doc>(handleA.documentId, {
+      signal: AbortSignal.timeout(SYNC_FIND_TIMEOUT_MS),
+    });
     await waitFor(() => handleB.doc().title === "before-revocation");
 
     // Now revoke A from B's side.

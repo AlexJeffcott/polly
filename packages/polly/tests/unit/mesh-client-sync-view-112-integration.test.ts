@@ -61,6 +61,10 @@ class LoopbackAdapter extends NetworkAdapter {
   }
 }
 
+const SYNC_FIND_TIMEOUT_MS = 2000;
+
+// (bounded so a mutant that stalls cross-repo sync fails fast instead of
+// hanging to Stryker's 90s timeoutMS — see polly#161)
 async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -171,7 +175,9 @@ describe("buildSyncView (#112 integration — real Repo)", () => {
     await handleA.whenReady();
     const docIdA = handleA.documentId as unknown as string;
 
-    const handleB = await repoB.find<{ value: number }>(handleA.documentId);
+    const handleB = await repoB.find<{ value: number }>(handleA.documentId, {
+      signal: AbortSignal.timeout(SYNC_FIND_TIMEOUT_MS),
+    });
     await waitFor(() => handleB.doc().value === 42);
 
     const syncA = getCollectionSynchronizer(repoA);
