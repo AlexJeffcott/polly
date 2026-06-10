@@ -39,11 +39,12 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const SETTLE_MS = 2_000;
 const POST_REVOKE_SETTLE_MS = 4_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const set = prebakeKeyringSet(["peer-a", "peer-b"]);
   const peerAPeer = set.peers[0];
@@ -87,18 +88,18 @@ async function main(): Promise<void> {
   };
 
   try {
-    console.log("[e2e] both peers launched; waiting for mesh handshake");
+    ctx.log("[e2e] both peers launched; waiting for mesh handshake");
     await waitForMeshConnected([peerA, peerB], { timeoutMs: 15_000 });
     await new Promise((r) => setTimeout(r, SETTLE_MS));
 
-    console.log(`[e2e] ${peerA.peerId} writes "before-revoke"`);
+    ctx.log(`[e2e] ${peerA.peerId} writes "before-revoke"`);
     await peerA.page.type("[data-e2e='add-item-input']", "before-revoke");
     await peerA.page.click("[data-e2e='add-item-button']");
     await waitForConvergence([peerA, peerB], (s) => s.items.includes("before-revoke"), {
       timeoutMs: 10_000,
     });
 
-    console.log(`[e2e] ${peerA.peerId} revokes ${peerB.peerId} via the RFC-043 protocol`);
+    ctx.log(`[e2e] ${peerA.peerId} revokes ${peerB.peerId} via the RFC-043 protocol`);
     const reason = "test scenario: revocation-propagation";
     const ok = await peerA.page.evaluate(
       async (args: { peerId: string; reason: string }) => {
@@ -117,16 +118,16 @@ async function main(): Promise<void> {
     // Let the broadcast travel + peer B handle the control message.
     await new Promise((r) => setTimeout(r, POST_REVOKE_SETTLE_MS));
 
-    console.log("[e2e] verifying selfRevocation + diagnostic streams");
+    ctx.log("[e2e] verifying selfRevocation + diagnostic streams");
     await verifyRevocationLanded(peerA, peerB, reason);
 
-    console.log("[e2e] peer B writes after revocation — peer A must drop");
+    ctx.log("[e2e] peer B writes after revocation — peer A must drop");
     await peerB.page.type("[data-e2e='add-item-input']", "after-revoke");
     await peerB.page.click("[data-e2e='add-item-button']");
     await new Promise((r) => setTimeout(r, POST_REVOKE_SETTLE_MS));
     await verifyPeerADroppedPostRevoke(peerA, peerB.peerId);
 
-    console.log("[e2e] final allow-listed assertions");
+    ctx.log("[e2e] final allow-listed assertions");
     // Peer A: revoked-peer drops are expected (it issued the revocation).
     await peerA.assertNoSilentDrops(["drop:revoked-peer"]);
     // Peer B: no silent drops at all (it is the target, not the receiver).
@@ -134,10 +135,9 @@ async function main(): Promise<void> {
     peerA.assertNoUnexpectedConsole();
     peerB.assertNoUnexpectedConsole();
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
@@ -220,4 +220,4 @@ async function verifyPeerADroppedPostRevoke(
   }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

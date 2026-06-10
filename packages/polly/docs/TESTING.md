@@ -10,6 +10,46 @@ interface (so the type system enforces parity), and each exposes a
 small surface of test-only fields prefixed with `_` for inspection
 and seeding. They ship from `@fairfox/polly/test`.
 
+## Tiered test runner
+
+All tiers — unit, integration, browser, e2e, verify — run through one
+machine-local runner with structured, timed reporting. No cloud CI.
+
+```bash
+bun run test:tiers          # fast inner loop: unit + integration
+bun run test:tiers --all    # everything realistic (no Docker)
+bun run test:tiers --full   # + verify (Docker/TLC/mutation) + static gate
+bun run test:tiers --list   # show the plan, run nothing
+```
+
+`polly test --tier=… | --all | --full | --list` is the same thing through the
+CLI. Pass tier names positionally, `--only=<substr>` to filter cases by
+id/label/tag, `--bail` to stop after the first failing tier, and `--json` to
+write `test-results/tiers.json`. A case whose host can't meet its `needs`
+(e.g. Docker down) is skipped and logged, not failed, unless `--strict-needs`.
+
+The engine (`tools/test/src/tiers`) is manifest-driven and runs each case in
+its own subprocess to preserve isolation. Polly's plan is
+`scripts/test/registry.ts`. An e2e script becomes tier-aware by exporting
+`run(ctx): Promise<TierResult>` (see any `scripts/e2e-cli-*.ts`); unconverted
+scripts still run via an exit-code fallback, so migration never breaks the
+suite. See [the tiers index](../tools/test/src/tiers/index.ts) for the engine
+API.
+
+### In your own Polly app
+
+`polly test --tier` (and `--all` / `--list` / `--only` / `--json`) works from a
+consumer project too. It auto-discovers your tiers by convention — no config:
+
+- **unit** — `bun test` (or `bun test tests/unit` if that directory exists)
+- **integration** — `bun test tests/integration` (when that directory exists)
+- **browser** — the Polly browser runner over your `*.browser.{ts,tsx}`
+- **e2e** — `scripts/e2e-*.{ts,tsx}` that export `async function run(ctx)`
+  returning `{ pass, message? }` (the same contract Polly uses internally)
+
+A tier only appears when its inputs exist. An e2e script needs nothing imported —
+just `export async function run() { …; return { pass: true } }`.
+
 ## Table of Contents
 
 1. [Test Architecture](#test-architecture)

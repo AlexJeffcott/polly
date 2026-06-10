@@ -40,7 +40,7 @@
         "@elysiajs/eden": "1.2.0",
         "@elysiajs/html": "1.2.0",
         "@fairfox/polly": "workspace:*",
-        "@preact/signals": "2.5.1",
+        "@preact/signals": "2.9.0",
         "elysia": "1.4.28",
         "elysia-todo-app-server": "workspace:*",
         "preact": "10.29.1",
@@ -248,7 +248,7 @@
     },
     "packages/polly": {
       "name": "@fairfox/polly",
-      "version": "0.77.2",
+      "version": "0.78.0",
       "bin": {
         "polly": "./dist/cli/polly.js",
       },
@@ -1231,8 +1231,6 @@
     "cross-spawn/path-key": ["path-key@3.1.1", "", {}, "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q=="],
 
     "elysia-todo-app-client/@elysiajs/eden": ["@elysiajs/eden@1.2.0", "", { "peerDependencies": { "elysia": ">= 1.2.0" } }, "sha512-MpV45ahuF+iFZUg4tyJbLr9qxzY99m8clJVgQrDrz7Qh6eOKQ8MY6vjYMj3Wh21pTIRHPHzOLhVorRGby1/Owg=="],
-
-    "elysia-todo-app-client/@preact/signals": ["@preact/signals@2.5.1", "", { "dependencies": { "@preact/signals-core": "^1.12.0" }, "peerDependencies": { "preact": ">= 10.25.0 || >=11.0.0-0" } }, "sha512-VPjk5YFt7i11Fi4UK0tzaEe5xLwfhUxXL3l89ocxQ5aPz7bRo8M5+N73LjBMPklyXKYKz6YsNo4Smp8n6nplng=="],
 
     "elysia-todo-app-client/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

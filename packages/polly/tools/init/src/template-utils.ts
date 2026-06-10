@@ -81,11 +81,29 @@ function copyTemplateFiles(
   }
 }
 
+/** Every project type the scaffolder knows how to name. A type is only
+ *  *available* once a matching template directory ships next to this
+ *  module — see {@link getAvailableTypes}. */
+const ALL_PROJECT_TYPES: ProjectType[] = ["extension", "pwa", "websocket", "generic"];
+
 /**
- * Get available project types
+ * Get the project types that can actually be scaffolded — the subset of
+ * {@link ALL_PROJECT_TYPES} that has a template directory on disk. Derived
+ * from the filesystem so the list cannot drift from reality: advertising a
+ * type whose template was never written is exactly the gap that left
+ * `polly init` (default `extension`) pointing at a missing directory.
  */
-export function getAvailableTypes(): ProjectType[] {
-  return ["extension", "pwa", "websocket", "generic"];
+export function getAvailableTypes(baseDir: string = import.meta.dir): ProjectType[] {
+  const templatesRoot = join(baseDir, "..", "templates");
+  let present: string[];
+  try {
+    present = readdirSync(templatesRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+  return ALL_PROJECT_TYPES.filter((type) => present.includes(type));
 }
 
 /**

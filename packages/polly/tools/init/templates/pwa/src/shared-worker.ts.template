@@ -3,8 +3,18 @@
  * Shared state and coordination across multiple tabs/windows
  */
 
-/// <reference lib="WebWorker" />
-declare const self: SharedWorkerGlobalScope;
+/// <reference lib="webworker" />
+
+// `export {}` makes this file a module so its top-level `sw` is module-scoped
+// rather than a global that collides with the service worker's `sw` when both
+// are type-checked together. The bundler emits a standalone worker regardless.
+export {};
+
+// In a shared worker `self` is the SharedWorkerGlobalScope, but the webworker
+// lib types the ambient `self` as the base WorkerGlobalScope. Narrow it once
+// here with a cast (a `declare const self` redeclaration collides with the
+// lib's own `self`); `sw` then carries the correctly-typed "connect" event.
+const sw = self as unknown as SharedWorkerGlobalScope;
 
 console.log("[Shared Worker] Starting...");
 
@@ -26,7 +36,7 @@ const state: SharedState = {
 };
 
 // Connection event - when a new tab connects
-self.addEventListener("connect", (event) => {
+sw.addEventListener("connect", (event) => {
 	const port = event.ports[0];
 	ports.push(port);
 	state.connectedTabs = ports.length;

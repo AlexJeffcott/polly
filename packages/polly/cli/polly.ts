@@ -237,6 +237,61 @@ async function format() {
   }
 }
 
+/** Flags that switch `polly test` into the tiered runner. */
+const TIER_MODE_FLAGS = [
+  "--tier",
+  "--all",
+  "--full",
+  "--list",
+  "--only",
+  "--bail",
+  "--strict-needs",
+];
+
+/** True when `polly test` should run the multi-tier orchestrator. */
+function isTierMode(rawArgs: string[]): boolean {
+  return rawArgs.some(
+    (a) => TIER_MODE_FLAGS.includes(a) || a.startsWith("--tier") || a.startsWith("--only")
+  );
+}
+
+/**
+ * Tiered test command — `polly test --tier=… / --all / --full / --list`.
+ * Drives the multi-tier engine with structured, timed reporting.
+ *
+ * Dispatch is by binary location, not cwd: inside the Polly repo (source
+ * binary) it runs Polly's OWN suite via scripts/test/cli.ts; for an installed
+ * package (scripts/ isn't shipped) it runs consumer auto-discovery, which
+ * builds a plan from the consumer's own tests (tools/test/src/tiers/cli).
+ */
+async function testTiers() {
+  const monorepoCli = `${__dirname}/../scripts/test/cli.ts`;
+  const bundledConsumer = `${__dirname}/../tools/test/src/tiers/cli.js`;
+  const sourceConsumer = `${__dirname}/../tools/test/src/tiers/cli.ts`;
+
+  let runnerCli: string;
+  if (await Bun.file(monorepoCli).exists()) {
+    runnerCli = monorepoCli; // in the Polly repo: Polly's own tiered suite
+  } else if (await Bun.file(bundledConsumer).exists()) {
+    runnerCli = bundledConsumer; // installed package: discover the consumer's tiers
+  } else {
+    runnerCli = sourceConsumer;
+  }
+
+  const proc = Bun.spawn(["bun", runnerCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Tiered tests failed with exit code ${exitCode}`);
+  }
+}
+
 /**
  * Test command - delegate to @fairfox/polly-test
  */
@@ -345,7 +400,10 @@ Usage:
   polly typecheck                  Type check your code
   polly lint [--fix]               Lint your code
   polly format                     Format your code
-  polly test [args]                Run tests
+  polly test [args]                Run tests (bun test)
+  polly test --tier=T | --all | --full | --list
+                                   Run the multi-tier suite (unit → integration
+                                   → browser → e2e → verify) with timed reports
   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
   polly verify [args]              Run formal verification
   polly visualize [args]           Generate architecture diagrams
@@ -387,7 +445,11 @@ async function main() {
         await format();
         break;
       case "test":
-        await test();
+        if (isTierMode(commandArgs)) {
+          await testTiers();
+        } else {
+          await test();
+        }
         break;
       case "test:browser":
         await testBrowser();

@@ -42,12 +42,13 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const SETTLE_MS = 2_000;
 const POST_REVOKE_SETTLE_MS = 4_000;
 const POST_RECONNECT_SETTLE_MS = 6_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const set = prebakeKeyringSet(["peer-a", "peer-b", "peer-c"]);
   const peerAPeer = set.peers[0];
@@ -84,20 +85,20 @@ async function main(): Promise<void> {
   }
 
   try {
-    console.log("[e2e] launching peer A and peer B; peer C stays offline");
+    ctx.log("[e2e] launching peer A and peer B; peer C stays offline");
     const peerA = await launchOne(peerAPeer);
     const peerB = await launchOne(peerBPeer);
     await waitForMeshConnected([peerA, peerB], { timeoutMs: 15_000 });
     await new Promise((r) => setTimeout(r, SETTLE_MS));
 
-    console.log(`[e2e] ${peerA.peerId} writes "before-revoke"; waiting for A↔B convergence`);
+    ctx.log(`[e2e] ${peerA.peerId} writes "before-revoke"; waiting for A↔B convergence`);
     await peerA.page.type("[data-e2e='add-item-input']", "before-revoke");
     await peerA.page.click("[data-e2e='add-item-button']");
     await waitForConvergence([peerA, peerB], (s) => s.items.includes("before-revoke"), {
       timeoutMs: 10_000,
     });
 
-    console.log(
+    ctx.log(
       `[e2e] ${peerA.peerId} revokes ${peerB.peerId} while ${peerCPeer.peerId} is not yet launched`
     );
     const reason = "test scenario: offline catchup";
@@ -116,7 +117,7 @@ async function main(): Promise<void> {
     if (!ok) throw new Error("peer A revokeViaProtocol hook missing");
     await new Promise((r) => setTimeout(r, POST_REVOKE_SETTLE_MS));
 
-    console.log(`[e2e] launching ${peerCPeer.peerId}; awaiting summary exchange`);
+    ctx.log(`[e2e] launching ${peerCPeer.peerId}; awaiting summary exchange`);
     const peerC = await launchOne(peerCPeer);
     await waitForMeshConnected([peerA, peerB, peerC], { timeoutMs: 15_000 });
     await new Promise((r) => setTimeout(r, POST_RECONNECT_SETTLE_MS));
@@ -124,16 +125,15 @@ async function main(): Promise<void> {
     await verifyCatchUpOnC(peerC, peerB.peerId);
     await verifyDropAfterCatchUp(peerB, peerC);
 
-    console.log("[e2e] final allow-listed assertions");
+    ctx.log("[e2e] final allow-listed assertions");
     await peerA.assertNoSilentDrops(["drop:revoked-peer"]);
     await peerB.assertNoSilentDrops();
     await peerC.assertNoSilentDrops(["drop:revoked-peer"]);
     for (const peer of [peerA, peerB, peerC]) peer.assertNoUnexpectedConsole();
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
@@ -178,4 +178,4 @@ async function verifyDropAfterCatchUp(peerB: LaunchedPeer, peerC: LaunchedPeer):
   }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

@@ -3,17 +3,26 @@ import { signal } from "@preact/signals";
 import { $resource } from "@/shared/lib/resource";
 
 describe("$resource", () => {
-  test("initial state is idle with initialValue", () => {
+  test("initial state is idle with initialValue, then fetches", async () => {
     const resource = $resource("test", {
       source: () => ({}),
       fetcher: async () => "data",
       initialValue: "default",
     });
 
+    // Synchronously after construction the fetch has NOT started. The effect's
+    // tracked body only reads source() and schedules; runFetch (which writes
+    // status/error) is deferred to a microtask so the tracked run performs no
+    // signal writes — writing there would re-enter a component rendering the
+    // resource and throw "Cycle detected" (see resource.ts).
     expect(resource.data.value).toBe("default");
-    // After construction, the effect runs synchronously and triggers loading
-    expect(resource.status.value).toBe("loading");
+    expect(resource.status.value).toBe("idle");
     expect(resource.error.value).toBeUndefined();
+
+    // The deferred fetch then runs and resolves.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(resource.status.value).toBe("success");
+    expect(resource.data.value).toBe("data");
   });
 
   test("successful fetch updates data and status", async () => {

@@ -90,7 +90,13 @@ export function $resource<TSource, TData>(
     );
   }
 
-  // Track source synchronously — when source output changes, call fetcher
+  // Track source synchronously — when source output changes, call fetcher.
+  // The effect's tracked body only READS (source()) and schedules; it must not
+  // WRITE a signal synchronously. runFetch sets status/error, and if those
+  // writes ran inside this effect while a component that reads them was
+  // rendering, preact/signals would re-enter the running render and throw
+  // "Cycle detected". Deferring runFetch to a microtask moves the writes
+  // outside the render/effect pass that triggered them.
   effect(() => {
     const sourceValue = source();
 
@@ -98,7 +104,7 @@ export function $resource<TSource, TData>(
       return;
     }
     lastSource = sourceValue;
-    runFetch(sourceValue);
+    queueMicrotask(() => runFetch(sourceValue));
   });
 
   function refetch() {

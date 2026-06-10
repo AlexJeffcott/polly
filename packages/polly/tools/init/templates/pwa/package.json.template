@@ -7,7 +7,7 @@
     "build": "bun build.ts",
     "serve": "bun --hot server.ts",
     "test": "bun test",
-    "typecheck": "bun tsc --noEmit",
+    "typecheck": "bun tsc --noEmit -p tsconfig.json && bun tsc --noEmit -p tsconfig.worker.json",
     "verify": "polly verify",
     "verify:setup": "polly verify --setup",
     "visualize": "polly visualize",

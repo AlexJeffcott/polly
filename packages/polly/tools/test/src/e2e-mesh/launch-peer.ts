@@ -77,11 +77,17 @@ export interface LaunchPeerOptions {
   headless?: boolean;
   /** Override the console allowlist; defaults to MESH_CONSOLE_ALLOWLIST. */
   consoleAllowlist?: ReadonlyArray<ConsolePattern>;
-  /** Cap how long to wait for the consumer to report status="ready"
+  /** Cap how long to wait for the consumer to report the ready status
    *  before throwing. Defaults to 15s. */
   readyTimeoutMs?: number;
   /** Override the profile-dir parent. Defaults to os.tmpdir() / polly-e2e. */
   profileParent?: string;
+  /** The status sentinel the consumer reports when it is ready for the
+   *  script to drive it. Defaults to "ready" (the prebaked path, where
+   *  the mesh client is up). The pairing path passes "awaiting-pairing":
+   *  the consumer is booted with its hooks installed but has deferred the
+   *  mesh join until the script drives the token exchange. */
+  readyStatus?: string;
 }
 
 const READY_POLL_MS = 100;
@@ -103,6 +109,7 @@ export async function launchPeer(options: LaunchPeerOptions): Promise<LaunchedPe
     consoleAllowlist = MESH_CONSOLE_ALLOWLIST,
     readyTimeoutMs = 15_000,
     profileParent = resolve(tmpdir(), "polly-e2e"),
+    readyStatus = "ready",
   } = options;
 
   if (!existsSync(profileParent)) mkdirSync(profileParent, { recursive: true });
@@ -140,7 +147,7 @@ export async function launchPeer(options: LaunchPeerOptions): Promise<LaunchedPe
     lastStatus = await page.evaluate(
       () => document.querySelector("[data-e2e='status']")?.textContent ?? ""
     );
-    if (lastStatus === "ready") {
+    if (lastStatus === readyStatus) {
       ready = true;
       break;
     }
@@ -156,7 +163,7 @@ export async function launchPeer(options: LaunchPeerOptions): Promise<LaunchedPe
     await browser.close();
     rmSync(userDataDir, { recursive: true, force: true });
     throw new Error(
-      `launchPeer(${peerId}): consumer did not reach "ready" within ${readyTimeoutMs}ms (last status: "${lastStatus}")`
+      `launchPeer(${peerId}): consumer did not reach "${readyStatus}" within ${readyTimeoutMs}ms (last status: "${lastStatus}")`
     );
   }
 

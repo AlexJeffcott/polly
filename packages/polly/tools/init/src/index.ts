@@ -38,9 +38,8 @@ export async function initProject(
     targetDir?: string;
   } = {}
 ): Promise<void> {
-  const { scaffoldFromTemplate, validateProjectName, getTemplateDir } = await import(
-    "./template-utils.ts"
-  );
+  const { scaffoldFromTemplate, validateProjectName, getTemplateDir, getAvailableTypes } =
+    await import("./template-utils.ts");
 
   // Validate project name
   const validation = validateProjectName(projectName);
@@ -49,6 +48,12 @@ export async function initProject(
   }
 
   const projectType = options.type || "pwa";
+  const available = getAvailableTypes(import.meta.dir);
+  if (!available.includes(projectType)) {
+    throw new Error(
+      `Unknown or unavailable project type '${projectType}'. Available: ${available.join(", ")}`
+    );
+  }
   const targetDir = options.targetDir || process.cwd();
   const projectPath = `${targetDir}/${projectName}`;
 

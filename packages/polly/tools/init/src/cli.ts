@@ -3,6 +3,7 @@
 
 import { existsSync } from "node:fs";
 import {
+  getAvailableTypes,
   getTemplateDir,
   type ProjectType,
   scaffoldFromTemplate,
@@ -15,8 +16,20 @@ async function main() {
 
   // Parse arguments
   const projectName = args[0] || "my-project";
-  const typeArg = args.find((arg) => arg.startsWith("--type="))?.split("=")[1] || "extension";
-  const projectType = typeArg as unknown as ProjectType;
+  const typeArg = args.find((arg) => arg.startsWith("--type="))?.split("=")[1] || "pwa";
+
+  // Validate the requested type against the templates that actually ship,
+  // before creating any directory. Asking for a type with no template used
+  // to fail deep in the copy with a raw "Template directory not found" after
+  // the project dir had already been made.
+  const available = getAvailableTypes(import.meta.dir);
+  if (!available.includes(typeArg as ProjectType)) {
+    console.log(
+      `\x1b[31m✗ Unknown or unavailable project type '${typeArg}'. Available: ${available.join(", ")}\x1b[0m\n`
+    );
+    process.exit(1);
+  }
+  const projectType = typeArg as ProjectType;
 
   // Validate project name
   const validation = validateProjectName(projectName);

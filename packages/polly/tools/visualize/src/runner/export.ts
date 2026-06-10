@@ -26,7 +26,12 @@ export interface ExportResult {
 }
 
 export class DiagramExporter {
-  private static readonly DOCKER_IMAGE = "structurizr/cli:latest";
+  // The consolidated `structurizr/structurizr` image, not the deprecated
+  // `structurizr/cli`: only the successor implements the `static` export
+  // format. `structurizr/cli` accepts `-format static` but silently writes
+  // nothing and still exits 0 — the "claims success, produces an empty
+  // docs/site" bug this image switch fixes.
+  private static readonly DOCKER_IMAGE = "structurizr/structurizr:latest";
   private static readonly DEFAULT_TIMEOUT = 120000; // 2 minutes
 
   /**
@@ -114,9 +119,9 @@ export class DiagramExporter {
       "export",
       "-workspace",
       `/usr/local/structurizr/${dslFileName}`,
-      "-format",
+      "-f",
       "static",
-      "-output",
+      "-o",
       "/output",
     ];
 

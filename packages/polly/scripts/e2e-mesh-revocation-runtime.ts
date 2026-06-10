@@ -39,11 +39,12 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const SETTLE_MS = 2_000;
 const POST_REVOKE_SETTLE_MS = 4_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const set = prebakeKeyringSet(["peer-a", "peer-b"]);
 
@@ -88,18 +89,18 @@ async function main(): Promise<void> {
   };
 
   try {
-    console.log("[e2e] both peers launched; waiting for mesh handshake");
+    ctx.log("[e2e] both peers launched; waiting for mesh handshake");
     await waitForMeshConnected([peerA, peerB], { timeoutMs: 15_000 });
     await new Promise((r) => setTimeout(r, SETTLE_MS));
 
-    console.log(`[e2e] ${peerA.peerId} writes "before-revoke"; waiting for convergence`);
+    ctx.log(`[e2e] ${peerA.peerId} writes "before-revoke"; waiting for convergence`);
     await peerA.page.type("[data-e2e='add-item-input']", "before-revoke");
     await peerA.page.click("[data-e2e='add-item-button']");
     await waitForConvergence([peerA, peerB], (s) => s.items.includes("before-revoke"), {
       timeoutMs: 10_000,
     });
 
-    console.log(`[e2e] ${peerA.peerId} revokes ${peerB.peerId} at runtime`);
+    ctx.log(`[e2e] ${peerA.peerId} revokes ${peerB.peerId} at runtime`);
     const revoked = await peerA.page.evaluate((targetPeerId: string) => {
       const fn = (window as unknown as { __pollyE2eRevoke?: (id: string) => boolean })
         .__pollyE2eRevoke;
@@ -107,7 +108,7 @@ async function main(): Promise<void> {
     }, peerB.peerId);
     if (!revoked) throw new Error("peer A revocation hook missing");
 
-    console.log(`[e2e] ${peerB.peerId} writes "after-revoke"`);
+    ctx.log(`[e2e] ${peerB.peerId} writes "after-revoke"`);
     await peerB.page.type("[data-e2e='add-item-input']", "after-revoke");
     await peerB.page.click("[data-e2e='add-item-button']");
 
@@ -120,7 +121,7 @@ async function main(): Promise<void> {
     // Give peer A's adapter time to receive-and-drop.
     await new Promise((r) => setTimeout(r, POST_REVOKE_SETTLE_MS));
 
-    console.log("[e2e] verifying peer A dropped the post-revoke write");
+    ctx.log("[e2e] verifying peer A dropped the post-revoke write");
     const aItems = await peerA.page.evaluate(() =>
       Array.from(document.querySelectorAll("[data-e2e-item]")).map((el) => el.textContent ?? "")
     );
@@ -142,20 +143,19 @@ async function main(): Promise<void> {
         "expected peer A to emit at least one drop:revoked-peer diagnostic after revoking peer B; saw none"
       );
     }
-    console.log(`[e2e] peer A emitted ${revokedDrops.length} drop:revoked-peer diagnostic(s)`);
+    ctx.log(`[e2e] peer A emitted ${revokedDrops.length} drop:revoked-peer diagnostic(s)`);
 
     await peerA.assertNoSilentDrops(["drop:revoked-peer"]);
     await peerB.assertNoSilentDrops();
     peerA.assertNoUnexpectedConsole();
     peerB.assertNoUnexpectedConsole();
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

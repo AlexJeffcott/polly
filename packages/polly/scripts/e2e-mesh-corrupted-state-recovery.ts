@@ -42,11 +42,12 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const SETTLE_MS = 2_500;
 const POST_RELOAD_SETTLE_MS = 6_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const set = prebakeKeyringSet(["peer-a", "peer-b"]);
   const peerAPeer = set.peers[0];
@@ -90,11 +91,11 @@ async function main(): Promise<void> {
   };
 
   try {
-    console.log("[e2e] both peers launched; waiting for mesh handshake");
+    ctx.log("[e2e] both peers launched; waiting for mesh handshake");
     await waitForMeshConnected([peerA, peerB], { timeoutMs: 15_000 });
     await new Promise((r) => setTimeout(r, SETTLE_MS));
 
-    console.log(`[e2e] ${peerA.peerId} writes two items; waiting for convergence`);
+    ctx.log(`[e2e] ${peerA.peerId} writes two items; waiting for convergence`);
     await peerA.page.type("[data-e2e='add-item-input']", "item-one");
     await peerA.page.click("[data-e2e='add-item-button']");
     await peerA.page.type("[data-e2e='add-item-input']", "item-two");
@@ -105,7 +106,7 @@ async function main(): Promise<void> {
       { timeoutMs: 15_000 }
     );
 
-    console.log(`[e2e] wiping ${peerA.peerId}'s IndexedDB and reloading the page`);
+    ctx.log(`[e2e] wiping ${peerA.peerId}'s IndexedDB and reloading the page`);
     await wipeIndexedDb(peerA);
     await peerA.page.reload({ waitUntil: "domcontentloaded" });
     // Wait for the consumer to re-reach "ready" — the same precondition
@@ -113,16 +114,14 @@ async function main(): Promise<void> {
     await waitForStatus(peerA, "ready", 15_000);
     await new Promise((r) => setTimeout(r, POST_RELOAD_SETTLE_MS));
 
-    console.log(
-      `[e2e] verifying ${peerA.peerId} re-syncs items from ${peerB.peerId} after the wipe`
-    );
+    ctx.log(`[e2e] verifying ${peerA.peerId} re-syncs items from ${peerB.peerId} after the wipe`);
     await waitForConvergence(
       [peerA],
       (s) => s.items.includes("item-one") && s.items.includes("item-two"),
       { timeoutMs: 20_000 }
     );
 
-    console.log("[e2e] final assertions");
+    ctx.log("[e2e] final assertions");
     // Peer B's diagnostics were captured continuously since launch.
     await peerB.assertNoSilentDrops();
     // Peer A's post-reload diagnostic buffer is fresh; assert no
@@ -131,10 +130,9 @@ async function main(): Promise<void> {
     peerA.assertNoUnexpectedConsole();
     peerB.assertNoUnexpectedConsole();
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
@@ -175,4 +173,4 @@ async function waitForStatus(
   throw new Error(`${peer.peerId}: status did not reach "${expected}" within ${timeoutMs}ms`);
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

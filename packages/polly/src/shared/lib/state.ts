@@ -176,6 +176,42 @@ export function $state<T>(initialValue: T): Signal<T> {
   return signal(initialValue);
 }
 
+/** Server-side authoritative state, keyed for stable identity across the
+ *  process. Unlike the browser primitives it does NOT sync across contexts or
+ *  persist to chrome.storage — the server holds the canonical replica and is
+ *  the always-on peer; connected clients receive derived updates through the
+ *  Elysia `polly()` plugin's effect/broadcast layer rather than through this
+ *  signal directly. Used inside `polly({ state: { server: { ... } } })` and
+ *  read on the request context as `pollyState.server.<key>.value`. */
+const serverStateRegistry = new Map<string, Signal<unknown>>();
+
+/**
+ * Reactive server-only state. The first call for a `key` creates the signal;
+ * later calls with the same `key` return that same signal, so a module that
+ * declares its server state once gets a stable reference everywhere it is
+ * read.
+ *
+ * @param key - Stable identifier for this server state (e.g. "db")
+ * @param initialValue - Value held until the server mutates it
+ * @returns A reactive signal holding the authoritative server value
+ *
+ * @example
+ * ```typescript
+ * import { $serverState } from "@fairfox/polly";
+ *
+ * const db = { todos: signal([]), nextId: 1 };
+ * polly({ state: { server: { db: $serverState("db", db) } } });
+ * // in a handler: ctx.pollyState.server.db.value.todos.value = [...]
+ * ```
+ */
+export function $serverState<T>(key: string, initialValue: T): Signal<T> {
+  const existing = serverStateRegistry.get(key);
+  if (existing) return existing as Signal<T>;
+  const sig = signal(initialValue);
+  serverStateRegistry.set(key, sig as Signal<unknown>);
+  return sig;
+}
+
 type InternalStateOptions<T = unknown> = StateOptions<T> & {
   enableSync: boolean; // Whether to enable sync (avoid collision with sync?: SyncAdapter)
   enablePersist: boolean; // Whether to enable persistence

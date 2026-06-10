@@ -27,6 +27,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
+
+export const capability = "visualize.generate" as const;
 
 // This script lives in packages/polly/scripts. The polly CLI is in the
 // package; the example projects live at the monorepo root — the two are
@@ -362,12 +365,15 @@ async function describeDockerStatus(): Promise<string> {
   return "not available (structurizr validate skipped)";
 }
 
-async function main(): Promise<void> {
-  console.log("E2E: polly visualize --generate\n");
-  console.log(`  Repo:      ${REPO_ROOT}`);
-  console.log(`  CLI entry: ${POLLY_CLI}`);
-  console.log(`  Docker:    ${await describeDockerStatus()}`);
-  console.log();
+// No try/catch wrapper: an unexpected throw is caught by the engine worker (and
+// by selfRun when standalone), both reporting it as a failure. Keeping the body
+// flat also stays under the cognitive-complexity ceiling.
+export async function run(ctx: TierContext): Promise<TierResult> {
+  ctx.log("E2E: polly visualize --generate\n");
+  ctx.log(`  Repo:      ${REPO_ROOT}`);
+  ctx.log(`  CLI entry: ${POLLY_CLI}`);
+  ctx.log(`  Docker:    ${await describeDockerStatus()}`);
+  ctx.log("");
 
   const results: Result[] = [];
   for (const c of cases) {
@@ -377,10 +383,10 @@ async function main(): Promise<void> {
     const tag = r.outcome === "passed" ? "PASS" : "FAIL";
     const validateMark =
       r.validate === "ok" ? " [validated]" : r.validate === "failed" ? " [validate ✗]" : "";
-    console.log(`${tag}${validateMark}  (${(r.elapsedMs / 1000).toFixed(1)}s)`);
+    ctx.log(`${tag}${validateMark}  (${(r.elapsedMs / 1000).toFixed(1)}s)`);
   }
 
-  console.log("\nDetails:");
+  ctx.log("\nDetails:");
   for (const r of results) {
     if (r.outcome === "passed") {
       fs.rmSync(r.tmpRoot, { recursive: true, force: true });
@@ -390,15 +396,13 @@ async function main(): Promise<void> {
   }
 
   const failed = results.filter((r) => r.outcome !== "passed").length;
-  console.log();
+  ctx.log("");
   if (failed > 0) {
-    console.log(`${failed}/${results.length} failed`);
-    process.exit(1);
+    ctx.log(`${failed}/${results.length} failed`);
+    return { pass: false, message: `${failed}/${results.length} visualize cases failed` };
   }
-  console.log(`All ${results.length} passed`);
+  ctx.log(`All ${results.length} passed`);
+  return { pass: true };
 }
 
-main().catch((err) => {
-  console.log(String(err?.stack ?? err));
-  process.exit(1);
-});
+if (import.meta.main) await selfRun(capability, run);

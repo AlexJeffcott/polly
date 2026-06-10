@@ -34,6 +34,9 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fail, selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
+
+export const capability = "stryker.verify" as const;
 
 const FIXTURE_DIR = resolve(import.meta.dir, "../tools/verify/test-projects/stryker-verify");
 const PLUGIN_PATH = resolve(import.meta.dir, "../dist/tools/verify/src/stryker/index.js");
@@ -44,11 +47,6 @@ interface Mutant {
   status: string;
   statusReason?: string;
   location: { start: { line: number } };
-}
-
-function fail(message: string): never {
-  console.log(`\n❌ ${message}\n`);
-  process.exit(1);
 }
 
 /** Run Stryker on the fixture with the ignorer enabled or disabled. */
@@ -105,53 +103,58 @@ const isVerifyIgnored = (m: Mutant) =>
 const TERNARY_LINE = 15;
 const onTernaryLine = (m: Mutant) => m.location.start.line === TERNARY_LINE;
 
-async function main(): Promise<void> {
-  if (!existsSync(PLUGIN_PATH)) {
-    fail(`Built plugin not found at ${PLUGIN_PATH}. Run \`bun run build:lib\` first.`);
-  }
-  mkdirSync(dirname(REPORT_PATH), { recursive: true });
+export async function run(ctx: TierContext): Promise<TierResult> {
+  try {
+    if (!existsSync(PLUGIN_PATH)) {
+      fail(`Built plugin not found at ${PLUGIN_PATH}. Run \`bun run build:lib\` first.`);
+    }
+    mkdirSync(dirname(REPORT_PATH), { recursive: true });
 
-  console.log("▶ Run 1 — ignorer enabled (excludeVerifyCallsites: true)");
-  const enabled = await runStryker(true);
-  const ignored = countWhere(enabled, isVerifyIgnored);
-  const ternaryMutantsEnabled = enabled.filter(onTernaryLine);
-  const ternaryIgnored = countWhere(ternaryMutantsEnabled, isVerifyIgnored);
+    ctx.log("▶ Run 1 — ignorer enabled (excludeVerifyCallsites: true)");
+    const enabled = await runStryker(true);
+    const ignored = countWhere(enabled, isVerifyIgnored);
+    const ternaryMutantsEnabled = enabled.filter(onTernaryLine);
+    const ternaryIgnored = countWhere(ternaryMutantsEnabled, isVerifyIgnored);
 
-  console.log(`  ${enabled.length} mutants, ${ignored} ignored inside verify callsites`);
-  if (ignored === 0) {
-    fail("Enabled run ignored nothing — the ignorer did not suppress any verify-callsite mutants.");
-  }
-  if (ternaryMutantsEnabled.length === 0) {
-    fail(`No mutants generated on the real ternary (line ${TERNARY_LINE}); fixture drifted.`);
-  }
-  if (ternaryIgnored !== 0) {
-    fail(
-      `${ternaryIgnored} real-logic mutant(s) on line ${TERNARY_LINE} were ignored — the ignorer is too broad.`
+    ctx.log(`  ${enabled.length} mutants, ${ignored} ignored inside verify callsites`);
+    if (ignored === 0) {
+      fail(
+        "Enabled run ignored nothing — the ignorer did not suppress any verify-callsite mutants."
+      );
+    }
+    if (ternaryMutantsEnabled.length === 0) {
+      fail(`No mutants generated on the real ternary (line ${TERNARY_LINE}); fixture drifted.`);
+    }
+    if (ternaryIgnored !== 0) {
+      fail(
+        `${ternaryIgnored} real-logic mutant(s) on line ${TERNARY_LINE} were ignored — the ignorer is too broad.`
+      );
+    }
+    ctx.log(
+      `  ✓ ${ignored} verify-callsite mutants ignored; ${ternaryMutantsEnabled.length} real-logic mutants left mutable`
     );
-  }
-  console.log(
-    `  ✓ ${ignored} verify-callsite mutants ignored; ${ternaryMutantsEnabled.length} real-logic mutants left mutable`
-  );
 
-  console.log("\n▶ Run 2 — falsification gate (excludeVerifyCallsites: false)");
-  const disabled = await runStryker(false);
-  const stillIgnored = countWhere(disabled, isVerifyIgnored);
-  console.log(`  ${disabled.length} mutants, ${stillIgnored} ignored by polly#143`);
-  if (stillIgnored !== 0) {
-    fail(
-      `Falsification failed: ${stillIgnored} mutant(s) still ignored with the flag off. The ignorer is not actually load-bearing.`
-    );
-  }
-  if (disabled.length !== enabled.length) {
-    fail(
-      `Mutant count changed between runs (${enabled.length} → ${disabled.length}); the flag should only change status, not generation.`
-    );
-  }
-  console.log(
-    "  ✓ with the flag off, the suppressed survivors return — the plugin is load-bearing"
-  );
+    ctx.log("\n▶ Run 2 — falsification gate (excludeVerifyCallsites: false)");
+    const disabled = await runStryker(false);
+    const stillIgnored = countWhere(disabled, isVerifyIgnored);
+    ctx.log(`  ${disabled.length} mutants, ${stillIgnored} ignored by polly#143`);
+    if (stillIgnored !== 0) {
+      fail(
+        `Falsification failed: ${stillIgnored} mutant(s) still ignored with the flag off. The ignorer is not actually load-bearing.`
+      );
+    }
+    if (disabled.length !== enabled.length) {
+      fail(
+        `Mutant count changed between runs (${enabled.length} → ${disabled.length}); the flag should only change status, not generation.`
+      );
+    }
+    ctx.log("  ✓ with the flag off, the suppressed survivors return — the plugin is load-bearing");
 
-  console.log("\n✅ polly#143 Stryker ignorer verified end-to-end.\n");
+    ctx.log("\n✅ polly#143 Stryker ignorer verified end-to-end.\n");
+    return { pass: true };
+  } catch (err) {
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
+  }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

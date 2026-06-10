@@ -31,10 +31,11 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const SETTLE_MS = 2_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const set = prebakeKeyringSet(["peer-a", "peer-b", "peer-c"]);
 
@@ -67,7 +68,7 @@ async function main(): Promise<void> {
       peers.push(launched);
     }
 
-    console.log("[e2e] three peers launched; waiting for mesh handshake");
+    ctx.log("[e2e] three peers launched; waiting for mesh handshake");
     await waitForMeshConnected(peers, { timeoutMs: 15_000 });
 
     // Settle so the WebRTC handshake has completed on every pairwise link
@@ -86,7 +87,7 @@ async function main(): Promise<void> {
     for (const peer of peers) {
       const value = `${peer.peerId}-says-hi`;
       expected.push(value);
-      console.log(`[e2e] ${peer.peerId} writes "${value}"`);
+      ctx.log(`[e2e] ${peer.peerId} writes "${value}"`);
       await peer.page.type("[data-e2e='add-item-input']", value);
       await peer.page.click("[data-e2e='add-item-button']");
       const target = [...expected];
@@ -103,19 +104,18 @@ async function main(): Promise<void> {
       );
     }
 
-    console.log("[e2e] convergence reached; running final assertions");
+    ctx.log("[e2e] convergence reached; running final assertions");
     for (const peer of peers) {
       await peer.assertNoSilentDrops();
       peer.assertNoUnexpectedConsole();
     }
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

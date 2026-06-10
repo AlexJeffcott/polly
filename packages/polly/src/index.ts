@@ -59,7 +59,13 @@ export type { Resource, ResourceOptions, ResourceStatus } from "./shared/lib/res
 // Async resource primitive
 export { $resource } from "./shared/lib/resource";
 // State management
-export { $persistedState, $sharedState, $state, $syncedState } from "./shared/lib/state";
+export {
+  $persistedState,
+  $serverState,
+  $sharedState,
+  $state,
+  $syncedState,
+} from "./shared/lib/state";
 
 export type { TestCase, TestSuite } from "./shared/lib/test-helpers";
 // Test utilities (DX improvements)

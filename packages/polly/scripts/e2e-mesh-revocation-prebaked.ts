@@ -30,11 +30,12 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const ITEM_COUNT = 5;
 const SETTLE_MS = 4_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const keys = prebakeKeyringPair("peer-a", "peer-b");
 
@@ -79,10 +80,10 @@ async function main(): Promise<void> {
   };
 
   try {
-    console.log("[e2e] both peers launched; waiting for mesh handshake");
+    ctx.log("[e2e] both peers launched; waiting for mesh handshake");
     await waitForMeshConnected([peerA, peerB], { timeoutMs: 15_000 });
 
-    console.log(`[e2e] peer B writes ${ITEM_COUNT} items (peer A has B revoked)`);
+    ctx.log(`[e2e] peer B writes ${ITEM_COUNT} items (peer A has B revoked)`);
     for (let i = 0; i < ITEM_COUNT; i++) {
       await peerB.page.type("[data-e2e='add-item-input']", `revoked-item-${i}`);
       await peerB.page.click("[data-e2e='add-item-button']");
@@ -96,7 +97,7 @@ async function main(): Promise<void> {
     // Give peer A a moment to receive-and-drop whatever B sent.
     await new Promise((r) => setTimeout(r, SETTLE_MS));
 
-    console.log("[e2e] verifying peer A stayed empty and emitted drop:revoked-peer");
+    ctx.log("[e2e] verifying peer A stayed empty and emitted drop:revoked-peer");
     const peerASnapshot = await peerA.page.evaluate(() => ({
       items: Array.from(document.querySelectorAll("[data-e2e-item]")).map(
         (el) => el.textContent ?? ""
@@ -115,7 +116,7 @@ async function main(): Promise<void> {
         "expected peer A to emit at least one drop:revoked-peer diagnostic; saw none"
       );
     }
-    console.log(`[e2e] peer A emitted ${revokedDrops.length} drop:revoked-peer diagnostic(s)`);
+    ctx.log(`[e2e] peer A emitted ${revokedDrops.length} drop:revoked-peer diagnostic(s)`);
 
     // peer A's allow-listed drop is expected; peer B should see no drops at all.
     await peerA.assertNoSilentDrops(["drop:revoked-peer"]);
@@ -123,13 +124,12 @@ async function main(): Promise<void> {
     peerA.assertNoUnexpectedConsole();
     peerB.assertNoUnexpectedConsole();
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

@@ -3,8 +3,19 @@
  * Handles background tasks, caching, and push notifications
  */
 
-/// <reference lib="WebWorker" />
-declare const self: ServiceWorkerGlobalScope;
+/// <reference lib="webworker" />
+
+// `export {}` makes this file a module so its top-level `sw` is module-scoped
+// rather than a global that collides with the shared worker's `sw` when both
+// are type-checked together. The bundler emits a standalone worker regardless.
+export {};
+
+// In a service worker `self` is the ServiceWorkerGlobalScope, but the
+// webworker lib types the ambient `self` as the base WorkerGlobalScope. Narrow
+// it once here with a cast (a `declare const self` redeclaration collides with
+// the lib's own `self`); `sw` then carries skipWaiting/clients/registration and
+// the correctly-typed event map (install/fetch/push/...).
+const sw = self as unknown as ServiceWorkerGlobalScope;
 
 console.log("[SW] Service Worker loading...");
 
@@ -13,7 +24,7 @@ const CACHE_NAME = "{{PROJECT_NAME}}-v1";
 const urlsToCache = ["/", "/index.html", "/src/main.ts"];
 
 // Install event - cache resources
-self.addEventListener("install", (event) => {
+sw.addEventListener("install", (event) => {
 	console.log("[SW] Installing...");
 
 	event.waitUntil(
@@ -24,11 +35,11 @@ self.addEventListener("install", (event) => {
 	);
 
 	// Activate immediately
-	void self.skipWaiting();
+	void sw.skipWaiting();
 });
 
 // Activate event - clean up old caches
-self.addEventListener("activate", (event) => {
+sw.addEventListener("activate", (event) => {
 	console.log("[SW] Activating...");
 
 	event.waitUntil(
@@ -42,11 +53,11 @@ self.addEventListener("activate", (event) => {
 	);
 
 	// Take control immediately
-	void self.clients.claim();
+	void sw.clients.claim();
 });
 
 // Fetch event - serve from cache, fallback to network
-self.addEventListener("fetch", (event) => {
+sw.addEventListener("fetch", (event) => {
 	event.respondWith(
 		caches.match(event.request).then((response) => {
 			// Cache hit - return response
@@ -81,7 +92,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 // Message handling
-self.addEventListener("message", (event) => {
+sw.addEventListener("message", (event) => {
 	console.log("[SW] Received message:", event.data);
 
 	switch (event.data.type) {
@@ -94,7 +105,7 @@ self.addEventListener("message", (event) => {
 			});
 
 			// Also broadcast to all clients
-			void self.clients.matchAll().then((clients) => {
+			void sw.clients.matchAll().then((clients) => {
 				for (const client of clients) {
 					client.postMessage({
 						type: "PONG",
@@ -107,7 +118,7 @@ self.addEventListener("message", (event) => {
 
 		case "BROADCAST":
 			// Broadcast to all clients
-			void self.clients.matchAll().then((clients) => {
+			void sw.clients.matchAll().then((clients) => {
 				console.log(`[SW] Broadcasting to ${clients.length} clients`);
 				for (const client of clients) {
 					client.postMessage({
@@ -121,7 +132,7 @@ self.addEventListener("message", (event) => {
 			break;
 
 		case "SKIP_WAITING":
-			void self.skipWaiting();
+			void sw.skipWaiting();
 			break;
 
 		default:
@@ -130,7 +141,7 @@ self.addEventListener("message", (event) => {
 });
 
 // Push notification event (example)
-self.addEventListener("push", (event) => {
+sw.addEventListener("push", (event) => {
 	console.log("[SW] Push received");
 
 	const data = event.data?.json() ?? {};
@@ -142,16 +153,16 @@ self.addEventListener("push", (event) => {
 		data: data,
 	};
 
-	event.waitUntil(self.registration.showNotification(title, options));
+	event.waitUntil(sw.registration.showNotification(title, options));
 });
 
 // Notification click event
-self.addEventListener("notificationclick", (event) => {
+sw.addEventListener("notificationclick", (event) => {
 	console.log("[SW] Notification clicked");
 
 	event.notification.close();
 
-	event.waitUntil(self.clients.openWindow("/"));
+	event.waitUntil(sw.clients.openWindow("/"));
 });
 
 console.log("[SW] Service Worker loaded");

@@ -29,11 +29,12 @@ import {
   waitForMeshConnected,
   withRelay,
 } from "../tools/test/src/e2e-mesh";
+import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 const ITEM_COUNT = 10;
 const DRAIN_TIMEOUT_MS = 20_000;
 
-async function main(): Promise<void> {
+export async function run(ctx: TierContext): Promise<TierResult> {
   const relay = await withRelay();
   const keys = prebakeKeyringPair("peer-a", "peer-b");
 
@@ -78,13 +79,13 @@ async function main(): Promise<void> {
   };
 
   try {
-    console.log("[e2e] both peers launched; waiting for mesh handshake");
+    ctx.log("[e2e] both peers launched; waiting for mesh handshake");
     await waitForMeshConnected([peerA, peerB], { timeoutMs: 15_000 });
 
-    console.log("[e2e] taking peer B offline");
+    ctx.log("[e2e] taking peer B offline");
     await peerB.page.setOfflineMode(true);
 
-    console.log(`[e2e] writing ${ITEM_COUNT} items on peer A`);
+    ctx.log(`[e2e] writing ${ITEM_COUNT} items on peer A`);
     for (let i = 0; i < ITEM_COUNT; i++) {
       await peerA.page.type("[data-e2e='add-item-input']", `item-${i}`);
       await peerA.page.click("[data-e2e='add-item-button']");
@@ -93,7 +94,7 @@ async function main(): Promise<void> {
     // Confirm peer A's local rendering reflects all ten before bringing B back.
     await waitForConvergence([peerA], (s) => s.items.length === ITEM_COUNT, { timeoutMs: 5_000 });
 
-    console.log("[e2e] bringing peer B back online; waiting for drain");
+    ctx.log("[e2e] bringing peer B back online; waiting for drain");
     await peerB.page.setOfflineMode(false);
 
     await waitForConvergence(
@@ -108,19 +109,18 @@ async function main(): Promise<void> {
       { timeoutMs: DRAIN_TIMEOUT_MS }
     );
 
-    console.log("[e2e] drain converged; running final assertions");
+    ctx.log("[e2e] drain converged; running final assertions");
     await peerA.assertNoSilentDrops();
     await peerB.assertNoSilentDrops();
     peerA.assertNoUnexpectedConsole();
     peerB.assertNoUnexpectedConsole();
 
-    console.log(`[e2e] ${capability}: PASS`);
+    return { pass: true };
   } catch (err) {
-    console.log(`[e2e] ${capability}: FAIL — ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    return { pass: false, message: err instanceof Error ? err.message : String(err) };
   } finally {
     await cleanup();
   }
 }
 
-await main();
+if (import.meta.main) await selfRun(capability, run);

@@ -178,6 +178,10 @@ const toolsResult = await Bun.build({
     "tools/visualize/src/cli.ts",
     "tools/test/src/cli.ts",
     "tools/test/src/browser/run.ts",
+    // Consumer-facing tiered test runner (`polly test --tier`). The worker is a
+    // separate entrypoint because the engine spawns it as a sibling file.
+    "tools/test/src/tiers/cli.ts",
+    "tools/test/src/tiers/worker.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
     "scripts/build-extension.ts",
