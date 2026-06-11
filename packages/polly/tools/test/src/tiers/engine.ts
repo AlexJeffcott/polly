@@ -7,6 +7,7 @@
  * unmet are skipped (logged), not failed, unless `strictNeeds` is set.
  */
 import { firstUnmetNeed } from "./detect";
+import { SENTINEL } from "./protocol";
 import type {
   CaseOutcome,
   CaseReport,
@@ -16,7 +17,6 @@ import type {
   Tier,
   TierPlan,
 } from "./types";
-import { SENTINEL } from "./protocol";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 

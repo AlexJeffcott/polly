@@ -1,5 +1,5 @@
 /**
- * Integration test for polly issue #104.
+ * Contract harness (e2e-contract tier) for polly issue #104.
  *
  * The contract violation #104 reproduces — a fresh peer's main thread
  * starved by a large initial sync over a bandwidth-constrained

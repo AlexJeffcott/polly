@@ -33,12 +33,21 @@ export const TIER_NAMES = [
   "e2e-relay",
   "browser",
   "e2e-mesh",
+  "e2e-contract",
   "verify",
   "static",
 ] as const;
 
 /** Tiers included by `--all` (everything realistic but not Docker-heavy). */
-export const ALL_TIERS = ["unit", "integration", "e2e-cli", "e2e-relay", "browser", "e2e-mesh"];
+export const ALL_TIERS = [
+  "unit",
+  "integration",
+  "e2e-cli",
+  "e2e-relay",
+  "browser",
+  "e2e-mesh",
+  "e2e-contract",
+];
 
 /** The fast inner loop run with no flags. */
 export const DEFAULT_TIERS = ["unit", "integration"];
@@ -156,6 +165,37 @@ export function internalPlan(): TierPlan {
           needs: ["browser"],
           tags: ["elysia", "offline", "drain"],
         }),
+      ],
+    },
+    {
+      name: "e2e-contract",
+      description: "issue-contract harnesses over real node WebRTC (subprocess examples)",
+      // Each case spawns examples/mesh-*/main.ts twice (post-fix + falsification
+      // gate) over a bandwidth-throttled werift transport; the wire time IS the
+      // test. Sequential on purpose: the #104 harness gates on event-loop tick
+      // gaps, so a concurrent sibling chewing CPU would make it flaky. The
+      // budget covers two 200s bun per-test timeouts, so a hung subprocess is
+      // reported as a test failure rather than an opaque tier timeout.
+      timeoutMs: 480_000,
+      cases: [
+        {
+          id: "contract.mesh-large-initial-sync",
+          tags: ["mesh", "contract", "webrtc"],
+          exec: {
+            kind: "command",
+            argv: ["bun", "test", "e2e-contract/mesh-large-initial-sync.test.ts"],
+            cwd: `${packageRoot}/tests`,
+          },
+        },
+        {
+          id: "contract.mesh-recovery-pair-stale-known-peers",
+          tags: ["mesh", "contract", "webrtc"],
+          exec: {
+            kind: "command",
+            argv: ["bun", "test", "e2e-contract/mesh-recovery-pair-stale-known-peers.test.ts"],
+            cwd: `${packageRoot}/tests`,
+          },
+        },
       ],
     },
     {

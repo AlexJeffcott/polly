@@ -1,5 +1,5 @@
 /**
- * Integration test for polly issue #103.
+ * Contract harness (e2e-contract tier) for polly issue #103.
  *
  * The contract violation #103 reproduces lives in a place that
  * polly's normal `bun:test` rig cannot easily reach: WebRTC under

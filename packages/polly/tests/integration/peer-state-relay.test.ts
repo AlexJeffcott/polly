@@ -20,6 +20,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+// The modules under test use the automerge-repo `/slim` entrypoint, which
+// leaves WebAssembly initialisation to the importer (the public `peer.ts`
+// entrypoint does it for real consumers). Without this the file only passes
+// when an earlier test file happens to have initialised the runtime.
+import "@/shared/lib/wasm-init";
 import { migrationRegistry } from "@/shared/lib/migrate-primitive";
 import { createPeerStateClient } from "@/shared/lib/peer-relay-adapter";
 import { createPeerRepoServer, type PeerRepoServer } from "@/shared/lib/peer-repo-server";
