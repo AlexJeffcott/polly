@@ -13,7 +13,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AddressInfo, WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
 import { createPeerRepoServer, type PeerRepoServer } from "../../../../src/peer";
 
 export interface WithRepoServerResult {
@@ -36,7 +36,10 @@ export async function withRepoServer(): Promise<WithRepoServerResult> {
     wss.once("listening", () => resolve());
     wss.once("error", reject);
   });
-  const address = wss.address() as AddressInfo;
+  const address = wss.address();
+  if (typeof address === "string" || address === null) {
+    throw new Error("withRepoServer: expected the server to be bound to a TCP address");
+  }
   const port = address.port;
 
   // `port` is required by the type but ignored when `webSocketServer` is

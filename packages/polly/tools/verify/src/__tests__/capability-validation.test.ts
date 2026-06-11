@@ -3,10 +3,10 @@
 import { describe, expect, test } from "bun:test";
 import { validateCapabilities, validateCoupledFields } from "../config/capability-validation";
 
-const STATE = { authReady: { type: "boolean" }, authenticated: { type: "boolean" } } as Record<
-  string,
-  unknown
->;
+const STATE: Record<string, unknown> = {
+  authReady: { type: "boolean" },
+  authenticated: { type: "boolean" },
+};
 
 describe("validateCapabilities", () => {
   test("a well-formed capability produces no issues", () => {

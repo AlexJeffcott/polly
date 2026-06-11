@@ -408,12 +408,8 @@ describe("MeshWebRTCAdapter connection-state changes (wireConnection)", () => {
   }> {
     const { adapter } = buildAdapter("peer-b", ["peer-a"]);
     const events: Array<[string, string]> = [];
-    adapter.on("peer-candidate", (e: { peerId: unknown }) =>
-      events.push(["candidate", e.peerId as string])
-    );
-    adapter.on("peer-disconnected", (e: { peerId: unknown }) =>
-      events.push(["disconnected", e.peerId as string])
-    );
+    adapter.on("peer-candidate", (e) => events.push(["candidate", e.peerId]));
+    adapter.on("peer-disconnected", (e) => events.push(["disconnected", e.peerId]));
     adapter.handlePeerJoined("peer-a");
     await flush();
     const connection = FakePeerConnection.instances[0];

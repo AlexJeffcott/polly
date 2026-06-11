@@ -37,15 +37,17 @@ let nextTimerId: number;
 function installFakeTimers(): void {
   scheduled = [];
   nextTimerId = 1;
+  // Deliberately partial shims: the store only ever calls setTimeout(fn, ms)
+  // and clearTimeout(id), so the fakes skip the full overload surface.
   globalThis.setTimeout = ((fn: () => void, delay?: number) => {
     const id = nextTimerId++;
     scheduled.push({ fn, delay: delay ?? 0, id });
     return id as unknown as ReturnType<typeof setTimeout>;
-  }) as typeof setTimeout;
+  }) as unknown as typeof setTimeout;
   globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
     const i = scheduled.findIndex((s) => s.id === (id as unknown as number));
     if (i >= 0) scheduled.splice(i, 1);
-  }) as typeof clearTimeout;
+  }) as unknown as typeof clearTimeout;
 }
 
 /** Fire (and remove) the earliest pending timer scheduled at `delay` ms. */
@@ -115,16 +117,16 @@ class RecordingAdapter {
 
   /** Outgoing blob-request messages, newest last. */
   requests(): Array<{ peerId: string; header: BlobRequestHeader }> {
-    return this.sent
-      .filter((m) => (m.header as { type: string }).type === "blob-request")
-      .map((m) => ({ peerId: m.peerId, header: m.header as BlobRequestHeader }));
+    return this.sent.flatMap((m) =>
+      m.header.type === "blob-request" ? [{ peerId: m.peerId, header: m.header }] : []
+    );
   }
 
   /** Outgoing blob-chunk messages, newest last. */
   chunks(): Array<{ peerId: string; header: BlobChunkHeader; data: Uint8Array }> {
-    return this.sent
-      .filter((m) => (m.header as { type: string }).type === "blob-chunk")
-      .map((m) => ({ peerId: m.peerId, header: m.header as BlobChunkHeader, data: m.data }));
+    return this.sent.flatMap((m) =>
+      m.header.type === "blob-chunk" ? [{ peerId: m.peerId, header: m.header, data: m.data }] : []
+    );
   }
 }
 
@@ -280,7 +282,7 @@ describe("createBlobStore chunk decryption", () => {
     adapter.deliver("B", chunkHeader(hash, 0, 1), sealed);
 
     const result = await got;
-    expect(Array.from(result as Uint8Array)).toEqual(Array.from(plaintext));
+    expect(Array.from(result ?? [])).toEqual(Array.from(plaintext));
   });
 });
 
@@ -305,7 +307,7 @@ describe("createBlobStore request handler (sender side)", () => {
     const bytes = new Uint8Array(65_536 + 1).fill(4);
     const hash = await seed(adapter, bytes);
 
-    adapter.deliver("B", { type: "blob-request", hash, missing: [1] } as BlobMessageHeader);
+    adapter.deliver("B", { type: "blob-request", hash, missing: [1] });
     await flush();
 
     const served = adapter.chunks();
@@ -319,7 +321,7 @@ describe("createBlobStore request handler (sender side)", () => {
     const bytes = new Uint8Array(32).fill(1);
     const hash = await seed(adapter, bytes);
 
-    adapter.deliver("B", { type: "blob-request", hash, missing: [99] } as BlobMessageHeader);
+    adapter.deliver("B", { type: "blob-request", hash, missing: [99] });
     await flush();
 
     expect(adapter.chunks()).toHaveLength(0);
@@ -330,7 +332,7 @@ describe("createBlobStore request handler (sender side)", () => {
     const bytes = new Uint8Array(65_536 + 10).fill(2);
     const hash = await seed(adapter, bytes);
 
-    adapter.deliver("B", { type: "blob-request", hash } as BlobMessageHeader);
+    adapter.deliver("B", { type: "blob-request", hash });
     await flush();
 
     const indices = adapter.chunks().map((c) => c.header.index);
@@ -344,7 +346,7 @@ describe("createBlobStore request handler (sender side)", () => {
 
     // First send reports the channel buffer is full.
     adapter.failNextSend = true;
-    adapter.deliver("B", { type: "blob-request", hash } as BlobMessageHeader);
+    adapter.deliver("B", { type: "blob-request", hash });
     await flush();
     // Nothing sent yet — the handler is parked on waitForBufferDrain.
     expect(adapter.chunks()).toHaveLength(0);
@@ -374,12 +376,10 @@ describe("createBlobStore have-announcement on peer connect", () => {
     adapter.emitPeerCandidate("late");
     await flush();
 
-    const announced = adapter.sent.filter(
-      (m) => (m.header as { type: string }).type === "blob-have"
-    );
+    const announced = adapter.sent.filter((m) => m.header.type === "blob-have");
     expect(announced).toHaveLength(1);
     expect(announced[0]?.peerId).toBe("late");
-    expect((announced[0]?.header as { hash: string }).hash).toBe(hash);
+    expect(announced[0]?.header.hash).toBe(hash);
   });
 });
 
@@ -484,12 +484,12 @@ describe("createBlobStore key retention", () => {
     got.catch(() => {});
     await flush();
     adapter.deliver("B", chunkHeader(hash, 0, 1), encrypt(plaintext, key));
-    expect(Array.from((await got) as Uint8Array)).toEqual(Array.from(plaintext));
+    expect(Array.from((await got) ?? [])).toEqual(Array.from(plaintext));
 
     // A new peer requests the blob. The served chunk must be ciphertext that
     // decrypts back to the plaintext — not the raw plaintext.
     adapter.sent.length = 0;
-    adapter.deliver("C", { type: "blob-request", hash } as BlobMessageHeader);
+    adapter.deliver("C", { type: "blob-request", hash });
     await flush();
 
     const served = adapter.chunks();

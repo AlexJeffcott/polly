@@ -55,7 +55,7 @@ function rendered(host: HTMLElement): HTMLElement {
   return el;
 }
 
-function asInput(el: Element): HTMLInputElement {
+function asInput(el: Element | null): HTMLInputElement {
   if (!(el instanceof HTMLInputElement)) throw new Error("expected an <input>");
   return el;
 }
@@ -435,7 +435,8 @@ describe("Select", () => {
     );
     const button = el.querySelector("[data-polly-dropdown] > button");
     expect(button).not.toBeNull();
-    expect((button as HTMLButtonElement).disabled).toBe(true);
+    if (!(button instanceof HTMLButtonElement)) throw new Error("expected a <button>");
+    expect(button.disabled).toBe(true);
   });
 });
 
@@ -585,7 +586,7 @@ describe("FileInput (polly#135)", () => {
     );
     expect(el.tagName).toBe("LABEL");
     expect(el.getAttribute("data-polly-file-input")).not.toBeNull();
-    const input = asInput(el.querySelector("input") as Element);
+    const input = asInput(el.querySelector("input"));
     expect(input.type).toBe("file");
     expect(input.accept).toBe("image/*");
     expect(el.textContent).toContain("Scan image");
@@ -593,14 +594,14 @@ describe("FileInput (polly#135)", () => {
 
   test("disabled propagates to the native input", () => {
     const el = rendered(mount(h(FileInput, { onFiles: () => {}, disabled: true })));
-    const input = asInput(el.querySelector("input") as Element);
+    const input = asInput(el.querySelector("input"));
     expect(input.disabled).toBe(true);
   });
 
   test("an empty selection does not fire onFiles", () => {
     let called = false;
     const el = rendered(mount(h(FileInput, { onFiles: () => (called = true) })));
-    const input = asInput(el.querySelector("input") as Element);
+    const input = asInput(el.querySelector("input"));
     input.dispatchEvent(new Event("change", { bubbles: true }));
     expect(called).toBe(false);
   });

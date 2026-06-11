@@ -518,7 +518,7 @@ async function runModelCoverage(
   meshFindingCount: number
 ): Promise<void> {
   const { computeModelCoverage, strictCoverageReasons } = await import("./analysis/model-coverage");
-  const stateFields = Object.keys((typedConfig as { state?: Record<string, unknown> }).state ?? {});
+  const stateFields = Object.keys(typedConfig.state ?? {});
   const coverage = computeModelCoverage(stateFields, typedAnalysis.handlers);
   displayModelCoverage(coverage);
 
@@ -607,6 +607,17 @@ async function verifyCommand() {
 }
 
 /**
+ * polly#117/#114: read the docIds of the optional `mesh` record off a loaded
+ * config without asserting its shape.
+ */
+function getMeshDocIds(config: unknown): string[] {
+  if (typeof config !== "object" || config === null || !("mesh" in config)) return [];
+  const mesh = config.mesh;
+  if (typeof mesh !== "object" || mesh === null) return [];
+  return Object.keys(mesh);
+}
+
+/**
  * Get timeout in seconds from config (0 = no timeout)
  */
 function getTimeout(config: UnifiedVerificationConfig): number {
@@ -642,7 +653,7 @@ async function runCoupledFieldsLint(
   config: UnifiedVerificationConfig,
   analysis: import("./core/model").CodebaseAnalysis
 ): Promise<void> {
-  const groups = (config as { coupledFields?: string[][] }).coupledFields ?? [];
+  const groups = config.coupledFields ?? [];
   if (groups.length === 0) return;
 
   const { checkCoupledFields } = await import("./analysis/coupled-fields");
@@ -710,9 +721,7 @@ async function runFullVerification(configPath: string) {
   // polly#117: surface mesh- and peer-scoped signal references whose
   // cross-peer semantics the codegen does not check. A $meshState doc
   // declared under `mesh:` is verified cross-peer and excluded.
-  const declaredMeshDocs = new Set(
-    Object.keys((typedConfig as { mesh?: Record<string, unknown> }).mesh ?? {})
-  );
+  const declaredMeshDocs = new Set(getMeshDocIds(typedConfig));
   const meshFindingCount = displayMeshOrPeerSignalWarnings(typedAnalysis, declaredMeshDocs);
 
   // polly#160: coupled-field write-coupling lint (warn-only). One call here
@@ -1206,8 +1215,7 @@ async function runMeshSeedGuard(
   specDir: string,
   config: unknown
 ): Promise<Parameters<typeof displayVerificationResults>[0] | undefined> {
-  const mesh = (config as { mesh?: Record<string, unknown> }).mesh;
-  if (!mesh || Object.keys(mesh).length === 0) return undefined;
+  if (getMeshDocIds(config).length === 0) return undefined;
 
   const sourceDir = findMeshSeedSpecDir();
   if (!sourceDir) {

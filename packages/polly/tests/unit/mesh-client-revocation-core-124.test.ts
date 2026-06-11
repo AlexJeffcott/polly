@@ -22,7 +22,6 @@ const {
   classifyIncomingRevocation,
 } = __test__;
 
-type Any = ReturnType<typeof JSON.parse>;
 type Store = Map<string, { bytes: Uint8Array; entry: RevocationSummaryEntry }>;
 
 function makeRecord(overrides: {
@@ -31,10 +30,11 @@ function makeRecord(overrides: {
   issuedAt: number;
 }): RevocationRecord {
   return {
+    version: 1,
     revokedPeerId: overrides.revokedPeerId,
     issuerPeerId: overrides.issuerPeerId ?? "issuer",
     issuedAt: overrides.issuedAt,
-  } as unknown as RevocationRecord;
+  };
 }
 
 describe("shouldReplaceRevocation / storeRevocationInto — last-write-wins (#124)", () => {
@@ -106,13 +106,13 @@ describe("shouldReplaceRevocation / storeRevocationInto — last-write-wins (#12
       shouldReplaceRevocation(undefined, makeRecord({ revokedPeerId: "A", issuedAt: 1 }))
     ).toBe(true);
     expect(
-      shouldReplaceRevocation(existing as Any, makeRecord({ revokedPeerId: "A", issuedAt: 101 }))
+      shouldReplaceRevocation(existing, makeRecord({ revokedPeerId: "A", issuedAt: 101 }))
     ).toBe(true);
     expect(
-      shouldReplaceRevocation(existing as Any, makeRecord({ revokedPeerId: "A", issuedAt: 100 }))
+      shouldReplaceRevocation(existing, makeRecord({ revokedPeerId: "A", issuedAt: 100 }))
     ).toBe(false);
     expect(
-      shouldReplaceRevocation(existing as Any, makeRecord({ revokedPeerId: "A", issuedAt: 99 }))
+      shouldReplaceRevocation(existing, makeRecord({ revokedPeerId: "A", issuedAt: 99 }))
     ).toBe(false);
   });
 });

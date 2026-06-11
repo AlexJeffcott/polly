@@ -74,21 +74,33 @@ interface CallExpressionPath extends NodePath {
   node: { callee?: BabelCallee };
 }
 
+/** Narrow the opaque `NodePath` to the Babel surface we touch. */
+function isCallExpressionPath(path: NodePath): path is CallExpressionPath {
+  return "isCallExpression" in path && typeof path.isCallExpression === "function";
+}
+
 /**
  * Resolve the simple name of a call's callee, covering both a bare call
  * (`ensures(...)`) and a member call (`verify.ensures(...)` / `polly.ensures(...)`).
  * Computed member access (`obj["ensures"](...)`) is intentionally not matched —
  * it cannot be resolved statically and is not a pattern polly emits.
  */
+function isBabelIdentifier(callee: BabelCallee): callee is BabelIdentifier {
+  return callee.type === "Identifier";
+}
+
+function isBabelMemberExpression(callee: BabelCallee): callee is BabelMemberExpression {
+  return callee.type === "MemberExpression";
+}
+
 function calleeName(callee: BabelCallee | undefined): string | undefined {
   if (!callee) return undefined;
-  if (callee.type === "Identifier") {
-    return (callee as BabelIdentifier).name;
+  if (isBabelIdentifier(callee)) {
+    return callee.name;
   }
-  if (callee.type === "MemberExpression") {
-    const member = callee as BabelMemberExpression;
-    if (!member.computed && member.property.type === "Identifier") {
-      return member.property.name;
+  if (isBabelMemberExpression(callee)) {
+    if (!callee.computed && callee.property.type === "Identifier") {
+      return callee.property.name;
     }
   }
   return undefined;
@@ -104,11 +116,10 @@ export class PollyVerifyIgnorer implements Ignorer {
   constructor(private readonly primitives: ReadonlySet<string> = VERIFY_PRIMITIVES) {}
 
   shouldIgnore(path: NodePath): string | undefined {
-    const callPath = path as CallExpressionPath;
-    if (typeof callPath.isCallExpression !== "function" || !callPath.isCallExpression()) {
+    if (!isCallExpressionPath(path) || !path.isCallExpression()) {
       return undefined;
     }
-    const name = calleeName(callPath.node.callee);
+    const name = calleeName(path.node.callee);
     if (name && this.primitives.has(name)) {
       return (
         `Inside polly's ${name}(...) — a runtime no-op (compiled away in production, ` +
@@ -122,8 +133,9 @@ export class PollyVerifyIgnorer implements Ignorer {
 
 /** Reads `polly.excludeVerifyCallsites` (default: enabled) off Stryker options. */
 function isEnabled(options: StrykerOptions): boolean {
-  const polly = (options as { polly?: { excludeVerifyCallsites?: boolean } }).polly;
-  return polly?.excludeVerifyCallsites !== false;
+  const polly = options["polly"];
+  if (typeof polly !== "object" || polly === null) return true;
+  return !("excludeVerifyCallsites" in polly) || polly.excludeVerifyCallsites !== false;
 }
 
 // When disabled the plugin still loads but ignores nothing, so a shared config

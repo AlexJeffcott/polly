@@ -166,7 +166,7 @@ describe("MeshWebRTCAdapter.connectedPeerIds", () => {
 });
 
 describe("MeshWebRTCAdapter.sendBlobMessage", () => {
-  const payload = new Uint8Array([9, 8, 7]) as Uint8Array<ArrayBuffer>;
+  const payload: Uint8Array<ArrayBuffer> = new Uint8Array([9, 8, 7]);
 
   test("sends on an open channel and reports success", () => {
     const { adapter, channelFor } = build(["peer-a"]);
@@ -174,7 +174,7 @@ describe("MeshWebRTCAdapter.sendBlobMessage", () => {
     channel.open();
     expect(adapter.sendBlobMessage("peer-a", payload)).toBe(true);
     expect(channel.sent).toHaveLength(1);
-    expect(Array.from(channel.sent[0] as Uint8Array)).toEqual([9, 8, 7]);
+    expect(Array.from(channel.sent[0] ?? [])).toEqual([9, 8, 7]);
   });
 
   test("returns false for an unknown peer", () => {
@@ -225,7 +225,7 @@ describe("MeshWebRTCAdapter message wire codec", () => {
     expect(decoded.senderId).toBe("peer-a" as unknown as Message["senderId"]);
     expect(decoded.targetId).toBe("peer-z" as unknown as Message["targetId"]);
     expect((decoded as unknown as { documentId?: string }).documentId).toBe("doc-xyz");
-    expect(Array.from(decoded.data as Uint8Array)).toEqual([5, 6, 7, 8, 9]);
+    expect(Array.from(decoded.data ?? [])).toEqual([5, 6, 7, 8, 9]);
   });
 
   test("omits documentId from the wire header when the message has none", () => {
@@ -240,7 +240,8 @@ describe("MeshWebRTCAdapter message wire codec", () => {
   test("round-trips a message with no data as an empty payload", () => {
     const { adapter } = build(["peer-a"]);
     const decoded = deserialise(adapter, serialise(adapter, makeMessage({ data: undefined })));
-    expect(Array.from(decoded.data as Uint8Array)).toEqual([]);
+    expect(decoded.data).toBeDefined();
+    expect(Array.from(decoded.data ?? [])).toEqual([]);
   });
 
   test("encodes the header length as a 4-byte big-endian prefix", () => {
@@ -273,8 +274,10 @@ describe("MeshWebRTCAdapter message wire codec", () => {
     } catch (e) {
       caught = e;
     }
-    expect(caught).toBeDefined();
-    expect((caught as Error).message).not.toContain("too short");
+    expect(caught).toBeInstanceOf(Error);
+    if (caught instanceof Error) {
+      expect(caught.message).not.toContain("too short");
+    }
   });
 
   test("throws a header-truncated error when the declared header length overruns the frame", () => {

@@ -26,7 +26,6 @@ import {
 } from "../../src/shared/lib/encryption";
 import {
   clearMeshDiagnosticListeners,
-  type MeshDiagnosticEvent,
   recordMeshDiagnostics,
 } from "../../src/shared/lib/mesh-diagnostics";
 import {
@@ -40,6 +39,7 @@ import {
   generateSigningKeyPair,
   signEnvelope,
 } from "../../src/shared/lib/signing";
+import { peerId } from "./helpers/branded";
 
 class TestBaseAdapter extends NetworkAdapter {
   isReady(): boolean {
@@ -128,10 +128,10 @@ describe("MeshNetworkAdapter control-type dispatch", () => {
     );
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(messages).toHaveLength(1);
     expect(events).toHaveLength(0);
@@ -161,15 +161,16 @@ describe("MeshNetworkAdapter control-type dispatch", () => {
     );
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(messages).toHaveLength(0);
     expect(events).toHaveLength(1);
-    const event = events[0] as MeshDiagnosticEvent & { kind: "ctrl:revocation-received" };
-    expect(event.kind).toBe("ctrl:revocation-received");
+    const event = events[0];
+    expect(event?.kind).toBe("ctrl:revocation-received");
+    if (event?.kind !== "ctrl:revocation-received") throw new Error("unreachable: asserted above");
     expect(event.senderId).toBe(senderId);
   });
 
@@ -197,10 +198,10 @@ describe("MeshNetworkAdapter control-type dispatch", () => {
     );
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(messages).toHaveLength(0);
     expect(events).toHaveLength(1);
@@ -225,15 +226,16 @@ describe("MeshNetworkAdapter control-type dispatch", () => {
     const bytes = wrapTaggedPayload(0x42, new Uint8Array([1]), senderId, sender.secretKey, docKey);
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(messages).toHaveLength(0);
     expect(events).toHaveLength(1);
-    const event = events[0] as MeshDiagnosticEvent & { kind: "drop:unknown-control-type" };
-    expect(event.kind).toBe("drop:unknown-control-type");
+    const event = events[0];
+    expect(event?.kind).toBe("drop:unknown-control-type");
+    if (event?.kind !== "drop:unknown-control-type") throw new Error("unreachable: asserted above");
     expect(event.tag).toBe(0x42);
     expect(event.senderId).toBe(senderId);
   });
@@ -261,10 +263,10 @@ describe("MeshNetworkAdapter control-type dispatch", () => {
 
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(messages).toHaveLength(0);
     expect(events).toHaveLength(1);
@@ -306,15 +308,15 @@ describe("MeshNetworkAdapter control-type dispatch", () => {
 
     const original: Message = {
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "peer-roundtrip" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("peer-roundtrip"),
       data: new Uint8Array([4, 5, 6, 7]),
-    } as Message;
+    };
     adapterA.send(original);
 
     expect(captured).toBeDefined();
     expect(captured?.type).toBe("sync");
-    expect(captured?.senderId).toBe(senderId as PeerId);
-    expect(Array.from((captured as { data: Uint8Array }).data)).toEqual([4, 5, 6, 7]);
+    expect(captured?.senderId).toBe(peerId(senderId));
+    expect(Array.from(captured?.data ?? [])).toEqual([4, 5, 6, 7]);
   });
 });

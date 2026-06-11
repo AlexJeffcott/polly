@@ -24,17 +24,17 @@ import {
 
 type AnyGlobal = Record<string, unknown>;
 function setGlobal(name: string, value: unknown): void {
-  (globalThis as AnyGlobal)[name] = value;
+  Reflect.set(globalThis, name, value);
 }
 function clearGlobals(...names: string[]): void {
-  for (const name of names) delete (globalThis as AnyGlobal)[name];
+  for (const name of names) Reflect.deleteProperty(globalThis, name);
 }
 
 /** Adapters stub — the helpers only ever reach for tabs and runtime. */
 function makeAdapters() {
-  const calls = {
-    query: [] as unknown[],
-    create: [] as unknown[],
+  const calls: { query: unknown[]; create: unknown[]; openOptionsPage: number } = {
+    query: [],
+    create: [],
     openOptionsPage: 0,
   };
   const adapters = {
@@ -318,8 +318,8 @@ describe("createPopupHelpers", () => {
 
   test("getCurrentTab queries the active tab in the current window", async () => {
     const { adapters, calls } = makeAdapters();
-    const tab = await createPopupHelpers(adapters).getCurrentTab();
-    expect(tab as unknown).toEqual({ id: 1, active: true });
+    const tab: unknown = await createPopupHelpers(adapters).getCurrentTab();
+    expect(tab).toEqual({ id: 1, active: true });
     expect(calls.query).toEqual([{ active: true, currentWindow: true }]);
   });
 
@@ -348,14 +348,15 @@ describe("createOptionsHelpers", () => {
 
   beforeEach(() => {
     timers = [];
-    (globalThis as AnyGlobal).setTimeout = ((fn: () => void, ms: number) => {
+    // Deliberately partial setTimeout fake — the helpers only pass (fn, ms).
+    Reflect.set(globalThis, "setTimeout", (fn: () => void, ms: number) => {
       timers.push({ fn, ms });
       return 0;
-    }) as unknown as typeof setTimeout;
+    });
   });
 
   afterEach(() => {
-    (globalThis as AnyGlobal).setTimeout = realSetTimeout;
+    globalThis.setTimeout = realSetTimeout;
     clearGlobals("document");
   });
 
@@ -456,8 +457,8 @@ describe("createSidePanelHelpers", () => {
 
   test("getCurrentTab queries the active tab in the current window", async () => {
     const { adapters, calls } = makeAdapters();
-    const tab = await createSidePanelHelpers(adapters).getCurrentTab();
-    expect(tab as unknown).toEqual({ id: 1, active: true });
+    const tab: unknown = await createSidePanelHelpers(adapters).getCurrentTab();
+    expect(tab).toEqual({ id: 1, active: true });
     expect(calls.query).toEqual([{ active: true, currentWindow: true }]);
   });
 
@@ -485,8 +486,8 @@ describe("createBackgroundHelpers", () => {
 
   test("getAllTabs queries with an empty filter", async () => {
     const { adapters, calls } = makeAdapters();
-    const tabs = await createBackgroundHelpers(adapters).getAllTabs();
-    expect(tabs as unknown).toEqual([{ id: 1, active: true }]);
+    const tabs: unknown = await createBackgroundHelpers(adapters).getAllTabs();
+    expect(tabs).toEqual([{ id: 1, active: true }]);
     expect(calls.query).toEqual([{}]);
   });
 

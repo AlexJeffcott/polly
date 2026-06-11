@@ -79,18 +79,23 @@ async function collectSuppressions(): Promise<Suppression[]> {
   return out;
 }
 
+function isBaselineEntry(entry: unknown): entry is BaselineEntry {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "file" in entry &&
+    typeof entry.file === "string" &&
+    "text" in entry &&
+    typeof entry.text === "string"
+  );
+}
+
 function loadBaseline(): BaselineEntry[] {
   if (!existsSync(BASELINE_PATH)) return [];
   try {
-    const raw = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as unknown;
+    const raw: unknown = JSON.parse(readFileSync(BASELINE_PATH, "utf-8"));
     if (!Array.isArray(raw)) return [];
-    return raw.filter(
-      (entry): entry is BaselineEntry =>
-        typeof entry === "object" &&
-        entry !== null &&
-        typeof (entry as Record<string, unknown>)["file"] === "string" &&
-        typeof (entry as Record<string, unknown>)["text"] === "string"
-    );
+    return raw.filter(isBaselineEntry);
   } catch {
     return [];
   }

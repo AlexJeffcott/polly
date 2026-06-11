@@ -9,9 +9,22 @@ import type {
   PollyResponseMetadata,
   RoutePattern,
 } from "../elysia/types";
+import { isRecord } from "../shared/lib/guards";
 
 /** Eden treaty leaf methods that execute a request. */
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options"]);
+
+/** Read a property off a value that may be an object or a callable Proxy. */
+function propOf(node: unknown, key: string): unknown {
+  if (node === null || (typeof node !== "object" && typeof node !== "function")) {
+    return undefined;
+  }
+  return Reflect.get(node, key);
+}
+
+function isInvokable(value: unknown): value is (...args: unknown[]) => Promise<unknown> {
+  return typeof value === "function";
+}
 
 /**
  * Offline queue entry
@@ -87,9 +100,8 @@ export interface PollyClientOptions {
  */
 function applyStateSync(state: PollyClientOptions["state"], incoming: unknown): void {
   if (!state || !incoming || typeof incoming !== "object") return;
-  const target = state as Record<string, { value: unknown }>;
-  for (const [key, value] of Object.entries(incoming as Record<string, unknown>)) {
-    const sig = target[key];
+  for (const [key, value] of Object.entries(incoming)) {
+    const sig = state[key];
     if (sig && typeof sig === "object" && "value" in sig) {
       sig.value = value;
     }
@@ -291,8 +303,8 @@ export function createPollyClient<T extends Record<string, unknown>>(
    * matching client effect locally with the real result.
    */
   function applyOnlineResult(method: string, path: string, body: unknown, edenResult: unknown) {
-    const result = edenResult as { data?: unknown; response?: Response } | undefined;
-    const response = result?.response;
+    const result = isRecord(edenResult) ? edenResult : undefined;
+    const response = result?.response instanceof Response ? result.response : undefined;
     const header = response?.headers?.get?.("X-Polly-Metadata");
     const metadata: PollyResponseMetadata | undefined = header ? JSON.parse(header) : undefined;
     if (metadata?.clock) clock.update(metadata.clock);
@@ -322,10 +334,15 @@ export function createPollyClient<T extends Record<string, unknown>>(
     }
 
     // Delegate to the real Eden client by walking the same property chain the
-    // caller used (api.todos[id].patch → baseClient.todos[id].patch).
-    let node: Record<string, unknown> = baseClient as Record<string, unknown>;
-    for (const seg of segments) node = node[seg] as Record<string, unknown>;
-    const edenMethod = node[method] as (...a: unknown[]) => Promise<unknown>;
+    // caller used (api.todos[id].patch → baseClient.todos[id].patch). Eden's
+    // treaty client is a Proxy (often over a function target), so the walk
+    // reads properties off whatever node shape the proxy presents.
+    let node: unknown = baseClient;
+    for (const seg of segments) node = propOf(node, seg);
+    const edenMethod = propOf(node, method);
+    if (!isInvokable(edenMethod)) {
+      throw new TypeError(`polly: no Eden method for ${httpMethod} ${path}`);
+    }
     const edenResult = await edenMethod(...args);
     applyOnlineResult(httpMethod, path, body, edenResult);
     return edenResult;
@@ -361,5 +378,7 @@ export function createPollyClient<T extends Record<string, unknown>>(
     });
   }
 
-  return makePathProxy([]) as typeof baseClient & { $polly: typeof pollyApi };
+  // A Proxy that lazily mirrors Eden's path-building cannot be typed
+  // structurally — it IS the Eden client's type plus $polly by construction.
+  return makePathProxy([]) as unknown as typeof baseClient & { $polly: typeof pollyApi };
 }

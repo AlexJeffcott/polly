@@ -13,6 +13,7 @@ import "./helpers/css-module-keys.ts";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { VNode } from "preact";
+import type { SurfaceProps } from "../../src/polly-ui/Surface.tsx";
 
 beforeAll(() => {
   GlobalRegistrator.register();
@@ -166,7 +167,7 @@ describe("Surface — custom-property bridges", () => {
     const el = rendered(
       mount(
         h(Surface, {
-          style: { "--polly-surface-raised": "#fef3c7" } as Record<string, string>,
+          style: { "--polly-surface-raised": "#fef3c7" },
           children: "x",
         })
       )
@@ -248,7 +249,7 @@ describe("Surface — border-width inference (wantsBorder)", () => {
 });
 
 describe("Surface — border sides class mapping", () => {
-  const cases: Array<[string, string | null]> = [
+  const cases: Array<[NonNullable<SurfaceProps["borderSides"]>, string | null]> = [
     ["all", null],
     ["block-start", "sides-block-start"],
     ["block-end", "sides-block-end"],
@@ -259,7 +260,7 @@ describe("Surface — border sides class mapping", () => {
   ];
   for (const [sides, cls] of cases) {
     test(`borderSides='${sides}' ${cls ? `adds ${cls}` : "adds no side class"}`, () => {
-      const el = rendered(mount(h(Surface, { borderSides: sides as never, children: "x" })));
+      const el = rendered(mount(h(Surface, { borderSides: sides, children: "x" })));
       const list = classList(el);
       if (cls) expect(list).toContain(cls);
       else expect(list.some((c) => c.startsWith("sides-"))).toBe(false);

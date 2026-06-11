@@ -152,9 +152,9 @@ export class IndexedDBBlobCache implements BlobCache {
   private async getRecord(hash: string): Promise<IDBRecord | undefined> {
     const db = await this.openDB();
     const tx = db.transaction(IndexedDBBlobCache.STORE_NAME, "readonly");
-    return runRequest(tx.objectStore(IndexedDBBlobCache.STORE_NAME).get(hash)) as Promise<
-      IDBRecord | undefined
-    >;
+    return runRequest<IDBRecord | undefined>(
+      tx.objectStore(IndexedDBBlobCache.STORE_NAME).get(hash)
+    );
   }
 
   private async putRecord(hash: string, record: IDBRecord): Promise<void> {
@@ -232,7 +232,7 @@ export class IndexedDBBlobCache implements BlobCache {
       totalSize += value.size;
       if (!value.pinned) {
         candidates.push({
-          hash: key as string,
+          hash: String(key),
           accessedAt: value.accessedAt,
           size: value.size,
         });

@@ -104,7 +104,7 @@ describe("createBlobStore put/get round trip", () => {
     await a.put(ref, bytes);
     const got = await b.get(ref.hash);
     expect(got).toBeDefined();
-    expect(Array.from(got as Uint8Array)).toEqual(Array.from(bytes));
+    expect(Array.from(got ?? [])).toEqual(Array.from(bytes));
   });
 
   test("round-trips an encrypted blob under a shared key", async () => {
@@ -114,7 +114,7 @@ describe("createBlobStore put/get round trip", () => {
     const ref = await refFor(bytes);
     await a.put(ref, bytes);
     const got = await b.get(ref.hash);
-    expect(Array.from(got as Uint8Array)).toEqual(Array.from(bytes));
+    expect(Array.from(got ?? [])).toEqual(Array.from(bytes));
   });
 
   test("reassembles a multi-chunk blob larger than one chunk", async () => {
@@ -125,7 +125,7 @@ describe("createBlobStore put/get round trip", () => {
     await a.put(ref, bytes);
     const got = await b.get(ref.hash);
     expect(got?.length).toBe(bytes.length);
-    expect(Array.from(got as Uint8Array)).toEqual(Array.from(bytes));
+    expect(Array.from(got ?? [])).toEqual(Array.from(bytes));
   });
 
   test("announces existing blobs to a peer that connects after the put", async () => {
@@ -137,7 +137,7 @@ describe("createBlobStore put/get round trip", () => {
     // announce so B then knows A holds it and can fetch it.
     adapterA.emitPeerCandidate("B");
     const got = await b.get(ref.hash);
-    expect(Array.from(got as Uint8Array)).toEqual(Array.from(bytes));
+    expect(Array.from(got ?? [])).toEqual(Array.from(bytes));
   });
 });
 
@@ -148,7 +148,7 @@ describe("createBlobStore get short-circuits", () => {
     const ref = await refFor(bytes);
     await a.put(ref, bytes);
     const got = await a.get(ref.hash);
-    expect(Array.from(got as Uint8Array)).toEqual(Array.from(bytes));
+    expect(Array.from(got ?? [])).toEqual(Array.from(bytes));
   });
 
   test("returns undefined when no peer is known to have the blob", async () => {

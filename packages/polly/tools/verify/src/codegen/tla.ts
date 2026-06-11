@@ -871,30 +871,40 @@ export class TLAGenerator {
     fieldConfig: FieldConfig,
     _config: VerificationConfig
   ): string {
-    const fc = fieldConfig as Record<string, unknown>;
-    if (fc["type"] === "boolean") return "FALSE";
-    if (fc["type"] === "number") {
-      const min = typeof fc["min"] === "number" ? (fc["min"] as number) : 0;
-      return String(min);
+    return (
+      this.typedFieldInitialValue(fieldConfig) ??
+      this.legacyValuesInitialValue(fieldConfig) ??
+      '"v1"'
+    );
+  }
+
+  /** Initial value for the `type`-discriminated FieldConfig variants. */
+  private typedFieldInitialValue(fieldConfig: FieldConfig): string | undefined {
+    if (!("type" in fieldConfig)) return undefined;
+    switch (fieldConfig.type) {
+      case "boolean":
+        return "FALSE";
+      case "number":
+        return String(typeof fieldConfig.min === "number" ? fieldConfig.min : 0);
+      case "enum": {
+        const values = fieldConfig.values;
+        if (Array.isArray(values) && values.length > 0) return `"${String(values[0])}"`;
+        return undefined;
+      }
+      case "string":
+        return typeof fieldConfig.initial === "string" ? `"${fieldConfig.initial}"` : '""';
+      case "array":
+        return "<<>>";
+      default:
+        return undefined;
     }
-    if (
-      fc["type"] === "enum" &&
-      Array.isArray(fc["values"]) &&
-      (fc["values"] as unknown[]).length > 0
-    ) {
-      return `"${String((fc["values"] as string[])[0])}"`;
-    }
-    if (fc["type"] === "string") {
-      return typeof fc["initial"] === "string" ? `"${fc["initial"]}"` : '""';
-    }
-    if (fc["type"] === "array") {
-      return "<<>>";
-    }
-    if (Array.isArray((fc as { values?: unknown[] }).values)) {
-      const values = (fc as { values: string[] }).values;
-      if (values.length > 0) return `"${values[0]}"`;
-    }
-    return '"v1"';
+  }
+
+  /** Initial value for the legacy `{ values: [...] }` FieldConfig shape. */
+  private legacyValuesInitialValue(fieldConfig: FieldConfig): string | undefined {
+    if (!("values" in fieldConfig) || !Array.isArray(fieldConfig.values)) return undefined;
+    const [first] = fieldConfig.values;
+    return first === undefined ? undefined : `"${first}"`;
   }
 
   private defineValueTypes(): void {
@@ -2314,6 +2324,7 @@ export class TLAGenerator {
       // `contextStates[<binder>]` exactly as the executing-context
       // path would.
       let body = scoped.innerBody;
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `binder` is a TypeScript identifier extracted from typed AST analysis, never user input.
       const binderRe1 = new RegExp(
         `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\.([a-zA-Z_][a-zA-Z0-9_.]*)`,
         "g"
@@ -2330,6 +2341,7 @@ export class TLAGenerator {
         const flat = this.sanitizeFieldName(`${sig}_${String(path).replace(/\./g, "_")}`);
         return `${peerPrefix}.${flat}`;
       });
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `binder` is a TypeScript identifier extracted from typed AST analysis, never user input.
       const binderRe2 = new RegExp(
         `\\b${binder}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.value\\b(?!\\.)`,
         "g"

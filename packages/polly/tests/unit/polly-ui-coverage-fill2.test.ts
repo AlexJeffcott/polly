@@ -42,6 +42,11 @@ function rendered(host: HTMLElement): HTMLElement {
   if (!(el instanceof HTMLElement)) throw new Error("expected a rendered element");
   return el;
 }
+/** Narrow to a concrete element type via instanceof; throws instead of casting. */
+function asElement<T extends Element>(v: unknown, ctor: new () => T): T {
+  if (!(v instanceof ctor)) throw new Error(`expected ${ctor.name}`);
+  return v;
+}
 const cls = (el: Element | null | undefined): string[] =>
   (el?.getAttribute("class") ?? "").split(" ").filter(Boolean);
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -112,9 +117,9 @@ describe("ActionSelect — actionData merge on commit", () => {
     const host = mount(
       h(ActionSelect, { value: "a", action: "set", options: OPTS, actionData: { tid: "7" } })
     );
-    const beta = Array.from(host.querySelectorAll("[role='option']")).find((o) =>
+    const beta = Array.from(host.querySelectorAll<HTMLButtonElement>("[role='option']")).find((o) =>
       o.textContent?.includes("Beta")
-    ) as HTMLButtonElement | undefined;
+    );
     beta?.click();
     cap.stop();
     expect(cap.rows.length).toBe(1);
@@ -129,7 +134,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     const host = mount(h(ActionInput, { value: "old", action: "t" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -142,7 +147,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     const host = mount(h(ActionInput, { value: "old", action: "t", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -156,7 +161,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     const host = mount(h(ActionInput, { value: "old", action: "t", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -170,7 +175,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     const host = mount(h(ActionInput, { value: "old", action: "t", saveOn: "cmd-enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -194,7 +199,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     const host = mount(h(ActionInput, { value: "old", action: "t", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();

@@ -157,7 +157,7 @@ export function iterateCursor<V>(
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) return resolve();
-      visit(cursor.key, cursor.value as V);
+      visit(cursor.key, cursor.value);
       cursor.continue();
     };
     request.onerror = () => reject(request.error);

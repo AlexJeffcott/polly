@@ -47,6 +47,12 @@ function rendered(host: HTMLElement): HTMLElement {
   return el;
 }
 
+/** Narrow to a concrete element type via instanceof; throws instead of casting. */
+function asElement<T extends Element>(v: unknown, ctor: new () => T): T {
+  if (!(v instanceof ctor)) throw new Error(`expected ${ctor.name}`);
+  return v;
+}
+
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 /** Capture data-action-value strings dispatched for `action`. */
@@ -143,11 +149,14 @@ describe("ActionInput — edit mode shape", () => {
   });
 
   test("inputType sets the native input type", () => {
-    const el = rendered(
-      mount(
-        h(ActionInput, { value: "2026-01-01", action: "a", saveOn: "input", inputType: "date" })
-      )
-    ) as HTMLInputElement;
+    const el = asElement(
+      rendered(
+        mount(
+          h(ActionInput, { value: "2026-01-01", action: "a", saveOn: "input", inputType: "date" })
+        )
+      ),
+      HTMLInputElement
+    );
     expect(el.type).toBe("date");
   });
 
@@ -163,7 +172,7 @@ describe("ActionInput — commit matrix", () => {
   test("saveOn='input' commits every keystroke and stays in edit", async () => {
     const cap = captureActions("filter");
     const host = mount(h(ActionInput, { value: "", action: "filter", saveOn: "input" }));
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "ab";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     cap.stop();
@@ -177,7 +186,7 @@ describe("ActionInput — commit matrix", () => {
     const host = mount(h(ActionInput, { value: "old", action: "rename", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick(); // let the new draft bind into the keydown handler
@@ -195,7 +204,7 @@ describe("ActionInput — commit matrix", () => {
     );
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLTextAreaElement;
+    const input = asElement(rendered(host), HTMLTextAreaElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -217,7 +226,7 @@ describe("ActionInput — commit matrix", () => {
     );
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLTextAreaElement;
+    const input = asElement(rendered(host), HTMLTextAreaElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -235,7 +244,7 @@ describe("ActionInput — commit matrix", () => {
     const host = mount(h(ActionInput, { value: "old", action: "title", saveOn: "blur" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -249,7 +258,7 @@ describe("ActionInput — commit matrix", () => {
     const host = mount(h(ActionInput, { value: "x", action: "same", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     // leave value as "x"
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     cap.stop();
@@ -260,7 +269,7 @@ describe("ActionInput — commit matrix", () => {
     const host = mount(h(ActionInput, { value: "v", action: "a", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "changed";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     const ev = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
@@ -275,7 +284,7 @@ describe("ActionInput — commit matrix", () => {
     const host = mount(h(ActionInput, { value: "v", action: "x", saveOn: "enter" }));
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "changed";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
@@ -331,16 +340,14 @@ describe("Select — option handling", () => {
     const selected = signal(new Set(["a"]));
     const host = mount(h(Select, { options: OPTS, selected }));
     const optionButtons = host.querySelectorAll("[role='listbox'] button");
-    (optionButtons[1] as HTMLButtonElement).click(); // Beta
+    asElement(optionButtons[1], HTMLButtonElement).click(); // Beta
     expect([...selected.value]).toEqual(["b"]);
   });
 
   test("multi-select toggles membership without closing", () => {
     const selected = signal(new Set(["a"]));
     const host = mount(h(Select, { options: OPTS, selected, multiSelect: true }));
-    const buttons = Array.from(
-      host.querySelectorAll("[role='listbox'] button")
-    ) as HTMLButtonElement[];
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>("[role='listbox'] button"));
     const beta = buttons.find((b) => b.textContent?.includes("Beta"));
     const alpha = buttons.find((b) => b.textContent?.includes("Alpha"));
     beta?.click();
@@ -353,9 +360,7 @@ describe("Select — option handling", () => {
     const selected = signal(new Set<string>());
     const host = mount(h(Select, { options: OPTS, selected, multiSelect: true }));
     const byText = (t: string): HTMLButtonElement | undefined =>
-      Array.from(host.querySelectorAll("button")).find((b) => b.textContent?.trim() === t) as
-        | HTMLButtonElement
-        | undefined;
+      Array.from(host.querySelectorAll("button")).find((b) => b.textContent?.trim() === t);
     byText("Select All")?.click();
     expect(selected.value.size).toBe(3);
     byText("Clear")?.click();
@@ -406,9 +411,9 @@ describe("ActionSelect", () => {
   test("choosing an option commits its value through the action system", () => {
     const cap = captureActions("set");
     const host = mount(h(ActionSelect, { value: "a", action: "set", options: OPTS }));
-    const opt = Array.from(host.querySelectorAll("[role='option']")).find((o) =>
+    const opt = Array.from(host.querySelectorAll<HTMLButtonElement>("[role='option']")).find((o) =>
       o.textContent?.includes("Beta")
-    ) as HTMLButtonElement | undefined;
+    );
     opt?.click();
     cap.stop();
     expect(cap.values).toContain("b");
@@ -417,9 +422,9 @@ describe("ActionSelect", () => {
   test("re-choosing the current value commits nothing", () => {
     const cap = captureActions("set");
     const host = mount(h(ActionSelect, { value: "a", action: "set", options: OPTS }));
-    const opt = Array.from(host.querySelectorAll("[role='option']")).find((o) =>
+    const opt = Array.from(host.querySelectorAll<HTMLButtonElement>("[role='option']")).find((o) =>
       o.textContent?.includes("Alpha")
-    ) as HTMLButtonElement | undefined;
+    );
     opt?.click();
     cap.stop();
     expect(cap.values).toEqual([]);
@@ -460,7 +465,7 @@ describe("Dropdown — handlers and attributes", () => {
     const el = rendered(
       mount(h(Dropdown, { isOpen: signal(false), trigger: "t", align: "right", children: "m" }))
     );
-    const menu = el.querySelector("[role='listbox']") as HTMLElement;
+    const menu = asElement(el.querySelector("[role='listbox']"), HTMLElement);
     expect(menu.getAttribute("popover")).toBe("auto");
     expect(menu.getAttribute("data-align")).toBe("right");
     expect(menu.getAttribute("data-overlay-id")).toBe(menu.id);
@@ -484,7 +489,7 @@ describe("Dropdown — handlers and attributes", () => {
         })
       )
     );
-    const button = el.querySelector("button") as HTMLButtonElement;
+    const button = asElement(el.querySelector("button"), HTMLButtonElement);
     expect((button.getAttribute("class") ?? "").split(" ")).toContain("myTrigger");
     expect(button.disabled).toBe(true);
   });
@@ -492,7 +497,7 @@ describe("Dropdown — handlers and attributes", () => {
   test("clicking the menu closes a single-select dropdown", () => {
     const isOpen = signal(true);
     const el = rendered(mount(h(Dropdown, { isOpen, trigger: "t", children: "m" })));
-    (el.querySelector("[role='listbox']") as HTMLElement).dispatchEvent(
+    asElement(el.querySelector("[role='listbox']"), HTMLElement).dispatchEvent(
       new MouseEvent("click", { bubbles: true })
     );
     expect(isOpen.value).toBe(false);
@@ -503,7 +508,7 @@ describe("Dropdown — handlers and attributes", () => {
     const el = rendered(
       mount(h(Dropdown, { isOpen, trigger: "t", multiSelect: true, children: "m" }))
     );
-    (el.querySelector("[role='listbox']") as HTMLElement).dispatchEvent(
+    asElement(el.querySelector("[role='listbox']"), HTMLElement).dispatchEvent(
       new MouseEvent("click", { bubbles: true })
     );
     expect(isOpen.value).toBe(true);
@@ -512,7 +517,7 @@ describe("Dropdown — handlers and attributes", () => {
   test("Escape on the menu closes the dropdown", () => {
     const isOpen = signal(true);
     const el = rendered(mount(h(Dropdown, { isOpen, trigger: "t", children: "m" })));
-    (el.querySelector("[role='listbox']") as HTMLElement).dispatchEvent(
+    asElement(el.querySelector("[role='listbox']"), HTMLElement).dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
     );
     expect(isOpen.value).toBe(false);
@@ -521,7 +526,7 @@ describe("Dropdown — handlers and attributes", () => {
   test("a non-Escape key on the menu does not close it", () => {
     const isOpen = signal(true);
     const el = rendered(mount(h(Dropdown, { isOpen, trigger: "t", children: "m" })));
-    (el.querySelector("[role='listbox']") as HTMLElement).dispatchEvent(
+    asElement(el.querySelector("[role='listbox']"), HTMLElement).dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })
     );
     expect(isOpen.value).toBe(true);

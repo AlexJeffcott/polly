@@ -49,20 +49,26 @@ function captureOpenFn(): { fn: IDBOpenFn; request: FakeOpenRequest } {
 /** Drop-in fake DB returned by the success path. */
 const fakeDB = { close: () => {} } as unknown as IDBDatabase;
 
+/** Narrow a rejection value to IDBOpenError, failing the test otherwise. */
+function expectIDBOpenError(err: unknown): IDBOpenError {
+  expect(err).toBeInstanceOf(IDBOpenError);
+  if (!(err instanceof IDBOpenError)) throw new Error("expected an IDBOpenError rejection");
+  return err;
+}
+
 describe("openIDB", () => {
   test(
     "rejects with IDBOpenError reason='timeout' when the request never fires",
     async () => {
       const { fn } = captureOpenFn();
       const start = Date.now();
-      const err = await openIDB(defaultOptions, fn).catch((e) => e);
+      const err = expectIDBOpenError(await openIDB(defaultOptions, fn).catch((e) => e));
       const elapsed = Date.now() - start;
 
-      expect(err).toBeInstanceOf(IDBOpenError);
       expect(err).toBeInstanceOf(Error);
-      expect((err as IDBOpenError).reason).toBe("timeout");
-      expect((err as IDBOpenError).dbName).toBe("polly-test");
-      expect((err as IDBOpenError).elapsedMs).toBeGreaterThanOrEqual(IDB_OPEN_TIMEOUT_MS - 50);
+      expect(err.reason).toBe("timeout");
+      expect(err.dbName).toBe("polly-test");
+      expect(err.elapsedMs).toBeGreaterThanOrEqual(IDB_OPEN_TIMEOUT_MS - 50);
       expect(elapsed).toBeGreaterThanOrEqual(IDB_OPEN_TIMEOUT_MS - 50);
       expect(elapsed).toBeLessThan(IDB_OPEN_TIMEOUT_MS + 1000);
     },
@@ -74,10 +80,9 @@ describe("openIDB", () => {
     const pending = openIDB(defaultOptions, fn);
     queueMicrotask(() => request.onblocked?.({}));
 
-    const err = await pending.catch((e) => e);
-    expect(err).toBeInstanceOf(IDBOpenError);
-    expect((err as IDBOpenError).reason).toBe("blocked");
-    expect((err as IDBOpenError).dbName).toBe("polly-test");
+    const err = expectIDBOpenError(await pending.catch((e) => e));
+    expect(err.reason).toBe("blocked");
+    expect(err.dbName).toBe("polly-test");
   });
 
   test("rejects with reason='error' carrying request.error as cause", async () => {
@@ -87,10 +92,9 @@ describe("openIDB", () => {
     const pending = openIDB(defaultOptions, fn);
     queueMicrotask(() => request.onerror?.({}));
 
-    const err = await pending.catch((e) => e);
-    expect(err).toBeInstanceOf(IDBOpenError);
-    expect((err as IDBOpenError).reason).toBe("error");
-    expect((err as IDBOpenError).cause).toBe(underlying);
+    const err = expectIDBOpenError(await pending.catch((e) => e));
+    expect(err.reason).toBe("error");
+    expect(err.cause).toBe(underlying);
   });
 
   test("resolves with request.result when onsuccess fires", async () => {
@@ -126,7 +130,7 @@ describe("cachedOpen", () => {
       queueMicrotask(() => request.onsuccess?.({}));
       return request as unknown as IDBOpenDBRequest;
     };
-    const ref = { promise: null as Promise<IDBDatabase> | null };
+    const ref: { promise: Promise<IDBDatabase> | null } = { promise: null };
 
     const first = cachedOpen(ref, defaultOptions, fn);
     const second = cachedOpen(ref, defaultOptions, fn);
@@ -137,7 +141,7 @@ describe("cachedOpen", () => {
   });
 
   test("clears the cache on rejection so the next call retries", async () => {
-    const ref = { promise: null as Promise<IDBDatabase> | null };
+    const ref: { promise: Promise<IDBDatabase> | null } = { promise: null };
 
     const blocked = makeRequest();
     const blockedFn: IDBOpenFn = () => {
@@ -147,9 +151,8 @@ describe("cachedOpen", () => {
     const first = cachedOpen(ref, defaultOptions, blockedFn);
     expect(ref.promise).toBe(first);
 
-    const err = await first.catch((e) => e);
-    expect(err).toBeInstanceOf(IDBOpenError);
-    expect((err as IDBOpenError).reason).toBe("blocked");
+    const err = expectIDBOpenError(await first.catch((e) => e));
+    expect(err.reason).toBe("blocked");
     expect(ref.promise).toBeNull();
 
     const ok = makeRequest();

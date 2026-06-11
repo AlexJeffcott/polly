@@ -27,6 +27,7 @@ import {
   prependControlTag,
 } from "../../src/shared/lib/mesh-network-adapter";
 import { generateSigningKeyPair } from "../../src/shared/lib/signing";
+import { peerId } from "./helpers/branded";
 
 class TestBaseAdapter extends NetworkAdapter {
   #ready = true;
@@ -56,7 +57,14 @@ class TestBaseAdapter extends NetworkAdapter {
   }
 }
 
-const SENDER_ID = "sender-peer";
+const SENDER_ID = peerId("sender-peer");
+
+/** First captured message, asserting one was actually captured. */
+function firstMessage(messages: Message[]): Message {
+  const message = messages[0];
+  if (!message) throw new Error("expected at least one captured message");
+  return message;
+}
 
 /** Build a sender/receiver pair that share a document key, with the
  * receiver trusting the sender's signing public key. Returns the two
@@ -98,7 +106,7 @@ function buildPair(
     keyringSource: () => senderKeyring,
     encryptionEnabled: opts.encryptionEnabled,
   });
-  sender.connect(SENDER_ID as PeerId);
+  sender.connect(SENDER_ID);
   const receiver = new MeshNetworkAdapter({
     base: receiverBase,
     keyringSource: () => receiverKeyring,
@@ -130,13 +138,14 @@ describe("MeshNetworkAdapter wrap → unwrap round trip", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     sender.send(makeMessage({ data: new Uint8Array([9, 8, 7, 6]) }));
     expect(senderBase.sent).toHaveLength(1);
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(received).toHaveLength(1);
-    const out = received[0] as Message;
+    const out = firstMessage(received);
     expect(out.type).toBe("sync");
-    expect(out.senderId).toBe(SENDER_ID as unknown as Message["senderId"]);
+    expect(out.senderId).toBe(SENDER_ID);
     expect((out as unknown as { documentId?: string }).documentId).toBe("doc-1");
-    expect(Array.from(out.data as Uint8Array)).toEqual([9, 8, 7, 6]);
+    if (!out.data) throw new Error("expected binary data on the unwrapped message");
+    expect(Array.from(out.data)).toEqual([9, 8, 7, 6]);
   });
 
   test("the wrapped outer envelope preserves documentId for the base adapter", () => {
@@ -159,9 +168,11 @@ describe("MeshNetworkAdapter wrap → unwrap round trip", () => {
       encryptionEnabled: false,
     });
     sender.send(makeMessage({ data: new Uint8Array([5, 5, 5]) }));
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(received).toHaveLength(1);
-    expect(Array.from((received[0] as Message).data as Uint8Array)).toEqual([5, 5, 5]);
+    const out = firstMessage(received);
+    if (!out.data) throw new Error("expected binary data on the unwrapped message");
+    expect(Array.from(out.data)).toEqual([5, 5, 5]);
   });
 
   test("throws when encryption is enabled but the document key is missing", () => {
@@ -174,7 +185,7 @@ describe("MeshNetworkAdapter serialise/deserialise header fields", () => {
   test("preserves count and sessionId across the round trip", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     sender.send(makeMessage({ count: 7, sessionId: "sess-9", data: new Uint8Array(0) }));
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     const out = received[0] as unknown as { count?: number; sessionId?: string };
     expect(out.count).toBe(7);
     expect(out.sessionId).toBe("sess-9");
@@ -183,7 +194,7 @@ describe("MeshNetworkAdapter serialise/deserialise header fields", () => {
   test("omits count and sessionId when the source message lacks them", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     sender.send(makeMessage({ count: undefined, sessionId: undefined }));
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     const out = received[0] as unknown as Record<string, unknown>;
     expect("count" in out).toBe(false);
     expect("sessionId" in out).toBe(false);
@@ -195,8 +206,10 @@ describe("MeshNetworkAdapter serialise/deserialise header fields", () => {
     // throw on the send path.
     const { sender, senderBase, receiverBase, received } = buildPair();
     expect(() => sender.send(makeMessage({ data: undefined }))).not.toThrow();
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
-    expect(Array.from((received[0] as Message).data as Uint8Array)).toEqual([]);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
+    const out = firstMessage(received);
+    if (!out.data) throw new Error("expected binary data on the unwrapped message");
+    expect(Array.from(out.data)).toEqual([]);
   });
 });
 
@@ -208,11 +221,9 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
         calls.push({ tag, body: Array.from(body), senderId }),
     });
     const { events } = recordMeshDiagnostics();
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([42, 43]), [
-      SENDER_ID as PeerId,
-    ]);
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([42, 43]), [SENDER_ID]);
     expect(senderBase.sent).toHaveLength(1);
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(received).toHaveLength(0);
     expect(calls).toEqual([
       { tag: MESH_CONTROL_TYPE.Revocation, body: [42, 43], senderId: SENDER_ID },
@@ -227,9 +238,9 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
     });
     const { events } = recordMeshDiagnostics();
     sender.sendControlMessage(MESH_CONTROL_TYPE.RevocationSummary, new Uint8Array([1]), [
-      SENDER_ID as PeerId,
+      SENDER_ID,
     ]);
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(calls).toEqual([MESH_CONTROL_TYPE.RevocationSummary]);
     expect(events.map((e: MeshDiagnosticEvent) => e.kind)).toContain(
       "ctrl:revocation-summary-received"
@@ -239,9 +250,9 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
   test("fans a control message out to every target peer", () => {
     const { sender, senderBase } = buildPair();
     sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [
-      "peer-1" as PeerId,
-      "peer-2" as PeerId,
-      "peer-3" as PeerId,
+      peerId("peer-1"),
+      peerId("peer-2"),
+      peerId("peer-3"),
     ]);
     expect(senderBase.sent).toHaveLength(3);
     expect(senderBase.sent.map((m) => String(m.targetId))).toEqual(["peer-1", "peer-2", "peer-3"]);
@@ -260,10 +271,8 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
       },
     });
     const { events } = recordMeshDiagnostics();
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [
-      SENDER_ID as PeerId,
-    ]);
-    expect(() => receiverBase.emitIncoming(senderBase.sent[0] as Message)).not.toThrow();
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [SENDER_ID]);
+    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).not.toThrow();
     const kinds = events.map((e: MeshDiagnosticEvent) => e.kind);
     expect(kinds).toContain("ctrl:revocation-received");
     expect(kinds).toContain("drop:control-handler-threw");
@@ -272,10 +281,8 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
   test("a control message with no registered handler is dropped without error", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     const { events } = recordMeshDiagnostics();
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [
-      SENDER_ID as PeerId,
-    ]);
-    expect(() => receiverBase.emitIncoming(senderBase.sent[0] as Message)).not.toThrow();
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [SENDER_ID]);
+    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).not.toThrow();
     expect(received).toHaveLength(0);
     expect(events.map((e: MeshDiagnosticEvent) => e.kind)).toContain("ctrl:revocation-received");
   });
@@ -284,16 +291,15 @@ describe("MeshNetworkAdapter control-message path (RFC-043)", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     const { events } = recordMeshDiagnostics();
     // 0x7f is not a known control type.
-    sender.sendControlMessage(0x7f as unknown as MeshControlType, new Uint8Array([1]), [
-      SENDER_ID as PeerId,
-    ]);
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    sender.sendControlMessage(0x7f as unknown as MeshControlType, new Uint8Array([1]), [SENDER_ID]);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(received).toHaveLength(0);
-    const unknown = events.find(
-      (e: MeshDiagnosticEvent) => e.kind === "drop:unknown-control-type"
-    ) as (MeshDiagnosticEvent & { tag: number }) | undefined;
+    const unknown = events.find((e: MeshDiagnosticEvent) => e.kind === "drop:unknown-control-type");
     expect(unknown).toBeDefined();
-    expect(unknown?.tag).toBe(0x7f);
+    if (unknown?.kind !== "drop:unknown-control-type") {
+      throw new Error("unreachable: asserted above");
+    }
+    expect(unknown.tag).toBe(0x7f);
   });
 });
 
@@ -332,10 +338,10 @@ describe("MeshNetworkAdapter lifecycle delegation", () => {
     adapter.on("peer-disconnected", (p) => disconnects.push(p));
     base.emit("close");
     base.emit("peer-candidate", {
-      peerId: "p1" as PeerId,
+      peerId: peerId("p1"),
       peerMetadata: {},
     });
-    base.emit("peer-disconnected", { peerId: "p1" as PeerId });
+    base.emit("peer-disconnected", { peerId: peerId("p1") });
     expect(closed).toBe(true);
     expect(candidates).toHaveLength(1);
     expect(disconnects).toHaveLength(1);
@@ -352,8 +358,8 @@ describe("MeshNetworkAdapter lifecycle delegation", () => {
     const adapter = new MeshNetworkAdapter({ base, keyringSource: () => keyring });
     expect(adapter.isReady()).toBe(true);
     await expect(adapter.whenReady()).resolves.toBeUndefined();
-    adapter.connect("me" as PeerId);
-    expect(base.connectedPeerId).toBe("me" as PeerId);
+    adapter.connect(peerId("me"));
+    expect(base.connectedPeerId).toBe(peerId("me"));
     adapter.disconnect();
     expect(base.disconnected).toBe(true);
     expect(adapter.isReady()).toBe(false);
@@ -369,7 +375,7 @@ describe("MeshNetworkAdapter lifecycle delegation", () => {
     };
     const adapter = new MeshNetworkAdapter({ base, keyringSource: () => keyring });
     const meta = { isEphemeral: false } as unknown as Parameters<typeof adapter.connect>[1];
-    adapter.connect("me" as PeerId, meta);
+    adapter.connect(peerId("me"), meta);
     expect((adapter as unknown as { peerMetadata: unknown }).peerMetadata).toBe(meta);
   });
 });
@@ -389,9 +395,9 @@ describe("MeshNetworkAdapter edge branches", () => {
     const { events } = recordMeshDiagnostics();
     receiverBase.emitIncoming({
       type: "sync",
-      senderId: SENDER_ID as PeerId,
-      targetId: "us" as PeerId,
-    } as Message);
+      senderId: SENDER_ID,
+      targetId: peerId("us"),
+    });
     expect(received).toHaveLength(0);
     // The no-data short-circuit returns before any decode is attempted, so
     // unlike a malformed envelope it produces no diagnostic at all.
@@ -406,19 +412,15 @@ describe("MeshNetworkAdapter edge branches", () => {
     // prependControlTag yields a single tag byte; dispatchTaggedPayload must
     // treat byteLength 1 as a real (empty-body) control frame, not an empty
     // payload to drop.
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array(0), [
-      SENDER_ID as PeerId,
-    ]);
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array(0), [SENDER_ID]);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(bodies).toEqual([[]]);
   });
 
   test("stamps the outer envelope type as sync for control messages", () => {
     const { sender, senderBase } = buildPair();
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [
-      SENDER_ID as PeerId,
-    ]);
-    expect((senderBase.sent[0] as Message).type).toBe("sync");
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [SENDER_ID]);
+    expect(firstMessage(senderBase.sent).type).toBe("sync");
   });
 
   test("sendControlMessage round-trips in sign-only mode", () => {
@@ -427,19 +429,15 @@ describe("MeshNetworkAdapter edge branches", () => {
       encryptionEnabled: false,
       onControlMessage: (tag) => tags.push(tag),
     });
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [
-      SENDER_ID as PeerId,
-    ]);
-    receiverBase.emitIncoming(senderBase.sent[0] as Message);
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [SENDER_ID]);
+    receiverBase.emitIncoming(firstMessage(senderBase.sent));
     expect(tags).toEqual([MESH_CONTROL_TYPE.Revocation]);
   });
 
   test("sendControlMessage throws when encryption is enabled but the doc key is missing", () => {
     const { sender } = buildPair({ senderDocKeys: new Map() });
     expect(() =>
-      sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [
-        SENDER_ID as PeerId,
-      ])
+      sender.sendControlMessage(MESH_CONTROL_TYPE.Revocation, new Uint8Array([1]), [SENDER_ID])
     ).toThrow("missing document encryption key");
   });
 
@@ -448,10 +446,8 @@ describe("MeshNetworkAdapter edge branches", () => {
     // deserialiseMessage throw; the throw propagates out of the unwrap.
     const { sender, senderBase, receiverBase } = buildPair({ encryptionEnabled: false });
     // Reach into the sign-only send to craft a Sync frame with a 2-byte body.
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, new Uint8Array([1, 2]), [
-      SENDER_ID as PeerId,
-    ]);
-    expect(() => receiverBase.emitIncoming(senderBase.sent[0] as Message)).toThrow(
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, new Uint8Array([1, 2]), [SENDER_ID]);
+    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).toThrow(
       "too short to deserialise"
     );
   });
@@ -461,8 +457,8 @@ describe("MeshNetworkAdapter edge branches", () => {
     // 4-byte length prefix declaring a 100-byte header in a 4-byte body.
     const body = new Uint8Array(4);
     new DataView(body.buffer).setUint32(0, 100, false);
-    sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, body, [SENDER_ID as PeerId]);
-    expect(() => receiverBase.emitIncoming(senderBase.sent[0] as Message)).toThrow(
+    sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, body, [SENDER_ID]);
+    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).toThrow(
       "header truncated"
     );
   });

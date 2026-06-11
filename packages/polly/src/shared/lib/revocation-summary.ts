@@ -77,11 +77,13 @@ export function decodeRevocationSummary(bytes: Uint8Array): RevocationSummaryEnt
     if (!item || typeof item !== "object") {
       throw new Error(`decodeRevocationSummary: entry ${index} is not an object`);
     }
-    const e = item as { r?: unknown; i?: unknown; t?: unknown };
-    if (typeof e.r !== "string" || typeof e.i !== "string" || typeof e.t !== "number") {
+    const r = "r" in item ? item.r : undefined;
+    const i = "i" in item ? item.i : undefined;
+    const t = "t" in item ? item.t : undefined;
+    if (typeof r !== "string" || typeof i !== "string" || typeof t !== "number") {
       throw new Error(`decodeRevocationSummary: entry ${index} has missing or wrong-typed fields`);
     }
-    return { revokedPeerId: e.r, issuerPeerId: e.i, issuedAt: e.t };
+    return { revokedPeerId: r, issuerPeerId: i, issuedAt: t };
   });
 }
 

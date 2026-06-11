@@ -140,8 +140,11 @@ function build(opts: { syncYieldEnabled?: boolean; open?: boolean } = {}): {
   const channel = pcs[0]?.channel;
   if (!channel) throw new Error("test setup: no data channel created");
   if (opts.open !== false) channel.open();
-  const slot = () =>
-    (adapter as unknown as { slots: Map<string, SlotView> }).slots.get(REMOTE) as SlotView;
+  const slot = (): SlotView => {
+    const s = (adapter as unknown as { slots: Map<string, SlotView> }).slots.get(REMOTE);
+    if (!s) throw new Error("test setup: no slot for REMOTE");
+    return s;
+  };
   return { adapter, channel, slot };
 }
 
@@ -154,6 +157,14 @@ function makeMessage(over: Partial<Record<string, unknown>> = {}): Message {
     data: new Uint8Array([1, 2, 3, 4]),
     ...over,
   } as unknown as Message;
+}
+
+/** Index into a fragment list, throwing on a hole instead of yielding
+ * `undefined` under noUncheckedIndexedAccess. */
+function fragAt(frags: readonly Uint8Array<ArrayBuffer>[], i: number): Uint8Array<ArrayBuffer> {
+  const frag = frags[i];
+  if (!frag) throw new Error(`test setup: missing fragment ${i}`);
+  return frag;
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -231,7 +242,7 @@ describe("MeshWebRTCAdapter.dispatchMessage routing", () => {
     ).serialiseMessage(makeMessage({ data: new Uint8Array([9, 8, 7]) }));
     channel.deliver(wire);
     expect(received).toHaveLength(1);
-    expect(Array.from(received[0]?.data as Uint8Array)).toEqual([9, 8, 7]);
+    expect(Array.from(received[0]?.data ?? [])).toEqual([9, 8, 7]);
   });
 
   test("routes a blob message to onBlobMessage instead of the message stream", () => {
@@ -249,7 +260,7 @@ describe("MeshWebRTCAdapter.dispatchMessage routing", () => {
     channel.deliver(wire);
     expect(blobCalls).toHaveLength(1);
     expect(blobCalls[0]?.header.type).toBe("blob-chunk");
-    expect(Array.from(blobCalls[0]?.data as Uint8Array)).toEqual([42, 43]);
+    expect(Array.from(blobCalls[0]?.data ?? [])).toEqual([42, 43]);
     expect(messages).toHaveLength(0);
   });
 
@@ -426,10 +437,10 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
       (e) => progress.push(e)
     );
     const frags = fragmentsFor(adapter, "msg-A", 2);
-    channel.deliver(frags[0] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
     // Mid-reassembly: the in-flight state exists.
     expect(slot().inFlightSync).toBeDefined();
-    channel.deliver(frags[1] as Uint8Array);
+    channel.deliver(fragAt(frags, 1));
     // Fully applied and no other fragments pending — state is torn down.
     expect(slot().inFlightSync).toBeUndefined();
     expect(slot().pendingFragments.size).toBe(0);
@@ -443,8 +454,8 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
     const messages: Message[] = [];
     adapter.on("message", (m: Message) => messages.push(m));
     const frags = fragmentsFor(adapter, "msg-async", 2);
-    channel.deliver(frags[0] as Uint8Array);
-    channel.deliver(frags[1] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
+    channel.deliver(fragAt(frags, 1));
     // The reassembled dispatch and the emit are both deferred to macrotasks,
     // so nothing has surfaced synchronously yet.
     expect(messages).toHaveLength(0);
@@ -464,9 +475,9 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
     // finishes, B still has one outstanding fragment, so the
     // `applyBacklog === 0 && pendingFragments.size === 0` guard must
     // keep inFlightSync alive rather than tearing it down early.
-    channel.deliver(a[0] as Uint8Array);
-    channel.deliver(b[0] as Uint8Array);
-    channel.deliver(a[1] as Uint8Array);
+    channel.deliver(fragAt(a, 0));
+    channel.deliver(fragAt(b, 0));
+    channel.deliver(fragAt(a, 1));
     expect(slot().pendingFragments.size).toBe(1);
     expect(slot().inFlightSync).toBeDefined();
   });
@@ -485,7 +496,7 @@ describe("MeshWebRTCAdapter inbound frame type handling (polly#161)", () => {
     ).serialiseMessage(makeMessage({ data: new Uint8Array([5, 6, 7]) }));
     channel.onmessage?.({ data: wire });
     expect(received).toHaveLength(1);
-    expect(Array.from(received[0]?.data as Uint8Array)).toEqual([5, 6, 7]);
+    expect(Array.from(received[0]?.data ?? [])).toEqual([5, 6, 7]);
   });
 });
 

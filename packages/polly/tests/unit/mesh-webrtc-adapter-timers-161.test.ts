@@ -13,11 +13,12 @@
  * survived every mutation. These tests pin the boundaries.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import type { PeerId } from "@automerge/automerge-repo/slim";
+import type { PeerMetadata, StorageId } from "@automerge/automerge-repo/slim";
 import type { MeshKeyring } from "@/shared/lib/mesh-network-adapter";
 import type { MeshSignalingClient } from "@/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
+import { peerId } from "./helpers/branded";
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;
@@ -138,7 +139,7 @@ describe("MeshWebRTCAdapter known-peers sweep lifecycle", () => {
       knownPeersRefreshIntervalMs: 50,
     });
     expect(adapter.getPeerStateSnapshot().sweep.enabled).toBe(false);
-    adapter.connect("peer-m" as PeerId);
+    adapter.connect(peerId("peer-m"));
     const sweep = adapter.getPeerStateSnapshot().sweep;
     expect(sweep.enabled).toBe(true);
     expect(sweep.intervalMs).toBe(50);
@@ -149,13 +150,13 @@ describe("MeshWebRTCAdapter known-peers sweep lifecycle", () => {
       keyringSource: () => keyring(),
       knownPeersRefreshIntervalMs: 0,
     });
-    adapter.connect("peer-m" as PeerId);
+    adapter.connect(peerId("peer-m"));
     expect(adapter.getPeerStateSnapshot().sweep.enabled).toBe(false);
   });
 
   test("does not start the sweep when no keyringSource is supplied", () => {
     const adapter = build("peer-m", { knownPeersRefreshIntervalMs: 50 });
-    adapter.connect("peer-m" as PeerId);
+    adapter.connect(peerId("peer-m"));
     expect(adapter.getPeerStateSnapshot().sweep.enabled).toBe(false);
   });
 
@@ -164,7 +165,7 @@ describe("MeshWebRTCAdapter known-peers sweep lifecycle", () => {
       keyringSource: () => keyring(),
       knownPeersRefreshIntervalMs: 50,
     });
-    adapter.connect("peer-m" as PeerId);
+    adapter.connect(peerId("peer-m"));
     expect(adapter.getPeerStateSnapshot().sweep.enabled).toBe(true);
     adapter.disconnect();
     expect(adapter.getPeerStateSnapshot().sweep.enabled).toBe(false);
@@ -175,7 +176,7 @@ describe("MeshWebRTCAdapter known-peers sweep lifecycle", () => {
       keyringSource: () => keyring(),
       knownPeersRefreshIntervalMs: 10,
     });
-    adapter.connect("peer-m" as PeerId);
+    adapter.connect(peerId("peer-m"));
     expect(adapter.getPeerStateSnapshot().sweep.runCount).toBe(0);
     await sleep(35);
     const sweep = adapter.getPeerStateSnapshot().sweep;
@@ -194,7 +195,7 @@ describe("MeshWebRTCAdapter watchdog disable boundaries", () => {
       slotIdleTimeoutMs: 0,
       slotWatchdogIntervalMs: 5,
     });
-    adapter.connect("peer-z" as PeerId);
+    adapter.connect(peerId("peer-z"));
     adapter.handlePeerJoined("peer-a"); // "peer-z" > "peer-a" → we initiate
     await flush();
     expect(adapter.peerSlotCount()).toBe(1);
@@ -211,7 +212,7 @@ describe("MeshWebRTCAdapter watchdog disable boundaries", () => {
       slotIdleTimeoutMs: 0, // disabled
       slotWatchdogIntervalMs: 5,
     });
-    adapter.connect("peer-z" as PeerId);
+    adapter.connect(peerId("peer-z"));
     adapter.handlePeerJoined("peer-a");
     await flush();
     const slot = (
@@ -239,7 +240,7 @@ describe("MeshWebRTCAdapter watchdog disable boundaries", () => {
       slotIdleTimeoutMs: 0,
       slotWatchdogIntervalMs: 0, // ...but the watchdog never runs
     });
-    adapter.connect("peer-z" as PeerId);
+    adapter.connect(peerId("peer-z"));
     adapter.handlePeerJoined("peer-a");
     await flush();
     expect(adapter.peerSlotCount()).toBe(1);
@@ -256,7 +257,7 @@ describe("MeshWebRTCAdapter watchdog disable boundaries", () => {
       slotIdleTimeoutMs: 0,
       slotWatchdogIntervalMs: 5,
     });
-    adapter.connect("peer-z" as PeerId);
+    adapter.connect(peerId("peer-z"));
     adapter.handlePeerJoined("peer-a");
     await flush();
     // The watchdog runs repeatedly but the slot's age stays well under the
@@ -271,14 +272,18 @@ describe("MeshWebRTCAdapter watchdog disable boundaries", () => {
 describe("MeshWebRTCAdapter connect peer-metadata", () => {
   test("stores peer metadata when supplied on connect", () => {
     const adapter = build("peer-m");
-    const meta = { storageId: "store-1", isEphemeral: false };
-    adapter.connect("peer-m" as PeerId, meta as never);
+    // StorageId is a branded string with no runtime constructor.
+    const meta: PeerMetadata = {
+      storageId: "store-1" as unknown as StorageId,
+      isEphemeral: false,
+    };
+    adapter.connect(peerId("peer-m"), meta);
     expect((adapter as unknown as { peerMetadata?: unknown }).peerMetadata).toEqual(meta);
   });
 
   test("leaves peer metadata unset when omitted on connect", () => {
     const adapter = build("peer-m");
-    adapter.connect("peer-m" as PeerId);
+    adapter.connect(peerId("peer-m"));
     expect((adapter as unknown as { peerMetadata?: unknown }).peerMetadata).toBeUndefined();
   });
 });

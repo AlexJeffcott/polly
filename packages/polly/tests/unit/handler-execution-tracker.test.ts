@@ -140,7 +140,8 @@ describe("track", () => {
     try {
       tracker.track("dup-msg", "DUP_HANDLER");
     } catch (err) {
-      const message = (err as Error).message;
+      if (!(err instanceof Error)) throw err;
+      const message = err.message;
       expect(message).toContain("DUP_HANDLER");
       expect(message).toContain("dup-msg");
       // Count is 3 by this third call — the message interpolates it.

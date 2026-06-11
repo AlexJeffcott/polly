@@ -34,6 +34,7 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { isRecord } from "../src/shared/lib/guards";
 import { fail, selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 export const capability = "stryker.verify" as const;
@@ -47,6 +48,17 @@ interface Mutant {
   status: string;
   statusReason?: string;
   location: { start: { line: number } };
+}
+
+function isMutant(value: unknown): value is Mutant {
+  if (!isRecord(value)) return false;
+  if (typeof value["mutatorName"] !== "string" || typeof value["status"] !== "string") return false;
+  if (value["statusReason"] !== undefined && typeof value["statusReason"] !== "string")
+    return false;
+  const location = value["location"];
+  if (!isRecord(location)) return false;
+  const start = location["start"];
+  return isRecord(start) && typeof start["line"] === "number";
 }
 
 /** Run Stryker on the fixture with the ignorer enabled or disabled. */
@@ -85,10 +97,16 @@ async function runStryker(excludeVerifyCallsites: boolean): Promise<Mutant[]> {
   if (!existsSync(REPORT_PATH)) {
     fail(`Stryker produced no report at ${REPORT_PATH}`);
   }
-  const report = await Bun.file(REPORT_PATH).json();
-  return Object.values(report.files as Record<string, { mutants: Mutant[] }>).flatMap(
-    (f) => f.mutants
-  );
+  const report: unknown = await Bun.file(REPORT_PATH).json();
+  if (!isRecord(report) || !isRecord(report["files"])) {
+    fail(`Stryker report at ${REPORT_PATH} has no files record`);
+  }
+  return Object.values(report["files"]).flatMap((f) => {
+    if (!isRecord(f) || !Array.isArray(f["mutants"])) {
+      fail(`Stryker report at ${REPORT_PATH} has a file entry without a mutants array`);
+    }
+    return f["mutants"].filter(isMutant);
+  });
 }
 
 function countWhere(mutants: Mutant[], predicate: (m: Mutant) => boolean): number {

@@ -36,7 +36,7 @@ function partitionStringLiterals(
   traverse(ast, {
     enter(path) {
       if (!activeNode) {
-        const message = ignorer.shouldIgnore(path as never);
+        const message = ignorer.shouldIgnore(path);
         if (message) activeNode = path.node;
       }
       if (path.isStringLiteral()) {
@@ -49,6 +49,19 @@ function partitionStringLiterals(
   });
 
   return { ignored, kept };
+}
+
+/**
+ * Narrow a declared Stryker plugin to its factory. The runtime factory takes
+ * StrykerOptions; the test feeds it minimal option objects, hence `unknown`.
+ */
+function hasIgnorerFactory(plugin: unknown): plugin is { factory: (options: unknown) => Ignorer } {
+  return (
+    typeof plugin === "object" &&
+    plugin !== null &&
+    "factory" in plugin &&
+    typeof plugin.factory === "function"
+  );
 }
 
 describe("PollyVerifyIgnorer", () => {
@@ -123,7 +136,7 @@ describe("PollyVerifyIgnorer", () => {
   });
 
   test("shouldIgnore returns undefined for a non-call path-like object", () => {
-    const notACall = { isCallExpression: () => false } as never;
+    const notACall = { isCallExpression: () => false };
     expect(ignorer.shouldIgnore(notACall)).toBeUndefined();
   });
 
@@ -144,7 +157,8 @@ describe("plugin + preset wiring", () => {
   });
 
   test("the factory honours polly.excludeVerifyCallsites", () => {
-    const plugin = strykerPlugins[0] as { factory: (o: unknown) => Ignorer };
+    const plugin = strykerPlugins[0];
+    if (!hasIgnorerFactory(plugin)) throw new Error("expected an Ignore plugin with a factory");
     const factory = plugin.factory;
     const code = `ensures(a === 'x');`;
 

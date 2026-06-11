@@ -109,7 +109,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     const roundTrip = await worker.evaluate(async () => {
       await chrome.storage.local.set({ pollyE2eProbe: "hello-storage" });
       const got = await chrome.storage.local.get("pollyE2eProbe");
-      return got["pollyE2eProbe"] as string | undefined;
+      const value: unknown = got["pollyE2eProbe"];
+      return typeof value === "string" ? value : undefined;
     });
     assert(
       roundTrip === "hello-storage",
@@ -120,7 +121,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     //    backing store, not just this call's closure).
     const persisted = await worker.evaluate(async () => {
       const got = await chrome.storage.local.get("pollyE2eProbe");
-      return got["pollyE2eProbe"] as string | undefined;
+      const value: unknown = got["pollyE2eProbe"];
+      return typeof value === "string" ? value : undefined;
     });
     assert(
       persisted === "hello-storage",

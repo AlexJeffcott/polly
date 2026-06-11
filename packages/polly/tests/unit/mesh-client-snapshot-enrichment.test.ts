@@ -10,11 +10,21 @@
  * __test__ seam.
  */
 import { describe, expect, test } from "bun:test";
+import type { Repo } from "@automerge/automerge-repo/slim";
 import { __test__ } from "@/shared/lib/mesh-client";
 
 const { enrichPeerSlot, getCollectionSynchronizer } = __test__;
 
-type Any = ReturnType<typeof JSON.parse>;
+/** The adapter-side peer shape enrichPeerSlot consumes. */
+type AdapterPeer = Parameters<typeof enrichPeerSlot>[0];
+
+/** Pull one enriched handle entry out of the result, failing loudly when
+ * the slot or the entry is missing. */
+function handleOf(out: ReturnType<typeof enrichPeerSlot>, docId: string) {
+  const h = out.slot?.handles[docId];
+  if (!h) throw new Error(`no enriched handle for ${docId}`);
+  return h;
+}
 
 const fullWire = {
   lastSyncMessageOutAt: 100,
@@ -29,8 +39,10 @@ const emptyWire = {
   lastSyncMessageOutType: undefined,
 };
 
-function peerWith(handles: Record<string, unknown>): Any {
-  return { peerId: "peer-1", slot: { handles } };
+function peerWith(handles: Record<string, unknown>): AdapterPeer {
+  // Deliberately partial adapter-peer double: enrichPeerSlot reads only
+  // peerId and slot.handles, so the other snapshot fields are omitted.
+  return { peerId: "peer-1", slot: { handles } } as unknown as AdapterPeer;
 }
 
 describe("enrichPeerSlot — wire + state merge", () => {
@@ -41,7 +53,7 @@ describe("enrichPeerSlot — wire + state merge", () => {
       { "doc-A": { state: "ready" } },
       undefined
     );
-    const h = (out.slot as Any).handles["doc-A"];
+    const h = handleOf(out, "doc-A");
     expect(h.state).toBe("ready");
     expect(h.announcedToPeer).toBe(true);
     expect(h.lastSyncMessageOutAt).toBe(100);
@@ -57,7 +69,7 @@ describe("enrichPeerSlot — wire + state merge", () => {
       { "doc-A": { state: "ready" } },
       undefined
     );
-    expect((out.slot as Any).handles["doc-A"].announcedToPeer).toBe(false);
+    expect(handleOf(out, "doc-A").announcedToPeer).toBe(false);
   });
 
   test("a known handle absent from the slot yields unknown state and no wire data", () => {
@@ -65,7 +77,7 @@ describe("enrichPeerSlot — wire + state merge", () => {
     // the repo has no handle either: stringifyHandleState(undefined) → "unknown"
     // and buildHandleEntry must tolerate an undefined wire.
     const out = enrichPeerSlot(peerWith({}), ["doc-A"], {}, undefined);
-    const h = (out.slot as Any).handles["doc-A"];
+    const h = handleOf(out, "doc-A");
     expect(h.state).toBe("unknown");
     expect(h.announcedToPeer).toBe(false);
     expect(h.lastSyncMessageOutAt).toBeUndefined();
@@ -73,7 +85,7 @@ describe("enrichPeerSlot — wire + state merge", () => {
 
   test("enriches handles present in the slot even when not in knownHandleIds", () => {
     const out = enrichPeerSlot(peerWith({ "doc-B": fullWire }), [], {}, undefined);
-    const h = (out.slot as Any).handles["doc-B"];
+    const h = handleOf(out, "doc-B");
     expect(h).toBeDefined();
     expect(h.state).toBe("unknown");
     expect(h.lastSyncMessageOutAt).toBe(100);
@@ -89,9 +101,9 @@ describe("enrichPeerSlot — wire + state merge", () => {
       peerWith({ "doc-A": fullWire }),
       ["doc-A"],
       { "doc-A": { state: "ready" } },
-      synchronizer as Any
+      synchronizer
     );
-    const h = (out.slot as Any).handles["doc-A"];
+    const h = handleOf(out, "doc-A");
     expect(h.docSynchronizerExists).toBe(true);
     expect(h.docSynchronizerKnowsPeer).toBe(true);
     expect(h.peerDocumentStatus).toBe("has");
@@ -99,7 +111,8 @@ describe("enrichPeerSlot — wire + state merge", () => {
 
   test("a peer with no slot is returned with slot undefined", () => {
     const out = enrichPeerSlot(
-      { peerId: "peer-1", slot: undefined } as Any,
+      // Deliberately partial adapter-peer double: only peerId/slot are read.
+      { peerId: "peer-1", slot: undefined } as unknown as AdapterPeer,
       ["doc-A"],
       {},
       undefined
@@ -109,14 +122,14 @@ describe("enrichPeerSlot — wire + state merge", () => {
 });
 
 describe("stringifyHandleState (via enrichPeerSlot)", () => {
-  function stateOf(repoHandle: unknown): string {
+  function stateOf(repoHandle: { state: unknown }): string {
     const out = enrichPeerSlot(
       peerWith({ "doc-A": fullWire }),
       ["doc-A"],
-      { "doc-A": repoHandle as Any },
+      { "doc-A": repoHandle },
       undefined
     );
-    return (out.slot as Any).handles["doc-A"].state;
+    return handleOf(out, "doc-A").state;
   }
 
   test("returns a string state verbatim", () => {
@@ -133,17 +146,21 @@ describe("stringifyHandleState (via enrichPeerSlot)", () => {
 });
 
 describe("getCollectionSynchronizer", () => {
+  // Each repo below is a deliberately partial Repo double: the reader only
+  // touches the (hidden) `synchronizer` property.
   test("returns the synchronizer object off the repo", () => {
     const synchronizer = { docSynchronizers: {} };
-    expect(getCollectionSynchronizer({ synchronizer } as Any)).toBe(synchronizer);
+    expect(getCollectionSynchronizer({ synchronizer } as unknown as Repo)).toBe(synchronizer);
   });
 
   test("returns undefined when the repo exposes no synchronizer", () => {
-    expect(getCollectionSynchronizer({} as Any)).toBeUndefined();
+    expect(getCollectionSynchronizer({} as unknown as Repo)).toBeUndefined();
   });
 
   test("returns undefined when the synchronizer is truthy but not an object", () => {
     // Guards the `&& typeof sync === "object"` half: a function is truthy.
-    expect(getCollectionSynchronizer({ synchronizer: (() => {}) as Any } as Any)).toBeUndefined();
+    expect(
+      getCollectionSynchronizer({ synchronizer: () => {} } as unknown as Repo)
+    ).toBeUndefined();
   });
 });

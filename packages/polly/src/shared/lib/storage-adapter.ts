@@ -42,11 +42,11 @@ export class IndexedDBAdapter implements StorageAdapter {
       const tx = db.transaction(this.storeName, "readonly");
       const store = tx.objectStore(this.storeName);
       const pairs = await Promise.all(
-        keys.map(async (key) => [key, await runRequest(store.get(key))] as const)
+        keys.map(async (key) => [key, await runRequest<T | undefined>(store.get(key))] as const)
       );
       const result: Record<string, T> = {};
       for (const [key, value] of pairs) {
-        if (value !== undefined) result[key] = value as T;
+        if (value !== undefined) result[key] = value;
       }
       return result;
     } catch (error) {

@@ -91,10 +91,11 @@ function splitFunctionArgs(inner: string): { parts: string[]; alpha: string | un
 
 function parseRgb(inner: string): RGBA | null {
   const { parts, alpha } = splitFunctionArgs(inner);
-  if (parts.length < 3) return null;
-  const r = clampChannel(parseComponent(parts[0] as string, 255));
-  const g = clampChannel(parseComponent(parts[1] as string, 255));
-  const b = clampChannel(parseComponent(parts[2] as string, 255));
+  const [rToken, gToken, bToken] = parts;
+  if (rToken === undefined || gToken === undefined || bToken === undefined) return null;
+  const r = clampChannel(parseComponent(rToken, 255));
+  const g = clampChannel(parseComponent(gToken, 255));
+  const b = clampChannel(parseComponent(bToken, 255));
   if (![r, g, b].every(Number.isFinite)) return null;
   return { r, g, b, a: parseAlpha(alpha) };
 }
@@ -122,10 +123,11 @@ function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: n
 
 function parseHsl(inner: string): RGBA | null {
   const { parts, alpha } = splitFunctionArgs(inner);
-  if (parts.length < 3) return null;
-  const h = Number.parseFloat((parts[0] as string).replace(/deg$/, ""));
-  const s = clamp(parseComponent(parts[1] as string, 100) / 100, 0, 1);
-  const l = clamp(parseComponent(parts[2] as string, 100) / 100, 0, 1);
+  const [hToken, sToken, lToken] = parts;
+  if (hToken === undefined || sToken === undefined || lToken === undefined) return null;
+  const h = Number.parseFloat(hToken.replace(/deg$/, ""));
+  const s = clamp(parseComponent(sToken, 100) / 100, 0, 1);
+  const l = clamp(parseComponent(lToken, 100) / 100, 0, 1);
   if (![h, s, l].every(Number.isFinite)) return null;
   return { ...hslToRgb(h, s, l), a: parseAlpha(alpha) };
 }
@@ -152,11 +154,11 @@ export function parseColor(input: string): RGBA | null {
   if (value.startsWith("#")) return parseHex(value);
 
   const fn = value.match(/^([a-z]+)\(([^)]*)\)$/i);
-  if (fn) {
-    const name = (fn[1] as string).toLowerCase();
-    const inner = fn[2] as string;
-    if (name === "rgb" || name === "rgba") return parseRgb(inner);
-    if (name === "hsl" || name === "hsla") return parseHsl(inner);
+  const [, fnName, fnInner] = fn ?? [];
+  if (fnName !== undefined && fnInner !== undefined) {
+    const name = fnName.toLowerCase();
+    if (name === "rgb" || name === "rgba") return parseRgb(fnInner);
+    if (name === "hsl" || name === "hsla") return parseHsl(fnInner);
   }
   return null;
 }
@@ -165,7 +167,7 @@ export function parseColor(input: string): RGBA | null {
 function toRGBA(input: ColorInput): RGBA | null {
   if (typeof input === "string") return parseColor(input);
   if (input && typeof input === "object" && "r" in input) {
-    return { r: input.r, g: input.g, b: input.b, a: "a" in input ? (input as RGBA).a : 1 };
+    return { r: input.r, g: input.g, b: input.b, a: "a" in input ? input.a : 1 };
   }
   return null;
 }
@@ -238,7 +240,9 @@ export function effectiveBackground(element: Element): RGBA {
   // Composite from the deepest opaque layer outward toward the element.
   let result: RGBA = { r: 255, g: 255, b: 255, a: 1 };
   for (let i = stack.length - 1; i >= 0; i--) {
-    result = compositeOver(stack[i] as RGBA, result);
+    const layer = stack[i];
+    if (layer === undefined) continue;
+    result = compositeOver(layer, result);
   }
   return result;
 }
@@ -293,8 +297,7 @@ export function assertContrast(element: Element, options: AssertContrastOptions)
   }
 
   const against = options.against ?? "effective";
-  const background =
-    against === "effective" ? effectiveBackground(element) : toRGBA(against as ColorInput);
+  const background = against === "effective" ? effectiveBackground(element) : toRGBA(against);
   if (!background) {
     throw new Error(
       `assertContrast: could not parse the 'against' color for ${describeElement(element)}`

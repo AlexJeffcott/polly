@@ -93,9 +93,11 @@ function seededStorage(seed: Record<string, unknown>) {
   const store = new Map<string, unknown>(Object.entries(seed));
   return {
     async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {
+      // The fake erases T like a real storage backend would; callers get
+      // back whatever shape they seeded.
       const out: Record<string, T> = {};
       for (const k of keys) {
-        if (store.has(k)) out[k] = store.get(k) as T;
+        if (store.has(k)) out[k] = store.get(k) as unknown as T;
       }
       return out;
     },
@@ -149,8 +151,10 @@ describe("Persisted state hydration merges with defaults (#158)", () => {
     const validator = (v: unknown): v is { a: number; b: string } =>
       typeof v === "object" &&
       v !== null &&
-      typeof (v as Record<string, unknown>)["a"] === "number" &&
-      typeof (v as Record<string, unknown>)["b"] === "string";
+      "a" in v &&
+      typeof v.a === "number" &&
+      "b" in v &&
+      typeof v.b === "string";
     const s = $persistedState("view:158-valid", { a: 1, b: "default" }, { storage, validator });
     await s.loaded;
 

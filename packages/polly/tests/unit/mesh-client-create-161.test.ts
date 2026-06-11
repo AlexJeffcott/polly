@@ -18,7 +18,12 @@
  * lifecycle wired onto the network adapter.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { type Message, NetworkAdapter, type PeerId } from "@automerge/automerge-repo/slim";
+import {
+  type Message,
+  NetworkAdapter,
+  type PeerId,
+  type StorageAdapterInterface,
+} from "@automerge/automerge-repo/slim";
 import { generateDocumentKey } from "@/shared/lib/encryption";
 import {
   type CreateMeshClientOptions,
@@ -36,6 +41,7 @@ import {
 import { createRevocation, encodeRevocation } from "@/shared/lib/revocation";
 import { encodeRevocationSummary } from "@/shared/lib/revocation-summary";
 import { generateSigningKeyPair, type SigningKeyPair } from "@/shared/lib/signing";
+import { peerId as asPeerId } from "./helpers/branded";
 
 // ─── Fakes ───────────────────────────────────────────────────────────────────
 
@@ -416,10 +422,14 @@ function spyControlSends(client: MeshClient): ControlSend[] {
   const sends: ControlSend[] = [];
   const na = client.networkAdapter;
   const real = na.sendControlMessage.bind(na);
-  na.sendControlMessage = ((tag, body, targets) => {
-    sends.push({ tag: tag as MeshControlType, targets: [...targets] });
-    return real(tag, body, targets);
-  }) as typeof na.sendControlMessage;
+  na.sendControlMessage = (
+    tag: MeshControlType,
+    body: Uint8Array,
+    targets: ReadonlyArray<PeerId>
+  ): void => {
+    sends.push({ tag, targets: [...targets] });
+    real(tag, body, targets);
+  };
   return sends;
 }
 
@@ -427,7 +437,7 @@ describe("createMeshClient — revocation lifecycle", () => {
   test("a peer-candidate event registers the peer and gossips a revocation summary", async () => {
     const client = await make();
     const sends = spyControlSends(client);
-    const peerId = "remote-peer" as PeerId;
+    const peerId = asPeerId("remote-peer");
     // The network adapter is the connected-peer source; emit the lifecycle
     // event the WebRTC data channel would raise on open.
     (client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }).emit(
@@ -440,7 +450,7 @@ describe("createMeshClient — revocation lifecycle", () => {
 
   test("revokePeer broadcasts a revocation to every connected peer", async () => {
     const client = await make();
-    const peerId = "remote-peer" as PeerId;
+    const peerId = asPeerId("remote-peer");
     (client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }).emit(
       "peer-candidate",
       { peerId }
@@ -453,7 +463,7 @@ describe("createMeshClient — revocation lifecycle", () => {
 
   test("a peer-disconnected event drops the peer so revokePeer skips the broadcast", async () => {
     const client = await make();
-    const peerId = "remote-peer" as PeerId;
+    const peerId = asPeerId("remote-peer");
     const na = client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void };
     na.emit("peer-candidate", { peerId });
     na.emit("peer-disconnected", { peerId });
@@ -512,14 +522,14 @@ describe("createMeshClient — signalling discovery wiring", () => {
 
 describe("createMeshClient — repo storage", () => {
   test("wires the supplied storage adapter into the Repo", async () => {
-    const fakeStorage = {
+    const fakeStorage: StorageAdapterInterface = {
       load: async () => undefined,
       save: async () => {},
       remove: async () => {},
       loadRange: async () => [],
       removeRange: async () => {},
     };
-    const client = await make({ repoStorage: fakeStorage as never });
+    const client = await make({ repoStorage: fakeStorage });
     expect(
       Boolean((client.repo as unknown as { storageSubsystem?: unknown }).storageSubsystem)
     ).toBe(true);
@@ -574,10 +584,10 @@ function makeIssuer(
     }),
     encryptionEnabled: true,
   });
-  adapter.connect(issuerId as PeerId);
+  adapter.connect(asPeerId(issuerId));
   return (tag, body, targetId) => {
     base.sent.length = 0;
-    adapter.sendControlMessage(tag, body, [targetId as PeerId]);
+    adapter.sendControlMessage(tag, body, [asPeerId(targetId)]);
     const wire = base.sent.at(-1);
     if (!wire) throw new Error("issuer produced no wire message");
     return wire;
@@ -627,7 +637,11 @@ describe("createMeshClient — inbound revocation handling", () => {
 
   test("applies a revocation that targets a third peer", async () => {
     const { client, issuerIdentity, sign, deliver, diagnostics } = await setup();
-    const record = createRevocation({ issuerPeerId: ISSUER, revokedPeerId: "victim-peer" });
+    const record = createRevocation({
+      issuer: issuerIdentity,
+      issuerPeerId: ISSUER,
+      revokedPeerId: "victim-peer",
+    });
     deliver(sign(MESH_CONTROL_TYPE.Revocation, encodeRevocation(record, issuerIdentity), LOCAL));
     expect(client.keyring.revokedPeers.has("victim-peer")).toBe(true);
     expect(
@@ -638,6 +652,7 @@ describe("createMeshClient — inbound revocation handling", () => {
   test("records a self-targeted revocation without silencing the local keyring", async () => {
     const { client, issuerIdentity, sign, deliver, diagnostics } = await setup();
     const record = createRevocation({
+      issuer: issuerIdentity,
       issuerPeerId: ISSUER,
       revokedPeerId: LOCAL,
       reason: "rotated",
@@ -652,7 +667,11 @@ describe("createMeshClient — inbound revocation handling", () => {
 
   test("re-delivery of an applied revocation is classified as a duplicate", async () => {
     const { issuerIdentity, sign, deliver, diagnostics } = await setup();
-    const record = createRevocation({ issuerPeerId: ISSUER, revokedPeerId: "victim-peer" });
+    const record = createRevocation({
+      issuer: issuerIdentity,
+      issuerPeerId: ISSUER,
+      revokedPeerId: "victim-peer",
+    });
     const wire = sign(
       MESH_CONTROL_TYPE.Revocation,
       encodeRevocation(record, issuerIdentity),
@@ -677,7 +696,11 @@ describe("createMeshClient — inbound revocation handling", () => {
   test("a revocation summary that omits a held revocation triggers a push-back", async () => {
     const { client, issuerIdentity, sign, deliver } = await setup();
     // The client holds a revocation for victim-peer.
-    const record = createRevocation({ issuerPeerId: ISSUER, revokedPeerId: "victim-peer" });
+    const record = createRevocation({
+      issuer: issuerIdentity,
+      issuerPeerId: ISSUER,
+      revokedPeerId: "victim-peer",
+    });
     deliver(sign(MESH_CONTROL_TYPE.Revocation, encodeRevocation(record, issuerIdentity), LOCAL));
     const sends = spyControlSends(client);
     // The issuer's summary lists nothing, so the client must push its held

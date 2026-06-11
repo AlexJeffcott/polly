@@ -10,6 +10,11 @@ import {
   validateProjectName,
 } from "./template-utils.ts";
 
+function isAvailableType(value: string, available: ProjectType[]): value is ProjectType {
+  const names: readonly string[] = available;
+  return names.includes(value);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const cwd = process.cwd();
@@ -23,13 +28,13 @@ async function main() {
   // to fail deep in the copy with a raw "Template directory not found" after
   // the project dir had already been made.
   const available = getAvailableTypes(import.meta.dir);
-  if (!available.includes(typeArg as ProjectType)) {
+  if (!isAvailableType(typeArg, available)) {
     console.log(
       `\x1b[31m✗ Unknown or unavailable project type '${typeArg}'. Available: ${available.join(", ")}\x1b[0m\n`
     );
     process.exit(1);
   }
-  const projectType = typeArg as ProjectType;
+  const projectType = typeArg;
 
   // Validate project name
   const validation = validateProjectName(projectName);

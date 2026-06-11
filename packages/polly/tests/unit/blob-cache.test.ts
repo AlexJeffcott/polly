@@ -24,7 +24,7 @@ describe("MemoryBlobCache get/put/has/delete", () => {
   test("put then get round-trips the bytes", async () => {
     const cache = new MemoryBlobCache();
     await cache.put("h1", bytes(4, 7));
-    expect(Array.from((await cache.get("h1")) as Uint8Array)).toEqual([7, 7, 7, 7]);
+    expect(Array.from((await cache.get("h1")) ?? [])).toEqual([7, 7, 7, 7]);
   });
 
   test("get returns undefined for a missing hash", async () => {

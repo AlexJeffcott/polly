@@ -206,9 +206,11 @@ const serverStateRegistry = new Map<string, Signal<unknown>>();
  */
 export function $serverState<T>(key: string, initialValue: T): Signal<T> {
   const existing = serverStateRegistry.get(key);
-  if (existing) return existing as Signal<T>;
+  // The registry erases T (it stores Signal<unknown>); the key is the
+  // caller's contract that the stored signal carries their T.
+  if (existing) return existing as unknown as Signal<T>;
   const sig = signal(initialValue);
-  serverStateRegistry.set(key, sig as Signal<unknown>);
+  serverStateRegistry.set(key, sig as unknown as Signal<unknown>);
   return sig;
 }
 
@@ -422,10 +424,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * would corrupt them.
  */
 function reconcileWithDefaults<T>(defaults: T, stored: unknown): T {
+  // Persisted values are trusted to be the T this key was registered with;
+  // schema drift is handled by the merge, not by runtime validation.
   if (isPlainObject(defaults) && isPlainObject(stored)) {
-    return { ...defaults, ...stored } as T;
+    return { ...defaults, ...stored } as unknown as T;
   }
-  return stored as T;
+  return stored as unknown as T;
 }
 
 async function loadFromStorage<T>(

@@ -58,6 +58,11 @@ function rendered(host: HTMLElement): HTMLElement {
   if (!(el instanceof HTMLElement)) throw new Error("expected a rendered element");
   return el;
 }
+/** Narrow to a concrete element type via instanceof; throws instead of casting. */
+function asElement<T extends Element>(v: unknown, ctor: new () => T): T {
+  if (!(v instanceof ctor)) throw new Error(`expected ${ctor.name}`);
+  return v;
+}
 /** Mount and flush effects (useEffect) so post-mount DOM mutations land. */
 async function mountActed<P>(vnode: VNode<P>): Promise<HTMLElement> {
   const host = document.createElement("div");
@@ -208,7 +213,7 @@ describe("Select — class tokens & option marking", () => {
   });
   test("the selected option row carries optionSelected; others only option", () => {
     const host = mount(h(Select, { options: OPTS, selected: signal(new Set(["b"])) }));
-    const rows = Array.from(host.querySelectorAll("[role='listbox'] button")) as HTMLElement[];
+    const rows = Array.from(host.querySelectorAll<HTMLElement>("[role='listbox'] button"));
     const beta = rows.find((b) => b.textContent?.includes("Beta"));
     const alpha = rows.find((b) => b.textContent?.includes("Alpha"));
     expect(cls(beta)).toContain("optionSelected");
@@ -219,11 +224,11 @@ describe("Select — class tokens & option marking", () => {
     const host = mount(
       h(Select, { options: OPTS, selected: signal(new Set(["a"])), multiSelect: true })
     );
-    const rows = Array.from(host.querySelectorAll("[role='listbox'] button")) as HTMLElement[];
+    const rows = Array.from(host.querySelectorAll<HTMLElement>("[role='listbox'] button"));
     const alpha = rows.find((b) => b.textContent?.includes("Alpha"));
     const beta = rows.find((b) => b.textContent?.includes("Beta"));
     const box = (row: HTMLElement | undefined): HTMLInputElement =>
-      row?.querySelector("input[type='checkbox']") as HTMLInputElement;
+      asElement(row?.querySelector("input[type='checkbox']"), HTMLInputElement);
     expect(box(alpha).checked).toBe(true);
     expect(box(beta).checked).toBe(false);
     expect(box(alpha).readOnly).toBe(true);
@@ -270,7 +275,7 @@ describe("ActionSelect — class tokens & option marking", () => {
   });
   test("selected option carries optionSelected; others only option", () => {
     const host = mount(h(ActionSelect, { value: "a", action: "s", options: OPTS }));
-    const opts = Array.from(host.querySelectorAll("[role='option']")) as HTMLElement[];
+    const opts = Array.from(host.querySelectorAll<HTMLElement>("[role='option']"));
     const alpha = opts.find((o) => o.textContent?.includes("Alpha"));
     const beta = opts.find((o) => o.textContent?.includes("Beta"));
     expect(cls(alpha)).toContain("optionSelected");
@@ -331,7 +336,7 @@ describe("ActionInput — class, a11y, placeholder, data hooks", () => {
     );
     rendered(host).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
-    const input = rendered(host) as HTMLInputElement;
+    const input = asElement(rendered(host), HTMLInputElement);
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
@@ -354,8 +359,9 @@ describe("FileInput — fires on a non-empty selection; class tokens", () => {
         })
       )
     );
-    const input = el.querySelector("input") as HTMLInputElement;
+    const input = asElement(el.querySelector("input"), HTMLInputElement);
     const file = new File(["x"], "a.txt", { type: "text/plain" });
+    // Deliberately partial FileList fake — FileInput only reads length/0.
     const list = { 0: file, length: 1, item: () => file } as unknown as FileList;
     Object.defineProperty(input, "files", { value: list, configurable: true });
     input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -377,8 +383,8 @@ describe("dispatchAction — detached button styling and cleanup", () => {
   test("the dispatched button is fixed, invisible, click-through, and unfocusable", () => {
     const seen: Record<string, string> = {};
     const onClick = (e: Event): void => {
-      const el = e.target as HTMLElement;
-      if (el.getAttribute?.("data-action") === "noop") {
+      const el = e.target;
+      if (el instanceof HTMLElement && el.getAttribute("data-action") === "noop") {
         seen["position"] = el.style.position;
         seen["opacity"] = el.style.opacity;
         seen["pointerEvents"] = el.style.pointerEvents;
@@ -400,14 +406,14 @@ describe("Dropdown — popovertarget & overlay:close effects", () => {
     const el = rendered(
       await mountActed(h(Dropdown, { isOpen: signal(false), trigger: "t", children: "m" }))
     );
-    const button = el.querySelector("button") as HTMLElement;
-    const menu = el.querySelector("[role='listbox']") as HTMLElement;
+    const button = asElement(el.querySelector("button"), HTMLElement);
+    const menu = asElement(el.querySelector("[role='listbox']"), HTMLElement);
     expect(button.getAttribute("popovertarget")).toBe(menu.id);
   });
   test("an overlay:close for this menu id closes it; a different id does not", async () => {
     const isOpen = signal(true);
     const el = rendered(await mountActed(h(Dropdown, { isOpen, trigger: "t", children: "m" })));
-    const menu = el.querySelector("[role='listbox']") as HTMLElement;
+    const menu = asElement(el.querySelector("[role='listbox']"), HTMLElement);
     menu.dispatchEvent(
       new CustomEvent("overlay:close", { detail: { id: "other" }, bubbles: true })
     );

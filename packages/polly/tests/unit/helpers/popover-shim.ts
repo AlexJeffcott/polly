@@ -31,9 +31,12 @@ export function installPopoverShim(): void {
     openEls.delete(this);
   };
 
-  const origMatches = proto["matches"] as (this: Element, sel: string) => boolean;
+  const origMatches = proto["matches"];
+  if (typeof origMatches !== "function") {
+    throw new Error("popover-shim: HTMLElement.prototype.matches is not a function");
+  }
   proto["matches"] = function matches(this: Element, sel: string): boolean {
     if (sel === ":popover-open") return openEls.has(this);
-    return origMatches.call(this, sel);
+    return Boolean(origMatches.call(this, sel));
   };
 }

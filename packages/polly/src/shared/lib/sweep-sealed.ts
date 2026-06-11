@@ -130,14 +130,14 @@ function concat(parts: Uint8Array[]): Uint8Array {
  */
 function materialise(chunks: Chunk[]): unknown | undefined {
   const content = chunks
-    .filter((chunk) => chunk.key[1] !== "sync-state" && chunk.data !== undefined)
+    .filter(
+      (chunk): chunk is Chunk & { data: Uint8Array } =>
+        chunk.key[1] !== "sync-state" && chunk.data !== undefined
+    )
     .sort((a, b) => (a.key[1] === "snapshot" ? 0 : 1) - (b.key[1] === "snapshot" ? 0 : 1));
   if (content.length === 0) return undefined;
   try {
-    return Automerge.loadIncremental(
-      Automerge.init(),
-      concat(content.map((chunk) => chunk.data as Uint8Array))
-    );
+    return Automerge.loadIncremental(Automerge.init(), concat(content.map((chunk) => chunk.data)));
   } catch {
     return undefined;
   }
@@ -204,7 +204,8 @@ function classifyDocument(
   const sealedAt = context.isSealed(doc);
   if (sealedAt === undefined) return { action: "ignore" }; // not sealed — never swept
 
-  const id = documentId as DocumentId;
+  // Storage keys carry raw document-id strings; brand for Repo lookups.
+  const id = documentId as unknown as DocumentId;
 
   // Open-handle gate: a document with a live handle on this Repo is
   // never swept, regardless of age.

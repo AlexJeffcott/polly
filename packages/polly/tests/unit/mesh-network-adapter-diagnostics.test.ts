@@ -30,6 +30,7 @@ import {
   generateSigningKeyPair,
   signEnvelope,
 } from "../../src/shared/lib/signing";
+import { peerId } from "./helpers/branded";
 
 /**
  * Minimal NetworkAdapter that lets the test drive incoming 'message'
@@ -97,10 +98,10 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: "any" as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId("any"),
+      targetId: peerId("us"),
       data: new Uint8Array([1, 2, 3, 4]),
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
     expect(events[0]?.kind).toBe("drop:malformed-signed-envelope");
@@ -131,14 +132,15 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
-    const ev = events[0] as MeshDiagnosticEvent & { kind: "drop:revoked-peer" };
-    expect(ev.kind).toBe("drop:revoked-peer");
+    const ev = events[0];
+    expect(ev?.kind).toBe("drop:revoked-peer");
+    if (ev?.kind !== "drop:revoked-peer") throw new Error("unreachable: asserted above");
     expect(ev.senderId).toBe(senderId);
   });
 
@@ -163,14 +165,15 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
-    const ev = events[0] as MeshDiagnosticEvent & { kind: "drop:unknown-peer" };
-    expect(ev.kind).toBe("drop:unknown-peer");
+    const ev = events[0];
+    expect(ev?.kind).toBe("drop:unknown-peer");
+    if (ev?.kind !== "drop:unknown-peer") throw new Error("unreachable: asserted above");
     expect(ev.senderId).toBe(senderId);
   });
 
@@ -200,14 +203,15 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
-    const ev = events[0] as MeshDiagnosticEvent & { kind: "drop:bad-signature" };
-    expect(ev.kind).toBe("drop:bad-signature");
+    const ev = events[0];
+    expect(ev?.kind).toBe("drop:bad-signature");
+    if (ev?.kind !== "drop:bad-signature") throw new Error("unreachable: asserted above");
     expect(ev.senderId).toBe(senderId);
   });
 
@@ -227,16 +231,17 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
-    const ev = events[0] as MeshDiagnosticEvent & {
-      kind: "drop:malformed-encrypted-envelope";
-    };
-    expect(ev.kind).toBe("drop:malformed-encrypted-envelope");
+    const ev = events[0];
+    expect(ev?.kind).toBe("drop:malformed-encrypted-envelope");
+    if (ev?.kind !== "drop:malformed-encrypted-envelope") {
+      throw new Error("unreachable: asserted above");
+    }
     expect(ev.senderId).toBe(senderId);
   });
 
@@ -264,16 +269,15 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
-    const ev = events[0] as MeshDiagnosticEvent & {
-      kind: "drop:missing-doc-key";
-    };
-    expect(ev.kind).toBe("drop:missing-doc-key");
+    const ev = events[0];
+    expect(ev?.kind).toBe("drop:missing-doc-key");
+    if (ev?.kind !== "drop:missing-doc-key") throw new Error("unreachable: asserted above");
     expect(ev.senderId).toBe(senderId);
     expect(ev.documentId).toBe(senderDocKeyId);
   });
@@ -303,16 +307,15 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toHaveLength(1);
-    const ev = events[0] as MeshDiagnosticEvent & {
-      kind: "drop:bad-decryption";
-    };
-    expect(ev.kind).toBe("drop:bad-decryption");
+    const ev = events[0];
+    expect(ev?.kind).toBe("drop:bad-decryption");
+    if (ev?.kind !== "drop:bad-decryption") throw new Error("unreachable: asserted above");
     expect(ev.senderId).toBe(senderId);
     expect(ev.documentId).toBe(sharedDocKeyId);
   });
@@ -362,10 +365,10 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
     const { events } = recordMeshDiagnostics();
     base.emitIncoming({
       type: "sync",
-      senderId: senderId as PeerId,
-      targetId: "us" as PeerId,
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
       data: bytes,
-    } as Message);
+    });
 
     expect(events).toEqual(seen);
     expect(events).toHaveLength(0);

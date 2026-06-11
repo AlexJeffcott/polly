@@ -21,11 +21,15 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
 function requireStringArray(value: unknown, path: string): string[] {
-  if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) {
+  if (!isStringArray(value)) {
     throw new MeshSnapshotError(`${path} must be an array of strings`);
   }
-  return value as string[];
+  return value;
 }
 
 /** Validate one per-document handle entry. Only the fields the overlay

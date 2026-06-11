@@ -148,7 +148,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
     };
 
     const onBeforeToggle = (e: Event): void => {
-      if ((e as Event & { newState?: string }).newState === "open") {
+      if ("newState" in e && e.newState === "open") {
         positionMenu();
       }
     };

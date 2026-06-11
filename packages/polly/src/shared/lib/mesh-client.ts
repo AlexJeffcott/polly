@@ -367,7 +367,7 @@ function enrichPeerSlot(
   synchronizer: SynchronizerStructural | undefined
 ): MeshClientPeerStateSnapshot["peers"][number] {
   if (!peer.slot) {
-    return { ...peer, slot: undefined } as MeshClientPeerStateSnapshot["peers"][number];
+    return { ...peer, slot: undefined };
   }
   const peerIdString = peer.peerId as unknown as string;
   const enriched: Record<string, MeshClientHandleSnapshot> = {};
@@ -1022,7 +1022,8 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     // peer's summary does not. The remote runs the same algorithm
     // against this peer's summary, so both sides converge to the
     // union after one round trip.
-    const senderPeerId = senderId as PeerId;
+    // Wire-carried peer id string, branded for the adapter's targeting API.
+    const senderPeerId = senderId as unknown as PeerId;
     for (const bytes of revocationsMissingFromSummary(revocationStore, summary)) {
       networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.Revocation, bytes, [senderPeerId]);
     }
@@ -1138,9 +1139,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
           repoHandleIds: Object.keys(repo.handles),
         };
       }
-      const base = webrtcAdapter.getPeerStateSnapshot() as ReturnType<
-        MeshWebRTCAdapter["getPeerStateSnapshot"]
-      >;
+      const base = webrtcAdapter.getPeerStateSnapshot();
       // Enrich the adapter view with Repo-side handle state so the
       // polly#107 item 7 contract is observable in one place. The
       // adapter sees only the wire path; the Repo's `handles` map

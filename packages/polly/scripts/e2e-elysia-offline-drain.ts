@@ -92,8 +92,16 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
 
 async function serverTodoTexts(): Promise<string[]> {
   const res = await fetch(`${SERVER_URL}/todos`);
-  const todos = (await res.json()) as Array<{ text: string }>;
-  return todos.map((t) => t.text);
+  const todos: unknown = await res.json();
+  if (!Array.isArray(todos)) {
+    throw new Error(`GET /todos returned a non-array: ${JSON.stringify(todos)}`);
+  }
+  return todos.map((t) => {
+    if (typeof t !== "object" || t === null || !("text" in t) || typeof t.text !== "string") {
+      throw new Error(`GET /todos entry has no string text: ${JSON.stringify(t)}`);
+    }
+    return t.text;
+  });
 }
 
 async function waitFor(
@@ -170,8 +178,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     // The field is pre-filled with "demo" (useSignal("demo")); clear it first
     // so typing does not produce "demodemo" → "User not found" → 500.
     await page.evaluate((sel) => {
-      const i = document.querySelector(sel) as HTMLInputElement | null;
-      if (i) {
+      const i = document.querySelector(sel);
+      if (i instanceof HTMLInputElement) {
         i.value = "";
         i.dispatchEvent(new Event("input", { bubbles: true }));
       }

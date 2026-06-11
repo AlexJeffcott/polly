@@ -11,7 +11,11 @@
  * emitting events on it — entirely off the network.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { NetworkAdapter, type PeerId } from "@automerge/automerge-repo/slim";
+import {
+  NetworkAdapter,
+  type PeerId,
+  type StorageAdapterInterface,
+} from "@automerge/automerge-repo/slim";
 import type { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { createPeerStateClient, type PeerStateClient } from "@/shared/lib/peer-relay-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
@@ -155,7 +159,7 @@ describe("createPeerStateClient — repo wiring", () => {
   function repoHasStorage(client: PeerStateClient): boolean {
     return Boolean((client.repo as unknown as { storageSubsystem?: unknown }).storageSubsystem);
   }
-  const fakeStorage = {
+  const fakeStorage: StorageAdapterInterface = {
     load: async () => undefined,
     save: async () => {},
     remove: async () => {},
@@ -172,7 +176,7 @@ describe("createPeerStateClient — repo wiring", () => {
 
   test("gives the Repo a storage subsystem only when storage is supplied", () => {
     expect(repoHasStorage(make().client)).toBe(false);
-    expect(repoHasStorage(make({ storage: fakeStorage as never }).client)).toBe(true);
+    expect(repoHasStorage(make({ storage: fakeStorage }).client)).toBe(true);
   });
 });
 
@@ -181,10 +185,10 @@ describe("createPeerStateClient — close", () => {
     const { client } = make();
     let shutdownCalls = 0;
     const realShutdown = client.repo.shutdown.bind(client.repo);
-    client.repo.shutdown = (async () => {
+    client.repo.shutdown = async () => {
       shutdownCalls += 1;
       await realShutdown();
-    }) as typeof client.repo.shutdown;
+    };
     await client.close();
     expect(shutdownCalls).toBe(1);
   });

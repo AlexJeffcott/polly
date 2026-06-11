@@ -40,13 +40,27 @@ const EXPECTED_FILES = [
   "public/manifest.json",
 ];
 
+/** Narrow a parsed package.json to the one field this script rewrites. */
+function isPkgWithDependencies(pkg: unknown): pkg is { dependencies?: Record<string, string> } {
+  if (typeof pkg !== "object" || pkg === null) return false;
+  if (!("dependencies" in pkg)) return true;
+  const deps = pkg.dependencies;
+  return (
+    typeof deps === "object" &&
+    deps !== null &&
+    !Array.isArray(deps) &&
+    Object.values(deps).every((v) => typeof v === "string")
+  );
+}
+
 /** Point the scaffold's @fairfox/polly dependency at the working tree so the
  *  build resolves this checkout offline rather than a published version. */
 function pinPollyToWorkingTree(projectDir: string): void {
   const pkgPath = join(projectDir, "package.json");
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-    dependencies?: Record<string, string>;
-  };
+  const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  if (!isPkgWithDependencies(pkg)) {
+    throw new Error(`unexpected package.json shape at ${pkgPath}`);
+  }
   pkg.dependencies ??= {};
   pkg.dependencies["@fairfox/polly"] = `file:${POLLY_PKG_DIR}`;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));

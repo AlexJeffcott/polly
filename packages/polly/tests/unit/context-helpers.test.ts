@@ -29,20 +29,20 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 let errors: unknown[][];
 const realError = console.error;
 
-type DomGlobals = { window?: unknown; document?: unknown };
-
 function installDom(readyState: "loading" | "complete"): { fire: (type: string) => void } {
   const listeners: Record<string, Array<() => void>> = {};
-  (globalThis as DomGlobals).window = {
+  // Partial window/document fakes installed via Reflect — the real globals
+  // don't exist under bun, and the helpers only touch these members.
+  Reflect.set(globalThis, "window", {
     addEventListener: () => {},
     removeEventListener: () => {},
-  };
-  (globalThis as DomGlobals).document = {
+  });
+  Reflect.set(globalThis, "document", {
     readyState,
     addEventListener: (type: string, cb: () => void) => {
       (listeners[type] ??= []).push(cb);
     },
-  };
+  });
   return {
     fire: (type: string) => {
       for (const cb of listeners[type] ?? []) cb();
@@ -51,8 +51,8 @@ function installDom(readyState: "loading" | "complete"): { fire: (type: string) 
 }
 
 function uninstallDom(): void {
-  delete (globalThis as DomGlobals).window;
-  delete (globalThis as DomGlobals).document;
+  Reflect.deleteProperty(globalThis, "window");
+  Reflect.deleteProperty(globalThis, "document");
 }
 
 beforeEach(() => {
@@ -178,7 +178,9 @@ describe("createContext (non-DOM context)", () => {
     expect(entry).toBeDefined();
     // The rethrown value is the original error (not a TypeError from calling a
     // missing onError) — proving the `if (onError) … else throw err` branch.
-    expect((entry?.[1] as Error).message).toBe("nope");
+    const rethrown = entry?.[1];
+    if (!(rethrown instanceof Error)) throw new Error("expected the rethrown Error");
+    expect(rethrown.message).toBe("nope");
   });
 });
 
@@ -190,10 +192,13 @@ describe("createContext (bus.onError registration)", () => {
   test("registers the onError handler on the bus when provided", () => {
     const original = MessageBus.prototype.onError;
     const registered: unknown[] = [];
-    MessageBus.prototype.onError = function (this: MessageBus, handler) {
+    MessageBus.prototype.onError = function (
+      this: MessageBus,
+      handler: Parameters<typeof original>[0]
+    ) {
       registered.push(handler);
       return original.call(this, handler);
-    } as typeof original;
+    };
     try {
       const handler = () => {};
       createContext("background", { adapters: createMockAdapters(), onError: handler });
@@ -206,10 +211,13 @@ describe("createContext (bus.onError registration)", () => {
   test("does not touch bus.onError when no handler is provided", () => {
     const original = MessageBus.prototype.onError;
     let calls = 0;
-    MessageBus.prototype.onError = function (this: MessageBus, handler) {
+    MessageBus.prototype.onError = function (
+      this: MessageBus,
+      handler: Parameters<typeof original>[0]
+    ) {
       calls += 1;
       return original.call(this, handler);
-    } as typeof original;
+    };
     try {
       createContext("background", { adapters: createMockAdapters() });
       expect(calls).toBe(0);
@@ -377,9 +385,10 @@ describe("runInContext", () => {
   test("wraps a single string target in an array (no substring matching)", async () => {
     let called = false;
     // "option" is a substring of the target "options" — array membership must
-    // not treat it as a match (a defeated Array.isArray wrap would).
+    // not treat it as a match (a defeated Array.isArray wrap would). The
+    // escape hatch forces a deliberately out-of-union context value through.
     runInContext(
-      "option" as Context,
+      "option" as unknown as Context,
       "options",
       () => {
         called = true;

@@ -18,8 +18,10 @@ import {
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 15));
 
-const msg = <T>(over: Partial<StateSyncMessage<T>> = {}): StateSyncMessage<T> =>
-  ({ key: "k", value: "v" as unknown as T, clock: 1, ...over }) as StateSyncMessage<T>;
+const msg = <T>(over: Partial<StateSyncMessage<T>> = {}): StateSyncMessage<T> => {
+  const base: StateSyncMessage<T> = { key: "k", value: "v" as unknown as T, clock: 1 };
+  return { ...base, ...over };
+};
 
 // console.warn is captured per test so the warn paths can be asserted and
 // the output does not pollute the test log.
@@ -280,7 +282,7 @@ describe("createSyncAdapter context detection", () => {
     delete (globalThis as unknown as { chrome?: unknown }).chrome;
     const adapter = createSyncAdapter();
     expect(adapter).toBeInstanceOf(BroadcastChannelSyncAdapter);
-    (adapter as BroadcastChannelSyncAdapter).disconnect();
+    if (adapter instanceof BroadcastChannelSyncAdapter) adapter.disconnect();
   });
 
   test("falls back to NoOpSyncAdapter when neither chrome nor BroadcastChannel exists", () => {

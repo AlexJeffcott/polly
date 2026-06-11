@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Repo } from "@automerge/automerge-repo/slim";
 import { __test__ } from "@/shared/lib/mesh-client";
 import type { MeshNetworkAdapter } from "@/shared/lib/mesh-network-adapter";
+import type { MeshStateLazyWrapperRecord } from "@/shared/lib/mesh-state";
 
 const {
   findLazyWrapperDocIdDuplicates,
@@ -22,10 +23,10 @@ const {
   installPolly107SyncReevaluation,
 } = __test__;
 
-type Any = ReturnType<typeof JSON.parse>;
-
-const records = (pairs: Array<[key: string, docId: string]>): Any =>
-  pairs.map(([key, docId]) => ({ key, docId })) as Any;
+// Deliberately partial records: the duplicate detector reads only key/docId,
+// so the other MeshStateLazyWrapperRecord fields are omitted.
+const records = (pairs: Array<[key: string, docId: string]>): MeshStateLazyWrapperRecord[] =>
+  pairs.map(([key, docId]) => ({ key, docId })) as unknown as MeshStateLazyWrapperRecord[];
 
 describe("findLazyWrapperDocIdDuplicates — count > 1 threshold (#124)", () => {
   test("a docId appearing once is NOT a duplicate (kills > → >=)", () => {
@@ -122,7 +123,7 @@ describe("installPolly107SyncReevaluation — env gate + wiring (#124)", () => {
       get onCalls() {
         return state.onCalls;
       },
-    } as Any;
+    };
   }
 
   function repoWithReevaluate(spy: () => Promise<void>): Repo {

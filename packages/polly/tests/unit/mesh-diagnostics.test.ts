@@ -47,7 +47,8 @@ describe("mesh-diagnostics", () => {
     const after = Date.now();
 
     expect(captured).toHaveLength(1);
-    const ts = captured[0] as number;
+    const ts = captured[0];
+    if (ts === undefined) throw new Error("expected a captured timestamp");
     expect(ts).toBeGreaterThanOrEqual(before);
     expect(ts).toBeLessThanOrEqual(after);
   });

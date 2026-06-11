@@ -245,13 +245,18 @@ export async function done(): Promise<void> {
   }
 
   const report = (window as unknown as Record<string, unknown>)["__pollyReport"];
-  if (typeof report !== "function") {
+  if (!isReportFunction(report)) {
     throw new Error(
       "harness.done(): window.__pollyReport is not defined. " +
         "This harness must be driven by the Polly browser test runner."
     );
   }
-  (report as (r: TestResult[]) => void)(results);
+  report(results);
+}
+
+/** The runner injects `window.__pollyReport`; all we can check is callability. */
+function isReportFunction(value: unknown): value is (r: TestResult[]) => void {
+  return typeof value === "function";
 }
 
 /**

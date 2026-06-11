@@ -40,8 +40,8 @@ function createCapturingSignaling(peerId: string): {
     url: options.url,
     peerId,
     isConnected: true,
-    sendSignal(target: string, payload: { kind: string }): boolean {
-      sent.push({ target, payload: payload as SentSignal["payload"] });
+    sendSignal(target: string, payload: SentSignal["payload"]): boolean {
+      sent.push({ target, payload });
       return true;
     },
     connect: async (): Promise<void> => {},
@@ -150,9 +150,19 @@ function iceCandidate(opts: { candidate: string; type?: string }): RTCIceCandida
     candidate: opts.candidate,
     type: opts.type,
     toJSON(): RTCIceCandidateInit {
-      return { candidate: opts.candidate } as RTCIceCandidateInit;
+      return { candidate: opts.candidate };
     },
   } as unknown as RTCIceCandidate;
+}
+
+/** Pull the sdp string out of a captured signal payload, narrowing the
+ * untyped `[k: string]: unknown` field instead of casting. */
+function payloadSdp(payload: SentSignal["payload"]): string {
+  const sdp = payload.sdp;
+  if (typeof sdp === "object" && sdp !== null && "sdp" in sdp && typeof sdp.sdp === "string") {
+    return sdp.sdp;
+  }
+  return "";
 }
 
 const RELAY_LINE = "a=candidate:1 1 udp 100 10.0.0.1 9 typ relay";
@@ -253,7 +263,7 @@ describe("MeshWebRTCAdapter SDP candidate filtering", () => {
     await flush();
     const offer = sent.find((s) => s.payload.kind === "offer");
     if (!offer) throw new Error("no offer sent");
-    const sdp = (offer.payload.sdp as RTCSessionDescriptionInit).sdp ?? "";
+    const sdp = payloadSdp(offer.payload);
     expect(sdp).toContain(RELAY_LINE);
     expect(sdp).not.toContain(HOST_LINE);
     expect(sdp).not.toContain(SRFLX_LINE);
@@ -268,7 +278,7 @@ describe("MeshWebRTCAdapter SDP candidate filtering", () => {
     await flush();
     const offer = sent.find((s) => s.payload.kind === "offer");
     if (!offer) throw new Error("no offer sent");
-    const sdp = (offer.payload.sdp as RTCSessionDescriptionInit).sdp ?? "";
+    const sdp = payloadSdp(offer.payload);
     expect(sdp).toContain(HOST_LINE);
   });
 
@@ -282,7 +292,7 @@ describe("MeshWebRTCAdapter SDP candidate filtering", () => {
     await flush();
     const offer = sent.find((s) => s.payload.kind === "offer");
     if (!offer) throw new Error("no offer sent");
-    const sdp = (offer.payload.sdp as RTCSessionDescriptionInit).sdp ?? "";
+    const sdp = payloadSdp(offer.payload);
     expect(sdp).toContain(HOST_LINE);
   });
 
@@ -300,7 +310,7 @@ describe("MeshWebRTCAdapter SDP candidate filtering", () => {
     await flush();
     const answer = sent.find((s) => s.payload.kind === "answer");
     if (!answer) throw new Error("no answer sent");
-    const sdp = (answer.payload.sdp as RTCSessionDescriptionInit).sdp ?? "";
+    const sdp = payloadSdp(answer.payload);
     expect(sdp).toContain(RELAY_LINE);
     expect(sdp).not.toContain(HOST_LINE);
   });
@@ -318,7 +328,7 @@ describe("MeshWebRTCAdapter SDP candidate filtering", () => {
     await flush();
     const answer = sent.find((s) => s.payload.kind === "answer");
     if (!answer) throw new Error("no answer sent");
-    const sdp = (answer.payload.sdp as RTCSessionDescriptionInit).sdp ?? "";
+    const sdp = payloadSdp(answer.payload);
     expect(sdp).toContain("FINALISED:");
   });
 
@@ -416,7 +426,7 @@ describe("MeshWebRTCAdapter incoming ICE candidates", () => {
     pc.remoteDescription = { type: "answer", sdp: "v=0\r\n" };
     adapter.handleSignal("peer-a", {
       kind: "ice",
-      candidate: { candidate: "x typ host y" } as RTCIceCandidateInit,
+      candidate: { candidate: "x typ host y" } satisfies RTCIceCandidateInit,
     });
     await flush();
     expect(pc.addedIce).toHaveLength(0);
@@ -431,7 +441,7 @@ describe("MeshWebRTCAdapter incoming ICE candidates", () => {
     pc.remoteDescription = { type: "answer", sdp: "v=0\r\n" };
     adapter.handleSignal("peer-a", {
       kind: "ice",
-      candidate: { candidate: "x typ relay y" } as RTCIceCandidateInit,
+      candidate: { candidate: "x typ relay y" } satisfies RTCIceCandidateInit,
     });
     await flush();
     expect(pc.addedIce).toHaveLength(1);
@@ -446,7 +456,7 @@ describe("MeshWebRTCAdapter incoming ICE candidates", () => {
     pc.remoteDescription = null;
     adapter.handleSignal("peer-a", {
       kind: "ice",
-      candidate: { candidate: "x typ host y" } as RTCIceCandidateInit,
+      candidate: { candidate: "x typ host y" } satisfies RTCIceCandidateInit,
     });
     await flush();
     // Buffered, not applied yet.

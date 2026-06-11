@@ -41,6 +41,11 @@ function rendered(host: HTMLElement): HTMLElement {
   if (!(el instanceof HTMLElement)) throw new Error("expected a rendered element");
   return el;
 }
+/** Narrow to a concrete element type via instanceof; throws instead of casting. */
+function asElement<T extends Element>(v: unknown, ctor: new () => T): T {
+  if (!(v instanceof ctor)) throw new Error(`expected ${ctor.name}`);
+  return v;
+}
 const cls = (el: Element | null | undefined): string[] =>
   (el?.getAttribute("class") ?? "").split(" ").filter(Boolean);
 const triggerBtn = (host: HTMLElement): HTMLElement | null =>
@@ -63,9 +68,7 @@ describe("Dropdown — open/close effect and default classes", () => {
     await act(async () => {
       render(h(Dropdown, { isOpen, trigger: "t", children: "m" }), host);
     });
-    const menu = host.querySelector("[role='listbox']") as HTMLElement & {
-      matches: (s: string) => boolean;
-    };
+    const menu = asElement(host.querySelector("[role='listbox']"), HTMLElement);
     expect(menu.matches(":popover-open")).toBe(false);
     await act(async () => {
       isOpen.value = true;
@@ -104,7 +107,7 @@ describe("Select — nested element class tokens", () => {
 
   test("the selected option row has both option and optionSelected; unselected has option only", () => {
     const host = mount(h(Select, { options: OPTS, selected: signal(new Set(["a"])) }));
-    const rows = Array.from(host.querySelectorAll("[role='listbox'] button")) as HTMLElement[];
+    const rows = Array.from(host.querySelectorAll<HTMLElement>("[role='listbox'] button"));
     const alpha = rows.find((b) => b.textContent?.includes("Alpha"));
     const beta = rows.find((b) => b.textContent?.includes("Beta"));
     expect(cls(alpha)).toContain("option");
@@ -122,14 +125,14 @@ describe("Select — nested element class tokens", () => {
 
   test("the dropdown trigger is not disabled by default", () => {
     const host = mount(h(Select, { options: OPTS, selected: signal(new Set(["a"])) }));
-    expect((triggerBtn(host) as HTMLButtonElement).disabled).toBe(false);
+    expect(asElement(triggerBtn(host), HTMLButtonElement).disabled).toBe(false);
   });
 
   test("disabled propagates to the trigger button", () => {
     const host = mount(
       h(Select, { options: OPTS, selected: signal(new Set(["a"])), disabled: true })
     );
-    expect((triggerBtn(host) as HTMLButtonElement).disabled).toBe(true);
+    expect(asElement(triggerBtn(host), HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -154,7 +157,7 @@ describe("ActionSelect — nested element class tokens", () => {
 
   test("selected option has option+optionSelected; unselected has option only", () => {
     const host = mount(h(ActionSelect, { value: "a", action: "s", options: OPTS }));
-    const opts = Array.from(host.querySelectorAll("[role='option']")) as HTMLElement[];
+    const opts = Array.from(host.querySelectorAll<HTMLElement>("[role='option']"));
     const alpha = opts.find((o) => o.textContent?.includes("Alpha"));
     const beta = opts.find((o) => o.textContent?.includes("Beta"));
     expect(cls(alpha)).toContain("option");

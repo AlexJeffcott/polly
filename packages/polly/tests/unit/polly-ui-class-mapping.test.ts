@@ -44,6 +44,12 @@ function rendered(host: HTMLElement): HTMLElement {
   return el;
 }
 
+/** Narrow to a concrete element type via instanceof; throws instead of casting. */
+function asElement<T extends Element>(v: unknown, ctor: new () => T): T {
+  if (!(v instanceof ctor)) throw new Error(`expected ${ctor.name}`);
+  return v;
+}
+
 const classList = (el: HTMLElement): string[] =>
   (el.getAttribute("class") ?? "").split(" ").filter(Boolean);
 
@@ -160,7 +166,8 @@ describe("Button — button vs link branch", () => {
   });
   test("disabled button carries the disabled attribute", () => {
     expect(
-      (rendered(mount(h(Button, { disabled: true, label: "x" }))) as HTMLButtonElement).disabled
+      asElement(rendered(mount(h(Button, { disabled: true, label: "x" }))), HTMLButtonElement)
+        .disabled
     ).toBe(true);
   });
   test("href renders an <a> with href, target, rel, download forwarded", () => {
@@ -335,14 +342,16 @@ describe("Collapsible", () => {
   });
   test("defaultOpen toggles the open attribute", () => {
     expect(
-      (
-        rendered(
-          mount(h(Collapsible, { summary: "s", defaultOpen: true, children: "b" }))
-        ) as HTMLDetailsElement
+      asElement(
+        rendered(mount(h(Collapsible, { summary: "s", defaultOpen: true, children: "b" }))),
+        HTMLDetailsElement
       ).open
     ).toBe(true);
     expect(
-      (rendered(mount(h(Collapsible, { summary: "s", children: "b" }))) as HTMLDetailsElement).open
+      asElement(
+        rendered(mount(h(Collapsible, { summary: "s", children: "b" }))),
+        HTMLDetailsElement
+      ).open
     ).toBe(false);
   });
   test("className appends and id forwards", () => {
@@ -369,7 +378,7 @@ describe("FileInput", () => {
     );
     expect(el.tagName).toBe("LABEL");
     expect(el.getAttribute("data-polly-file-input")).not.toBeNull();
-    const input = el.querySelector("input") as HTMLInputElement;
+    const input = asElement(el.querySelector("input"), HTMLInputElement);
     expect(input.type).toBe("file");
     expect(input.accept).toBe("image/*");
     expect(el.textContent).toContain("Scan");
@@ -381,7 +390,7 @@ describe("FileInput", () => {
   });
   test("multiple and disabled forward to the input; disabled adds its class", () => {
     const el = rendered(mount(h(FileInput, { onFiles: () => {}, multiple: true, disabled: true })));
-    const input = el.querySelector("input") as HTMLInputElement;
+    const input = asElement(el.querySelector("input"), HTMLInputElement);
     expect(input.multiple).toBe(true);
     expect(input.disabled).toBe(true);
     expect(classList(el)).toContain("disabled");

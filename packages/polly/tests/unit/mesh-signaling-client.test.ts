@@ -336,7 +336,7 @@ describe("MeshSignalingClient — sendCustom", () => {
 
   test("type wins over a type field in the payload", async () => {
     const { client, ws } = await connectClient();
-    client.sendCustom("real-type", { type: "spoofed" } as Record<string, unknown>);
+    client.sendCustom("real-type", { type: "spoofed" });
     expect(ws.lastSent().type).toBe("real-type");
   });
 
@@ -416,11 +416,13 @@ describe("MeshSignalingClient — reconnect backoff", () => {
 
   function installFakeTimers(): void {
     scheduled = [];
+    // Deliberately partial double: only the (fn, delay) call shape the
+    // client uses, not the full overloaded global with __promisify__.
     globalThis.setTimeout = ((fn: () => void, delay?: number) => {
       scheduled.push({ fn, delay: delay ?? 0 });
       return scheduled.length as unknown as ReturnType<typeof setTimeout>;
-    }) as typeof setTimeout;
-    globalThis.clearTimeout = (() => {}) as typeof clearTimeout;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = () => {};
   }
 
   afterEach(() => {

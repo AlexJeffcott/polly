@@ -17,15 +17,10 @@ import { join } from "node:path";
 // Imported first: @automerge/automerge self-initialises its WASM runtime
 // at module-eval, so every Automerge call below is ready to run.
 import * as Automerge from "@automerge/automerge";
-import type {
-  Chunk,
-  DocumentId,
-  Repo,
-  StorageAdapterInterface,
-  StorageKey,
-} from "@automerge/automerge-repo";
+import type { Chunk, Repo, StorageAdapterInterface, StorageKey } from "@automerge/automerge-repo";
 import { createPeerRepoServer, type PeerRepoServer } from "@/shared/lib/peer-repo-server";
 import { sweepSealed } from "@/shared/lib/sweep-sealed";
+import { documentId } from "./helpers/branded";
 
 // ─── In-memory storage adapter ──────────────────────────────────────────────
 
@@ -48,7 +43,7 @@ class MemoryStorage implements StorageAdapterInterface {
   async loadRange(prefix: StorageKey): Promise<Chunk[]> {
     const out: Chunk[] = [];
     for (const [serialised, value] of this.data) {
-      const key = JSON.parse(serialised) as StorageKey;
+      const key = parseStorageKey(serialised);
       if (hasPrefix(key, prefix)) out.push({ key, data: value });
     }
     return out;
@@ -56,10 +51,19 @@ class MemoryStorage implements StorageAdapterInterface {
 
   async removeRange(prefix: StorageKey): Promise<void> {
     for (const serialised of [...this.data.keys()]) {
-      const key = JSON.parse(serialised) as StorageKey;
+      const key = parseStorageKey(serialised);
       if (hasPrefix(key, prefix)) this.data.delete(serialised);
     }
   }
+}
+
+/** Reverse the `JSON.stringify(key)` used as the Map key above. */
+function parseStorageKey(serialised: string): StorageKey {
+  const parsed: unknown = JSON.parse(serialised);
+  if (Array.isArray(parsed) && parsed.every((part) => typeof part === "string")) {
+    return parsed;
+  }
+  throw new Error(`not a StorageKey: ${serialised}`);
 }
 
 function hasPrefix(key: StorageKey, prefix: StorageKey): boolean {
@@ -67,24 +71,24 @@ function hasPrefix(key: StorageKey, prefix: StorageKey): boolean {
 }
 
 /** Brand a plain string as a DocumentId for expectation literals. */
-function docId(value: string): DocumentId {
-  return value as DocumentId;
-}
+const docId = documentId;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-type SealSentinel = { __compaction__?: { sealedAt: number } };
-
 /** Recognises the test's sentinel shape — stands in for a consumer's detector. */
 function isSealed(doc: unknown): number | undefined {
-  const sentinel = (doc as SealSentinel).__compaction__;
-  return typeof sentinel?.sealedAt === "number" ? sentinel.sealedAt : undefined;
+  if (typeof doc !== "object" || doc === null || !("__compaction__" in doc)) return undefined;
+  const sentinel = doc.__compaction__;
+  if (typeof sentinel !== "object" || sentinel === null || !("sealedAt" in sentinel)) {
+    return undefined;
+  }
+  return typeof sentinel.sealedAt === "number" ? sentinel.sealedAt : undefined;
 }
 
 /** Build the storage bytes of a document, optionally carrying the sentinel. */
 function docBytes(mutate: (doc: Record<string, unknown>) => void): Uint8Array {
   let doc = Automerge.init<Record<string, unknown>>();
-  doc = Automerge.change(doc, (d) => mutate(d as Record<string, unknown>));
+  doc = Automerge.change(doc, (d) => mutate(d));
   return Automerge.save(doc);
 }
 

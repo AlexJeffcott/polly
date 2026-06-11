@@ -116,9 +116,9 @@ describe("startDiagnosticRecorder", () => {
         caught = err;
       }
       expect(caught).toBeInstanceOf(MeshAssertionError);
-      const failure = caught as MeshAssertionError;
-      expect(failure.unexpected).toHaveLength(1);
-      expect(failure.unexpected[0]?.kind).toBe("drop:unknown-peer");
+      if (!(caught instanceof MeshAssertionError)) throw new Error("asserted above");
+      expect(caught.unexpected).toHaveLength(1);
+      expect(caught.unexpected[0]?.kind).toBe("drop:unknown-peer");
     } finally {
       diag.stop();
     }

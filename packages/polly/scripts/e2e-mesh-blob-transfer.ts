@@ -53,8 +53,8 @@ function makePayload(size: number): Uint8Array {
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i] as number);
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
   return btoa(binary);
 }
@@ -133,7 +133,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       peers.push(launched);
     }
 
-    const [peerA, peerB] = peers as [LaunchedPeer, LaunchedPeer];
+    const [peerA, peerB] = peers;
+    if (peerA === undefined || peerB === undefined) {
+      throw new Error("test setup: expected two launched peers");
+    }
     ctx.log("[e2e] both peers launched; waiting for mesh handshake");
     await waitForMeshConnected(peers, { timeoutMs: 15_000 });
     await new Promise((r) => setTimeout(r, SETTLE_MS));

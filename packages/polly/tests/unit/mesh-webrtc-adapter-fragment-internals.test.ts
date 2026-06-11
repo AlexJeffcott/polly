@@ -152,7 +152,7 @@ function wireFrame(header: Record<string, unknown>, data: Uint8Array): Uint8Arra
   new DataView(out.buffer).setUint32(0, headerBytes.length, false);
   out.set(headerBytes, 4);
   out.set(data, 4 + headerBytes.length);
-  return out as Uint8Array<ArrayBuffer>;
+  return out;
 }
 
 /** Fragment arbitrary bytes into exactly `count` ordered sync-fragments. */
@@ -163,6 +163,14 @@ function fragment(bytes: Uint8Array, id: string, count: number): Uint8Array<Arra
     throw new Error(`expected ${count} fragments, got ${frags.length}`);
   }
   return frags;
+}
+
+/** Index into a fragment list, throwing on a hole instead of yielding
+ * `undefined` under noUncheckedIndexedAccess. */
+function fragAt(frags: readonly Uint8Array<ArrayBuffer>[], i: number): Uint8Array<ArrayBuffer> {
+  const frag = frags[i];
+  if (!frag) throw new Error(`test setup: missing fragment ${i}`);
+  return frag;
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -179,7 +187,7 @@ describe("handleSyncFragment per-chunk accounting", () => {
     );
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(60) }));
     const frags = fragment(wire, "msg-A", 3);
-    channel.deliver(frags[0] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
     const first = progress.at(-1);
     if (!first) throw new Error("no progress beat after first chunk");
     expect(first.kind).toBe("fragment-received");
@@ -198,9 +206,9 @@ describe("handleSyncFragment per-chunk accounting", () => {
     );
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(60) }));
     const frags = fragment(wire, "msg-A", 3);
-    channel.deliver(frags[0] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
     const afterFirst = progress.at(-1)?.bytesReceived ?? 0;
-    channel.deliver(frags[1] as Uint8Array);
+    channel.deliver(fragAt(frags, 1));
     const second = progress.at(-1);
     if (!second) throw new Error("no progress beat after second chunk");
     // The create-once guard must keep the same inFlightSync, so the second
@@ -215,8 +223,8 @@ describe("handleSyncFragment per-chunk accounting", () => {
     adapter.on("message", (m: Message) => messages.push(m));
     const wire = serialise(adapter, makeMessage());
     const frags = fragment(wire, "msg-async", 2);
-    channel.deliver(frags[0] as Uint8Array);
-    channel.deliver(frags[1] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
+    channel.deliver(fragAt(frags, 1));
     // The reassembly itself is on a macrotask, so after a single flush the
     // dispatch has only just started and the emit is still pending — a
     // synchronous reassembly would have surfaced the message by now.
@@ -237,13 +245,13 @@ describe("dispatchReassembled routing", () => {
     const payload = new Uint8Array([10, 20, 30, 40, 50]);
     const blobWire = wireFrame({ type: "blob-chunk", blobId: "b1", seq: 7 }, payload);
     const frags = fragment(blobWire, "blob-msg", 2);
-    channel.deliver(frags[0] as Uint8Array);
-    channel.deliver(frags[1] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
+    channel.deliver(fragAt(frags, 1));
     expect(messages).toHaveLength(0);
     expect(blobCalls).toHaveLength(1);
     expect(blobCalls[0]?.header.type).toBe("blob-chunk");
     expect(blobCalls[0]?.header.seq).toBe(7);
-    expect(Array.from(blobCalls[0]?.data as Uint8Array)).toEqual([10, 20, 30, 40, 50]);
+    expect(Array.from(blobCalls[0]?.data ?? [])).toEqual([10, 20, 30, 40, 50]);
   });
 
   test("a reassembled ordinary message is not diverted to a registered blob handler", () => {
@@ -257,8 +265,8 @@ describe("dispatchReassembled routing", () => {
     // not merely on a handler being present, so it must emit upward.
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(50) }));
     const frags = fragment(wire, "normal-msg", 2);
-    channel.deliver(frags[0] as Uint8Array);
-    channel.deliver(frags[1] as Uint8Array);
+    channel.deliver(fragAt(frags, 0));
+    channel.deliver(fragAt(frags, 1));
     expect(messages).toHaveLength(1);
     expect(blobCalls).toHaveLength(0);
   });
@@ -273,8 +281,8 @@ describe("dispatchReassembled routing", () => {
     const garbage = new Uint8Array([0xff, 0xff, 0xff, 0xff, 1, 2, 3, 4, 5, 6]);
     const frags = fragment(garbage, "bad-msg", 2);
     expect(() => {
-      channel.deliver(frags[0] as Uint8Array);
-      channel.deliver(frags[1] as Uint8Array);
+      channel.deliver(fragAt(frags, 0));
+      channel.deliver(fragAt(frags, 1));
     }).not.toThrow();
     expect(messages).toHaveLength(0);
     expect(slot().inFlightSync).toBeUndefined();
@@ -285,7 +293,7 @@ describe("handleSyncFragment defensive guards", () => {
   test("ignores a fragment for a peer with no slot", () => {
     const { adapter } = build({ syncYieldEnabled: false });
     const wire = serialise(adapter, makeMessage());
-    const frag = fragment(wire, "ghost", 1)[0] as Uint8Array;
+    const frag = fragAt(fragment(wire, "ghost", 1), 0);
     expect(() =>
       (
         adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }

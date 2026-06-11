@@ -30,7 +30,7 @@
 
 export const capability = "relay.three-peer-convergence" as const;
 
-import type { DocHandle } from "@automerge/automerge-repo/slim";
+import type { DocHandle, DocumentId } from "@automerge/automerge-repo/slim";
 import {
   $peerState,
   createPeerStateClient,
@@ -65,14 +65,14 @@ async function waitFor(predicate: () => boolean, timeoutMs: number, label: strin
  *  any connected peer; on a relay that means "not synced to the hub yet". */
 async function findWithRetry(
   client: PeerStateClient,
-  docId: string,
+  docId: DocumentId,
   timeoutMs: number
 ): Promise<DocHandle<Notes>> {
   const deadline = Date.now() + timeoutMs;
   let lastErr: unknown;
   while (Date.now() < deadline) {
     try {
-      return await client.repo.find<Notes>(docId as Parameters<typeof client.repo.find>[0]);
+      return await client.repo.find<Notes>(docId);
     } catch (err) {
       lastErr = err;
       await new Promise((r) => setTimeout(r, 50));
@@ -117,7 +117,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       const client = createPeerStateClient({ url, retryInterval: 200 });
       clients.push(client);
     }
-    const [c1, c2, c3] = clients as [PeerStateClient, PeerStateClient, PeerStateClient];
+    const [c1, c2, c3] = clients;
+    if (c1 === undefined || c2 === undefined || c3 === undefined) {
+      throw new Error("test setup: expected three clients");
+    }
 
     ctx.log("[e2e] three clients created; waiting for relay connections");
     await Promise.all(
@@ -147,8 +150,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     await waitFor(
       () => {
         const handle = relay.server.repo.handles[docId];
-        const doc = handle?.doc() as Notes | undefined;
-        return doc?.title === "from peer-1";
+        const doc: unknown = handle?.doc();
+        return (
+          typeof doc === "object" && doc !== null && "title" in doc && doc.title === "from peer-1"
+        );
       },
       CONNECT_TIMEOUT_MS,
       "relay replica has client 1's write"
@@ -160,8 +165,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
 
     const targets: RelayConvergenceTarget[] = [
       { peerId: "peer-1", read: () => notes.value.title },
-      { peerId: "peer-2", read: () => (h2.doc() as Notes | undefined)?.title },
-      { peerId: "peer-3", read: () => (h3.doc() as Notes | undefined)?.title },
+      { peerId: "peer-2", read: () => h2.doc()?.title },
+      { peerId: "peer-3", read: () => h3.doc()?.title },
     ];
     await waitForRelayConvergence(targets, (value) => value === "from peer-1");
 
@@ -173,8 +178,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     });
     const bodyTargets: RelayConvergenceTarget[] = [
       { peerId: "peer-1", read: () => notes.value.body },
-      { peerId: "peer-2", read: () => (h2.doc() as Notes | undefined)?.body },
-      { peerId: "peer-3", read: () => (h3.doc() as Notes | undefined)?.body },
+      { peerId: "peer-2", read: () => h2.doc()?.body },
+      { peerId: "peer-3", read: () => h3.doc()?.body },
     ];
     await waitForRelayConvergence(bodyTargets, (value) => value === "from peer-2");
 

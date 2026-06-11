@@ -213,7 +213,7 @@ describe("decrypt length floor", () => {
     // is decrypted rather than rejected outright.
     const opened = decrypt(sealed, key);
     expect(opened).toBeDefined();
-    expect((opened as Uint8Array).length).toBe(0);
+    expect(opened?.length).toBe(0);
   });
 
   test("returns undefined one byte below the nonce+tag floor", () => {

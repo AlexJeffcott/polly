@@ -63,7 +63,7 @@ describe("closeTopOverlay (polly#140)", () => {
 
     const closedIds: string[] = [];
     dialog.addEventListener("overlay:close", (e) => {
-      closedIds.push((e as CustomEvent).detail.id);
+      if (e instanceof CustomEvent) closedIds.push(e.detail.id);
     });
 
     closeTopOverlay();

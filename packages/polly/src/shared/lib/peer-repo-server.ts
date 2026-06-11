@@ -126,7 +126,7 @@ export async function listNodeFSDocumentIds(baseDirectory: string): Promise<stri
   try {
     shards = await readdir(baseDirectory);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
     throw error;
   }
   const documentIds: string[] = [];

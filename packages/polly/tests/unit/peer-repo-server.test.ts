@@ -17,6 +17,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -24,6 +25,16 @@ import {
   listNodeFSDocumentIds,
   type PeerRepoServer,
 } from "@/shared/lib/peer-repo-server";
+
+/** Narrow ws's `address()` union (`AddressInfo | string | null`) to the
+ * bound AddressInfo — every server here is bound to a TCP port. */
+function boundAddress(wss: { address(): AddressInfo | string | null }): AddressInfo {
+  const addr = wss.address();
+  if (addr === null || typeof addr === "string") {
+    throw new Error(`expected a bound AddressInfo, got ${String(addr)}`);
+  }
+  return addr;
+}
 
 // ---------------------------------------------------------------------------
 // listNodeFSDocumentIds
@@ -134,7 +145,7 @@ describe("createPeerRepoServer", () => {
     expect(typeof server.sweepSealed).toBe("function");
     // The `host` option is threaded through to the bound address — a host of
     // 127.0.0.1 binds the loopback interface, not all interfaces.
-    const address = (server.webSocketServer.address() as { address: string }).address;
+    const address = boundAddress(server.webSocketServer).address;
     expect(address).toBe("127.0.0.1");
     // The storagePath is handed to the NodeFS adapter verbatim.
     expect((server.storage as unknown as { baseDirectory: string }).baseDirectory).toBe(
@@ -155,7 +166,7 @@ describe("createPeerRepoServer", () => {
     const { WebSocketServer } = await import("ws");
     const blocker = new WebSocketServer({ port: 0, host: "127.0.0.1" });
     await new Promise<void>((resolve) => blocker.once("listening", () => resolve()));
-    const port = (blocker.address() as { port: number }).port;
+    const port = boundAddress(blocker).port;
     extraCleanup.push(() => blocker.close());
     // The factory wires `created.once("error", reject)`; a second bind to the
     // same port emits EADDRINUSE, which must reject the returned promise
@@ -195,7 +206,7 @@ describe("createPeerRepoServer", () => {
     const storagePath = freshDir();
     const created = await createPeerRepoServer({ port: 0, host: "127.0.0.1", storagePath });
     const { WebSocket } = await import("ws");
-    const port = (created.webSocketServer.address() as { port: number }).port;
+    const port = boundAddress(created.webSocketServer).port;
     const client = new WebSocket(`ws://127.0.0.1:${port}`);
     await new Promise<void>((resolve, reject) => {
       client.once("open", () => resolve());

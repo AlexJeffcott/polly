@@ -310,8 +310,8 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       targetId: message.targetId,
       data: signedBytes,
     };
-    if ("documentId" in message && (message as { documentId?: unknown }).documentId !== undefined) {
-      outer["documentId"] = (message as { documentId: unknown }).documentId;
+    if ("documentId" in message && message.documentId !== undefined) {
+      outer["documentId"] = message.documentId;
     }
     return outer as unknown as Message;
   }
@@ -434,7 +434,13 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       emitMeshDiagnostic({ kind: "drop:empty-control-payload", senderId });
       return undefined;
     }
-    const tag = payload[0] as number;
+    const tag = payload[0];
+    if (tag === undefined) {
+      // Unreachable given the byteLength guard above; satisfies
+      // noUncheckedIndexedAccess without asserting.
+      emitMeshDiagnostic({ kind: "drop:empty-control-payload", senderId });
+      return undefined;
+    }
     const body = payload.subarray(1);
     switch (tag) {
       case MESH_CONTROL_TYPE.Sync:
@@ -508,7 +514,8 @@ export class MeshNetworkAdapter extends NetworkAdapter {
       payloadToSign = tagged;
     }
 
-    const senderId = (this.peerId ?? "") as PeerId;
+    // An adapter that has not joined yet signs with an empty sender id.
+    const senderId = this.peerId ?? ("" as unknown as PeerId);
     const signed = signEnvelope(payloadToSign, senderId, keyring.identity.secretKey);
     const signedBytes = encodeSignedEnvelope(signed);
 

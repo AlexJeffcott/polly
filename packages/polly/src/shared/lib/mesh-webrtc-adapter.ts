@@ -52,6 +52,7 @@ import {
   type PeerMetadata,
 } from "@automerge/automerge-repo/slim";
 import { isBlobMessageType } from "./blob-transfer";
+import { isRecord } from "./guards";
 import type { MeshKeyring } from "./mesh-network-adapter";
 import type { MeshSignalingClient } from "./mesh-signaling-client";
 import {
@@ -131,13 +132,23 @@ function partitionStats(report: RTCStatsReport): ParsedStats {
     retransmittedPacketsSent: undefined,
     retransmittedBytesSent: undefined,
   };
-  const iter = (report as { values?: () => Iterable<unknown> }).values?.() ?? [];
+  const iter = hasStatsIterator(report) ? report.values() : [];
   for (const raw of iter) {
-    if (!raw || typeof raw !== "object") continue;
-    const stat = raw as Record<string, unknown>;
-    ingestStat(stat, out);
+    if (!isRecord(raw)) continue;
+    ingestStat(raw, out);
   }
   return out;
+}
+
+/** Werift's and the DOM's RTCStatsReport are both maplike, but neither type
+ * guarantees `values()` across runtimes — probe for it. */
+function hasStatsIterator(report: unknown): report is { values(): Iterable<unknown> } {
+  return (
+    report !== null &&
+    typeof report === "object" &&
+    "values" in report &&
+    typeof report.values === "function"
+  );
 }
 
 function ingestStat(stat: Record<string, unknown>, out: ParsedStats): void {

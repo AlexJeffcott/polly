@@ -31,8 +31,8 @@ export interface PrebakedKeyringPair {
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i] as number);
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
   return btoa(binary);
 }
@@ -44,8 +44,12 @@ function toBase64(bytes: Uint8Array): string {
  */
 export function prebakeKeyringPair(peerIdA = "peer-a", peerIdB = "peer-b"): PrebakedKeyringPair {
   const set = prebakeKeyringSet([peerIdA, peerIdB]);
+  const [peerA, peerB] = set.peers;
+  if (peerA === undefined || peerB === undefined) {
+    throw new Error("prebakeKeyringPair: expected exactly two peers");
+  }
   return {
-    peers: [set.peers[0] as PrebakedPeer, set.peers[1] as PrebakedPeer],
+    peers: [peerA, peerB],
     docKeyB64: set.docKeyB64,
   };
 }

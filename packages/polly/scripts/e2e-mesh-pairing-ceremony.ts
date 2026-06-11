@@ -140,7 +140,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       peers.push(launched);
     }
 
-    const [peerA, peerB] = peers as [LaunchedPeer, LaunchedPeer];
+    const [peerA, peerB] = peers;
+    if (peerA === undefined || peerB === undefined) {
+      throw new Error("test setup: expected two launched peers");
+    }
     ctx.log("[e2e] both peers cold (awaiting-pairing); driving the token exchange");
 
     // A issues, B receives — B now knows A and holds the document key.

@@ -145,15 +145,31 @@ export async function run(ctx: TierContext): Promise<TierResult> {
 
 type LaunchedPeer = Awaited<ReturnType<typeof launchPeer>>;
 
-async function readSelfRevocation(
-  peer: LaunchedPeer
-): Promise<{ issuerPeerId?: string; revokedPeerId?: string; reason?: string } | undefined> {
-  const result = await peer.page.evaluate(() => {
+interface SelfRevocation {
+  issuerPeerId?: string;
+  revokedPeerId?: string;
+  reason?: string;
+}
+
+function isSelfRevocation(value: unknown): value is SelfRevocation {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record: Record<string, unknown> = { ...value };
+  return ["issuerPeerId", "revokedPeerId", "reason"].every(
+    (key) => record[key] === undefined || typeof record[key] === "string"
+  );
+}
+
+async function readSelfRevocation(peer: LaunchedPeer): Promise<SelfRevocation | undefined> {
+  const result: unknown = await peer.page.evaluate(() => {
     const fn = (window as unknown as { __pollyE2eSelfRevocation?: () => unknown })
       .__pollyE2eSelfRevocation;
     return fn ? fn() : undefined;
   });
-  return result as { issuerPeerId?: string; revokedPeerId?: string; reason?: string } | undefined;
+  if (result === undefined || result === null) return undefined;
+  if (!isSelfRevocation(result)) {
+    throw new Error(`selfRevocation has unexpected shape: ${JSON.stringify(result)}`);
+  }
+  return result;
 }
 
 async function verifyRevocationLanded(
