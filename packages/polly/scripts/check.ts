@@ -26,9 +26,23 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const ROOT = process.cwd();
+
+/** Nearest ancestor of cwd (inclusive) holding `.gitleaks.toml`. The config
+ * lives at the monorepo root, one level above this package since the
+ * packages/ restructure, and the secret scan should cover the whole repo
+ * (its allowlist names root-level dirs like examples/ and recipes/). */
+function secretsRoot(): string {
+  let dir = ROOT;
+  while (!existsSync(join(dir, ".gitleaks.toml"))) {
+    const parent = dirname(dir);
+    if (parent === dir) return ROOT;
+    dir = parent;
+  }
+  return dir;
+}
 
 interface CheckResult {
   name: string;
@@ -78,15 +92,10 @@ async function checkSecrets(): Promise<boolean> {
   if (!(await requireBinary("gitleaks", "Run `brew bundle` (or `brew install gitleaks`)."))) {
     return false;
   }
-  const code = await spawn([
-    "gitleaks",
-    "detect",
-    "--source",
-    ".",
-    "--no-git",
-    "-c",
-    ".gitleaks.toml",
-  ]);
+  const code = await spawn(
+    ["gitleaks", "detect", "--source", ".", "--no-git", "-c", ".gitleaks.toml"],
+    secretsRoot()
+  );
   if (code === 0) {
     process.stdout.write("✅ No secrets found (gitleaks)\n");
   }
@@ -208,8 +217,9 @@ function gitignoreCoversFilename(gi: string, filename: string): boolean {
 }
 
 async function checkGitignore(): Promise<boolean> {
-  const tomlPath = join(ROOT, ".gitleaks.toml");
-  const gitignorePath = join(ROOT, ".gitignore");
+  const root = secretsRoot();
+  const tomlPath = join(root, ".gitleaks.toml");
+  const gitignorePath = join(root, ".gitignore");
   if (!existsSync(tomlPath)) {
     process.stdout.write("⏩ No .gitleaks.toml — skipping gitignore check\n");
     return true;

@@ -71,6 +71,7 @@ export function computeMeshOrPeerSignalFindings(
           // Match `<varName>.value` on an identifier boundary so a
           // signal named `thing` does not false-positive on
           // `myThing.value`.
+          // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `sig.variableName` is a TypeScript identifier extracted from typed AST analysis, never user input.
           const pattern = new RegExp(`\\b${sig.variableName}\\.value\\b`);
           if (pattern.test(cond.expression)) {
             findings.push({

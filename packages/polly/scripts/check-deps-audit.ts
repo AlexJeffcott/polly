@@ -209,20 +209,82 @@ function runOsvScanner(): { cveCount: number; output: string } {
   }
 }
 
+type BunAuditAdvisory = {
+  url?: string;
+  title?: string;
+  severity?: string;
+  vulnerable_versions?: string;
+};
+
+/** GHSA id → reason, from the `advisoryAllowlist` section of deps-notes.json. */
+function loadAdvisoryAllowlist(): Map<string, string> {
+  const allow = new Map<string, string>();
+  if (!existsSync(NOTES_FILE)) {
+    return allow;
+  }
+  try {
+    type Notes = { advisoryAllowlist?: Array<{ ghsa?: string; reason?: string }> };
+    const parsed = JSON.parse(readFileSync(NOTES_FILE, "utf8")) as unknown as Notes;
+    for (const entry of parsed.advisoryAllowlist ?? []) {
+      if (entry.ghsa) {
+        allow.set(entry.ghsa, entry.reason ?? "(no reason recorded)");
+      }
+    }
+  } catch {
+    // Malformed notes file — treat as no allowlist so the gate stays hard.
+  }
+  return allow;
+}
+
+/** Split advisories into live findings and allowlist-accepted lines. */
+function classifyAdvisories(parsed: Record<string, BunAuditAdvisory[]>): {
+  live: string[];
+  accepted: string[];
+} {
+  const allow = loadAdvisoryAllowlist();
+  const live: string[] = [];
+  const accepted: string[] = [];
+  for (const [pkg, advisories] of Object.entries(parsed)) {
+    for (const adv of advisories) {
+      const ghsa = adv.url?.match(/GHSA-[\w-]+/)?.[0];
+      const reason = ghsa ? allow.get(ghsa) : undefined;
+      if (reason === undefined) {
+        live.push(
+          `  ${pkg} ${adv.vulnerable_versions ?? ""} — ${adv.severity ?? "?"}: ${adv.title ?? ""} - ${adv.url ?? ""}`
+        );
+      } else {
+        accepted.push(`  ${pkg} ${adv.vulnerable_versions ?? ""} — ${ghsa}: ${reason}`);
+      }
+    }
+  }
+  return { live, accepted };
+}
+
 function runBunAudit(): { cveCount: number; output: string } {
-  const proc = spawnSync("bun", ["audit"], {
+  const proc = spawnSync("bun", ["audit", "--json"], {
     cwd: ROOT,
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
   });
 
-  const out = `${proc.stdout ?? ""}${proc.stderr ?? ""}`.trim();
-  if (proc.status === 0) {
-    return { cveCount: 0, output: "" };
+  let parsed: Record<string, BunAuditAdvisory[]>;
+  try {
+    parsed = JSON.parse(proc.stdout || "{}") as unknown as Record<string, BunAuditAdvisory[]>;
+  } catch {
+    // Unparseable output — fail loud rather than silently passing the gate.
+    const out = `${proc.stdout ?? ""}${proc.stderr ?? ""}`.trim();
+    return proc.status === 0
+      ? { cveCount: 0, output: "" }
+      : { cveCount: 1, output: `bun audit output was not JSON:\n${out}` };
   }
-  // Heuristic count: lines starting with severity markers.
-  const matches = out.match(/(critical|high|moderate|low):/gi);
-  return { cveCount: matches?.length ?? 1, output: out };
+
+  const { live, accepted } = classifyAdvisories(parsed);
+  if (accepted.length > 0) {
+    process.stdout.write(
+      `⏩ ${accepted.length} advisory(ies) accepted via deps-notes.json allowlist:\n${accepted.join("\n")}\n`
+    );
+  }
+  return { cveCount: live.length, output: live.join("\n") };
 }
 
 function runBunOutdated(): { count: number; output: string } {

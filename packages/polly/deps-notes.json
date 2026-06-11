@@ -1,5 +1,13 @@
 {
   "$schema-comment": "Annotation file for `bun check deps-audit --verbose`. Each entry maps a package name (matching package.json keys) to a short note explaining what the dep is used for in this codebase. Missing entries trigger a warning in verbose mode. Keep notes one line each.",
+  "advisoryAllowlist-comment": "Advisories `bun check deps-audit` accepts deliberately. Every entry needs a ghsa id, the package, and a reason explaining why it is safe to carry AND why it cannot be fixed by upgrading. The gate stays hard for anything not listed. Re-justify or delete entries when deps change.",
+  "advisoryAllowlist": [
+    {
+      "ghsa": "GHSA-2p57-rm9w-gvfp",
+      "package": "ip",
+      "reason": "werift (the node-side WebRTC stack used only by the mesh contract-harness examples) hard-depends on ip@<=2.0.1 and no patched release of `ip` exists. The examples never ship in the published @fairfox/polly package, and their werift peers only ever talk to loopback test peers, so the SSRF mis-categorization in isPublic has nothing to reach."
+    }
+  ],
   "notes": {
     "@automerge/automerge": "CRDT core used by the peer/mesh modules for conflict-free shared state.",
     "@automerge/automerge-repo": "Repository layer over Automerge — manages document identity, sync, and persistence.",

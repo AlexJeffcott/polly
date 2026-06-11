@@ -21,10 +21,6 @@
   },
   {
     "file": "src/client/wrapper.ts",
-    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Queue processing requires complex branching logic"
-  },
-  {
-    "file": "src/client/wrapper.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: Error logging is intentional"
   },
   {
@@ -65,7 +61,7 @@
   },
   {
     "file": "src/polly-ui/ActionInput.tsx",
-    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two render branches times two variants times four saveOn triggers; branching is inherent to the primitive."
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two render branches times two variants times five saveOn triggers; branching is inherent to the primitive."
   },
   {
     "file": "src/polly-ui/Button.tsx",
@@ -130,6 +126,14 @@
   {
     "file": "tests/setup.ts",
     "text": "// @ts-expect-error — wrapping setTimeout to intercept xstate cycle errors"
+  },
+  {
+    "file": "tests/unit/guards.test.ts",
+    "text": "// @ts-expect-error — `stillB` is not `never`, so the missing-case guard"
+  },
+  {
+    "file": "tests/unit/mesh-signaling-client.test.ts",
+    "text": "// @ts-expect-error — removing the global to exercise the guard"
   },
   {
     "file": "tests/unit/messages.test.ts",
@@ -260,6 +264,10 @@
     "text": "// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op for mocks"
   },
   {
+    "file": "tools/verify/scripts/e2e-capabilities-guard.ts",
+    "text": "// biome-ignore lint/suspicious/noConsole: e2e script needs console output"
+  },
+  {
     "file": "tools/verify/src/__tests__/analysis/message-types.test.ts",
     "text": "// biome-ignore lint/suspicious/noTemplateCurlyInString: Testing TypeScript template literal syntax"
   },
@@ -334,5 +342,9 @@
   {
     "file": "tools/verify/src/primitives/index.ts",
     "text": "// @ts-expect-error - Dynamic import path resolves correctly at runtime"
+  },
+  {
+    "file": "tools/verify/src/stryker/index.ts",
+    "text": "// biome-ignore lint/style/noDefaultExport: ergonomic `import preset from \"@fairfox/polly/stryker\"`"
   }
 ]

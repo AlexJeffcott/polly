@@ -32,6 +32,7 @@ export function Html(props: HtmlProps): JSX.Element {
     class: className,
     "data-polly-ui": true,
     "data-polly-html": true,
+    // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml — this primitive IS the documented trusted-markup escape hatch; the caller owns sanitisation (see module docs).
     dangerouslySetInnerHTML: { __html: html },
   });
 }
