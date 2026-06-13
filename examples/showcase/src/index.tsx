@@ -184,6 +184,14 @@ function Showcase() {
           <Badge variant="warning">warning</Badge>
           <Badge variant="danger">danger</Badge>
         </Row>
+        <Row label="with hover title (explains an abbreviated badge)">
+          <Badge variant="success" title="3 peers connected">
+            3
+          </Badge>
+          <Badge variant="warning" title="2 changes pending sync">
+            2
+          </Badge>
+        </Row>
       </Section>
 
       <Section id="button" title="Button">
@@ -281,6 +289,28 @@ function Showcase() {
             <TextInput name="textarea" id="ti-textarea" rows={3} placeholder="multi-line" />
           </label>
         </Row>
+        <Row label="typed">
+          <label htmlFor="ti-number" class="showcase-field-label">
+            <span class="showcase-field-name">Number (0–10, step 2)</span>
+            <TextInput name="count" id="ti-number" inputType="number" min={0} max={10} step={2} />
+          </label>
+          <label htmlFor="ti-date" class="showcase-field-label">
+            <span class="showcase-field-name">Date</span>
+            <TextInput name="due" id="ti-date" inputType="date" />
+          </label>
+        </Row>
+        <Row label="error">
+          <label htmlFor="ti-error" class="showcase-field-label">
+            <span class="showcase-field-name">Email</span>
+            <TextInput
+              name="email"
+              id="ti-error"
+              inputType="email"
+              value="not-an-email"
+              error="Enter a valid email address"
+            />
+          </label>
+        </Row>
       </Section>
 
       <Section id="select-single" title="Select (single)">
@@ -289,6 +319,14 @@ function Showcase() {
         </Row>
         <Row label="wide opt-in">
           <Select options={fruits} selected={singleSelect} wide />
+        </Row>
+        <Row label="clearable (hover the trigger for the full value)">
+          <Select
+            options={fruits}
+            selected={singleSelect}
+            clearable
+            placeholder="Any fruit"
+          />
         </Row>
         <Row label="disabled">
           <Select options={fruits} selected={singleSelect} disabled />

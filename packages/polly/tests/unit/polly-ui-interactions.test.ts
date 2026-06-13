@@ -379,6 +379,57 @@ describe("Select — option handling", () => {
     );
     expect(host.textContent).toContain("Status");
   });
+
+  test("clearable single-select prepends a placeholder option that empties the set", () => {
+    const selected = signal(new Set(["a"]));
+    const host = mount(
+      h(Select, { options: OPTS, selected, clearable: true, placeholder: "Any stage" })
+    );
+    const clear = host.querySelector("[data-polly-select-clear]");
+    const first = host.querySelector("[role='listbox'] button");
+    expect(clear).not.toBeNull();
+    expect(clear).toBe(first); // sits above the real options
+    expect(clear?.textContent).toContain("Any stage");
+    asElement(clear, HTMLButtonElement).click();
+    expect(selected.value.size).toBe(0);
+  });
+
+  test("the clear option is marked selected only while the set is empty", () => {
+    const emptyHost = mount(
+      h(Select, { options: OPTS, selected: signal(new Set<string>()), clearable: true })
+    );
+    const emptyClear = asElement(
+      emptyHost.querySelector("[data-polly-select-clear]"),
+      HTMLButtonElement
+    );
+    expect(emptyClear.className).toContain("optionSelected");
+
+    const filledHost = mount(
+      h(Select, { options: OPTS, selected: signal(new Set(["a"])), clearable: true })
+    );
+    const filledClear = asElement(
+      filledHost.querySelector("[data-polly-select-clear]"),
+      HTMLButtonElement
+    );
+    expect(filledClear.className).not.toContain("optionSelected");
+  });
+
+  test("clearable is ignored in multi-select, which has Clear already", () => {
+    const host = mount(
+      h(Select, {
+        options: OPTS,
+        selected: signal(new Set<string>()),
+        clearable: true,
+        multiSelect: true,
+      })
+    );
+    expect(host.querySelector("[data-polly-select-clear]")).toBeNull();
+  });
+
+  test("without clearable, single-select renders no clear option", () => {
+    const host = mount(h(Select, { options: OPTS, selected: signal(new Set<string>()) }));
+    expect(host.querySelector("[data-polly-select-clear]")).toBeNull();
+  });
 });
 
 // ── ActionSelect ─────────────────────────────────────────────────────

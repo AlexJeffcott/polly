@@ -40,6 +40,12 @@ export type DropdownProps = {
   triggerClassName?: string;
   /** Disables the trigger <button>. */
   triggerDisabled?: boolean;
+  /**
+   * Native hover tooltip on the trigger <button>. Select/ActionSelect
+   * pass the current selection so a truncated trigger still reveals its
+   * full value on hover.
+   */
+  triggerTitle?: string;
   id?: string;
 };
 
@@ -60,6 +66,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
     className,
     triggerClassName,
     triggerDisabled = false,
+    triggerTitle,
     id,
   } = props;
 
@@ -204,6 +211,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
         type="button"
         class={triggerClassName ?? classes["trigger"] ?? ""}
         disabled={triggerDisabled}
+        title={triggerTitle}
         data-open={isOpen.value ? "true" : "false"}
       >
         {trigger}
@@ -212,6 +220,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
         ref={menuRef}
         id={popoverId}
         role="listbox"
+        aria-multiselectable={multiSelect ? "true" : undefined}
         class={classes["menu"] ?? ""}
         data-align={align}
         popover="auto"

@@ -7,9 +7,18 @@
  * size picks the padding + font scale (small/normal/large). Icon +
  * label are arranged with a nested inline <Layout>.
  *
+ * A text `label` is the accessible name. An icon-only button (icon, no
+ * label) has none, so the type REQUIRES `aria-label` there — an unnamed
+ * icon button won't compile. No build-time lint needed; the call site
+ * itself is the gate.
+ *
  * Action wiring is declared via data-* attributes consumed by the
  * global event delegator in @fairfox/polly/actions — Button does not
  * accept an onClick prop.
+ *
+ * Every button surfaces a native hover tooltip: an explicit `title`
+ * wins, else the visible text label, else the `aria-label` (so an
+ * icon-only button still gets one). Pass `title=""` to suppress it.
  */
 
 import type { ComponentChildren, JSX, VNode } from "preact";
@@ -34,10 +43,7 @@ type BaseButtonProps = {
   bounded?: boolean;
   className?: string;
   title?: string;
-  icon?: VNode;
-  label: ComponentChildren;
   "data-action"?: string;
-  "aria-label"?: string;
   /** Additional action-payload attributes the event delegator parses
    * into `ctx.data`. `data-action-tid="t-17"` becomes `{ tid: "t-17" }`,
    * `data-action-item-id="…"` becomes `{ itemId: "…" }`, and so on.
@@ -46,7 +52,27 @@ type BaseButtonProps = {
   [actionDataAttr: `data-action-${string}`]: string | undefined;
 };
 
-type ButtonAsButton = BaseButtonProps & {
+/**
+ * Content/accessibility dimension. A visible text `label` is the
+ * accessible name, so it makes `aria-label` optional. An icon-only
+ * button has no text to name it, so `aria-label` is REQUIRED — you
+ * cannot construct an unnamed icon button. (Button's hover title then
+ * falls back to that aria-label, so the same prop gives both the
+ * accessible name and the tooltip.)
+ */
+type LabelledContent = {
+  label: ComponentChildren;
+  icon?: VNode;
+  "aria-label"?: string;
+};
+type IconOnlyContent = {
+  icon: VNode;
+  label?: never;
+  "aria-label": string;
+};
+type ButtonContent = LabelledContent | IconOnlyContent;
+
+type ButtonElement = {
   href?: never;
   target?: never;
   rel?: never;
@@ -54,7 +80,7 @@ type ButtonAsButton = BaseButtonProps & {
   type?: "button" | "submit" | "reset";
 };
 
-type ButtonAsLink = BaseButtonProps & {
+type LinkElement = {
   href: string;
   target?: string;
   rel?: string;
@@ -64,7 +90,7 @@ type ButtonAsLink = BaseButtonProps & {
   type?: never;
 };
 
-export type ButtonProps = ButtonAsButton | ButtonAsLink;
+export type ButtonProps = BaseButtonProps & ButtonContent & (ButtonElement | LinkElement);
 
 function tierClass(tier: ButtonTier): string | undefined {
   if (tier === "primary") return classes["tierPrimary"];
@@ -119,7 +145,7 @@ export function Button(props: ButtonProps): JSX.Element {
   const content = icon ? (
     <Layout inline columns="auto auto" gap="0.5em" alignItems="center">
       {icon}
-      <span>{label}</span>
+      {label !== undefined && <span>{label}</span>}
     </Layout>
   ) : (
     label
@@ -127,6 +153,16 @@ export function Button(props: ButtonProps): JSX.Element {
 
   const dataAction = props["data-action"];
   const ariaLabel = props["aria-label"];
+  // Every button surfaces a hover tooltip: an explicit title wins, else the
+  // visible text label, else the accessible name — so an icon-only button
+  // (which carries an aria-label) still gets one. Pass title="" to opt out.
+  const resolvedTitle =
+    title ??
+    (typeof label === "string" && label.length > 0
+      ? label
+      : typeof ariaLabel === "string"
+        ? ariaLabel
+        : undefined);
   // Collect every `data-action-*` extra the consumer passed so the
   // event delegator can read them off the rendered element. Without
   // this, anything beyond `data-action` is silently dropped and
@@ -146,7 +182,7 @@ export function Button(props: ButtonProps): JSX.Element {
       <a
         id={id}
         class={buttonClass}
-        title={title}
+        title={resolvedTitle}
         href={disabled ? undefined : props.href}
         target={"target" in props ? props.target : undefined}
         rel={"rel" in props ? props.rel : undefined}
@@ -170,7 +206,7 @@ export function Button(props: ButtonProps): JSX.Element {
     <button
       id={id}
       class={buttonClass}
-      title={title}
+      title={resolvedTitle}
       type={resolvedType}
       disabled={disabled}
       aria-label={ariaLabel}

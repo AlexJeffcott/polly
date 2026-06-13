@@ -96,13 +96,14 @@ export function ActionSelect(props: ActionSelectProps): JSX.Element {
     >
       {label !== undefined && <span class={classes["label"]}>{label}</span>}
       {disabled ? (
-        <span class={triggerClass} aria-disabled="true">
+        <span class={triggerClass} aria-disabled="true" title={displayText}>
           <span class={classes["triggerLabel"]}>{displayText}</span>
         </span>
       ) : (
         <Dropdown
           isOpen={isOpen}
           triggerClassName={triggerClass}
+          triggerTitle={displayText}
           trigger={
             <>
               <span class={classes["triggerLabel"]}>{displayText}</span>

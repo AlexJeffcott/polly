@@ -5,7 +5,9 @@
  * row for multi-select. The `selected` state is a Signal<Set<T>>;
  * single-select replaces the set, multi-select toggles membership.
  * Multi-select mode also shows Select All / Clear action buttons at
- * the top of the menu.
+ * the top of the menu. Single-select mode can opt into `clearable`,
+ * which prepends a placeholder-labelled option that returns the
+ * selection to empty — for "Any …" filter semantics.
  */
 
 import { type Signal, useComputed, useSignal } from "@preact/signals";
@@ -22,6 +24,14 @@ export type SelectProps<T = string> = {
   label?: string;
   placeholder?: string;
   multiSelect?: boolean;
+  /**
+   * Single-select only: prepend an option labelled with the placeholder
+   * that returns the selection to empty. Without it, picking an option
+   * is a trap — nothing in the list leads back to "any". Use it for
+   * optional filters ("Any stage"), not required form fields
+   * ("Select a team"). Ignored in multi-select, which has Clear.
+   */
+  clearable?: boolean;
   disabled?: boolean;
   /** Apply a comfortable minimum width to the trigger. Default: sizes to content. */
   wide?: boolean;
@@ -54,6 +64,7 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
     label,
     placeholder = "Select\u2026",
     multiSelect = false,
+    clearable = false,
     disabled = false,
     wide = false,
     className,
@@ -89,6 +100,12 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
     selected.value = new Set();
   };
 
+  // The clear option behaves like a normal selection: pick it, menu closes.
+  const handleClearOption = (): void => {
+    selected.value = new Set();
+    isOpen.value = false;
+  };
+
   const triggerParts = [classes["trigger"] ?? ""];
   if (isEmpty.value) triggerParts.push(classes["placeholder"] ?? "");
   if (wide) triggerParts.push(classes["triggerWide"] ?? "");
@@ -111,6 +128,7 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
         trigger={triggerContent}
         triggerClassName={triggerClass}
         triggerDisabled={disabled}
+        triggerTitle={displayText.value}
         multiSelect={multiSelect}
       >
         {multiSelect && (
@@ -125,6 +143,22 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
             </Layout>
           </div>
         )}
+        {!multiSelect && clearable && (
+          <button
+            type="button"
+            role="option"
+            aria-selected={isEmpty.value ? "true" : "false"}
+            class={
+              isEmpty.value
+                ? `${classes["option"]} ${classes["optionSelected"]}`
+                : classes["option"]
+            }
+            data-polly-select-clear
+            onClick={handleClearOption}
+          >
+            <span>{placeholder}</span>
+          </button>
+        )}
         {options.map((opt) => {
           const isSelected = selected.value.has(opt.value);
           const optClass = isSelected
@@ -134,6 +168,8 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
             <button
               key={String(opt.value)}
               type="button"
+              role="option"
+              aria-selected={isSelected ? "true" : "false"}
               class={optClass}
               onClick={() => handleOptionClick(opt.value)}
             >

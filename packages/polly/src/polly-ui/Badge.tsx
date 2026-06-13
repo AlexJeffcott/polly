@@ -5,6 +5,9 @@
  * from the `--polly-status-*` token family. The default variant uses
  * surface-sunken + muted text for a neutral pill. Consumers style
  * placement via className; the primitive owns size, shape, and colour.
+ *
+ * A badge is often an abbreviated or iconic status ("3", "●"); pass
+ * `title` to attach an explanatory hover tooltip ("3 peers connected").
  */
 
 import type { ComponentChildren, JSX } from "preact";
@@ -17,6 +20,8 @@ export type BadgeProps = {
   variant?: BadgeVariant;
   className?: string;
   id?: string;
+  /** Native hover tooltip — explains an abbreviated or iconic badge. */
+  title?: string;
 };
 
 function variantClass(variant: BadgeVariant): string | undefined {
@@ -28,13 +33,13 @@ function variantClass(variant: BadgeVariant): string | undefined {
 }
 
 export function Badge(props: BadgeProps): JSX.Element {
-  const { children, variant = "default", className, id } = props;
+  const { children, variant = "default", className, id, title } = props;
   const parts = [classes["badge"]];
   const v = variantClass(variant);
   if (v) parts.push(v);
   if (className) parts.push(className);
   return (
-    <span id={id} class={parts.join(" ")} data-polly-ui data-polly-badge={variant}>
+    <span id={id} title={title} class={parts.join(" ")} data-polly-ui data-polly-badge={variant}>
       {children}
     </span>
   );

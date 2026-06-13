@@ -31,6 +31,8 @@ const { Button } = await import("../../src/polly-ui/Button.tsx");
 const { ActionInput } = await import("../../src/polly-ui/ActionInput.tsx");
 const { ActionSelect } = await import("../../src/polly-ui/ActionSelect.tsx");
 const { Select } = await import("../../src/polly-ui/Select.tsx");
+const { TextInput } = await import("../../src/polly-ui/TextInput.tsx");
+const { Badge } = await import("../../src/polly-ui/Badge.tsx");
 const { Dropdown } = await import("../../src/polly-ui/Dropdown.tsx");
 const { Layout } = await import("../../src/polly-ui/Layout.tsx");
 const { Collapsible } = await import("../../src/polly-ui/Collapsible.tsx");
@@ -214,6 +216,47 @@ describe("Button (polly#126)", () => {
     const el = rendered(mount(h(Button, { label: "Click" })));
     expect(el.tagName).toBe("BUTTON");
     expect(el.getAttribute("download")).toBeNull();
+  });
+
+  test("hover title falls back to the string label", () => {
+    const el = rendered(mount(h(Button, { label: "Save changes" })));
+    expect(el.getAttribute("title")).toBe("Save changes");
+  });
+
+  test("an icon-only button (no label) requires + surfaces its aria-label", () => {
+    // The type makes `aria-label` mandatory when there's no text label;
+    // it becomes both the accessible name and the hover title.
+    const el = rendered(mount(h(Button, { icon: h("i", {}, "x"), "aria-label": "Close" })));
+    expect(el.getAttribute("aria-label")).toBe("Close");
+    expect(el.getAttribute("title")).toBe("Close");
+    // Icon-only renders no empty label span next to the icon.
+    const emptySpans = Array.from(el.querySelectorAll("span")).filter((s) => s.textContent === "");
+    expect(emptySpans.length).toBe(0);
+  });
+
+  test("an explicit title wins over the label", () => {
+    const el = rendered(mount(h(Button, { label: "Save", title: "Persist to disk" })));
+    expect(el.getAttribute("title")).toBe("Persist to disk");
+  });
+
+  test('title="" opts out of the label fallback (empty title shows no tooltip)', () => {
+    const el = rendered(mount(h(Button, { label: "Save", title: "" })));
+    // An explicit empty string wins over the label fallback; an empty
+    // title attribute produces no visible tooltip.
+    expect(el.getAttribute("title")).toBe("");
+  });
+});
+
+describe("Badge", () => {
+  test("forwards a hover title to explain an abbreviated badge", () => {
+    const el = rendered(mount(h(Badge, { title: "3 peers connected", children: "3" })));
+    expect(el.getAttribute("title")).toBe("3 peers connected");
+    expect(el.textContent).toBe("3");
+  });
+
+  test("omits the title attribute when none is given", () => {
+    const el = rendered(mount(h(Badge, { children: "ok" })));
+    expect(el.getAttribute("title")).toBeNull();
   });
 });
 
@@ -437,6 +480,111 @@ describe("Select", () => {
     expect(button).not.toBeNull();
     if (!(button instanceof HTMLButtonElement)) throw new Error("expected a <button>");
     expect(button.disabled).toBe(true);
+  });
+
+  test("option rows carry role=option and aria-selected", () => {
+    const el = rendered(
+      mount(
+        h(Select, {
+          selected: signal(new Set(["b"])),
+          options: [
+            { value: "a", label: "Alpha" },
+            { value: "b", label: "Beta" },
+          ],
+        })
+      )
+    );
+    const opts = Array.from(el.querySelectorAll("[role='option']"));
+    expect(opts.length).toBe(2);
+    const beta = opts.find((o) => o.textContent?.includes("Beta"));
+    const alpha = opts.find((o) => o.textContent?.includes("Alpha"));
+    expect(beta?.getAttribute("aria-selected")).toBe("true");
+    expect(alpha?.getAttribute("aria-selected")).toBe("false");
+  });
+
+  test("the trigger carries the current selection as a hover title", () => {
+    const el = rendered(
+      mount(
+        h(Select, {
+          selected: signal(new Set(["a"])),
+          options: [{ value: "a", label: "Alpha" }],
+        })
+      )
+    );
+    const button = el.querySelector("[data-polly-dropdown] > button");
+    expect(button?.getAttribute("title")).toBe("Alpha");
+  });
+
+  test("multi-select marks the listbox aria-multiselectable", () => {
+    const single = rendered(
+      mount(
+        h(Select, { selected: signal(new Set<string>()), options: [{ value: "a", label: "A" }] })
+      )
+    );
+    const multi = rendered(
+      mount(
+        h(Select, {
+          selected: signal(new Set<string>()),
+          multiSelect: true,
+          options: [{ value: "a", label: "A" }],
+        })
+      )
+    );
+    expect(
+      single.querySelector("[role='listbox']")?.getAttribute("aria-multiselectable")
+    ).toBeNull();
+    expect(multi.querySelector("[role='listbox']")?.getAttribute("aria-multiselectable")).toBe(
+      "true"
+    );
+  });
+});
+
+describe("TextInput", () => {
+  test("inputType sets the native single-line type; defaults to text", () => {
+    const def = rendered(mount(h(TextInput, { name: "a" })));
+    expect(asInput(def).getAttribute("type")).toBe("text");
+    const email = rendered(mount(h(TextInput, { name: "b", inputType: "email" })));
+    expect(asInput(email).getAttribute("type")).toBe("email");
+  });
+
+  test("min/max/step reach the single-line input", () => {
+    const el = rendered(
+      mount(h(TextInput, { name: "n", inputType: "number", min: 0, max: 10, step: 2 }))
+    );
+    const input = asInput(el);
+    expect(input.getAttribute("min")).toBe("0");
+    expect(input.getAttribute("max")).toBe("10");
+    expect(input.getAttribute("step")).toBe("2");
+  });
+
+  test("without error the primitive stays a bare input (no wrapper)", () => {
+    const el = rendered(mount(h(TextInput, { name: "q" })));
+    expect(el.tagName).toBe("INPUT");
+    expect(el.hasAttribute("data-polly-field")).toBe(false);
+  });
+
+  test("error renders a message, links it, and marks the field invalid", () => {
+    const el = rendered(mount(h(TextInput, { name: "email", error: "Enter a valid email" })));
+    expect(el.getAttribute("data-polly-field")).toBe("true");
+    const input = asInput(el.querySelector("input"));
+    const msg = el.querySelector("[role='alert']");
+    if (!(msg instanceof HTMLElement)) throw new Error("expected an alert element");
+    expect(msg.textContent).toBe("Enter a valid email");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    // aria-describedby points at the message element's id.
+    expect(input.getAttribute("aria-describedby")).toBe(msg.id);
+  });
+
+  test("error composes with a consumer-supplied describedBy", () => {
+    const el = rendered(
+      mount(h(TextInput, { name: "x", describedBy: "hint-1", error: "Required" }))
+    );
+    const input = asInput(el.querySelector("input"));
+    const msg = el.querySelector("[role='alert']");
+    if (!(msg instanceof HTMLElement)) throw new Error("expected an alert element");
+    const tokens = input.getAttribute("aria-describedby")?.split(" ") ?? [];
+    expect(tokens).toContain("hint-1");
+    expect(tokens).toContain(msg.id);
   });
 });
 

@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.79.0] - 2026-06-13
+
+### Added
+
+#### polly-ui: clearable selects, typed and validated inputs, hover tooltips
+
+`Select` gains an opt-in `clearable` prop (single-select): it prepends an
+option labelled with the placeholder that returns the selection to empty — the
+"Any …" affordance an optional filter needs, since otherwise a single-select is
+a trap with no path back to unset. Option rows now carry `role="option"` and
+`aria-selected`, and the listbox is marked `aria-multiselectable` in multi mode.
+
+`TextInput` gains `inputType` (`email`, `number`, `date`, and friends) plus
+`min`/`max`/`step` on the single-line variant, so a filter or form field gets
+the right keyboard and native validation instead of being unvalidated free
+text. A new `error` slot renders a message beneath the field, links it via
+`aria-describedby`, and marks the field invalid — but only when supplied;
+without it the primitive stays a bare native element, unchanged for consumers
+that own their surrounding structure.
+
+Every interactive control now surfaces a native hover tooltip from the shared
+level. `Button` derives its `title` from the visible text label, then the
+`aria-label`; `Select` and `ActionSelect` show the current selection on the
+trigger, so a truncated trigger still reveals its full value on hover. `Badge`
+and `TextInput` gain an opt-in `title` for explaining an abbreviated chip or a
+field hint.
+
+### Changed
+
+#### polly-ui: an icon-only `Button` requires an accessible name
+
+`ButtonProps` is now a discriminated union on content. A button with a text
+`label` is unchanged. An icon-only button — `icon` with no text label — requires
+`aria-label` at the type level, so an unnamed icon button no longer compiles and
+its tooltip is derived from that same name. No existing call site is affected;
+every button today carries a label.
+
 ## [0.78.0] - 2026-06-03
 
 ### Added

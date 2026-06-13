@@ -598,6 +598,28 @@ describe("TextInput", () => {
     expect(input.getAttribute("data-state")).toBe("invalid");
     cleanup(host);
   });
+
+  test("inputType drives the native input type", async () => {
+    const host = mountHost();
+    render(<TextInput name="due" inputType="date" />, host);
+    await flush();
+    const input = host.querySelector<HTMLInputElement>("input[name=due]")!;
+    expect(input.type).toBe("date");
+    cleanup(host);
+  });
+
+  test("error renders a linked message and marks the field invalid", async () => {
+    const host = mountHost();
+    render(<TextInput name="email" inputType="email" error="Enter a valid email" />, host);
+    await flush();
+    const input = host.querySelector<HTMLInputElement>("input[name=email]")!;
+    const msg = host.querySelector<HTMLElement>("[role=alert]")!;
+    expect(msg.textContent).toBe("Enter a valid email");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    // The browser resolves aria-describedby against the live id graph.
+    expect(input.getAttribute("aria-describedby")).toBe(msg.id);
+    cleanup(host);
+  });
 });
 
 describe("Button", () => {

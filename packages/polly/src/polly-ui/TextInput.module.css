@@ -34,4 +34,16 @@
     max-block-size: 40em;
     resize: vertical;
   }
+
+  /* Wrapper used only when an `error` message is supplied; absent it the
+     primitive stays a bare native element. */
+  .field {
+    display: grid;
+    gap: var(--polly-space-xs);
+  }
+
+  .error {
+    font-size: var(--polly-text-sm);
+    color: var(--polly-danger);
+  }
 }
