@@ -17,6 +17,7 @@
  *   polly format                     Format your code
  *   polly test [args]                Run tests (requires bun test)
  *   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
+ *   polly coverage [flags]           Coverage policy + orphan + Stryker checks
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
  *   polly quality [args]             Run quality conformance checks
@@ -293,6 +294,42 @@ async function testTiers() {
 }
 
 /**
+ * Coverage command — per-file coverage policy, orphan detection, and Stryker
+ * mutate-target validation. Zero-config in a consumer project; inside the
+ * Polly repo it runs against Polly's own coverage.config.ts.
+ */
+async function coverage() {
+  const monorepoMarker = `${__dirname}/../scripts/coverage.config.ts`;
+  const sourceCli = `${__dirname}/../tools/test/src/coverage-policy/cli.ts`;
+  const bundledCli = `${__dirname}/../tools/test/src/coverage-policy/cli.js`;
+
+  const isMonorepo = await Bun.file(monorepoMarker).exists();
+  let cliPath = sourceCli;
+  if (!isMonorepo && (await Bun.file(bundledCli).exists())) {
+    cliPath = bundledCli;
+  }
+
+  const args = [...commandArgs];
+  if (isMonorepo) {
+    // Polly's config lives under scripts/, and its Stryker config sits at the
+    // monorepo root (checked separately by `polly check`).
+    args.unshift("--config", "scripts/coverage.config.ts", "--no-mutate");
+  }
+
+  const proc = Bun.spawn(["bun", cliPath, ...args], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Coverage check failed with exit code ${exitCode}`);
+  }
+}
+
+/**
  * Test command - delegate to @fairfox/polly-test
  */
 async function test() {
@@ -405,6 +442,8 @@ Usage:
                                    Run the multi-tier suite (unit → integration
                                    → browser → e2e → verify) with timed reports
   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
+  polly coverage [flags]           Per-file coverage policy, orphan detection,
+                                   and Stryker target validation (zero-config)
   polly verify [args]              Run formal verification
   polly visualize [args]           Generate architecture diagrams
   polly quality [args]             Run quality conformance checks
@@ -453,6 +492,9 @@ async function main() {
         break;
       case "test:browser":
         await testBrowser();
+        break;
+      case "coverage":
+        await coverage();
         break;
       case "verify":
         await verify();

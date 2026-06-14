@@ -29,33 +29,15 @@
  * message-router — see below).
  */
 
-export interface FileThreshold {
-  /** Minimum `% Lines` from the `bun test --coverage` table. */
-  lines: number;
-  /** Minimum `% Funcs` from the `bun test --coverage` table. */
-  funcs: number;
-}
-
-export interface ExemptEntry {
-  /** Why this file is thin at the unit tier. */
-  reason: string;
-  /**
-   * Package-relative path to the test or script that exercises this file at a
-   * higher tier. Verified to exist by `enforce-coverage.ts`. Use the
-   * `'n/a — <reason>'` form for genuine waivers (extension-only Chrome shims,
-   * browser-only geometry, debt that needs unit tests written).
-   */
-  claimedBy: string;
-}
-
-export interface CoverageConfig {
-  defaultThreshold: FileThreshold;
-  /** Keyed by package-relative source path, e.g. `src/shared/lib/state.ts`. */
-  exempt: Record<string, ExemptEntry>;
-}
+// The policy types now live with the reusable engine that `polly coverage`
+// ships to consumers; Polly dogfoods that same engine against this config.
+import type { CoverageConfig } from "../tools/test/src/coverage-policy/types";
 
 export const config: CoverageConfig = {
   defaultThreshold: { lines: 80, funcs: 80 },
+  // Polly runs its unit suite from the `tests/` workspace, so the coverage
+  // table reports source as `../src/...`; the engine normalises that.
+  testCwd: "tests",
   exempt: {
     // ── Runtime-heavy modules whose uncovered code is genuinely exercised at
     //    a higher tier, not at the unit tier. ──

@@ -182,6 +182,12 @@ const toolsResult = await Bun.build({
     // separate entrypoint because the engine spawns it as a sibling file.
     "tools/test/src/tiers/cli.ts",
     "tools/test/src/tiers/worker.ts",
+    // Relay e2e kit (withRepoServer/waitForRelayConvergence/relayStats). Node
+    // target: it imports `ws` + createPeerRepoServer, both external here.
+    "tools/test/src/e2e-relay/index.ts",
+    // Consumer-facing coverage-policy + mutate-target guards (`polly coverage`).
+    "tools/test/src/coverage-policy/cli.ts",
+    "tools/test/src/coverage-policy/index.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
     "scripts/build-extension.ts",

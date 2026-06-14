@@ -82,6 +82,14 @@
       "import": "./dist/tools/test/src/e2e-mesh/index.js",
       "types": "./dist/tools/test/src/e2e-mesh/index.d.ts"
     },
+    "./test/e2e-relay": {
+      "import": "./dist/tools/test/src/e2e-relay/index.js",
+      "types": "./dist/tools/test/src/e2e-relay/index.d.ts"
+    },
+    "./test/coverage": {
+      "import": "./dist/tools/test/src/coverage-policy/index.js",
+      "types": "./dist/tools/test/src/coverage-policy/index.d.ts"
+    },
     "./peer": {
       "import": "./dist/src/peer.js",
       "types": "./dist/src/peer.d.ts"
@@ -164,7 +172,7 @@
     "test:e2e:stryker": "bun scripts/test/cli.ts verify --only=stryker",
     "test:e2e:visualize": "bun scripts/test/cli.ts verify --only=visualize",
     "check": "bun scripts/check.ts",
-    "coverage:enforce": "bun scripts/enforce-coverage.ts",
+    "coverage:enforce": "bun tools/test/src/coverage-policy/cli.ts --config scripts/coverage.config.ts --no-mutate",
     "prepublishOnly": "bun run typecheck && bun run lint && bun run --cwd tests test && bun run build:lib",
     "publish:public": "bun run scripts/publish.ts"
   },

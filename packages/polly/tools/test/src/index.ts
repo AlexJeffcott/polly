@@ -43,7 +43,9 @@ export {
   createMockTabs,
   createMockWindow,
 } from "./adapters/index";
-
+// Timeout diagnostic context — the formatter behind the convergence pollers'
+// `context()` option, for consumers writing their own pollers.
+export { resolveContext } from "./e2e-shared/timeout-context";
 // Re-export test utilities
 export {
   createMockRoutedMessage,

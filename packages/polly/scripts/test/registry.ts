@@ -95,7 +95,15 @@ export function internalPlan(): TierPlan {
           tags: ["coverage", "policy"],
           exec: {
             kind: "command",
-            argv: ["bun", `${scriptsDir}/enforce-coverage.ts`],
+            // The consumer-facing engine, run against Polly's own config — the
+            // same entry point `polly coverage` gives a consumer.
+            argv: [
+              "bun",
+              `${packageRoot}/tools/test/src/coverage-policy/cli.ts`,
+              "--config",
+              `${scriptsDir}/coverage.config.ts`,
+              "--no-mutate",
+            ],
             cwd: packageRoot,
           },
         },
@@ -109,6 +117,9 @@ export function internalPlan(): TierPlan {
       cases: [
         e2e("cli.init-build", "e2e-cli-init-build.ts", { tags: ["cli", "init", "build"] }),
         e2e("cli.quality", "e2e-cli-quality.ts", { tags: ["cli", "quality"] }),
+        e2e("cli.coverage-consumer", "e2e-coverage-consumer.ts", {
+          tags: ["cli", "coverage"],
+        }),
       ],
     },
     {
