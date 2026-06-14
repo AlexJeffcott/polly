@@ -163,6 +163,7 @@
     "test:e2e:stryker": "bun scripts/test/cli.ts verify --only=stryker",
     "test:e2e:visualize": "bun scripts/test/cli.ts verify --only=visualize",
     "check": "bun scripts/check.ts",
+    "coverage:enforce": "bun scripts/enforce-coverage.ts",
     "prepublishOnly": "bun run typecheck && bun run lint && bun run --cwd tests test && bun run build:lib",
     "publish:public": "bun run scripts/publish.ts"
   },
