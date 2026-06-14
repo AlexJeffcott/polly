@@ -151,6 +151,7 @@
     "test:quick": "bun scripts/test/cli.ts unit integration",
     "test:full": "bun scripts/test/cli.ts --full --json",
     "test:browser": "bun scripts/test/cli.ts browser",
+    "test:coverage": "bun scripts/test/cli.ts coverage",
     "test:e2e": "bun scripts/test/cli.ts e2e-cli e2e-relay e2e-mesh --json",
     "test:e2e:full": "bun scripts/test/cli.ts e2e-cli e2e-relay browser e2e-mesh verify --json",
     "test:e2e:cli": "bun scripts/test/cli.ts e2e-cli",

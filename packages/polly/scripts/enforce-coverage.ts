@@ -25,6 +25,7 @@
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { Glob } from "bun";
 import { config } from "./coverage.config.ts";
 
 /** This script lives at packages/polly/scripts/ — one up is the package root. */
@@ -203,7 +204,47 @@ function report(findings: Findings): boolean {
   return ok;
 }
 
+/**
+ * Source files that no unit test ever imports — they produce no coverage row,
+ * so a number-only gate can't see them. This is the blind spot behind the
+ * polly#57 trap: a file wired to nothing is invisible, not failing. A file
+ * is an orphan only if it is neither covered nor exempt; barrels and type-only
+ * modules legitimately show up here and are cleared by adding an exemption.
+ */
+async function findOrphans(covered: Set<string>): Promise<string[]> {
+  const orphans: string[] = [];
+  const glob = new Glob("src/**/*.{ts,tsx}");
+  for await (const file of glob.scan({ cwd: PACKAGE_ROOT, onlyFiles: true })) {
+    // Test files and declarations are not source-under-coverage.
+    if (file.endsWith(".d.ts") || /\.test\.tsx?$/.test(file) || file.includes("/__tests__/")) {
+      continue;
+    }
+    if (covered.has(file) || config.exempt[file]) continue;
+    orphans.push(file);
+  }
+  return orphans.sort();
+}
+
+/** Returns false only when orphans exist AND `--strict-orphans` was passed. */
+function reportOrphans(orphans: string[], strict: boolean, list: boolean): boolean {
+  if (orphans.length === 0) return true;
+  process.stderr.write(
+    `${strict ? "❌" : "⚠️ "} ${orphans.length} src file(s) never imported by a unit test (no coverage row, not exempt).\n`
+  );
+  if (list) {
+    for (const f of orphans) process.stderr.write(`   ${f}\n`);
+    process.stderr.write(
+      "   Add a unit test, exempt with a higher-tier claim, or (barrels/types) exempt as having nothing to cover.\n"
+    );
+  } else {
+    process.stderr.write("   Run with --orphans to list them, --strict-orphans to fail on them.\n");
+  }
+  return !strict;
+}
+
 const useStdin = process.argv.includes("--stdin");
+const strictOrphans = process.argv.includes("--strict-orphans");
+const listOrphans = strictOrphans || process.argv.includes("--orphans");
 const text = useStdin ? await readStdin() : await runCoverage();
 const rows = parseCoverageTable(text);
 
@@ -218,12 +259,16 @@ if (rows.length === 0) {
 }
 
 const findings = evaluate(rows);
-const ok = report(findings);
+const orphans = await findOrphans(new Set(rows.map((r) => r.file)));
+const policyOk = report(findings);
+const orphansOk = reportOrphans(orphans, strictOrphans, listOrphans);
+const ok = policyOk && orphansOk;
 
 if (ok) {
   const exemptCount = Object.keys(config.exempt).length;
+  const orphanNote = orphans.length > 0 ? `, ${orphans.length} orphan (advisory)` : "";
   process.stdout.write(
-    `✅ coverage policy ok — ${rows.length} src files at floor ${config.defaultThreshold.lines}/${config.defaultThreshold.funcs}, ${exemptCount} exempt (all claims verified)\n`
+    `✅ coverage policy ok — ${rows.length} src files at floor ${config.defaultThreshold.lines}/${config.defaultThreshold.funcs}, ${exemptCount} exempt (all claims verified)${orphanNote}\n`
   );
 }
 process.exit(ok ? 0 : 1);

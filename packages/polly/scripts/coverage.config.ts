@@ -115,12 +115,13 @@ export const config: CoverageConfig = {
     "src/actions/store.tsx": {
       reason:
         "root store + action dispatchers; the JSX cwd gotcha keeps it out of the unit mutation matrix",
-      claimedBy: "tests/browser/mesh-client-roundtrip.browser.ts",
+      claimedBy:
+        "n/a — no browser test mounts the root store yet; dispatchers run when the full app mounts. A tests/browser store-mount test would let this claim a real file",
     },
     "src/actions/event-delegation.ts": {
       reason:
         "data-action DOM event wiring; only meaningful against a live DOM in the browser tier",
-      claimedBy: "tests/browser/mesh-client-roundtrip.browser.ts",
+      claimedBy: "tests/browser/actions/event-delegation.browser.ts",
     },
     "src/polly-ui/Dropdown.tsx": {
       reason:

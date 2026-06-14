@@ -29,6 +29,7 @@ function e2e(id: string, file: string, opts: Partial<CaseSpec> = {}): CaseSpec {
 export const TIER_NAMES = [
   "unit",
   "integration",
+  "coverage",
   "e2e-cli",
   "e2e-relay",
   "browser",
@@ -42,6 +43,7 @@ export const TIER_NAMES = [
 export const ALL_TIERS = [
   "unit",
   "integration",
+  "coverage",
   "e2e-cli",
   "e2e-relay",
   "browser",
@@ -75,6 +77,26 @@ export function internalPlan(): TierPlan {
             kind: "command",
             argv: ["bun", "test", "integration"],
             cwd: `${packageRoot}/tests`,
+          },
+        },
+      ],
+    },
+    {
+      name: "coverage",
+      description: "per-file coverage policy + claimed-by exemptions (enforce-coverage.ts)",
+      timeoutMs: 180_000,
+      cases: [
+        {
+          // Re-runs the unit suite with --coverage and applies the policy in
+          // scripts/coverage.config.ts. Self-spawns `bun test --coverage`, so
+          // the ~15s overlap with the unit tier is intentional and cheap
+          // against the full gate's Docker tiers.
+          id: "coverage.enforce",
+          tags: ["coverage", "policy"],
+          exec: {
+            kind: "command",
+            argv: ["bun", `${scriptsDir}/enforce-coverage.ts`],
+            cwd: packageRoot,
           },
         },
       ],
