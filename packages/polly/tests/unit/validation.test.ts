@@ -5,7 +5,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { validateArray, validateEnum, validatePartial, validateShape } from "../validation";
+import {
+  validateArray,
+  validateEnum,
+  validatePartial,
+  validateShape,
+} from "@/shared/lib/validation";
 
 describe("validateShape", () => {
   test("should validate simple object shapes", () => {

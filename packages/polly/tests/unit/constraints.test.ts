@@ -14,7 +14,7 @@ import {
   isRuntimeConstraintsEnabled,
   registerConstraint,
   registerConstraints,
-} from "../constraints";
+} from "@/shared/lib/constraints";
 
 describe("registerConstraint", () => {
   afterEach(() => {
