@@ -5,8 +5,7 @@
   "plugins": ["stryker-mutator-bun-runner"],
   "bun": {
     "testFiles": [
-      "packages/polly/tests/unit/**/*.test.ts",
-      "packages/polly/src/**/*.test.ts"
+      "packages/polly/tests/unit/**/*.test.ts"
     ],
     "timeout": 30000
   },
