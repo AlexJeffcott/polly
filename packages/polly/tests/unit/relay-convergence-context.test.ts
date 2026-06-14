@@ -47,7 +47,8 @@ describe("waitForRelayConvergence — timeout context", () => {
     }).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(Error);
-    const message = (err as Error).message;
+    if (!(err instanceof Error)) throw new Error("expected an Error");
+    const message = err.message;
     expect(message).toContain("did not hold for every peer");
     expect(message).toContain("peer-1");
     expect(message).toContain("transport: clients=0 docs=0");
@@ -59,7 +60,9 @@ describe("waitForRelayConvergence — timeout context", () => {
       pollMs: 5,
     }).catch((e: unknown) => e);
 
-    expect((err as Error).message).not.toContain("transport:");
+    expect(err).toBeInstanceOf(Error);
+    if (!(err instanceof Error)) throw new Error("expected an Error");
+    expect(err.message).not.toContain("transport:");
   });
 
   test("never evaluates the context when the predicate already holds", async () => {
