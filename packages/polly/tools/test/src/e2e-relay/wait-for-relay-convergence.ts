@@ -9,6 +9,8 @@
  * typically `handle.doc()` or a `$peerState` signal's `.value`.
  */
 
+import { resolveContext } from "../e2e-shared/timeout-context";
+
 export interface RelayConvergenceTarget {
   /** Label for the failure summary. */
   peerId: string;
@@ -22,6 +24,14 @@ export interface WaitForRelayConvergenceOptions {
   timeoutMs?: number;
   /** Poll interval. Defaults to 50ms. */
   pollMs?: number;
+  /**
+   * Optional one-line diagnostic snapshot, evaluated ONLY on timeout and
+   * appended to the failure. Use it to surface live transport state the
+   * per-peer values can't show — e.g. `() => relayStats(server)` for the
+   * relay's connected-client and document counts. A throwing or rejecting
+   * context is swallowed so it can never mask the real timeout.
+   */
+  context?: () => string | Promise<string>;
 }
 
 /**
@@ -45,7 +55,8 @@ export async function waitForRelayConvergence(
   const summary = last
     .map(({ peerId, value }) => `  ${peerId}: ${JSON.stringify(value)}`)
     .join("\n");
+  const transport = await resolveContext(options.context);
   throw new Error(
-    `waitForRelayConvergence: predicate did not hold for every peer within ${timeoutMs}ms.\n${summary}`
+    `waitForRelayConvergence: predicate did not hold for every peer within ${timeoutMs}ms.\n${summary}${transport}`
   );
 }

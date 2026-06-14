@@ -63,3 +63,17 @@ export async function withRepoServer(): Promise<WithRepoServerResult> {
     },
   };
 }
+
+/**
+ * A one-line transport snapshot of a relay server, for convergence-timeout
+ * diagnostics. `clients` is how many peers currently hold a socket to the hub
+ * (the `ws` server's tracked connections); `docs` is how many documents the
+ * hub's repo knows about. Pass `() => relayStats(relay.server)` as the
+ * `context` of a convergence poller so a timeout answers the first question
+ * worth asking — did the peers even reach the relay, and does it have the doc?
+ */
+export function relayStats(server: PeerRepoServer): string {
+  const clients = server.webSocketServer.clients.size;
+  const docs = Object.keys(server.repo.handles).length;
+  return `clients=${clients} docs=${docs}`;
+}

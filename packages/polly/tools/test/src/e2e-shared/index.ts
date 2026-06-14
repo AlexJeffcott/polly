@@ -7,3 +7,4 @@ export {
   type TierResult,
   type TierRun,
 } from "./contract";
+export { resolveContext } from "./timeout-context";

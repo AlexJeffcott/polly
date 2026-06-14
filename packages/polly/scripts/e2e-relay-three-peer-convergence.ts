@@ -39,6 +39,7 @@ import {
 } from "../src/peer";
 import {
   type RelayConvergenceTarget,
+  relayStats,
   waitForRelayConvergence,
   withRepoServer,
 } from "../tools/test/src/e2e-relay";
@@ -168,7 +169,9 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       { peerId: "peer-2", read: () => h2.doc()?.title },
       { peerId: "peer-3", read: () => h3.doc()?.title },
     ];
-    await waitForRelayConvergence(targets, (value) => value === "from peer-1");
+    await waitForRelayConvergence(targets, (value) => value === "from peer-1", {
+      context: () => relayStats(relay.server),
+    });
 
     // Direction 2: a non-authoring client mutates. The change must flow
     // peer-2 → server → peers 1 and 3.
@@ -181,7 +184,9 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       { peerId: "peer-2", read: () => h2.doc()?.body },
       { peerId: "peer-3", read: () => h3.doc()?.body },
     ];
-    await waitForRelayConvergence(bodyTargets, (value) => value === "from peer-2");
+    await waitForRelayConvergence(bodyTargets, (value) => value === "from peer-2", {
+      context: () => relayStats(relay.server),
+    });
 
     return { pass: true };
   } catch (err) {

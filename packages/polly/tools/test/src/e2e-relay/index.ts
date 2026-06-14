@@ -14,4 +14,4 @@ export {
   type WaitForRelayConvergenceOptions,
   waitForRelayConvergence,
 } from "./wait-for-relay-convergence";
-export { type WithRepoServerResult, withRepoServer } from "./with-repo-server";
+export { relayStats, type WithRepoServerResult, withRepoServer } from "./with-repo-server";

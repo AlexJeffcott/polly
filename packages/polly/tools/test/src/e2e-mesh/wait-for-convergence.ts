@@ -10,6 +10,7 @@
  * expected set of values.
  */
 
+import { resolveContext } from "../e2e-shared/timeout-context";
 import type { LaunchedPeer } from "./launch-peer";
 
 export interface PeerSnapshot {
@@ -29,6 +30,14 @@ export interface WaitForConvergenceOptions {
   timeoutMs?: number;
   /** Poll interval. Defaults to 200ms. */
   pollMs?: number;
+  /**
+   * Optional one-line diagnostic snapshot, evaluated ONLY on timeout and
+   * appended to the failure. Use it to surface transport state the per-peer
+   * DOM snapshot can't show — signaling-relay connections, doc count, etc. A
+   * throwing or rejecting context is swallowed so it can never mask the real
+   * timeout.
+   */
+  context?: () => string | Promise<string>;
 }
 
 async function readPeerSnapshot(peer: LaunchedPeer): Promise<PeerSnapshot> {
@@ -68,8 +77,9 @@ export async function waitForConvergence(
         `  ${s.peerId}: status="${s.status}" peerCount=${s.peerCount} items=${JSON.stringify(s.items)}`
     )
     .join("\n");
+  const transport = await resolveContext(options.context);
   throw new Error(
-    `waitForConvergence: predicate did not hold for every peer within ${timeoutMs}ms.\n${summary}`
+    `waitForConvergence: predicate did not hold for every peer within ${timeoutMs}ms.\n${summary}${transport}`
   );
 }
 
