@@ -22,10 +22,11 @@
  * The shape is TS (not JSON) on purpose: the comments document the tiering
  * decision next to the decision itself.
  *
- * NOTE: the floor starts at 70/40, not 80/80. That is a deliberate starting
- * line, not the destination. The four files currently in the 70–80 band
- * (state.ts, message-bus.ts, mesh-state.ts, message-router.ts) pass the floor
- * today and are the first targets when the floor is raised.
+ * The floor is 80/80. It started at 70/40 as a deliberate starting line; the
+ * band files were then driven up with real tests (state.ts via the rescued
+ * src/__tests__ suites, message-bus.ts routers, actions/testing.ts, TextInput)
+ * or exempted where their uncovered code is genuinely higher-tier (mesh-state,
+ * message-router — see below).
  */
 
 export interface FileThreshold {
@@ -54,8 +55,21 @@ export interface CoverageConfig {
 }
 
 export const config: CoverageConfig = {
-  defaultThreshold: { lines: 70, funcs: 40 },
+  defaultThreshold: { lines: 80, funcs: 80 },
   exempt: {
+    // ── Runtime-heavy modules whose uncovered code is genuinely exercised at
+    //    a higher tier, not at the unit tier. ──
+    "src/shared/lib/mesh-state.ts": {
+      reason:
+        "$meshState/$meshText/$meshCounter/$meshList — the pure wrappers are unit-tested; the Automerge replica + WebRTC sync paths only run with real peers",
+      claimedBy: "scripts/e2e-mesh-three-peer-convergence.ts",
+    },
+    "src/background/message-router.ts": {
+      reason:
+        "routing logic is unit-tested; the uncovered functions are chrome.runtime/tabs port wiring (onConnect/onMessage/onDisconnect, tab listeners) that only fire inside the MV3 background",
+      claimedBy: "scripts/e2e-extension-storage.ts",
+    },
+
     // ── Chrome API adapters: thin shims over `chrome.*` that only execute
     //    inside the unpacked extension. Not reachable from happy-dom. ──
     "src/shared/adapters/chrome/storage.chrome.ts": {

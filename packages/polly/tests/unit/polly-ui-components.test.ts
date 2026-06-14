@@ -586,6 +586,22 @@ describe("TextInput", () => {
     expect(tokens).toContain("hint-1");
     expect(tokens).toContain(msg.id);
   });
+
+  test("variant=multi renders a textarea carrying the multi data hook", () => {
+    const el = rendered(mount(h(TextInput, { name: "bio", variant: "multi", rows: 4 })));
+    const textarea = el instanceof HTMLTextAreaElement ? el : el.querySelector("textarea");
+    if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("expected a textarea");
+    expect(textarea.getAttribute("data-polly-input-variant")).toBe("multi");
+    expect(textarea.getAttribute("rows")).toBe("4");
+  });
+
+  test("a signal value is controlled: onInput writes the typed value back", () => {
+    const value = signal("");
+    const input = asInput(rendered(mount(h(TextInput, { name: "c", value }))));
+    input.value = "hello";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(value.value).toBe("hello");
+  });
 });
 
 describe("Dropdown", () => {
