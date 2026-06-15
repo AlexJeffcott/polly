@@ -188,6 +188,10 @@ const toolsResult = await Bun.build({
     // Consumer-facing coverage-policy + mutate-target guards (`polly coverage`).
     "tools/test/src/coverage-policy/cli.ts",
     "tools/test/src/coverage-policy/index.ts",
+    // Mutation testing + useless-test detection (`polly mutate`). cli.ts is the
+    // command; index.ts is the @fairfox/polly/mutate library surface.
+    "tools/mutate/src/cli.ts",
+    "tools/mutate/src/index.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
     "scripts/build-extension.ts",
@@ -304,6 +308,7 @@ try {
       "tools/verify/src/config.ts",
       "tools/verify/src/stryker/index.ts",
       "tools/test/src/**/*",
+      "tools/mutate/src/**/*",
       "tools/quality/src/index.ts",
       "tools/quality/src/no-as-casting.ts",
       "tools/quality/src/logger.ts",

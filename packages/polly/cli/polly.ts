@@ -18,6 +18,7 @@
  *   polly test [args]                Run tests (requires bun test)
  *   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
  *   polly coverage [flags]           Coverage policy + orphan + Stryker checks
+ *   polly mutate [args]              Mutation testing + useless-test detection
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
  *   polly quality [args]             Run quality conformance checks
@@ -139,6 +140,31 @@ async function verify() {
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
     throw new Error(`Verification failed with exit code ${exitCode}`);
+  }
+}
+
+/**
+ * Mutate command - delegate to tools/mutate (Stryker + useless-test detection)
+ */
+async function mutate() {
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../tools/mutate/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/mutate/src/cli.ts`;
+  const mutateCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  // Pass the full commandArgs through — the tool's own cli reads the subcommand
+  // (run/report/decisions/verify) as its first positional.
+  const proc = Bun.spawn(["bun", mutateCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Mutation testing failed with exit code ${exitCode}`);
   }
 }
 
@@ -444,6 +470,8 @@ Usage:
   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
   polly coverage [flags]           Per-file coverage policy, orphan detection,
                                    and Stryker target validation (zero-config)
+  polly mutate [init|run|report|verify] Mutation testing + useless/redundant-test detection
+  polly mutate decisions [decide]  Review/record verdicts on subsumed tests
   polly verify [args]              Run formal verification
   polly visualize [args]           Generate architecture diagrams
   polly quality [args]             Run quality conformance checks
@@ -495,6 +523,9 @@ async function main() {
         break;
       case "coverage":
         await coverage();
+        break;
+      case "mutate":
+        await mutate();
         break;
       case "verify":
         await verify();

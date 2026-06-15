@@ -24,21 +24,37 @@ git tracks renames — with the case list as drill-down.
 
 ## Usage
 
+Shipped as the `polly mutate` command — consumers get it via `@fairfox/polly`, and
+the pure analysis pieces are importable from `@fairfox/polly/mutate`:
+
+```sh
+polly mutate run             # run Stryker, then print the signals report
+polly mutate report          # print the signals from an existing mutation.json
+polly mutate decisions       # join signals against the committed decisions log
+polly mutate verify          # assert the matrix contract (--run for a fresh pass)
+```
+
+The redundancy/subsumption sections need a **complete** kill matrix (the patched,
+no-bail Bun runner below). Without it `report`/`run` degrade to score + gaps +
+theatre and print a warning; `verify` reports the broken contract.
+
+In this monorepo the same code also backs the root scripts:
+
 ```sh
 bun run mutation             # produce reports/mutation/mutation.json
-bun run test-debt            # print the signals report
-bun run test-debt:decisions  # join signals against the committed decisions log
-bun run test-debt:verify     # run a fresh pass + assert the matrix contract
+bun run test-debt            # = polly mutate report
+bun run test-debt:decisions  # = polly mutate decisions
+bun run test-debt:verify     # = polly mutate verify --run
 ```
 
 ### Decisions log
 
 Signals are derived and regenerable; **decisions** about them are not, and live
-in `decisions.jsonl` (committed, mergeable, append-only, last-write-wins per
-file). Record one with:
+in `.polly/test-debt/decisions.jsonl` (committed, mergeable, append-only,
+last-write-wins per file; override with `--decisions <path>`). Record one with:
 
 ```sh
-bun scripts/test-debt/decisions.ts decide <test-file> <keep|prune|rewrite|investigate> "<rationale>"
+polly mutate decisions decide <test-file> <keep|prune|rewrite|investigate> "<rationale>"
 ```
 
 `decisions.ts` (default `status`) joins the fresh matrix against the log and
