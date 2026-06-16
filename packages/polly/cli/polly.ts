@@ -192,6 +192,28 @@ async function visualize() {
 }
 
 /**
+ * Gallery command - delegate to tools/gallery (serve/export the polly-ui gallery)
+ */
+async function gallery() {
+  const bundledCli = `${__dirname}/../tools/gallery/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/gallery/src/cli.ts`;
+  const galleryCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  const proc = Bun.spawn(["bun", galleryCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Gallery failed with exit code ${exitCode}`);
+  }
+}
+
+/**
  * Quality command - delegate to @fairfox/polly-quality
  */
 async function quality() {
@@ -474,6 +496,7 @@ Usage:
   polly mutate decisions [decide]  Review/record verdicts on subsumed tests
   polly verify [args]              Run formal verification
   polly visualize [args]           Generate architecture diagrams
+  polly gallery [--port|--build|--open] Serve/export the polly-ui component gallery
   polly quality [args]             Run quality conformance checks
   polly help                       Show this help
 
@@ -532,6 +555,9 @@ async function main() {
         break;
       case "visualize":
         await visualize();
+        break;
+      case "gallery":
+        await gallery();
         break;
       case "quality":
         await quality();

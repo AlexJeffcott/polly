@@ -1,0 +1,101 @@
+/*
+ * Gallery scaffolding — the catalogue chrome that has no polly primitive: the
+ * page reset, the heading scale, and the specimen stage. Component arrangement
+ * itself goes through <Layout>, <Cluster>, and <Surface>; everything here is
+ * token-driven so it retints with the theme.
+ */
+
+/* Standalone page reset — eal's showcase inherited this from its app shell; the
+ * gallery serves its own page, so it sets the base background, ink, and font
+ * from tokens here. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  background-color: var(--polly-surface-sunken);
+  color: var(--polly-text);
+  font-family: var(--polly-font-sans);
+  font-size: var(--polly-text-md);
+  line-height: var(--polly-line-height-base);
+}
+
+/* Headings — polly has no heading primitive, so the scale is set here from
+ * typography tokens rather than left to the user-agent default. */
+.gallery-title {
+  margin: 0;
+  font-size: var(--polly-text-3xl);
+  font-weight: var(--polly-weight-bold);
+  line-height: var(--polly-line-height-heading);
+}
+.gallery-section-title {
+  margin: 0;
+  font-size: var(--polly-text-xl);
+  font-weight: var(--polly-weight-bold);
+  line-height: var(--polly-line-height-heading);
+}
+
+/* A specimen must be free to shrink below its content so a wide component wraps
+ * inside the grid cell instead of forcing horizontal overflow. */
+.gallery-specimen {
+  min-inline-size: 0;
+}
+/* Specimens that need the full row — layouts, cards, forms. */
+.gallery-specimen--wide {
+  grid-column: 1 / -1;
+}
+
+/* The stage holds the live component(s). A wrapping flex row keeps small
+ * specimens (buttons, badges) tidy; `min-inline-size: 0` lets the stage shrink
+ * below its content's min-content width so an intrinsically wide child (the
+ * Tabs nav) scrolls within its own bounds instead of pushing the cell wider. */
+.gallery-stage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--polly-space-sm);
+  align-items: center;
+  min-inline-size: 0;
+}
+.gallery-specimen--wide .gallery-stage {
+  display: block;
+}
+
+/* The caption under each specimen — the prop combination on show. */
+.gallery-code {
+  font-family: var(--polly-font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* The Dropdown specimen dresses the primitive's bare trigger button so it reads
+ * as a real consumer would render it. Polly's <Dropdown> sets nothing but
+ * `display: inline-block` on the trigger by design — Select / ActionSelect
+ * supply their own chrome and caret. Applied via the `triggerClassName` prop. */
+.gallery-dropdown-trigger {
+  display: inline-flex;
+  gap: var(--polly-space-sm);
+  align-items: center;
+  padding: var(--polly-space-sm) var(--polly-space-md);
+  border: var(--polly-border-width-default) solid var(--polly-border);
+  border-radius: var(--polly-radius-sm);
+  background-color: var(--polly-surface);
+  color: var(--polly-text);
+  font: inherit;
+  cursor: pointer;
+}
+/* Consume polly's shared caret tokens so the demo's indicator matches Select /
+ * Collapsible automatically. Open-state rotation is driven by the trigger's own
+ * `data-open` attribute. */
+.gallery-dropdown-caret {
+  display: inline-block;
+  line-height: 1;
+  color: var(--polly-caret-color);
+  font-size: var(--polly-caret-size);
+  transition: transform var(--polly-motion-fast) ease;
+}
+.gallery-dropdown-caret::before {
+  content: var(--polly-caret-glyph);
+}
+.gallery-dropdown-trigger[data-open="true"] .gallery-dropdown-caret {
+  transform: rotate(180deg);
+}

@@ -198,6 +198,10 @@ export function internalPlan(): TierPlan {
           needs: ["browser"],
           tags: ["elysia", "offline", "drain"],
         }),
+        e2e("gallery.render", "e2e-gallery.ts", {
+          needs: ["browser"],
+          tags: ["gallery", "ui", "visual"],
+        }),
       ],
     },
     {

@@ -46,6 +46,7 @@
     "src/**/*",
     "cli/**/*",
     "scripts/**/*",
+    "tools/gallery/src/**/*",
     "build.ts",
     "build-lib.ts",
     "bun-env.d.ts",

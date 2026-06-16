@@ -1,0 +1,3 @@
+# Per-run visual artifacts (the screenshot taken this run, and any diff image).
+# Only the committed baselines under __baselines__/ are tracked.
+__diffs__/

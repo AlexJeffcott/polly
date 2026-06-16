@@ -194,6 +194,9 @@ const toolsResult = await Bun.build({
     "tools/mutate/src/index.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
+    // Component gallery (`polly gallery`). server.ts is bundled into cli.js; the
+    // browser client is pre-built separately into dist/gallery (see below).
+    "tools/gallery/src/cli.ts",
     "scripts/build-extension.ts",
   ],
   outdir: DIST_DIR,
@@ -268,6 +271,16 @@ await Bun.write(
 );
 
 console.log("✅ UI stylesheets copied");
+console.log("🔨 Building static component gallery...");
+
+// Pre-build the polly-ui gallery into dist/gallery. Polly ships only `dist`, so
+// the published `polly gallery` can't bundle from source at request time — it
+// serves these self-contained files. One Bun.build of the client emits the JS +
+// a CSS artifact (the components' module CSS plus the global stylesheets).
+const { buildGalleryToDir } = await import("./tools/gallery/src/server.ts");
+const galleryFiles = await buildGalleryToDir(join(DIST_DIR, "gallery"));
+console.log(`✅ Gallery built (${galleryFiles.length} files in dist/gallery)`);
+
 console.log("🔨 Copying specs for verification tool...");
 
 // Copy MessageRouter.tla specs to dist so verify CLI can find them

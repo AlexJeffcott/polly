@@ -18,6 +18,12 @@ declare module "*.module.css" {
   export = classes;
 }
 
+// Plain (non-module) stylesheets imported for their side effect, e.g.
+// `import "./theme.css"`. The gallery client pulls in the global polly-ui
+// stylesheets this way so Bun bundles them alongside the component CSS.
+// `*.module.css` above is the more specific match, so it still wins for modules.
+declare module "*.css" {}
+
 // Bun-specific globals
 interface ImportMeta {
   /**
