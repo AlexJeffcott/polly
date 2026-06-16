@@ -140,7 +140,16 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     // generous mismatch (excluding anti-aliasing) to absorb cross-platform font
     // rendering while still catching a blank/structurally-broken page. Re-baseline
     // on the CI platform with POLLY_VISUAL_UPDATE=1 if the noise floor is higher.
+    //
+    // Pin prefers-color-scheme: theme.css flips to a dark palette under
+    // `@media (prefers-color-scheme: dark)`, and an un-emulated headless Chrome
+    // inherits the OS appearance. macOS auto-dark at night would render the whole
+    // page dark and blow past the 5% threshold against a light baseline (every
+    // background pixel inverts) — a flake that depends on the wall clock, not the
+    // code. Forcing "light" makes the capture deterministic and matches the
+    // committed light-mode baseline regardless of when/where it runs.
     const visual = await matchBaseline(page, "gallery", baselinesDir, diffsDir, {
+      theme: "light",
       motion: "reduced",
       settleMs: 300,
       includeAA: false,
