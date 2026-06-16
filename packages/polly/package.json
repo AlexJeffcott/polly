@@ -308,16 +308,5 @@
   "homepage": "https://github.com/AlexJeffcott/polly#readme",
   "trustedDependencies": [
     "node-datachannel"
-  ],
-  "overrides": {
-    "@babel/core": "7.29.7",
-    "basic-ftp": "^5.3.1",
-    "brace-expansion": "^2.0.3",
-    "file-type": "^21.3.1",
-    "ip-address": "^10.1.1",
-    "js-yaml": "4.2.0",
-    "minimatch": "^9.0.6",
-    "uuid": "^14.0.0",
-    "ws": "8.21.0"
-  }
+  ]
 }
