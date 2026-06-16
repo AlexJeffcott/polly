@@ -15,6 +15,7 @@
       "!**/build",
       "!**/coverage",
       "!**/reports",
+      "!**/test-results",
       "!**/.stryker-tmp",
       "!**/vendor",
       "!**/build*.ts",
