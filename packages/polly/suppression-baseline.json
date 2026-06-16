@@ -204,6 +204,26 @@
     "text": "// biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability"
   },
   {
+    "file": "tools/mutate/src/cli.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface."
+  },
+  {
+    "file": "tools/mutate/src/decisions.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a linear join of signals against decisions — clearer as one pass than split."
+  },
+  {
+    "file": "tools/mutate/src/ingest.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two flat insert loops inside one transaction — keeping them together is the point."
+  },
+  {
+    "file": "tools/mutate/src/report.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a textbook greedy set-cover loop — clearer whole than split."
+  },
+  {
+    "file": "tools/mutate/src/report.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one report builder emitting all sections in order — splitting would scatter the shared db/out."
+  },
+  {
     "file": "tools/quality/src/css/check-layout.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-file visitor covers filetype, suppression, and pattern loop."
   },

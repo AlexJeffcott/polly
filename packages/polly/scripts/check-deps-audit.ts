@@ -25,9 +25,16 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 const ROOT = process.cwd();
+// The audited package (@fairfox/polly) is a member of the monorepo workspace,
+// so the authoritative lockfile bun installs and resolves against is the one at
+// the monorepo root — two levels up from packages/polly. (A vestigial
+// packages/polly/bun.lock from before the monorepo restructure is NOT what bun
+// maintains; osv-scanner must read the real one.) deps-notes.json, the cache,
+// the Brewfile, and the verify Dockerfiles stay package-local under ROOT.
+const MONOREPO_ROOT = resolve(ROOT, "..", "..");
 const CACHE_DIR = join(ROOT, ".cache");
 const CACHE_FILE = join(CACHE_DIR, "deps-audit.json");
 const NOTES_FILE = join(ROOT, "deps-notes.json");
@@ -39,43 +46,47 @@ const NO_CACHE = process.argv.includes("--no-cache");
 // Hash inputs that should invalidate the cache
 // ---------------------------------------------------------------------------
 
-function pushIfExists(files: string[], rel: string): void {
-  if (existsSync(join(ROOT, rel))) {
-    files.push(rel);
+function pushIfExists(files: string[], abs: string): void {
+  if (existsSync(abs)) {
+    files.push(abs);
   }
 }
 
 function collectExamplePackageJsons(files: string[]): void {
-  const examplesDir = join(ROOT, "examples");
+  const examplesDir = join(MONOREPO_ROOT, "examples");
   if (!existsSync(examplesDir)) {
     return;
   }
   for (const entry of readdirSafe(examplesDir)) {
-    pushIfExists(files, join("examples", entry, "package.json"));
+    pushIfExists(files, join(MONOREPO_ROOT, "examples", entry, "package.json"));
     // Two-level nesting (server/client subprojects).
-    const inner = join(ROOT, "examples", entry);
+    const inner = join(MONOREPO_ROOT, "examples", entry);
     if (!existsSync(inner)) {
       continue;
     }
     for (const sub of readdirSafe(inner)) {
-      pushIfExists(files, join("examples", entry, sub, "package.json"));
+      pushIfExists(files, join(MONOREPO_ROOT, "examples", entry, sub, "package.json"));
     }
   }
 }
 
 function listInputFiles(): string[] {
   const files: string[] = [
-    "package.json",
-    "bun.lock",
-    "Brewfile",
-    "deps-notes.json",
-    "tools/verify/Dockerfile",
-    "tools/verify/specs/Dockerfile",
+    // Authoritative resolution + workspace-wide overrides live at the monorepo
+    // root; the published package's own manifest + supply-chain annotations are
+    // package-local.
+    join(MONOREPO_ROOT, "bun.lock"),
+    join(MONOREPO_ROOT, "package.json"),
+    join(ROOT, "package.json"),
+    join(ROOT, "Brewfile"),
+    join(ROOT, "deps-notes.json"),
+    join(ROOT, "tools/verify/Dockerfile"),
+    join(ROOT, "tools/verify/specs/Dockerfile"),
   ];
   // Workspace package.json files (just `tests/` for polly).
-  pushIfExists(files, "tests/package.json");
-  // Examples aren't in the workspace but their deps still inform the
-  // supply-chain surface, so include them in the cache key.
+  pushIfExists(files, join(ROOT, "tests/package.json"));
+  // Examples aren't in the published surface but their deps still inform the
+  // supply-chain picture, so include them in the cache key.
   collectExamplePackageJsons(files);
   return files;
 }
@@ -90,13 +101,15 @@ function readdirSafe(dir: string): string[] {
 
 function hashInputs(): string {
   const hash = createHash("sha256");
-  for (const file of listInputFiles().sort()) {
-    const path = join(ROOT, file);
+  for (const path of [...new Set(listInputFiles())].sort()) {
+    // Key by path relative to the monorepo root so the digest is stable across
+    // checkouts regardless of absolute location.
+    const key = relative(MONOREPO_ROOT, path);
     if (!existsSync(path)) {
-      hash.update(`${file}:missing\n`);
+      hash.update(`${key}:missing\n`);
       continue;
     }
-    hash.update(`${file}:`);
+    hash.update(`${key}:`);
     hash.update(readFileSync(path));
     hash.update("\n");
   }
@@ -157,24 +170,37 @@ type OsvPkg = {
 };
 type OsvOutput = { results?: Array<{ packages?: OsvPkg[] }> };
 
+/** Live (non-allowlisted) advisory lines for one osv package entry. */
+function liveOsvLines(pkg: OsvPkg, allow: Map<string, string>): string[] {
+  const vulns = pkg.vulnerabilities;
+  if (!vulns || vulns.length === 0) {
+    return [];
+  }
+  const name = pkg.package?.name ?? "<unknown>";
+  const version = pkg.package?.version ?? "<unknown>";
+  const lines: string[] = [];
+  for (const v of vulns) {
+    if (!allow.has(v.id)) {
+      lines.push(`  ${name}@${version} — ${v.id}: ${v.summary ?? ""}`);
+    }
+  }
+  return lines;
+}
+
 function summariseOsvPackages(parsed: OsvOutput): { cveCount: number; output: string } {
-  let count = 0;
+  // Apply the same deps-notes.json allowlist as bun audit, keyed on the GHSA id
+  // osv reports as `vulnerabilities[].id`. Scanning from the monorepo root reads
+  // the shared workspace lockfile, which carries example-only deps (e.g.
+  // werift→ip) that the directory exclude can't drop; an advisory accepted with
+  // a recorded reason must be accepted by both scanners, or they disagree.
+  const allow = loadAdvisoryAllowlist();
   const lines: string[] = [];
   for (const result of parsed.results ?? []) {
     for (const pkg of result.packages ?? []) {
-      const vulns = pkg.vulnerabilities;
-      if (!vulns || vulns.length === 0) {
-        continue;
-      }
-      count += vulns.length;
-      const name = pkg.package?.name ?? "<unknown>";
-      const version = pkg.package?.version ?? "<unknown>";
-      for (const v of vulns) {
-        lines.push(`  ${name}@${version} — ${v.id}: ${v.summary ?? ""}`);
-      }
+      lines.push(...liveOsvLines(pkg, allow));
     }
   }
-  return { cveCount: count, output: lines.join("\n") };
+  return { cveCount: lines.length, output: lines.join("\n") };
 }
 
 function runOsvScanner(): { cveCount: number; output: string } {
@@ -186,7 +212,9 @@ function runOsvScanner(): { cveCount: number; output: string } {
     "osv-scanner",
     ["scan", "source", "-r", ".", "--experimental-exclude", "examples", "--format", "json"],
     {
-      cwd: ROOT,
+      // Scan from the monorepo root so osv-scanner reads the authoritative
+      // bun.lock bun actually maintains — not the vestigial packages/polly one.
+      cwd: MONOREPO_ROOT,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
     }
