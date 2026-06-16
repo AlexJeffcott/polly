@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.82.0] - 2026-06-16
+
+### Added
+
+#### `polly gallery`: a one-page catalogue of every polly-ui primitive
+
+`polly gallery` serves a single scrollable page that renders every polly-ui
+component in its configurations — tones, sizes, states, the form controls, and
+the portalled overlays — so a consumer can see the whole library at once, and a
+reviewer can sweep it for accessibility or visual regressions in one place.
+`polly gallery --build <dir>` writes the same page as static files; `--port`
+and `--open` control the dev server.
+
+The catalogue is registry-enforced: a check fails if any component in the
+generated registry lacks a section, so a new primitive cannot ship without its
+specimen. The page also doubles as the render surface for the project's first
+visual-regression baseline, captured end to end through the real CLI by
+`scripts/e2e-gallery.ts`.
+
+### Fixed
+
+#### Collapsible no longer collapses when you type in an editable summary
+
+A text field placed inside a `Collapsible` summary used to toggle the
+disclosure on every Space — and Enter — because Chromium activates a
+`<summary>` on the key-up even when a nested input holds focus. `Collapsible`
+now cancels that default for text-entry targets only: typing is untouched, and
+buttons, checkboxes, and the bare summary keep their own keyboard behaviour.
+
 ## [0.79.0] - 2026-06-13
 
 ### Added
