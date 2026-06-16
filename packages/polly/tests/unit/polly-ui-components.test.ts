@@ -11,7 +11,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { VNode } from "preact";
+import type { ComponentChildren, VNode } from "preact";
 
 beforeAll(() => {
   GlobalRegistrator.register();
@@ -660,6 +660,66 @@ describe("Collapsible — node summary (polly#135)", () => {
     expect(summary?.textContent).toBe("Done (3)");
     // The styled node survives — a bare-string summary could not carry this.
     expect(summary?.querySelector("[data-polly-text]")).not.toBeNull();
+  });
+});
+
+describe("Collapsible — Space/Enter guard for editable summary fields", () => {
+  // Chromium toggles a <details> on the Space/Enter keyup of its <summary>,
+  // even when focus is in a nested text field. The guard cancels that keyup
+  // default for text-entry targets so typing in a header field can't collapse
+  // the card. happy-dom doesn't reproduce the native toggle, so we assert the
+  // observable contract: defaultPrevented is set for text fields and only them.
+  function keyUpFrom(el: Element, key: string): boolean {
+    const event = new KeyboardEvent("keyup", { key, bubbles: true, cancelable: true });
+    el.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  function summaryWith(node: ComponentChildren): HTMLElement {
+    const el = rendered(mount(h(Collapsible, { summary: node, children: "body" })));
+    const summary = el.querySelector("summary");
+    if (!(summary instanceof HTMLElement)) throw new Error("expected a summary");
+    return summary;
+  }
+
+  test("Space in a TextInput inside the summary is prevented (no collapse)", () => {
+    const summary = summaryWith(h(TextInput, { name: "demo-guard", value: "" }));
+    const input = summary.querySelector("input");
+    if (!(input instanceof HTMLInputElement)) throw new Error("expected an input");
+    expect(keyUpFrom(input, " ")).toBe(true);
+  });
+
+  test("Enter in a textarea inside the summary is prevented", () => {
+    const summary = summaryWith(h("textarea", {}));
+    const textarea = summary.querySelector("textarea");
+    if (!(textarea instanceof HTMLElement)) throw new Error("expected a textarea");
+    expect(keyUpFrom(textarea, "Enter")).toBe(true);
+  });
+
+  test("a non-activation key in a text field is left alone", () => {
+    const summary = summaryWith(h(TextInput, { name: "demo-guard-2", value: "" }));
+    const input = summary.querySelector("input");
+    if (!(input instanceof HTMLInputElement)) throw new Error("expected an input");
+    expect(keyUpFrom(input, "a")).toBe(false);
+  });
+
+  test("Space on a button in the summary keeps its own activation", () => {
+    const summary = summaryWith(h("button", { type: "button" }, "go"));
+    const button = summary.querySelector("button");
+    if (!(button instanceof HTMLElement)) throw new Error("expected a button");
+    expect(keyUpFrom(button, " ")).toBe(false);
+  });
+
+  test("Space on a checkbox in the summary keeps its own activation", () => {
+    const summary = summaryWith(h("input", { type: "checkbox" }));
+    const checkbox = summary.querySelector("input");
+    if (!(checkbox instanceof HTMLInputElement)) throw new Error("expected a checkbox");
+    expect(keyUpFrom(checkbox, " ")).toBe(false);
+  });
+
+  test("Space on the bare summary keeps normal keyboard disclosure", () => {
+    const summary = summaryWith(h(Text, { children: "Details" }));
+    expect(keyUpFrom(summary, " ")).toBe(false);
   });
 });
 
