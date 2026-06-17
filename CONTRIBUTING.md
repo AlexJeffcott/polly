@@ -135,7 +135,7 @@ ephemeral port, and its results collected back to the runner.
 
 ```bash
 bun run test:examples           # Lint + typecheck + verify three examples
-bun run test:e2e:visualize      # End-to-end test of `polly visualize`
+bun run test:tiers verify --only=visualize  # End-to-end test of `polly visualize`
 bun run test:all                # Lint + typecheck + tests + examples + e2e
 ```
 
