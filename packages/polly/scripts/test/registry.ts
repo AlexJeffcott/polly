@@ -114,11 +114,18 @@ export function internalPlan(): TierPlan {
       description: "real `polly` CLI from cold state (disk only)",
       concurrency: 2,
       timeoutMs: 300_000,
+      // cost hints feed `--order` (coarse, not measured — tune from --json
+      // durations): a full template build and the end-to-end coverage run are
+      // the poles here; the quality pass is lighter.
       cases: [
-        e2e("cli.init-build", "e2e-cli-init-build.ts", { tags: ["cli", "init", "build"] }),
+        e2e("cli.init-build", "e2e-cli-init-build.ts", {
+          tags: ["cli", "init", "build"],
+          cost: "heavy",
+        }),
         e2e("cli.quality", "e2e-cli-quality.ts", { tags: ["cli", "quality"] }),
         e2e("cli.coverage-consumer", "e2e-coverage-consumer.ts", {
           tags: ["cli", "coverage"],
+          cost: "heavy",
         }),
       ],
     },
@@ -153,10 +160,14 @@ export function internalPlan(): TierPlan {
       description: "multi-process peers over a real relay (Puppeteer)",
       concurrency: 2,
       timeoutMs: 240_000,
+      // cost hints feed `--order` (coarse, not measured — tune from --json
+      // durations): the multi-peer convergence and offline-catchup flows drive
+      // the most wire traffic; a single gallery render is the cheapest.
       cases: [
         e2e("mesh.offline-online-drain", "e2e-mesh-offline-online-drain.ts", {
           needs: ["browser"],
           tags: ["mesh", "offline", "drain"],
+          cost: "heavy",
         }),
         e2e("mesh.pairing-ceremony", "e2e-mesh-pairing-ceremony.ts", {
           needs: ["browser"],
@@ -169,6 +180,7 @@ export function internalPlan(): TierPlan {
         e2e("mesh.three-peer-convergence", "e2e-mesh-three-peer-convergence.ts", {
           needs: ["browser"],
           tags: ["mesh", "convergence"],
+          cost: "heavy",
         }),
         e2e("mesh.revocation-prebaked", "e2e-mesh-revocation-prebaked.ts", {
           needs: ["browser"],
@@ -185,6 +197,7 @@ export function internalPlan(): TierPlan {
         e2e("mesh.revocation-offline-catchup", "e2e-mesh-revocation-offline-catchup.ts", {
           needs: ["browser"],
           tags: ["mesh", "revocation"],
+          cost: "heavy",
         }),
         e2e("mesh.corrupted-state-recovery", "e2e-mesh-corrupted-state-recovery.ts", {
           needs: ["browser"],
@@ -201,6 +214,7 @@ export function internalPlan(): TierPlan {
         e2e("gallery.render", "e2e-gallery.ts", {
           needs: ["browser"],
           tags: ["gallery", "ui", "visual"],
+          cost: "light",
         }),
       ],
     },
@@ -239,24 +253,33 @@ export function internalPlan(): TierPlan {
       name: "verify",
       description: "TLA+/TLC + mutation (Docker)",
       timeoutMs: 600_000,
+      // Every case here is a Docker TLC model-check or a mutation run — all
+      // heavy, so `--order=cost` mostly just front-loads them uniformly.
       cases: [
         e2e("verify.codegen-roundtrip", "e2e-verify-codegen-roundtrip.ts", {
           needs: ["docker"],
           tags: ["verify", "tla"],
+          cost: "heavy",
         }),
         e2e("verify.mesh-seed", "e2e-verify-mesh-seed.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "mesh"],
+          cost: "heavy",
         }),
         e2e("visualize.generate", "e2e-visualize.ts", {
           needs: ["docker"],
           tags: ["visualize"],
+          cost: "heavy",
         }),
         e2e("visualize.export-serve", "e2e-visualize-export-serve.ts", {
           needs: ["docker"],
           tags: ["visualize", "serve"],
+          cost: "heavy",
         }),
-        e2e("stryker.verify", "e2e-stryker-verify.ts", { tags: ["stryker", "mutation"] }),
+        e2e("stryker.verify", "e2e-stryker-verify.ts", {
+          tags: ["stryker", "mutation"],
+          cost: "heavy",
+        }),
       ],
     },
     {

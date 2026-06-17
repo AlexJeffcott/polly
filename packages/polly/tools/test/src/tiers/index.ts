@@ -11,9 +11,11 @@ export { DEFAULT_JSON, parseTierArgs, type TierArgs } from "./args";
 export { firstUnmetNeed, hasNeed } from "./detect";
 export { discoverPlan } from "./discover";
 export { runPlan } from "./engine";
+export { orderCases } from "./order";
 export { formatPlan, formatSummary, toJSON } from "./reporter";
 export type {
   CaseExec,
+  CaseOrder,
   CaseReport,
   CaseSpec,
   EngineOptions,

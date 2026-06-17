@@ -18,15 +18,21 @@
  *   casts           bans `x as Y` outside `as const` and `as unknown as Y`
  *   boundaries      enforces src/ vs tools/ vs cli/ vs scripts/ direction
  *   server-imports  bans node:/bun: imports from browser-targeted code
- *   all             runs every check above; aborts on first failure
+ *   all             runs every check above concurrently; reports all failures
  *
- * `check all` always runs read-only — individual checks may have their
- * own --fix or --verbose flags but the aggregate gate must never mutate
- * source.
+ * `check all` drains the checks through a bounded worker pool (default
+ * cpus-1, capped) and reports every failure rather than stopping at the
+ * first. `--fail-fast` stops launching new checks after the first failure
+ * (soft: in-flight checks still finish); `--concurrency N` overrides the pool
+ * size; `--verbose` forces serial with live output. It always runs read-only
+ * — individual checks may have their own --fix or --verbose flags but the
+ * aggregate gate must never mutate source.
  */
 
 import { existsSync, readFileSync } from "node:fs";
+import { cpus } from "node:os";
 import { dirname, join } from "node:path";
+import { type BatchStep, runBatch } from "../tools/quality/src/check-runner";
 
 const ROOT = process.cwd();
 
@@ -42,11 +48,6 @@ function secretsRoot(): string {
     dir = parent;
   }
   return dir;
-}
-
-interface CheckResult {
-  name: string;
-  ok: boolean;
 }
 
 async function spawn(args: string[], cwd: string = ROOT): Promise<number> {
@@ -289,10 +290,14 @@ Subcommands:
   todo-tests      no it.todo / test.failing forms under tests/
   suppressions    new biome-ignore/ts-ignore must carry a ticket reference
   mutate-targets  every stryker.conf.json mutate path still exists
-  all             every check above
+  all             every check above, concurrently (reports all failures)
 
 Options:
-  --verbose       passes through to checks that support it (security, deps-audit)
+  --verbose       stream output live; for 'all', forces a serial pool (N=1)
+  --concurrency N for 'all', run the checks in a bounded pool of N
+                  (default: cpus-1, capped at ${DEFAULT_MAX_CONCURRENCY})
+  --fail-fast     for 'all', stop launching new checks after the first failure
+                  (soft: in-flight checks still finish). Default: run all
 `);
 }
 
@@ -329,35 +334,100 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
   }
 }
 
-async function runAll(verbose: boolean): Promise<boolean> {
-  const checks: Array<{ name: string; fn: () => Promise<boolean> }> = [
-    { name: "Typecheck", fn: () => checkTypecheck() },
-    { name: "Lint", fn: () => checkLint() },
-    { name: "Gitignore", fn: () => checkGitignore() },
-    { name: "Secrets", fn: () => checkSecrets() },
-    { name: "Security", fn: () => checkSecurity(verbose) },
-    { name: "Dependency Audit", fn: () => checkDepsAudit(verbose) },
-    { name: "Forbidden Deps", fn: () => checkForbiddenDeps() },
-    { name: "Casts", fn: () => checkCasts() },
-    { name: "Module Boundaries", fn: () => checkBoundaries() },
-    { name: "Server Imports", fn: () => checkServerImports() },
-    { name: "No .todo/.failing tests", fn: () => checkNoTodoTests() },
-    { name: "Suppression Justifications", fn: () => checkSuppressions() },
-    { name: "Mutate Targets", fn: () => checkMutateTargets() },
-  ];
+/**
+ * The full gate, in registry order: each entry maps a display name to the
+ * `check <sub>` it runs. `runAll` spawns each as its own subprocess so the pool
+ * can capture per-check output and report every failure — the individual check
+ * functions print straight to stdout, which only stays legible one at a time.
+ */
+const ALL_CHECK_STEPS: Array<{ sub: CheckName; name: string }> = [
+  { sub: "typecheck", name: "Typecheck" },
+  { sub: "lint", name: "Lint" },
+  { sub: "gitignore", name: "Gitignore" },
+  { sub: "secrets", name: "Secrets" },
+  { sub: "security", name: "Security" },
+  { sub: "deps-audit", name: "Dependency Audit" },
+  { sub: "deps", name: "Forbidden Deps" },
+  { sub: "casts", name: "Casts" },
+  { sub: "boundaries", name: "Module Boundaries" },
+  { sub: "server-imports", name: "Server Imports" },
+  { sub: "todo-tests", name: "No .todo/.failing tests" },
+  { sub: "suppressions", name: "Suppression Justifications" },
+  { sub: "mutate-targets", name: "Mutate Targets" },
+];
 
-  const results: CheckResult[] = [];
-  for (const check of checks) {
-    process.stdout.write(`\n── ${check.name} ──\n`);
-    const ok = await check.fn();
-    results.push({ name: check.name, ok });
-    if (!ok) {
-      process.stderr.write(`\n❌ ${check.name} failed — aborting check:all\n`);
-      return false;
-    }
+/**
+ * Multi-second external scans. The pool drains steps in array order, so in
+ * run-all mode (no early abort) hoisting these into the first slots lets every
+ * cheaper check pack in behind them and collapses wall-clock toward the slowest
+ * one. Under --fail-fast we leave them where they are: a worker can't un-spawn a
+ * 12s scan, so front-loading one would defeat the early abort.
+ */
+const LONG_POLE_CHECKS = new Set<CheckName>(["security", "deps-audit", "secrets"]);
+
+/** Hoist the long poles to the front, preserving relative order otherwise. */
+function hoistLongPoles<T extends { sub: CheckName }>(steps: T[]): T[] {
+  const poles = steps.filter((s) => LONG_POLE_CHECKS.has(s.sub));
+  if (poles.length === 0) return steps;
+  return [...poles, ...steps.filter((s) => !LONG_POLE_CHECKS.has(s.sub))];
+}
+
+/** Cap the auto pool: `tsc`/`semgrep` are memory-hungry, so don't oversubscribe. */
+const DEFAULT_MAX_CONCURRENCY = 8;
+
+/** Read `--concurrency N` (space form) or `--concurrency=N` from argv. */
+function readConcurrencyFlag(argv: string[]): string | undefined {
+  const eq = argv.find((a) => a.startsWith("--concurrency="));
+  if (eq) return eq.slice("--concurrency=".length);
+  const idx = argv.indexOf("--concurrency");
+  return idx === -1 ? undefined : argv[idx + 1];
+}
+
+/** Resolve the pool size. `--verbose` streams live, which only reads right one
+ * step at a time, so it forces serial. */
+function resolveConcurrency(verbose: boolean, argv: string[]): number {
+  if (verbose) return 1;
+  const raw = readConcurrencyFlag(argv);
+  if (raw !== undefined) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 1) return Math.floor(n);
   }
-  process.stdout.write("\n✅ All checks passed!\n");
-  return true;
+  return Math.max(1, Math.min(cpus().length - 1, DEFAULT_MAX_CONCURRENCY));
+}
+
+async function runAll(verbose: boolean): Promise<boolean> {
+  const argv = process.argv.slice(2);
+  const concurrency = resolveConcurrency(verbose, argv);
+  const failFast = argv.includes("--fail-fast");
+
+  // Spawn this same file with one subcommand per check (see ALL_CHECK_STEPS).
+  const self = import.meta.path;
+  const verboseArgs = verbose ? ["--verbose"] : [];
+  const ordered = failFast ? ALL_CHECK_STEPS : hoistLongPoles(ALL_CHECK_STEPS);
+  const steps: BatchStep[] = ordered.map((c) => ({
+    name: c.name,
+    cmd: ["bun", self, c.sub, ...verboseArgs],
+    cwd: ROOT,
+  }));
+
+  process.stdout.write("── check all ──\n");
+  if (concurrency > 1) {
+    process.stdout.write(
+      `   ${steps.length} checks · pool of ${concurrency} · ${failFast ? "fail-fast" : "run-all"} (use --verbose for serial + live output)\n`
+    );
+  }
+
+  const result = await runBatch({ steps, verbose, failFast, concurrency });
+  const elapsed = (result.totalDurationMs / 1000).toFixed(1);
+
+  if (result.ok) {
+    process.stdout.write(`\n✅ All checks passed! (${elapsed}s)\n`);
+    return true;
+  }
+  process.stderr.write(
+    `\n❌ ${result.failed.length} check(s) failed: ${result.failed.join(", ")} (${elapsed}s)\n`
+  );
+  return false;
 }
 
 const args = process.argv.slice(2);

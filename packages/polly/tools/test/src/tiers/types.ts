@@ -44,6 +44,11 @@ export interface CaseSpec {
   needs?: Need[];
   /** Per-case timeout. Defaults to the engine's tier default. */
   timeoutMs?: number;
+  /**
+   * Coarse cost hint consumed by `--order` (see order.ts). Unset = "medium".
+   * A scheduling hint, not a measurement — tune from `--json` durations.
+   */
+  cost?: "light" | "medium" | "heavy";
   exec: CaseExec;
 }
 
@@ -65,6 +70,9 @@ export interface TierPlan {
 }
 
 export type CaseOutcome = "pass" | "fail" | "skip" | "timeout";
+
+/** How cases are ordered within a tier before the pool drains them. */
+export type CaseOrder = "default" | "fast" | "cost";
 
 export interface CaseReport {
   tier: string;
@@ -92,8 +100,16 @@ export interface EngineOptions {
   tiers?: string[];
   /** Only run cases whose id/label/tags match one of these substrings. */
   only?: string[];
+  /** Order cases within each tier. Default "default" (definition order). */
+  order?: CaseOrder;
   /** Stop after the first tier that has a failure. */
   bail?: boolean;
+  /**
+   * Soft fail-fast: on the first failing case, the tier's pool stops *claiming*
+   * new cases (in-flight ones finish) and the run stops after that tier. Unlike
+   * `bail`, which lets every case in the failing tier finish first.
+   */
+  failFast?: boolean;
   /** Treat unmet-need skips as failures (CI-strict). Default false. */
   strictNeeds?: boolean;
   /** Forwarded into each case's environment. */

@@ -13,6 +13,8 @@
  *   bun scripts/test/cli.ts --tier=e2e-mesh # one tier
  *   bun scripts/test/cli.ts e2e-cli e2e-relay   # tiers positionally
  *   bun scripts/test/cli.ts --only=revocation   # filter cases across tiers
+ *   bun scripts/test/cli.ts --full --order=cost # heaviest cases first (min wall-clock)
+ *   bun scripts/test/cli.ts --all --fail-fast   # soft early-stop on first failure
  *   bun scripts/test/cli.ts --list          # show the plan, run nothing
  *   bun scripts/test/cli.ts --all --json=test-results/tiers.json
  */
@@ -62,7 +64,11 @@ async function main(): Promise<void> {
   const report = await runPlan(plan, {
     tiers,
     only: args.only,
+    // --fail-fast wants cheap, high-signal cases first so the abort trips
+    // soonest; an explicit --order always wins.
+    order: args.order ?? (args.failFast ? "fast" : "default"),
     bail: args.bail,
+    failFast: args.failFast,
     strictNeeds: args.strictNeeds,
     cwd: packageRoot,
     log: (m) => console.log(m),

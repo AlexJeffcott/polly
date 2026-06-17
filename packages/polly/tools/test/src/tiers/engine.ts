@@ -7,6 +7,7 @@
  * unmet are skipped (logged), not failed, unless `strictNeeds` is set.
  */
 import { firstUnmetNeed } from "./detect";
+import { orderCases } from "./order";
 import { SENTINEL } from "./protocol";
 import type {
   CaseOutcome,
@@ -187,26 +188,40 @@ async function runOneCase(
 
 async function runTier(tier: Tier, options: EngineOptions, worker: string): Promise<CaseReport[]> {
   const log = options.log ?? ((m: string) => console.log(m));
-  const selected = tier.cases.filter((c) => caseMatches(c, options.only));
-  if (selected.length === 0) return [];
+  const matched = tier.cases.filter((c) => caseMatches(c, options.only));
+  if (matched.length === 0) return [];
+  const selected = orderCases(matched, options.order ?? "default");
 
   log(
     `\n▶ ${tier.name}${tier.description ? ` — ${tier.description}` : ""} (${selected.length} case${selected.length === 1 ? "" : "s"})`
   );
 
   const concurrency = Math.max(1, tier.concurrency ?? 1);
-  const reports: CaseReport[] = new Array(selected.length);
+  const failFast = options.failFast ?? false;
+  // Slots left empty when soft-fail-fast aborts before claiming them; filtered out below.
+  const reports: (CaseReport | undefined)[] = new Array(selected.length);
   let next = 0;
+  let aborted = false;
   async function worker_loop(): Promise<void> {
-    while (true) {
+    while (!aborted) {
       const i = next++;
       const spec = selected[i];
       if (!spec) return;
-      reports[i] = await runOneCase(spec, tier, options, worker);
+      const report = await runOneCase(spec, tier, options, worker);
+      reports[i] = report;
+      if (failFast && (report.outcome === "fail" || report.outcome === "timeout")) {
+        aborted = true; // soft: in-flight siblings finish, but no new case is claimed
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, selected.length) }, worker_loop));
-  return reports;
+  const done = reports.filter((r): r is CaseReport => r !== undefined);
+  if (aborted && done.length < selected.length) {
+    log(
+      `  ⏹ fail-fast: stopped after a failure — ${selected.length - done.length} case(s) not run`
+    );
+  }
+  return done;
 }
 
 /** Run a plan and return a structured report. Does not exit the process. */
@@ -216,13 +231,16 @@ export async function runPlan(plan: TierPlan, options: EngineOptions = {}): Prom
   const wanted = options.tiers && options.tiers.length > 0 ? new Set(options.tiers) : null;
 
   const started = performance.now();
+  const stopOnFail = Boolean(options.bail || options.failFast);
   const all: CaseReport[] = [];
   for (const tier of plan.tiers) {
     if (wanted && !wanted.has(tier.name)) continue;
     const reports = await runTier(tier, options, worker);
     all.push(...reports);
-    if (options.bail && reports.some((r) => r.outcome === "fail" || r.outcome === "timeout")) {
-      log(`\n⏹ bailing after failing tier "${tier.name}"`);
+    if (stopOnFail && reports.some((r) => r.outcome === "fail" || r.outcome === "timeout")) {
+      log(
+        `\n⏹ ${options.failFast ? "fail-fast" : "bail"}: stopping after failing tier "${tier.name}"`
+      );
       break;
     }
   }

@@ -9,6 +9,8 @@
  *   polly test --tier            # discovered unit + integration (fast loop)
  *   polly test --tier --all      # every discovered tier
  *   polly test --tier=browser    # one tier
+ *   polly test --tier --all --order=cost  # heaviest cases first (min wall-clock)
+ *   polly test --tier --all --fail-fast   # soft early-stop on first failure
  *   polly test --tier --list     # show what was discovered, run nothing
  *   polly test --tier --json     # write test-results/tiers.json
  *
@@ -68,7 +70,11 @@ async function main(): Promise<void> {
   const report = await runPlan(plan, {
     tiers,
     only: args.only,
+    // --fail-fast wants cheap, high-signal cases first so the abort trips
+    // soonest; an explicit --order always wins.
+    order: args.order ?? (args.failFast ? "fast" : "default"),
     bail: args.bail,
+    failFast: args.failFast,
     strictNeeds: args.strictNeeds,
     cwd: root,
     log: (m) => console.log(m),

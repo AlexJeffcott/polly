@@ -47,7 +47,8 @@ export function formatPlan(plan: TierPlan): string {
     lines.push(`${tier.name}${conc}${tier.description ? ` — ${tier.description}` : ""}`);
     for (const c of tier.cases) {
       const needs = c.needs && c.needs.length > 0 ? `  (needs ${c.needs.join(", ")})` : "";
-      lines.push(`    ${c.id}${needs}`);
+      const cost = c.cost ? `  [${c.cost}]` : "";
+      lines.push(`    ${c.id}${cost}${needs}`);
     }
     lines.push("");
   }
