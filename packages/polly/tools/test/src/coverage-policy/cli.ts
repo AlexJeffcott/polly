@@ -93,6 +93,9 @@ function reportMutate(report: MutateTargetReport): void {
 function showHelp(): void {
   process.stdout.write(
     "polly coverage — coverage policy, orphan detection, Stryker target validation\n\n" +
+      "  Coverage that a line ran isn't proof anything checks it. This enforces a\n" +
+      "  per-file floor with explicit, owned exemptions so test debt stays visible,\n" +
+      "  and flags orphans (source no test imports) and drifted Stryker targets.\n\n" +
       "  --strict-orphans   fail on source no unit test imports\n" +
       "  --orphans          list orphan files\n" +
       "  --no-mutate        skip the Stryker mutate/testFiles check\n" +

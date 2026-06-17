@@ -219,10 +219,10 @@ function displayNextSteps(dslPath: string): void {
   console.log(color("📝 Next steps:", COLORS.blue));
   console.log();
   console.log("   1. Export diagrams:");
-  console.log("      bun visualize --export");
+  console.log("      polly visualize --export");
   console.log();
   console.log("   2. View in browser:");
-  console.log("      bun visualize --serve");
+  console.log("      polly visualize --serve");
   console.log();
   console.log(color("💡 Alternative: Structurizr Lite", COLORS.gray));
   console.log(color("   docker run -it --rm -p 8080:8080 \\", COLORS.gray));
@@ -277,7 +277,7 @@ async function exportCommand(_args: string[]) {
     console.log(`   ${outputDir}`);
     console.log();
     console.log(color("💡 Next steps:", COLORS.gray));
-    console.log(color("   • View: bun visualize --serve", COLORS.gray));
+    console.log(color("   • View: polly visualize --serve", COLORS.gray));
     console.log(color("   • Or open: docs/site/index.html", COLORS.gray));
     console.log();
   } catch (_error) {
@@ -352,7 +352,11 @@ async function serveCommand(args: string[]) {
 
 function showHelp() {
   console.log(`
-${color("bun visualize", COLORS.blue)} - Architecture visualization tool
+${color("polly visualize", COLORS.blue)} - Architecture visualization tool
+
+Hand-drawn architecture diagrams rot the moment the code moves. This reads the
+real handlers, message flows and execution contexts straight from source, so the
+picture always matches what actually ships.
 
 ${color("Supports:", COLORS.blue)}
 
@@ -364,27 +368,27 @@ ${color("Supports:", COLORS.blue)}
 
 ${color("Commands:", COLORS.blue)}
 
-  ${color("bun visualize", COLORS.green)}
-  ${color("bun visualize --generate", COLORS.green)}
+  ${color("polly visualize", COLORS.green)}
+  ${color("polly visualize --generate", COLORS.green)}
     Analyze codebase and generate Structurizr DSL
 
-  ${color("bun visualize generate --snapshot <path>", COLORS.green)}
+  ${color("polly visualize generate --snapshot <path>", COLORS.green)}
     Overlay a captured MeshClientPeerStateSnapshot — runtime mesh peers
     and sync-state-coloured replication edges — onto the diagram
 
-  ${color("bun visualize --export", COLORS.green)}
+  ${color("polly visualize --export", COLORS.green)}
     Generate static HTML site with interactive diagrams (requires Docker)
 
-  ${color("bun visualize --serve", COLORS.green)}
-  ${color("bun visualize --serve --port=3000", COLORS.green)}
+  ${color("polly visualize --serve", COLORS.green)}
+  ${color("polly visualize --serve --port=3000", COLORS.green)}
     Serve the static site in browser
 
-  ${color("bun visualize --help", COLORS.green)}
+  ${color("polly visualize --help", COLORS.green)}
     Show this help message
 
 ${color("Getting Started:", COLORS.blue)}
 
-  1. Run ${color("bun visualize", COLORS.green)} from your project root
+  1. Run ${color("polly visualize", COLORS.green)} from your project root
   2. Find generated ${color("docs/architecture.dsl", COLORS.blue)}
   3. View with Structurizr Lite (see instructions after generation)
 

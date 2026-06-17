@@ -14,6 +14,13 @@ import { verifyMatrix } from "./verify-matrix.ts";
 
 const HELP = `polly mutate — mutation testing + useless-test detection
 
+Mutation testing breaks your code one edit at a time and checks whether a test
+fails; a surviving mutant is a line no test pins down — a truer signal than line
+coverage, which only proves a line ran. Read the same kill matrix the other way
+and it also finds dead weight: redundant tests (every kill caught elsewhere) and
+theatre (code a test ran but never actually checked). How the matrix is built:
+tools/mutate/README.md.
+
 Usage:
   polly mutate init [--force]        Scaffold a stryker.conf.json for this project
   polly mutate [run]                 Run Stryker, then print the useless-test report

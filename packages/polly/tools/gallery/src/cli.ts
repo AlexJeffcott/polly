@@ -22,8 +22,9 @@ Usage:
   polly gallery --build <dir>           Write a static gallery to <dir>
   polly gallery --help                  Show this help
 
-The gallery catalogues every polly-ui primitive and doubles as the
-render surface for the visual-regression baselines.`);
+One page that renders every polly-ui primitive: the single place to see the
+components, the render surface the visual-regression baselines capture, and a
+gap-check that fails when a registered primitive has no specimen.`);
 }
 
 /** Read the value following a flag, erroring if it is missing or another flag. */

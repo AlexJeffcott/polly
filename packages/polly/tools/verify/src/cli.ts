@@ -155,7 +155,7 @@ function displaySetupSuccess(configPath: string): void {
   console.log();
   console.log("   1. Review the generated configuration file");
   console.log("   2. Fill in values marked with /* CONFIGURE */");
-  console.log("   3. Run 'bun verify' to check your configuration");
+  console.log("   3. Run 'polly verify' to check your configuration");
   console.log();
   console.log(color("💡 Tip:", COLORS.gray));
   console.log(color("   Look for comments explaining what each field needs.", COLORS.gray));
@@ -171,7 +171,7 @@ async function validateCommand() {
 
   if (result.valid) {
     console.log(color("✅ Configuration is complete and valid!\n", COLORS.green));
-    console.log("   You can now run 'bun verify' to start verification.");
+    console.log("   You can now run 'polly verify' to start verification.");
     console.log();
     return;
   }
@@ -572,8 +572,8 @@ async function verifyCommand() {
       console.log();
     }
 
-    console.log("   Run 'bun verify --validate' to see all issues");
-    console.log("   Run 'bun verify --setup' to regenerate configuration");
+    console.log("   Run 'polly verify --validate' to see all issues");
+    console.log("   Run 'polly verify --setup' to regenerate configuration");
     console.log();
     process.exit(1);
   }
@@ -1365,36 +1365,41 @@ function displayVerificationResults(
 
 function showHelp() {
   console.log(`
-${color("bun verify", COLORS.blue)} - Formal verification for web extensions
+${color("polly verify", COLORS.blue)} - Formal verification for web extensions
+
+Tests sample a few executions; a model checker explores every reachable state.
+This compiles your handlers and state into TLA+ and runs TLC to prove safety
+invariants hold under all interleavings — the ordering and concurrency bugs
+tests rarely reach.
 
 ${color("Commands:", COLORS.blue)}
 
-  ${color("bun verify", COLORS.green)}
+  ${color("polly verify", COLORS.green)}
     Run verification (validates config, generates specs, runs TLC)
 
-  ${color("bun verify --strict", COLORS.green)}
+  ${color("polly verify --strict", COLORS.green)}
     Fail closed (non-zero exit) on model-coverage gaps: a declared state
     field no handler writes, or an unverified $meshState/$peerState predicate.
     Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
 
-  ${color("bun verify --setup", COLORS.green)}
+  ${color("polly verify --setup", COLORS.green)}
     Analyze codebase and generate configuration file
 
-  ${color("bun verify --validate", COLORS.green)}
+  ${color("polly verify --validate", COLORS.green)}
     Validate existing configuration without running verification
 
-  ${color("bun verify --estimate", COLORS.green)}
+  ${color("polly verify --estimate", COLORS.green)}
     Estimate state space without running TLC
 
-  ${color("bun verify --help", COLORS.green)}
+  ${color("polly verify --help", COLORS.green)}
     Show this help message
 
 ${color("Getting Started:", COLORS.blue)}
 
-  1. Run ${color("bun verify --setup", COLORS.green)} to generate configuration
+  1. Run ${color("polly verify --setup", COLORS.green)} to generate configuration
   2. Review ${color("specs/verification.config.ts", COLORS.blue)} and fill in marked fields
-  3. Run ${color("bun verify --validate", COLORS.green)} to check your configuration
-  4. Run ${color("bun verify", COLORS.green)} to start verification
+  3. Run ${color("polly verify --validate", COLORS.green)} to check your configuration
+  4. Run ${color("polly verify", COLORS.green)} to start verification
 
 ${color("Configuration Help:", COLORS.blue)}
 
