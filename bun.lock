@@ -79,19 +79,6 @@
         "typescript": "5.9.3",
       },
     },
-    "examples/mesh-handles-exist-no-sync": {
-      "name": "mesh-handles-exist-no-sync-example",
-      "version": "0.1.0",
-      "dependencies": {
-        "@fairfox/polly": "workspace:*",
-        "elysia": ">= 1.4.0",
-        "werift": ">= 0.19.0",
-      },
-      "devDependencies": {
-        "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
-      },
-    },
     "examples/mesh-large-initial-sync": {
       "name": "mesh-large-initial-sync-example",
       "version": "0.1.0",
@@ -126,19 +113,6 @@
       "dependencies": {
         "@fairfox/polly": "workspace:*",
         "@preact/signals": "2.5.1",
-        "elysia": ">= 1.4.0",
-        "werift": ">= 0.19.0",
-      },
-      "devDependencies": {
-        "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
-      },
-    },
-    "examples/mesh-slot-initiation-realistic-keyring": {
-      "name": "mesh-slot-initiation-realistic-keyring-example",
-      "version": "0.1.0",
-      "dependencies": {
-        "@fairfox/polly": "workspace:*",
         "elysia": ">= 1.4.0",
         "werift": ">= 0.19.0",
       },
@@ -941,15 +915,11 @@
 
     "memoirist": ["memoirist@0.4.0", "", {}, "sha512-zxTgA0mSYELa66DimuNQDvyLq36AwDlTuVRbnQtB+VuTcKWm5Qc4z3WkSpgsFWHNhexqkIooqpv4hdcqrX5Nmg=="],
 
-    "mesh-handles-exist-no-sync-example": ["mesh-handles-exist-no-sync-example@workspace:examples/mesh-handles-exist-no-sync"],
-
     "mesh-large-initial-sync-example": ["mesh-large-initial-sync-example@workspace:examples/mesh-large-initial-sync"],
 
     "mesh-large-initial-sync-turn-example": ["mesh-large-initial-sync-turn-example@workspace:examples/mesh-large-initial-sync-turn"],
 
     "mesh-recovery-pair-example": ["mesh-recovery-pair-example@workspace:examples/mesh-recovery-pair"],
-
-    "mesh-slot-initiation-realistic-keyring-example": ["mesh-slot-initiation-realistic-keyring-example@workspace:examples/mesh-slot-initiation-realistic-keyring"],
 
     "minimal-example": ["minimal-example@workspace:examples/minimal"],
 
@@ -1281,8 +1251,6 @@
 
     "full-featured-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
-    "mesh-handles-exist-no-sync-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
     "mesh-large-initial-sync-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "mesh-large-initial-sync-turn-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
@@ -1290,8 +1258,6 @@
     "mesh-recovery-pair-example/@preact/signals": ["@preact/signals@2.5.1", "", { "dependencies": { "@preact/signals-core": "^1.12.0" }, "peerDependencies": { "preact": ">= 10.25.0 || >=11.0.0-0" } }, "sha512-VPjk5YFt7i11Fi4UK0tzaEe5xLwfhUxXL3l89ocxQ5aPz7bRo8M5+N73LjBMPklyXKYKz6YsNo4Smp8n6nplng=="],
 
     "mesh-recovery-pair-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
-    "mesh-slot-initiation-realistic-keyring-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "minimal-example/@preact/signals": ["@preact/signals@2.5.1", "", { "dependencies": { "@preact/signals-core": "^1.12.0" }, "peerDependencies": { "preact": ">= 10.25.0 || >=11.0.0-0" } }, "sha512-VPjk5YFt7i11Fi4UK0tzaEe5xLwfhUxXL3l89ocxQ5aPz7bRo8M5+N73LjBMPklyXKYKz6YsNo4Smp8n6nplng=="],
 
