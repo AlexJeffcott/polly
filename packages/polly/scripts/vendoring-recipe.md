@@ -1,9 +1,9 @@
 # Vendoring polly (mesh-free / UI-free / test-free)
 
 `vendor-polly.sh` copies a slice of polly's source into another codebase,
-keeping the core framework plus the `verify` and `visualize` tools, and
-dropping the UI, the mesh runtime, the Chrome-extension UI contexts, all
-tests, and the `init`/`quality`/`test` tooling.
+keeping the core framework plus the `verify`, `visualize`, and `quality`
+tools, and dropping the UI, the mesh runtime, the Chrome-extension UI
+contexts, all tests, and the `init`/`test`/`gallery` tooling.
 
 The result installs with four runtime dependencies and **zero**
 `@automerge/*` / `ws` / `tweetnacl` / `werift` / `@roamhq/wrtc` / `marked` /
@@ -44,15 +44,22 @@ silently mis-vendor.
   and the Stryker ignorer.
 - **`visualize`** — architecture diagrams, with the mesh `--snapshot` overlay
   neutralised.
+- **`quality`** — conformance checks (no-as-casting, no-require, the CSS
+  family, shared-components, no-tautology-ensures, secrets), exported as
+  `@fairfox/polly/quality`. Self-contained: it scans source/CSS text via
+  `bun`'s `Glob` + `node:fs`, with no UI, mesh, or framework-runtime imports,
+  so it rides along without dragging dependencies in. Consumers run the same
+  checks Polly enforces on itself instead of re-implementing them.
 
 ## What is removed
 
 UI (`src/polly-ui`), the mesh runtime (28 `src/shared/lib` files plus
 `mesh.ts` / `mesh-node.ts` / `peer.ts` / `elysia/peer-repo-plugin.ts`),
 Chrome-extension UI contexts (`content`, `devtools`, `offscreen`, `options`,
-`page`, `popup`), the `init` / `quality` / `test` tools, `verify`'s
-test-fixture projects, the mesh TLA+ specs (keeping `MessageRouter`), and
-every `__tests__/` directory and `*.test.ts` file.
+`page`, `popup`), the `init` / `test` tools, `tools/gallery` (which renders
+`polly-ui` specimens and so follows the UI out), `verify`'s test-fixture
+projects, the mesh TLA+ specs (keeping `MessageRouter`), and every
+`__tests__/` directory and `*.test.ts` file.
 
 ## Why the dependency boundary lands where it does
 

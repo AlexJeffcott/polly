@@ -10,6 +10,7 @@
 #   - the elysia integration (with the mesh peerRepo plugin trimmed out)
 #   - the `verify` tool (formal verification) + its analysis engine + stryker
 #   - the `visualize` tool (with the mesh --snapshot overlay neutralised)
+#   - the `quality` tool (conformance checks, exported as @fairfox/polly/quality)
 #
 # The result has zero @automerge/* / ws / tweetnacl / werift / wrtc / marked /
 # dompurify dependencies. The one runtime coupling — deriveDocumentId, used by
@@ -96,8 +97,18 @@ del() { for p in "$@"; do rm -rf "$TARGET/$p"; done; }
 log "deleting UI + extension-context dirs …"
 del src/polly-ui src/assets src/content src/devtools src/offscreen src/options src/page src/popup
 
-log "deleting dropped tooling (init, quality, test) …"
-del tools/init tools/quality tools/test
+# tools/quality is KEPT: it is a self-contained textual scanner (bun + node:*
+# only — no UI, mesh, or framework-runtime imports) and is exported as
+# `@fairfox/polly/quality` so consumers run the same conformance checks Polly
+# enforces on itself, rather than re-implementing them. Its tests are still
+# stripped by the generic test deletion below.
+#
+# tools/gallery follows src/polly-ui out: it renders polly-ui specimens and
+# imports `src/polly-ui` directly, so it cannot type-check once the UI is
+# removed. It is unexported and node-unbuilt, so dropping it is invisible to
+# consumers (and without this the slice's own --check fails tsc).
+log "deleting dropped tooling (init, test, gallery) …"
+del tools/init tools/test tools/gallery
 
 log "deleting top-level mesh/extension entry files …"
 del src/manifest.json src/wasm.d.ts src/mesh.ts src/mesh-node.ts src/peer.ts
@@ -258,7 +269,8 @@ cat > "$TARGET/package.json" <<'PKG'
     "./client":         { "import": "./dist/src/client/index.js",               "types": "./dist/src/client/index.d.ts" },
     "./elysia":         { "import": "./dist/src/elysia/index.js",               "types": "./dist/src/elysia/index.d.ts" },
     "./verify":         { "import": "./dist/tools/verify/src/config.js",        "types": "./dist/tools/verify/src/config.d.ts" },
-    "./stryker":        { "import": "./dist/tools/verify/src/stryker/index.js", "types": "./dist/tools/verify/src/stryker/index.d.ts" }
+    "./stryker":        { "import": "./dist/tools/verify/src/stryker/index.js", "types": "./dist/tools/verify/src/stryker/index.d.ts" },
+    "./quality":        { "import": "./dist/tools/quality/src/index.js",        "types": "./dist/tools/quality/src/index.d.ts" }
   },
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
@@ -370,6 +382,9 @@ const toolsResult = await Bun.build({
     "tools/verify/src/cli.ts",
     "tools/verify/src/stryker/index.ts",
     "tools/visualize/src/cli.ts",
+    // quality library (the `./quality` subpath export) — node-target: it scans
+    // source/CSS text via bun's Glob + node:fs, so it is not browser-safe.
+    "tools/quality/src/index.ts",
   ],
   outdir: DIST_DIR,
   target: "node",
@@ -418,6 +433,7 @@ try {
       "bun-env.d.ts",
       "tools/verify/src/config.ts",
       "tools/verify/src/stryker/index.ts",
+      "tools/quality/src/**/*",
     ],
     exclude: ["**/*.test.ts", "**/*.spec.ts"],
   };
@@ -442,12 +458,15 @@ echo
 ok "vendored polly into $TARGET"
 printf '%s' "$c_dim"
 cat <<NOTES
-Kept:    core framework, elysia (peerRepo trimmed), verify (+analysis+stryker), visualize
-Removed: UI (polly-ui), mesh runtime, chrome-extension contexts, all tests, init/quality/test tooling
+Kept:    core framework, elysia (peerRepo trimmed), verify (+analysis+stryker), visualize, quality
+Removed: UI (polly-ui), mesh runtime, chrome-extension contexts, all tests, init/test tooling
 Notes:
   - The visualize --snapshot mesh overlay is stubbed (throws if used).
   - 'polly build'/'dev'/'test'/'quality'/'init' subcommands are unavailable
-    (their CLIs and scripts/ were not vendored).
+    (their CLIs and scripts/ were not vendored). The quality *library*
+    (@fairfox/polly/quality) is exported for programmatic use — wire its
+    checks (e.g. checkNoAsCasting, checkNoTautologyEnsures) into your own
+    runner, as Polly's scripts/check-*.ts do.
   - @types/chrome is required: the core chrome adapters reference the chrome
     global. @babel/* may be needed if tools/analysis uses it (the build below
     will tell you).

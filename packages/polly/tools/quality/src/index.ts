@@ -68,6 +68,14 @@ export {
   type NoRequireViolation,
 } from "./no-require";
 export {
+  checkNoTautologyEnsures,
+  type NoTautologyEnsuresOptions,
+  type NoTautologyEnsuresResult,
+  splitTopLevelArgs,
+  type TautologyViolation,
+  tautologyReason,
+} from "./no-tautology-ensures";
+export {
   type CheckGitignoreOptions,
   type CheckSecretsOptions,
   checkGitignoreCoversAllowlist,
