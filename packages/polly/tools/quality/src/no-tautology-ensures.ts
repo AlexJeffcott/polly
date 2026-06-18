@@ -15,8 +15,8 @@
  *
  * This module exports the check logic as a library so consuming
  * applications can import it from `@fairfox/polly/quality` and run it
- * programmatically. Polly's own `scripts/check-no-tautology-ensures.ts`
- * is a thin CLI wrapper around these exports.
+ * programmatically. It is registered as the `polly:no-tautology-ensures`
+ * plugin check, so it also runs via `polly quality run`.
  *
  * The scan is text-based, not AST-based: the only call sites are
  * `ensures(<expr>, '<message>')` / `requires(<expr>, '<message>')` with
@@ -59,7 +59,20 @@ export interface NoTautologyEnsuresOptions {
 }
 
 const DEFAULT_PRIMITIVES = ["ensures", "requires"];
-const DEFAULT_EXCLUDE = ["node_modules", "dist", ".git", ".bun", "coverage", "specs"];
+// `tests`, `__tests__`, and `examples` are excluded by default: a tautological
+// `ensures(true, …)` is legitimate there (fixtures exercising the primitive),
+// so flagging it would be noise. Consumers can override `exclude` to widen.
+const DEFAULT_EXCLUDE = [
+  "node_modules",
+  "dist",
+  ".git",
+  ".bun",
+  "coverage",
+  "specs",
+  "tests",
+  "__tests__",
+  "examples",
+];
 
 const LITERAL = /^(true|false|null|undefined|\d+(\.\d+)?|"[^"]*"|'[^']*'|`[^`]*`)$/;
 

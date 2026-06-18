@@ -16,6 +16,7 @@
  *   deps-audit      osv-scanner + bun audit + bun outdated (cached)
  *   deps            bans superseded dev tooling and deprecated runtime libs
  *   casts           bans `x as Y` outside `as const` and `as unknown as Y`
+ *   tautology-ensures  bans ensures/requires with a literal predicate (via the quality host)
  *   boundaries      enforces src/ vs tools/ vs cli/ vs scripts/ direction
  *   server-imports  bans node:/bun: imports from browser-targeted code
  *   all             runs every check above concurrently; reports all failures
@@ -147,7 +148,19 @@ async function checkCasts(): Promise<boolean> {
 }
 
 async function checkTautologyEnsures(): Promise<boolean> {
-  return (await spawn(["bun", "scripts/check-no-tautology-ensures.ts"])) === 0;
+  // Run through the quality tool's own CLI/plugin host rather than a parallel
+  // script, so polly dogfoods the same `polly quality run` path it ships to
+  // consumers. (no-fixed-waits is registered too but not gated here — polly's
+  // mesh/test code still uses promise-sleeps; see PR notes.)
+  return (
+    (await spawn([
+      "bun",
+      "tools/quality/src/cli.ts",
+      "run",
+      "polly:no-tautology-ensures",
+      "--no-cache",
+    ])) === 0
+  );
 }
 
 async function checkBoundaries(): Promise<boolean> {

@@ -44,12 +44,15 @@ silently mis-vendor.
   and the Stryker ignorer.
 - **`visualize`** — architecture diagrams, with the mesh `--snapshot` overlay
   neutralised.
-- **`quality`** — conformance checks (no-as-casting, no-require, the CSS
-  family, shared-components, no-tautology-ensures, secrets), exported as
-  `@fairfox/polly/quality`. Self-contained: it scans source/CSS text via
-  `bun`'s `Glob` + `node:fs`, with no UI, mesh, or framework-runtime imports,
-  so it rides along without dragging dependencies in. Consumers run the same
-  checks Polly enforces on itself instead of re-implementing them.
+- **`quality`** — conformance checks (no-as-casting, no-require,
+  no-tautology-ensures, no-fixed-waits, the CSS family, shared-components,
+  relative-imports, server-imports, no-state-hooks, secrets, and the rest of
+  the `polly` plugin), exported as `@fairfox/polly/quality` and runnable via
+  the `polly quality list` / `polly quality run [id]` CLI. Self-contained: the
+  scanners read source/CSS text via `bun`'s `Glob` + `node:fs`, with no UI,
+  mesh, or framework-runtime imports, so it rides along without dragging
+  dependencies in. Consumers run the same checks Polly enforces on itself
+  instead of re-implementing them.
 
 ## What is removed
 

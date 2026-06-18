@@ -61,6 +61,13 @@ export {
   type Violation,
 } from "./no-as-casting";
 export {
+  checkNoFixedWaits,
+  type FixedWaitViolation,
+  type NoFixedWaitsOptions,
+  type NoFixedWaitsResult,
+  scanText,
+} from "./no-fixed-waits";
+export {
   checkNoRequire,
   isLineRequireClean,
   type NoRequireCheckOptions,

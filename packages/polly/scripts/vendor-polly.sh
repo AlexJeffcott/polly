@@ -385,6 +385,9 @@ const toolsResult = await Bun.build({
     // quality library (the `./quality` subpath export) — node-target: it scans
     // source/CSS text via bun's Glob + node:fs, so it is not browser-safe.
     "tools/quality/src/index.ts",
+    // quality CLI — the `polly quality` dispatcher (cli/polly.ts) spawns this,
+    // so it must be built for `polly quality list/run` to work in the slice.
+    "tools/quality/src/cli.ts",
   ],
   outdir: DIST_DIR,
   target: "node",
