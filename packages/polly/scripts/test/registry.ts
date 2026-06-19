@@ -30,6 +30,7 @@ export const TIER_NAMES = [
   "unit",
   "integration",
   "coverage",
+  "bdd",
   "e2e-cli",
   "e2e-relay",
   "browser",
@@ -44,6 +45,7 @@ export const ALL_TIERS = [
   "unit",
   "integration",
   "coverage",
+  "bdd",
   "e2e-cli",
   "e2e-relay",
   "browser",
@@ -108,6 +110,12 @@ export function internalPlan(): TierPlan {
           },
         },
       ],
+    },
+    {
+      name: "bdd",
+      description: "executable Gherkin across the real factory boundary + verify cross-check",
+      timeoutMs: 120_000,
+      cases: [e2e("bdd.todo-list", "e2e-bdd.ts", { tags: ["bdd", "gherkin"] })],
     },
     {
       name: "e2e-cli",

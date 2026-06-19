@@ -169,6 +169,31 @@ async function mutate() {
 }
 
 /**
+ * BDD command - delegate to tools/bdd (executable Gherkin against the model)
+ */
+async function bdd() {
+  // Check if bundled (published) or in monorepo
+  const bundledCli = `${__dirname}/../tools/bdd/src/cli.js`;
+  const monorepoCli = `${__dirname}/../tools/bdd/src/cli.ts`;
+  const bddCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
+
+  // Pass the full commandArgs through — the tool's own cli reads the subcommand
+  // (run/check/new) as its first positional.
+  const proc = Bun.spawn(["bun", bddCli, ...commandArgs], {
+    cwd,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+    env: process.env,
+  });
+
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`BDD run failed with exit code ${exitCode}`);
+  }
+}
+
+/**
  * Visualize command - delegate to @fairfox/polly-visualize
  */
 async function visualize() {
@@ -495,6 +520,8 @@ Usage:
   polly mutate [init|run|report|verify] Mutation testing + useless/redundant-test detection
   polly mutate decisions [decide]  Review/record verdicts on subsumed tests
   polly verify [args]              Run formal verification
+  polly bdd [run|check|new]        Executable Gherkin across the real boundary,
+                                   cross-checked against the verification config
   polly visualize [args]           Generate architecture diagrams
   polly gallery [--port|--build|--open] Serve/export the polly-ui component gallery
   polly quality [args]             Run quality conformance checks
@@ -552,6 +579,9 @@ async function main() {
         break;
       case "verify":
         await verify();
+        break;
+      case "bdd":
+        await bdd();
         break;
       case "visualize":
         await visualize();

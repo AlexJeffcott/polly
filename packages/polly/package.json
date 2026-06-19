@@ -66,6 +66,10 @@
       "import": "./dist/tools/mutate/src/index.js",
       "types": "./dist/tools/mutate/src/index.d.ts"
     },
+    "./bdd": {
+      "import": "./dist/tools/bdd/src/index.js",
+      "types": "./dist/tools/bdd/src/index.d.ts"
+    },
     "./test": {
       "import": "./dist/tools/test/src/index.js",
       "types": "./dist/tools/test/src/index.d.ts"
@@ -196,6 +200,8 @@
     "bun": ">=1.2.0"
   },
   "dependencies": {
+    "@cucumber/gherkin": "40.0.0",
+    "@cucumber/messages": "33.0.2",
     "@preact/signals": "2.9.0",
     "@preact/signals-core": "1.14.2",
     "preact": "10.29.1",

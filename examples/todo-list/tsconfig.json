@@ -19,8 +19,9 @@
       "@fairfox/polly/types": ["../../packages/polly/src/shared/types/messages.ts"],
       "@fairfox/polly/test": ["../../packages/polly/tools/test/src/index.ts"],
       "@fairfox/polly/verify": ["../../packages/polly/tools/verify/src/config.ts"],
+      "@fairfox/polly/bdd": ["../../packages/polly/tools/bdd/src/index.ts"],
       "@/*": ["../../packages/polly/src/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "specs/**/*"]
+  "include": ["src/**/*", "tests/**/*", "specs/**/*", "features/**/*"]
 }

@@ -35,6 +35,13 @@ function browserRunner(): string {
   return existsSync(bundled) ? bundled : source;
 }
 
+/** Resolve the `polly bdd` CLI, preferring the bundled build. */
+function bddRunner(): string {
+  const bundled = `${import.meta.dir}/../../../bdd/src/cli.js`;
+  const source = `${import.meta.dir}/../../../bdd/src/cli.ts`;
+  return existsSync(bundled) ? bundled : source;
+}
+
 /** A safe directory to hand the browser runner (never the project root, which
  *  would make it scan node_modules). */
 function browserDir(root: string, files: string[]): string {
@@ -80,6 +87,22 @@ export async function discoverPlan(root: string): Promise<TierPlan> {
         {
           id: "integration",
           exec: { kind: "command", argv: ["bun", "test", "tests/integration"], cwd: root },
+        },
+      ],
+    });
+  }
+
+  const featureFiles = await globFiles(root, "**/*.feature");
+  if (featureFiles.length > 0) {
+    tiers.push({
+      name: "bdd",
+      description: `executable Gherkin (${featureFiles.length} *.feature file(s))`,
+      timeoutMs: 120_000,
+      cases: [
+        {
+          id: "bdd",
+          tags: ["bdd", "gherkin"],
+          exec: { kind: "command", argv: ["bun", bddRunner(), "run"], cwd: root },
         },
       ],
     });

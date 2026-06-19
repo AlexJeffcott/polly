@@ -222,11 +222,13 @@
     },
     "packages/polly": {
       "name": "@fairfox/polly",
-      "version": "0.82.0",
+      "version": "0.82.1",
       "bin": {
         "polly": "./dist/cli/polly.js",
       },
       "dependencies": {
+        "@cucumber/gherkin": "40.0.0",
+        "@cucumber/messages": "33.0.2",
         "@preact/signals": "2.9.0",
         "@preact/signals-core": "1.14.2",
         "preact": "10.29.1",
@@ -424,6 +426,10 @@
     "@cbor-extract/cbor-extract-linux-x64": ["@cbor-extract/cbor-extract-linux-x64@2.2.2", "", { "os": "linux", "cpu": "x64" }, "sha512-rpiLnVEsqtPJ+mXTdx1rfz4RtUGYIUg2rUAZgd1KjiC1SehYUSkJN7Yh+aVfSjvCGtVP0/bfkQkXpPXKbmSUaA=="],
 
     "@cbor-extract/cbor-extract-win32-x64": ["@cbor-extract/cbor-extract-win32-x64@2.2.2", "", { "os": "win32", "cpu": "x64" }, "sha512-dI+9P7cfWxkTQ+oE+7Aa6onEn92PHgfWXZivjNheCRmTBDBf2fx6RyTi0cmgpYLnD1KLZK9ZYrMxaPZ4oiXhGA=="],
+
+    "@cucumber/gherkin": ["@cucumber/gherkin@40.0.0", "", { "dependencies": { "@cucumber/messages": ">=31.0.0 <34" } }, "sha512-wMbF0TtNy2ELBJ8nls29eZQWL4XKfuWtMwqDaylUEAiv3qC0/ZAVU0LS2viQ6ZfXe5ROAC38penTOAdrjwYC9Q=="],
+
+    "@cucumber/messages": ["@cucumber/messages@33.0.2", "", {}, "sha512-JxWlW9H7+SCuKBlqpD0Puhy+afXStE3qmMutmvJcdF+BWhl4jvFLexyK77uN0Xs+zLlJ+/B6T49nw4OO5BUZxg=="],
 
     "@elysiajs/cors": ["@elysiajs/cors@1.4.2", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-FTCcbH35brTLigF1W7BYySRZomgI/dBEMK9BgK9RP9Nez7zmpGh4koL/Yr1BFv8nYz7CfhRvcM8d/c+XnwMaVQ=="],
 

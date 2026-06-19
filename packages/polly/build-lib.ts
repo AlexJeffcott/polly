@@ -192,6 +192,10 @@ const toolsResult = await Bun.build({
     // command; index.ts is the @fairfox/polly/mutate library surface.
     "tools/mutate/src/cli.ts",
     "tools/mutate/src/index.ts",
+    // Executable Gherkin / BDD (`polly bdd`). cli.ts is the command; index.ts is
+    // the @fairfox/polly/bdd library surface (defineStep/defineWorld/driveBus).
+    "tools/bdd/src/cli.ts",
+    "tools/bdd/src/index.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",
     // Component gallery (`polly gallery`). server.ts is bundled into cli.js; the
@@ -225,6 +229,8 @@ const toolsResult = await Bun.build({
     "pngjs",
     // Provided by the consumer's Stryker install — never bundle (polly#143).
     "@stryker-mutator/*",
+    // Gherkin parser for `polly bdd` — a dependency, kept external.
+    "@cucumber/*",
   ],
 });
 
@@ -322,6 +328,7 @@ try {
       "tools/verify/src/stryker/index.ts",
       "tools/test/src/**/*",
       "tools/mutate/src/**/*",
+      "tools/bdd/src/**/*",
       "tools/quality/src/index.ts",
       "tools/quality/src/no-as-casting.ts",
       "tools/quality/src/logger.ts",

@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Wires the BDD tier into the Stryker kill matrix (polly#BDD). Stryker mutates the example's own handlers; the `command` runner re-runs the Gherkin scenarios (`polly bdd run`, which exits non-zero on any failure) against each mutant. A mutant in a BDD-covered behaviour gets killed; a survivor in an uncovered handler (e.g. SET_THEME, TODO_SET_LIMIT, GET_*) is the weak-coverage signal — the mechanical complement to `polly bdd check`'s negative-complement warning. coverageAnalysis is off because the command runner has no per-test hooks, so every mutant runs the full suite.",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "bun run bdd"
+  },
+  "coverageAnalysis": "off",
+  "mutate": ["src/background/handlers.ts"],
+  "reporters": ["clear-text", "json"],
+  "timeoutMS": 60000,
+  "concurrency": 4,
+  "ignorePatterns": ["dist/**", "specs/**", "node_modules/**", ".stryker-tmp/**", "reports/**"]
+}
