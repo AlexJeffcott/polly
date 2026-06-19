@@ -16,6 +16,7 @@
  *   deps-audit      osv-scanner + bun audit + bun outdated (cached)
  *   deps            bans superseded dev tooling and deprecated runtime libs
  *   casts           bans `x as Y` outside `as const` and `as unknown as Y`
+ *   tautology-ensures  bans ensures/requires with a literal predicate (via the quality host)
  *   boundaries      enforces src/ vs tools/ vs cli/ vs scripts/ direction
  *   server-imports  bans node:/bun: imports from browser-targeted code
  *   all             runs every check above concurrently; reports all failures
@@ -146,6 +147,22 @@ async function checkCasts(): Promise<boolean> {
   return (await spawn(["bun", "scripts/check-no-as-casting.ts"])) === 0;
 }
 
+async function checkTautologyEnsures(): Promise<boolean> {
+  // Run through the quality tool's own CLI/plugin host rather than a parallel
+  // script, so polly dogfoods the same `polly quality run` path it ships to
+  // consumers. (no-fixed-waits is registered too but not gated here — polly's
+  // mesh/test code still uses promise-sleeps; see PR notes.)
+  return (
+    (await spawn([
+      "bun",
+      "tools/quality/src/cli.ts",
+      "run",
+      "polly:no-tautology-ensures",
+      "--no-cache",
+    ])) === 0
+  );
+}
+
 async function checkBoundaries(): Promise<boolean> {
   return (await spawn(["bun", "scripts/check-package-boundaries.ts"])) === 0;
 }
@@ -262,6 +279,7 @@ const KNOWN_CHECKS = [
   "deps-audit",
   "deps",
   "casts",
+  "tautology-ensures",
   "boundaries",
   "server-imports",
   "todo-tests",
@@ -285,6 +303,7 @@ Subcommands:
   deps-audit      osv-scanner + bun audit (cached)
   deps            forbidden dev/runtime dependencies
   casts           no-as-casting type-assertion ban
+  tautology-ensures  ensures/requires predicate must reference state, not a literal
   boundaries      src/ vs tools/ vs cli/ vs scripts/ direction
   server-imports  no node:/bun: imports in browser-targeted code
   todo-tests      no it.todo / test.failing forms under tests/
@@ -319,6 +338,8 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
       return checkForbiddenDeps();
     case "casts":
       return checkCasts();
+    case "tautology-ensures":
+      return checkTautologyEnsures();
     case "boundaries":
       return checkBoundaries();
     case "server-imports":
@@ -349,6 +370,7 @@ const ALL_CHECK_STEPS: Array<{ sub: CheckName; name: string }> = [
   { sub: "deps-audit", name: "Dependency Audit" },
   { sub: "deps", name: "Forbidden Deps" },
   { sub: "casts", name: "Casts" },
+  { sub: "tautology-ensures", name: "Tautology Ensures" },
   { sub: "boundaries", name: "Module Boundaries" },
   { sub: "server-imports", name: "Server Imports" },
   { sub: "todo-tests", name: "No .todo/.failing tests" },

@@ -61,12 +61,27 @@ export {
   type Violation,
 } from "./no-as-casting";
 export {
+  checkNoFixedWaits,
+  type FixedWaitViolation,
+  type NoFixedWaitsOptions,
+  type NoFixedWaitsResult,
+  scanText,
+} from "./no-fixed-waits";
+export {
   checkNoRequire,
   isLineRequireClean,
   type NoRequireCheckOptions,
   type NoRequireCheckResult,
   type NoRequireViolation,
 } from "./no-require";
+export {
+  checkNoTautologyEnsures,
+  type NoTautologyEnsuresOptions,
+  type NoTautologyEnsuresResult,
+  splitTopLevelArgs,
+  type TautologyViolation,
+  tautologyReason,
+} from "./no-tautology-ensures";
 export {
   type CheckGitignoreOptions,
   type CheckSecretsOptions,

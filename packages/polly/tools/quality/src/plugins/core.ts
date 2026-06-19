@@ -17,7 +17,9 @@
 import { join } from "node:path";
 import { Glob } from "bun";
 import { checkNoAsCasting } from "../no-as-casting";
+import { checkNoFixedWaits } from "../no-fixed-waits";
 import { checkNoRequire } from "../no-require";
+import { checkNoTautologyEnsures } from "../no-tautology-ensures";
 import { checkGitignoreCoversAllowlist, checkSecrets } from "../secrets";
 import type { Check, QualityPlugin } from "../types";
 import { clicheCoreChecks } from "./cliche-checks";
@@ -93,6 +95,45 @@ const noRequire: Check<ScanConfig | undefined> = {
     return {
       ok: result.violations.length === 0,
       messages: result.violations.map((v) => `${v.file}:${v.line}: ${v.content}`),
+    };
+  },
+};
+
+const noTautologyEnsures: Check<ScanConfig | undefined> = {
+  id: "polly:no-tautology-ensures",
+  description: "Ban ensures/requires whose predicate is a literal (asserts nothing)",
+  filesRead: (cfg, root) => scanFiles(root, resolveScanConfig(cfg)),
+  run: async ({ rootDir, config }) => {
+    const cfg = resolveScanConfig(config);
+    const result = await checkNoTautologyEnsures({
+      rootDir,
+      ...(cfg.exclude ? { exclude: cfg.exclude } : {}),
+      ...(cfg.excludeFiles ? { excludeFiles: cfg.excludeFiles } : {}),
+      ...(cfg.filePatterns ? { filePatterns: cfg.filePatterns } : {}),
+    });
+    return {
+      ok: result.violations.length === 0,
+      messages: result.violations.map((v) => `${v.file}:${v.line}: ${v.content} — ${v.reason}`),
+    };
+  },
+};
+
+const noFixedWaits: Check<ScanConfig | undefined> = {
+  id: "polly:no-fixed-waits",
+  description:
+    "Ban fixed-duration sleeps (waitForTimeout / Bun.sleep / promise-wrapped setTimeout)",
+  filesRead: (cfg, root) => scanFiles(root, resolveScanConfig(cfg)),
+  run: async ({ rootDir, config }) => {
+    const cfg = resolveScanConfig(config);
+    const result = await checkNoFixedWaits({
+      rootDir,
+      exclude: cfg.exclude ?? DEFAULT_EXCLUDES,
+      ...(cfg.excludeFiles ? { excludeFiles: cfg.excludeFiles } : {}),
+      ...(cfg.filePatterns ? { filePatterns: cfg.filePatterns } : {}),
+    });
+    return {
+      ok: result.violations.length === 0,
+      messages: result.violations.map((v) => `${v.file}:${v.line}: ${v.content} — ${v.message}`),
     };
   },
 };
@@ -179,7 +220,7 @@ const gitignoreCrossCheck: Check<GitignoreConfig | undefined> = {
   },
 };
 
-export const POLLY_CORE_VERSION = "0.48.0";
+export const POLLY_CORE_VERSION = "0.49.0";
 
 export const pollyCorePlugin: QualityPlugin = {
   name: "polly",
@@ -187,6 +228,8 @@ export const pollyCorePlugin: QualityPlugin = {
   checks: [
     noAsCasting as Check<unknown>,
     noRequire as Check<unknown>,
+    noTautologyEnsures as Check<unknown>,
+    noFixedWaits as Check<unknown>,
     secrets as Check<unknown>,
     gitignoreCrossCheck as Check<unknown>,
     ...additionalCoreChecks,
