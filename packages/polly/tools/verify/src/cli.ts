@@ -433,6 +433,17 @@ function isStrictMode(): boolean {
 }
 
 /**
+ * `polly verify --witness`: after the invariant pass, turn each BDD scenario's
+ * Then-predicate into a per-scenario TLC reachability check (the deeper BDD ↔
+ * verify link). A scenario whose outcome the exhaustive model proves
+ * unreachable is a scenario that lies. Off by default — it adds one TLC run per
+ * witnessable scenario.
+ */
+function isWitnessMode(): boolean {
+  return process.argv.includes("--witness");
+}
+
+/**
  * polly#160 (Ask #1): render the model-coverage report — which declared state
  * fields are written by which handlers, which are written by none, and which
  * mutators pin no postcondition. Clean specs get a one-line confirmation.
@@ -734,11 +745,25 @@ async function runFullVerification(configPath: string) {
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {
     await runSubsystemVerification(typedConfig, typedAnalysis);
+    if (isWitnessMode()) {
+      await runWitnessVerification(typedConfig);
+    }
     return;
   }
 
   // Monolithic verification (fallback)
   await runMonolithicVerification(config, analysis);
+  if (isWitnessMode()) {
+    console.log(
+      color(
+        "\n⚠ --witness needs subsystem-scoped verification (a `subsystems` block in the config);",
+        COLORS.yellow
+      )
+    );
+    console.log(
+      color("  reachability witnesses route each scenario to its subsystem spec.\n", COLORS.yellow)
+    );
+  }
 }
 
 async function runMonolithicVerification(config: unknown, analysis: unknown) {
@@ -993,6 +1018,234 @@ async function runSubsystemVerification(
 
   // Compositional report
   displayCompositionalReport(results, interference.valid);
+}
+
+/** A finite default cap so an unconstrained witness cannot hang the run. */
+const DEFAULT_WITNESS_TIMEOUT_MS = 180_000;
+
+type WitnessStatus = "reachable" | "unreachable" | "inconclusive" | "skipped" | "error";
+
+interface WitnessResult {
+  id: string;
+  status: WitnessStatus;
+  subsystem?: string;
+  predicate?: string;
+  note?: string;
+}
+
+/** Absolute paths matching `pattern` under `cwd`, sorted. */
+async function globAbsolute(cwd: string, pattern: string): Promise<string[]> {
+  const out: string[] = [];
+  for await (const f of new Bun.Glob(pattern).scan({ cwd, absolute: true, onlyFiles: true })) {
+    out.push(f);
+  }
+  return out.sort();
+}
+
+/**
+ * `polly verify --witness`: the deeper BDD ↔ verify link. Each BDD scenario's
+ * Then-predicate (reduced by tools/bdd) becomes a per-scenario TLC reachability
+ * check over the subsystem spec the normal pass just generated.
+ *
+ * Semantics, inverted from a normal invariant: the witness `~(\E ctx : <Then>)`
+ * is *violated* exactly when the model reaches the asserted outcome — so a
+ * violation is GOOD (the scenario is honest; the counterexample is its path).
+ * A clean full exploration means the outcome is unreachable — the scenario
+ * lies, and the run fails. Witnesses run WITHOUT the depth bound: a "reachable"
+ * verdict is sound at any bound, but "unreachable" is only sound under full
+ * exploration (StateConstraint keeps the space finite). If TLC times out first,
+ * the verdict is inconclusive — reported, never silently passed or failed.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat per-scenario classify loop — the branches are the verdict surface.
+async function runWitnessVerification(config: UnifiedVerificationConfig): Promise<void> {
+  console.log(color("Reachability witnesses (--witness)\n", COLORS.blue));
+
+  const cwd = process.cwd();
+  const featureFiles = await globAbsolute(cwd, "features/**/*.feature");
+  const stepFiles = [
+    ...new Set([
+      ...(await globAbsolute(cwd, "features/**/*.steps.ts")),
+      ...(await globAbsolute(cwd, "features/steps.ts")),
+    ]),
+  ];
+  if (featureFiles.length === 0 || stepFiles.length === 0) {
+    console.log(
+      color("  No .feature files / step modules found — nothing to witness.\n", COLORS.gray)
+    );
+    return;
+  }
+
+  const { extractWitnesses } = await import("../../bdd/src/witness");
+  const {
+    bddPredicateToTLA,
+    buildWitnessCfg,
+    buildWitnessModule,
+    routeWitness,
+    WITNESS_INVARIANT,
+  } = await import("./codegen/witness");
+
+  const subsystems = config.subsystems as unknown as Record<string, { state: string[] }>;
+  const witnesses = await extractWitnesses(featureFiles, stepFiles);
+
+  const docker = await setupDocker();
+  const timeoutSeconds = getTimeout(config);
+  const timeout = timeoutSeconds > 0 ? timeoutSeconds * 1000 : DEFAULT_WITNESS_TIMEOUT_MS;
+  const workers = getWorkers(config);
+
+  const results: WitnessResult[] = [];
+  let idx = 0;
+
+  for (const w of witnesses) {
+    const id = `${w.feature} › ${w.scenario}`;
+    if (!w.predicate) {
+      results.push({ id, status: "skipped", note: "no state-observable Then to witness" });
+      continue;
+    }
+    const subsystem = routeWitness(w.fields, subsystems);
+    if (!subsystem) {
+      results.push({
+        id,
+        status: "skipped",
+        note: `fields [${w.fields.join(", ")}] not owned by a single subsystem`,
+      });
+      continue;
+    }
+
+    const specDir = path.join(cwd, "specs", "tla", "generated", subsystem);
+    const subsystemCfg = path.join(specDir, `UserApp_${subsystem}.cfg`);
+    if (
+      !fs.existsSync(path.join(specDir, `UserApp_${subsystem}.tla`)) ||
+      !fs.existsSync(subsystemCfg)
+    ) {
+      results.push({
+        id,
+        status: "error",
+        subsystem,
+        note: `subsystem spec missing: ${subsystem}`,
+      });
+      continue;
+    }
+
+    let tlaPredicate: string;
+    try {
+      tlaPredicate = bddPredicateToTLA(w.predicate);
+    } catch (err) {
+      results.push({
+        id,
+        status: "error",
+        subsystem,
+        note: err instanceof Error ? err.message : String(err),
+      });
+      continue;
+    }
+
+    const moduleName = `Witness_${subsystem}_${idx++}`;
+    const witnessTla = path.join(specDir, `${moduleName}.tla`);
+    fs.writeFileSync(
+      witnessTla,
+      buildWitnessModule(moduleName, `UserApp_${subsystem}`, tlaPredicate)
+    );
+    fs.writeFileSync(
+      path.join(specDir, `${moduleName}.cfg`),
+      buildWitnessCfg(fs.readFileSync(subsystemCfg, "utf8"))
+    );
+
+    console.log(color(`⚙️  ${id}`, COLORS.blue));
+    console.log(color(`     ${subsystem} ⊨ ${w.predicate}`, COLORS.gray));
+
+    let tlc: Awaited<ReturnType<Awaited<ReturnType<typeof setupDocker>>["runTLC"]>>;
+    try {
+      tlc = await docker.runTLC(witnessTla, { workers, timeout });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      results.push({ id, status: "inconclusive", subsystem, predicate: w.predicate, note: msg });
+      console.log(
+        color("     ⚠ inconclusive — TLC did not finish (raise the config timeout)", COLORS.yellow)
+      );
+      continue;
+    }
+
+    if (!tlc.success && tlc.violation?.name === WITNESS_INVARIANT) {
+      results.push({ id, status: "reachable", subsystem, predicate: w.predicate });
+      console.log(color("     ✓ reachable — the model reaches this outcome", COLORS.green));
+    } else if (tlc.success) {
+      results.push({
+        id,
+        status: "unreachable",
+        subsystem,
+        predicate: w.predicate,
+        note: `${tlc.stats?.distinctStates ?? 0} distinct states, no path`,
+      });
+      console.log(
+        color(
+          "     ✗ UNREACHABLE — the model proves this outcome impossible (the scenario lies)",
+          COLORS.red
+        )
+      );
+      fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
+    } else {
+      results.push({
+        id,
+        status: "error",
+        subsystem,
+        predicate: w.predicate,
+        note: tlc.error ?? tlc.violation?.name ?? "TLC error",
+      });
+      console.log(color(`     ! error — ${tlc.error ?? "see log"}`, COLORS.yellow));
+      fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
+    }
+  }
+
+  displayWitnessReport(results);
+}
+
+function displayWitnessReport(results: WitnessResult[]): void {
+  const count = (s: WitnessStatus) => results.filter((r) => r.status === s).length;
+  const reachable = count("reachable");
+  const unreachable = count("unreachable");
+  const inconclusive = count("inconclusive");
+  const errors = count("error");
+  const skipped = count("skipped");
+
+  console.log();
+  console.log(color("Witness results:\n", COLORS.blue));
+  for (const r of results) {
+    const mark = {
+      reachable: color("✓", COLORS.green),
+      unreachable: color("✗", COLORS.red),
+      inconclusive: color("⚠", COLORS.yellow),
+      error: color("!", COLORS.yellow),
+      skipped: color("·", COLORS.gray),
+    }[r.status];
+    const note = r.note ? color(`  (${r.note})`, COLORS.gray) : "";
+    console.log(`  ${mark} ${r.status.padEnd(12)} ${r.id}${note}`);
+  }
+
+  console.log();
+  console.log(
+    color(
+      `  ${reachable} reachable, ${unreachable} unreachable, ${inconclusive} inconclusive, ${errors} error, ${skipped} skipped`,
+      COLORS.gray
+    )
+  );
+  console.log();
+
+  if (unreachable > 0 || errors > 0) {
+    console.log(color("Witness result: ✗ FAIL", COLORS.red));
+    console.log(
+      color(
+        "  A scenario the exhaustive model cannot reach describes an impossible outcome.",
+        COLORS.gray
+      )
+    );
+    console.log();
+    process.exit(1);
+  }
+  console.log(color("Witness result: ✓ PASS", COLORS.green));
+  console.log(
+    color("  Every witnessable scenario's outcome is reachable in the model.", COLORS.gray)
+  );
+  console.log();
 }
 
 function displayEnsuresSummary(results: Array<{ ensuresCount: number }>): void {
@@ -1381,6 +1634,12 @@ ${color("Commands:", COLORS.blue)}
     Fail closed (non-zero exit) on model-coverage gaps: a declared state
     field no handler writes, or an unverified $meshState/$peerState predicate.
     Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
+
+  ${color("polly verify --witness", COLORS.green)}
+    After the invariant pass, check each BDD scenario's Then-outcome for
+    reachability: one TLC run per witnessable scenario over its subsystem spec.
+    A scenario the exhaustive model proves unreachable is one that lies, and
+    fails the run. Needs a ${color("subsystems", COLORS.blue)} block and ${color("features/", COLORS.blue)} (see polly bdd).
 
   ${color("polly verify --setup", COLORS.green)}
     Analyze codebase and generate configuration file

@@ -80,18 +80,27 @@ Runtime-enforced negatives (an action on a missing id that returns `{ success: f
 that excludes a non-match) belong in the runner. That division is the point — three strata, each
 doing what only it can.
 
-A deeper formal link — emitting each scenario's outcome as a per-scenario TLC *reachability witness*
-(a scenario the exhaustive model proves unreachable is a scenario that lies) — is a planned
-extension on top of `polly verify`; the static cross-check above is the always-on, Docker-free gate.
+A deeper formal link rides `polly verify --witness`: each scenario's Then-outcome becomes a
+per-scenario TLC **reachability witness**. The witness is the negated existential `~(\E ctx : <Then>)`,
+so TLC *violating* it means the outcome is reachable — the scenario is honest, and the counterexample
+trace is its path through the model. A clean full exploration means the outcome is **unreachable** —
+the scenario asserts a state the model proves impossible, so it lies, and the run fails. The reduction
+reuses the same `stateExpr` metadata, substituting the values captured from the step text
+(`their role is "admin"` + `user.role === "{0}"` → `user.role === "admin"`); a Then with no
+comparison (a bare field, or a runtime-only check) has no state-observable outcome and is reported as
+skipped, never silently dropped. Witnesses route to the subsystem that owns their fields and run
+without the depth bound (a "reachable" verdict is sound at any bound; "unreachable" needs full
+exploration, which `StateConstraint` keeps finite). The static `polly bdd check` below stays the
+always-on, Docker-free gate; the witness is the opt-in, Docker-backed one.
 
 ### Linking to mutate
 
 The negative-complement check is the static, Docker-free enforcer of the mutation-testing
 discipline: a positive-only feature can pass against an over-permissive build (a filter that returns
 *everything* still returns the match), exactly the mutant `polly mutate` would surface as a survivor.
-Wiring the BDD tier into the Stryker kill matrix as its own surface — mutate the handlers, run the
-scenarios, flag any mutant a scenario *should* have killed but didn't — is a planned extension
-(Stryker's `command` runner over `polly bdd run`).
+The BDD tier is also wired into the Stryker kill matrix as its own surface (Stryker's `command` runner
+over `polly bdd run`): mutate the handlers, run the scenarios, and any mutant a scenario *should* have
+killed but didn't is a survivor — the mechanical complement to the negative-complement warning.
 
 ## Commands
 

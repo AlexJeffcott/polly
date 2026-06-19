@@ -142,7 +142,10 @@ defineStep({
   then: (_w, role) => {
     if (user.value.role !== role) throw new Error(`expected role ${role}, got ${user.value.role}`);
   },
-  stateExpr: "user.role",
+  // {0} is the captured role: `their role is "admin"` → user.role === "admin".
+  // A full predicate (not the bare field) so `polly verify --witness` can ask
+  // whether the model can reach that exact role.
+  stateExpr: 'user.role === "{0}"',
 });
 
 defineStep({
@@ -151,7 +154,8 @@ defineStep({
     const n = Number(count);
     if (todos.value.length !== n) throw new Error(`expected ${n} todos, got ${todos.value.length}`);
   },
-  stateExpr: "todos.length",
+  // {0} is the captured count: `the list contains 1 todo` → todos.length === 1.
+  stateExpr: "todos.length === {0}",
 });
 
 defineStep({

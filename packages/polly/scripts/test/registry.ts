@@ -274,6 +274,11 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "mesh"],
           cost: "heavy",
         }),
+        e2e("bdd.witness", "e2e-bdd-witness.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "bdd", "witness"],
+          cost: "heavy",
+        }),
         e2e("visualize.generate", "e2e-visualize.ts", {
           needs: ["docker"],
           tags: ["visualize"],
