@@ -10,8 +10,8 @@ import {
   buildWitnessInvariant,
   buildWitnessModule,
   routeWitness,
-  WitnessTranslationError,
   WITNESS_INVARIANT,
+  WitnessTranslationError,
 } from "../witness";
 
 describe("bddPredicateToTLA", () => {

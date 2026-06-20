@@ -13,7 +13,6 @@
 export { type DispatchBus, driveBus } from "./bus-driver.ts";
 export { type CrossCheckResult, checkAgainstVerify } from "./check-verify.ts";
 export { extractTraces } from "./extract.ts";
-export { type ScenarioWitness, extractWitnesses } from "./witness.ts";
 export { parseFeatureFile, parseFeatureText } from "./parse.ts";
 export { type RunOptions, runFeatures } from "./run.ts";
 export { defineStep, defineWorld, matchStep, registeredBindings } from "./steps.ts";
@@ -32,3 +31,4 @@ export type {
   World,
   WorldDef,
 } from "./types.ts";
+export { extractWitnesses, type ScenarioWitness } from "./witness.ts";
