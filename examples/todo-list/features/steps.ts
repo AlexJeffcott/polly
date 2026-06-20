@@ -138,6 +138,18 @@ defineStep({
 });
 
 defineStep({
+  // The Then of a @forbidden scenario: a state that must be unreachable. The
+  // runner defers @forbidden, so this callback never runs; `polly verify
+  // --witness` proves `user.loggedIn === true && user.role === "guest"` has no
+  // path through the model (the login guard forbids it).
+  pattern: "a signed-in guest exists",
+  then: () => {
+    throw new Error("@forbidden: this state is formal-only and must never run at runtime");
+  },
+  stateExpr: 'user.loggedIn === true && user.role === "guest"',
+});
+
+defineStep({
   pattern: "their role is {string}",
   then: (_w, role) => {
     if (user.value.role !== role) throw new Error(`expected role ${role}, got ${user.value.role}`);

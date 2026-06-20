@@ -12,6 +12,8 @@ import {
   routeWitness,
   WITNESS_INVARIANT,
   WitnessTranslationError,
+  witnessPolarity,
+  witnessVerdict,
 } from "../witness";
 
 describe("bddPredicateToTLA", () => {
@@ -141,5 +143,32 @@ describe("routeWitness", () => {
 
   test("returns null when fields span more than one subsystem", () => {
     expect(routeWitness(["user.loggedIn", "todos"], subsystems)).toBeNull();
+  });
+});
+
+describe("witnessPolarity / witnessVerdict", () => {
+  test("the @forbidden tag flips polarity; everything else is positive", () => {
+    expect(witnessPolarity(["forbidden"])).toBe("forbidden");
+    expect(witnessPolarity(["negative", "forbidden"])).toBe("forbidden");
+    expect(witnessPolarity([])).toBe("positive");
+    expect(witnessPolarity(["formal"])).toBe("positive");
+  });
+
+  test("positive: reachable passes, unreachable fails (the scenario lies)", () => {
+    expect(witnessVerdict("positive", true)).toMatchObject({ status: "reachable", ok: true });
+    expect(witnessVerdict("positive", false)).toMatchObject({ status: "unreachable", ok: false });
+  });
+
+  test("forbidden: unreachable passes, reachable fails (the defect)", () => {
+    expect(witnessVerdict("forbidden", false)).toMatchObject({ status: "excluded", ok: true });
+    expect(witnessVerdict("forbidden", true)).toMatchObject({ status: "violated", ok: false });
+  });
+
+  test("the verdict is the exact dual across polarities", () => {
+    for (const reachable of [true, false]) {
+      expect(witnessVerdict("positive", reachable).ok).toBe(
+        !witnessVerdict("forbidden", reachable).ok
+      );
+    }
   });
 });

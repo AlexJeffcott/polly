@@ -72,6 +72,13 @@ export interface WorldDef {
   create: () => World | Promise<World>;
   /** Cold-start reset run before every scenario (signals back to initial). */
   reset: (world: World) => void | Promise<void>;
+  /**
+   * Optional cleanup run once after all scenarios, even on failure. Most worlds
+   * need nothing (in-process signals die with the runner), but a world that
+   * holds real resources — browsers, an embedded relay, sockets — releases them
+   * here so the runner exits cleanly instead of hanging on live handles.
+   */
+  teardown?: (world: World) => void | Promise<void>;
 }
 
 // ── Parsed Gherkin (our normalized AST, decoupled from @cucumber/gherkin) ──

@@ -23,7 +23,12 @@ import type {
   World,
 } from "./types.ts";
 
-const FORMAL_TAG = "formal";
+// Tags whose scenarios are formal-only — checked by `polly verify`, not the
+// runtime runner. `@formal` covers precondition-only negatives (requires() is a
+// runtime no-op); `@forbidden` covers safety claims ("this state never happens"),
+// which a single runtime execution cannot establish. Both are deferred here and
+// settled by `polly verify --witness`.
+const DEFERRED_TAGS = new Set(["formal", "forbidden"]);
 
 export interface RunOptions {
   featureFiles: string[];
@@ -127,24 +132,30 @@ export async function runFeatures(options: RunOptions): Promise<RunResult> {
   const features = await Promise.all(options.featureFiles.map((f) => parseFeatureFile(f)));
   const scenarios: ScenarioResult[] = [];
 
-  for (const feature of features) {
-    for (const scenario of feature.scenarios) {
-      const tags = [...feature.tags, ...scenario.tags];
-      if (!tagMatches(tags, options.tagFilter)) continue;
+  try {
+    for (const feature of features) {
+      for (const scenario of feature.scenarios) {
+        const tags = [...feature.tags, ...scenario.tags];
+        if (!tagMatches(tags, options.tagFilter)) continue;
 
-      if (tags.includes(FORMAL_TAG)) {
-        scenarios.push({
-          feature: feature.name,
-          scenario: scenario.name,
-          tags,
-          outcome: "deferred-formal",
-          steps: [],
-          file: feature.file,
-        });
-        continue;
+        if (tags.some((t) => DEFERRED_TAGS.has(t))) {
+          scenarios.push({
+            feature: feature.name,
+            scenario: scenario.name,
+            tags,
+            outcome: "deferred-formal",
+            steps: [],
+            file: feature.file,
+          });
+          continue;
+        }
+        scenarios.push(await runScenario(world, feature, { ...scenario, tags }, worldDef.reset));
       }
-      scenarios.push(await runScenario(world, feature, { ...scenario, tags }, worldDef.reset));
     }
+  } finally {
+    // Release any real resources the world holds (browsers, relay, sockets),
+    // even when a scenario threw — otherwise the runner hangs on live handles.
+    await worldDef.teardown?.(world);
   }
 
   const passed = scenarios.filter((s) => s.outcome === "pass").length;

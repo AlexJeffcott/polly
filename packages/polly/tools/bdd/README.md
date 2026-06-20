@@ -93,6 +93,13 @@ without the depth bound (a "reachable" verdict is sound at any bound; "unreachab
 exploration, which `StateConstraint` keeps finite). The static `polly bdd check` below stays the
 always-on, Docker-free gate; the witness is the opt-in, Docker-backed one.
 
+Tag a scenario **`@forbidden`** to flip the witness into a safety check: its Then names a state that
+must be *unreachable*. Same negated existential, inverted verdict — TLC finding no path is the pass
+(the state is provably impossible), and TLC reaching it is the failure, with the counterexample as the
+path to the defect. So the positive witness proves a desirable outcome *can* happen, and the
+`@forbidden` witness proves an undesirable one *cannot*. Both `@formal` and `@forbidden` are
+formal-only; the runtime runner defers them and `polly verify --witness` settles them.
+
 ### Linking to mutate
 
 The negative-complement check is the static, Docker-free enforcer of the mutation-testing
@@ -123,3 +130,10 @@ Build the world through the **documented factory** (`createBackground`, `createM
 for a gap the real path has (the polly#57 lesson). For features that cross a process/network/device
 boundary, drive the real e2e kit (`tools/test/src/e2e-mesh`) from the step definitions; the scenario
 stays declarative.
+
+`scripts/mesh-bdd/sync.feature` is that shape realised: a two-device convergence scenario whose
+world is a *page driver*. Its `defineWorld.create()` boots a real relay and two cold browser peers
+through `createMeshClient`, the steps drive Puppeteer pages and `waitForConvergence`, and the
+optional `defineWorld.teardown(world)` closes the browsers and relay so the runner exits cleanly.
+Resources that outlive a scenario live at module scope, not in `world.vars` — the runner wipes
+`vars` before every scenario as per-scenario scratch.

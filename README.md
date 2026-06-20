@@ -274,6 +274,8 @@ Drop `.feature` files into your project and `polly test` discovers a `bdd` tier 
 
 `polly verify --witness` closes the loop between the example layer and the model. It turns each scenario's outcome into a per-scenario TLC reachability check: a scenario the exhaustive model proves *unreachable* is one that lies — green in the runner, impossible in the model — and it fails the run. The honest ones come back reachable, and the counterexample trace is the path a user would take to get there. Outcomes that aren't state-observable (a response-only check) are reported as skipped, never silently passed.
 
+Tag a scenario `@forbidden` to assert the *opposite*: a state that must never happen. The witness then passes only when the model proves that state unreachable, and fails — with the trace to the defect — if it can reach it. Desirable outcomes proven possible, undesirable ones proven impossible, from the same Gherkin.
+
 ```
 $ polly verify --witness
 

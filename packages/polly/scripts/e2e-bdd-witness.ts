@@ -42,6 +42,7 @@ import {
   buildWitnessCfg,
   buildWitnessModule,
   WITNESS_INVARIANT,
+  witnessVerdict,
 } from "../tools/verify/src/codegen/witness.ts";
 import { analyzeCodebase } from "../tools/verify/src/extract/types.ts";
 import { DockerRunner } from "../tools/verify/src/runner/docker.ts";
@@ -151,7 +152,29 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       "  ✓ unreachable — TLC explores the whole space and finds no path (the lie is caught)\n"
     );
 
-    ctx.log("✅ Witness verified: honest outcomes reachable, lying outcomes caught.");
+    // ── 3. FORBIDDEN polarity: the verdict inverts on the same TLC facts ──
+    // A @forbidden scenario asserts a state must be unreachable. The exact same
+    // reachability facts from runs 1–2 must produce the opposite verdict.
+    ctx.log("→ forbidden polarity: the @forbidden verdict is the dual");
+    const guestExcluded = witnessVerdict("forbidden", lying.reachable); // unreachable → pass
+    const adminViolated = witnessVerdict("forbidden", honest.reachable); // reachable → fail
+    if (!(guestExcluded.ok && guestExcluded.status === "excluded")) {
+      return {
+        pass: false,
+        message: `@forbidden over an unreachable state should pass as "excluded", got ${guestExcluded.status}/${guestExcluded.ok}`,
+      };
+    }
+    if (adminViolated.ok || adminViolated.status !== "violated") {
+      return {
+        pass: false,
+        message: `@forbidden over a reachable state should fail as "violated", got ${adminViolated.status}/${adminViolated.ok}`,
+      };
+    }
+    ctx.log("  ✓ a forbidden-but-unreachable state passes; a forbidden-but-reachable one fails\n");
+
+    ctx.log(
+      "✅ Witness verified: honest outcomes reachable, lying outcomes caught, forbidden states excluded."
+    );
     return { pass: true, detail: { predicate: signIn.predicate } };
   } catch (err) {
     return { pass: false, message: err instanceof Error ? err.message : String(err) };

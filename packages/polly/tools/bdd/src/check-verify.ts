@@ -77,7 +77,7 @@ function fieldKnown(field: string, keys: string[]): boolean {
   return keys.some((k) => k === field || field.startsWith(`${k}.`) || k.startsWith(`${field}.`));
 }
 
-const NEGATIVE_TAGS = new Set(["negative", "formal"]);
+const NEGATIVE_TAGS = new Set(["negative", "formal", "forbidden"]);
 
 function checkTrace(
   trace: ScenarioTrace,

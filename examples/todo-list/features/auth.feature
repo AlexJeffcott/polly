@@ -23,3 +23,10 @@ Feature: Signing in and out
     Given the user is signed out
     When the user attempts to sign in as a guest
     Then the user is signed out
+
+  @forbidden
+  Scenario: A signed-in guest is an impossible state
+    # A safety claim, not an example: there is no path to a logged-in guest.
+    # The runner defers it; `polly verify --witness` proves the state unreachable
+    # (and would fail, with the trace, if any handler made it reachable).
+    Then a signed-in guest exists

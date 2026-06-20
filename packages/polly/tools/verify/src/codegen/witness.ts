@@ -30,6 +30,58 @@ export const WITNESS_INVARIANT = "WitnessReachable";
 /** Raised when a Then-predicate falls outside the witness grammar. */
 export class WitnessTranslationError extends Error {}
 
+/**
+ * The two directions a witness can run. A `positive` witness (the default)
+ * asserts a *desirable* outcome — it should be reachable. A `forbidden` witness
+ * (tag `@forbidden`) asserts an *undesirable* state — it must be unreachable.
+ * The TLC mechanism is identical (the negated existential); only the verdict
+ * inverts, so the same `bddPredicateToTLA` / module / cfg serve both.
+ */
+export type WitnessPolarity = "positive" | "forbidden";
+
+/** A scenario tagged `@forbidden` flips the witness into a safety check. */
+export function witnessPolarity(tags: string[]): WitnessPolarity {
+  return tags.includes("forbidden") ? "forbidden" : "positive";
+}
+
+export interface WitnessVerdict {
+  /** Display status, distinct per polarity so a report never conflates them. */
+  status: "reachable" | "unreachable" | "excluded" | "violated";
+  /** Whether this verdict passes (a forbidden state being unreachable passes). */
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * Map a TLC reachability fact to a pass/fail verdict for the witness's polarity.
+ * `reachable` is true when TLC violated the witness invariant — it found a state
+ * satisfying the predicate.
+ *
+ *   positive  + reachable   → honest, the outcome happens            (pass)
+ *   positive  + unreachable → the scenario lies                      (fail)
+ *   forbidden + unreachable → the bad state is provably impossible   (pass)
+ *   forbidden + reachable   → the bad state IS reachable, a defect   (fail)
+ */
+export function witnessVerdict(polarity: WitnessPolarity, reachable: boolean): WitnessVerdict {
+  if (polarity === "forbidden") {
+    return reachable
+      ? {
+          status: "violated",
+          ok: false,
+          message:
+            "the forbidden state is REACHABLE — a defect; the counterexample is the path to it",
+        }
+      : { status: "excluded", ok: true, message: "the model proves this state unreachable" };
+  }
+  return reachable
+    ? { status: "reachable", ok: true, message: "the model reaches this outcome" }
+    : {
+        status: "unreachable",
+        ok: false,
+        message: "the model proves this outcome impossible (the scenario lies)",
+      };
+}
+
 /** JS comparison → TLA+ operator, longest-token-first so `===` wins over `==`. */
 const COMPARATORS: ReadonlyArray<readonly [string, string]> = [
   ["===", "="],

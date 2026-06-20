@@ -1023,11 +1023,20 @@ async function runSubsystemVerification(
 /** A finite default cap so an unconstrained witness cannot hang the run. */
 const DEFAULT_WITNESS_TIMEOUT_MS = 180_000;
 
-type WitnessStatus = "reachable" | "unreachable" | "inconclusive" | "skipped" | "error";
+type WitnessStatus =
+  | "reachable" // positive, pass
+  | "unreachable" // positive, fail (the scenario lies)
+  | "excluded" // forbidden, pass (the bad state is proven impossible)
+  | "violated" // forbidden, fail (the bad state is reachable — a defect)
+  | "inconclusive"
+  | "skipped"
+  | "error";
 
 interface WitnessResult {
   id: string;
   status: WitnessStatus;
+  /** Whether this result passes; drives the run's exit code. */
+  ok: boolean;
   subsystem?: string;
   predicate?: string;
   note?: string;
@@ -1081,6 +1090,8 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
     buildWitnessCfg,
     buildWitnessModule,
     routeWitness,
+    witnessPolarity,
+    witnessVerdict,
     WITNESS_INVARIANT,
   } = await import("./codegen/witness");
 
@@ -1097,8 +1108,14 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
 
   for (const w of witnesses) {
     const id = `${w.feature} › ${w.scenario}`;
+    const polarity = witnessPolarity(w.tags);
     if (!w.predicate) {
-      results.push({ id, status: "skipped", note: "no state-observable Then to witness" });
+      results.push({
+        id,
+        status: "skipped",
+        ok: true,
+        note: "no state-observable Then to witness",
+      });
       continue;
     }
     const subsystem = routeWitness(w.fields, subsystems);
@@ -1106,6 +1123,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
       results.push({
         id,
         status: "skipped",
+        ok: true,
         note: `fields [${w.fields.join(", ")}] not owned by a single subsystem`,
       });
       continue;
@@ -1120,6 +1138,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
       results.push({
         id,
         status: "error",
+        ok: false,
         subsystem,
         note: `subsystem spec missing: ${subsystem}`,
       });
@@ -1133,6 +1152,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
       results.push({
         id,
         status: "error",
+        ok: false,
         subsystem,
         note: err instanceof Error ? err.message : String(err),
       });
@@ -1150,7 +1170,9 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
       buildWitnessCfg(fs.readFileSync(subsystemCfg, "utf8"))
     );
 
-    console.log(color(`⚙️  ${id}`, COLORS.blue));
+    const polarityTag =
+      polarity === "forbidden" ? color("  [forbidden — must be unreachable]", COLORS.gray) : "";
+    console.log(color(`⚙️  ${id}`, COLORS.blue) + polarityTag);
     console.log(color(`     ${subsystem} ⊨ ${w.predicate}`, COLORS.gray));
 
     let tlc: Awaited<ReturnType<Awaited<ReturnType<typeof setupDocker>>["runTLC"]>>;
@@ -1158,42 +1180,57 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
       tlc = await docker.runTLC(witnessTla, { workers, timeout });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      results.push({ id, status: "inconclusive", subsystem, predicate: w.predicate, note: msg });
+      results.push({
+        id,
+        status: "inconclusive",
+        ok: true,
+        subsystem,
+        predicate: w.predicate,
+        note: msg,
+      });
       console.log(
         color("     ⚠ inconclusive — TLC did not finish (raise the config timeout)", COLORS.yellow)
       );
       continue;
     }
 
-    if (!tlc.success && tlc.violation?.name === WITNESS_INVARIANT) {
-      results.push({ id, status: "reachable", subsystem, predicate: w.predicate });
-      console.log(color("     ✓ reachable — the model reaches this outcome", COLORS.green));
-    } else if (tlc.success) {
-      results.push({
-        id,
-        status: "unreachable",
-        subsystem,
-        predicate: w.predicate,
-        note: `${tlc.stats?.distinctStates ?? 0} distinct states, no path`,
-      });
-      console.log(
-        color(
-          "     ✗ UNREACHABLE — the model proves this outcome impossible (the scenario lies)",
-          COLORS.red
-        )
-      );
-      fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
-    } else {
+    const reachable = !tlc.success && tlc.violation?.name === WITNESS_INVARIANT;
+    // A failure that is NOT our witness invariant is a genuine TLC/spec error.
+    if (!tlc.success && !reachable) {
       results.push({
         id,
         status: "error",
+        ok: false,
         subsystem,
         predicate: w.predicate,
         note: tlc.error ?? tlc.violation?.name ?? "TLC error",
       });
       console.log(color(`     ! error — ${tlc.error ?? "see log"}`, COLORS.yellow));
       fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
+      continue;
     }
+
+    const verdict = witnessVerdict(polarity, reachable);
+    const note = reachable
+      ? undefined
+      : `${tlc.stats?.distinctStates ?? 0} distinct states explored`;
+    results.push({
+      id,
+      status: verdict.status,
+      ok: verdict.ok,
+      subsystem,
+      predicate: w.predicate,
+      note,
+    });
+    console.log(
+      color(
+        `     ${verdict.ok ? "✓" : "✗"} ${verdict.status} — ${verdict.message}`,
+        verdict.ok ? COLORS.green : COLORS.red
+      )
+    );
+    // Keep the trace for any failure (a positive lie or a reachable forbidden state).
+    if (!verdict.ok)
+      fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
   }
 
   displayWitnessReport(results);
@@ -1201,18 +1238,15 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
 
 function displayWitnessReport(results: WitnessResult[]): void {
   const count = (s: WitnessStatus) => results.filter((r) => r.status === s).length;
-  const reachable = count("reachable");
-  const unreachable = count("unreachable");
-  const inconclusive = count("inconclusive");
-  const errors = count("error");
-  const skipped = count("skipped");
 
   console.log();
   console.log(color("Witness results:\n", COLORS.blue));
   for (const r of results) {
     const mark = {
       reachable: color("✓", COLORS.green),
+      excluded: color("✓", COLORS.green),
       unreachable: color("✗", COLORS.red),
+      violated: color("✗", COLORS.red),
       inconclusive: color("⚠", COLORS.yellow),
       error: color("!", COLORS.yellow),
       skipped: color("·", COLORS.gray),
@@ -1221,20 +1255,29 @@ function displayWitnessReport(results: WitnessResult[]): void {
     console.log(`  ${mark} ${r.status.padEnd(12)} ${r.id}${note}`);
   }
 
+  const tally = (
+    [
+      "reachable",
+      "excluded",
+      "unreachable",
+      "violated",
+      "inconclusive",
+      "error",
+      "skipped",
+    ] as const
+  )
+    .map((s) => `${count(s)} ${s}`)
+    .join(", ");
   console.log();
-  console.log(
-    color(
-      `  ${reachable} reachable, ${unreachable} unreachable, ${inconclusive} inconclusive, ${errors} error, ${skipped} skipped`,
-      COLORS.gray
-    )
-  );
+  console.log(color(`  ${tally}`, COLORS.gray));
   console.log();
 
-  if (unreachable > 0 || errors > 0) {
+  const failures = results.filter((r) => !r.ok);
+  if (failures.length > 0) {
     console.log(color("Witness result: ✗ FAIL", COLORS.red));
     console.log(
       color(
-        "  A scenario the exhaustive model cannot reach describes an impossible outcome.",
+        "  An outcome a scenario claims is unreachable, or a forbidden state the model can reach.",
         COLORS.gray
       )
     );
@@ -1243,7 +1286,10 @@ function displayWitnessReport(results: WitnessResult[]): void {
   }
   console.log(color("Witness result: ✓ PASS", COLORS.green));
   console.log(
-    color("  Every witnessable scenario's outcome is reachable in the model.", COLORS.gray)
+    color(
+      "  Every claimed outcome is reachable; every forbidden state is proven unreachable.",
+      COLORS.gray
+    )
   );
   console.log();
 }

@@ -190,6 +190,11 @@ export function internalPlan(): TierPlan {
           tags: ["mesh", "convergence"],
           cost: "heavy",
         }),
+        e2e("bdd.mesh-sync", "e2e-bdd-mesh.ts", {
+          needs: ["browser"],
+          tags: ["bdd", "mesh", "convergence", "gherkin"],
+          cost: "heavy",
+        }),
         e2e("mesh.revocation-prebaked", "e2e-mesh-revocation-prebaked.ts", {
           needs: ["browser"],
           tags: ["mesh", "revocation"],
