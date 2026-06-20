@@ -9,11 +9,14 @@
 #     message-router, adapters, errors, guards, types, actions, client)
 #   - the elysia integration (with the mesh peerRepo plugin trimmed out)
 #   - the `verify` tool (formal verification) + its analysis engine + stryker
+#   - the `bdd` tool (executable Gherkin, exported as @fairfox/polly/bdd) +
+#     `polly verify --witness`, which dynamic-imports it
 #   - the `visualize` tool (with the mesh --snapshot overlay neutralised)
 #   - the `quality` tool (conformance checks, exported as @fairfox/polly/quality)
 #
 # The result has zero @automerge/* / ws / tweetnacl / werift / wrtc / marked /
-# dompurify dependencies. The one runtime coupling — deriveDocumentId, used by
+# dompurify dependencies. The bdd tool adds @cucumber/gherkin + @cucumber/messages
+# (kept external) — the only extra runtime deps over the core slice. The one runtime coupling — deriveDocumentId, used by
 # the visualize --snapshot overlay — is replaced with a throwing stub, so the
 # overlay compiles but reports "unavailable" if invoked.
 #
@@ -107,6 +110,11 @@ del src/polly-ui src/assets src/content src/devtools src/offscreen src/options s
 # imports `src/polly-ui` directly, so it cannot type-check once the UI is
 # removed. It is unexported and node-unbuilt, so dropping it is invisible to
 # consumers (and without this the slice's own --check fails tsc).
+#
+# tools/bdd is KEPT: it is self-contained (only @cucumber/gherkin +
+# @cucumber/messages, no UI/mesh/framework-runtime imports), is exported as
+# `@fairfox/polly/bdd`, and `polly verify --witness` dynamic-imports it — so
+# dropping it would break the verify CLI build. Its tests are stripped below.
 log "deleting dropped tooling (init, test, gallery) …"
 del tools/init tools/test tools/gallery
 
@@ -270,6 +278,7 @@ cat > "$TARGET/package.json" <<'PKG'
     "./elysia":         { "import": "./dist/src/elysia/index.js",               "types": "./dist/src/elysia/index.d.ts" },
     "./verify":         { "import": "./dist/tools/verify/src/config.js",        "types": "./dist/tools/verify/src/config.d.ts" },
     "./stryker":        { "import": "./dist/tools/verify/src/stryker/index.js", "types": "./dist/tools/verify/src/stryker/index.d.ts" },
+    "./bdd":            { "import": "./dist/tools/bdd/src/index.js",            "types": "./dist/tools/bdd/src/index.d.ts" },
     "./quality":        { "import": "./dist/tools/quality/src/index.js",        "types": "./dist/tools/quality/src/index.d.ts" }
   },
   "files": ["dist", "README.md", "LICENSE"],
@@ -281,6 +290,8 @@ cat > "$TARGET/package.json" <<'PKG'
     "format": "biome format --write ."
   },
   "dependencies": {
+    "@cucumber/gherkin": "40.0.0",
+    "@cucumber/messages": "33.0.2",
     "@preact/signals": "2.9.0",
     "@preact/signals-core": "1.14.2",
     "preact": "10.29.1",
@@ -382,6 +393,11 @@ const toolsResult = await Bun.build({
     "tools/verify/src/cli.ts",
     "tools/verify/src/stryker/index.ts",
     "tools/visualize/src/cli.ts",
+    // bdd: the `polly bdd` CLI (cli/polly.ts spawns it) + the `./bdd` library
+    // export (defineStep/defineWorld). `polly verify --witness` also
+    // dynamic-imports tools/bdd/src/witness, so verify's CLI needs it built.
+    "tools/bdd/src/cli.ts",
+    "tools/bdd/src/index.ts",
     // quality library (the `./quality` subpath export) — node-target: it scans
     // source/CSS text via bun's Glob + node:fs, so it is not browser-safe.
     "tools/quality/src/index.ts",
@@ -395,8 +411,9 @@ const toolsResult = await Bun.build({
   splitting: false,
   minify: false,
   sourcemap: "external",
-  naming: { entry: "[dir]/[name].[ext]" },
-  external: ["ts-morph", "bun", "bun:*", "node:*", "elysia", "@elysiajs/*", "@stryker-mutator/*"],
+  // @cucumber/* stays external (the bdd Gherkin parser) — resolved at runtime
+  // from dependencies, never bundled.
+  external: ["ts-morph", "bun", "bun:*", "node:*", "elysia", "@elysiajs/*", "@stryker-mutator/*", "@cucumber/*"],
 });
 if (!toolsResult.success) {
   console.error("❌ Tools build failed:");
@@ -436,6 +453,7 @@ try {
       "bun-env.d.ts",
       "tools/verify/src/config.ts",
       "tools/verify/src/stryker/index.ts",
+      "tools/bdd/src/**/*",
       "tools/quality/src/**/*",
     ],
     exclude: ["**/*.test.ts", "**/*.spec.ts"],
@@ -461,10 +479,15 @@ echo
 ok "vendored polly into $TARGET"
 printf '%s' "$c_dim"
 cat <<NOTES
-Kept:    core framework, elysia (peerRepo trimmed), verify (+analysis+stryker), visualize, quality
+Kept:    core framework, elysia (peerRepo trimmed), verify (+analysis+stryker),
+         bdd (@fairfox/polly/bdd + polly bdd + verify --witness), visualize, quality
 Removed: UI (polly-ui), mesh runtime, chrome-extension contexts, all tests, init/test tooling
 Notes:
   - The visualize --snapshot mesh overlay is stubbed (throws if used).
+  - bdd is included: 'polly bdd' (run/check/new), the @fairfox/polly/bdd
+    library, and 'polly verify --witness' all work. The mesh sync.feature
+    (scripts/) is not vendored (scripts/ is not copied), so the witness's
+    in-process/factory scenarios are the slice's BDD surface.
   - 'polly build'/'dev'/'test'/'quality'/'init' subcommands are unavailable
     (their CLIs and scripts/ were not vendored). The quality *library*
     (@fairfox/polly/quality) is exported for programmatic use — wire its
@@ -480,8 +503,12 @@ printf '%s' "$c_off"
 
 if [ "$CHECK" -eq 1 ]; then
   echo
-  log "running --check (bun install + tsc --noEmit) …"
-  ( cd "$TARGET" && bun install && bunx tsc --noEmit ) \
-    && ok "typecheck passed" \
-    || warn "typecheck reported issues — review above (the mesh stub types are the most likely culprit)"
+  # Run BOTH tsc and the real build. tsc alone is not enough: the slice's
+  # tsconfig only includes src/cli/quality, so a broken import inside a built
+  # tool (e.g. verify's CLI dynamic-importing bdd) type-checks clean but fails
+  # to bundle. build:lib is the only step that exercises every entrypoint.
+  log "running --check (bun install + tsc --noEmit + build:lib) …"
+  ( cd "$TARGET" && bun install && bunx tsc --noEmit && bun run build:lib ) \
+    && ok "typecheck + build passed" \
+    || warn "check reported issues — review above (the mesh stub types or a missing dep are the likely culprits)"
 fi
