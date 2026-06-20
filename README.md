@@ -246,6 +246,45 @@ If a `requires()` can be violated — say, a logout races with a todo add — TL
 
 For larger apps, [subsystem-scoped verification](https://github.com/AlexJeffcott/polly/tree/main/examples/todo-list) splits the state space so checking stays fast.
 
+## Executable specs that link to the model
+
+`polly bdd` adds a third verification stratum alongside `verify` (TLA+) and `mutate` (Stryker): acceptance examples written from the user's perspective, as Gherkin, run across the **real factory boundary** — the same `createBackground` your extension boots, never a hand-wired bus that quietly papers over a gap the real path has.
+
+```gherkin
+# features/auth.feature
+Feature: Signing in
+  Scenario: A signed-out user can sign in
+    Given the user is signed out
+    When the user signs in as "admin"
+    Then the user is signed in
+    And their role is "admin"
+```
+
+One `defineStep` binding is dual-use, the same trick that makes `requires()`/`ensures()` work: its `given`/`when`/`then` drive the runtime, while its `message`/`stateExpr` are read statically. So the example layer, the formal layer and the mutation layer all describe the same handlers and state.
+
+```
+polly bdd          Run the scenarios across the real boundary (red before green)
+polly bdd check    Cross-check every scenario against the verification config (Docker-free)
+polly bdd new      Scaffold a feature stub seeded from the verify vocabulary
+```
+
+Drop `.feature` files into your project and `polly test` discovers a `bdd` tier automatically.
+
+### Reachability witnesses
+
+`polly verify --witness` closes the loop between the example layer and the model. It turns each scenario's outcome into a per-scenario TLC reachability check: a scenario the exhaustive model proves *unreachable* is one that lies — green in the runner, impossible in the model — and it fails the run. The honest ones come back reachable, and the counterexample trace is the path a user would take to get there. Outcomes that aren't state-observable (a response-only check) are reported as skipped, never silently passed.
+
+```
+$ polly verify --witness
+
+Reachability witnesses (--witness)
+  ✓ reachable   Signing in › A signed-out user can sign in
+  ✓ reachable   Signing in › Signing out returns the user to a guest session
+  · skipped     Todos › Completing a todo that does not exist is refused
+
+Witness result: ✓ PASS
+```
+
 ## Quick start
 
 ```bash
@@ -289,7 +328,10 @@ polly lint [--fix]                Lint (and optionally auto-fix)
 polly format                      Format your code
 polly test [args]                 Run unit tests (bun test)
 polly test:browser [dir]          Run *.browser.{ts,tsx} in Puppeteer
-polly verify                      Run formal verification (TLA+/TLC)
+polly verify [--witness]          Run formal verification (TLA+/TLC); --witness adds
+                                  per-scenario reachability checks for your BDD outcomes
+polly bdd [run|check|new]         Executable Gherkin across the real boundary, linked to the model
+polly mutate [run|report]         Mutation testing (Stryker) — prove the tests have teeth
 polly visualize                   Generate architecture diagrams (Structurizr DSL)
 polly quality [args]              Run conformance checks (no-as-casting, boundaries, secrets,
                                   server-imports, forbidden-deps, banners, marketing, ...)
