@@ -11,8 +11,9 @@ import {
   type StateSpaceEstimate,
 } from "./analysis/state-space-estimator";
 import { generateConfig } from "./codegen/config";
+import type { WitnessSpecLocation } from "./codegen/witness";
 import { validateConfig } from "./config/parser";
-import type { UnifiedVerificationConfig } from "./config/types";
+import type { CustomTLAPath, UnifiedVerificationConfig } from "./config/types";
 import { analyzeCodebase } from "./extract/types";
 import { isSeedFixDisabled, meshSeedCfg } from "./runner/mesh-seed";
 
@@ -654,6 +655,17 @@ function getMaxDepth(config: UnifiedVerificationConfig): number | undefined {
 }
 
 /**
+ * Hand-written-spec witness bindings, keyed by subsystem (legacy config only).
+ * Empty when none are declared.
+ */
+function getCustomTLAPaths(config: UnifiedVerificationConfig): Record<string, CustomTLAPath> {
+  if ("messages" in config && config.customTLAPaths) {
+    return config.customTLAPaths;
+  }
+  return {};
+}
+
+/**
  * polly#160 (A2): coupled-field write-coupling lint. WARNS only — a legitimate
  * staged transition (one handler sets each field) trips the per-handler subset
  * check, so this never fails the run. The sound, whole-state detector is the
@@ -950,9 +962,23 @@ async function runSubsystemVerification(
     error?: string;
   }> = [];
 
+  const customTLAPaths = getCustomTLAPaths(config);
+
   for (const name of subsystemNames) {
     const sub = subsystems[name];
     const startTime = Date.now();
+
+    // A custom subsystem is defined by a hand-written spec, not handlers — there
+    // is nothing to generate here; it is checked by its own spec + witnesses.
+    if (customTLAPaths[name]) {
+      console.log(
+        color(
+          `⏭  ${name}: hand-written spec (customTLAPaths) — witnessed, not generated`,
+          COLORS.gray
+        )
+      );
+      continue;
+    }
 
     console.log(color(`⚙️  Verifying subsystem: ${name}...`, COLORS.blue));
 
@@ -1086,16 +1112,20 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
 
   const { extractWitnesses } = await import("../../bdd/src/witness");
   const {
+    bareFieldRenderer,
     bddPredicateToTLA,
     buildWitnessCfg,
     buildWitnessModule,
+    parseModuleName,
     routeWitness,
     witnessPolarity,
+    witnessSpecLocation,
     witnessVerdict,
     WITNESS_INVARIANT,
   } = await import("./codegen/witness");
 
   const subsystems = config.subsystems as unknown as Record<string, { state: string[] }>;
+  const customTLAPaths = getCustomTLAPaths(config);
   const witnesses = await extractWitnesses(featureFiles, stepFiles);
 
   const docker = await setupDocker();
@@ -1129,25 +1159,57 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
       continue;
     }
 
-    const specDir = path.join(cwd, "specs", "tla", "generated", subsystem);
-    const subsystemCfg = path.join(specDir, `UserApp_${subsystem}.cfg`);
-    if (
-      !fs.existsSync(path.join(specDir, `UserApp_${subsystem}.tla`)) ||
-      !fs.existsSync(subsystemCfg)
-    ) {
-      results.push({
-        id,
-        status: "error",
-        ok: false,
-        subsystem,
-        note: `subsystem spec missing: ${subsystem}`,
-      });
-      continue;
+    // Resolve the base spec: a hand-written one (customTLAPaths) the witness
+    // EXTENDS, or the generated UserApp_<subsystem>. A custom spec without an
+    // explicit `module` takes its name from the `.tla`'s MODULE header.
+    const custom = customTLAPaths[subsystem];
+    let location: WitnessSpecLocation;
+    if (custom) {
+      const tlaAbs = path.resolve(cwd, custom.tla);
+      const cfgAbs = path.resolve(cwd, custom.cfg);
+      if (!fs.existsSync(tlaAbs) || !fs.existsSync(cfgAbs)) {
+        results.push({
+          id,
+          status: "error",
+          ok: false,
+          subsystem,
+          note: `custom spec missing: ${custom.tla} / ${custom.cfg}`,
+        });
+        continue;
+      }
+      const module = custom.module ?? parseModuleName(fs.readFileSync(tlaAbs, "utf8"));
+      if (!module) {
+        results.push({
+          id,
+          status: "error",
+          ok: false,
+          subsystem,
+          note: `cannot read MODULE name from ${custom.tla}; set customTLAPaths.${subsystem}.module`,
+        });
+        continue;
+      }
+      location = witnessSpecLocation(cwd, subsystem, custom, module);
+    } else {
+      location = witnessSpecLocation(cwd, subsystem, undefined, "");
+      if (!fs.existsSync(location.tlaPath) || !fs.existsSync(location.cfgPath)) {
+        results.push({
+          id,
+          status: "error",
+          ok: false,
+          subsystem,
+          note: `subsystem spec missing: ${subsystem}`,
+        });
+        continue;
+      }
     }
 
     let tlaPredicate: string;
     try {
-      tlaPredicate = bddPredicateToTLA(w.predicate);
+      // A hand-written spec reads its own variables (via `fields`); a generated
+      // one reads `contextStates[ctx]` (the default renderer).
+      tlaPredicate = location.custom
+        ? bddPredicateToTLA(w.predicate, bareFieldRenderer(custom?.fields))
+        : bddPredicateToTLA(w.predicate);
     } catch (err) {
       results.push({
         id,
@@ -1160,14 +1222,14 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
     }
 
     const moduleName = `Witness_${subsystem}_${idx++}`;
-    const witnessTla = path.join(specDir, `${moduleName}.tla`);
+    const witnessTla = path.join(location.dir, `${moduleName}.tla`);
     fs.writeFileSync(
       witnessTla,
-      buildWitnessModule(moduleName, `UserApp_${subsystem}`, tlaPredicate)
+      buildWitnessModule(moduleName, location.module, tlaPredicate, { bare: location.custom })
     );
     fs.writeFileSync(
-      path.join(specDir, `${moduleName}.cfg`),
-      buildWitnessCfg(fs.readFileSync(subsystemCfg, "utf8"))
+      path.join(location.dir, `${moduleName}.cfg`),
+      buildWitnessCfg(fs.readFileSync(location.cfgPath, "utf8"))
     );
 
     const polarityTag =
@@ -1206,7 +1268,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
         note: tlc.error ?? tlc.violation?.name ?? "TLC error",
       });
       console.log(color(`     ! error — ${tlc.error ?? "see log"}`, COLORS.yellow));
-      fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
+      fs.writeFileSync(path.join(location.dir, `${moduleName}.tlc-output.log`), tlc.output);
       continue;
     }
 
@@ -1230,7 +1292,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
     );
     // Keep the trace for any failure (a positive lie or a reachable forbidden state).
     if (!verdict.ok)
-      fs.writeFileSync(path.join(specDir, `${moduleName}.tlc-output.log`), tlc.output);
+      fs.writeFileSync(path.join(location.dir, `${moduleName}.tlc-output.log`), tlc.output);
   }
 
   displayWitnessReport(results);

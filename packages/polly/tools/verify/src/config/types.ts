@@ -70,6 +70,29 @@ export interface AdapterVerificationConfig {
 /**
  * Legacy verification configuration (backward compatible)
  */
+/**
+ * Point a subsystem's reachability witnesses at a HAND-WRITTEN TLA+ spec instead
+ * of the `defineVerification`-generated `UserApp_<subsystem>`. The witness module
+ * is written next to `tla` and `EXTENDS` its module, so a consumer can bind BDD
+ * scenarios to specs they authored (and run via their own TLC) rather than ones
+ * polly generates from handlers.
+ */
+export interface CustomTLAPath {
+  /** Path (relative to cwd) to the hand-written `.tla` the witness EXTENDS. */
+  tla: string;
+  /** Path (relative to cwd) to its `.cfg` (SPECIFICATION/CONSTANTS/CONSTRAINT reused). */
+  cfg: string;
+  /** Module name to EXTEND; defaults to the `---- MODULE X ----` parsed from `tla`. */
+  module?: string;
+  /**
+   * Map a BDD field name (the `signal.field` dialect used in scenarios) to this
+   * spec's TLA+ variable name — needed because a hand-written spec names its own
+   * variables (e.g. BDD `speaker` → TLA+ `Speaker`) and has no `contextStates`
+   * wrapper. Unmapped fields fall back to the flattened field name.
+   */
+  fields?: Record<string, string>;
+}
+
 export interface LegacyVerificationConfig {
   /** State configuration (old format) */
   state: Record<string, unknown>;
@@ -91,6 +114,13 @@ export interface LegacyVerificationConfig {
 
   /** polly#160: symmetric write-coupling lint groups (static warning only). */
   coupledFields?: string[][];
+
+  /**
+   * Bind a subsystem's witnesses to a hand-written `.tla`/`.cfg` instead of the
+   * generated spec, keyed by subsystem name. Only the witness pass reads this;
+   * a custom subsystem is skipped during generated-spec verification.
+   */
+  customTLAPaths?: Record<string, CustomTLAPath>;
 }
 
 // Unified Configuration Type

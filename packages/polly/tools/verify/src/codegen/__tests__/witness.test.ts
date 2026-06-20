@@ -5,14 +5,18 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  bareFieldRenderer,
   bddPredicateToTLA,
   buildWitnessCfg,
   buildWitnessInvariant,
+  buildWitnessInvariantBare,
   buildWitnessModule,
+  parseModuleName,
   routeWitness,
   WITNESS_INVARIANT,
   WitnessTranslationError,
   witnessPolarity,
+  witnessSpecLocation,
   witnessVerdict,
 } from "../witness";
 
@@ -170,5 +174,107 @@ describe("witnessPolarity / witnessVerdict", () => {
         !witnessVerdict("forbidden", reachable).ok
       );
     }
+  });
+});
+
+// Targeting a HAND-WRITTEN spec (customTLAPaths) instead of the generated one —
+// the worked example is cochlea's VoiceTurn echo-safety: a forbidden state where
+// the spec's own `Mic`/`Speaker` variables are both on.
+describe("parseModuleName", () => {
+  test("reads the module name from a MODULE header", () => {
+    expect(parseModuleName("---- MODULE EdgeFold ----\nEXTENDS Naturals\n====")).toBe("EdgeFold");
+  });
+
+  test("tolerates varied dash runs and surrounding whitespace", () => {
+    expect(parseModuleName("\n\n--------- MODULE VoiceTurn ---------\n")).toBe("VoiceTurn");
+  });
+
+  test("returns null when there is no MODULE header", () => {
+    expect(parseModuleName("EXTENDS Naturals\nVARIABLES x\n")).toBeNull();
+  });
+});
+
+describe("bareFieldRenderer / bddPredicateToTLA against a hand-written spec", () => {
+  test("maps BDD field names to the spec's own variables (no contextStates)", () => {
+    const render = bareFieldRenderer({ mic: "Mic", speaker: "Speaker" });
+    expect(bddPredicateToTLA("mic === true && speaker === true", render)).toBe(
+      "Mic = TRUE /\\ Speaker = TRUE"
+    );
+  });
+
+  test("falls back to the flattened field name when unmapped", () => {
+    expect(bddPredicateToTLA("door.open === false", bareFieldRenderer())).toBe("door_open = FALSE");
+  });
+
+  test("default renderer is unchanged (still reads contextStates[ctx])", () => {
+    expect(bddPredicateToTLA("mic === true")).toBe("contextStates[ctx].mic = TRUE");
+  });
+});
+
+describe("buildWitnessInvariantBare / buildWitnessModule({ bare })", () => {
+  test("the bare invariant drops the Contexts existential", () => {
+    expect(buildWitnessInvariantBare("Mic = TRUE /\\ Speaker = TRUE")).toBe(
+      `${WITNESS_INVARIANT} == ~(Mic = TRUE /\\ Speaker = TRUE)`
+    );
+  });
+
+  test("a bare module EXTENDS the hand-written spec and carries the bare invariant", () => {
+    const mod = buildWitnessModule(
+      "Witness_voice_0",
+      "VoiceTurn",
+      "Mic = TRUE /\\ Speaker = TRUE",
+      {
+        bare: true,
+      }
+    );
+    expect(mod).toContain("---- MODULE Witness_voice_0 ----");
+    expect(mod).toContain("EXTENDS VoiceTurn");
+    expect(mod).toContain(`${WITNESS_INVARIANT} == ~(Mic = TRUE /\\ Speaker = TRUE)`);
+    expect(mod).not.toContain("\\E ctx");
+  });
+
+  test("without { bare } the generated existential form is unchanged", () => {
+    const mod = buildWitnessModule("Witness_auth_0", "UserApp_auth", "contextStates[ctx].x = TRUE");
+    expect(mod).toContain("\\E ctx \\in Contexts");
+  });
+});
+
+describe("witnessSpecLocation", () => {
+  test("a custom binding resolves the hand-written spec, its dir, and module", () => {
+    const loc = witnessSpecLocation(
+      "/repo",
+      "voice",
+      { tla: "specs/VoiceTurn.tla", cfg: "specs/VoiceTurn_safe.cfg" },
+      "VoiceTurn"
+    );
+    expect(loc).toMatchObject({
+      dir: "/repo/specs",
+      tlaPath: "/repo/specs/VoiceTurn.tla",
+      cfgPath: "/repo/specs/VoiceTurn_safe.cfg",
+      module: "VoiceTurn",
+      custom: true,
+    });
+  });
+
+  test("no custom binding falls back to the generated UserApp_<subsystem> path", () => {
+    const loc = witnessSpecLocation("/repo", "auth", undefined, "");
+    expect(loc).toMatchObject({
+      dir: "/repo/specs/tla/generated/auth",
+      tlaPath: "/repo/specs/tla/generated/auth/UserApp_auth.tla",
+      cfgPath: "/repo/specs/tla/generated/auth/UserApp_auth.cfg",
+      module: "UserApp_auth",
+      custom: false,
+    });
+  });
+});
+
+describe("buildWitnessCfg against a hand-written cfg", () => {
+  test("carries INIT/NEXT when the cfg names them instead of SPECIFICATION", () => {
+    const baseCfg = ["INIT Init", "NEXT Next", "", "INVARIANT EchoSafety", ""].join("\n");
+    const cfg = buildWitnessCfg(baseCfg);
+    expect(cfg).toContain("INIT Init");
+    expect(cfg).toContain("NEXT Next");
+    expect(cfg).toContain(`INVARIANTS\n  ${WITNESS_INVARIANT}`);
+    expect(cfg).not.toContain("EchoSafety");
   });
 });

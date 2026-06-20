@@ -31,6 +31,17 @@ interface SubsystemConfig {
   };
 }
 
+// Point a subsystem's reachability witnesses at a hand-written TLA+ spec instead
+// of the generated UserApp_<subsystem>. Inlined here (like SubsystemConfig) to
+// keep this authoring entry point dependency-light; canonical type is
+// CustomTLAPath in config/types.ts.
+interface CustomTLAPath {
+  tla: string; // path (relative to cwd) to the hand-written .tla the witness EXTENDS
+  cfg: string; // path (relative to cwd) to its .cfg
+  module?: string; // module to EXTEND; defaults to the MODULE name parsed from `tla`
+  fields?: Record<string, string>; // BDD field name → this spec's TLA+ variable name
+}
+
 // Legacy verification configuration
 interface LegacyVerificationConfig {
   state: Record<string, unknown>;
@@ -85,6 +96,10 @@ interface LegacyVerificationConfig {
 
   // Subsystem-scoped verification (compositional)
   subsystems?: Record<string, SubsystemConfig>;
+
+  // Bind a subsystem's witnesses to a hand-written .tla/.cfg (read only by the
+  // --witness pass; a custom subsystem is skipped during generated-spec verify).
+  customTLAPaths?: Record<string, CustomTLAPath>;
 
   // Tier 2 Optimizations (controlled approximations)
   tier2?: {

@@ -24,6 +24,9 @@
  * mesh/array machinery through a second entry point.
  */
 
+import * as path from "node:path";
+import type { CustomTLAPath } from "../config/types";
+
 /** The single invariant every generated witness module declares. */
 export const WITNESS_INVARIANT = "WitnessReachable";
 
@@ -100,11 +103,32 @@ function flattenField(path: string): string {
 }
 
 /**
- * Translate one operand. A literal (boolean/number/string) maps straight across;
- * a field reference becomes `contextStates[ctx].<flattened>`, and a trailing
- * `.length` becomes TLA+ sequence length `Len(...)`.
+ * How a field reference renders in the target spec. The generated subsystem spec
+ * keeps per-context state in `contextStates[ctx]`, so a field is read from there
+ * (the default); a hand-written spec exposes its own top-level variables, so a
+ * field maps straight to one (via {@link bareFieldRenderer}).
  */
-function translateOperand(raw: string): string {
+export type FieldRenderer = (fieldPath: string) => string;
+
+/** Field → `contextStates[ctx].<flattened>` — the generated-spec shape. */
+const contextFieldRenderer: FieldRenderer = (fieldPath) =>
+  `contextStates[ctx].${flattenField(fieldPath)}`;
+
+/**
+ * Field → a hand-written spec's own variable name. A `fields` entry maps the BDD
+ * field name to the spec's TLA+ variable (e.g. `speaker` → `Speaker`); an
+ * unmapped field falls back to the flattened name.
+ */
+export function bareFieldRenderer(fields: Record<string, string> = {}): FieldRenderer {
+  return (fieldPath) => fields[fieldPath] ?? flattenField(fieldPath);
+}
+
+/**
+ * Translate one operand. A literal (boolean/number/string) maps straight across;
+ * a field reference is rendered by `render`, and a trailing `.length` becomes
+ * TLA+ sequence length `Len(...)`.
+ */
+function translateOperand(raw: string, render: FieldRenderer): string {
   const op = raw.trim();
   if (op === "true") return "TRUE";
   if (op === "false") return "FALSE";
@@ -115,29 +139,34 @@ function translateOperand(raw: string): string {
     throw new WitnessTranslationError(`unsupported operand "${raw}" in witness predicate`);
   }
   if (op.endsWith(".length")) {
-    return `Len(contextStates[ctx].${flattenField(op.slice(0, -".length".length))})`;
+    return `Len(${render(op.slice(0, -".length".length))})`;
   }
-  return `contextStates[ctx].${flattenField(op)}`;
+  return render(op);
 }
 
 /** Translate a single `lhs <op> rhs` comparison. */
-function translateConjunct(conjunct: string): string {
+function translateConjunct(conjunct: string, render: FieldRenderer): string {
   const text = conjunct.trim();
   for (const [js, tla] of COMPARATORS) {
     const at = text.indexOf(js);
     if (at === -1) continue;
     const lhs = text.slice(0, at);
     const rhs = text.slice(at + js.length);
-    return `${translateOperand(lhs)} ${tla} ${translateOperand(rhs)}`;
+    return `${translateOperand(lhs, render)} ${tla} ${translateOperand(rhs, render)}`;
   }
   throw new WitnessTranslationError(`no comparison operator in witness conjunct "${conjunct}"`);
 }
 
 /**
  * Translate a BDD Then-predicate (`&&`-joined comparisons, `signal.field`
- * dialect) into a TLA+ predicate over `contextStates[ctx]`.
+ * dialect) into a TLA+ predicate. By default fields read from `contextStates[ctx]`
+ * (the generated spec); pass a {@link bareFieldRenderer} to target a hand-written
+ * spec's own variables instead.
  */
-export function bddPredicateToTLA(predicate: string): string {
+export function bddPredicateToTLA(
+  predicate: string,
+  render: FieldRenderer = contextFieldRenderer
+): string {
   const conjuncts = predicate
     .split("&&")
     .map((c) => c.trim())
@@ -145,33 +174,112 @@ export function bddPredicateToTLA(predicate: string): string {
   if (conjuncts.length === 0) {
     throw new WitnessTranslationError("empty witness predicate");
   }
-  return conjuncts.map(translateConjunct).join(" /\\ ");
+  return conjuncts.map((c) => translateConjunct(c, render)).join(" /\\ ");
 }
 
-/** Wrap a translated predicate as the negated-reachability witness invariant. */
+/**
+ * Wrap a translated predicate as the negated-reachability witness invariant over
+ * the generated spec's `Contexts` quantifier — TLC refutes it exactly when some
+ * context reaches the predicate.
+ */
 export function buildWitnessInvariant(tlaPredicate: string): string {
   return `${WITNESS_INVARIANT} == ~(\\E ctx \\in Contexts : ${tlaPredicate})`;
 }
 
 /**
- * A tiny TLA+ module that EXTENDS the generated subsystem spec and adds the one
- * witness invariant. EXTENDS pulls in every definition and declaration the
- * invariant needs (`Contexts`, `contextStates`, `UserSpec`, `StateConstraint`),
- * so the witness stays non-invasive — the subsystem spec is never edited.
+ * The hand-written-spec form: a plain state invariant over the spec's own
+ * variables (no `Contexts` quantifier, which a generated spec has but an authored
+ * state machine does not). TLC refutes it exactly when a reachable state matches.
+ */
+export function buildWitnessInvariantBare(tlaPredicate: string): string {
+  return `${WITNESS_INVARIANT} == ~(${tlaPredicate})`;
+}
+
+/** Options for {@link buildWitnessModule}. */
+export interface WitnessModuleOptions {
+  /**
+   * Target a hand-written spec: emit the bare invariant (no `Contexts`
+   * quantifier) for a spec whose state is its own top-level variables.
+   */
+  bare?: boolean;
+}
+
+/**
+ * A tiny TLA+ module that EXTENDS the base spec and adds the one witness
+ * invariant. EXTENDS pulls in every definition the invariant needs — for a
+ * generated spec `Contexts`, `contextStates`, `UserSpec`, `StateConstraint`; for
+ * a hand-written one its own variables — so the witness stays non-invasive: the
+ * base spec is never edited.
  */
 export function buildWitnessModule(
   moduleName: string,
-  subsystemModule: string,
-  tlaPredicate: string
+  baseModule: string,
+  tlaPredicate: string,
+  options: WitnessModuleOptions = {}
 ): string {
+  const invariant = options.bare
+    ? buildWitnessInvariantBare(tlaPredicate)
+    : buildWitnessInvariant(tlaPredicate);
   return [
     `---- MODULE ${moduleName} ----`,
-    `EXTENDS ${subsystemModule}`,
+    `EXTENDS ${baseModule}`,
     "",
-    buildWitnessInvariant(tlaPredicate),
+    invariant,
     "====",
     "",
   ].join("\n");
+}
+
+/** Parse the module name from a `.tla`'s `---- MODULE X ----` header, or null. */
+export function parseModuleName(tlaText: string): string | null {
+  const m = /^-+\s*MODULE\s+([A-Za-z_]\w*)/m.exec(tlaText);
+  return m?.[1] ?? null;
+}
+
+/** Where a witness module + cfg are written, and which module it EXTENDS. */
+export interface WitnessSpecLocation {
+  /** Directory the witness module is written into (must hold the base module). */
+  dir: string;
+  /** Path to the base `.tla` the witness EXTENDS. */
+  tlaPath: string;
+  /** Path to the base `.cfg` the witness `.cfg` is derived from. */
+  cfgPath: string;
+  /** Module name the witness EXTENDS. */
+  module: string;
+  /** True when resolved from a hand-written spec (bare-variable predicate). */
+  custom: boolean;
+}
+
+/**
+ * Resolve where a subsystem's witness reads its base spec. With a `custom`
+ * binding, the hand-written `.tla`/`.cfg` (relative to `cwd`) and its module
+ * (`customModule`, already defaulted from {@link parseModuleName}); otherwise the
+ * generated `UserApp_<subsystem>` under `specs/tla/generated/<subsystem>`.
+ */
+export function witnessSpecLocation(
+  cwd: string,
+  subsystem: string,
+  custom: CustomTLAPath | undefined,
+  customModule: string
+): WitnessSpecLocation {
+  if (custom) {
+    const tlaPath = path.resolve(cwd, custom.tla);
+    return {
+      dir: path.dirname(tlaPath),
+      tlaPath,
+      cfgPath: path.resolve(cwd, custom.cfg),
+      module: customModule,
+      custom: true,
+    };
+  }
+  const dir = path.join(cwd, "specs", "tla", "generated", subsystem);
+  return {
+    dir,
+    tlaPath: path.join(dir, `UserApp_${subsystem}.tla`),
+    cfgPath: path.join(dir, `UserApp_${subsystem}.cfg`),
+    module: `UserApp_${subsystem}`,
+    custom: false,
+  };
 }
 
 /** The indented, non-comment body lines of a top-level `.cfg` section. */
@@ -209,12 +317,26 @@ function headerLine(cfg: string, header: string): string | null {
  * unreachable outcome provably unreachable (the login-guard case).
  */
 export function buildWitnessCfg(baseCfg: string): string {
-  const spec = headerLine(baseCfg, "SPECIFICATION") ?? "SPECIFICATION UserSpec";
+  // A generated spec names SPECIFICATION; a hand-written one may instead pair
+  // INIT/NEXT. Carry whichever the base used so the witness drives the same
+  // behaviour; fall back to the generated default.
+  const spec = headerLine(baseCfg, "SPECIFICATION");
+  const init = headerLine(baseCfg, "INIT");
+  const next = headerLine(baseCfg, "NEXT");
+  const behaviour = spec ? [spec] : init && next ? [init, next] : ["SPECIFICATION UserSpec"];
   const constants = sectionBody(baseCfg, "CONSTANTS");
   const constraint = sectionBody(baseCfg, "CONSTRAINT");
   const symmetry = sectionBody(baseCfg, "SYMMETRY");
 
-  const out = [spec, "", "CONSTANTS", ...constants, "", "INVARIANTS", `  ${WITNESS_INVARIANT}`];
+  const out = [
+    ...behaviour,
+    "",
+    "CONSTANTS",
+    ...constants,
+    "",
+    "INVARIANTS",
+    `  ${WITNESS_INVARIANT}`,
+  ];
   if (constraint.length > 0) out.push("", "CONSTRAINT", ...constraint);
   if (symmetry.length > 0) out.push("", "SYMMETRY", ...symmetry);
   return `${out.join("\n")}\n`;
