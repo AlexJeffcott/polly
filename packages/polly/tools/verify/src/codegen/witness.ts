@@ -299,6 +299,34 @@ function sectionBody(cfg: string, header: string): string[] {
   return body;
 }
 
+/**
+ * Constant assignments from a `.cfg`, tolerating every form TLC accepts: the
+ * singular `CONSTANT` keyword as well as plural `CONSTANTS`, and assignments
+ * given inline on the keyword line (`CONSTANT Controller = "safe"`) as well as
+ * indented beneath a bare `CONSTANTS` header. Hand-written cfgs lean on the
+ * inline singular form, which a plain `sectionBody(cfg, "CONSTANTS")` misses
+ * entirely — dropping the binding and leaving TLC with an unassigned constant.
+ * Output is normalised to indented body lines for a single `CONSTANTS` section.
+ */
+function constantBody(cfg: string): string[] {
+  const body: string[] = [];
+  let inSection = false;
+  for (const line of cfg.split("\n")) {
+    const headerMatch = /^([A-Z_]+)\b(.*)$/.exec(line);
+    if (headerMatch) {
+      const isConstant = headerMatch[1] === "CONSTANT" || headerMatch[1] === "CONSTANTS";
+      inSection = isConstant;
+      const inline = (headerMatch[2] ?? "").trim();
+      if (isConstant && inline !== "") body.push(`  ${inline}`);
+      continue;
+    }
+    if (!inSection) continue;
+    if (line.trim() === "" || line.trim().startsWith("\\*")) continue;
+    body.push(line);
+  }
+  return body;
+}
+
 /** The inline value of a single-line header (e.g. `SPECIFICATION UserSpec`). */
 function headerLine(cfg: string, header: string): string | null {
   for (const line of cfg.split("\n")) {
@@ -324,7 +352,7 @@ export function buildWitnessCfg(baseCfg: string): string {
   const init = headerLine(baseCfg, "INIT");
   const next = headerLine(baseCfg, "NEXT");
   const behaviour = spec ? [spec] : init && next ? [init, next] : ["SPECIFICATION UserSpec"];
-  const constants = sectionBody(baseCfg, "CONSTANTS");
+  const constants = constantBody(baseCfg);
   const constraint = sectionBody(baseCfg, "CONSTRAINT");
   const symmetry = sectionBody(baseCfg, "SYMMETRY");
 

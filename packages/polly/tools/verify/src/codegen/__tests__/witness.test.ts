@@ -277,4 +277,35 @@ describe("buildWitnessCfg against a hand-written cfg", () => {
     expect(cfg).toContain(`INVARIANTS\n  ${WITNESS_INVARIANT}`);
     expect(cfg).not.toContain("EchoSafety");
   });
+
+  // Regression: a hand-written cfg binds its constant with the singular `CONSTANT`
+  // keyword inline (the form TLC docs use, and what cochlea's VoiceTurn_safe.cfg
+  // writes). A plain CONSTANTS-section read dropped it, so TLC failed with "the
+  // constant parameter Controller is not assigned a value".
+  test("captures a singular inline CONSTANT (the hand-written VoiceTurn form)", () => {
+    const baseCfg = [
+      "SPECIFICATION Spec",
+      'CONSTANT Controller = "safe"',
+      "INVARIANT TypeOK",
+      "INVARIANT EchoSafe",
+      "",
+    ].join("\n");
+    const cfg = buildWitnessCfg(baseCfg);
+    expect(cfg).toContain("SPECIFICATION Spec");
+    expect(cfg).toContain('CONSTANTS\n  Controller = "safe"');
+    expect(cfg).toContain(`INVARIANTS\n  ${WITNESS_INVARIANT}`);
+    expect(cfg).not.toContain("EchoSafe");
+  });
+
+  test("captures a singular CONSTANT given as an indented section", () => {
+    const baseCfg = ["SPECIFICATION Spec", "CONSTANT", '  Controller = "safe"', ""].join("\n");
+    expect(buildWitnessCfg(baseCfg)).toContain('CONSTANTS\n  Controller = "safe"');
+  });
+
+  test("still captures the plural CONSTANTS section (no regression)", () => {
+    const baseCfg = ["SPECIFICATION Spec", "CONSTANTS", "  N = 3", "  M = 2", ""].join("\n");
+    const cfg = buildWitnessCfg(baseCfg);
+    expect(cfg).toContain("  N = 3");
+    expect(cfg).toContain("  M = 2");
+  });
 });
