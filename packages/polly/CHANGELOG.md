@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.85.0] - 2026-06-21
+
+### Added
+
+#### Model coverage: off-surface state mutators
+
+`polly verify` now reports model coverage against the declared `state` schema —
+the writer set of every field, and the writes a green TLC run cannot see. The
+new gap class is the **off-surface mutator**: a verified-state write outside
+every modelled handler body — a class or object method, a non-exported
+function, or a closure that sets `signal.value` directly. It is the literal
+`register()` shape — a capability granted off the message bus, for which the
+model has no transition, mutation testing has no modelled line to mutate, and
+(when a real handler also writes the field) the unwritten-field signal stays
+silent. Coverage folds the off-surface writer into that field's writer set, and
+`polly verify --strict` fails closed on it before the TLC pass, so an unmodelled
+write cannot pass with a green check.
+
+The verifier reports rather than auto-models the write: synthesizing a TLA+
+action for an unguarded mutator with no dispatch entry point would be unsound.
+The decision is recorded in `tools/verify/OFF-SURFACE-MUTATORS.md`. Test and
+feature files are excluded; undeclared signals are not reported.
+
+#### Witnesses for hand-written TLA+ specs (`customTLAPaths`)
+
+A subsystem may bind its BDD scenarios to its own `.tla`/`.cfg` under
+`customTLAPaths` instead of the spec polly generates from handlers. Its
+reachability and `@forbidden` witnesses extend that module — reading its
+top-level variables, BDD field names mapped through `fields`, under a bare
+invariant with no `Contexts` quantifier — and skip generated-spec verification.
+With no binding set, the generated path is untouched.
+
 ## [0.82.0] - 2026-06-16
 
 ### Added

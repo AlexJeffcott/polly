@@ -1,11 +1,11 @@
 ---
 name: polly
-description: Expert guide for the @fairfox/polly framework covering state management, peer-first/mesh state (CRDTs, WebRTC, encryption), async resources, formal verification (TLA+), quality tooling, and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState, $peerState, $meshState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification), quality checks (no-as-casting), browser test harness, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, peer-first/mesh state setup, Automerge CRDTs, WebRTC data channels, verification setup, TLA+ model checking, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
+description: Expert guide for the @fairfox/polly framework covering state management, peer-first/mesh state (CRDTs, WebRTC, encryption), async resources, formal verification (TLA+), model coverage, executable-Gherkin BDD, quality tooling, and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState, $peerState, $meshState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification, model coverage / off-surface mutators / polly verify --strict, hand-written-spec witnesses via customTLAPaths), the BDD stratum (polly bdd, defineStep/defineWorld, .feature files, polly verify --witness reachability witnesses including @forbidden negative witnesses), quality checks (no-as-casting), browser test harness, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, peer-first/mesh state setup, Automerge CRDTs, WebRTC data channels, verification setup, TLA+ model checking, model-coverage / off-surface / --strict gates, BDD/three-amigos/Gherkin/.feature scenarios, reachability witnesses, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
 ---
 
-# Polly Expert (up to v0.24.0)
+# Polly Expert (core up to v0.24.0; BDD + verify coverage v0.82–v0.85)
 
-Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, blob storage, and formal verification features. This skill covers the Polly framework up to and including version 0.24.0.
+Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, blob storage, and formal verification features. The core feature coverage here is current up to v0.24.0; the BDD / executable-Gherkin stratum (`polly bdd`, `polly verify --witness`, including the `@forbidden` negative witness and `customTLAPaths` hand-written-spec binding) and the verify model-coverage layer (off-surface mutator detection, `polly verify --strict`) were added through v0.85.0 and are documented below.
 
 ## Quick Reference
 
@@ -33,6 +33,9 @@ import { checkNoAsCasting, isLineClean, suggestFix } from '@fairfox/polly/qualit
 
 // Browser test harness (v0.22.0)
 import { describe, test, expect, done, flush, cleanup } from '@fairfox/polly/test/browser'
+
+// BDD / executable Gherkin (v0.82.0) — library import + `polly bdd` CLI + `polly verify --witness`
+import { defineStep, defineWorld, driveBus } from '@fairfox/polly/bdd'
 ```
 
 ## Workflow
@@ -412,6 +415,20 @@ export default defineVerification({
 })
 ```
 
+## Model Coverage & Off-Surface Mutators (v0.85)
+
+Every `polly verify` reports model coverage against the declared `state` schema — the writer set of each field, plus the gaps a green TLC run is blind to. Two gap classes:
+
+- **Unwritten field** — declared, but no modelled handler assigns it. Either dead state inflating the space, or (the danger) a real mutating path that was never modelled.
+- **Off-surface mutator (#163)** — a verified-state write *outside every modelled handler body*: a class/object method, a non-exported function, or a closure that sets `signal.value` directly. The literal `register()` shape — a capability granted off the message bus. The model has no transition for it; mutation testing has no modelled line to mutate; and when a real handler *also* writes the field, the unwritten-field signal stays silent. Coverage folds the off-surface writer into that field's writer set anyway.
+
+```
+⚠️  1 declared state field write(s) outside any modelled transition (polly#163):
+   • session.canSend mutated in RecoveryFlow.register() — src/background/index.ts:42
+```
+
+`--strict` (or `POLLY_VERIFY_STRICT=1`) turns both gaps into a non-zero exit *before* the TLC pass — an unmodelled write cannot pass with a green check. The fix is to make the path first-class: route the change through a dispatched, guarded handler (so it gets a message, a `requires`, an `ensures`), or drop the field from the verified surface. The verifier reports rather than auto-models the write — synthesizing a TLA+ action for an unguarded mutator with no dispatch entry point is unsound (rationale in `tools/verify/OFF-SURFACE-MUTATORS.md`). Test/feature files are excluded (seeding state in a fixture is expected); undeclared signals are not reported.
+
 ## Subsystem-Scoped Verification (Compositional)
 
 When monolithic verification is infeasible (too many handlers/state fields), split into subsystems. Each subsystem is verified independently; non-interference guarantees compositional soundness.
@@ -463,6 +480,64 @@ Subsystem verification results:
 
 Compositional result: ✓ PASS
 ```
+
+## BDD — Executable Specs & Reachability Witnesses (v0.82–v0.84)
+
+`polly bdd` is the third verification stratum, alongside `verify` (TLA+) and `mutate` (Stryker). It runs acceptance examples written from the user's perspective as Gherkin, across the **real factory boundary** — the same `createBackground`/`createMeshClient` the app boots, never a hand-wired bus (the polly#57 lesson). It's the runner a three-amigos session writes `.feature` files into.
+
+```typescript
+import { defineStep, defineWorld, driveBus } from '@fairfox/polly/bdd'
+```
+
+```
+polly bdd [run] [path]   Run .feature files across the real boundary (red before green)
+polly bdd check          Static, Docker-free cross-check of every scenario vs specs/verification.config.ts
+polly bdd new <name>     Scaffold a .feature stub seeded from the verify vocabulary
+```
+
+Conventions: features at `features/**/*.feature`, steps at `features/**/*.steps.ts` + `features/steps.ts`. A consumer with `**/*.feature` files gets a `bdd` tier in `polly test` automatically.
+
+**The keystone — a dual-use `defineStep` binding** (same trick as `requires`/`ensures`): its `given`/`when`/`then` drive the runtime; its `message`/`stateExpr` strings are read *statically* for the verify cross-link. `Given`/`Then` = state-signal expressions, `When` = a modeled message type. Push the mechanics into the step def so the `.feature` stays declarative.
+
+```typescript
+// features/steps.ts
+defineWorld({
+  create() {
+    MessageRouter.resetInstance();
+    const bus = createBackground(createMockAdapters());
+    registerTodoHandlers(bus);                 // the SAME helper the real entry calls
+    return { bus: driveBus(bus), signals: { user, todos }, vars: {} };
+  },
+  reset() { user.value = { id: null, role: 'guest', loggedIn: false }; todos.value = []; },
+  // teardown?(world)  — optional; release real resources (browsers/relay) here
+});
+
+defineStep({
+  pattern: 'the user signs in as {string}',
+  when: (w, role) => w.bus.send({ type: 'USER_LOGIN', userId: 'u1', name: 'U', role }),
+  message: 'USER_LOGIN',                        // ← formal: must be a modeled message type
+});
+defineStep({
+  pattern: 'their role is {string}',
+  then: (_w, role) => { if (user.value.role !== role) throw new Error('wrong role'); },
+  stateExpr: 'user.role === "{0}"',             // ← formal: {0} = captured arg → witness predicate
+});
+```
+
+### Reachability witnesses (`polly verify --witness`)
+
+The deepest BDD↔verify link: turns each scenario's Then-outcome into a per-scenario TLC reachability check over its subsystem spec (needs a `subsystems` block + Docker). The witness is the negated existential `~(\E ctx : <Then>)`:
+
+- **positive** (default): TLC *violating* it ⇒ the outcome is **reachable** (honest; the counterexample is the scenario's path). A clean full exploration ⇒ **unreachable** ⇒ the scenario lies, run fails.
+- **`@forbidden`**: the dual — the Then names a state that must *never* happen. Unreachable ⇒ **excluded** (proven impossible, pass); reachable ⇒ **violated** (a defect, with the trace to it). So the witness proves desirable outcomes possible AND undesirable ones impossible, from the same Gherkin.
+
+Witnesses run without the depth bound (reachable is sound at any bound; unreachable needs full exploration, which `StateConstraint` keeps finite); a TLC timeout is reported `inconclusive`, never a false verdict. A Then with no comparison (a bare field, or a runtime-only check) is `skipped`, never silently passed.
+
+**Tags:** `@formal` (precondition-only negative — `requires()` is a runtime no-op) and `@forbidden` (a safety claim) are formal-only: the runtime runner **defers** them, and `polly verify --witness` settles them. Runtime-observable negatives (`{ success: false }`, a filter excluding a non-match) stay in the runner.
+
+**The boundary rule:** build the world through the documented factory from cold state. For a feature crossing the process/network/device boundary, drive the e2e-mesh kit from the step definitions with a *page-driving* world (`scripts/mesh-bdd/sync.feature` is the shipped example: two cold browser peers + a real relay through `createMeshClient`); persistent resources (browsers/relay) live at module scope, NOT `world.vars` (the runner wipes `vars` per scenario), and `defineWorld.teardown` releases them.
+
+**Hand-written specs (`customTLAPaths`, v0.85):** a subsystem may name its own `.tla`/`.cfg` under `customTLAPaths` instead of the spec polly generates from handlers. Its witnesses EXTEND that module (reading its top-level variables, BDD field names mapped through `fields`, under a bare invariant with no `Contexts` quantifier) and skip generated-spec verification — binding BDD scenarios to domain TLA+ that polly does not derive from handlers. With no binding set, the generated path is untouched.
 
 ## State Space Estimator (`polly verify --estimate`)
 
@@ -689,6 +764,7 @@ Handlers accessing `loginState.value.loggedIn` generate TLA+ field `loginState_l
 
 - **State API details**: Read [references/state-api.md](references/state-api.md) for complete state primitives reference, options, and verification mirror usage
 - **Verification API details**: Read [references/verification-api.md](references/verification-api.md) for complete requires/ensures/$constraints/defineVerification reference with all config field types
+- **BDD stratum details**: see `packages/polly/tools/bdd/README.md` for the dual-use `defineStep` keystone, the `polly bdd check` cross-link, reachability witnesses (`polly verify --witness`, `@formal`/`@forbidden`), and the boundary rule
 - **Which example to reference**: Read [references/examples-guide.md](references/examples-guide.md) for feature matrix showing which example demonstrates which feature, plus links to key files
 
 ## Online Resources

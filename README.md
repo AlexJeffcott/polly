@@ -246,6 +246,21 @@ If a `requires()` can be violated — say, a logout races with a todo add — TL
 
 For larger apps, [subsystem-scoped verification](https://github.com/AlexJeffcott/polly/tree/main/examples/todo-list) splits the state space so checking stays fast.
 
+### Step 4: Catch the path the model never sees
+
+Every run also reports **model coverage** — which declared field each handler writes, and the fields nothing modelled touches. The bug it catches is a capability granted off the message bus: a `register()` method that sets `canSend` directly instead of through a dispatched, guarded handler. TLC has no transition for it, mutation testing has no modelled line to mutate, and a green run says nothing.
+
+A field no handler writes is flagged as unreachable state. A field a non-dispatched function or method writes — even one a real handler also writes — is flagged as mutated outside any modelled transition. Add `--strict` to fail closed, so an unmodelled write can't slip through green.
+
+```
+$ polly verify --strict
+
+⚠️  1 declared state field write(s) outside any modelled transition:
+   • session.canSend mutated in RecoveryFlow.register() — src/background/index.ts:42
+
+❌ Strict mode: model coverage incomplete
+```
+
 ## Executable specs that link to the model
 
 `polly bdd` adds a third verification stratum alongside `verify` (TLA+) and `mutate` (Stryker): acceptance examples written from the user's perspective, as Gherkin, run across the **real factory boundary** — the same `createBackground` your extension boots, never a hand-wired bus that quietly papers over a gap the real path has.
