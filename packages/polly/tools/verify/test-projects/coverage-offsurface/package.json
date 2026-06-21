@@ -1,0 +1,6 @@
+{
+  "name": "test-coverage-offsurface",
+  "version": "1.0.0",
+  "description": "Verify fixture (polly#163): a capability granted by a non-dispatched method that escapes the handler surface, which the off-surface mutator scan must surface.",
+  "main": "src/background/index.ts"
+}

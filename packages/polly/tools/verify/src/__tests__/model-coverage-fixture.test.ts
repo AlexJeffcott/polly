@@ -15,6 +15,7 @@ import { computeModelCoverage, strictCoverageReasons } from "../analysis/model-c
 
 const projectPath = path.join(__dirname, "../../test-projects/capability-guard");
 const strictFixturePath = path.join(__dirname, "../../test-projects/coverage-strict");
+const offSurfacePath = path.join(__dirname, "../../test-projects/coverage-offsurface");
 
 describe("model coverage on the capability-guard fixture (polly#160)", () => {
   test("reports the uneven write distribution the scattered invariant produces", async () => {
@@ -65,5 +66,48 @@ describe("model coverage on the capability-guard fixture (polly#160)", () => {
 
     const flagged = report.unconstrainedMutators.map((m) => m.handler).sort();
     expect(flagged).toEqual(["AUTHENTICATE", "REGISTER"]);
+  });
+
+  test("a dispatched-handler write is on-surface — no off-surface false positive", async () => {
+    // Both capability-guard writes go through bus.on(...) handlers, so the
+    // off-surface scan must report nothing.
+    const analysis = await analyzeCodebase({
+      tsConfigPath: path.join(projectPath, "tsconfig.json"),
+    });
+    expect(analysis.offSurfaceMutations).toEqual([]);
+  });
+});
+
+describe("off-surface mutator on the coverage-offsurface fixture (polly#163)", () => {
+  test("reports a non-dispatched method mutation the model never explores", async () => {
+    // Fixture: AUTHENTICATE (dispatched) writes session.canSend AND
+    // RecoveryFlow.register (a plain method) also writes session.canSend.
+    const analysis = await analyzeCodebase({
+      tsConfigPath: path.join(offSurfacePath, "tsconfig.json"),
+    });
+
+    const report = computeModelCoverage(
+      ["session.authenticated", "session.canSend"],
+      analysis.handlers,
+      analysis.offSurfaceMutations ?? []
+    );
+
+    // canSend has a handler writer, so #160's unwrittenFields cannot flag it...
+    expect(report.unwrittenFields).toEqual([]);
+    // ...but #163 surfaces the non-dispatched writer.
+    expect(report.offSurfaceMutations).toHaveLength(1);
+    expect(report.offSurfaceMutations[0]).toMatchObject({
+      field: "session.canSend",
+      function: "RecoveryFlow.register",
+      declared: true,
+    });
+
+    const canSend = report.fieldCoverage.find((f) => f.field === "session.canSend");
+    expect(canSend?.writers).toEqual(["AUTHENTICATE"]);
+    expect(canSend?.offSurfaceWriters?.[0]?.function).toBe("RecoveryFlow.register");
+
+    // The CLI's --strict gate would fail closed on exactly this.
+    expect(report.hasStrictViolation).toBe(true);
+    expect(strictCoverageReasons(report, 0)).toHaveLength(1);
   });
 });

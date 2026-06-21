@@ -6,7 +6,12 @@ import {
   type ModelCoverageReport,
   strictCoverageReasons,
 } from "../analysis/model-coverage";
+import type { OffSurfaceMutation } from "../core/model";
 import type { MessageHandler } from "../types";
+
+function offSurface(field: string, fn: string, signal = "session"): OffSurfaceMutation {
+  return { field, signalVariable: signal, functionName: fn, filePath: "app.ts", line: 9 };
+}
 
 function makeHandler(
   messageType: string,
@@ -107,6 +112,70 @@ describe("computeModelCoverage", () => {
     expect(report.unwrittenFields).toEqual(["a", "b"]);
     expect(report.hasStrictViolation).toBe(true);
   });
+
+  test("no off-surface mutations => empty list, no strict violation from #163", () => {
+    const report = computeModelCoverage(
+      ["session.canSend"],
+      [makeHandler("h", ["session.canSend"])]
+    );
+    expect(report.offSurfaceMutations).toEqual([]);
+    expect(report.hasStrictViolation).toBe(false);
+  });
+});
+
+// polly#163: off-surface mutators folded into the coverage report.
+describe("computeModelCoverage — off-surface mutators (polly#163)", () => {
+  test("folds an off-surface writer into a declared field even when a handler also writes it", () => {
+    const report = computeModelCoverage(
+      ["session.authenticated", "session.canSend"],
+      [makeHandler("AUTHENTICATE", ["session.authenticated", "session.canSend"])],
+      [offSurface("session_canSend", "RecoveryFlow.register")]
+    );
+    // unwrittenFields cannot see this — AUTHENTICATE writes canSend — but #163 does.
+    expect(report.unwrittenFields).toEqual([]);
+    const canSend = report.fieldCoverage.find((f) => f.field === "session.canSend");
+    expect(canSend?.writers).toEqual(["AUTHENTICATE"]);
+    expect(canSend?.offSurfaceWriters).toEqual([
+      { function: "RecoveryFlow.register", file: "app.ts", line: 9 },
+    ]);
+    expect(report.offSurfaceMutations).toHaveLength(1);
+    expect(report.offSurfaceMutations[0]).toMatchObject({
+      field: "session.canSend",
+      function: "RecoveryFlow.register",
+      declared: true,
+    });
+    expect(report.hasStrictViolation).toBe(true);
+  });
+
+  test("matches the off-surface underscore field against a dotted config key", () => {
+    const report = computeModelCoverage(
+      ["session.canSend"],
+      [],
+      [offSurface("session_canSend", "register")]
+    );
+    expect(report.offSurfaceMutations[0]?.field).toBe("session.canSend");
+  });
+
+  test("drops off-surface writes to fields outside the declared schema (no noise)", () => {
+    const report = computeModelCoverage(
+      ["session.canSend"],
+      [makeHandler("h", ["session.canSend"])],
+      [offSurface("settings_theme", "Options", "settings")]
+    );
+    expect(report.offSurfaceMutations).toEqual([]);
+    expect(report.hasStrictViolation).toBe(false);
+  });
+
+  test("a field written ONLY off-surface is both unwritten and off-surface", () => {
+    const report = computeModelCoverage(
+      ["session.canSend"],
+      [],
+      [offSurface("session_canSend", "register")]
+    );
+    expect(report.unwrittenFields).toEqual(["session.canSend"]);
+    expect(report.offSurfaceMutations).toHaveLength(1);
+    expect(report.hasStrictViolation).toBe(true);
+  });
 });
 
 function reportWith(overrides: Partial<ModelCoverageReport>): ModelCoverageReport {
@@ -114,6 +183,7 @@ function reportWith(overrides: Partial<ModelCoverageReport>): ModelCoverageRepor
     fieldCoverage: [],
     unwrittenFields: [],
     unconstrainedMutators: [],
+    offSurfaceMutations: [],
     hasStrictViolation: false,
     ...overrides,
   };
@@ -145,5 +215,26 @@ describe("strictCoverageReasons", () => {
       1
     );
     expect(reasons).toHaveLength(2);
+  });
+
+  test("a declared off-surface mutation is a distinct strict reason (polly#163)", () => {
+    const reasons = strictCoverageReasons(
+      reportWith({
+        offSurfaceMutations: [
+          {
+            field: "session.canSend",
+            signalVariable: "session",
+            function: "RecoveryFlow.register",
+            file: "app.ts",
+            line: 9,
+            declared: true,
+          },
+        ],
+        hasStrictViolation: true,
+      }),
+      0
+    );
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toContain("outside any modelled transition");
   });
 });

@@ -56,6 +56,7 @@
 
 import {
   type ArrowFunction,
+  type BinaryExpression,
   type CallExpression,
   type FunctionDeclaration,
   type FunctionExpression,
@@ -76,6 +77,7 @@ import type {
   GlobalStateConstraint,
   MeshOrPeerSignalInfo,
   MessageHandler,
+  OffSurfaceMutation,
   ResourceInfo,
   StateAssignment,
   StateConstraint,
@@ -99,6 +101,7 @@ export interface HandlerAnalysis {
   verifiedStates: VerifiedStateInfo[];
   meshOrPeerSignals: MeshOrPeerSignalInfo[];
   resources: ResourceInfo[];
+  offSurfaceMutations: OffSurfaceMutation[];
   warnings: ExtractionWarning[];
 }
 
@@ -111,6 +114,9 @@ export class HandlerExtractor {
   private warnings: ExtractionWarning[]; // Warnings for unsupported patterns
   private currentFunctionParams: string[] = []; // Current handler's parameter names
   private contextOverrides: Map<string, string>; // path prefix → context name
+  // polly#163: source spans of every function body the extractor modelled as a
+  // handler. A verified-state write outside all of these is "off-surface".
+  private onSurfaceSpans: Array<{ file: string; start: number; end: number }> = [];
 
   constructor(tsConfigPath: string, contextOverrides?: Map<string, string>) {
     this.project = new Project({
@@ -208,6 +214,7 @@ export class HandlerExtractor {
     const meshOrPeerSignals: MeshOrPeerSignalInfo[] = [];
     const resources: ResourceInfo[] = [];
     this.warnings = []; // Clear warnings from previous runs
+    this.onSurfaceSpans = []; // polly#163: reset modelled-handler spans
 
     // Find all source files from tsconfig as potential entry points
     const allSourceFiles = this.project.getSourceFiles();
@@ -273,6 +280,38 @@ export class HandlerExtractor {
       meshOrPeerSignals.push(...this.extractMeshOrPeerSignalsFromFile(sourceFile));
     }
 
+    // polly#163: third pass — find state-signal writes that fall outside every
+    // function body the handler extraction above modelled (the non-dispatched
+    // `register()` shape #160). Runs last so all on-surface spans are recorded.
+    //
+    // Scope is the whole state-signal family (config-free), not just
+    // `{ verify: true }` declarations — dispatch handlers already pick up any
+    // `signal.value` write by pattern, so the off-surface scan must too. The
+    // verify layer (which has the config) separates declared fields from the
+    // rest.
+    const stateSignalNames = new Set<string>();
+    for (const filePath of this.analyzedFiles) {
+      const sourceFile = this.project.getSourceFile(filePath);
+      if (!sourceFile) continue;
+      for (const name of this.extractStateSignalVariableNames(sourceFile)) {
+        stateSignalNames.add(name);
+      }
+    }
+    for (const v of verifiedStates) stateSignalNames.add(v.variableName);
+    for (const m of meshOrPeerSignals) stateSignalNames.add(m.variableName);
+
+    const offSurfaceMutations: OffSurfaceMutation[] = [];
+    if (stateSignalNames.size > 0) {
+      for (const filePath of this.analyzedFiles) {
+        // Test/spec/feature files seed verified state directly by design; that
+        // is not a model gap, so the off-surface scan only covers app source.
+        if (!this.isOffSurfaceScannable(filePath)) continue;
+        const sourceFile = this.project.getSourceFile(filePath);
+        if (!sourceFile) continue;
+        offSurfaceMutations.push(...this.findOffSurfaceMutations(sourceFile, stateSignalNames));
+      }
+    }
+
     this.debugLogExtractionResults(handlers.length, invalidMessageTypes.size);
     this.debugLogAnalysisStats(allSourceFiles.length, entryPoints.length);
 
@@ -284,6 +323,7 @@ export class HandlerExtractor {
       verifiedStates,
       meshOrPeerSignals,
       resources,
+      offSurfaceMutations,
       warnings: this.warnings,
     };
   }
@@ -969,6 +1009,10 @@ export class HandlerExtractor {
     funcNode: ArrowFunction | FunctionExpression | FunctionDeclaration,
     assignments: StateAssignment[]
   ): void {
+    // polly#163: this body is part of the modelled handler surface. Any
+    // verified-state write inside its span is "on-surface" and must not be
+    // re-reported as an escaped mutator.
+    this.recordOnSurfaceSpan(funcNode);
     funcNode.forEachDescendant((node: Node) => {
       if (Node.isBinaryExpression(node)) {
         this.extractBinaryExpressionAssignment(node, assignments);
@@ -3586,6 +3630,10 @@ export class HandlerExtractor {
   ): StateAssignment[] {
     const mutations: StateAssignment[] = [];
 
+    // polly#163: the Issue #27 lift pass models this exported mutator's body as
+    // a synthetic handler, so writes within it are on-surface.
+    this.recordOnSurfaceSpan(func);
+
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: AST traversal for state mutations requires multiple pattern checks
     func.forEachDescendant((node) => {
       if (!Node.isBinaryExpression(node)) return;
@@ -3625,6 +3673,211 @@ export class HandlerExtractor {
     });
 
     return mutations;
+  }
+
+  // polly#163: off-surface mutator detection
+
+  /**
+   * Whether a file is application source the off-surface scan should cover.
+   * Test, spec, BDD-feature, story and e2e files seed verified state directly
+   * as fixtures — expected, not an escaped runtime mutator — so they are out.
+   */
+  private isOffSurfaceScannable(filePath: string): boolean {
+    return !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
+      filePath
+    );
+  }
+
+  /** The signal factories whose `.value` writes the model treats as state. */
+  private static readonly STATE_SIGNAL_FACTORIES = new Set([
+    "$state",
+    "$sharedState",
+    "$syncedState",
+    "$persistedState",
+    "$meshState",
+    "$peerState",
+  ]);
+
+  /**
+   * Collect the variable names of every state-signal declaration in a file,
+   * regardless of a `{ verify: true }` flag. Scopes the off-surface scan to
+   * genuine state signals so it does not false-positive on unrelated `.value`
+   * writes.
+   */
+  private extractStateSignalVariableNames(sourceFile: SourceFile): string[] {
+    const names: string[] = [];
+    sourceFile.forEachDescendant((node) => {
+      if (!Node.isCallExpression(node)) return;
+      const expr = node.getExpression();
+      if (!Node.isIdentifier(expr)) return;
+      if (!HandlerExtractor.STATE_SIGNAL_FACTORIES.has(expr.getText())) return;
+      const varName = this.getVariableNameFromParent(node);
+      if (varName) names.push(varName);
+    });
+    return names;
+  }
+
+  /**
+   * Mark a function body as part of the modelled handler surface. Called from
+   * the two extraction chokepoints — `extractAssignments` (every dispatch / ws /
+   * rest / type-guard / switch handler body) and `findStateMutationsInFunction`
+   * (every lifted exported mutator). A verified-state write whose position is
+   * not contained in any recorded span is off-surface.
+   */
+  private recordOnSurfaceSpan(node: Node): void {
+    this.onSurfaceSpans.push({
+      file: node.getSourceFile().getFilePath(),
+      start: node.getStart(),
+      end: node.getEnd(),
+    });
+  }
+
+  /** True when `pos` in `file` falls inside a modelled handler body span. */
+  private isWithinOnSurfaceSpan(file: string, pos: number): boolean {
+    for (const span of this.onSurfaceSpans) {
+      if (span.file === file && pos >= span.start && pos <= span.end) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Walk a file for verified-state writes (`signal.value` / `signal.value.field`
+   * on the left of `=`) that are NOT inside any modelled handler body. These are
+   * the escaped, non-dispatched mutators of polly#163 — the model never explores
+   * them, so a field only they (or they-and-a-handler) write is silently
+   * uncounted by the #162 coverage report.
+   *
+   * Must run after all handler extraction so `onSurfaceSpans` is complete.
+   */
+  private findOffSurfaceMutations(
+    sourceFile: SourceFile,
+    stateVarNames: ReadonlySet<string>
+  ): OffSurfaceMutation[] {
+    const out: OffSurfaceMutation[] = [];
+    const filePath = sourceFile.getFilePath();
+
+    sourceFile.forEachDescendant((node) => {
+      if (Node.isBinaryExpression(node)) {
+        out.push(...this.offSurfaceWritesAt(node, stateVarNames, filePath));
+      }
+    });
+
+    return out;
+  }
+
+  /**
+   * Off-surface findings for a single assignment node, or `[]` when it is not a
+   * verified-state write or is inside a modelled handler body.
+   */
+  private offSurfaceWritesAt(
+    node: BinaryExpression,
+    stateVarNames: ReadonlySet<string>,
+    filePath: string
+  ): OffSurfaceMutation[] {
+    if (node.getOperatorToken().getText() !== "=") return [];
+
+    const left = node.getLeft();
+    if (!Node.isPropertyAccessExpression(left)) return [];
+
+    const match = this.matchVerifiedStateWrite(this.getPropertyPath(left), stateVarNames);
+    if (!match) return [];
+
+    // On-surface writes belong to a modelled handler — skip them.
+    if (this.isWithinOnSurfaceSpan(filePath, left.getStart())) return [];
+
+    const base = {
+      signalVariable: match.signal,
+      functionName: this.enclosingFunctionName(node),
+      filePath,
+      line: node.getStartLineNumber(),
+    };
+
+    // Field-level write: one finding, keyed `${signal}_${field}`.
+    if (match.field !== undefined) {
+      return [{ field: `${match.signal}_${match.field}`, ...base }];
+    }
+
+    // Whole-state replacement: one finding per object-literal key, or the bare
+    // signal name when the RHS is not an object literal.
+    const fields = this.objectLiteralFieldNames(node.getRight());
+    if (fields.length === 0) return [{ field: match.signal, ...base }];
+    return fields.map((f) => ({ field: `${match.signal}_${f}`, ...base }));
+  }
+
+  /**
+   * Recognize `signal.value` (whole-state) or `signal.value.field` (field) on
+   * the LHS of an assignment, where `signal` is a verified-state variable.
+   * Mirrors the two patterns in `findStateMutationsInFunction`.
+   */
+  private matchVerifiedStateWrite(
+    path: string,
+    stateVarNames: ReadonlySet<string>
+  ): { signal: string; field?: string } | null {
+    for (const varName of stateVarNames) {
+      if (path === `${varName}.value`) return { signal: varName };
+      const prefix = `${varName}.value.`;
+      if (path.startsWith(prefix)) return { signal: varName, field: path.substring(prefix.length) };
+    }
+    return null;
+  }
+
+  /** Object-literal property names (for `signal.value = { a, b }`). */
+  private objectLiteralFieldNames(right: Node): string[] {
+    if (!Node.isObjectLiteralExpression(right)) return [];
+    const names: string[] = [];
+    for (const prop of right.getProperties()) {
+      if (Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)) {
+        names.push(prop.getName());
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Name the nearest enclosing function/method of a node for the off-surface
+   * report: `Class.method`, a bare function/accessor name, the variable a
+   * function expression is bound to, or `<module>` for top-level module code.
+   */
+  private enclosingFunctionName(node: Node): string {
+    let current: Node | undefined = node.getParent();
+    while (current) {
+      const name = this.namedScope(current);
+      if (name !== null) return name;
+      current = current.getParent();
+    }
+    return "<module>";
+  }
+
+  /**
+   * The display name of a function-like node, or `null` when `node` is not a
+   * function-like scope (keep climbing) or is an unnamed closure (keep climbing
+   * to the nearest named scope).
+   */
+  private namedScope(node: Node): string | null {
+    if (Node.isFunctionDeclaration(node)) {
+      return node.getName() ?? "<anonymous function>";
+    }
+    if (Node.isMethodDeclaration(node)) {
+      const clsName = node.getFirstAncestorByKind(SyntaxKind.ClassDeclaration)?.getName();
+      const methodName = node.getName();
+      return clsName ? `${clsName}.${methodName}` : methodName;
+    }
+    if (Node.isGetAccessorDeclaration(node) || Node.isSetAccessorDeclaration(node)) {
+      return node.getName();
+    }
+    if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
+      return this.boundFunctionName(node) ?? null;
+    }
+    return null;
+  }
+
+  /** The variable / property name a function expression is assigned to, if any. */
+  private boundFunctionName(fn: Node): string | undefined {
+    const parent = fn.getParent();
+    if (!parent) return undefined;
+    if (Node.isVariableDeclaration(parent)) return parent.getName();
+    if (Node.isPropertyAssignment(parent)) return parent.getName();
+    return undefined;
   }
 
   /**

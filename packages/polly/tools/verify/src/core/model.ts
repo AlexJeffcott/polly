@@ -330,6 +330,24 @@ export type MeshOrPeerSignalInfo = {
   line: number;
 };
 
+/**
+ * polly#163: a write to a verified-state signal value that occurs OUTSIDE every
+ * function the extractor modelled as a handler — the non-dispatched `register()`
+ * shape (#160). The model never explores it, so a field only it (or it and a
+ * handler) writes is silently uncounted by the #162 coverage report.
+ */
+export type OffSurfaceMutation = {
+  /** Canonical `${signal}_${field}` key (norm-comparable to a config field),
+   *  or the bare signal name for a whole-state replacement. */
+  field: string;
+  /** The verified-state signal variable that was mutated. */
+  signalVariable: string;
+  /** Enclosing function/method, e.g. `RecoveryFlow.register`, or `<module>`. */
+  functionName: string;
+  filePath: string;
+  line: number;
+};
+
 export type CodebaseAnalysis = {
   stateType: TypeInfo | null;
   messageTypes: string[];
@@ -344,4 +362,6 @@ export type CodebaseAnalysis = {
   meshOrPeerSignals?: MeshOrPeerSignalInfo[];
   /** Resources discovered ($resource calls) */
   resources?: ResourceInfo[];
+  /** Verified-state writes outside the modelled handler surface (polly#163) */
+  offSurfaceMutations?: OffSurfaceMutation[];
 };

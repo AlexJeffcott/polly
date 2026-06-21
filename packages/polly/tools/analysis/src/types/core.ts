@@ -172,6 +172,38 @@ export type StateAssignment = {
   conditional?: string;
 };
 
+/**
+ * polly#163: a write to a verified-state signal value (`signal.value` or
+ * `signal.value.field`) that occurs OUTSIDE every function the extractor turned
+ * into a modelled handler — the non-dispatched `register()` shape (#160).
+ *
+ * The Issue #27 lift pass only reaches *exported top-level* state-mutating
+ * functions; a write inside a non-exported function, a class/object method, or
+ * a nested closure escapes both the model and the #162 coverage report. This
+ * descriptor surfaces it so `polly verify` can warn that the field is mutated
+ * by a path no TLA action explores.
+ */
+export type OffSurfaceMutation = {
+  /** Canonical `${signal}_${field}` field key (norm-comparable to a config key);
+   *  the bare signal variable name for a whole-state replacement with a
+   *  non-object-literal RHS. */
+  field: string;
+
+  /** The verified-state signal variable that was mutated. */
+  signalVariable: string;
+
+  /** The enclosing function/method that performed the write, e.g.
+   *  `RecoveryFlow.register`, a bare function name, or `<module>` for
+   *  top-level module code. */
+  functionName: string;
+
+  /** File containing the write. */
+  filePath: string;
+
+  /** Line of the write. */
+  line: number;
+};
+
 // Verification Conditions (Abstract)
 
 /**
@@ -368,4 +400,6 @@ export type CodebaseAnalysis = {
   meshOrPeerSignals?: MeshOrPeerSignalInfo[];
   /** Resources discovered ($resource calls) */
   resources?: ResourceInfo[];
+  /** Verified-state writes outside the modelled handler surface (polly#163) */
+  offSurfaceMutations?: OffSurfaceMutation[];
 };

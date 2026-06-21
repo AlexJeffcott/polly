@@ -59,6 +59,7 @@ export class TypeExtractor {
       verifiedStates: handlerAnalysis.verifiedStates,
       meshOrPeerSignals: handlerAnalysis.meshOrPeerSignals,
       resources: handlerAnalysis.resources,
+      offSurfaceMutations: handlerAnalysis.offSurfaceMutations,
     };
   }
 

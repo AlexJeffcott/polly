@@ -452,9 +452,13 @@ function isWitnessMode(): boolean {
 function displayModelCoverage(
   report: import("./analysis/model-coverage").ModelCoverageReport
 ): void {
-  const { unwrittenFields, unconstrainedMutators, fieldCoverage } = report;
+  const { unwrittenFields, unconstrainedMutators, fieldCoverage, offSurfaceMutations } = report;
 
-  if (unwrittenFields.length === 0 && unconstrainedMutators.length === 0) {
+  if (
+    unwrittenFields.length === 0 &&
+    unconstrainedMutators.length === 0 &&
+    offSurfaceMutations.length === 0
+  ) {
     console.log(
       color(
         `✓ Model coverage: all ${fieldCoverage.length} declared field(s) written by a modelled handler`,
@@ -516,6 +520,50 @@ function displayModelCoverage(
     );
     console.log();
   }
+
+  // polly#163: declared verified-state fields written outside the modelled
+  // handler surface — a non-dispatched path the checker never explores.
+  if (offSurfaceMutations.length > 0) {
+    console.log(
+      color(
+        `\n⚠️  ${offSurfaceMutations.length} declared state field write(s) outside any modelled transition (polly#163):`,
+        COLORS.yellow
+      )
+    );
+    for (const m of offSurfaceMutations) {
+      console.log(
+        color(`   • ${m.field} mutated in ${m.function}() — ${m.file}:${m.line}`, COLORS.yellow)
+      );
+    }
+    console.log(
+      color(
+        "   A non-dispatched path (a method, a non-exported function, a closure) writes",
+        COLORS.gray
+      )
+    );
+    console.log(
+      color(
+        "   verified state the checker never explores — the register() shape (#160). Even",
+        COLORS.gray
+      )
+    );
+    console.log(
+      color(
+        "   when a handler also writes the field, model coverage cannot see this writer.",
+        COLORS.gray
+      )
+    );
+    console.log(
+      color(
+        "   Route the change through a dispatched handler, or drop the field from the",
+        COLORS.gray
+      )
+    );
+    console.log(
+      color("   verified surface. See tools/verify/OFF-SURFACE-MUTATORS.md.", COLORS.gray)
+    );
+    console.log();
+  }
 }
 
 /**
@@ -531,7 +579,11 @@ async function runModelCoverage(
 ): Promise<void> {
   const { computeModelCoverage, strictCoverageReasons } = await import("./analysis/model-coverage");
   const stateFields = Object.keys(typedConfig.state ?? {});
-  const coverage = computeModelCoverage(stateFields, typedAnalysis.handlers);
+  const coverage = computeModelCoverage(
+    stateFields,
+    typedAnalysis.handlers,
+    typedAnalysis.offSurfaceMutations ?? []
+  );
   displayModelCoverage(coverage);
 
   if (!isStrictMode()) return;
