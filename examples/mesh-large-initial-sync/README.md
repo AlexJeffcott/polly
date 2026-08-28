@@ -28,6 +28,36 @@ signalling server, configured in the failing-shape diff from issue
   `setInterval` callback misses its 50ms tick and the recorded max
   gap exceeds the 100ms threshold.
 
+## The approach-B spike (#111)
+
+`spike-111-worker-apply.ts` measures the premise the remaining #111 work
+rests on, without building it: if the Automerge apply runs in a Worker,
+does the main thread hold the 100ms tick-gap bar?
+
+```bash
+bun run spike-111-worker-apply.ts
+```
+
+Three readings against the same ~5.5 MB single-change snapshot, with the
+same 50ms probe this harness uses. Measured over three runs:
+
+| reading | max-tick-gap-ms | probe ticks |
+|---|---|---|
+| control — apply on the main thread | 2019 – 2054 | 11 |
+| worker applies, main thread gets the sentinel | 1.4 – 3.5 | 52 – 64 |
+| worker posts the whole document value back | 1.0 – 3.5 | 11 |
+
+The control spikes, so the probe is measuring the apply. With the apply in
+a Worker the main thread stays under 4ms, and returning the materialised
+value costs 1 – 4ms because a multi-megabyte string clone is a memcpy.
+So the CPU-bound `applyChanges` call is the whole of the spike, and moving
+it off-thread removes it.
+
+What the spike does NOT show: storage-subsystem bridging, document-handle
+lifecycle proxies, or the `$meshState` synchronous-read contract, which are
+the parts the issue scopes as multi-week. It shows only that those weeks
+would be spent on a premise that holds.
+
 ## Running it
 
 ```bash
