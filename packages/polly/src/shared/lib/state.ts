@@ -316,14 +316,24 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
 
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Sync effect requires coordination of multiple state change scenarios
     effect(() => {
-      // Skip if update in progress (from incoming message)
-      if (entry.updating) return;
-
+      // Read the signal FIRST, before any early return can happen.
+      //
+      // Preact re-collects an effect's dependencies on every run, so a run that
+      // returns without touching `sig.value` unsubscribes the effect for good.
+      // The run an incoming sync message triggers is exactly such a run.
       const value = sig.value;
 
       // Skip first run (effect fires immediately on registration)
       if (isFirstRun) {
         isFirstRun = false;
+        return;
+      }
+
+      // An incoming message is being applied. Adopt it as the baseline — this
+      // context now holds it, so the next local change is a change against it —
+      // and do not broadcast, which would echo it back to the sender.
+      if (entry.updating) {
+        previousValue = value;
         return;
       }
 

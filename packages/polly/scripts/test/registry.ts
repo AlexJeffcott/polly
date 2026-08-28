@@ -220,6 +220,11 @@ export function internalPlan(): TierPlan {
           needs: ["browser"],
           tags: ["extension", "storage", "mv3"],
         }),
+        e2e("state.cross-tab-sync", "e2e-state-sync-cross-tab.ts", {
+          needs: ["browser"],
+          tags: ["state", "sync", "broadcast-channel"],
+          cost: "light",
+        }),
         e2e("elysia.offline-drain", "e2e-elysia-offline-drain.ts", {
           needs: ["browser"],
           tags: ["elysia", "offline", "drain"],
