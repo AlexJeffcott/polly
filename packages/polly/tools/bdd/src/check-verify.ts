@@ -37,11 +37,59 @@ interface VerifyConfigShape {
   subsystems?: Record<string, { state?: string[]; handlers?: string[] }>;
 }
 
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+function isStringArray(input: unknown): input is string[] {
+  return Array.isArray(input) && input.every((item) => typeof item === "string");
+}
+
+function isMessagesShape(input: unknown): input is VerifyConfigShape["messages"] {
+  if (!isRecord(input)) return false;
+  if (input["include"] !== undefined && !isStringArray(input["include"])) return false;
+  if (input["perMessageBounds"] !== undefined && !isRecord(input["perMessageBounds"])) {
+    return false;
+  }
+  return true;
+}
+
+function isSubsystemsShape(input: unknown): input is VerifyConfigShape["subsystems"] {
+  if (!isRecord(input)) return false;
+  for (const sub of Object.values(input)) {
+    if (!isRecord(sub)) return false;
+    if (sub["state"] !== undefined && !isStringArray(sub["state"])) return false;
+    if (sub["handlers"] !== undefined && !isStringArray(sub["handlers"])) return false;
+  }
+  return true;
+}
+
+/**
+ * Narrow a dynamically imported export to the slice of the verification config
+ * this file reads. A bare cast would accept a config whose `messages.include`
+ * or `subsystems[x].handlers` is not an array of strings, and every check below
+ * would then read an empty set and report a clean bill on nothing. Keys this
+ * file does not read are left alone.
+ */
+function isVerifyConfigShape(input: unknown): input is VerifyConfigShape {
+  if (!isRecord(input)) return false;
+  if (input["state"] !== undefined && !isRecord(input["state"])) return false;
+  if (input["messages"] !== undefined && !isMessagesShape(input["messages"])) return false;
+  if (input["subsystems"] !== undefined && !isSubsystemsShape(input["subsystems"])) return false;
+  return true;
+}
+
 async function loadVerifyConfig(configPath: string): Promise<VerifyConfigShape> {
   const mod = await import(`file://${resolve(configPath)}?t=${Bun.nanoseconds()}`);
-  const config = mod.verificationConfig ?? mod.default;
+  const config: unknown = mod.verificationConfig ?? mod.default;
   if (!config) throw new Error(`no verificationConfig/default export in ${configPath}`);
-  return config as VerifyConfigShape;
+  if (!isVerifyConfigShape(config)) {
+    throw new Error(
+      `verificationConfig in ${configPath} does not match the shape this check reads ` +
+        "(state must be an object; messages.include and subsystems[*].state/handlers must be string arrays)"
+    );
+  }
+  return config;
 }
 
 /** Union of every message type the config models. */

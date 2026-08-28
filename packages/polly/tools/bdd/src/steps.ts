@@ -51,6 +51,7 @@ export function compilePattern(pattern: string): RegExp {
     .replace(/\\\{int\\\}/g, "([-+]?\\d+)")
     .replace(/\\\{float\\\}/g, "([-+]?\\d*\\.?\\d+)")
     .replace(/\\\{word\\\}/g, "([^\\s]+)");
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — `pattern` is a step expression from the project's own step-definition file, not external input, and every metacharacter is escaped above before the {token} groups are re-introduced.
   return new RegExp(`^${withGroups}$`);
 }
 

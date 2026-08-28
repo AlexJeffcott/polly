@@ -231,7 +231,9 @@ export async function checkNoTautologyEnsures(
   const excludeDirs = new Set(options.exclude ?? DEFAULT_EXCLUDE);
   const excludeFiles = new Set([...(options.excludeFiles ?? []), "no-tautology-ensures.ts"]);
   const primitives = options.primitives ?? DEFAULT_PRIMITIVES;
-  const callPattern = new RegExp(`\\b(${primitives.join("|")})\\s*\\(`, "g");
+  const escaped = primitives.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — the alternation is built from caller-supplied identifiers, each escaped above; an alternation of literals has no nested quantifier and cannot backtrack exponentially.
+  const callPattern = new RegExp(`\\b(${escaped.join("|")})\\s*\\(`, "g");
   const glob = new Glob(options.filePatterns ?? "**/*.{ts,tsx}");
   const violations: TautologyViolation[] = [];
 

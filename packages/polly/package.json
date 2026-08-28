@@ -186,7 +186,7 @@
     "@types/pixelmatch": "5.2.6",
     "@types/pngjs": "6.0.5",
     "@types/ws": "8.18.1",
-    "dompurify": "3.4.10",
+    "dompurify": "3.4.14",
     "elysia": "1.4.28",
     "fast-check": "4.7.0",
     "marked": "18.0.3",

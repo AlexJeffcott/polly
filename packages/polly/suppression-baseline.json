@@ -204,6 +204,14 @@
     "text": "// biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability"
   },
   {
+    "file": "tools/bdd/src/cli.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface."
+  },
+  {
+    "file": "tools/bdd/src/extract.ts",
+    "text": "// biome-ignore lint/suspicious/noThenProperty: `then` is Gherkin vocabulary here, not a thenable."
+  },
+  {
     "file": "tools/mutate/src/cli.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface."
   },
@@ -298,6 +306,10 @@
   {
     "file": "tools/verify/src/adapters/web-extension/index.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat per-scenario classify loop — the branches are the verdict surface."
   },
   {
     "file": "tools/verify/src/cli.ts",

@@ -330,8 +330,12 @@ function constantBody(cfg: string): string[] {
 /** The inline value of a single-line header (e.g. `SPECIFICATION UserSpec`). */
 function headerLine(cfg: string, header: string): string | null {
   for (const line of cfg.split("\n")) {
-    const m = new RegExp(`^${header}\\b(.*)$`).exec(line);
-    if (m) return line.trimEnd();
+    if (!line.startsWith(header)) continue;
+    // The old `\b` after the header: the next character must not continue the
+    // word, so `SPECIFICATION` does not match a line starting `SPECIFICATIONS`.
+    const next = line.charAt(header.length);
+    if (next !== "" && /\w/.test(next)) continue;
+    return line.trimEnd();
   }
   return null;
 }
