@@ -29,13 +29,23 @@ export interface EffectContext<TResult = unknown, TBody = unknown> {
 }
 
 /**
+ * A client-side effect: what the client does with a successful response.
+ */
+export type ClientEffectHandler = (ctx: EffectContext) => void | Promise<void>;
+
+/**
  * Client effect configuration for a route
  */
 export interface ClientEffectConfig {
   /**
-   * Client-side effect to run after successful response
+   * Client-side effect to run after successful response.
+   *
+   * Optional: a broadcast-only route has no client effect. The server plugin
+   * reads `broadcast` alone — the handler runs in the client wrapper, which
+   * takes it from its own `clientEffects` map — so requiring one here forced
+   * broadcast-only routes to declare a handler that nothing calls.
    */
-  client: (ctx: EffectContext) => void | Promise<void>;
+  client?: ClientEffectHandler;
 
   /**
    * Whether to broadcast this update to all connected clients

@@ -4,7 +4,7 @@ import { type Signal, signal } from "@preact/signals-core";
 import { createLamportClock, type LamportClock } from "../core/clock";
 import { extractRouteParams, findMatchingConfig, findMatchingEntry } from "../elysia/route-match";
 import type {
-  ClientEffectConfig,
+  ClientEffectHandler,
   OfflineConfig,
   PollyResponseMetadata,
   RoutePattern,
@@ -62,7 +62,7 @@ export interface PollyClientOptions {
    * after a successful request — handlers are imported, never shipped from
    * the server.
    */
-  clientEffects?: Record<RoutePattern, ClientEffectConfig["client"]>;
+  clientEffects?: Record<RoutePattern, ClientEffectHandler>;
 
   /**
    * Offline behaviour keyed by route pattern, mirroring the server `offline`
@@ -139,10 +139,7 @@ function applyStateSync(state: PollyClientOptions["state"], incoming: unknown): 
  * });
  * ```
  */
-export function createPollyClient<T extends Record<string, unknown>>(
-  url: string,
-  options: PollyClientOptions = {}
-) {
+export function createPollyClient<T>(url: string, options: PollyClientOptions = {}) {
   const isDev = process.env.NODE_ENV !== "production";
   const baseClient = treaty<T>(url);
   const clock = createLamportClock("client");
