@@ -51,6 +51,7 @@ export type {
   AuthorizationContext,
   AuthorizationHandler,
   ClientEffectConfig,
+  ClientEffectHandler,
   EffectContext,
   OfflineConfig,
   PollyConfig,
