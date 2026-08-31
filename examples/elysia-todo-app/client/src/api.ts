@@ -1,6 +1,7 @@
 import { $syncedState } from "@fairfox/polly";
-import { createPollyClient } from "@fairfox/polly/client";
-import type { App } from "server/src/index";
+import { createPollyClient, type PollyClientOptions } from "@fairfox/polly/client";
+import type { Signal } from "@preact/signals";
+import type { App } from "elysia-todo-app-server/src/index";
 
 type Todo = { id: number; text: string; completed: boolean };
 type User = { id: number; username: string };
@@ -11,30 +12,48 @@ export const clientState = {
   user: $syncedState<User | null>("user", null),
 };
 
+/**
+ * The effect context types shared state as `Signal<unknown>` — polly cannot
+ * know an app's shapes — so this app names its own once and reads the context
+ * through `appState()`. The server example does the same.
+ */
+interface AppState {
+  client: {
+    todos: Signal<Todo[]>;
+    user: Signal<User | null>;
+  };
+}
+
+function appState(state: { client: Record<string, Signal<unknown>> }): AppState {
+  return state as unknown as AppState;
+}
+
 // Client effects, keyed by the same route patterns the server uses. These are
 // imported locally and run after a successful request (online) or on drain
 // (offline queue) — handlers are never shipped over the wire.
-const clientEffects = {
+const clientEffects: PollyClientOptions["clientEffects"] = {
   "POST /todos": ({ result, state }) => {
-    state.client.todos.value = [...state.client.todos.value, result as Todo];
+    const { todos } = appState(state).client;
+    todos.value = [...todos.value, result as Todo];
   },
   "PATCH /todos/:id": ({ result, state }) => {
+    const { todos } = appState(state).client;
     const updated = result as Todo;
-    state.client.todos.value = state.client.todos.value.map((t) =>
-      t.id === updated.id ? updated : t
-    );
+    todos.value = todos.value.map((t) => (t.id === updated.id ? updated : t));
   },
   "DELETE /todos/:id": ({ params, state }) => {
-    state.client.todos.value = state.client.todos.value.filter((t) => t.id !== Number(params.id));
+    const { todos } = appState(state).client;
+    todos.value = todos.value.filter((t) => t.id !== Number(params.id));
   },
   "POST /auth/login": ({ result, state }) => {
-    state.client.user.value = (result as { user: User }).user;
+    appState(state).client.user.value = (result as { user: User }).user;
   },
   "POST /auth/logout": ({ state }) => {
-    state.client.user.value = null;
-    state.client.todos.value = [];
+    const { todos, user } = appState(state).client;
+    user.value = null;
+    todos.value = [];
   },
-} as const;
+};
 
 // Offline behaviour, mirroring the server `offline` config. Writes attempted
 // while offline are queued here (the client cannot fetch server metadata
@@ -51,7 +70,7 @@ export const api = createPollyClient<App>("http://localhost:3000", {
   state: clientState,
   clientEffects,
   offline,
-  websocket: true, // Enable real-time updates
+  websocket: process.env.NODE_ENV !== "test", // Enable real-time updates
   onOfflineChange: (isOnline) => {
     console.log(`[Polly] Connection: ${isOnline ? "ONLINE" : "OFFLINE"}`);
   },

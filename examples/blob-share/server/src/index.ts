@@ -15,11 +15,9 @@ import { Elysia } from "elysia";
 const CLIENT_ENTRY = join(import.meta.dir, "../../client/src/main.ts");
 const CLIENT_HTML = join(import.meta.dir, "../../client/src/index.html");
 
-// Cast around elysia type mismatch between the example's installed
-// version and polly's peer-dep version. Both resolve to the same runtime.
 const app = new Elysia()
   .use(html())
-  .use(signalingServer({ path: "/polly/signaling" }) as any)
+  .use(signalingServer({ path: "/polly/signaling" }))
   .get("/", async () => {
     return Bun.file(CLIENT_HTML).text();
   })

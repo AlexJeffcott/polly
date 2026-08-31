@@ -1,15 +1,25 @@
 // API client using Eden treaty for type-safe communication
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../../server/src/index";
-import { currentUser, tasks, workspace } from "./state";
+import { tasks, workspace } from "./state";
 
-// @ts-expect-error - injected at build time
+// Injected at build time by `bun build --define`.
 const API_URL = process.env.API_URL || "https://localhost:3000";
-// @ts-expect-error - injected at build time
 const WS_URL = process.env.WS_URL || "wss://localhost:3000/ws";
 
 // Create Eden treaty client with full type safety
 const client = treaty<App>(API_URL);
+
+/** Eden's `error.value` is a string for a thrown error and a validation object
+ *  for a schema rejection. Both have to end up as one message. */
+function errorMessage(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return JSON.stringify(value);
+}
 
 export type APIResponse<T = any> = {
   success?: boolean;
@@ -32,7 +42,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -42,7 +52,7 @@ export class APIClient {
     const { data, error } = await client.api.workspaces({ id }).get();
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -54,7 +64,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -74,7 +84,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -87,7 +97,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -99,7 +109,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -121,7 +131,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;
@@ -134,7 +144,7 @@ export class APIClient {
     });
 
     if (error) {
-      return { error: error.value as string };
+      return { error: errorMessage(error.value) };
     }
 
     return data as APIResponse;

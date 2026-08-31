@@ -1,7 +1,7 @@
 import { cors } from "@elysiajs/cors";
 import { $serverState, $syncedState } from "@fairfox/polly";
 import { polly } from "@fairfox/polly/elysia";
-import { signal } from "@preact/signals-core";
+import { type Signal, signal } from "@preact/signals-core";
 import { Elysia, t } from "elysia";
 import { addTodo, login, logout, removeTodo } from "./handlers";
 
@@ -22,6 +22,29 @@ const db = {
   users: signal<User[]>([{ id: 1, username: "demo" }]),
   nextTodoId: 1,
 };
+
+/**
+ * Polly's Elysia plugin cannot know an app's state shapes, so it types shared
+ * state as `Signal<unknown>` — on `pollyState` in a route handler and on
+ * `state` in an effect. This app names its own shapes once, here, and reads
+ * that state through `appState()` rather than asserting at each use.
+ */
+interface AppState {
+  client: {
+    todos: Signal<Todo[]>;
+    user: Signal<User | null>;
+  };
+  server: {
+    db: Signal<typeof db>;
+  };
+}
+
+function appState(state: {
+  client: Record<string, Signal<unknown>>;
+  server: Record<string, Signal<unknown>>;
+}): AppState {
+  return state as unknown as AppState;
+}
 
 // Polly-enhanced Elysia app
 const app = new Elysia()
@@ -44,7 +67,8 @@ const app = new Elysia()
         "POST /todos": {
           client: ({ result, state }) => {
             // Add new todo to client state
-            state.client.todos.value = [...state.client.todos.value, result];
+            const { todos } = appState(state).client;
+            todos.value = [...todos.value, result as Todo];
           },
           broadcast: true, // Notify all connected clients
         },
@@ -52,9 +76,9 @@ const app = new Elysia()
         "PATCH /todos/:id": {
           client: ({ result, state }) => {
             // Update specific todo in client state
-            state.client.todos.value = state.client.todos.value.map((t) =>
-              t.id === result.id ? result : t
-            );
+            const { todos } = appState(state).client;
+            const updated = result as Todo;
+            todos.value = todos.value.map((t) => (t.id === updated.id ? updated : t));
           },
           broadcast: true,
         },
@@ -62,9 +86,8 @@ const app = new Elysia()
         "DELETE /todos/:id": {
           client: ({ params, state }) => {
             // Remove todo from client state
-            state.client.todos.value = state.client.todos.value.filter(
-              (t) => t.id !== Number(params.id)
-            );
+            const { todos } = appState(state).client;
+            todos.value = todos.value.filter((t) => t.id !== Number(params.id));
           },
           broadcast: true,
         },
@@ -72,7 +95,7 @@ const app = new Elysia()
         "POST /auth/login": {
           client: ({ result, state }) => {
             // Set logged-in user
-            state.client.user.value = result.user;
+            appState(state).client.user.value = (result as { user: User }).user;
           },
           broadcast: false, // Don't broadcast auth changes
         },
@@ -100,7 +123,7 @@ const app = new Elysia()
           queue: true, // Queue when offline
           optimistic: (body) => ({
             id: -Date.now(), // Temporary negative ID
-            text: body.text,
+            text: (body as { text: string }).text,
             completed: false,
           }),
         },
@@ -144,7 +167,7 @@ const app = new Elysia()
 
   // Todo endpoints
   .get("/todos", ({ pollyState }) => {
-    return pollyState.server.db.value.todos.value;
+    return appState(pollyState).server.db.value.todos.value;
   })
 
   .post(
@@ -153,13 +176,14 @@ const app = new Elysia()
       // Track todo count for verification
       addTodo(body.text);
 
+      const store = appState(pollyState).server.db.value;
       const todo: Todo = {
-        id: pollyState.server.db.value.nextTodoId++,
+        id: store.nextTodoId++,
         text: body.text,
         completed: false,
       };
 
-      pollyState.server.db.value.todos.value = [...pollyState.server.db.value.todos.value, todo];
+      store.todos.value = [...store.todos.value, todo];
 
       return todo;
     },
@@ -173,7 +197,8 @@ const app = new Elysia()
   .patch(
     "/todos/:id",
     ({ params, body, pollyState }) => {
-      const todos = pollyState.server.db.value.todos.value;
+      const store = appState(pollyState).server.db.value;
+      const todos = store.todos.value;
       const todo = todos.find((t) => t.id === Number(params.id));
 
       if (!todo) {
@@ -184,7 +209,7 @@ const app = new Elysia()
       Object.assign(todo, body);
 
       // Trigger reactivity
-      pollyState.server.db.value.todos.value = [...todos];
+      store.todos.value = [...todos];
 
       return todo;
     },
@@ -202,7 +227,8 @@ const app = new Elysia()
   .delete(
     "/todos/:id",
     ({ params, pollyState }) => {
-      const todos = pollyState.server.db.value.todos.value;
+      const store = appState(pollyState).server.db.value;
+      const todos = store.todos.value;
       const index = todos.findIndex((t) => t.id === Number(params.id));
 
       if (index === -1) {
@@ -210,7 +236,7 @@ const app = new Elysia()
       }
 
       todos.splice(index, 1);
-      pollyState.server.db.value.todos.value = [...todos];
+      store.todos.value = [...todos];
 
       // Track todo count for verification
       removeTodo();

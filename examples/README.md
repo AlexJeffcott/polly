@@ -47,5 +47,27 @@ include a README that explains what the example demonstrates and how
 to run it, and — where applicable — a `specs/verification.config.ts`
 that the TLA+ pipeline can pick up.
 
+An example that imports `@fairfox/polly/elysia` must pin the **same
+`typescript` version as `packages/polly`** (currently `6.0.3`) in its
+devDependencies. Elysia declares `typescript` as a peer dependency, so bun
+installs one copy of Elysia per distinct `typescript` resolution. A workspace
+on a different version gets a different Elysia, and
+`new Elysia().use(signalingServer(...))` then fails to typecheck with
+`TS2769 ... ElysiaAdapter is not assignable to ElysiaAdapter` naming two
+`node_modules/.bun/elysia@<version>+<hash>` paths. The fix is to match the
+version, not to cast the plugin to `any`.
+
+Set `"types": ["bun"]` in an example's tsconfig, never `["bun-types"]` — the
+package these workspaces depend on is `@types/bun`, and `bun-types` is not
+installed anywhere in the repo. Pin `preact` and `@preact/signals` inside
+polly's peer ranges too, or polly-ui components resolve to a second preact and
+cannot be used as JSX.
+
+Every example workspace with a tsconfig is typechecked by
+`bun run check typecheck-examples` (part of `check all` and the `static` tier).
+A new example is picked up from its tsconfig — nothing to register. Examples
+typecheck against `packages/polly/dist`, so run `bun run build:lib` after
+changing a polly type.
+
 See [the contributing guide](../CONTRIBUTING.md) for the broader
 workflow.

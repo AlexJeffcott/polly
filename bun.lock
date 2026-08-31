@@ -30,14 +30,14 @@
       },
       "devDependencies": {
         "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/elysia-todo-app/client": {
       "name": "elysia-todo-app-client",
       "version": "0.1.0",
       "dependencies": {
-        "@elysiajs/eden": "1.2.0",
+        "@elysiajs/eden": "1.4.9",
         "@elysiajs/html": "1.2.0",
         "@fairfox/polly": "workspace:*",
         "@preact/signals": "2.9.0",
@@ -47,8 +47,9 @@
         "preact-render-to-string": "6.5.11",
       },
       "devDependencies": {
+        "@happy-dom/global-registrator": "20.9.0",
         "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/elysia-todo-app/server": {
@@ -61,8 +62,9 @@
         "elysia": "1.4.28",
       },
       "devDependencies": {
+        "@elysiajs/eden": "1.4.9",
         "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/full-featured": {
@@ -84,13 +86,14 @@
       "version": "0.1.0",
       "dependencies": {
         "@automerge/automerge": ">= 2.5.0",
+        "@automerge/automerge-repo": ">= 2.5.0",
         "@fairfox/polly": "workspace:*",
         "elysia": ">= 1.4.0",
         "werift": ">= 0.19.0",
       },
       "devDependencies": {
         "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/mesh-large-initial-sync-turn": {
@@ -98,13 +101,14 @@
       "version": "0.1.0",
       "dependencies": {
         "@automerge/automerge": ">= 2.5.0",
+        "@automerge/automerge-repo": ">= 2.5.0",
         "@fairfox/polly": "workspace:*",
         "elysia": ">= 1.4.0",
         "werift": ">= 0.19.0",
       },
       "devDependencies": {
         "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/mesh-recovery-pair": {
@@ -118,7 +122,7 @@
       },
       "devDependencies": {
         "@types/bun": "1.3.13",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/minimal": {
@@ -157,13 +161,14 @@
       "dependencies": {
         "@elysiajs/eden": "1.4.6",
         "@fairfox/polly": "workspace:*",
-        "@preact/signals": "1.2.0",
-        "preact": "10.19.0",
+        "@preact/signals": "2.9.0",
+        "@preact/signals-core": "1.14.2",
+        "preact": "10.29.1",
       },
       "devDependencies": {
         "@types/bun": "1.3.13",
         "@types/node": "20.0.0",
-        "typescript": "5.9.3",
+        "typescript": "6.0.3",
       },
     },
     "examples/team-task-manager/server": {
@@ -176,6 +181,7 @@
       },
       "devDependencies": {
         "@types/bun": "^1.3.13",
+        "typescript": "6.0.3",
       },
     },
     "examples/todo-list": {
@@ -222,7 +228,7 @@
     },
     "packages/polly": {
       "name": "@fairfox/polly",
-      "version": "0.85.1",
+      "version": "0.85.2",
       "bin": {
         "polly": "./dist/cli/polly.js",
       },
@@ -1239,17 +1245,9 @@
 
     "blob-share-client/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
-    "blob-share-server/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
     "chromium-bidi/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "cross-spawn/path-key": ["path-key@3.1.1", "", {}, "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q=="],
-
-    "elysia-todo-app-client/@elysiajs/eden": ["@elysiajs/eden@1.2.0", "", { "peerDependencies": { "elysia": ">= 1.2.0" } }, "sha512-MpV45ahuF+iFZUg4tyJbLr9qxzY99m8clJVgQrDrz7Qh6eOKQ8MY6vjYMj3Wh21pTIRHPHzOLhVorRGby1/Owg=="],
-
-    "elysia-todo-app-client/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
-    "elysia-todo-app-server/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "escodegen/source-map": ["source-map@0.6.1", "", {}, "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="],
 
@@ -1261,13 +1259,7 @@
 
     "full-featured-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
-    "mesh-large-initial-sync-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
-    "mesh-large-initial-sync-turn-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
     "mesh-recovery-pair-example/@preact/signals": ["@preact/signals@2.5.1", "", { "dependencies": { "@preact/signals-core": "^1.12.0" }, "peerDependencies": { "preact": ">= 10.25.0 || >=11.0.0-0" } }, "sha512-VPjk5YFt7i11Fi4UK0tzaEe5xLwfhUxXL3l89ocxQ5aPz7bRo8M5+N73LjBMPklyXKYKz6YsNo4Smp8n6nplng=="],
-
-    "mesh-recovery-pair-example/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "minimal-example/@preact/signals": ["@preact/signals@2.5.1", "", { "dependencies": { "@preact/signals-core": "^1.12.0" }, "peerDependencies": { "preact": ">= 10.25.0 || >=11.0.0-0" } }, "sha512-VPjk5YFt7i11Fi4UK0tzaEe5xLwfhUxXL3l89ocxQ5aPz7bRo8M5+N73LjBMPklyXKYKz6YsNo4Smp8n6nplng=="],
 
@@ -1287,13 +1279,7 @@
 
     "team-task-manager-client/@elysiajs/eden": ["@elysiajs/eden@1.4.6", "", { "peerDependencies": { "elysia": ">=1.4.19" } }, "sha512-Tsa4NwXEWg/u73vWiYZQ3L5/ecgZSxqiEjYwpS+4qBKXeTZqZKl2hcgHJSVBL+InEDMi35Xugct7qyAXE5oM4Q=="],
 
-    "team-task-manager-client/@preact/signals": ["@preact/signals@1.2.0", "", { "dependencies": { "@preact/signals-core": "^1.4.0" }, "peerDependencies": { "preact": "10.x" } }, "sha512-hrPOJ6L4XI/6iFJ++JitYG7W22E0+oNDkWH9W1gCutcKYCJq5tvhKcnxkLShCuctNZkwUBpu4XeIiVr5wC4NnA=="],
-
     "team-task-manager-client/@types/node": ["@types/node@20.0.0", "", {}, "sha512-cD2uPTDnQQCVpmRefonO98/PPijuOnnEy5oytWJFPY1N9aJCz2wJ5kSGWO+zJoed2cY2JxQh6yBuUq4vIn61hw=="],
-
-    "team-task-manager-client/preact": ["preact@10.19.0", "", {}, "sha512-klJSys/ljj/Z97DrYogoUE2R2qQCtHQD9kJAEDzn/sTDx7dXAfGEbGKvLLVLs2Mhy3t5RDRGrDcWPNAky6KsUw=="],
-
-    "team-task-manager-client/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "tsyringe/tslib": ["tslib@1.14.1", "", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
 

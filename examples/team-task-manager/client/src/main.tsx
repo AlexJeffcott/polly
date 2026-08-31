@@ -12,7 +12,7 @@ registerServiceWorker().then((registration) => {
 });
 
 // Setup install prompt
-setupInstallPrompt((prompt) => {
+setupInstallPrompt(() => {
   console.log("Install prompt is available");
   // The install button will be shown in the UI when needed
 });
