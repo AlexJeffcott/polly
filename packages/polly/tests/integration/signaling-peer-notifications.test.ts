@@ -1,7 +1,7 @@
 /**
  * Integration test for the signalling server's peer-discovery protocol.
  *
- * Spins up a real Elysia app on a random port with the signalling
+ * Spins up a real Elysia app on a kernel-assigned port with the signalling
  * plugin mounted, connects raw WebSocket clients, and verifies the
  * frames emitted by the server through the lifecycle of a peer:
  *
@@ -21,6 +21,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { resolveListenPort } from "@fairfox/polly/test";
 import { Elysia } from "elysia";
 import { signalingServer } from "@/elysia/signaling-server-plugin";
 
@@ -37,18 +38,17 @@ afterEach(async () => {
   pendingApps = [];
 }, 10000);
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
-}
-
-function mountSignalingApp(port: number): { url: string } {
-  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
+/** Mount the signalling plugin on a kernel-assigned port and return its URL.
+ *  Port 0 removes the collision window a random port draw leaves open —
+ *  the server owns the port from the moment it is assigned (polly#174). */
+function mountSignalingApp(): { url: string } {
+  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
   pendingApps.push({
     stop: async () => {
       (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
     },
   });
-  return { url: `ws://127.0.0.1:${port}/polly/signaling` };
+  return { url: `ws://127.0.0.1:${resolveListenPort(app)}/polly/signaling` };
 }
 
 interface SignalingClient {
@@ -151,7 +151,7 @@ function isPeerLeft(value: unknown): value is PeerLeftFrame {
 
 describe("signalingServer peer-discovery frames", () => {
   test("a lone newcomer receives peers-present with an empty list", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const alice = await openSignalingClient(url);
 
     alice.send({ type: "join", peerId: "peer-alice" });
@@ -165,7 +165,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("a second joiner receives peers-present listing the incumbent", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const alice = await openSignalingClient(url);
     alice.send({ type: "join", peerId: "peer-alice" });
     await waitForMessage(alice); // drain alice's own peers-present
@@ -183,7 +183,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("an incumbent receives peer-joined when a new peer joins", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const alice = await openSignalingClient(url);
     alice.send({ type: "join", peerId: "peer-alice" });
     await waitForMessage(alice); // drain alice's own peers-present
@@ -201,7 +201,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("a three-peer sequence delivers peers-present and peer-joined as expected", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
 
     const alice = await openSignalingClient(url);
     alice.send({ type: "join", peerId: "peer-alice" });
@@ -245,7 +245,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("the newcomer never receives a peer-joined for its own id", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const dave = await openSignalingClient(url);
     dave.send({ type: "join", peerId: "peer-dave" });
     await waitForMessage(dave); // peers-present
@@ -260,7 +260,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("incumbents receive peer-left when a joined peer closes its socket", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const alice = await openSignalingClient(url);
     alice.send({ type: "join", peerId: "peer-alice" });
     await waitForMessage(alice); // peers-present
@@ -281,7 +281,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("a peer that never joined does not trigger peer-left on close", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const alice = await openSignalingClient(url);
     alice.send({ type: "join", peerId: "peer-alice" });
     await waitForMessage(alice); // peers-present
@@ -298,7 +298,7 @@ describe("signalingServer peer-discovery frames", () => {
   });
 
   test("the existing relay/error contract is unchanged under the extended protocol", async () => {
-    const { url } = mountSignalingApp(pickPort());
+    const { url } = mountSignalingApp();
     const eve = await openSignalingClient(url);
     eve.send({ type: "join", peerId: "peer-eve" });
     await waitForMessage(eve); // peers-present

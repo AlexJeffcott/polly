@@ -33,6 +33,7 @@ import { join } from "node:path";
 import { type DocumentId, Repo } from "@automerge/automerge-repo";
 import { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
+import { resolveWebSocketPort } from "@fairfox/polly/test";
 import { createPeerRepoServer, type PeerRepoServer } from "@/shared/lib/peer-repo-server";
 
 type Doc = {
@@ -53,10 +54,17 @@ afterEach(async () => {
   pendingServers = [];
 }, 30000);
 
-async function startServer(port: number, storagePath: string): Promise<PeerRepoServer> {
-  const s = await createPeerRepoServer({ port, host: "127.0.0.1", storagePath });
+/** Start a relay server on a kernel-assigned port and report that port.
+ *  Port 0 removes the collision window a random port draw leaves open —
+ *  the server owns the port from the moment it is assigned, so two servers
+ *  live at the same time cannot land on the same port (polly#174). */
+async function startServer(storagePath: string): Promise<{
+  server: PeerRepoServer;
+  port: number;
+}> {
+  const s = await createPeerRepoServer({ port: 0, host: "127.0.0.1", storagePath });
   pendingServers.push(s);
-  return s;
+  return { server: s, port: resolveWebSocketPort(s.webSocketServer) };
 }
 
 async function waitFor(
@@ -71,20 +79,14 @@ async function waitFor(
   throw new Error(`Timed out after ${timeoutMs}ms waiting for predicate`);
 }
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
-}
-
 describe("$peerState resilience", () => {
   test("server can recover document state from a reconnecting client after data loss", async () => {
-    const portA = pickPort();
-    const portB = pickPort();
     const serverDirA = mkdtempSync(join(tmpdir(), "polly-server-a-"));
     const serverDirB = mkdtempSync(join(tmpdir(), "polly-server-b-"));
     const clientDir = mkdtempSync(join(tmpdir(), "polly-client-"));
 
     // ─── Phase 1: client creates a doc and syncs to server A ────────────────
-    const serverA = await startServer(portA, serverDirA);
+    const { server: serverA, port: portA } = await startServer(serverDirA);
 
     const clientA = new Repo({
       network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portA}`, 100)],
@@ -122,7 +124,7 @@ describe("$peerState resilience", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     // ─── Phase 2: fresh server B with a fresh storage path = data loss ──────
-    const serverB = await startServer(portB, serverDirB);
+    const { server: serverB, port: portB } = await startServer(serverDirB);
 
     // Confirm server B starts with no knowledge of the document. find() will
     // hang waiting for a peer that has the doc, so we just check the handle
@@ -163,14 +165,12 @@ describe("$peerState resilience", () => {
   });
 
   test("a write on the recovered server propagates back to the client", async () => {
-    const portA = pickPort();
-    const portB = pickPort();
     const serverDirA = mkdtempSync(join(tmpdir(), "polly-server-a-"));
     const serverDirB = mkdtempSync(join(tmpdir(), "polly-server-b-"));
     const clientDir = mkdtempSync(join(tmpdir(), "polly-client-"));
 
     // Set up a doc on server A and client A.
-    const serverA = await startServer(portA, serverDirA);
+    const { server: serverA, port: portA } = await startServer(serverDirA);
     const clientA = new Repo({
       network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portA}`, 100)],
       storage: new NodeFSStorageAdapter(clientDir),
@@ -197,7 +197,7 @@ describe("$peerState resilience", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     // Bring up server B and client B.
-    const serverB = await startServer(portB, serverDirB);
+    const { server: serverB, port: portB } = await startServer(serverDirB);
     const clientB = new Repo({
       network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portB}`, 100)],
       storage: new NodeFSStorageAdapter(clientDir),

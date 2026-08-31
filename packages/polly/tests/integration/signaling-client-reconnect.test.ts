@@ -6,8 +6,8 @@
  * sends its join frame, and then lets the connection silently die on
  * server close is not something a user can tell apart from "the whole
  * thing broke." This test spins up the Elysia signalling plugin on a
- * fixed port, connects a MeshSignalingClient, stops the server, brings
- * it back up on the same port, and asserts the client has re-joined
+ * kernel-assigned port, connects a MeshSignalingClient, stops the server,
+ * brings it back up on the same port, and asserts the client has re-joined
  * without any intervention from the caller — the onOpen callback fires
  * twice and `isConnected` returns true again.
  *
@@ -16,11 +16,14 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { resolveListenPort, retryOnPortInUse } from "@fairfox/polly/test";
 import { Elysia } from "elysia";
 import { signalingServer } from "@/elysia/signaling-server-plugin";
 import { MeshSignalingClient } from "@/shared/lib/mesh-signaling-client";
 
 interface RunningApp {
+  /** The port the server is actually listening on. */
+  port: number;
   stop: () => Promise<void>;
 }
 
@@ -37,9 +40,13 @@ afterEach(async () => {
   pendingApps = [];
 }, 10000);
 
+/** Start the signalling plugin. Pass 0 to let the kernel assign a free port
+ *  and read it back off the handle; pass a known port only where the test
+ *  needs that exact port a second time (polly#174). */
 function startSignaling(port: number): RunningApp {
   const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
   const handle: RunningApp = {
+    port: resolveListenPort(app),
     stop: async () => {
       (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
       // Give the OS a tick to release the port before the next listen().
@@ -50,14 +57,10 @@ function startSignaling(port: number): RunningApp {
   return handle;
 }
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
-}
-
 describe("MeshSignalingClient reconnect", () => {
   test("re-joins automatically after the server restarts on the same port", async () => {
-    const port = pickPort();
-    let app = startSignaling(port);
+    let app = startSignaling(0);
+    const port = app.port;
     const url = `ws://127.0.0.1:${port}/polly/signaling`;
 
     let openCount = 0;
@@ -77,7 +80,10 @@ describe("MeshSignalingClient reconnect", () => {
     // Server drops: restart on the same port after a brief gap.
     await app.stop();
     await new Promise((r) => setTimeout(r, 200));
-    app = startSignaling(port);
+    // The restart has to reclaim the same port — the client is reconnecting
+    // to that URL — so this is the one bind port 0 cannot serve. Retry while
+    // the OS still holds it, and fail with the bind error if it never frees.
+    app = await retryOnPortInUse(() => startSignaling(port));
 
     // Wait for the client to reconnect on its own. The exponential
     // backoff starts at 250ms, so a second onOpen call should land
@@ -97,8 +103,7 @@ describe("MeshSignalingClient reconnect", () => {
   }, 20000);
 
   test("does not reconnect after an explicit close()", async () => {
-    const port = pickPort();
-    startSignaling(port);
+    const { port } = startSignaling(0);
     const url = `ws://127.0.0.1:${port}/polly/signaling`;
 
     let openCount = 0;

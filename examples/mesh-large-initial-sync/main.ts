@@ -36,7 +36,7 @@
 import "@fairfox/polly/mesh"; // triggers WASM init
 
 import * as Automerge from "@automerge/automerge";
-import type { DocHandle, DocumentId } from "@automerge/automerge-repo/slim";
+import type { AutomergeUrl, DocHandle, DocumentId } from "@automerge/automerge-repo/slim";
 import { signalingServer } from "@fairfox/polly/elysia";
 import {
   createMeshClient,
@@ -368,13 +368,13 @@ function buildLargeSnapshotBytes(args: { sentinel: string; targetBytes: number }
 
 // ---- Test bed ---------------------------------------------------
 
-function pickPort(): number {
-  return 40000 + Math.floor(Math.random() * 10000);
-}
-
+/** Port 0 asks the kernel for a free port: the server owns it from the
+ * moment it is assigned, so a second copy of this script running at the
+ * same time cannot collide with it (polly#174). */
 function startSignalingServer(): { url: string; stop: () => Promise<void> } {
-  const port = pickPort();
-  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
+  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
+  const port = (app as unknown as { server?: { port?: number } }).server?.port;
+  if (typeof port !== "number") throw new Error("signalling server failed to bind a port");
   log("signal-server", `listening at ws://127.0.0.1:${port}/polly/signaling`);
   return {
     url: `ws://127.0.0.1:${port}/polly/signaling`,
@@ -496,7 +496,7 @@ async function waitFor(
  * the payload directly is the load-bearing signal). */
 async function acquireSentinelOnPeerB(args: {
   repo: MeshClient["repo"];
-  documentUrl: string;
+  documentUrl: AutomergeUrl;
   expectedSentinel: string;
 }): Promise<{ sentinel: string | undefined; handle: DocHandle<LargeDocShape> | undefined }> {
   void args.repo

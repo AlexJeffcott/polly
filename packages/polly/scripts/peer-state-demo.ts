@@ -45,10 +45,6 @@ type Notes = VersionedDoc & {
   body: string;
 };
 
-function pickPort(): number {
-  return 34000 + Math.floor(Math.random() * 1000);
-}
-
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
   timeoutMs = 3000
@@ -62,14 +58,19 @@ async function waitFor(
 }
 
 async function main(): Promise<void> {
-  const port = pickPort();
   const storageDir = mkdtempSync(join(tmpdir(), "polly-demo-server-"));
-  console.log(`[demo] starting peer-repo server on port ${port} with storage ${storageDir}`);
+  // Port 0: the kernel assigns a free port and the server owns it from that
+  // moment, so a second copy of this demo cannot collide with it (polly#174).
   const server = await createPeerRepoServer({
-    port,
+    port: 0,
     host: "127.0.0.1",
     storagePath: storageDir,
   });
+
+  const address = server.webSocketServer.address();
+  const port = typeof address === "object" && address !== null ? address.port : undefined;
+  if (typeof port !== "number") throw new Error("peer-repo server failed to bind a port");
+  console.log(`[demo] peer-repo server on port ${port} with storage ${storageDir}`);
 
   console.log(`[demo] connecting client to ws://127.0.0.1:${port}`);
   const client = createPeerStateClient({

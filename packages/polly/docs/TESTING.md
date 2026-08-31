@@ -36,6 +36,31 @@ scripts still run via an exit-code fallback, so migration never breaks the
 suite. See [the tiers index](../tools/test/src/tiers/index.ts) for the engine
 API.
 
+### Listen ports
+
+A test that needs a server binds **port 0** and reads back the port the kernel
+assigned. The server owns that port from the moment it is assigned, so no other
+process can take it in between:
+
+```typescript
+import { resolveListenPort, resolveWebSocketPort } from '@fairfox/polly/test'
+
+const app = new Elysia().use(signalingServer({ path })).listen(0)
+const url = `ws://127.0.0.1:${resolveListenPort(app)}${path}`
+
+const server = await createPeerRepoServer({ port: 0, host: '127.0.0.1', storagePath })
+const relayUrl = `ws://127.0.0.1:${resolveWebSocketPort(server.webSocketServer)}`
+```
+
+Do not draw a port at random from a fixed window. The integration suite did,
+and 27 draws from 10,000 ports is a 3.45% self-collision probability per run —
+a real bind failure that reads as flake, which invites a retry that narrows the
+window instead of removing it (polly#174).
+
+`retryOnPortInUse(start)` covers the one case port 0 cannot: a port that must
+be known before the server starts, such as a restart on the same port. It fails
+with the bind error rather than a downstream timeout.
+
 ### In your own Polly app
 
 `polly test --tier` (and `--all` / `--list` / `--only` / `--json`) works from a
