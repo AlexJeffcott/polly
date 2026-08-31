@@ -193,3 +193,97 @@ describe("createPeerStateClient — close", () => {
     expect(shutdownCalls).toBe(1);
   });
 });
+
+describe("createPeerStateClient — socket-error containment", () => {
+  /** Reproduces automerge's real `onError`: it rethrows any carried error
+   *  whose `code` is not "ECONNREFUSED". Bun's WebSocket error event has no
+   *  `code`, so under Bun that is every connection failure. */
+  class ThrowingAdapter extends FakeAdapter {
+    calls = 0;
+    onError = (event: unknown): void => {
+      this.calls += 1;
+      if (typeof event !== "object" || event === null || !("error" in event)) return;
+      const carried = event.error;
+      if (carried === undefined || carried === null) return;
+      const code = typeof carried === "object" && "code" in carried ? carried.code : undefined;
+      if (code !== "ECONNREFUSED") throw carried;
+    };
+  }
+
+  function makeThrowing(opts: Partial<Parameters<typeof createPeerStateClient>[0]> = {}): {
+    client: PeerStateClient;
+    adapter: ThrowingAdapter;
+  } {
+    const adapter = new ThrowingAdapter();
+    const client = createPeerStateClient({
+      url: URL,
+      adapterFactory: () => adapter as unknown as WebSocketClientAdapter,
+      ...opts,
+    });
+    clients.push(client);
+    return { client, adapter };
+  }
+
+  const bunErrorEvent = { error: new Error("Failed to connect") };
+
+  test("a rethrown socket error does not escape the handler", () => {
+    const { adapter } = makeThrowing({ onSocketError: () => {} });
+    expect(() => adapter.onError(bunErrorEvent)).not.toThrow();
+  });
+
+  test("the original handler still runs", () => {
+    const { adapter } = makeThrowing({ onSocketError: () => {} });
+    adapter.onError(bunErrorEvent);
+    expect(adapter.calls).toBe(1);
+  });
+
+  test("reports the carried error to onSocketError", () => {
+    const seen: Error[] = [];
+    const { adapter } = makeThrowing({ onSocketError: (e) => seen.push(e) });
+    adapter.onError(bunErrorEvent);
+    expect(seen).toEqual([bunErrorEvent.error]);
+  });
+
+  test("moves the connection signal to disconnected", () => {
+    const { client, adapter } = makeThrowing({ onSocketError: () => {} });
+    fire(adapter, "peer-candidate", { peerId: "relay", peerMetadata: {} });
+    expect(client.connectionState.value).toBe("connected");
+    adapter.onError(bunErrorEvent);
+    expect(client.connectionState.value).toBe("disconnected");
+  });
+
+  test("a browser-shaped event with no carried error still reports, naming the url", () => {
+    const seen: Error[] = [];
+    const { adapter } = makeThrowing({ onSocketError: (e) => seen.push(e) });
+    adapter.onError({});
+    expect(seen[0]?.message).toBe(`WebSocket connection to ${URL} failed`);
+  });
+
+  test("a non-Error payload is wrapped rather than dropped", () => {
+    const seen: Error[] = [];
+    const { adapter } = makeThrowing({ onSocketError: (e) => seen.push(e) });
+    adapter.onError({ error: "ECONNRESET" });
+    expect(seen[0]?.message).toBe("ECONNRESET");
+  });
+
+  test("falls back to console.warn when no callback is supplied", () => {
+    const warnings: unknown[][] = [];
+    const original = console.warn;
+    console.warn = (...args: unknown[]): void => {
+      warnings.push(args);
+    };
+    try {
+      const { adapter } = makeThrowing();
+      adapter.onError(bunErrorEvent);
+    } finally {
+      console.warn = original;
+    }
+    expect(warnings).toHaveLength(1);
+    expect(String(warnings[0]?.[0])).toContain(URL);
+  });
+
+  test("an adapter with no onError is left alone", () => {
+    const { adapter } = make();
+    expect((adapter as unknown as { onError?: unknown }).onError).toBeUndefined();
+  });
+});

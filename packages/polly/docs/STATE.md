@@ -260,6 +260,8 @@ The four `$peer*` variants map directly to the specialised CRDT shapes: `$peerTe
 
 **Optional**: `{ sign: true }` adds per-op Ed25519 signatures for Byzantine defence — a compromised client cannot push unsigned writes through the relay. Signing is enabled at the transport level via `createPeerStateClient({ sign: true, keyring: ... })`. Encryption is not offered on `$peerState` because it would prevent the server from parsing Automerge sync messages; applications that need encrypted state should use `$meshState` below.
 
+**Optional**: `{ onSocketError: (error) => ... }` receives every failed connect attempt and transport error. The client keeps retrying either way — this is a report, not a recovery hook — and `connectionState` moves to `"disconnected"` on each one. With no callback the error is logged with `console.warn`. Supply a callback on a Bun- or Node-hosted client that is expected to run with the relay down, so the retries stay quiet.
+
 See [`docs/RFC-041-peer-first.md`](./RFC-041-peer-first.md) for the full design and [`tools/verify/specs/tla/PeerState.tla`](../tools/verify/specs/tla/PeerState.tla) for the formal protocol spec.
 
 ### `$meshState(key, initialValue, options?)`

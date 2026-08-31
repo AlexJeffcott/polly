@@ -63,6 +63,12 @@ export interface CreatePeerStateClientOptions {
    * instrumentation) substitute a fake adapter so they stay off the network —
    * the production path leaves this unset. */
   adapterFactory?: (url: string, retryInterval?: number) => WebSocketClientAdapter;
+  /** Called once per failed socket connection or transport error, on every
+   * host. The client keeps retrying either way — this is a report, not a
+   * recovery hook. With no callback the error is logged with
+   * `console.warn`. See {@link containSocketErrors} for why the default is
+   * not "let it throw". */
+  onSocketError?: (error: Error) => void;
 }
 
 export interface PeerStateClient {
@@ -80,6 +86,60 @@ export interface PeerStateClient {
   /** Disconnect from the relay and tear down the Repo. Awaiting the
    * returned promise drains the Repo's subsystems cleanly. */
   close: () => Promise<void>;
+}
+
+/** Recover an Error from whichever error-event shape arrived. Node and Bun
+ *  put the underlying error on `.error`; the browser event carries nothing,
+ *  by design — the page console shows the failure and scripts cannot read
+ *  it. */
+function toSocketError(event: unknown, url: string): Error {
+  if (typeof event === "object" && event !== null && "error" in event) {
+    const carried = event.error;
+    if (carried instanceof Error) return carried;
+    if (carried !== undefined && carried !== null) return new Error(String(carried));
+  }
+  return new Error(`WebSocket connection to ${url} failed`);
+}
+
+/**
+ * Stop a socket error from escaping the adapter as an uncaught exception,
+ * and report it through `report` instead.
+ *
+ * `WebSocketClientAdapter.onError` ends with
+ * `if (event.error.code !== "ECONNREFUSED") throw event.error`. That guard
+ * assumes a Node `ws` error, which carries `code`. Bun's WebSocket error
+ * event does not, so under Bun *every* failed connect attempt throws out of
+ * the listener — once per `retryInterval`, for as long as the relay is
+ * unreachable. Nothing catches it: the listener runs from the event loop, so
+ * the throw lands as an uncaught exception and, under `bun test`, is charged
+ * to whichever test happens to be running.
+ *
+ * In a browser the other branch runs and nothing throws, so this only bites
+ * a client hosted on Bun or Node. The retry loop is untouched — the
+ * reconnect timer is independent of this handler — so containing the throw
+ * costs no reconnection behaviour.
+ *
+ * The original handler still runs first, keeping its debug logging and its
+ * ECONNREFUSED discrimination. Adapters with no `onError` (test fakes) are
+ * left alone.
+ */
+function containSocketErrors(
+  adapter: WebSocketClientAdapter,
+  url: string,
+  report: (error: Error) => void
+): void {
+  const original = adapter.onError;
+  if (typeof original !== "function") return;
+  adapter.onError = (event) => {
+    try {
+      original(event);
+    } catch {
+      // The rethrow above is the whole reason this wrapper exists. The error
+      // it carries is the same one `toSocketError` recovers below, so there
+      // is nothing extra to keep here.
+    }
+    report(toSocketError(event, url));
+  };
 }
 
 /**
@@ -101,6 +161,17 @@ export function createPeerStateClient(options: CreatePeerStateClientOptions): Pe
     ? options.adapterFactory(options.url, options.retryInterval)
     : new WebSocketClientAdapter(options.url, options.retryInterval);
   const connectionState = signal<PeerRelayConnectionState>("connecting");
+
+  // Must run before the Repo constructor: `connect()` reads `adapter.onError`
+  // when it registers the socket listener, so a later swap would not be seen.
+  containSocketErrors(adapter, options.url, (error) => {
+    connectionState.value = "disconnected";
+    if (options.onSocketError) {
+      options.onSocketError(error);
+      return;
+    }
+    console.warn(`[polly] peer relay socket error (${options.url}):`, error.message);
+  });
 
   // The WebSocketClientAdapter is itself an EventEmitter (via Automerge's
   // NetworkAdapter base class) and emits 'peer-candidate' / 'peer-disconnected'
