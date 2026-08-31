@@ -4,6 +4,8 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { mintContainerName } from "../../../verify/src/runner/container-name";
+import { removeContainer } from "../../../verify/src/runner/docker";
 
 export interface ExportOptions {
   /** DSL file path */
@@ -108,9 +110,16 @@ export class DiagramExporter {
     const outputMount = `${outputDir}:/output`;
 
     // Structurizr CLI command for static site export
+    // --name so the timeout below can remove the container (polly#173): --rm
+    // only fires when the container exits, and a stall during creation means it
+    // never starts, so it never exits.
+    const containerName = mintContainerName("structurizr");
+
     const args = [
       "run",
       "--rm",
+      "--name",
+      containerName,
       "-v",
       workspaceMount,
       "-v",
@@ -125,7 +134,7 @@ export class DiagramExporter {
       "/output",
     ];
 
-    await this.runDocker(args, timeout);
+    await this.runDocker(args, timeout, containerName);
   }
 
   /**
@@ -188,21 +197,36 @@ export class DiagramExporter {
   /**
    * Run Docker command
    */
-  private async runDocker(args: string[], timeout: number): Promise<string> {
-    return this.runCommand("docker", args, timeout);
+  private async runDocker(
+    args: string[],
+    timeout: number,
+    containerName?: string
+  ): Promise<string> {
+    return this.runCommand("docker", args, timeout, containerName);
   }
 
   /**
    * Run shell command
    */
-  private async runCommand(command: string, args: string[], timeout: number): Promise<string> {
+  private async runCommand(
+    command: string,
+    args: string[],
+    timeout: number,
+    containerName?: string
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
       const proc = spawn(command, args);
       let stdout = "";
       let stderr = "";
 
       const timer = setTimeout(() => {
-        proc.kill();
+        // SIGKILL: `docker run` attached to a container does not reliably stop
+        // on SIGTERM, and killing the client never kills the container — so
+        // remove it by name too, best effort (polly#173).
+        proc.kill("SIGKILL");
+        if (containerName) {
+          removeContainer(containerName);
+        }
         reject(new Error(`Command timed out after ${timeout}ms`));
       }, timeout);
 

@@ -1,14 +1,89 @@
 // Docker container management for TLA+ verification
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { CONTAINER_NAME_PREFIX, mintContainerName } from "./container-name";
 
 export type DockerRunResult = {
   exitCode: number;
   stdout: string;
   stderr: string;
 };
+
+/**
+ * polly#173: remove a container by name, best effort.
+ *
+ * Called from a timeout handler that is already rejecting, so this must never
+ * throw and never block: a failure here would replace the caller's real timeout
+ * error with a cleanup error and hide why the run stopped.
+ */
+export function removeContainer(name: string): void {
+  try {
+    spawnSync("docker", ["rm", "-f", name], { timeout: 10_000, stdio: "ignore" });
+  } catch {
+    // best effort
+  }
+}
+
+let swept = false;
+
+/**
+ * Run {@link sweepOrphanedContainers} at most once per process.
+ *
+ * Called before each container is created rather than from a CLI entry point,
+ * so a consumer driving `DockerRunner` or `SANYRunner` directly gets the same
+ * recovery. The `docker ps` costs ~100ms and happens once.
+ */
+export function sweepOrphanedContainersOnce(): string[] {
+  if (swept) return [];
+  swept = true;
+  return sweepOrphanedContainers();
+}
+
+/**
+ * polly#173: remove containers this runner left behind in state `Created`.
+ *
+ * A container that stalls during creation never starts, so `--rm` never fires.
+ * The timeout arm removes the one it was waiting on, but a hard kill of the
+ * whole process runs no handler at all — this sweep is how that case recovers.
+ * Each orphan degrades subsequent container creation, so leaving one behind
+ * makes the next run more likely to stall.
+ *
+ * Returns the names removed, so a caller can report what it cleaned up.
+ */
+export function sweepOrphanedContainers(): string[] {
+  try {
+    const listed = spawnSync(
+      "docker",
+      [
+        "ps",
+        "--all",
+        "--filter",
+        "status=created",
+        "--filter",
+        `name=${CONTAINER_NAME_PREFIX}`,
+        "--format",
+        "{{.Names}}",
+      ],
+      { timeout: 10_000, encoding: "utf8" }
+    );
+
+    const names = (listed.stdout ?? "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith(CONTAINER_NAME_PREFIX));
+
+    for (const name of names) {
+      removeContainer(name);
+    }
+
+    return names;
+  } catch {
+    // best effort
+    return [];
+  }
+}
 
 export class DockerRunner {
   private readonly IMAGE_NAME = "polly-tla:latest";
@@ -119,9 +194,17 @@ export class DockerRunner {
     // Keeping the state pool inside the container hits the native filesystem at
     // native speed, and with --rm + -cleanup it dies with the container, so no
     // multi-GB dirs leak back onto the host. See issue #152.
+    // --name so a timed-out run is removable by name: --rm only fires when the
+    // container exits, and killing the client does not kill the container
+    // (polly#173).
+    const containerName = mintContainerName("tlc");
+    sweepOrphanedContainersOnce();
+
     const args = [
       "run",
       "--rm",
+      "--name",
+      containerName,
       "-v",
       `${specDir}:/work`,
       this.IMAGE_NAME,
@@ -142,6 +225,7 @@ export class DockerRunner {
 
     const result = await this.runCommand("docker", args, {
       timeout: options?.timeout,
+      containerName,
     });
 
     return this.parseTLCOutput(result);
@@ -246,11 +330,16 @@ export class DockerRunner {
   /**
    * Run a command and return output
    * Public to allow other runners (like SANYRunner) to execute commands
+   *
+   * Pass `containerName` for a `docker run` whose argv carries the matching
+   * `--name`: on timeout the container is then removed by that name (polly#173).
+   * Without it, killing the client leaves the container on the daemon with no
+   * handle to reach it by.
    */
   runCommand(
     command: string,
     args: string[],
-    options?: { timeout?: number }
+    options?: { timeout?: number; containerName?: string }
   ): Promise<DockerRunResult> {
     return new Promise((resolve, reject) => {
       const proc = spawn(command, args);
@@ -271,7 +360,16 @@ export class DockerRunner {
       const timeout =
         timeoutValue > 0
           ? setTimeout(() => {
-              proc.kill();
+              // SIGKILL, not SIGTERM: `docker run` attached to a container does
+              // not reliably stop on SIGTERM, and a client left alive holds the
+              // pipes open (polly#173).
+              proc.kill("SIGKILL");
+              // Killing the client does not kill the container. Remove it by
+              // name, best effort — never throw, never block, never mask the
+              // timeout this promise is already rejecting with.
+              if (options?.containerName) {
+                removeContainer(options.containerName);
+              }
               reject(
                 new Error(
                   `Command timed out after ${Math.floor(timeoutValue / 1000)}s. TLC was still making progress. Consider increasing the timeout or setting timeout: 0 for no timeout.`

@@ -30,6 +30,12 @@ export type CaseExec =
       kind: "command";
       argv: string[];
       cwd?: string;
+      /**
+       * Extra environment for this case only, merged over the run-level `env`.
+       * Lets one case opt out of what a sibling needs — e.g. SKIP_DOCKER=1 to
+       * keep a fast tier off the daemon while a heavy tier drives it.
+       */
+      env?: Record<string, string | undefined>;
     };
 
 /** One runnable unit within a tier. */

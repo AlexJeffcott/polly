@@ -163,7 +163,12 @@ async function runOneCase(
   }
 
   const timeoutMs = spec.timeoutMs ?? tier.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const env: Record<string, string | undefined> = { ...process.env, ...options.env };
+  const caseEnv = spec.exec.kind === "command" ? spec.exec.env : undefined;
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    ...options.env,
+    ...caseEnv,
+  };
   const { argv, cwd } = buildInvocation(spec, worker, options);
 
   const started = performance.now();
