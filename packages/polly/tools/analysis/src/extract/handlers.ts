@@ -71,6 +71,7 @@ import {
   type SwitchStatement,
   SyntaxKind,
   type VariableDeclaration,
+  VariableDeclarationKind,
 } from "ts-morph";
 import type {
   ComponentRelationship,
@@ -1741,36 +1742,215 @@ export class HandlerExtractor {
     // generated an UNCHANGED stub and its bounded-counter ensures could never
     // be anchored.
     if (this.isTranslatableInitializer(initializer)) {
-      assignments.push({ field, value: `EXPR:${initializer.getText()}` });
+      // polly#169: resolve `const x = sig.value` aliases before the text leaves
+      // the function that gave its identifiers meaning.
+      // polly#170: strip redundant outer parentheses — `translateTernary` is a
+      // regex and chops across them, producing `IF (a THEN 1 ELSE 0)`.
+      const captured = this.resolveSignalAliases(this.unwrapParentheses(initializer));
+      assignments.push({ field, value: `EXPR:${captured}` });
       return;
     }
 
-    if (process.env["POLLY_DEBUG"]) {
-      const on = signalName ? ` on ${signalName}.value` : "";
-      console.log(
-        `[WARN] dropped object-literal property '${name}'${on} — initializer kind ${initializer.getKindName()} is not translatable to TLA+`
-      );
+    // polly#144 set the precedent that a silently dropped handler is the core
+    // failure mode, so its warning is unconditional. The same applies here: a
+    // dropped property models the field as never moving, and every property
+    // written over it then holds vacuously (polly#170).
+    const on = signalName ? ` on ${signalName}.value` : "";
+    console.log(
+      `[WARN] dropped object-literal property '${name}'${on} — initializer \`${initializer.getText().replace(/\s+/g, " ").slice(0, 80)}\` (${initializer.getKindName()}) is not translatable to TLA+`
+    );
+  }
+
+  /**
+   * polly#169: rewrite `<alias>.field` back to `<signal>.value.field`.
+   *
+   * The `EXPR:` capture hands source text to a codegen translator that resolves
+   * signal references by shape, not by binding. A handler that reads through
+   * `const state = offlineQueue.value` emitted `state.unsyncedChanges`, which
+   * the translator's `state.` rule rewrote to `contextStates[ctx].unsyncedChanges`
+   * — a member that does not exist, because the record carries
+   * `offlineQueue_unsyncedChanges`. An alias under any other name reached SANY
+   * as a free identifier.
+   *
+   * Aliases are collected from the initializer's OWN enclosing function rather
+   * than from extractor instance state: an object literal is reached by two
+   * walks (`extractAssignments`, and `findStateMutationsInFunction` for the
+   * issue-#27 lift pass) and only one passes through the handler entry points
+   * that maintain instance state, so state held on `this` would silently do
+   * nothing on the other.
+   *
+   * Rewriting is driven by AST node positions, not by a regex over the text —
+   * a regex is what made the original defect possible.
+   */
+  private resolveSignalAliases(initializer: Node): string {
+    const aliases = this.collectSignalAliases(initializer);
+    if (aliases.size === 0) return initializer.getText();
+
+    const base = initializer.getStart();
+    const edits: Array<{ start: number; end: number; text: string }> = [];
+
+    // forEachDescendant excludes the node itself, and the initializer is often
+    // the whole access (`o.count`), so visit the root as well.
+    const visit = (node: Node): void => {
+      if (!Node.isPropertyAccessExpression(node)) return;
+      const target = node.getExpression();
+      if (!Node.isIdentifier(target)) return;
+      const signal = aliases.get(target.getText());
+      if (!signal) return;
+      edits.push({
+        start: target.getStart() - base,
+        end: target.getEnd() - base,
+        text: `${signal}.value`,
+      });
+    };
+    visit(initializer);
+    initializer.forEachDescendant(visit);
+
+    if (edits.length === 0) return initializer.getText();
+
+    let text = initializer.getText();
+    for (const edit of edits.sort((a, b) => b.start - a.start)) {
+      text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
     }
+    return text;
+  }
+
+  /**
+   * Collect `const <name> = <ident>.value` bindings from the nearest enclosing
+   * function of `node`.
+   *
+   * Deliberately narrow. Destructuring, a reassigned `let`, and an alias of an
+   * alias are left untranslated and fall through to the warning: a wrong entry
+   * rewrites an expression into a field that DOES exist, which is strictly
+   * worse than one that fails loudly.
+   */
+  private collectSignalAliases(node: Node): Map<string, string> {
+    const aliases = new Map<string, string>();
+
+    const fn = node.getFirstAncestor(
+      (a) =>
+        Node.isArrowFunction(a) || Node.isFunctionExpression(a) || Node.isFunctionDeclaration(a)
+    );
+    if (!fn) return aliases;
+
+    const reassigned = this.collectReassignedIdentifiers(fn);
+
+    fn.forEachDescendant((inner) => {
+      if (!Node.isVariableDeclaration(inner)) return;
+      const binding = this.readSignalAliasBinding(inner);
+      if (!binding) return;
+      // An alias of an alias, and a rebound name, are both left untranslated.
+      if (aliases.has(binding.signal)) return;
+      if (reassigned.has(binding.alias)) return;
+      aliases.set(binding.alias, binding.signal);
+    });
+
+    return aliases;
+  }
+
+  /** Identifiers assigned anywhere in `fn`, so a rebound alias can be ignored. */
+  private collectReassignedIdentifiers(fn: Node): Set<string> {
+    const reassigned = new Set<string>();
+    fn.forEachDescendant((inner) => {
+      if (!Node.isBinaryExpression(inner)) return;
+      if (inner.getOperatorToken().getText() !== "=") return;
+      const left = inner.getLeft();
+      if (Node.isIdentifier(left)) reassigned.add(left.getText());
+    });
+    return reassigned;
+  }
+
+  /**
+   * Read `const <alias> = <signal>.value` from a declaration, or null.
+   *
+   * `const` only (a `let` may be rebound between the alias and its use), a plain
+   * identifier only (a destructuring pattern binds fields, not the object), and
+   * `<identifier>.value` only (not `a.b.value`).
+   */
+  private readSignalAliasBinding(
+    decl: VariableDeclaration
+  ): { alias: string; signal: string } | null {
+    const list = decl.getParent();
+    if (!Node.isVariableDeclarationList(list)) return null;
+    if (list.getDeclarationKind() !== VariableDeclarationKind.Const) return null;
+
+    const nameNode = decl.getNameNode();
+    if (!Node.isIdentifier(nameNode)) return null;
+
+    const init = decl.getInitializer();
+    if (!init || !Node.isPropertyAccessExpression(init)) return null;
+    if (init.getName() !== "value") return null;
+
+    const target = init.getExpression();
+    if (!Node.isIdentifier(target)) return null;
+
+    return { alias: nameNode.getText(), signal: target.getText() };
   }
 
   /**
    * Whether an object-literal property initializer is an expression the codegen
    * translator (`tsExpressionToTLA`) handles reliably (polly#147). Literals and
    * payload-parameter references are resolved before this is reached; this
-   * covers arithmetic, member/index access, and (un)parenthesized unary forms.
-   * Call and conditional expressions are deliberately excluded — they translate
-   * unreliably and would risk emitting invalid TLA+ rather than being caught
-   * here and surfaced as a warning.
+   * covers arithmetic, member/index access, (un)parenthesized unary forms and —
+   * since polly#170 — a single ternary.
+   *
+   * polly#170: the original "conditional expressions are excluded" rule was
+   * both too strict and too loose. Too strict, because `translateTernary`
+   * (tools/verify codegen) does translate a single comment-free ternary
+   * correctly, and dropping it modelled the field as never moving. Too loose,
+   * because the kind checks below admit a ternary nested inside a binary or a
+   * parenthesized expression, and a call nested anywhere — `translateTernary`
+   * is a regex, so `{ x: (a ? 1 : 0) }` became `IF (a THEN 1 ELSE 0)` with
+   * unbalanced parentheses.
+   *
+   * The subtree checks close both halves: reject a call or a nested ternary
+   * wherever it appears, and reject a comment, whose `//` is carried into the
+   * generated line and can corrupt the quote-conversion pass.
    */
   private isTranslatableInitializer(node: Node): boolean {
-    return (
+    const kindAllowed =
       Node.isBinaryExpression(node) ||
       Node.isPropertyAccessExpression(node) ||
       Node.isElementAccessExpression(node) ||
       Node.isPrefixUnaryExpression(node) ||
       Node.isPostfixUnaryExpression(node) ||
-      Node.isParenthesizedExpression(node)
+      Node.isParenthesizedExpression(node) ||
+      Node.isConditionalExpression(node);
+
+    if (!kindAllowed) return false;
+    if (this.containsComment(node)) return false;
+    if (node.getFirstDescendantByKind(SyntaxKind.CallExpression)) return false;
+
+    // A ternary is admitted only as the whole expression, and only one deep.
+    // Unwrap parentheses first: a nested ternary is normally written
+    // `a ? (b ? c : d) : e`, so a check that inspects the branch nodes directly
+    // reads that as a single ternary and admits it. `getFirstDescendantByKind`
+    // excludes the node itself, so this rejects a ternary nested under a root
+    // ternary and a ternary anywhere under a binary or parenthesized root — the
+    // two shapes `translateTernary`'s regex gets wrong — while admitting a root
+    // ternary with none below it.
+    return (
+      this.unwrapParentheses(node).getFirstDescendantByKind(SyntaxKind.ConditionalExpression) ===
+      undefined
     );
+  }
+
+  /** Strip redundant parentheses, so branch checks see the real node. */
+  private unwrapParentheses(node: Node): Node {
+    let current = node;
+    while (Node.isParenthesizedExpression(current)) {
+      current = current.getExpression();
+    }
+    return current;
+  }
+
+  /**
+   * Whether a node's source text carries a comment. A `//` inside a captured
+   * expression is carried verbatim into the generated TLA+ line (polly#170).
+   */
+  private containsComment(node: Node): boolean {
+    const text = node.getText();
+    return text.includes("//") || text.includes("/*");
   }
 
   /**
