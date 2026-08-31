@@ -3,9 +3,20 @@
  * slowest-N list, the data the old `&&` chains never captured) and a JSON
  * artefact for tooling. No cloud reporters — everything lands on disk locally.
  */
+import { formatBudgetUse } from "./budget";
 import type { RunReport, TierPlan } from "./types";
 
 const ICON = { pass: "✓", fail: "✗", skip: "⊘", timeout: "⏱" } as const;
+
+/** What follows the timing: the skip reason, the failure, or — for a case
+ *  that ran clean but close to its cap — how much budget it used (polly#175). */
+function caseTail(c: RunReport["cases"][number]): string {
+  if (c.outcome === "skip") return ` (${c.skipReason})`;
+  if (c.message) return ` — ${c.message}`;
+  if (c.outcome === "timeout") return "";
+  const budgetNote = formatBudgetUse(c.durationMs, c.timeoutMs);
+  return budgetNote ? ` — ${budgetNote}` : "";
+}
 
 /** One-line-per-case summary plus totals and slowest cases. */
 export function formatSummary(report: RunReport): string {
@@ -14,8 +25,7 @@ export function formatSummary(report: RunReport): string {
   lines.push("── results ─────────────────────────────────");
   for (const c of report.cases) {
     const time = c.outcome === "skip" ? "" : `${c.durationMs}ms`;
-    const tail = c.outcome === "skip" ? ` (${c.skipReason})` : c.message ? ` — ${c.message}` : "";
-    lines.push(`${ICON[c.outcome]} ${c.tier} › ${c.label}  ${time}${tail}`);
+    lines.push(`${ICON[c.outcome]} ${c.tier} › ${c.label}  ${time}${caseTail(c)}`);
   }
 
   const ran = report.cases.filter((c) => c.outcome !== "skip");

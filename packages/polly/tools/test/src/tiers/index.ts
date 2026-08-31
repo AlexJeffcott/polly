@@ -8,6 +8,7 @@
  */
 
 export { DEFAULT_JSON, parseTierArgs, type TierArgs } from "./args";
+export { BUDGET_WARN_FRACTION, budgetUse, formatBudgetUse } from "./budget";
 export { firstUnmetNeed, hasNeed } from "./detect";
 export { discoverPlan } from "./discover";
 export { runPlan } from "./engine";

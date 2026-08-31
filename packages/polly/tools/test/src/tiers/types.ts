@@ -86,6 +86,9 @@ export interface CaseReport {
   label: string;
   outcome: CaseOutcome;
   durationMs: number;
+  /** The timeout the case ran under. Carried so the JSON artefact shows the
+   *  margin a case left against its budget, not just how long it took. */
+  timeoutMs?: number;
   message?: string;
   /** Reason a case was skipped (unmet need). */
   skipReason?: string;
