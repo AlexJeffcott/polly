@@ -346,6 +346,9 @@ export function internalPlan(): TierPlan {
               "test",
               "tools/verify/src/__tests__/validation/sany-integration.test.ts",
               "tools/verify/src/__tests__/runner",
+              // polly#170: only the parser can catch a ternary translated into
+              // unbalanced parentheses; asserting on the text cannot.
+              "tools/verify/src/__tests__/codegen/object-literal-alias-ternary.test.ts",
             ],
             cwd: packageRoot,
           },

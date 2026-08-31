@@ -36,6 +36,66 @@ client holds the pipes open. A sweep for orphaned `Created` containers runs once
 per process, recovering from a hard kill where no timeout handler runs at all.
 The same fix is applied to the Structurizr export runner in `polly visualize`.
 
+#### Aliased signal reads in object-literal updates (polly#169)
+
+Since polly#147 a translatable object-literal initializer is captured verbatim
+and translated at codegen time. The capture took source text out of the function
+that gave its identifiers meaning and handed it to a translator that resolves
+signal references by shape, not by binding — so a handler reading through a
+local alias produced a name that did not exist:
+
+```ts
+const state = offlineQueue.value;
+offlineQueue.value = { ...state, unsyncedChanges: state.unsyncedChanges + 1 };
+```
+
+`state.unsyncedChanges` matched the translator's framework-conventional `state.`
+rule and became `contextStates[ctx].unsyncedChanges`, while the record carries
+`offlineQueue_unsyncedChanges`. TLC aborted mid-run with `unexpected exception`,
+a message that points at nothing. Under any other alias name (`const q = ...`)
+the identifier reached SANY unbound. Either way the field held its initial value
+in every reachable state, so a counter looked like a passing model of something
+no action moved.
+
+Aliases are now resolved at capture time, in the extractor, where the binding is
+still visible — keyed on the assignment's own enclosing function, because an
+object literal is reached by two walks and only one maintains extractor instance
+state. The rewrite is driven by AST node positions rather than a regex over the
+text. Only `const <name> = <signal>.value` is recognised: destructuring, a
+reassigned `let`, and an alias of an alias are left untranslated and warned
+about, because a wrong entry rewrites into a field that *does* exist, which is
+worse than one that fails loudly.
+
+#### A single ternary is translated instead of dropped (polly#170)
+
+polly#147 excluded conditional expressions on the grounds that they translate
+unreliably. The exclusion was both too strict and too loose.
+
+Too strict: `translateTernary` does handle a single comment-free ternary
+correctly, so `syncState: state.syncState === 'synced' ? 'pending' : state.syncState`
+generated an action that left the field `UNCHANGED` — the same silent-stub shape
+polly#147 fixed for arithmetic. A queue subsystem's whole `synced -> pending`
+transition was absent from the model while the run stayed green.
+
+Too loose: the kind checks admitted `ParenthesizedExpression` and
+`BinaryExpression`, so a ternary nested inside either — and a call nested
+anywhere — was captured. `{ x: (a ? 1 : 0) }` reached the regex and produced
+`IF (a THEN 1 ELSE 0)`, unbalanced parentheses that SANY rejects.
+
+A ternary is now admitted when it is the whole expression, one level deep, and
+carries no comment; parentheses are unwrapped before the depth check, since a
+nested ternary is normally written `a ? (b ? c : d) : e`. A call or a nested
+ternary anywhere in the subtree is rejected. A guard runs the generated spec
+through SANY, because asserting on the text cannot catch unbalanced parentheses.
+
+#### A dropped object-literal property now warns unconditionally
+
+The `[WARN] dropped object-literal property` line was `POLLY_DEBUG`-gated, so
+in normal use an assignment vanished in silence and every property written over
+the field held vacuously. polly#144 already set the precedent that silent
+dropping is the core failure mode and its warning should be unconditional. The
+message now also carries the offending expression, not just its node kind.
+
 #### 994 tooling tests ran in no tier at all
 
 The `unit` and `integration` tiers execute with `cwd: packages/polly/tests`, so
