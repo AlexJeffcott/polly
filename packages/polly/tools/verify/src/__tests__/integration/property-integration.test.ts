@@ -1,47 +1,15 @@
-// Integration tests for invariants and temporal properties
+// Integration tests for temporal properties.
+//
+// The invariant half of this file went with the JSDoc `@invariant` extractor in
+// polly#168: it drove `enableInvariants: true`, a flag no production caller set,
+// so it covered a mechanism the shipped code never reached. `capabilities` is
+// the live path and is covered by codegen/__tests__/capability-invariants.ts.
 
 import { describe, expect, test } from "bun:test";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
 import { TLAGenerator } from "../../codegen/tla";
 import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Property Integration", () => {
-  const tempDirs: string[] = [];
-
-  const createTempProject = (files: Record<string, string>): string => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-integration-test-"));
-    tempDirs.push(tempDir);
-
-    // Create tsconfig.json
-    fs.writeFileSync(
-      path.join(tempDir, "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          target: "ES2020",
-          module: "commonjs",
-          strict: true,
-        },
-      })
-    );
-
-    // Create source files
-    for (const [filename, content] of Object.entries(files)) {
-      fs.writeFileSync(path.join(tempDir, filename), content);
-    }
-
-    return tempDir;
-  };
-
-  process.on("exit", () => {
-    for (const dir of tempDirs) {
-      if (fs.existsSync(dir)) {
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
-    }
-  });
-
   const baseConfig: VerificationConfig = {
     state: {
       count: { type: "enum", values: ["0", "1", "2"] },
@@ -71,99 +39,6 @@ describe("Property Integration", () => {
     fields: [{ name: "count", type: "number" }],
     typeDefinitions: [],
   };
-
-  // Invariant Integration Tests
-
-  test("generates spec without invariants when disabled", async () => {
-    const generator = new TLAGenerator();
-
-    const { spec, cfg } = await generator.generate(baseConfig, baseAnalysis);
-
-    expect(spec).toContain("UserStateTypeInvariant");
-    expect(spec).not.toContain("Extracted invariants from code annotations");
-    expect(cfg).not.toContain("CountMinValue");
-  });
-
-  test("extracts and includes invariants when enabled", async () => {
-    const projectPath = createTempProject({
-      "handlers.ts": `
-/**
- * @invariant state.count >= 0
- */
-export function increment(state: any) {
-  state.count++;
-}
-`,
-    });
-
-    const generator = new TLAGenerator({
-      enableInvariants: true,
-      projectPath,
-    });
-
-    const { spec, cfg } = await generator.generate(baseConfig, baseAnalysis);
-
-    // Spec should contain extracted invariant section
-    expect(spec).toContain("Extracted invariants from code annotations");
-    expect(spec).toContain("CountMinValue");
-    expect(spec).toContain("\\A ctx \\in Contexts");
-
-    // Config should list the invariant
-    expect(cfg).toContain("INVARIANTS");
-    expect(cfg).toContain("CountMinValue");
-  });
-
-  test("handles multiple invariants", async () => {
-    const projectPath = createTempProject({
-      "handlers.ts": `
-/**
- * @invariant state.count >= 0
- * @invariant state.count <= 100
- */
-export function increment(state: any) {
-  state.count++;
-}
-`,
-    });
-
-    const generator = new TLAGenerator({
-      enableInvariants: true,
-      projectPath,
-    });
-
-    const { spec, cfg } = await generator.generate(baseConfig, baseAnalysis);
-
-    expect(spec).toContain("CountMinValue");
-    expect(spec).toContain("CountMaxValue");
-    expect(cfg).toContain("CountMinValue");
-    expect(cfg).toContain("CountMaxValue");
-  });
-
-  test("translates invariant expressions to TLA+", async () => {
-    const projectPath = createTempProject({
-      "handlers.ts": `
-/**
- * Range constraint
- * @invariant state.count >= 0 && state.count <= 100
- */
-export function test() {}
-`,
-    });
-
-    const generator = new TLAGenerator({
-      enableInvariants: true,
-      projectPath,
-    });
-
-    const { spec } = await generator.generate(baseConfig, baseAnalysis);
-
-    // Should translate && to /\ in the invariant expression
-    expect(spec).toContain("/\\");
-    // The invariant definition line should have TLA+ operators
-    expect(spec).toMatch(/CountMaxValue ==[\s\S]*?\/\\/);
-    // The actual invariant expression should use TLA+ operators
-    expect(spec).toContain("contextStates[ctx].count");
-  });
 
   // Temporal Property Integration Tests
 
@@ -261,49 +136,6 @@ export function test() {}
     const { spec } = await generator.generate(baseConfig, analysisWithAuth);
 
     expect(spec).toContain("RequiresLogin");
-  });
-
-  // Combined Integration Tests
-
-  test("generates both invariants and temporal properties", async () => {
-    const projectPath = createTempProject({
-      "handlers.ts": `
-/**
- * @invariant state.count >= 0
- */
-export function increment(state: any) {
-  state.count++;
-}
-`,
-    });
-
-    const analysisWithPatterns: CodebaseAnalysis = {
-      messageTypes: ["init", "increment"],
-      handlers: [],
-      fields: [],
-      typeDefinitions: [],
-    };
-
-    const generator = new TLAGenerator({
-      enableInvariants: true,
-      enableTemporalProperties: true,
-      projectPath,
-    });
-
-    const { spec, cfg } = await generator.generate(baseConfig, analysisWithPatterns);
-
-    // Should have both sections
-    expect(spec).toContain("Extracted invariants from code annotations");
-    expect(spec).toContain("Temporal Properties");
-
-    // Should have delivered tracking
-    expect(spec).toContain("VARIABLE delivered");
-
-    // Config should have both INVARIANTS and PROPERTIES
-    expect(cfg).toContain("INVARIANTS");
-    expect(cfg).toContain("CountMinValue");
-    expect(cfg).toContain("PROPERTIES");
-    expect(cfg).toContain("InitMessageFirst");
   });
 
   test("maintains backward compatibility when features disabled", async () => {

@@ -242,7 +242,16 @@ Running TLC model checker...
 All properties verified.
 ```
 
-If a `requires()` can be violated — say, a logout races with a todo add — TLC finds the exact sequence of steps that triggers it.
+A `requires()` that does not hold prunes the exploration: the handler is not
+taken, so the model never reaches the state behind the guard. That is what makes
+`requires()` cheap, and it is also why a green run says nothing about whether the
+guard can be violated — a safety property is true of a system that has stopped.
+
+Add `liveness: true` (per config, or per subsystem) to check the other half:
+that nothing sent stays pending for ever. TLC then reports the exact sequence in
+which a message can never be resolved. It is off by default because it is
+expensive — measured on an 11-subsystem model, a verify gate went from ~110s to
+~512s.
 
 For larger apps, [subsystem-scoped verification](https://github.com/AlexJeffcott/polly/tree/main/examples/todo-list) splits the state space so checking stays fast.
 

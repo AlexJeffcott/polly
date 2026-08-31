@@ -2,6 +2,7 @@
 // Generate LTL (Linear Temporal Logic) properties for TLC liveness checking
 
 import type { CodebaseAnalysis } from "../types";
+import { describe as describeLines } from "./invariants";
 
 /**
  * Temporal property types
@@ -221,9 +222,10 @@ export class TemporalTLAGenerator {
   private generateSingleProperty(prop: TemporalProperty): string {
     const lines: string[] = [];
 
-    // Add description
-    if (prop.description) {
-      lines.push(`\\* ${prop.description}`);
+    // One `\\*` per line: a multi-line description used to emit line 2 onward
+    // as bare prose inside the module body, which SANY rejects (polly#168).
+    for (const line of describeLines(prop.description)) {
+      lines.push(line);
     }
 
     // Generate property based on type

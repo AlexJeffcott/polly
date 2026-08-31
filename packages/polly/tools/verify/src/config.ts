@@ -29,6 +29,8 @@ interface SubsystemConfig {
     maxInFlight?: number;
     perMessageBounds?: Record<string, number>;
   };
+  /** polly#171: check message-resolution liveness for this subsystem only. */
+  liveness?: boolean;
 }
 
 // Point a subsystem's reachability witnesses at a hand-written TLA+ spec instead
@@ -93,6 +95,30 @@ interface LegacyVerificationConfig {
     timeout?: number; // Timeout in seconds (0 = no timeout)
     workers?: number; // Number of TLC workers
   };
+
+  /**
+   * polly#171: check that nothing sent stays pending for ever.
+   *
+   * Off by default because it is expensive: it adds a temporal property and the
+   * routing fairness it needs, and TLC must then explore behaviours rather than
+   * only reachable states. Measured on an 11-subsystem consumer model, the full
+   * verify gate went from ~110s to ~512s.
+   *
+   * Every property the generator emits without this is a SAFETY property, and a
+   * safety property is true of a system that does nothing at all — so a spec in
+   * which routing has stopped verifies identically to one in which it works.
+   * Turn this on for the subsystems whose progress actually matters.
+   *
+   * LIMITATION, and it is Lamport's own warning (Specifying Systems 14.3.5):
+   * generated specs also declare a CONSTRAINT to bound the state space, and TLC
+   * prints "Declaring state or action constraints during liveness checking is
+   * dangerous" when both are present. A constraint truncates behaviours at its
+   * boundary, so a liveness violation reachable only beyond that boundary is not
+   * found. Treat a green liveness run as "no wedge within the bounds", not as a
+   * proof of progress — the same reading every bounded model-checking result
+   * deserves.
+   */
+  liveness?: boolean;
 
   // Subsystem-scoped verification (compositional)
   subsystems?: Record<string, SubsystemConfig>;
