@@ -42,8 +42,29 @@ type Doc = {
 };
 
 let pendingServers: PeerRepoServer[] = [];
+/** Clients registered for teardown. A client left running keeps its retry
+ *  interval alive, and every retry against a closed port throws out of the
+ *  adapter's error handler (Bun's WebSocket error carries no `code`, so
+ *  automerge's `!== "ECONNREFUSED"` guard rethrows it). Bun charges that
+ *  throw to whichever test is running at the time, so one failure here
+ *  fails unrelated tests in other files. */
+let pendingClients: Repo[] = [];
+
+/** Register a client Repo for teardown in afterEach and return it. */
+function registerClient(client: Repo): Repo {
+  pendingClients.push(client);
+  return client;
+}
 
 afterEach(async () => {
+  for (const c of pendingClients) {
+    try {
+      await c.shutdown();
+    } catch {
+      // best effort
+    }
+  }
+  pendingClients = [];
   for (const s of pendingServers) {
     try {
       await s.close();
@@ -88,10 +109,12 @@ describe("$peerState resilience", () => {
     // ─── Phase 1: client creates a doc and syncs to server A ────────────────
     const { server: serverA, port: portA } = await startServer(serverDirA);
 
-    const clientA = new Repo({
-      network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portA}`, 100)],
-      storage: new NodeFSStorageAdapter(clientDir),
-    });
+    const clientA = registerClient(
+      new Repo({
+        network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portA}`, 100)],
+        storage: new NodeFSStorageAdapter(clientDir),
+      })
+    );
     await waitFor(() => clientA.peers.length > 0);
 
     const handleA = clientA.create<Doc>({ title: "important note", count: 42 });
@@ -132,10 +155,12 @@ describe("$peerState resilience", () => {
     expect(serverB.repo.handles[docId]).toBeUndefined();
 
     // ─── Phase 3: client B reconnects with the same client storage ──────────
-    const clientB = new Repo({
-      network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portB}`, 100)],
-      storage: new NodeFSStorageAdapter(clientDir),
-    });
+    const clientB = registerClient(
+      new Repo({
+        network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portB}`, 100)],
+        storage: new NodeFSStorageAdapter(clientDir),
+      })
+    );
     await waitFor(() => clientB.peers.length > 0);
 
     // Ask client B to find the document by id. It should hydrate from local
@@ -171,10 +196,12 @@ describe("$peerState resilience", () => {
 
     // Set up a doc on server A and client A.
     const { server: serverA, port: portA } = await startServer(serverDirA);
-    const clientA = new Repo({
-      network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portA}`, 100)],
-      storage: new NodeFSStorageAdapter(clientDir),
-    });
+    const clientA = registerClient(
+      new Repo({
+        network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portA}`, 100)],
+        storage: new NodeFSStorageAdapter(clientDir),
+      })
+    );
     await waitFor(() => clientA.peers.length > 0);
 
     const handleA = clientA.create<Doc>({ title: "evolving doc", count: 1 });
@@ -198,10 +225,12 @@ describe("$peerState resilience", () => {
 
     // Bring up server B and client B.
     const { server: serverB, port: portB } = await startServer(serverDirB);
-    const clientB = new Repo({
-      network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portB}`, 100)],
-      storage: new NodeFSStorageAdapter(clientDir),
-    });
+    const clientB = registerClient(
+      new Repo({
+        network: [new WebSocketClientAdapter(`ws://127.0.0.1:${portB}`, 100)],
+        storage: new NodeFSStorageAdapter(clientDir),
+      })
+    );
     await waitFor(() => clientB.peers.length > 0);
 
     const handleB = await clientB.find<Doc>(docId);

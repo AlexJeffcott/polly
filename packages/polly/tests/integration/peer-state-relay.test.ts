@@ -39,6 +39,13 @@ type Notes = VersionedDoc & {
 };
 
 let pendingServers: PeerRepoServer[] = [];
+/** Clients registered for teardown. A client left running keeps its retry
+ *  interval alive, and every retry against a closed port throws out of the
+ *  adapter's error handler (Bun's WebSocket error carries no `code`, so
+ *  automerge's `!== "ECONNREFUSED"` guard rethrows it). Bun charges that
+ *  throw to whichever test is running at the time, so one failure here
+ *  fails unrelated tests in other files. */
+let pendingClients: { repo: { shutdown: () => Promise<void> } }[] = [];
 
 beforeEach(() => {
   primitiveRegistry.clear();
@@ -49,6 +56,14 @@ afterEach(async () => {
   resetPeerState();
   primitiveRegistry.clear();
   migrationRegistry.clear();
+  for (const c of pendingClients) {
+    try {
+      await c.repo.shutdown();
+    } catch {
+      // best effort
+    }
+  }
+  pendingClients = [];
   for (const s of pendingServers) {
     try {
       await s.close();
@@ -69,6 +84,12 @@ async function startServer(): Promise<{ server: PeerRepoServer; port: number }> 
   return { server: s, port: resolveWebSocketPort(s.webSocketServer) };
 }
 
+/** Register a client for teardown in afterEach and return it. */
+function registerClient<T extends { repo: { shutdown: () => Promise<void> } }>(client: T): T {
+  pendingClients.push(client);
+  return client;
+}
+
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
   timeoutMs = 5000
@@ -85,10 +106,12 @@ describe("$peerState end-to-end over the relay transport", () => {
   test("a $peerState created against a real server hydrates and writes through", async () => {
     const { server, port } = await startServer();
 
-    const client = createPeerStateClient({
-      url: `ws://127.0.0.1:${port}`,
-      retryInterval: 100,
-    });
+    const client = registerClient(
+      createPeerStateClient({
+        url: `ws://127.0.0.1:${port}`,
+        retryInterval: 100,
+      })
+    );
     configurePeerState(client.repo);
 
     await waitFor(() => client.repo.peers.length > 0);
@@ -117,17 +140,17 @@ describe("$peerState end-to-end over the relay transport", () => {
     const serverHandle = await server.repo.find<Notes>(docId);
     expect(serverHandle.doc().title).toBe("published");
     expect(serverHandle.doc().body).toBe("this is the body");
-
-    await client.repo.shutdown();
   });
 
   test("a server-side mutation propagates back to the $peerState signal", async () => {
     const { server, port } = await startServer();
 
-    const client = createPeerStateClient({
-      url: `ws://127.0.0.1:${port}`,
-      retryInterval: 100,
-    });
+    const client = registerClient(
+      createPeerStateClient({
+        url: `ws://127.0.0.1:${port}`,
+        retryInterval: 100,
+      })
+    );
     configurePeerState(client.repo);
     await waitFor(() => client.repo.peers.length > 0);
 
@@ -155,7 +178,5 @@ describe("$peerState end-to-end over the relay transport", () => {
 
     await waitFor(() => notes.value.title === "after-server-change");
     expect(notes.value.title).toBe("after-server-change");
-
-    await client.repo.shutdown();
   });
 });
