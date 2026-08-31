@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.86.0] - 2026-08-31
+
+### Added
+
+#### Ephemeral listen ports for tests (`@fairfox/polly/test`)
+
+`resolveListenPort(app)` and `resolveWebSocketPort(wss)` read back the port the
+kernel assigned after a `.listen(0)` or `{ port: 0 }` bind, on the two server
+shapes polly binds — Bun/Elysia and `ws`. `retryOnPortInUse(start)` covers the
+one case port 0 cannot: a port that must be known before the server starts,
+such as a restart on the same port. It fails with the bind error rather than a
+downstream timeout.
+
+#### The tier runner reports how much of its budget a case used
+
+A case that finishes at or above 70% of its timeout reports the margin on its
+result line, and `test-results/tiers.json` now carries `timeoutMs` beside
+`durationMs` for every case:
+
+```
+✓ coverage › coverage.enforce  154235ms — 86% of its 180000ms timeout budget
+```
+
+`BUDGET_WARN_FRACTION`, `budgetUse` and `formatBudgetUse` are exported from the
+tiers index.
+
+#### `check typecheck-examples`
+
+Runs `tsc --noEmit` in every example workspace holding a tsconfig and reports
+every failure, not just the first (2.5s for 15 workspaces). Part of
+`bun run check all` and the `static` tier. A new example is picked up from its
+tsconfig with nothing to register.
 
 ### Fixed
 
@@ -234,6 +265,90 @@ with no docker gate, and `validateSpec` swallows a spawn failure into
 for the wrong reason while the "expect valid" ones failed. It now skips. The
 real-container suites run in the `verify` tier, which already requires docker;
 `SKIP_DOCKER=1` keeps them out of the fast path.
+
+#### Random listen ports made the integration tier fail unreproducibly (polly#174)
+
+Eight files drew a listen port as `30000 + Math.floor(Math.random() * 10000)`
+with no retry and no port-0 bind. 27 of those draws run in one `bun test`
+process: a **3.45% self-collision probability per integration run** (birthday
+bound, `1 - exp(-n(n-1)/2N)`), and a lower bound at that — it counts only the
+suite colliding with itself, not with Docker, dev servers, or anything else
+holding a port in 30000-39999.
+
+A collision fails `listen()`. Observed across three `--all` runs on one machine,
+one day: pass 4633ms, **fail 10776ms**, pass 5807ms; the failing tier then
+passed 5/5 standalone and 3/3 through the runner. The shape reads as flake, so
+the natural response is a retry, which narrows the window instead of removing
+it.
+
+Port 0 asks the kernel for a free port and the server owns it from the moment it
+is assigned, so there is no window for another process to win. All 27 call sites
+in `tests/integration` use it, as do `withRelay`, the browser runner's
+39000-window, `peer-state-demo`'s 34000-window, and three mesh examples'
+40000-window. Only the reconnect test retries, because its restart must reclaim
+the same port for the client that is reconnecting to it.
+
+Two copies of the integration suite now run at once, 66/66 each. The previous
+code failed that by construction.
+
+#### `coverage.enforce` ran at 83-86% of its timeout budget (polly#175)
+
+The case re-runs the whole unit suite under `--coverage`, so its cost tracks
+that suite's size (1863 tests) against a fixed 180s cap. Measured on one
+machine, same commit range: 150.0s, 154.8s, **179991ms — timed out**, then
+154.2s in isolation immediately afterwards with no code change. It failed an
+`--all` run that had no coverage regression in it.
+
+The budget is now 360s — 2.3x the slowest clean run, leaving it at 43% duty —
+with the measurements recorded beside the value. Raising the number alone would
+only move the next silence, so any case above 70% of its budget now says so.
+
+#### Two `@fairfox/polly/client` types contradicted their own documentation
+
+`src/client/wrapper.ts` opens with `// @ts-nocheck` for its optional peers
+(elysia, `@elysiajs/eden`), so neither its bodies nor its exported signatures
+were checked. Two were wrong, and both had reached the published `.d.ts`:
+
+`createPollyClient<T extends Record<string, unknown>>` forwards `T` to eden's
+`treaty<T>`, which constrains it to an Elysia app type. No Elysia app satisfies
+`Record<string, unknown>`, so the doc comment's own
+`createPollyClient<typeof app>` could not compile. The constraint is dropped.
+
+`ClientEffectConfig.client` was required, so a broadcast-only route had to
+declare a handler nothing calls — the server plugin reads `broadcast` alone and
+the handler runs in the client wrapper from its own `clientEffects` map. It is
+now optional, with a named `ClientEffectHandler` type exported from
+`@fairfox/polly/elysia`.
+
+Both are widenings, so no existing caller breaks.
+
+#### Twelve example workspaces typechecked nowhere, and four had rotted
+
+`bun run test:examples` covers three examples and the static gate covers
+`packages/polly`; everything else under `examples/` was checked by nothing.
+Three workspaces failed on one boring error that hid everything behind it — a
+tsconfig naming `bun-types`, a package installed nowhere in the repo, so `tsc`
+exited on TS2688 and nobody read past it.
+
+Fixed by class: `"types": ["bun"]` in six tsconfigs; a tsconfig for the
+workspace that had none; undeclared imports declared
+(`@automerge/automerge-repo`, `@preact/signals-core`, `@elysiajs/eden`); preact
+raised into polly's `^10.28.1` peer range, below which polly-ui components
+resolve to a second preact and cannot be used as JSX; `@elysiajs/eden` 1.4.9,
+below which every route degrades to the string `"Please install Elysia before
+using Eden"`.
+
+The largest was one Elysia copy per typescript resolution: Elysia declares
+`typescript` as a peer dependency, `packages/polly` is on 6.0.3 and the examples
+were on 5.9.3, so every `.use(signalingServer(...))` failed with `TS2769`
+naming two `node_modules/.bun/elysia@1.4.28+<hash>` paths. The five workspaces
+importing `@fairfox/polly/elysia` now pin polly's typescript, and
+`blob-share/server` drops the `as any` that was hiding it.
+
+Two example test files used `describe.skipIf(() => flag)` with the flag set in
+`beforeAll`. Bun evaluates `skipIf` when it collects the file, so the flag was
+still false and both suites skipped unconditionally. Probing at module scope
+made six tests run for the first time.
 
 ## [0.85.0] - 2026-06-21
 
