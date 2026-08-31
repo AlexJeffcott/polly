@@ -1,32 +1,45 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-// These tests require @fairfox/polly to be properly linked via workspace
-// When running from the root polly project, the workspace linking may not work
-// so we check for module availability and skip if not available
+// These tests require @fairfox/polly to be linked through the workspace. The
+// import is attempted at module scope, not in beforeAll: bun evaluates
+// `describe.skipIf` while it collects the file, so a flag set in beforeAll is
+// still false there and every suite skipped unconditionally.
 
-let moduleAvailable = false;
-let App: any;
-let clientState: any;
-let render: any;
+interface Modules {
+  clientState: typeof import("../api")["clientState"];
+  App: typeof import("../App")["App"];
+  render: typeof import("preact")["render"];
+}
 
-beforeAll(async () => {
+async function loadModules(): Promise<Modules | null> {
   try {
-    // Try to dynamically import the modules
-    const apiModule = await import("../api");
-    const appModule = await import("../App");
-    const preactModule = await import("preact");
-
-    clientState = apiModule.clientState;
-    App = appModule.App;
-    render = preactModule.render;
-    moduleAvailable = true;
+    const [apiModule, appModule, preactModule] = await Promise.all([
+      import("../api"),
+      import("../App"),
+      import("preact"),
+    ]);
+    return {
+      clientState: apiModule.clientState,
+      App: appModule.App,
+      render: preactModule.render,
+    };
   } catch {
-    // Module not available - tests will be skipped
-    moduleAvailable = false;
+    return null;
   }
-});
+}
 
-describe.skipIf(() => !moduleAvailable)("Todo App Component", () => {
+// The component tests render into a real document, so the DOM has to exist
+// before the modules load and before any test body runs.
+GlobalRegistrator.register();
+
+const modules = await loadModules();
+const moduleAvailable = modules !== null;
+// Every suite below is skipped wholesale when the load failed, so these
+// bindings are only read on the branch where the modules are present.
+const { clientState, App, render } = modules ?? ({} as Modules);
+
+describe.skipIf(!moduleAvailable)("Todo App Component", () => {
   test("should render login form when not authenticated", () => {
     clientState.user.value = null;
 
@@ -79,7 +92,7 @@ describe.skipIf(() => !moduleAvailable)("Todo App Component", () => {
   });
 });
 
-describe.skipIf(() => !moduleAvailable)("Todo Statistics", () => {
+describe.skipIf(!moduleAvailable)("Todo Statistics", () => {
   test("should calculate remaining todos correctly", () => {
     clientState.user.value = { id: 1, username: "demo" };
     clientState.todos.value = [

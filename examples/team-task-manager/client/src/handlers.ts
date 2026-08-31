@@ -12,7 +12,7 @@ import {
 } from "./state";
 
 // Create task - the priority parameter exercises parameter tracing for TLA+ generation
-export function verifyCreateTask(text: string, priority: Priority, assignedTo: string | null) {
+export function verifyCreateTask(_text: string, priority: Priority, _assignedTo: string | null) {
   requires(currentUser.value !== null, "Must be authenticated");
   requires(workspace.value !== null, "Must have a workspace");
 

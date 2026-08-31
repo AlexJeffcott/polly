@@ -46,7 +46,7 @@ export function App() {
 
   async function handleToggle(id: number, completed: boolean) {
     try {
-      await api.todos[id].patch({ completed: !completed });
+      await api.todos({ id }).patch({ completed: !completed });
     } catch (error) {
       // biome-ignore lint/suspicious/noConsole: Error logging is intentional for debugging
       console.error("Failed to toggle todo:", error);
@@ -55,7 +55,7 @@ export function App() {
 
   async function handleDelete(id: number) {
     try {
-      await api.todos[id].delete();
+      await api.todos({ id }).delete();
     } catch (error) {
       // biome-ignore lint/suspicious/noConsole: Error logging is intentional for debugging
       console.error("Failed to delete todo:", error);

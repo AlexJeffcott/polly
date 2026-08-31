@@ -9,6 +9,7 @@
  * Implemented checks:
  *
  *   typecheck       bunx tsc --noEmit (root + tests workspace)
+ *   typecheck-examples  tsc --noEmit in every example workspace
  *   lint            biome check . (formatting + lint rules)
  *   secrets         gitleaks scan with .gitleaks.toml allowlist
  *   gitignore       cross-checks .gitleaks.toml allowlist against .gitignore
@@ -80,6 +81,10 @@ async function checkTypecheck(): Promise<boolean> {
     process.stdout.write("✅ Typecheck clean (tsc --noEmit)\n");
   }
   return code === 0;
+}
+
+async function checkTypecheckExamples(): Promise<boolean> {
+  return (await spawn(["bun", "scripts/check-typecheck-examples.ts"])) === 0;
 }
 
 async function checkLint(): Promise<boolean> {
@@ -272,6 +277,7 @@ async function checkGitignore(): Promise<boolean> {
 
 const KNOWN_CHECKS = [
   "typecheck",
+  "typecheck-examples",
   "lint",
   "secrets",
   "gitignore",
@@ -296,6 +302,7 @@ Usage: bun run check <subcommand>
 
 Subcommands:
   typecheck       tsc --noEmit (root + tests workspace)
+  typecheck-examples  tsc --noEmit in every example workspace
   lint            biome check (formatting + lint rules)
   secrets         gitleaks secret scanning
   gitignore       gitleaks allowlist must be reflected in .gitignore
@@ -324,6 +331,8 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
   switch (name) {
     case "typecheck":
       return checkTypecheck();
+    case "typecheck-examples":
+      return checkTypecheckExamples();
     case "lint":
       return checkLint();
     case "secrets":
@@ -363,6 +372,7 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
  */
 const ALL_CHECK_STEPS: Array<{ sub: CheckName; name: string }> = [
   { sub: "typecheck", name: "Typecheck" },
+  { sub: "typecheck-examples", name: "Typecheck Examples" },
   { sub: "lint", name: "Lint" },
   { sub: "gitignore", name: "Gitignore" },
   { sub: "secrets", name: "Secrets" },

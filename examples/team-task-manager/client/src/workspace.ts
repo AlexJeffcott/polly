@@ -1,16 +1,8 @@
 // Workspace management with encryption
 
-import type { Task, User, Workspace, WorkspaceMember } from "../../shared/types";
+import type { User, Workspace } from "../../shared/types";
 import { api } from "./api";
-import {
-  base64ToBytes,
-  bytesToBase64,
-  bytesToHex,
-  decryptText,
-  encryptText,
-  generateWorkspaceKey,
-  KeyPair,
-} from "./crypto";
+import { bytesToBase64, bytesToHex, generateWorkspaceKey, KeyPair } from "./crypto";
 import { comments, currentUser, tasks, workspace, workspaces } from "./state";
 
 // Create a new user identity

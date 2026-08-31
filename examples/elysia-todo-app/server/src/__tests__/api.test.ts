@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../index";
 
@@ -6,20 +6,20 @@ import type { App } from "../index";
 // They are integration tests that should be run separately with a running server
 // Skip if server is not available
 
-let serverAvailable = false;
-
-beforeAll(async () => {
+async function probeServer(): Promise<boolean> {
   try {
     const response = await fetch("http://localhost:3000", {
       signal: AbortSignal.timeout(1000),
     });
-    serverAvailable = response.ok || response.status < 500;
+    return response.ok || response.status < 500;
   } catch {
-    serverAvailable = false;
+    return false;
   }
-});
+}
 
-describe.skipIf(() => !serverAvailable)("Todo API (requires running server)", () => {
+const serverAvailable = await probeServer();
+
+describe.skipIf(!serverAvailable)("Todo API (requires running server)", () => {
   let api: ReturnType<typeof treaty<App>>;
 
   beforeEach(() => {
@@ -80,7 +80,7 @@ describe.skipIf(() => !serverAvailable)("Todo API (requires running server)", ()
       const todoId = createResponse.data!.id;
 
       // Update it
-      const updateResponse = await api.todos[todoId].patch({
+      const updateResponse = await api.todos({ id: todoId }).patch({
         completed: true,
       });
 
@@ -96,7 +96,7 @@ describe.skipIf(() => !serverAvailable)("Todo API (requires running server)", ()
       const todoId = createResponse.data!.id;
 
       // Delete it
-      const deleteResponse = await api.todos[todoId].delete();
+      const deleteResponse = await api.todos({ id: todoId }).delete();
 
       expect(deleteResponse.data?.success).toBe(true);
     });

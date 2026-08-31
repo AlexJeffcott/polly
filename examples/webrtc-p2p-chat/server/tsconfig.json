@@ -2,13 +2,13 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["bun-types"],
+    "types": ["bun"],
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },

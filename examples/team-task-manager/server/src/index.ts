@@ -23,14 +23,13 @@ const app = new Elysia()
         // Workspaces
         "POST /api/workspaces": {
           queue: true,
-          optimistic: (body) => ({
-            success: true,
-            workspace: {
-              id: body.id,
-              name: body.name,
-              createdAt: Date.now(),
-            },
-          }),
+          optimistic: (body) => {
+            const { id, name } = body as { id: string; name: string };
+            return {
+              success: true,
+              workspace: { id, name, createdAt: Date.now() },
+            };
+          },
           merge: "replace",
         },
         "POST /api/workspaces/:id/members": {
@@ -43,7 +42,7 @@ const app = new Elysia()
           queue: true,
           optimistic: (body) => ({
             success: true,
-            taskId: body.id,
+            taskId: (body as { id: string }).id,
           }),
           merge: "replace",
         },
@@ -62,7 +61,7 @@ const app = new Elysia()
           queue: true,
           optimistic: (body) => ({
             success: true,
-            commentId: body.id,
+            commentId: (body as { id: string }).id,
           }),
           merge: "replace",
         },
@@ -287,7 +286,7 @@ const app = new Elysia()
 
   // WebSocket for real-time sync
   .ws("/ws", {
-    open(ws) {
+    open() {
       console.log("[SERVER WS] WebSocket connection opened");
     },
 

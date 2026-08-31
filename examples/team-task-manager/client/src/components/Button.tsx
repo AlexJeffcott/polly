@@ -1,4 +1,4 @@
-import type { ComponentChildren, JSX } from "preact";
+import type { ComponentChildren } from "preact";
 
 export type ButtonTier = "primary" | "secondary" | "tertiary";
 export type ButtonSize = "normal" | "small";
