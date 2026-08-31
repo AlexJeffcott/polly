@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+#### A timed-out docker run no longer leaks its container (polly#173)
+
+`--rm` is a *run*-time contract: the daemon removes the container when it exits.
+A container that stalls during creation never starts, so it never exits, so
+`--rm` never fires — and the runner's only cleanup lever was `proc.kill()` on
+the local `docker` client, which does not touch the container on the daemon.
+With no `--name` there was no handle left to remove it by, because the client
+that knew the id had been killed.
+
+Each orphan degrades subsequent container creation, so one stall produced more
+stalls and more orphans. Measured on the SANY suite, same code and same machine:
+with a single orphaned `Created` container present, **4 fail / 4148s**, with
+individual tests reporting elapsed times over 1,000,000ms against a 5,000ms
+bound and a different subset failing each run; after `docker rm -f` of that one
+container and nothing else changed, **40 pass / 21.8s**. A 190x wall-clock
+difference. The shape is the worst kind — it reads as flake, so the natural
+response is a retry, and a retry adds another orphan.
+
+Every `docker run` this repo starts is now named (`polly-tla-<kind>-<pid>-<n>-<uuid>`;
+a `Date.now()` name is millisecond-granular and two minted in the same tick
+would make the timeout path remove the *wrong* container). The timeout arm
+removes by that name, best effort, and uses SIGKILL for the client — `docker
+run` attached to a container does not reliably stop on SIGTERM, and a live
+client holds the pipes open. A sweep for orphaned `Created` containers runs once
+per process, recovering from a hard kill where no timeout handler runs at all.
+The same fix is applied to the Structurizr export runner in `polly visualize`.
+
+#### 994 tooling tests ran in no tier at all
+
+The `unit` and `integration` tiers execute with `cwd: packages/polly/tests`, so
+everything under `tools/*/src/**/__tests__` was invisible to `bun run test`,
+`test:all` and the pre-commit hook — 994 tests across 58 files, including the
+codegen, translation and extraction suites that are the only guard on
+`polly verify`'s correctness. A new `tools` tier runs them (18.9s; it is in
+`--all`, and kept out of the default inner loop so that stays at ~23s).
+
+`sany-integration.test.ts` was worse than orphaned. It drives real containers
+with no docker gate, and `validateSpec` swallows a spawn failure into
+`{ valid: false }` — so with docker absent its ~20 "expect invalid" tests passed
+for the wrong reason while the "expect valid" ones failed. It now skips. The
+real-container suites run in the `verify` tier, which already requires docker;
+`SKIP_DOCKER=1` keeps them out of the fast path.
+
 ## [0.85.0] - 2026-06-21
 
 ### Added

@@ -2,13 +2,34 @@
 // 40 tests for the official TLA+ syntax analyzer
 
 import { beforeAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { DockerRunner } from "../../runner/docker";
 import { SANYRunner } from "../../runner/sany";
 
-describe("SANY Integration Tests", () => {
+/**
+ * Every test below drives a real `docker run talex5/tla` (polly#173).
+ *
+ * Without this gate the suite is worse than useless when docker is absent:
+ * `validateSpec` swallows the spawn failure into `{ valid: false }`, so every
+ * "expect invalid" test passes for the wrong reason while the "expect valid"
+ * ones fail. Skipping is the honest outcome.
+ */
+function dockerAvailable(): boolean {
+  // SKIP_DOCKER=1 is the repo's existing opt-out (see scripts/e2e-visualize.ts).
+  // The `tools` test tier sets it so the fast path stays fast; the `verify`
+  // tier leaves it unset so these run.
+  if (process.env["SKIP_DOCKER"] === "1") return false;
+  try {
+    return spawnSync("docker", ["info"], { timeout: 10_000, stdio: "ignore" }).status === 0;
+  } catch {
+    return false;
+  }
+}
+
+describe.skipIf(!dockerAvailable())("SANY Integration Tests", () => {
   let sanyRunner: SANYRunner;
   let dockerRunner: DockerRunner;
   let tempDir: string;

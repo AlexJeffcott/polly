@@ -29,6 +29,7 @@ function e2e(id: string, file: string, opts: Partial<CaseSpec> = {}): CaseSpec {
 export const TIER_NAMES = [
   "unit",
   "integration",
+  "tools",
   "coverage",
   "bdd",
   "e2e-cli",
@@ -44,6 +45,7 @@ export const TIER_NAMES = [
 export const ALL_TIERS = [
   "unit",
   "integration",
+  "tools",
   "coverage",
   "bdd",
   "e2e-cli",
@@ -79,6 +81,32 @@ export function internalPlan(): TierPlan {
             kind: "command",
             argv: ["bun", "test", "integration"],
             cwd: `${packageRoot}/tests`,
+          },
+        },
+      ],
+    },
+    {
+      // polly#173: these 994 tests ran in NO tier until now. `unit` and
+      // `integration` both execute with cwd=packages/polly/tests, so everything
+      // under tools/*/src/**/__tests__ was invisible to `bun run test`,
+      // `test:all` and the pre-commit hook — the codegen and extractor suites
+      // that are the only guard on `polly verify`'s correctness among them.
+      //
+      // Their own tier rather than `unit`: ~22s would roughly double the fast
+      // inner loop, and these test the tooling, not the shipped runtime.
+      // SKIP_DOCKER keeps the real-container suites out; they run in `verify`.
+      name: "tools",
+      description: "verify/analysis tooling suites (codegen, extraction, translation)",
+      timeoutMs: 300_000,
+      cases: [
+        {
+          id: "tools.verify-analysis",
+          tags: ["tools", "verify", "codegen"],
+          exec: {
+            kind: "command",
+            argv: ["bun", "test", "tools/verify/src", "tools/analysis/src"],
+            cwd: packageRoot,
+            env: { SKIP_DOCKER: "1" },
           },
         },
       ],
@@ -303,6 +331,25 @@ export function internalPlan(): TierPlan {
           tags: ["stryker", "mutation"],
           cost: "heavy",
         }),
+        {
+          // The half of the `tools` tier that drives real containers: SANY
+          // validation and the polly#173 container-leak guard. Without docker
+          // these skip rather than pass spuriously.
+          id: "verify.tools-docker",
+          needs: ["docker"],
+          tags: ["verify", "tools", "sany"],
+          cost: "heavy",
+          exec: {
+            kind: "command",
+            argv: [
+              "bun",
+              "test",
+              "tools/verify/src/__tests__/validation/sany-integration.test.ts",
+              "tools/verify/src/__tests__/runner",
+            ],
+            cwd: packageRoot,
+          },
+        },
       ],
     },
     {

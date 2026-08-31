@@ -3,7 +3,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { DockerRunner, DockerRunResult } from "./docker";
+import { mintContainerName } from "./container-name";
+import { type DockerRunner, type DockerRunResult, sweepOrphanedContainersOnce } from "./docker";
 
 /**
  * Parse error from SANY with location information
@@ -66,9 +67,19 @@ export class SANYRunner {
 
     // Run SANY in Docker
     // Mount spec directory so SANY can find imported modules
+    //
+    // --name so the 30s timeout below can remove the container by name. This is
+    // the site polly#173 was measured on: a stall during container creation
+    // leaves an orphan in state `Created` that --rm never reaps, and one orphan
+    // took this suite from 21.8s to 4148s.
+    const containerName = mintContainerName("sany");
+    sweepOrphanedContainersOnce();
+
     const args = [
       "run",
       "--rm",
+      "--name",
+      containerName,
       "-v",
       `${specDir}:/specs`,
       "talex5/tla",
@@ -80,6 +91,7 @@ export class SANYRunner {
     try {
       const result = await this.dockerRunner.runCommand("docker", args, {
         timeout: 30000, // 30 seconds should be plenty for parsing
+        containerName,
       });
 
       return this.parseSANYOutput(result, specPath);

@@ -1,5 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import * as fs from "node:fs";
+import { CONTAINER_NAME_PREFIX } from "../../runner/container-name";
 import { DockerRunner } from "../../runner/docker";
 
 describe("DockerRunner", () => {
@@ -212,6 +213,46 @@ describe("DockerRunner", () => {
         expect(result.error).toContain("re-run");
         // It must NOT be reported as a generic/spec error.
         expect(result.error).not.toBe("Unknown error occurred during model checking");
+      } finally {
+        runCommandSpy.mockRestore();
+        existsSyncSpy.mockRestore();
+        rmSyncSpy.mockRestore();
+      }
+    });
+  });
+  describe("container naming (polly#173)", () => {
+    test("runTLC names its container and threads that name to runCommand", async () => {
+      const docker = new DockerRunner();
+
+      let capturedArgs: string[] = [];
+      let capturedOptions: { timeout?: number; containerName?: string } | undefined;
+
+      const runCommandSpy = spyOn(docker, "runCommand").mockImplementation(
+        async (_cmd: string, args: string[], options?: { containerName?: string }) => {
+          capturedArgs = args;
+          capturedOptions = options;
+          return { exitCode: 0, stdout: "0 states generated", stderr: "" };
+        }
+      );
+
+      const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
+
+      try {
+        await docker.runTLC("/path/to/spec.tla", { workers: 1 });
+
+        // --rm alone is not enough: it only fires when the container exits, and
+        // a container that stalls during creation never does.
+        const nameIndex = capturedArgs.indexOf("--name");
+        expect(nameIndex).toBeGreaterThan(-1);
+
+        const name = capturedArgs[nameIndex + 1];
+        expect(name).toStartWith(CONTAINER_NAME_PREFIX);
+
+        // The timeout arm can only remove by name if it is given the name.
+        expect(capturedOptions?.containerName).toBe(name);
       } finally {
         runCommandSpy.mockRestore();
         existsSyncSpy.mockRestore();
