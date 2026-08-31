@@ -36,6 +36,129 @@ client holds the pipes open. A sweep for orphaned `Created` containers runs once
 per process, recovering from a hard kill where no timeout handler runs at all.
 The same fix is applied to the Structurizr export runner in `polly visualize`.
 
+#### A refused message no longer wedges the router (polly#171)
+
+`requires()` was compiled into the DELIVERY action rather than into a guard the
+router could route around. With the port connected and the precondition false,
+the THEN arm of the delivery condition was false and the ELSE arm was
+unreachable — its condition had already succeeded — so `\E target` had no
+witness and `UserRouteMessage` was DISABLED. The message stayed `"pending"` for
+ever and no action in the model could move it.
+
+Nothing observed that. Every generated property is a SAFETY property, and a
+safety property is true of a system that does nothing at all, so a spec in which
+routing has stopped verified identically to one in which it works.
+
+The delivery condition now carries `ENABLED StateTransition(target, msg.msgType)`,
+so a refused message takes the ELSE arm and is marked `"failed"`. This ships
+on by default: it costs nothing, because the refused successor was already
+reachable by the disconnected path.
+
+It reproduces in this repo, not only downstream. `examples/minimal` has the
+shape exactly — `requires(user.value.active === true)` on `PING` — and adding
+the guard moved its model from 120 to 52 states as the wedged-pending branch
+collapsed.
+
+`README.md` claimed "If a `requires()` can be violated … TLC finds the exact
+sequence of steps that triggers it." That was false and now says what actually
+happens.
+
+#### Opt-in liveness: `liveness: true` (polly#171)
+
+A new config key, per config or per subsystem, adds the property
+`NoMessageStaysPending` — every message that reaches the router is eventually
+delivered, failed or timed out — and the routing fairness it needs:
+
+```tla
+/\ \A i \in 1..MaxMessages : WF_allVars(UserRouteMessage(i))
+```
+
+`WF_allVars(UserNext)` alone asks only that SOME step happen, which a port
+connecting and disconnecting for ever satisfies while a message sits pending.
+The quantifier ranges over the CONSTANT `1..MaxMessages`; TLC refuses a temporal
+formula whose quantifier ranges over a variable. Both sides are guarded with
+`Len(messages) >= i`, because TLC evaluates the property in states reached
+before message `i` exists. Weak fairness is enough, and only because the
+delivery condition above is now total.
+
+`scripts/e2e-verify-liveness.ts` runs the falsification matrix. Both halves are
+load-bearing:
+
+| mutation | TLC |
+|---|---|
+| none | passes |
+| drop `ENABLED StateTransition` | violated — the wedge |
+| drop the routing-fairness conjunct | violated — port-flap cycle |
+
+**Off by default, because it is expensive.** Measured on `examples/minimal`
+(`maxInFlight: 2`), same build: **35.7s off, 285.0s on — 8.0x.** At
+`maxInFlight: 1` the same model costs 1.6s against 3.4s with an identical
+29,248 distinct states, which is the expected shape: fairness restricts infinite
+behaviours only and leaves the reachable graph alone. Cost grows steeply with
+`maxInFlight`.
+
+**Limitation.** Generated specs also declare a CONSTRAINT to bound the state
+space, and TLC warns that state constraints during liveness checking are
+dangerous (Specifying Systems 14.3.5). A violation reachable only beyond the
+bound is not found. Read a green liveness run as "no wedge within the bounds",
+not as a proof of progress.
+
+#### Three of the four checked-in TLA+ models could not be run (polly#172)
+
+`specs/README.md` documents `tlc MessageRouter.tla -config MessageRouter.cfg`.
+Nothing in the repo ran it, and it did not work: the `CONSTRAINT` clause held an
+inline expression where TLC requires a defined operator, so TLC stopped before
+exploring anything. `MeshState.cfg` and `PeerState.cfg` carried the identical
+defect — the issue named only `MessageRouter`; a new harness found the other
+two.
+
+Both `MessageRouter` properties also quantified over `1..Len(messages)`, a
+VARIABLE, which TLC refuses outright. They are now bounded by the constant
+`1..MaxMessages` and guarded with `Len(messages) >= i`, and `Spec` carries
+per-message routing fairness.
+
+Made runnable, `ConnectedEventuallyDelivers` turned out to be **false**: TLC
+produces a two-step counter-example in which a target that is connected when the
+message is sent disconnects before routing, so the message fails rather than
+delivers. The property had been written as documentation of intent and never
+executed. It now states what is true — delivered, or a target stopped being
+connected — and still forbids a message sitting pending while its ports stay up.
+
+`scripts/e2e-verify-checked-in-specs.ts` keeps every checked-in `.tla`/`.cfg`
+pair runnable. It caps each run on the wall clock rather than checking the model
+exhaustively: the defect class is TLC rejecting the configuration, which is
+reported in the first seconds, and the real `MessageRouter.cfg` runs past 1.7M
+distinct states. `specs/README.md` now documents small constants that check both
+properties in under a second.
+
+#### The dead `@invariant` JSDoc path is gone (polly#168)
+
+`TLAGenerator` extracted `@invariant` JSDoc tags only when constructed with
+`enableInvariants: true`, a flag no production call site ever set, so the path
+had never run outside its own unit tests. It carried three defects that would
+have surfaced the moment it did:
+
+- a multi-line description emitted only its first line with a `\*` marker, so
+  every line after it landed in the module as bare prose and SANY rejected it;
+- generic invariant names used `Math.random()`, so the artefact written to
+  `specs/tla/generated/` differed from itself run to run with no source change;
+- `@requires` and `@ensures` JSDoc tags became GLOBAL invariants. A precondition
+  is not an invariant, so a consumer using that common tag would have got false
+  violations.
+
+`capabilities` (polly#160) already delivers config-declared invariants through a
+live, validated path that supplies its own name, so the extractor is removed
+rather than repaired — about 200 lines, plus the `AdapterVerificationConfig.invariants`
+field that was unreachable even at the type level, since `defineVerification`
+accepts a different declaration that never had it.
+
+The multi-line description defect was **live**, not dormant: it reaches
+production through a capability's `message`. That is fixed, and covered.
+
+`enableTemporalProperties` remains an unwired opt-in of the same shape. It is
+kept because the liveness work above renders through `TemporalTLAGenerator`, and
+is now documented as unreached rather than left to look load-bearing.
+
 #### Aliased signal reads in object-literal updates (polly#169)
 
 Since polly#147 a translatable object-literal initializer is captured verbatim

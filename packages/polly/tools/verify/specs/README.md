@@ -38,6 +38,24 @@ cd tools/verify/specs/tla
 tlc MessageRouter.tla -config MessageRouter.cfg
 ```
 
+**Cost.** `MessageRouter.cfg` declares `MaxMessages = 4` over three contexts and
+three tabs, and `SendMessage` quantifies over every non-empty subset of
+contexts, so the model runs to over a million distinct states and takes minutes.
+To check the properties quickly, drop the constants:
+
+```
+CONSTANTS
+    Contexts = {background, popup}
+    MaxMessages = 1
+    Tabs = {0}
+    TimeoutLimit = 2
+```
+
+That completes in under a second (308 distinct states) and still exercises both
+temporal properties. Removing the `\A i \in 1..MaxMessages : WF_vars(RouteMessage(i))`
+conjunct from `Spec` makes TLC report a violation, so the fairness is
+load-bearing rather than decorative (polly#172).
+
 ## See Also
 - [Verify Package Documentation](../README.md)
 - [TLA+ Specifications](./tla/README.md)

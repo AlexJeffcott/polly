@@ -1,18 +1,21 @@
-// Invariant extraction from JSDoc comments
-// Extract domain-specific invariants from code annotations
-
-import { type JSDoc, type JSDocTag, Node, Project, type SourceFile } from "ts-morph";
-import type { CodebaseAnalysis } from "../types";
+// Render application invariants as TLA+ definitions and INVARIANT clauses.
+//
+// polly#168 removed the JSDoc `@invariant` extractor that used to live here. It
+// was gated on a flag no caller set, so it had never run in production, and
+// `capabilities` (polly#160) already covers the same need through a validated
+// path. Every remaining producer synthesises its invariants and supplies its
+// own name — see `addCapabilityInvariants` and `addTemporalConstraints` in
+// codegen/tla.ts.
 
 /**
- * Extracted invariant from JSDoc annotation
+ * One invariant to check at every reachable state.
  */
 export type Invariant = {
-  /** Name for the invariant (auto-generated if not provided) */
+  /** TLA+ identifier for the invariant. Supplied by the producer. */
   name: string;
-  /** Description from JSDoc comment */
+  /** Human-readable comment rendered above the definition. May be multi-line. */
   description: string;
-  /** JavaScript expression that should always be true */
+  /** TypeScript boolean expression, translated by `tsExpressionToTLA`. */
   expression: string;
   /** Source location. Omitted for synthesised invariants (e.g. polly#160
    *  capabilities) that have no originating source line. */
@@ -23,270 +26,12 @@ export type Invariant = {
 };
 
 /**
- * Result of invariant extraction
+ * Render a description as TLA+ comment lines, one `\\*` marker per line
+ * (polly#168). Returns an empty array for an absent or blank description.
  */
-export type InvariantExtractionResult = {
-  invariants: Invariant[];
-  warnings: string[];
-};
-
-/**
- * InvariantExtractor extracts application-specific invariants from:
- * - @invariant JSDoc tags
- * - @ensures JSDoc tags (treated as post-condition invariants)
- * - @requires JSDoc tags (treated as pre-condition invariants)
- *
- * These are translated to TLA+ invariants that TLC can check.
- */
-export class InvariantExtractor {
-  private warnings: string[] = [];
-
-  /**
-   * Extract invariants from TypeScript project
-   */
-  extractInvariants(projectPath: string): InvariantExtractionResult {
-    const project = new Project({
-      tsConfigFilePath: `${projectPath}/tsconfig.json`,
-      skipAddingFilesFromTsConfig: false,
-    });
-
-    const invariants: Invariant[] = [];
-
-    for (const sourceFile of project.getSourceFiles()) {
-      // Skip node_modules and test files
-      if (
-        sourceFile.getFilePath().includes("node_modules") ||
-        sourceFile.getFilePath().includes(".test.") ||
-        sourceFile.getFilePath().includes(".spec.")
-      ) {
-        continue;
-      }
-
-      invariants.push(...this.extractFromSourceFile(sourceFile));
-    }
-
-    return {
-      invariants,
-      warnings: this.warnings,
-    };
-  }
-
-  /**
-   * Extract invariants from codebase analysis result
-   * (Alternative entry point when analysis is already done)
-   */
-  extractFromAnalysis(_analysis: CodebaseAnalysis): InvariantExtractionResult {
-    // For now, return empty - could be enhanced to extract from handlers
-    return {
-      invariants: [],
-      warnings: [],
-    };
-  }
-
-  /**
-   * Extract invariants from a single source file
-   */
-  private extractFromSourceFile(sourceFile: SourceFile): Invariant[] {
-    const invariants: Invariant[] = [];
-
-    // Traverse all nodes looking for JSDoc comments
-    sourceFile.forEachDescendant((node) => {
-      this.processNodeJSDocs(node, sourceFile, invariants);
-    });
-
-    return invariants;
-  }
-
-  /**
-   * Process JSDoc comments for a node
-   */
-  private processNodeJSDocs(node: Node, sourceFile: SourceFile, invariants: Invariant[]): void {
-    const jsDocs = this.getJsDocComments(node);
-
-    for (const jsDoc of jsDocs) {
-      this.processJSDocTags(jsDoc, sourceFile, node, invariants);
-    }
-  }
-
-  /**
-   * Process tags within a JSDoc comment
-   */
-  private processJSDocTags(
-    jsDoc: JSDoc,
-    sourceFile: SourceFile,
-    node: Node,
-    invariants: Invariant[]
-  ): void {
-    for (const tag of jsDoc.getTags()) {
-      this.processJSDocTag(tag, sourceFile, node, invariants);
-    }
-  }
-
-  /**
-   * Process a single JSDoc tag
-   */
-  private processJSDocTag(
-    tag: JSDocTag,
-    sourceFile: SourceFile,
-    node: Node,
-    invariants: Invariant[]
-  ): void {
-    const tagName = tag.getTagName();
-    const text = tag.getComment();
-
-    if (typeof text !== "string" || !text.trim()) {
-      return;
-    }
-
-    const trimmedText = text.trim();
-
-    if (tagName === "invariant") {
-      invariants.push(this.createInvariant(trimmedText, "invariant", sourceFile, node));
-    } else if (tagName === "ensures") {
-      invariants.push(this.createInvariant(trimmedText, "post-condition", sourceFile, node));
-    } else if (tagName === "requires") {
-      invariants.push(this.createInvariant(trimmedText, "pre-condition", sourceFile, node));
-    }
-  }
-
-  /**
-   * Get JSDoc comments for a node
-   */
-  private getJsDocComments(node: Node): JSDoc[] {
-    if (Node.isJSDocable(node)) {
-      return node.getJsDocs();
-    }
-    return [];
-  }
-
-  /**
-   * Create invariant from JSDoc annotation
-   */
-  private createInvariant(
-    expression: string,
-    type: "invariant" | "pre-condition" | "post-condition",
-    sourceFile: SourceFile,
-    node: Node
-  ): Invariant {
-    // Extract description from preceding comment text
-    const description = this.extractDescription(node, expression);
-
-    // Generate name from expression
-    const name = this.generateInvariantName(expression, type);
-
-    return {
-      name,
-      description,
-      expression,
-      location: {
-        file: sourceFile.getFilePath(),
-        line: node.getStartLineNumber(),
-      },
-    };
-  }
-
-  /**
-   * Extract human-readable description from JSDoc
-   */
-  private extractDescription(node: Node, expression: string): string {
-    if (Node.isJSDocable(node)) {
-      const jsDocs = node.getJsDocs();
-      for (const jsDoc of jsDocs) {
-        const desc = jsDoc.getDescription();
-        if (desc?.trim()) {
-          return desc.trim();
-        }
-      }
-    }
-
-    // Fallback: use expression as description
-    return `Invariant: ${expression}`;
-  }
-
-  /**
-   * Generate invariant name from expression
-   *
-   * Examples:
-   * - "state.count >= 0" -> "CountNonNegative"
-   * - "state.items.length <= 100" -> "ItemsMaxLength"
-   */
-  private generateInvariantName(
-    expression: string,
-    type: "invariant" | "pre-condition" | "post-condition"
-  ): string {
-    // Extract field names from expression
-    const fieldMatches = expression.match(/state\.(\w+)/g);
-    if (!fieldMatches || fieldMatches.length === 0) {
-      return this.generateGenericInvariantName(type);
-    }
-
-    // Use first field name as base
-    const fieldName = fieldMatches[0]?.replace("state.", "");
-
-    // Build name from components
-    const constraintSuffix = this.determineConstraintSuffix(expression);
-    const capitalizedField = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
-    const prefix = this.getInvariantPrefix(type);
-
-    return `${prefix}${capitalizedField}${constraintSuffix}`;
-  }
-
-  /**
-   * Generate generic invariant name when no state fields found
-   */
-  private generateGenericInvariantName(
-    type: "invariant" | "pre-condition" | "post-condition"
-  ): string {
-    const prefix = this.getInvariantPrefix(type);
-    return `${prefix}Invariant${Math.random().toString(36).substring(2, 7)}`;
-  }
-
-  /**
-   * Determine constraint suffix based on operators in expression
-   */
-  private determineConstraintSuffix(expression: string): string {
-    if (expression.includes("<=")) return "MaxValue";
-    if (expression.includes(">=")) return "MinValue";
-    if (expression.includes("===") || expression.includes("==")) return "Equals";
-    if (expression.includes("!==") || expression.includes("!=")) return "NotEquals";
-    if (expression.includes("<")) return "LessThan";
-    if (expression.includes(">")) return "GreaterThan";
-    return "Check";
-  }
-
-  /**
-   * Get prefix based on invariant type
-   */
-  private getInvariantPrefix(type: "invariant" | "pre-condition" | "post-condition"): string {
-    if (type === "pre-condition") return "Pre";
-    if (type === "post-condition") return "Post";
-    return "";
-  }
-
-  /**
-   * Validate that expression is safe to translate to TLA+
-   */
-  validateExpression(expression: string): { valid: boolean; error?: string } {
-    // Check for dangerous patterns
-    if (expression.includes("eval(")) {
-      return { valid: false, error: "eval() not allowed in invariants" };
-    }
-
-    // Check for basic syntax issues
-    const openParens = (expression.match(/\(/g) || []).length;
-    const closeParens = (expression.match(/\)/g) || []).length;
-    if (openParens !== closeParens) {
-      return { valid: false, error: "Unbalanced parentheses" };
-    }
-
-    const openBrackets = (expression.match(/\[/g) || []).length;
-    const closeBrackets = (expression.match(/\]/g) || []).length;
-    if (openBrackets !== closeBrackets) {
-      return { valid: false, error: "Unbalanced brackets" };
-    }
-
-    return { valid: true };
-  }
+export function describe(description: string | undefined): string[] {
+  if (!description?.trim()) return [];
+  return description.split("\n").map((line) => `\\* ${line.trimEnd()}`);
 }
 
 /**
@@ -294,7 +39,7 @@ export class InvariantExtractor {
  */
 export class InvariantGenerator {
   /**
-   * Generate TLA+ invariant definitions from extracted invariants
+   * Generate TLA+ invariant definitions.
    */
   generateTLAInvariants(
     invariants: Invariant[],
@@ -318,9 +63,12 @@ export class InvariantGenerator {
   ): string {
     const lines: string[] = [];
 
-    // Add description as comment
-    if (invariant.description) {
-      lines.push(`\\* ${invariant.description}`);
+    // Every line needs its own `\\*`. A description with an embedded newline
+    // used to emit line 2 onward as bare prose inside the module body, which
+    // SANY rejects (polly#168). Reachable in production through a capability's
+    // `message` (tla.ts addCapabilityInvariants).
+    for (const line of describe(invariant.description)) {
+      lines.push(line);
     }
 
     // Translate expression to TLA+

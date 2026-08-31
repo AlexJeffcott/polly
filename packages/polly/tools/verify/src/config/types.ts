@@ -51,12 +51,10 @@ export interface AdapterVerificationConfig {
   /** Verification behavior on release */
   onRelease?: "warn" | "error" | "off";
 
-  /** Optional: Custom invariants */
-  invariants?: Array<{
-    name: string;
-    expression: string;
-    description?: string;
-  }>;
+  // polly#168: an `invariants` field used to sit here. Nothing read it — not
+  // even at the type level, since `defineVerification` accepts a different
+  // AdapterVerificationConfig (config.ts) that never declared it. Use
+  // `capabilities` below to declare an application invariant.
 
   /** polly#160: directional capability invariants (desugar to TLA+). */
   capabilities?: CapabilityConfig[];

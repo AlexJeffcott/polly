@@ -172,7 +172,16 @@ Next ==
     \/ CompleteRouting
     \/ \E i \in 1..Len(messages) : TimeoutMessage(i)
 
-Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
+(* polly#172: WF_vars(Next) alone asks only that SOME step happen, which a port
+   connecting and disconnecting for ever satisfies while a message sits pending.
+   The temporal properties below need per-message routing fairness to be
+   checkable, and the range must be the CONSTANT 1..MaxMessages — TLC refuses a
+   temporal formula whose quantifier ranges over a VARIABLE. *)
+Spec ==
+    /\ Init
+    /\ [][Next]_vars
+    /\ WF_vars(Next)
+    /\ \A i \in 1..MaxMessages : WF_vars(RouteMessage(i))
 
 -----------------------------------------------------------------------------
 
@@ -214,19 +223,45 @@ TypeOK ==
 
 -----------------------------------------------------------------------------
 
+(* State constraint. Named rather than inline because TLC's CONSTRAINT clause
+   takes a defined operator (polly#172). *)
+BoundedMessages == Len(messages) <= MaxMessages
+
+-----------------------------------------------------------------------------
+
 (* Temporal properties *)
+
+(* polly#172: both properties are quantified over the CONSTANT 1..MaxMessages.
+   Written as 1..Len(messages) they ranged over a VARIABLE, and TLC refuses that
+   with "In evaluation, the identifier messages is either undefined or not an
+   operator" — so neither had ever been checkable. Each side is guarded with
+   Len(messages) >= i because TLC evaluates the property in states reached
+   before message i exists. *)
 
 (* Eventually, all messages resolve (deliver, fail, or timeout) *)
 EventualResolution ==
-    \A i \in 1..Len(messages) :
-        messages[i].status = "pending"
-        ~> messages[i].status \in {"delivered", "failed", "timeout"}
+    \A i \in 1..MaxMessages :
+        (Len(messages) >= i /\ messages[i].status = "pending")
+        ~> (Len(messages) >= i
+            /\ messages[i].status \in {"delivered", "failed", "timeout"})
 
-(* If ports are connected and message is sent to them, message eventually delivers *)
+(* A pending message whose targets are all connected is eventually delivered --
+   UNLESS one of those targets stops being connected first, in which case
+   RouteMessage takes its ELSE arm and the message fails.
+
+   polly#172: as originally written this demanded delivery outright, and TLC
+   finds a two-step counter-example: the target disconnects between the send and
+   the route. The property had never been run, so that was never seen. The
+   disjunct below is what is actually true, and it still has teeth -- it forbids
+   a message sitting pending for ever while its ports stay up, which is the
+   routing wedge polly#171 is about. *)
 ConnectedEventuallyDelivers ==
-    \A i \in 1..Len(messages) :
-        LET msg == messages[i]
-        IN (msg.status = "pending" /\ \A target \in msg.targets : ports[target] = "connected")
-           ~> (msg.status = "delivered")
+    \A i \in 1..MaxMessages :
+        (/\ Len(messages) >= i
+         /\ messages[i].status = "pending"
+         /\ \A target \in messages[i].targets : ports[target] = "connected")
+        ~> (/\ Len(messages) >= i
+            /\ \/ messages[i].status = "delivered"
+               \/ \E target \in messages[i].targets : ports[target] # "connected")
 
 =============================================================================

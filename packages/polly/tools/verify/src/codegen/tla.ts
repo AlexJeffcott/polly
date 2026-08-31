@@ -15,7 +15,7 @@ import type {
   VerificationCondition,
   VerificationConfig,
 } from "../types";
-import { type Invariant, InvariantExtractor, InvariantGenerator } from "./invariants";
+import { type Invariant, InvariantGenerator } from "./invariants";
 import type { RoundTripResult, RoundTripValidator } from "./round-trip";
 import { type TemporalProperty, TemporalPropertyGenerator, TemporalTLAGenerator } from "./temporal";
 import type { TLAValidator, ValidationError } from "./tla-validator";
@@ -56,6 +56,12 @@ export class TLAGenerator {
   private indent = 0;
   private extractedInvariants: Invariant[] = [];
   private temporalProperties: TemporalProperty[] = [];
+  /**
+   * polly#171: message-resolution liveness. Held apart from
+   * `temporalProperties` because that list also gates `addDeliveredTracking`,
+   * which liveness does not need.
+   */
+  private livenessPropertyNames: string[] = [];
   private symmetrySets: string[] = [];
   // Map from messageType to resolved unique action name (handles collisions)
   private resolvedActionNames: Map<string, string> = new Map();
@@ -84,17 +90,17 @@ export class TLAGenerator {
    * If validators are provided, generate() will automatically validate
    * the generated spec and throw TLAValidationError if invalid.
    *
-   * If enableInvariants or enableTemporalProperties is true, the generator
-   * will extract and include these properties in the spec.
+   * If enableTemporalProperties is true the generator derives ordering and
+   * causality properties from the analysis. NOTE (polly#168): no production
+   * caller sets it, so that path runs only in tests — the same gap that made
+   * the JSDoc `@invariant` extractor dead code before it was removed.
    */
   constructor(
     private options?: {
       validator?: TLAValidator;
       sanyRunner?: SANYRunner;
       roundTripValidator?: RoundTripValidator;
-      enableInvariants?: boolean;
       enableTemporalProperties?: boolean;
-      projectPath?: string; // Required if enableInvariants is true
     }
   ) {}
 
@@ -178,13 +184,22 @@ export class TLAGenerator {
     // Pre-validate inputs
     this.validateInputs(config, analysis);
 
-    // Extract invariants and temporal properties if enabled
-    this.extractInvariantsIfEnabled();
+    // polly#168: the JSDoc @invariant extraction path that used to run here was
+    // removed. It was gated on an `enableInvariants` flag no caller ever set, so
+    // it had never run outside its own unit tests, and it carried three defects
+    // that would have surfaced the moment it did: a multi-line description
+    // emitted only its first line with a `\\*` marker, generic names used
+    // `Math.random()` so the written artefact differed from itself run to run,
+    // and `@requires`/`@ensures` JSDoc tags became GLOBAL invariants — a
+    // precondition is not an invariant, so a consumer using that common tag
+    // would have got false violations. `capabilities` (polly#160) already
+    // delivers config-declared invariants through a live, validated path.
     this.generateTemporalPropertiesIfEnabled(analysis);
 
     // Generate spec and config
     this.lines = [];
     this.indent = 0;
+    this.livenessPropertyNames = [];
     const spec = this.generateSpec(config, analysis);
     const cfg = this.generateConfig(config);
 
@@ -208,24 +223,6 @@ export class TLAGenerator {
       this.options?.sanyRunner ||
       this.options?.roundTripValidator
     );
-  }
-
-  /**
-   * Extract invariants from project if enabled
-   */
-  private extractInvariantsIfEnabled(): void {
-    if (this.options?.enableInvariants && this.options.projectPath) {
-      const extractor = new InvariantExtractor();
-      const result = extractor.extractInvariants(this.options.projectPath);
-      this.extractedInvariants = result.invariants;
-
-      if (result.warnings.length > 0 && process.env["POLLY_DEBUG"]) {
-        console.log("[DEBUG] Invariant extraction warnings:");
-        for (const warning of result.warnings) {
-          console.log(`  - ${warning}`);
-        }
-      }
-    }
   }
 
   /**
@@ -445,13 +442,15 @@ export class TLAGenerator {
     this.addActions(config, analysis);
     this.addRouteWithHandlers(config, analysis);
     this.addNext(config, analysis);
-    this.addSpec();
+    this.addSpec(config, analysis);
     this.addInvariants(config, analysis);
 
     // Add temporal properties if enabled
     if (this.temporalProperties.length > 0) {
       this.addTemporalProperties();
     }
+
+    this.addLivenessProperties(config, analysis);
 
     // Module-end marker — must be the last line of the spec, AFTER any
     // temporal properties have been emitted.
@@ -596,13 +595,18 @@ export class TLAGenerator {
    * Add temporal properties section to config
    */
   private addTemporalPropertiesSection(lines: string[]): void {
-    if (this.temporalProperties.length === 0) return;
+    if (this.temporalProperties.length === 0 && this.livenessPropertyNames.length === 0) return;
 
     lines.push("");
     lines.push("\\* Temporal properties to check");
     lines.push("PROPERTIES");
     for (const prop of this.temporalProperties) {
       lines.push(`  ${prop.name}`);
+    }
+    // polly#171: liveness names are tracked separately from temporalProperties
+    // so they do not also switch on delivered-tracking.
+    for (const name of this.livenessPropertyNames) {
+      lines.push(`  ${name}`);
     }
   }
 
@@ -3273,7 +3277,22 @@ export class TLAGenerator {
     this.line("      /\\ routingDepth' = routingDepth + 1");
     this.line("      /\\ routingDepth < 5");
     this.line("      /\\ \\E target \\in msg.targets :");
+    // polly#171: the delivery condition must be TOTAL. Asking only "is the port
+    // connected?" made the handler's own `requires()` load-bearing for the
+    // ROUTING step: with the port connected and the precondition false, the THEN
+    // arm was false and the ELSE arm unreachable (its condition had already
+    // succeeded), so `\\E target` had no witness and UserRouteMessage was
+    // DISABLED. The message stayed "pending" for ever and no action could move
+    // it. Nothing observed that, because every generated property is a safety
+    // property and a safety property is true of a system that has stopped.
+    //
+    // Carrying `ENABLED StateTransition` in the condition sends a refused
+    // message down the ELSE arm, where it is marked "failed". Measured on an
+    // 11-subsystem consumer model: identical state count with and without this
+    // conjunct (272,000 distinct states, depth 9) — the refused successor was
+    // already reachable by the disconnected path, so refusal costs nothing.
     this.line('            /\\ IF target \\in Contexts /\\ ports[target] = "connected"');
+    this.line("                  /\\ ENABLED StateTransition(target, msg.msgType)");
     this.line("               THEN \\* Successful delivery - route AND invoke handler");
     this.line(
       '                    /\\ messages\' = [messages EXCEPT ![msgIndex].status = "delivered",'
@@ -3291,7 +3310,7 @@ export class TLAGenerator {
       "                    /\\ \\E p \\in PayloadType : payload' = p  \\* Non-deterministic payload"
     );
     this.line("                    /\\ StateTransition(target, msg.msgType)");
-    this.line("               ELSE \\* Port not connected - message fails");
+    this.line("               ELSE \\* Port not connected, or the handler refused it");
     this.line(
       '                    /\\ messages\' = [messages EXCEPT ![msgIndex].status = "failed"]'
     );
@@ -3387,9 +3406,97 @@ export class TLAGenerator {
     this.line("");
   }
 
-  private addSpec(): void {
+  /**
+   * polly#171: whether this spec checks that nothing sent stays pending.
+   *
+   * Off unless asked for. It costs a temporal property plus the routing
+   * fairness it needs; measured on an 11-subsystem consumer model the gate went
+   * from ~110s to ~512s. A subsystem's own `liveness` overrides the top level.
+   */
+  private livenessEnabled(config: VerificationConfig): boolean {
+    return config.liveness === true;
+  }
+
+  /**
+   * `UserRouteMessage` is only reachable when at least one handler has a
+   * representable message type; otherwise `UserNext` falls back to the router's
+   * own `Next` and the action is defined but never taken. Fairness or a property
+   * naming it would then contradict `[][UserNext]_allVars`.
+   */
+  private routingIsReachable(analysis: CodebaseAnalysis): boolean {
+    return analysis.handlers.some((h) => this.canRepresentAsTLAAction(h.messageType));
+  }
+
+  private addSpec(config: VerificationConfig, analysis: CodebaseAnalysis): void {
     this.line("\\* Specification");
-    this.line("UserSpec == UserInit /\\ [][UserNext]_allVars /\\ WF_allVars(UserNext)");
+
+    const liveness = this.livenessEnabled(config) && this.routingIsReachable(analysis);
+    if (!liveness) {
+      this.line("UserSpec == UserInit /\\ [][UserNext]_allVars /\\ WF_allVars(UserNext)");
+      this.line("");
+      return;
+    }
+
+    // polly#171: `WF_allVars(UserNext)` alone asks only that SOME step happen,
+    // which a port connecting and disconnecting for ever satisfies while a
+    // message sits pending. Per-message routing fairness is what makes the
+    // liveness property below checkable.
+    //
+    // Weak fairness suffices, and only because the delivery condition is now
+    // total (the ENABLED conjunct in UserRouteMessage): with both arms total,
+    // UserRouteMessage(i) is enabled in every state where message i is pending,
+    // which is exactly what WF asks for. Before that fix, enablement flickered
+    // with the port and nothing short of SF fired. Fairness restricts infinite
+    // behaviours only, so the reachable graph, every invariant and every
+    // [][P]_allVars property are unaffected.
+    //
+    // The range is the CONSTANT 1..MaxMessages. TLC refuses a temporal formula
+    // whose quantifier ranges over a VARIABLE: `\\A i \\in 1..Len(messages)`
+    // gives "In evaluation, the identifier messages is either undefined or not
+    // an operator".
+    this.line("UserSpec ==");
+    this.indent++;
+    this.line("/\\ UserInit");
+    this.line("/\\ [][UserNext]_allVars");
+    this.line("/\\ WF_allVars(UserNext)");
+    this.line("/\\ \\A i \\in 1..MaxMessages : WF_allVars(UserRouteMessage(i))");
+    this.indent--;
+    this.line("");
+  }
+
+  /**
+   * polly#171: "nothing sent stays pending for ever".
+   *
+   * Emitted directly rather than through `TemporalTLAGenerator`: that renderer
+   * produces `Name == [](trigger => <>(target))`, which cannot express a
+   * quantifier scoping OVER the implication, and `[]((\\A i : P) => ...)` is a
+   * different (wrong) formula.
+   *
+   * Both sides are guarded with `Len(messages) >= i` because TLC evaluates the
+   * property in states reached before message i exists.
+   */
+  private addLivenessProperties(config: VerificationConfig, analysis: CodebaseAnalysis): void {
+    if (!this.livenessEnabled(config) || !this.routingIsReachable(analysis)) return;
+
+    const name = "NoMessageStaysPending";
+    this.livenessPropertyNames.push(name);
+
+    this.line("\\* =============================================================================");
+    this.line("\\* Liveness (polly#171)");
+    this.line("\\* =============================================================================");
+    this.line("");
+    this.line("\\* Every message that reaches the router is eventually resolved.");
+    this.line("\\* A requires() that does not hold marks the message failed rather than");
+    this.line("\\* leaving it pending for ever, so this is checkable.");
+    this.line(`${name} ==`);
+    this.indent++;
+    this.line("\\A i \\in 1..MaxMessages :");
+    this.indent++;
+    this.line('(Len(messages) >= i /\\ messages[i].status = "pending")');
+    this.line("~> (Len(messages) >= i");
+    this.line('    /\\ messages[i].status \\in {"delivered", "failed", "timeout"})');
+    this.indent--;
+    this.indent--;
     this.line("");
   }
 
@@ -3420,9 +3527,12 @@ export class TLAGenerator {
       this.addCapabilityInvariants(config.capabilities);
     }
 
-    // Add extracted invariants from JSDoc
+    // Render the synthesised invariants (polly#160 capabilities, Tier-2
+    // temporal constraints). The JSDoc source that also fed this list was
+    // removed in polly#168; every remaining producer supplies its own `name`
+    // and a single-line description.
     if (this.extractedInvariants.length > 0) {
-      this.line("\\* Extracted invariants from code annotations");
+      this.line("\\* Synthesised invariants");
       this.line("");
 
       const invGenerator = new InvariantGenerator();
@@ -4065,6 +4175,9 @@ export async function generateSubsystemTLA(
     ...config,
     state: filteredState as unknown as VerificationConfig["state"],
     messages: filteredMessages,
+    // polly#171: a subsystem's own `liveness` wins over the top-level default,
+    // so the expensive check can be paid only where progress matters.
+    liveness: subsystem.liveness ?? config.liveness,
     subsystems: undefined, // don't recurse
   };
 

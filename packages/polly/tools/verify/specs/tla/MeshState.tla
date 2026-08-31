@@ -170,6 +170,13 @@ Next ==
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
+(* State constraint. Named rather than inline because TLC's CONSTRAINT clause
+   takes a defined operator; an inline expression is rejected with "The
+   constraint of Len is equal to <Java Method ...>" before exploration begins,
+   so the checked-in .cfg could not be run at all (polly#172). *)
+BoundedOps == Len(messages) <= MaxOps * 4
+
+
 -----------------------------------------------------------------------------
 
 (* Invariants *)

@@ -84,7 +84,7 @@ bun run tla:down     # Stop container
 docker-compose -f specs/docker-compose.yml up -d
 
 # Run the model checker against each spec
-docker-compose -f specs/docker-compose.yml exec tla tlc MessageRouter.tla
+docker-compose -f specs/docker-compose.yml exec tla tlc MessageRouter.tla -config MessageRouter.cfg
 docker-compose -f specs/docker-compose.yml exec tla tlc PeerState.tla
 docker-compose -f specs/docker-compose.yml exec tla tlc MeshState.tla
 

@@ -312,6 +312,16 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "mesh"],
           cost: "heavy",
         }),
+        e2e("verify.checked-in-specs", "e2e-verify-checked-in-specs.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "specs"],
+          cost: "heavy",
+        }),
+        e2e("verify.liveness", "e2e-verify-liveness.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "liveness"],
+          cost: "heavy",
+        }),
         e2e("bdd.witness", "e2e-bdd-witness.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "bdd", "witness"],
