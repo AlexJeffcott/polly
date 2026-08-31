@@ -6,6 +6,7 @@
  * isolation the e2e scripts assume is preserved. Cases whose host needs are
  * unmet are skipped (logged), not failed, unless `strictNeeds` is set.
  */
+import { formatBudgetUse } from "./budget";
 import { firstUnmetNeed } from "./detect";
 import { orderCases } from "./order";
 import { SENTINEL } from "./protocol";
@@ -179,7 +180,12 @@ async function runOneCase(
   const durationMs = Math.round(performance.now() - started);
 
   const verdict = decideVerdict(spec, result, timeoutMs);
-  const tail = verdict.message ? ` — ${verdict.message}` : "";
+  // A case that finishes just under its cap is a run away from failing on
+  // machine load rather than on the thing it tests, so say how close it came
+  // (polly#175). A timeout already reports its own budget in the message.
+  const budgetNote =
+    verdict.outcome === "timeout" ? undefined : formatBudgetUse(durationMs, timeoutMs);
+  const tail = verdict.message ? ` — ${verdict.message}` : budgetNote ? ` — ${budgetNote}` : "";
   log(`  ${VERDICT_ICON[verdict.outcome]} ${label} (${durationMs}ms)${tail}`);
   return {
     tier: tier.name,
@@ -187,6 +193,7 @@ async function runOneCase(
     label,
     outcome: verdict.outcome,
     durationMs,
+    timeoutMs,
     message: verdict.message,
   };
 }

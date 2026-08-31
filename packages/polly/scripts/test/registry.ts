@@ -96,7 +96,7 @@ export function internalPlan(): TierPlan {
       // inner loop, and these test the tooling, not the shipped runtime.
       // SKIP_DOCKER keeps the real-container suites out; they run in `verify`.
       name: "tools",
-      description: "verify/analysis tooling suites (codegen, extraction, translation)",
+      description: "tooling suites (verify codegen, extraction, translation, test kit)",
       timeoutMs: 300_000,
       cases: [
         {
@@ -109,12 +109,32 @@ export function internalPlan(): TierPlan {
             env: { SKIP_DOCKER: "1" },
           },
         },
+        {
+          // The test kit itself — the tier engine's own helpers. Listed as a
+          // path, like the case above: nothing globs tools/*, so a new suite
+          // under a tools package runs in no tier until a case names it.
+          id: "tools.test-kit",
+          tags: ["tools", "test-kit"],
+          exec: {
+            kind: "command",
+            argv: ["bun", "test", "tools/test/src"],
+            cwd: packageRoot,
+            env: { SKIP_DOCKER: "1" },
+          },
+        },
       ],
     },
     {
       name: "coverage",
       description: "per-file coverage policy + claimed-by exemptions (enforce-coverage.ts)",
-      timeoutMs: 180_000,
+      // 360s, not 180s. The case re-runs the whole unit suite under --coverage,
+      // so its cost tracks that suite's size: measured at 150.0s / 154.8s /
+      // 154.2s / 150.2s on this machine (2026-08-31, 1863 unit tests), it sat at
+      // 83-86% of a 180s cap and then crossed it under load, failing an --all
+      // run that had no coverage regression in it (polly#175). 360s is 2.3x the
+      // slowest clean run and leaves it at 43% duty. The engine reports any case
+      // above 70% of its budget, so the next erosion is visible before it is red.
+      timeoutMs: 360_000,
       cases: [
         {
           // Re-runs the unit suite with --coverage and applies the policy in

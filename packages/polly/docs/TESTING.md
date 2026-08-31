@@ -36,6 +36,29 @@ scripts still run via an exit-code fallback, so migration never breaks the
 suite. See [the tiers index](../tools/test/src/tiers/index.ts) for the engine
 API.
 
+### Timeout budgets
+
+Every case runs under a timeout — its own `timeoutMs`, else its tier's, else
+120s. A fixed cap silently tightens as the work it wraps grows, so a case that
+finishes at or above **70% of its budget** reports the margin on its result
+line:
+
+```
+✓ coverage › coverage.enforce  154235ms — 86% of its 180000ms timeout budget
+```
+
+A budget is sized at **2x or more** of the slowest clean run measured for that
+case, with the measurement recorded beside the value:
+
+```typescript
+// 360s is 2.3x the slowest clean run and leaves it at 43% duty.
+timeoutMs: 360_000,
+```
+
+`test-results/tiers.json` carries `timeoutMs` beside `durationMs` for every
+case, so the erosion is trackable across runs rather than arriving as a red
+run on a loaded machine (polly#175).
+
 ### Listen ports
 
 A test that needs a server binds **port 0** and reads back the port the kernel
