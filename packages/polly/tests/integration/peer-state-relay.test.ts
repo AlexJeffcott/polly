@@ -25,6 +25,7 @@ import { join } from "node:path";
 // entrypoint does it for real consumers). Without this the file only passes
 // when an earlier test file happens to have initialised the runtime.
 import "@/shared/lib/wasm-init";
+import { resolveWebSocketPort } from "@fairfox/polly/test";
 import { migrationRegistry } from "@/shared/lib/migrate-primitive";
 import { createPeerStateClient } from "@/shared/lib/peer-relay-adapter";
 import { createPeerRepoServer, type PeerRepoServer } from "@/shared/lib/peer-repo-server";
@@ -58,11 +59,14 @@ afterEach(async () => {
   pendingServers = [];
 }, 30000);
 
-async function startServer(port: number): Promise<PeerRepoServer> {
+/** Start the relay server on a kernel-assigned port and report that port.
+ *  Port 0 removes the collision window a random port draw leaves open —
+ *  the server owns the port from the moment it is assigned (polly#174). */
+async function startServer(): Promise<{ server: PeerRepoServer; port: number }> {
   const dir = mkdtempSync(join(tmpdir(), "polly-relay-test-"));
-  const s = await createPeerRepoServer({ port, host: "127.0.0.1", storagePath: dir });
+  const s = await createPeerRepoServer({ port: 0, host: "127.0.0.1", storagePath: dir });
   pendingServers.push(s);
-  return s;
+  return { server: s, port: resolveWebSocketPort(s.webSocketServer) };
 }
 
 async function waitFor(
@@ -77,14 +81,9 @@ async function waitFor(
   throw new Error(`Timed out after ${timeoutMs}ms waiting for predicate`);
 }
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
-}
-
 describe("$peerState end-to-end over the relay transport", () => {
   test("a $peerState created against a real server hydrates and writes through", async () => {
-    const port = pickPort();
-    const server = await startServer(port);
+    const { server, port } = await startServer();
 
     const client = createPeerStateClient({
       url: `ws://127.0.0.1:${port}`,
@@ -123,8 +122,7 @@ describe("$peerState end-to-end over the relay transport", () => {
   });
 
   test("a server-side mutation propagates back to the $peerState signal", async () => {
-    const port = pickPort();
-    const server = await startServer(port);
+    const { server, port } = await startServer();
 
     const client = createPeerStateClient({
       url: `ws://127.0.0.1:${port}`,

@@ -43,6 +43,14 @@ export {
   createMockTabs,
   createMockWindow,
 } from "./adapters/index";
+// Ephemeral listen ports — bind port 0 and read back what the kernel
+// assigned, instead of drawing a port at random and hoping (polly#174).
+export {
+  type RetryOnPortInUseOptions,
+  resolveListenPort,
+  resolveWebSocketPort,
+  retryOnPortInUse,
+} from "./e2e-shared/ephemeral-port";
 // Timeout diagnostic context — the formatter behind the convergence pollers'
 // `context()` option, for consumers writing their own pollers.
 export { resolveContext } from "./e2e-shared/timeout-context";

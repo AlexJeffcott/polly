@@ -6,7 +6,7 @@
  * driving the relay through `withRelay` exercises the production protocol
  * with no shimming. Two modes:
  *
- * - "embedded" (default): start an Elysia app on a random port and return
+ * - "embedded" (default): start an Elysia app on a kernel-assigned port and return
  *   its URL plus a close callback. The hermetic mode the suite runs in
  *   by default; depending on a staging relay would couple CI reliability
  *   to a network service we do not control.
@@ -22,6 +22,7 @@
 
 import { Elysia } from "elysia";
 import { signalingServer } from "../../../../src/elysia/signaling-server-plugin";
+import { resolveListenPort } from "../e2e-shared/ephemeral-port";
 
 export interface WithRelayResult {
   /** WebSocket URL of the signalling endpoint, ready to be passed to
@@ -41,13 +42,6 @@ export interface WithRelayOptions {
   /** Path under which the signalling endpoint is mounted. Defaults to
    *  "/polly/signaling" — the same default the SPA wiring uses. */
   path?: string;
-}
-
-function pickPort(): number {
-  // Same window the integration suite uses. Random port collision is
-  // possible but rare; e2e scripts run sequentially by default so the
-  // failure surface is small.
-  return 30000 + Math.floor(Math.random() * 10000);
 }
 
 /**
@@ -82,9 +76,11 @@ export async function withRelay(options: WithRelayOptions = {}): Promise<WithRel
     };
   }
 
-  const port = pickPort();
-  const app = new Elysia().use(signalingServer({ path })).listen(port);
-  const url = `ws://127.0.0.1:${port}${path}`;
+  // Port 0: the kernel assigns a free port and the relay owns it from that
+  // moment, so no collision window exists for another process to win
+  // (polly#174).
+  const app = new Elysia().use(signalingServer({ path })).listen(0);
+  const url = `ws://127.0.0.1:${resolveListenPort(app)}${path}`;
 
   return {
     url,

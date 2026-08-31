@@ -127,16 +127,17 @@ function logVerbose(channel: string, msg: string): void {
 
 // ---- Test bed ----------------------------------------------------
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
-}
-
 /** Spin up an in-process Elysia signalling server. The server is the
  * one polly ships in its own `elysia` subpath — the same plugin
- * production deployments mount. */
+ * production deployments mount.
+ *
+ * Port 0 asks the kernel for a free port: the server owns it from the
+ * moment it is assigned, so a second copy of this script running at the
+ * same time cannot collide with it (polly#174). */
 function startSignalingServer(): { url: string; stop: () => Promise<void> } {
-  const port = pickPort();
-  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
+  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
+  const port = (app as unknown as { server?: { port?: number } }).server?.port;
+  if (typeof port !== "number") throw new Error("signalling server failed to bind a port");
   log("signal-server", `listening at ws://127.0.0.1:${port}/polly/signaling`);
   return {
     url: `ws://127.0.0.1:${port}/polly/signaling`,

@@ -1,7 +1,7 @@
 /**
  * Phase 2 integration test for the signalling-server Elysia plugin.
  *
- * Spins up a real Elysia app on a random port with the signalling
+ * Spins up a real Elysia app on a kernel-assigned port with the signalling
  * plugin mounted, connects two raw WebSocket clients, and verifies:
  *
  *   1. A peer that has not joined cannot send a signal (server replies
@@ -20,6 +20,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { resolveListenPort } from "@fairfox/polly/test";
 import { Elysia } from "elysia";
 import { signalingServer } from "@/elysia/signaling-server-plugin";
 
@@ -36,8 +37,17 @@ afterEach(async () => {
   pendingApps = [];
 }, 10000);
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
+/** Mount the signalling plugin on a kernel-assigned port and return its URL.
+ *  Port 0 removes the collision window a random port draw leaves open —
+ *  the server owns the port from the moment it is assigned (polly#174). */
+function mountSignalingApp(): { url: string } {
+  const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
+  pendingApps.push({
+    stop: async () => {
+      (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+    },
+  });
+  return { url: `ws://127.0.0.1:${resolveListenPort(app)}/polly/signaling` };
 }
 
 /** Open a WebSocket and return a small handle for sending and reading
@@ -114,15 +124,7 @@ async function waitForNonDiscoveryMessage(
 
 describe("signalingServer plugin", () => {
   test("relays a signal from peer A to peer B after both have joined", async () => {
-    const port = pickPort();
-    const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
-    pendingApps.push({
-      stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
-      },
-    });
-
-    const url = `ws://127.0.0.1:${port}/polly/signaling`;
+    const { url } = mountSignalingApp();
     const alice = await openSignalingClient(url);
     const bob = await openSignalingClient(url);
 
@@ -155,15 +157,7 @@ describe("signalingServer plugin", () => {
   });
 
   test("a peer that has not joined cannot send a signal", async () => {
-    const port = pickPort();
-    const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
-    pendingApps.push({
-      stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
-      },
-    });
-
-    const url = `ws://127.0.0.1:${port}/polly/signaling`;
+    const { url } = mountSignalingApp();
     const carol = await openSignalingClient(url);
 
     carol.send({
@@ -181,15 +175,7 @@ describe("signalingServer plugin", () => {
   });
 
   test("a signal to an unknown target returns an unknown-target error to the sender", async () => {
-    const port = pickPort();
-    const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
-    pendingApps.push({
-      stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
-      },
-    });
-
-    const url = `ws://127.0.0.1:${port}/polly/signaling`;
+    const { url } = mountSignalingApp();
     const dave = await openSignalingClient(url);
     dave.send({ type: "join", peerId: "peer-dave" });
     await new Promise((r) => setTimeout(r, 50));
@@ -214,15 +200,7 @@ describe("signalingServer plugin", () => {
   });
 
   test("the server replaces the sender id with the authenticated join id", async () => {
-    const port = pickPort();
-    const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
-    pendingApps.push({
-      stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
-      },
-    });
-
-    const url = `ws://127.0.0.1:${port}/polly/signaling`;
+    const { url } = mountSignalingApp();
     const eve = await openSignalingClient(url);
     const frank = await openSignalingClient(url);
 
@@ -247,15 +225,7 @@ describe("signalingServer plugin", () => {
   });
 
   test("disconnecting a peer removes it from the routing table", async () => {
-    const port = pickPort();
-    const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(port);
-    pendingApps.push({
-      stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
-      },
-    });
-
-    const url = `ws://127.0.0.1:${port}/polly/signaling`;
+    const { url } = mountSignalingApp();
     const grace = await openSignalingClient(url);
     const henry = await openSignalingClient(url);
 

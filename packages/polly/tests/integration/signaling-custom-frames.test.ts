@@ -16,6 +16,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { resolveListenPort } from "@fairfox/polly/test";
 import { Elysia } from "elysia";
 import {
   type CustomFrameSocket,
@@ -46,10 +47,6 @@ afterEach(async () => {
   pendingApps = [];
 }, 10000);
 
-function pickPort(): number {
-  return 30000 + Math.floor(Math.random() * 10000);
-}
-
 interface PongFrame {
   type: "pong";
   seq: number;
@@ -57,7 +54,6 @@ interface PongFrame {
 
 describe("custom signalling frames", () => {
   test("server hook receives custom frames and can reply through send", async () => {
-    const port = pickPort();
     const seen: Array<{ peerId: string | undefined; frame: CustomSignalingFrame }> = [];
     const app = new Elysia()
       .use(
@@ -71,13 +67,16 @@ describe("custom signalling frames", () => {
           },
         })
       )
-      .listen(port);
+      .listen(0);
     pendingApps.push({
       stop: async () => {
         (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
         await new Promise((r) => setTimeout(r, 100));
       },
     });
+    // Port 0: the kernel assigns a free port and the server owns it from
+    // that moment, so no collision window is left open (polly#174).
+    const port = resolveListenPort(app);
 
     const pongs: PongFrame[] = [];
     const client = new MeshSignalingClient({
@@ -115,7 +114,6 @@ describe("custom signalling frames", () => {
   }, 10000);
 
   test("client drops malformed frames and passes plain objects with unknown types to the hook", async () => {
-    const port = pickPort();
     // A server that forwards whatever `ping` it receives but also
     // sends a malformed frame (non-JSON string) once the client joins
     // to prove the client's hook is robust to garbage.
@@ -131,13 +129,16 @@ describe("custom signalling frames", () => {
           },
         })
       )
-      .listen(port);
+      .listen(0);
     pendingApps.push({
       stop: async () => {
         (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
         await new Promise((r) => setTimeout(r, 100));
       },
     });
+    // Port 0: the kernel assigns a free port and the server owns it from
+    // that moment, so no collision window is left open (polly#174).
+    const port = resolveListenPort(app);
 
     const pongs: number[] = [];
     const client = new MeshSignalingClient({

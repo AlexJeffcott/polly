@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Repo } from "@automerge/automerge-repo";
 import { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
+import { resolveWebSocketPort } from "@fairfox/polly/test";
 import { createPeerRepoServer, type PeerRepoServer } from "@/shared/lib/peer-repo-server";
 
 type Doc = {
@@ -45,17 +46,18 @@ async function waitFor(
   throw new Error(`Timed out after ${timeoutMs}ms waiting for predicate`);
 }
 
-/** Pick an arbitrary high port for the test server. */
-function pickPort(): number {
-  // Random in 30000-39999 — high enough to avoid common dev ports, low
-  // enough to stay below ephemeral range collisions in CI.
-  return 30000 + Math.floor(Math.random() * 10000);
+/** Start the relay server on a kernel-assigned port and report that port.
+ *  Port 0 removes the collision window a random port draw leaves open —
+ *  the server owns the port from the moment it is assigned (polly#174). */
+async function startServer(): Promise<{ server: PeerRepoServer; port: number }> {
+  const s = await createPeerRepoServer({ port: 0, host: "127.0.0.1", storagePath: storageDir });
+  return { server: s, port: resolveWebSocketPort(s.webSocketServer) };
 }
 
 describe("peer-repo-relay integration", () => {
-  test("server starts on the configured port and accepts a client", async () => {
-    const port = pickPort();
-    server = await createPeerRepoServer({ port, host: "127.0.0.1", storagePath: storageDir });
+  test("server starts on an assigned port and accepts a client", async () => {
+    const { server: started, port } = await startServer();
+    server = started;
     expect(server.repo).toBeDefined();
     expect(server.webSocketServer).toBeDefined();
 
@@ -71,8 +73,8 @@ describe("peer-repo-relay integration", () => {
   });
 
   test("a document created on the client syncs to the server", async () => {
-    const port = pickPort();
-    server = await createPeerRepoServer({ port, host: "127.0.0.1", storagePath: storageDir });
+    const { server: started, port } = await startServer();
+    server = started;
 
     const client = new Repo({
       network: [new WebSocketClientAdapter(`ws://127.0.0.1:${port}`)],
@@ -102,8 +104,8 @@ describe("peer-repo-relay integration", () => {
   });
 
   test("a document created on the server syncs to the client", async () => {
-    const port = pickPort();
-    server = await createPeerRepoServer({ port, host: "127.0.0.1", storagePath: storageDir });
+    const { server: started, port } = await startServer();
+    server = started;
 
     const serverHandle = server.repo.create<Doc>({ title: "from server", count: 7 });
     await serverHandle.whenReady();
@@ -123,8 +125,8 @@ describe("peer-repo-relay integration", () => {
   });
 
   test("a write on one side propagates to the other after both are connected", async () => {
-    const port = pickPort();
-    server = await createPeerRepoServer({ port, host: "127.0.0.1", storagePath: storageDir });
+    const { server: started, port } = await startServer();
+    server = started;
 
     const client = new Repo({
       network: [new WebSocketClientAdapter(`ws://127.0.0.1:${port}`)],

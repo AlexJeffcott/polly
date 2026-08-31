@@ -30,6 +30,7 @@ import { type BunPlugin, Glob } from "bun";
 import { Elysia } from "elysia";
 import puppeteer, { type Page } from "puppeteer";
 import { signalingServer } from "../../../../src/elysia/signaling-server-plugin";
+import { resolveListenPort } from "../e2e-shared/ephemeral-port";
 import { errMessage, type FileTally, runSuite } from "./runner-core";
 
 // Automerge WASM fix
@@ -81,10 +82,10 @@ console.log(`[browser-runner] found ${testFiles.length} test file(s)`);
 
 // Start server-side infrastructure
 
-const signalingPort = 39000 + Math.floor(Math.random() * 1000);
-const signalingApp = new Elysia()
-  .use(signalingServer({ path: "/polly/signaling" }))
-  .listen(signalingPort);
+// Port 0: the kernel assigns a free port and the server owns it from that
+// moment, so a second runner on the same machine cannot collide (polly#174).
+const signalingApp = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
+const signalingPort = resolveListenPort(signalingApp);
 console.log(`[browser-runner] signaling server on ws://127.0.0.1:${signalingPort}/polly/signaling`);
 
 // Launch browser
