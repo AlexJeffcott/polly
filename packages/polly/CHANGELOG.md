@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.87.0] - 2026-09-01
+
+### Fixed
+
+#### `Modal.Root`'s overlay effect no longer re-runs on every render (polly#177)
+
+`onClose` sat in the effect's dependency array. Consumers pass an inline
+closure, so the prop had a new identity on every render and the effect tore
+down and re-installed each time: `popOverlay` + `pushOverlay` wrote the
+module-level overlay signal twice per render, and the focus trap moved focus
+twice. The signal write re-rendered its subscribers, each render produced the
+next closure, and the cycle fed itself — an unbounded render loop that pinned
+the browser's main thread at 100% CPU and stopped every timer in the page.
+
+The effect now reads the latest callback through a ref, so its dependencies
+are only the values that genuinely re-open the overlay. The registered entry
+still calls the newest `onClose`, not the one captured at mount.
+
+Any app whose `<Modal.Root onClose={() => ...}>` takes an inline closure — the
+normal way to write it — was affected. Measured on the reported repro, 20 runs
+per arm: 13 hangs before, 0 after.
+
+`Modal`'s compound parts and the focus trap had no tests; they now have 22.
+
+### Added
+
+#### The browser runner diagnoses a page that stops reporting (polly#177)
+
+A stalled file said only "the in-page suite never reported" and counted as a
+single failure, so the tests it held vanished from the run's totals. A 9-test
+file that stalled on its 4th test reported `1 failed`, and the tier's count
+silently lost 9 tests.
+
+`polly test:browser` now:
+
+- probes whether the page's main thread still answers, so a runaway loop in
+  the code under test reads differently from a suite that never finished;
+- takes per-test progress from the page, names the test it stalled in, and
+  counts the tests that never ran, so the tier's total equals the number of
+  tests in the files;
+- holds navigation to the same per-file deadline, so a file whose module scope
+  loops is diagnosed rather than failing with a 30s navigation timeout;
+- gives each file its own browser context, bounds teardown at 5s, and
+  relaunches a browser whose connection has died, so one stall cannot fail
+  every later file.
+
+```
+timed out after 8000ms - the page never yielded its main thread, so JavaScript
+is still running. That is a runaway loop in the code under test, not a stalled runner.
+  stalled in: runaway > never yields the main thread
+  2 of 3 tests never finished (1 passed, 0 failed before the stall)
+```
+
+Set `POLLY_BROWSER_STACK=1` to also print the stack a wedged page is
+executing, mapped through the bundle's inline source map to the author's own
+file and line. It is opt-in because the debugger domain must be enabled before
+the page starts work — it is dispatched to the main thread, so it cannot be
+sent once that thread is spinning — and that costs V8 some optimisation on
+every run.
+
 ## [0.86.0] - 2026-08-31
 
 ### Added
