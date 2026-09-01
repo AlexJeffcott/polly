@@ -50,6 +50,21 @@ function asElement<T extends Element>(v: unknown, ctor: new () => T): T {
 const cls = (el: Element | null | undefined): string[] =>
   (el?.getAttribute("class") ?? "").split(" ").filter(Boolean);
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+/**
+ * Fire a faithful focus loss.
+ *
+ * A real browser fires `blur` and then `focusout` when focus leaves an
+ * element. Bare preact binds `onBlur` to `blur`; preact/compat rebinds it to
+ * `focusout` for React's bubbling semantics, and compat is loaded for the
+ * whole process as soon as any test imports a component that portals — the
+ * Modal regression tests added for polly#177 do. Dispatching both keeps these
+ * tests true under either binding.
+ */
+function blurAway(el: Element): void {
+  el.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+  el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+}
 const triggerBtn = (host: HTMLElement): HTMLElement | null =>
   host.querySelector("[data-polly-dropdown] > button");
 const trigLabel = (host: HTMLElement): string =>
@@ -138,7 +153,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
-    input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+    blurAway(input);
     cap.stop();
     expect(cap.rows.map((r) => r["data-action-value"])).toContain("new");
   });
@@ -203,7 +218,7 @@ describe("ActionInput — remaining commit-matrix paths", () => {
     input.value = "new";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
-    input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+    blurAway(input);
     cap.stop();
     expect(cap.rows).toEqual([]); // cancel, not commit
     await tick();

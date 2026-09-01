@@ -50,6 +50,17 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
 
   const isOpen = typeof when === "boolean" ? when : when.value;
 
+  // Consumers almost always pass an inline closure for `onClose`, so the prop
+  // has a new identity on every render. Keeping it in the overlay effect's
+  // dependency array made that effect tear down and re-install per render:
+  // each run wrote the `stack` signal twice and moved focus twice, and the
+  // signal write re-rendered the subscriber that produced the next closure.
+  // The result was an unbounded render loop that pinned the main thread
+  // (polly#177). The effect now reads the latest callback through a ref, so
+  // its dependencies are only the values that genuinely re-open the overlay.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!isOpen) {
       setPortalNode(null);
@@ -60,7 +71,7 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
 
   useEffect(() => {
     if (!isOpen || !portalNode) return;
-    const entry = { id, onClose };
+    const entry = { id, onClose: () => onCloseRef.current?.() };
     pushOverlay(entry);
     const el = mountRef.current;
     const cleanup = el
@@ -72,7 +83,7 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
       cleanup();
       popOverlay(id);
     };
-  }, [isOpen, portalNode, id, onClose]);
+  }, [isOpen, portalNode, id]);
 
   if (!isOpen || !portalNode) return null;
 
