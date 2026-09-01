@@ -13,8 +13,8 @@
  *      forgotten version bump only surfaced *after* the whole gauntlet
  *      of checks had run — minutes wasted on a guaranteed failure.
  *
- * This script runs the cheap, fail-fast version gate first, then the
- * checks, and only mints the OTP in the final second before publish.
+ * This script runs the cheap, fail-fast auth and version gates first, then
+ * the checks, and only mints the OTP in the final second before publish.
  *
  * The OTP step is the one part that depends on a remote service, and the
  * Proton Pass API does time out. A single failure there used to discard a
@@ -96,6 +96,16 @@ async function run(
 function fail(msg: string): never {
   process.stderr.write(`\n❌ ${msg}\n`);
   process.exit(1);
+}
+
+/** The first two lines of a child's stderr, indented to match the report. */
+function indent(stderr: string): string {
+  return stderr
+    .trim()
+    .split("\n")
+    .slice(0, 2)
+    .map((line) => `   ${line}`)
+    .join("\n");
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -195,7 +205,21 @@ async function mintOtp(): Promise<string> {
   return await promptForOtp();
 }
 
-// 1. Version gate ────────────────────────────────────────────────────────────
+// 1. Auth gate ──────────────────────────────────────────────────────────────
+// npm answers an unauthorised PUT of a scoped package with 404, not 401, so a
+// dead token looks exactly like a missing package and only says so after the
+// checks have run. whoami costs one request and names the failure up front.
+const whoami = await run(["npm", "whoami"], { quiet: true, timeoutMs: 15_000 });
+if (whoami.code !== 0) {
+  fail(
+    "npm is not authenticated — `npm whoami` failed:\n" +
+      `${indent(whoami.stderr) || `   exited ${whoami.code}`}\n` +
+      "   Run `npm login`, then publish again."
+  );
+}
+process.stdout.write(`👤 npm user: ${whoami.stdout.trim()}\n`);
+
+// 2. Version gate ────────────────────────────────────────────────────────────
 const pkg = await Bun.file(join(PKG_DIR, "package.json")).json();
 const localVersion: string = pkg.version;
 process.stdout.write(`📦 ${PKG_NAME} local version:     ${localVersion}\n`);
@@ -219,7 +243,7 @@ if (view.code === 0) {
 }
 process.stdout.write(`✅ Version ${localVersion} is publishable.\n`);
 
-// 2. Checks ──────────────────────────────────────────────────────────────────
+// 3. Checks ──────────────────────────────────────────────────────────────────
 const steps: Array<[string, string[]]> = [
   ["Typecheck", ["bun", "run", "typecheck"]],
   ["Lint", ["bun", "run", "lint"]],
@@ -234,7 +258,7 @@ for (const [label, args] of steps) {
   process.stdout.write(`✅ ${label} passed.\n`);
 }
 
-// 3. Fresh OTP, then publish ─────────────────────────────────────────────────
+// 4. Fresh OTP, then publish ─────────────────────────────────────────────────
 process.stdout.write("\n🔑 Minting a fresh OTP…\n");
 const otp = await mintOtp();
 
