@@ -7,6 +7,10 @@
  * instead contain the error to the offending file and let the remaining
  * files run.
  *
+ * polly#177 added the timeout summary: a file whose page stops part-way
+ * through must report the tests it never ran, so the tier's total still
+ * matches the number of tests in the files instead of silently losing them.
+ *
  * polly#138 removed the protocol-error retry branch — the push-based
  * page→runner reporting in run.ts means a CDP stall on the polling
  * path can no longer happen. Per-file error containment, however, is
@@ -14,7 +18,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { errMessage, type FileTally, runSuite } from "../../tools/test/src/browser/runner-core";
+import {
+  applyProgress,
+  emptyProgress,
+  errMessage,
+  type FileTally,
+  runSuite,
+  summariseTimeout,
+} from "../../tools/test/src/browser/runner-core";
 
 const pass: FileTally = { passed: 1, failed: 0 };
 
@@ -85,5 +96,74 @@ describe("runSuite — per-file isolation (polly#120)", () => {
 
     const total = await runSuite(files, runFile, { log: () => {} });
     expect(total).toEqual({ passed: 0, failed: 2 });
+  });
+});
+
+describe("summariseTimeout — accounting for a stalled file (polly#177)", () => {
+  /** A page that announced 9 tests and finished the first three. */
+  function partway() {
+    const progress = emptyProgress();
+    applyProgress(progress, { kind: "plan", total: 9 });
+    for (const name of ["one", "two", "three"]) {
+      applyProgress(progress, { kind: "start", name });
+      applyProgress(progress, { kind: "result", name, passed: true });
+    }
+    applyProgress(progress, { kind: "start", name: "four" });
+    return progress;
+  }
+
+  test("counts every test the page owed, not the file as one failure", () => {
+    const { tally } = summariseTimeout(partway(), 60000, "looping");
+
+    // 3 finished and passed; the 4th plus the 5 never started are failures.
+    expect(tally).toEqual({ passed: 3, failed: 6 });
+    expect(tally.passed + tally.failed).toBe(9);
+  });
+
+  test("names the test that was in flight when the page stopped", () => {
+    const { lines } = summariseTimeout(partway(), 60000, "looping");
+
+    expect(lines.some((l) => l.includes("stalled in: four"))).toBe(true);
+    expect(lines.some((l) => l.includes("5 of 9 tests never finished"))).toBe(false);
+    expect(lines.some((l) => l.includes("6 of 9 tests never finished"))).toBe(true);
+  });
+
+  test("a looping page and an idle page are reported differently", () => {
+    const looping = summariseTimeout(partway(), 60000, "looping").lines[0] ?? "";
+    const idle = summariseTimeout(partway(), 60000, "idle").lines[0] ?? "";
+
+    expect(looping).toContain("never yielded its main thread");
+    expect(idle).toContain("still answers");
+  });
+
+  test("keeps a failed test's own error rather than folding it into the count", () => {
+    const progress = emptyProgress();
+    applyProgress(progress, { kind: "plan", total: 2 });
+    applyProgress(progress, { kind: "start", name: "red" });
+    applyProgress(progress, { kind: "result", name: "red", passed: false, error: "boom" });
+    applyProgress(progress, { kind: "start", name: "stuck" });
+
+    const { tally, lines } = summariseTimeout(progress, 1000, "looping");
+
+    expect(tally).toEqual({ passed: 0, failed: 2 });
+    expect(lines.some((l) => l.includes("red: boom"))).toBe(true);
+  });
+
+  test("falls back to a single failure when the page never announced a plan", () => {
+    const { tally, lines } = summariseTimeout(emptyProgress(), 1000, "unknown");
+
+    expect(tally).toEqual({ passed: 0, failed: 1 });
+    expect(lines.some((l) => l.includes("never reported a test count"))).toBe(true);
+  });
+
+  test("a page that finished every test but never reported still fails the file", () => {
+    const progress = emptyProgress();
+    applyProgress(progress, { kind: "plan", total: 1 });
+    applyProgress(progress, { kind: "start", name: "only" });
+    applyProgress(progress, { kind: "result", name: "only", passed: true });
+
+    const { tally } = summariseTimeout(progress, 1000, "idle");
+
+    expect(tally).toEqual({ passed: 1, failed: 1 });
   });
 });

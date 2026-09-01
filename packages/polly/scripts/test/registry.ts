@@ -209,6 +209,13 @@ export function internalPlan(): TierPlan {
             cwd: `${packageRoot}/tests`,
           },
         },
+        // Drives the runner against pages that stall on purpose, so its
+        // diagnosis and its accounting stay honest (polly#177). Its fixtures
+        // live in a temp dir, never in tests/browser.
+        e2e("browser.runner-stall", "e2e-browser-runner-stall.ts", {
+          needs: ["browser"],
+          tags: ["browser", "runner", "diagnostics"],
+        }),
       ],
     },
     {

@@ -26,10 +26,26 @@
  * ```
  */
 
+import type { ProgressEvent } from "./runner-core.ts";
+
 interface TestResult {
   name: string;
   passed: boolean;
   error?: string;
+}
+
+/**
+ * Push one progress event to the runner, if it is listening.
+ *
+ * The runner binds `window.__pollyProgress` next to `__pollyReport`. Older
+ * runners bind only the latter, so a missing binding is not an error — the
+ * suite just runs silently, as it always did.
+ */
+function reportProgress(event: ProgressEvent): void {
+  const fn = (window as unknown as Record<string, unknown>)["__pollyProgress"];
+  if (typeof fn === "function") {
+    (fn as (e: ProgressEvent) => void)(event);
+  }
 }
 
 const results: TestResult[] = [];
@@ -228,19 +244,29 @@ export function cleanup(container: Element): void {
  * Call this at the end of every .browser.ts test file.
  */
 export async function done(): Promise<void> {
+  // Announce the plan before running anything. A page that stops part-way —
+  // a runaway loop, an unsettled promise — has then already told the runner
+  // how many tests it owed, so the stalled file reports how many never ran
+  // instead of counting as a single failure (polly#177).
+  reportProgress({ kind: "plan", total: suites.reduce((n, s) => n + s.tests.length, 0) });
+
   for (const suite of suites) {
     for (const t of suite.tests) {
       const fullName = `${suite.name} > ${t.name}`;
+      reportProgress({ kind: "start", name: fullName });
+      let result: TestResult;
       try {
         await t.fn();
-        results.push({ name: fullName, passed: true });
+        result = { name: fullName, passed: true };
       } catch (err) {
-        results.push({
+        result = {
           name: fullName,
           passed: false,
           error: err instanceof Error ? err.message : String(err),
-        });
+        };
       }
+      results.push(result);
+      reportProgress({ kind: "result", ...result });
     }
   }
 
