@@ -289,6 +289,14 @@ export function internalPlan(): TierPlan {
           tags: ["gallery", "ui", "visual"],
           cost: "light",
         }),
+        // Measures control geometry in a real engine. Unit tests and pixel
+        // baselines both missed a five-way control-height mismatch — the first
+        // cannot do layout, and the second passed on a page rendering unstyled.
+        e2e("ui.control-metrics", "e2e-ui-control-metrics.ts", {
+          needs: ["browser"],
+          tags: ["gallery", "ui", "css"],
+          cost: "light",
+        }),
       ],
     },
     {
