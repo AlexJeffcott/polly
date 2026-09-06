@@ -1,4 +1,9 @@
+/* All three polly stylesheets, in cascade order: tokens, then the component
+ * rules that read them, then the structural/a11y sheet. components.css was
+ * missing for a long time — without it every primitive rendered as a bare UA
+ * control and the 64 visual baselines were screenshots of an unstyled page. */
 @import "@fairfox/polly/ui/theme.css";
+@import "@fairfox/polly/ui/components.css";
 @import "@fairfox/polly/ui/styles.css";
 
 body {

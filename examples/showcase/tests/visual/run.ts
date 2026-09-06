@@ -36,6 +36,7 @@ assertSafeUpdateMode();
 const here = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(here, "../..");
 const entry = resolve(projectRoot, "src/index.tsx");
+const cssEntry = resolve(projectRoot, "src/showcase.css");
 const htmlPath = resolve(projectRoot, "src/index.html");
 
 const SECTIONS = [
@@ -57,8 +58,12 @@ const SECTIONS = [
   "skeleton",
 ];
 
+// showcase.css is a second entrypoint. index.tsx imports no CSS of its own, so
+// bundling it alone emits zero CSS outputs — which is exactly how the baselines
+// came to be screenshots of an unstyled page. The assertion below
+// makes that state a failure rather than a silent blank.
 const build = await Bun.build({
-  entrypoints: [entry],
+  entrypoints: [entry, cssEntry],
   target: "browser",
   format: "esm",
   minify: false,
@@ -83,7 +88,18 @@ for (const out of build.outputs) {
 }
 
 const entryJsPath = [...jsByPath.keys()].find((p) => p.endsWith("index.js")) ?? "/index.js";
-const entryCssPath = [...cssByPath.keys()][0];
+const entryCssPath = [...cssByPath.keys()].find((p) => p.endsWith("showcase.css"));
+
+// A page with no stylesheet still renders, still screenshots, and still writes
+// a baseline that passes for ever after — so refuse to run at all rather than
+// bake another unstyled baseline.
+if (entryCssPath === undefined) {
+  process.stderr.write(
+    "[visual] no showcase.css in the build output — the page would render unstyled.\n" +
+      `[visual] CSS outputs: ${[...cssByPath.keys()].join(", ") || "(none)"}\n`
+  );
+  process.exit(1);
+}
 
 const baseHtml = readFileSync(htmlPath, "utf8")
   .replace(/\.\/showcase\.css/g, entryCssPath ?? "/showcase.css")
