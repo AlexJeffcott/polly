@@ -5,6 +5,117 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.88.0] - 2026-09-06
+
+### Fixed
+
+#### Controls read the control-height ladder, so a row of them lines up
+
+`--polly-control-height-sm|md|lg` shipped from the first release and nothing
+read it. Height was derived from font size plus padding instead, so controls
+that belong side by side did not match. Measured in Chrome at a 16px root:
+
+| Control | Before | After |
+| --- | --- | --- |
+| `Button` (normal) | 37.19px | 40px |
+| `Button` (small / large) | 26.8 / 47.59px | 32 / 48px |
+| `Button` (circle) | 36px | 40px |
+| `TextInput` | 42px | 40px |
+| `Select` trigger | 40px | 40px |
+| `Dropdown` trigger | 42px | 40px |
+| `FileInput` | 54px | 40px |
+| `Tabs` tab | 35px | 40px |
+| `Checkbox` / `Toggle` row | 25.78px | 40px |
+
+Every control now sets `min-block-size` from the ladder, re-based to
+32/40/48px, and takes its corner from one new `--polly-control-radius`
+(buttons cornered at 4px against the fields' 8px before). Vertical padding is
+zero on single-line controls — the flex box or the native input centres the
+text — so moving a height token moves every control together and never
+re-cuts the text position.
+
+`ConfirmDialog`'s buttons, `Modal`'s close button and `Toast`'s close button
+were hand-rolled with their own metrics; they join the same contract.
+
+A consumer who overrode the old derived heights in app CSS should delete
+those rules and set the tokens instead.
+
+#### `Button` centres its own content
+
+`.btn` was `display: inline-block`, which cannot centre on the block axis and
+cannot space an icon from its label. It is `inline-flex` with a `gap` now. The
+nested `<Layout>` grid that icon buttons used to need is gone: the icon and
+the label are the button's own flex children, in `.icon` and `.label` spans.
+
+Anyone selecting `[data-polly-layout]` inside a Button will no longer find it.
+
+#### `Tabs` no longer spreads across its container
+
+The internal `<Layout>` is 100% wide, so its `repeat(N, auto)` tracks
+stretched and four tabs sat evenly spaced across the whole width. The tracks
+pack to the inline start; the nav still scrolls on overflow.
+
+#### The native checkbox box is 18px, not the UA's 13px
+
+`--polly-checkbox-size` sizes both `Checkbox` and the `Select` option check.
+`Checkbox` and `Toggle` also arrange with `inline-flex` and a `gap` rather
+than two `vertical-align: middle` siblings, so the box and its label stay
+centred on each other at any font size.
+
+#### `color-scheme` is declared, so native controls follow the palette (polly#179)
+
+`polly-ui` shipped a complete dark palette but never declared the CSS
+`color-scheme` property, so the UA kept rendering its own controls light: a
+date picker was a white box with black digits on the `#14171c` surface, and a
+checkbox was a white square. Computed `color-scheme` on the root read
+`normal`.
+
+`theme.css` now declares `color-scheme: light dark` on `:root`, and `light` /
+`dark` under the matching `[data-polly-theme]` selectors, all inside
+`@layer polly-defaults` so a consumer still overrides them. A forced-light
+subtree on a dark page renders its native controls light, and the reverse.
+
+#### The showcase example's visual baselines captured an unstyled page
+
+`examples/showcase/tests/visual/run.ts` bundled `src/index.tsx` alone. That
+file imports no CSS, so the build emitted no CSS output, the `<link>` rewrite
+fell back to a path the test server 404s, and the page rendered with no polly
+stylesheet at all — buttons 21px tall with square corners. All 64 committed
+baselines were screenshots of that page, and had been passing against it.
+
+`showcase.css` is a second build entrypoint now and the runner exits non-zero
+when the build emits no CSS. `showcase.css` also imports
+`@fairfox/polly/ui/components.css`, which it never did: it pulled in the
+tokens and the structural sheet but none of the component rules that read
+them. Baselines regenerated against a styled page.
+
+### Added
+
+#### New theme tokens
+
+| Token | Default | For |
+| --- | --- | --- |
+| `--polly-control-radius` | `var(--polly-radius-md)` | one corner for every control |
+| `--polly-control-padding-sm\|md\|lg` | `var(--polly-space-md\|lg\|xl)` | button inline padding, tracking the height ladder |
+| `--polly-field-padding` | `var(--polly-space-md)` | field inline padding |
+| `--polly-checkbox-size` | `1.125rem` | the native checkbox box |
+
+`--polly-control-height-sm|md|lg` change value: `1.75/2.25/2.75rem` becomes
+`2/2.5/3rem`.
+
+#### `ui.control-metrics` — control geometry measured in a real engine
+
+`scripts/e2e-ui-control-metrics.ts` boots the gallery through
+`serveGallery()`, the path `polly gallery` runs, and asserts each control's
+measured height against its rung, that the default-size controls share one
+height, that they share one corner, and the three `color-scheme` values.
+
+The defect above was invisible to 1913 unit tests, which cannot do layout,
+and to 65 visual baselines, which were passing on an unstyled page. The
+harness is falsified: moving `--polly-control-height-md` or removing
+`Button`'s `min-block-size` each fail with the control name and the pixel
+value.
+
 ## [0.87.0] - 2026-09-01
 
 ### Fixed
