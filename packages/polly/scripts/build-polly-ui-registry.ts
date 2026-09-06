@@ -110,15 +110,33 @@ function parseTokens(themeCss: string): TokenEntry[] {
 }
 
 function parseComponentNames(indexTs: string): string[] {
-  // Match `export { Name } from "./Name.tsx";` or `export { Name, type … }`.
-  // We extract the first identifier in the export brace block.
+  // Read EVERY member of each `export { … } from "./X.tsx";` block, not just
+  // the first. Reading only the first silently lost a component whenever
+  // biome's alphabetical sort put something else at the head of the brace:
+  // `export { type Tab, Tabs, … }` led with the `type` keyword and
+  // `export { getOverlayRootNode, OverlayRoot }` with a lowercase helper, so
+  // Tabs and OverlayRoot were exported and absent from the registry — and the
+  // gallery's coverage gap-check, which reads the registry, could not see that
+  // they had no specimen.
+  //
+  // A member is a component when it is a value export (no `type` prefix)
+  // whose name starts with a capital. That drops the `type Foo` members and
+  // the lowercase helpers (`confirm`, `getOverlayRootNode`) while keeping the
+  // components wherever they sit in the brace.
   const out = new Set<string>();
-  const re = /export\s+\{\s*(\w+)/g;
-  let m: RegExpExecArray | null = re.exec(indexTs);
+  const blockRe = /export\s*\{([^}]*)\}\s*from\s*"\.\/[^"]+"/g;
+  let m: RegExpExecArray | null = blockRe.exec(indexTs);
   while (m !== null) {
-    const name = m[1];
-    if (name && /^[A-Z]/.test(name)) out.add(name);
-    m = re.exec(indexTs);
+    for (const member of (m[1] ?? "").split(",")) {
+      const token = member.trim();
+      if (token.length === 0) continue;
+      if (/^type\s/.test(token)) continue;
+      // `X as Y` re-exports under Y, which is the name a consumer imports.
+      const parts = token.split(/\s+as\s+/);
+      const name = (parts[parts.length - 1] ?? "").trim();
+      if (/^[A-Z]\w*$/.test(name)) out.add(name);
+    }
+    m = blockRe.exec(indexTs);
   }
   return [...out].sort();
 }

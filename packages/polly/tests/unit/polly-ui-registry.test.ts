@@ -1,7 +1,59 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { pollyUiComponents, pollyUiTokens } from "../../src/polly-ui/registry";
 
+const INDEX_PATH = join(import.meta.dir, "../../src/polly-ui/index.ts");
+
+/**
+ * The components `index.ts` actually exports: every member of an
+ * `export { … } from "./X.tsx"` block that is a value (no `type` prefix) and
+ * starts with a capital. Read here from the source of truth rather than from
+ * the generator, so the two can disagree and this test can say so.
+ */
+function exportedComponentNames(): string[] {
+  const source = readFileSync(INDEX_PATH, "utf8");
+  const names = new Set<string>();
+  for (const block of source.matchAll(/export\s*\{([^}]*)\}\s*from\s*"\.\/[^"]+"/g)) {
+    for (const member of (block[1] ?? "").split(",")) {
+      const token = member.trim();
+      if (token.length === 0 || /^type\s/.test(token)) continue;
+      const parts = token.split(/\s+as\s+/);
+      const name = (parts[parts.length - 1] ?? "").trim();
+      if (/^[A-Z]\w*$/.test(name)) names.add(name);
+    }
+  }
+  return [...names].sort();
+}
+
 describe("polly-ui registry", () => {
+  // The generator used to read only the FIRST member of each export brace, so
+  // biome's alphabetical sort silently cost it any component whose brace led
+  // with a `type` keyword (`export { type Tab, Tabs, … }`) or a lowercase
+  // helper (`export { getOverlayRootNode, OverlayRoot }`). Tabs and OverlayRoot
+  // were missing from the registry for the life of the library and no test
+  // said so, because every test asked the registry about itself. This one asks
+  // index.ts.
+  test("the registry covers every component index.ts exports", () => {
+    const exported = exportedComponentNames();
+    const registered = pollyUiComponents.map((c) => c.name).sort();
+    expect(exported.length).toBeGreaterThan(0);
+    expect(registered).toEqual(exported);
+  });
+
+  test("the registry lists no component index.ts does not export", () => {
+    const exported = new Set(exportedComponentNames());
+    const strays = pollyUiComponents.map((c) => c.name).filter((n) => !exported.has(n));
+    expect(strays).toEqual([]);
+  });
+
+  test("lowercase helper exports are not components", () => {
+    const names = new Set(pollyUiComponents.map((c) => c.name));
+    // Both are real exports of index.ts and neither is a component.
+    expect(names.has("confirm")).toBe(false);
+    expect(names.has("getOverlayRootNode")).toBe(false);
+  });
+
   test("exposes the expected core token categories", () => {
     const categories = new Set<string>(pollyUiTokens.map((t) => t.category));
     for (const expected of ["color", "spacing", "radius", "sizing"]) {

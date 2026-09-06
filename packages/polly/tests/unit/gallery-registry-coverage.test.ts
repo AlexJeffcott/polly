@@ -42,11 +42,15 @@ describe("gallery registry coverage", () => {
     expect(() => assertGalleryCoverage()).not.toThrow();
   });
 
-  test("extra sections are only known non-registry exports (Tabs, OverlayRoot)", () => {
-    // Tabs and OverlayRoot are real polly-ui exports the registry omits; the
-    // gallery still covers them. Anything else here is likely a typo'd
-    // `component` field that should have matched a registry name.
-    expect([...checkGalleryCoverage().extra].sort()).toEqual(["OverlayRoot", "Tabs"]);
+  test("no section covers something outside the registry", () => {
+    // `extra` used to be allowed to hold Tabs and OverlayRoot: both were real
+    // polly-ui exports that the registry generator dropped, because it read
+    // only the first member of each export brace and biome's sort put a `type`
+    // keyword and a lowercase helper at the head of theirs. The generator reads
+    // every member now, so the registry covers every exported component and
+    // this set is empty. An entry here is a `component` field that matches no
+    // registry name — a typo, or a component the generator has lost again.
+    expect([...checkGalleryCoverage().extra].sort()).toEqual([]);
   });
 
   test("a missing section IS reported (the gate has teeth)", () => {

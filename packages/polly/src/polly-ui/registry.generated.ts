@@ -545,6 +545,11 @@ export const pollyUiComponents: readonly PollyUiComponent[] = [
     importPath: "@fairfox/polly/ui",
   },
   {
+    name: "OverlayRoot",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
     name: "Select",
     replaces: ["select"],
     importPath: "@fairfox/polly/ui",
@@ -556,6 +561,11 @@ export const pollyUiComponents: readonly PollyUiComponent[] = [
   },
   {
     name: "Surface",
+    replaces: [],
+    importPath: "@fairfox/polly/ui",
+  },
+  {
+    name: "Tabs",
     replaces: [],
     importPath: "@fairfox/polly/ui",
   },
