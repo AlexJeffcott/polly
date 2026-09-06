@@ -1,14 +1,21 @@
 @layer polly-components {
+  /* Height comes from --polly-control-height-md, not from vertical
+   * padding, so a field is exactly as tall as a Button or a Select in the
+   * same row. A single-line <input> centres its own value in
+   * whatever box it is given, so padding-block: 0 costs nothing; the
+   * multi-line variant below restores its padding. */
   .input {
     inline-size: 100%;
     box-sizing: border-box;
-    padding: var(--polly-space-sm) var(--polly-space-md);
+    min-block-size: var(--polly-control-height-md);
+    padding-block: 0;
+    padding-inline: var(--polly-field-padding);
     font: inherit;
     font-family: var(--polly-font-sans);
     color: var(--polly-text);
     background: var(--polly-surface);
     border: var(--polly-border-width-default) solid var(--polly-border);
-    border-radius: var(--polly-radius-md);
+    border-radius: var(--polly-control-radius);
     transition: border-color var(--polly-motion-fast) ease,
       background var(--polly-motion-fast) ease;
   }
@@ -26,11 +33,17 @@
     cursor: not-allowed;
   }
 
+  /* A textarea does not centre its own text, so the multi-line variant
+   * takes its padding back and grows from its content. The padding is
+   * derived rather than a token so a one-row textarea is exactly as tall
+   * as a single-line field beside it: half of whatever the control height
+   * has left after one line of text and the two borders. */
   .input[data-polly-input-variant="multi"] {
     field-sizing: content;
-    min-block-size: calc(
-      1.5em + 2 * var(--polly-space-sm) + 2 * var(--polly-border-width-default)
+    padding-block: calc(
+      (var(--polly-control-height-md) - 1.5em - 2 * var(--polly-border-width-default)) / 2
     );
+    min-block-size: var(--polly-control-height-md);
     max-block-size: 40em;
     resize: vertical;
   }

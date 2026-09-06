@@ -4,8 +4,12 @@
  * Renders as a <button> by default; switches to an <a> when given an
  * `href`. Tier sets visual importance (primary/secondary/tertiary),
  * color overlays semantic meaning (info/success/warning/danger),
- * size picks the padding + font scale (small/normal/large). Icon +
- * label are arranged with a nested inline <Layout>.
+ * size picks the height + padding + font scale (small/normal/large).
+ * The button is a flex container, so an icon and a label are its own
+ * children with a `gap` between them.
+ *
+ * Height comes from --polly-control-height-*, never from padding, so a
+ * Button is exactly as tall as a TextInput or a Select in the same row.
  *
  * A text `label` is the accessible name. An icon-only button (icon, no
  * label) has none, so the type REQUIRES `aria-label` there — an unnamed
@@ -23,7 +27,6 @@
 
 import type { ComponentChildren, JSX, VNode } from "preact";
 import classes from "./Button.module.css";
-import { Layout } from "./Layout.tsx";
 
 export type ButtonTier = "primary" | "secondary" | "tertiary";
 export type ButtonColor = "default" | "info" | "success" | "warning" | "danger";
@@ -142,13 +145,16 @@ export function Button(props: ButtonProps): JSX.Element {
   if (className) parts.push(className);
   const buttonClass = parts.filter(Boolean).join(" ");
 
-  const content = icon ? (
-    <Layout inline columns="auto auto" gap="0.5em" alignItems="center">
-      {icon}
-      {label !== undefined && <span>{label}</span>}
-    </Layout>
-  ) : (
-    label
+  // The button is a flex container, so the icon and the label
+  // are its direct children with a real `gap` between them. No nested
+  // Layout: the arrangement the grid used to provide is now the button's
+  // own, which is also what makes an icon button the same height as a
+  // plain one.
+  const content = (
+    <>
+      {icon !== undefined && <span class={classes["icon"]}>{icon}</span>}
+      {label !== undefined && <span class={classes["label"]}>{label}</span>}
+    </>
   );
 
   const dataAction = props["data-action"];

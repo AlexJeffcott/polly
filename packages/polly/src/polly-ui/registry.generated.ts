@@ -86,19 +86,24 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     default: "var(--polly-text-xl)",
   },
   {
+    name: "polly-checkbox-size",
+    category: "sizing",
+    default: "1.125rem",
+  },
+  {
     name: "polly-control-height-lg",
     category: "sizing",
-    default: "2.75rem",
+    default: "3rem",
   },
   {
     name: "polly-control-height-md",
     category: "sizing",
-    default: "2.25rem",
+    default: "2.5rem",
   },
   {
     name: "polly-control-height-sm",
     category: "sizing",
-    default: "1.75rem",
+    default: "2rem",
   },
   {
     name: "polly-control-max-width",
@@ -121,6 +126,26 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     default: "6rem",
   },
   {
+    name: "polly-control-padding-lg",
+    category: "spacing",
+    default: "var(--polly-space-xl)",
+  },
+  {
+    name: "polly-control-padding-md",
+    category: "spacing",
+    default: "var(--polly-space-lg)",
+  },
+  {
+    name: "polly-control-padding-sm",
+    category: "spacing",
+    default: "var(--polly-space-md)",
+  },
+  {
+    name: "polly-control-radius",
+    category: "radius",
+    default: "var(--polly-radius-md)",
+  },
+  {
     name: "polly-danger",
     category: "color",
     default: "#b3261e",
@@ -129,6 +154,11 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     name: "polly-danger-contrast",
     category: "color",
     default: "#ffffff",
+  },
+  {
+    name: "polly-field-padding",
+    category: "spacing",
+    default: "var(--polly-space-md)",
   },
   {
     name: "polly-focus-ring",

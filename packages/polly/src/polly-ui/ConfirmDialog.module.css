@@ -9,15 +9,24 @@
     justify-content: end;
   }
 
+  /* These are buttons, so they take the same metrics as <Button>: the
+   * control height, the control corner, and flex centring.
+   * They stay hand-rolled rather than composing Button because the dialog
+   * owns their focus order and its own action wiring. */
   .cancel,
   .confirm,
   .confirmDanger {
     appearance: none;
-    padding: var(--polly-space-sm) var(--polly-space-lg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--polly-control-height-md);
+    padding-block: 0;
+    padding-inline: var(--polly-control-padding-md);
     font: inherit;
     font-weight: var(--polly-weight-medium);
     border: var(--polly-border-width-default) solid var(--polly-border);
-    border-radius: var(--polly-radius-md);
+    border-radius: var(--polly-control-radius);
     cursor: pointer;
     transition: background var(--polly-motion-fast) ease;
   }

@@ -1,13 +1,28 @@
 @layer polly-components {
+  /*
+   * inline-flex, not inline-block: the button centres its own content on
+   * both axes, so an icon sits beside its label with a real `gap` and the
+   * component needs no nested grid to arrange them.
+   *
+   * Height comes from --polly-control-height-*, not from padding plus
+   * line-height. That is what makes a Button the same height as a
+   * TextInput, a Select trigger and a FileInput in the same row; the
+   * old derived height was 37.19px against their 40-54px.
+   */
   .btn {
-    display: inline-block;
-    padding: var(--polly-space-sm) var(--polly-space-lg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--polly-space-sm);
+    min-block-size: var(--polly-control-height-md);
+    padding-block: 0;
+    padding-inline: var(--polly-control-padding-md);
     border: var(--polly-border-width-default) solid transparent;
-    border-radius: var(--polly-radius-sm);
+    border-radius: var(--polly-control-radius);
     font-family: inherit;
     font-size: var(--polly-text-md);
     font-weight: var(--polly-weight-medium);
-    line-height: 1.2;
+    line-height: var(--polly-line-height-tight);
     text-align: center;
     text-decoration: none;
     cursor: pointer;
@@ -102,23 +117,35 @@
     color: var(--btn-accent);
   }
 
-  /* Sizes. */
+  /* Sizes — each step moves the height token and the inline padding
+   * together, so the three sizes stay in proportion and each one still
+   * matches a same-size field. */
   .btnSmall {
-    padding: var(--polly-space-xs) var(--polly-space-md);
+    min-block-size: var(--polly-control-height-sm);
+    padding-inline: var(--polly-control-padding-sm);
     font-size: var(--polly-text-sm);
   }
 
   .btnLarge {
-    padding: var(--polly-space-md) var(--polly-space-xl);
+    min-block-size: var(--polly-control-height-lg);
+    padding-inline: var(--polly-control-padding-lg);
     font-size: var(--polly-text-lg);
   }
 
   /* Modifiers. */
   .btnCircle {
     border-radius: var(--polly-radius-full);
-    padding: 0;
+    padding-inline: 0;
     aspect-ratio: 1;
-    width: var(--polly-control-height-md);
+    inline-size: var(--polly-control-height-md);
+  }
+
+  .btnSmall.btnCircle {
+    inline-size: var(--polly-control-height-sm);
+  }
+
+  .btnLarge.btnCircle {
+    inline-size: var(--polly-control-height-lg);
   }
 
   .btnFullWidth {
@@ -131,6 +158,25 @@
    * existing layouts untouched. */
   .btnBounded {
     max-width: var(--polly-control-max-width);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Icon and label are flex siblings. The icon keeps its intrinsic size;
+   * the label is the part that shrinks, so a bounded button truncates its
+   * text and never its icon. */
+  .icon {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .label {
+    min-inline-size: 0;
+  }
+
+  .btnBounded .label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

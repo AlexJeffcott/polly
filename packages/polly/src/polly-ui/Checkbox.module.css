@@ -1,6 +1,13 @@
 @layer polly-components {
+  /* inline-flex with a gap, not two vertical-align: middle siblings: the
+   * box and its label stay centred on each other at any font size, and the
+   * row is as tall as every other control. */
   .checkbox {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--polly-space-sm);
+    box-sizing: border-box;
+    min-block-size: var(--polly-control-height-md);
     cursor: pointer;
     font-family: inherit;
     font-size: var(--polly-text-md);
@@ -13,15 +20,18 @@
     cursor: not-allowed;
   }
 
+  /* The UA draws a 13x13 box by default, which is small beside 16px text
+   * and beside polly's other controls. --polly-checkbox-size sets it. */
   .input {
+    flex: none;
     accent-color: var(--polly-accent);
+    inline-size: var(--polly-checkbox-size);
+    block-size: var(--polly-checkbox-size);
     margin: 0;
-    vertical-align: middle;
     cursor: inherit;
   }
 
   .label {
-    margin-inline-start: var(--polly-space-sm);
-    vertical-align: middle;
+    min-inline-size: 0;
   }
 }

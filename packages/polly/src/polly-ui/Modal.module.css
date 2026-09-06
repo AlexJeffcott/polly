@@ -50,11 +50,16 @@
 
   .close {
     appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--polly-control-height-md);
     background: transparent;
     color: var(--polly-text);
     border: var(--polly-border-width-default) solid transparent;
-    border-radius: var(--polly-radius-md);
-    padding: var(--polly-space-sm) var(--polly-space-md);
+    border-radius: var(--polly-control-radius);
+    padding-block: 0;
+    padding-inline: var(--polly-field-padding);
     font: inherit;
     cursor: pointer;
     transition: background var(--polly-motion-fast) ease,

@@ -75,9 +75,12 @@ body {
   display: inline-flex;
   gap: var(--polly-space-sm);
   align-items: center;
-  padding: var(--polly-space-sm) var(--polly-space-md);
+  box-sizing: border-box;
+  min-block-size: var(--polly-control-height-md);
+  padding-block: 0;
+  padding-inline: var(--polly-field-padding);
   border: var(--polly-border-width-default) solid var(--polly-border);
-  border-radius: var(--polly-radius-sm);
+  border-radius: var(--polly-control-radius);
   background-color: var(--polly-surface);
   color: var(--polly-text);
   font: inherit;

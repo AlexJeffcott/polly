@@ -31,11 +31,16 @@
 
   .close {
     appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--polly-control-height-sm);
     background: transparent;
     color: inherit;
     border: var(--polly-border-width-default) solid transparent;
-    border-radius: var(--polly-radius-sm);
-    padding: var(--polly-space-xs) var(--polly-space-sm);
+    border-radius: var(--polly-control-radius);
+    padding-block: 0;
+    padding-inline: var(--polly-space-sm);
     font: inherit;
     cursor: pointer;
   }

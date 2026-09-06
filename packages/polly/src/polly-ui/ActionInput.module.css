@@ -1,20 +1,26 @@
 @layer polly-components {
+  /* View and edit modes share one box so the field does not jump when it
+   * is clicked. Height is the control token, matching every other control
+   * in the row. */
   .root {
     inline-size: 100%;
     box-sizing: border-box;
-    padding: var(--polly-space-sm) var(--polly-space-md);
+    min-block-size: var(--polly-control-height-md);
+    padding-block: 0;
+    padding-inline: var(--polly-field-padding);
     font: inherit;
     font-family: var(--polly-font-sans);
     color: var(--polly-text);
     line-height: var(--polly-line-height-base);
     border: var(--polly-border-width-default) solid transparent;
-    border-radius: var(--polly-radius-md);
-    min-block-size: calc(
-      1.5em + 2 * var(--polly-space-sm) + 2 * var(--polly-border-width-default)
-    );
+    border-radius: var(--polly-control-radius);
   }
 
+  /* The view mode is a <div>, which does not centre its own text the way
+   * a native input does — flex does it instead. */
   .view {
+    display: flex; /* layout-ignore */
+    align-items: center;
     cursor: text;
     background: transparent;
     white-space: pre-wrap;
@@ -37,8 +43,14 @@
     font-style: italic;
   }
 
+  /* Same derivation as TextInput's multi variant: a one-row ActionInput
+   * matches a single-line control, then grows with its content. */
   .root[data-variant="multi"] {
+    display: block;
     field-sizing: content;
+    padding-block: calc(
+      (var(--polly-control-height-md) - 1.5em - 2 * var(--polly-border-width-default)) / 2
+    );
     max-block-size: 40em;
     resize: vertical;
   }

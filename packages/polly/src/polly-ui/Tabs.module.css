@@ -10,8 +10,12 @@
   }
 
   .tab {
-    display: inline-block;
-    padding: var(--polly-space-sm) var(--polly-space-lg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--polly-control-height-md);
+    padding-block: 0;
+    padding-inline: var(--polly-control-padding-md);
     border: none;
     border-bottom: var(--polly-border-width-medium) solid transparent;
     background: none;

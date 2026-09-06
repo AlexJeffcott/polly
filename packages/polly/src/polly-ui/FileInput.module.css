@@ -3,10 +3,12 @@
     display: inline-flex;
     align-items: center;
     gap: var(--polly-space-sm);
+    box-sizing: border-box;
     min-block-size: var(--polly-control-height-md);
-    padding: var(--polly-space-sm) var(--polly-space-md);
+    padding-block: 0;
+    padding-inline: var(--polly-control-padding-md);
     border: var(--polly-border-width-default) solid var(--polly-border);
-    border-radius: var(--polly-radius-sm);
+    border-radius: var(--polly-control-radius);
     background-color: var(--polly-surface);
     font-family: inherit;
     font-size: var(--polly-text-md);

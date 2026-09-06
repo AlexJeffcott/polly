@@ -59,6 +59,11 @@ type ComponentEntry = {
 };
 
 const CATEGORY_RULES: Array<{ match: RegExp; category: TokenCategory }> = [
+  // Rules are tried in order, so the compound control-* names come before the
+  // broader prefixes they would otherwise fall through: control-radius is a
+  // radius, control-padding and field-padding are spacing.
+  { match: /^control-radius/, category: "radius" },
+  { match: /^control-padding|^field-padding/, category: "spacing" },
   { match: /^space-/, category: "spacing" },
   { match: /^radius/, category: "radius" },
   { match: /^font|typography|line-height|letter-spacing/, category: "typography" },

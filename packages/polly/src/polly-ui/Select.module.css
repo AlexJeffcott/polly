@@ -22,10 +22,12 @@
     display: inline-flex;
     align-items: center;
     gap: var(--polly-space-sm);
+    min-block-size: var(--polly-control-height-md);
     max-width: min(100%, var(--polly-control-max-width));
-    padding: var(--polly-space-sm) var(--polly-space-md);
+    padding-block: 0;
+    padding-inline: var(--polly-field-padding);
     border: var(--polly-border-width-default) solid var(--polly-border);
-    border-radius: var(--polly-radius-sm);
+    border-radius: var(--polly-control-radius);
     background-color: var(--polly-surface);
     font-family: inherit;
     font-size: var(--polly-text-md);
@@ -85,7 +87,7 @@
   }
 
   .actionBtn {
-    display: inline-block;
+    display: block;
     width: 100%;
     padding: var(--polly-space-xs) var(--polly-space-sm);
     border: none;
@@ -128,6 +130,8 @@
 
   .optionCheck {
     accent-color: var(--polly-accent);
+    inline-size: var(--polly-checkbox-size);
+    block-size: var(--polly-checkbox-size);
     margin-inline-end: var(--polly-space-sm);
     vertical-align: middle;
     pointer-events: none;

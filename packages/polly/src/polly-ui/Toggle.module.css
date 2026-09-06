@@ -1,12 +1,15 @@
 @layer polly-components {
   .toggle {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--polly-space-sm);
+    box-sizing: border-box;
+    min-block-size: var(--polly-control-height-md);
     cursor: pointer;
     font-family: inherit;
     font-size: var(--polly-text-md);
     color: var(--polly-text);
     user-select: none;
-    vertical-align: middle;
   }
 
   .disabled {
@@ -27,13 +30,13 @@
   }
 
   .track {
-    display: inline-block;
+    display: block;
+    flex: none;
     position: relative;
     width: 36px;
     height: 20px;
     border-radius: var(--polly-radius-full);
     background-color: var(--polly-border);
-    vertical-align: middle;
     transition: background-color var(--polly-motion-fast);
   }
 
@@ -81,7 +84,6 @@
   }
 
   .label {
-    margin-inline-start: var(--polly-space-sm);
-    vertical-align: middle;
+    min-inline-size: 0;
   }
 }

@@ -5,7 +5,9 @@
  * and `data-action-id={tab.id}` so the event delegator resolves the
  * activated tab. The active tab gets `aria-current="page"` and a
  * bottom-border accent. The nav scrolls horizontally with a hidden
- * scrollbar for overflow. Internal arrangement uses <Layout>.
+ * scrollbar for overflow. Internal arrangement uses <Layout>, packed to
+ * the inline start: the grid is 100% wide, so without justifyContent the
+ * `auto` tracks stretch and four tabs spread across the whole container.
  */
 
 import type { JSX } from "preact";
@@ -35,7 +37,12 @@ export function Tabs(props: TabsProps): JSX.Element {
       data-polly-ui
       data-polly-tabs
     >
-      <Layout columns={`repeat(${tabs.length}, auto)`} gap="0" alignItems="end">
+      <Layout
+        columns={`repeat(${tabs.length}, auto)`}
+        gap="0"
+        alignItems="end"
+        justifyContent="start"
+      >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const tabClass = isActive ? `${classes["tab"]} ${classes["active"]}` : classes["tab"];

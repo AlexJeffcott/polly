@@ -14,6 +14,13 @@
 
 @layer polly-defaults {
   :root {
+    /* Tell the UA which schemes the page supports, so native controls —
+     * date and time pickers, the checkbox box, scrollbars, autofill —
+     * follow the palette instead of staying light on a dark page
+     * (polly#179). The media query below asks what the user prefers;
+     * this property answers what the page can render. */
+    color-scheme: light dark;
+
     /* Surfaces */
     --polly-surface: #ffffff;
     --polly-surface-raised: #ffffff;
@@ -75,10 +82,39 @@
     --polly-measure-prose: 68ch;
     --polly-measure-page: 1040px;
 
-    /* Control heights — used by Button, Input, Select. */
-    --polly-control-height-sm: 1.75rem;
-    --polly-control-height-md: 2.25rem;
-    --polly-control-height-lg: 2.75rem;
+    /* Control heights — the single source of truth for how tall an
+     * interactive control is. Button, TextInput, ActionInput, Select,
+     * FileInput, Dropdown, Checkbox, Toggle and Tabs all set
+     * `min-block-size` from this ladder, so a row of mixed controls
+     * lines up without the consumer measuring anything. The ladder used to
+     * exist without anything reading it, and the same row held five different
+     * heights (37.19 / 40 / 42 / 42 / 54 px).
+     *
+     * Control text is centred by the flex/native box rather than by
+     * vertical padding, so changing a height here moves every control
+     * together and never re-cuts the text position. */
+    --polly-control-height-sm: 2rem;
+    --polly-control-height-md: 2.5rem;
+    --polly-control-height-lg: 3rem;
+
+    /* Control corner — one radius for every control, so a Button beside
+     * a TextInput has the same corner. Containers (Collapsible, the
+     * Dropdown menu, Output, a code block) keep --polly-radius-md
+     * independently; this token exists so a consumer can re-cut control
+     * corners without touching container corners. */
+    --polly-control-radius: var(--polly-radius-md);
+
+    /* Control inline padding — buttons carry more air than fields, and
+     * the ladder tracks the height ladder. */
+    --polly-control-padding-sm: var(--polly-space-md);
+    --polly-control-padding-md: var(--polly-space-lg);
+    --polly-control-padding-lg: var(--polly-space-xl);
+    --polly-field-padding: var(--polly-space-md);
+
+    /* Native checkbox box. The UA default is 13x13, which reads small
+     * beside 16px text; Checkbox and the Select option check both size
+     * from this. */
+    --polly-checkbox-size: 1.125rem;
 
     /* Control widths — caps and floors for Button, Select, Dropdown
      * triggers so semi-dynamic labels (multi-select joins, user-
@@ -194,6 +230,7 @@
 
   /* Explicit mode override — wins over prefers-color-scheme. */
   [data-polly-theme="light"] {
+    color-scheme: light;
     --polly-surface: #ffffff;
     --polly-surface-raised: #ffffff;
     --polly-surface-sunken: #f4f5f7;
@@ -225,6 +262,7 @@
   }
 
   [data-polly-theme="dark"] {
+    color-scheme: dark;
     --polly-surface: #14171c;
     --polly-surface-raised: #1c2027;
     --polly-surface-sunken: #0f1216;

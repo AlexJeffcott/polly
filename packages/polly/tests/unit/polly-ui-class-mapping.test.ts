@@ -139,16 +139,25 @@ describe("Button — boolean modifier classes", () => {
 });
 
 describe("Button — content", () => {
-  test("with an icon, label sits next to it inside a Layout", () => {
+  // The button is its own flex container, so an icon and a
+  // label are its direct children. A nested <Layout> here would mean the
+  // arrangement had moved back off the button and the two would no longer
+  // share one baseline.
+  test("with an icon, icon and label are flex siblings inside the button", () => {
     const icon = h("svg", { "data-icon": "true" }) as unknown as VNode;
     const el = rendered(mount(h(Button, { icon, label: "Save" })));
-    expect(el.querySelector("[data-polly-layout]")).not.toBeNull();
+    expect(el.querySelector("[data-polly-layout]")).toBeNull();
     expect(el.querySelector("[data-icon]")).not.toBeNull();
-    expect(el.querySelector("span")?.textContent).toBe("Save");
+    const spans = Array.from(el.querySelectorAll("span"));
+    expect(spans.length).toBe(2);
+    expect(spans[1]?.textContent).toBe("Save");
+    // Both are children of the button itself, not of a wrapper.
+    for (const span of spans) expect(span.parentElement).toBe(el);
   });
-  test("without an icon, the label is rendered directly with no Layout", () => {
+  test("without an icon, the label is the button's only child", () => {
     const el = rendered(mount(h(Button, { label: "Save" })));
     expect(el.querySelector("[data-polly-layout]")).toBeNull();
+    expect(el.querySelectorAll("span").length).toBe(1);
     expect(el.textContent).toBe("Save");
   });
 });
