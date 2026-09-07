@@ -166,6 +166,7 @@ const variantDefaults: Record<SurfaceVariant, VariantDefaults> = {
     border: "default",
   },
   bubble: {
+    background: "var(--polly-surface-bubble)",
     radius: "md",
     border: "default",
     padding: "var(--polly-space-sm) var(--polly-space-md)",

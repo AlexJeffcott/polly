@@ -152,6 +152,40 @@
     width: 100%;
   }
 
+  /* Opt-in: pull the button's box out by its own inline padding so the LABEL
+   * lands on the text edge, not the box edge. A button aligns its box to the
+   * grid by default, which is right where a border draws that box — but a
+   * tertiary button has no border, so its inline padding is invisible and the
+   * label reads as indented against body text beside it. Measured in a gallery
+   * card: caption text at 13px from the card edge, button box also at 13px,
+   * button label at 30px.
+   *
+   * The padding stays, so the hit target keeps its size; only the box's
+   * position in the layout moves. Inline axis only: the block padding is
+   * already zero and the height token is what gives the target its room. */
+  .btnFlush {
+    margin-inline: calc(
+      -1 * (var(--polly-control-padding-md) + var(--polly-border-width-default))
+    );
+  }
+
+  .btnSmall.btnFlush {
+    margin-inline: calc(
+      -1 * (var(--polly-control-padding-sm) + var(--polly-border-width-default))
+    );
+  }
+
+  .btnLarge.btnFlush {
+    margin-inline: calc(
+      -1 * (var(--polly-control-padding-lg) + var(--polly-border-width-default))
+    );
+  }
+
+  /* A circle button has no inline padding to pull back. */
+  .btnCircle.btnFlush {
+    margin-inline: 0;
+  }
+
   /* Opt-in: cap the button width and ellipsis-truncate the label.
    * For buttons whose label is user-supplied or otherwise unbounded.
    * Static-label buttons rarely need this — leaving it opt-in keeps

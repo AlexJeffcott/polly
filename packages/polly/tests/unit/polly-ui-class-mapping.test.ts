@@ -126,10 +126,14 @@ describe("Button — boolean modifier classes", () => {
     expect(classList(rendered(mount(h(Button, { bounded: true, label: "x" }))))).toContain(
       "btnBounded"
     );
+    expect(classList(rendered(mount(h(Button, { flush: true, label: "x" }))))).toContain(
+      "btnFlush"
+    );
     const plain = classList(rendered(mount(h(Button, { label: "x" }))));
     expect(plain).not.toContain("btnCircle");
     expect(plain).not.toContain("btnFullWidth");
     expect(plain).not.toContain("btnBounded");
+    expect(plain).not.toContain("btnFlush");
   });
   test("className appends", () => {
     expect(classList(rendered(mount(h(Button, { className: "mine", label: "x" }))))).toContain(

@@ -352,6 +352,11 @@ export const pollyUiTokens: readonly PollyUiToken[] = [
     default: "#ffffff",
   },
   {
+    name: "polly-surface-bubble",
+    category: "color",
+    default: "color-mix(in srgb, var(--polly-accent) 10%, var(--polly-surface))",
+  },
+  {
     name: "polly-surface-raised",
     category: "color",
     default: "#ffffff",

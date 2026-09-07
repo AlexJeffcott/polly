@@ -44,6 +44,13 @@ type BaseButtonProps = {
    * truncate the label. Use for user-supplied or otherwise unbounded
    * labels so a long string doesn't blow out the row. */
   bounded?: boolean;
+  /** Pull the box out by its own inline padding so the LABEL sits on the
+   * text edge rather than the box edge. For a `tertiary` button in a text
+   * column, where the invisible padding otherwise reads as an indent
+   * against the copy beside it. A bordered button should keep its default
+   * box alignment — the border is what makes that edge legible. The hit
+   * target is unchanged; only the box's position in the layout moves. */
+  flush?: boolean;
   className?: string;
   title?: string;
   "data-action"?: string;
@@ -126,6 +133,7 @@ export function Button(props: ButtonProps): JSX.Element {
     fullWidth = false,
     circle = false,
     bounded = false,
+    flush = false,
     className,
     title,
     icon,
@@ -142,6 +150,7 @@ export function Button(props: ButtonProps): JSX.Element {
   if (circle) parts.push(classes["btnCircle"] ?? "");
   if (fullWidth) parts.push(classes["btnFullWidth"] ?? "");
   if (bounded) parts.push(classes["btnBounded"] ?? "");
+  if (flush) parts.push(classes["btnFlush"] ?? "");
   if (className) parts.push(className);
   const buttonClass = parts.filter(Boolean).join(" ");
 

@@ -156,6 +156,22 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
         <Specimen caption="fullWidth" wide>
           <Button fullWidth tier="primary" label="Full-width button" />
         </Specimen>
+        {/* The two rows share a left edge, so the offset is the whole point:
+            the default button aligns its BOX to that edge and its label sits
+            an inline-padding further in; the flush one puts the LABEL there. */}
+        <Specimen caption="flush — label on the text edge, for a tertiary button beside copy" wide>
+          <Layout gap="var(--polly-space-xs)">
+            <Text size="sm" tone="muted">
+              A line of body copy for the left edge.
+            </Text>
+            <Cluster>
+              <Button tier="tertiary" label="Default — box aligns" />
+            </Cluster>
+            <Cluster>
+              <Button tier="tertiary" flush label="Flush — label aligns" />
+            </Cluster>
+          </Layout>
+        </Specimen>
       </>
     ),
   },
@@ -264,6 +280,10 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
             Positional variants are previewed in context, not in a grid cell.
           </Text>
         </Specimen>
+        {/* Equal square boxes. The label used to size each one, so the ladder
+            was compared across five different widths (46/35/36/28/35 px) and
+            `full` rendered as a stadium taller than it was wide rather than a
+            circle. A square box makes 9999px read as the circle it is. */}
         <Specimen caption="radius: none / sm / md / lg / full">
           {(["none", "sm", "md", "lg", "full"] as const).map((r) => (
             <Surface
@@ -271,9 +291,12 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
               variant="raised"
               border="default"
               radius={r}
-              padding="var(--polly-space-sm)"
+              width="56px"
+              height="56px"
             >
-              <Text size="xs">{r}</Text>
+              <Layout height="100%" alignItems="center" justifyItems="center">
+                <Text size="xs">{r}</Text>
+              </Layout>
             </Surface>
           ))}
         </Specimen>
@@ -284,18 +307,22 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
             </Surface>
           ))}
         </Specimen>
+        {/* On the sunken card every specimen sits on, a soft shadow lands grey
+            on grey and none of the three steps read. They are cast on a plain
+            surface here, and each box is square and equal so the only thing
+            that differs between them is the shadow. */}
         <Specimen caption="shadow: sm / md / lg">
-          {(["sm", "md", "lg"] as const).map((s) => (
-            <Surface
-              key={s}
-              variant="raised"
-              shadow={s}
-              radius="md"
-              padding="var(--polly-space-sm)"
-            >
-              <Text size="xs">{s}</Text>
-            </Surface>
-          ))}
+          <Surface background="var(--polly-surface)" radius="md" padding="var(--polly-space-lg)">
+            <Cluster gap="var(--polly-space-xl)">
+              {(["sm", "md", "lg"] as const).map((s) => (
+                <Surface key={s} variant="raised" shadow={s} radius="md" width="56px" height="56px">
+                  <Layout height="100%" alignItems="center" justifyItems="center">
+                    <Text size="xs">{s}</Text>
+                  </Layout>
+                </Surface>
+              ))}
+            </Cluster>
+          </Surface>
         </Specimen>
       </>
     ),

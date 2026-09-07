@@ -25,6 +25,13 @@
     --polly-surface: #ffffff;
     --polly-surface-raised: #ffffff;
     --polly-surface-sunken: #f4f5f7;
+    /* The chat-bubble fill. Declared in every palette block, not once on
+     * :root: a custom property resolves its own var() references on the
+     * element that declares it, so a single :root declaration would freeze the
+     * light accent and a [data-polly-theme="dark"] subtree would inherit the
+     * pale light mix. Measured before the fix: a forced-dark bubble kept the
+     * light fill and body text on it read 1.02:1. */
+    --polly-surface-bubble: color-mix(in srgb, var(--polly-accent) 10%, var(--polly-surface));
 
     /* Borders */
     --polly-border: #d9dbe0;
@@ -193,6 +200,7 @@
       --polly-surface: #14171c;
       --polly-surface-raised: #1c2027;
       --polly-surface-sunken: #0f1216;
+      --polly-surface-bubble: color-mix(in srgb, var(--polly-accent) 10%, var(--polly-surface));
 
       --polly-border: #30353d;
       --polly-border-strong: #5a6069;
@@ -235,6 +243,7 @@
     --polly-surface-raised: #ffffff;
     --polly-surface-sunken: #f4f5f7;
     --polly-border: #d9dbe0;
+    --polly-surface-bubble: color-mix(in srgb, var(--polly-accent) 10%, var(--polly-surface));
     --polly-border-strong: #9fa3ab;
     --polly-text: #111418;
     --polly-text-muted: #5a5f67;
@@ -267,6 +276,7 @@
     --polly-surface-raised: #1c2027;
     --polly-surface-sunken: #0f1216;
     --polly-border: #30353d;
+    --polly-surface-bubble: color-mix(in srgb, var(--polly-accent) 10%, var(--polly-surface));
     --polly-border-strong: #5a6069;
     --polly-text: #eef0f3;
     --polly-text-muted: #a7adb5;

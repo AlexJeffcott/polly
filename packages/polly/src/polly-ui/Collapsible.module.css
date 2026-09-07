@@ -5,8 +5,19 @@
     overflow: hidden;
   }
 
+  /* flex, not the UA's `list-item`: a summary that carries a control rather
+   * than a string had that control on its own line, because a TextInput is
+   * `inline-size: 100%` and took the whole line, pushing the caret above it.
+   * The marker below is a flex item now, so the caret and whatever the caller
+   * puts in the summary share one row. Measured: the specimen summary was 80px
+   * tall against 40px for a plain-text one. */
   .summary {
+    display: flex; /* layout-ignore */
+    align-items: center;
+    gap: var(--polly-space-sm);
     padding: var(--polly-space-sm) var(--polly-space-md);
+    min-block-size: var(--polly-control-height-md);
+    box-sizing: border-box;
     cursor: pointer;
     font-family: inherit;
     font-size: var(--polly-text-md);
@@ -21,10 +32,12 @@
     display: none;
   }
 
+  /* The marker is a flex item, so the row's `gap` spaces it and it keeps its
+   * intrinsic size next to a control that grows. */
   .summary::before {
     content: "\25B6";
-    display: inline-block;
-    margin-inline-end: var(--polly-space-sm);
+    display: block;
+    flex: none;
     font-size: var(--polly-text-xs);
     transition: transform var(--polly-motion-fast);
   }
