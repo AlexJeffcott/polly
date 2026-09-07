@@ -5,6 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.89.0] - 2026-09-07
+
+### Changed
+
+#### The rendered DOM of nine components moved
+
+Arrangement that lived in each component's stylesheet as `display: flex` now
+lives in the `<Layout>` those components render. A test or a style that
+selects on a component's internal structure may no longer match. The case
+that caught it here: two of polly's own showcase tests read the Select
+trigger's label as `button > span`, which broke the moment the trigger's
+content became a container. That label carries `data-polly-select-label` now
+— prefer a named hook to a structural selector.
+
+Affected: `Button` (icon + label), `Checkbox`, `Toggle`, `FileInput`,
+`Select`, `Dropdown`, `ConfirmDialog`, `Modal`, `Toast`, `TextInput`'s error
+field, and `Collapsible`, whose disclosure arrow is a real `<span>` rather
+than a `::before` — no layout container can arrange a pseudo-element.
+
+`Checkbox`, `Toggle` and `FileInput` render `<Layout as="label">`, so no
+element is added; the label itself became the container.
+
+#### `variant="bubble"` has a background
+
+It had none, which made it identical to `variant="sunken"` on a sunken
+backdrop and to `variant="callout"` everywhere except four pixels of corner.
+It takes the new `--polly-surface-bubble`, a 10% accent tint over the surface.
+
+That token is declared in all four palette blocks rather than once on `:root`.
+A custom property resolves its own `var()` references on the element that
+declares it, so a single `:root` declaration froze the light accent and a
+`[data-polly-theme="dark"]` subtree inherited the pale light mix — measured at
+1.02:1 against body text. Per palette it reads 15.83:1 light, 13.66:1 dark.
+
+### Added
+
+#### `Button` gains `flush`
+
+A button aligns its box to the grid, so its label sits an inline-padding
+further in — measured in a gallery card: caption text at 13px from the card
+edge, button box also at 13px, button label at 30px. That is right where a
+border draws the box and wrong for a tertiary button beside body copy, where
+the padding is invisible and reads as an indent. `flush` pulls the box out by
+its own inline padding so the label lands on the text edge. The padding stays,
+so the hit target does not change. Inline axis only.
+
+#### `Layout` gains `elementRef`, `onMouseEnter`, `onMouseLeave` and `onKeyUp`
+
+A layout container that cannot take a ref or a handler forces the component
+back to writing its own CSS, which is the loophole the css-layout rule exists
+to close. The ref is `elementRef` and not `ref`: Preact lifts a `ref` prop off
+a function component into the vnode and never passes it through props, so a
+plain `ref` was silently dropped.
+
+#### `--polly-surface-bubble`
+
+The chat-bubble fill, listed above.
+
+### Fixed
+
+#### A Collapsible summary put its content on a second row
+
+`.summary` was the UA's `display: list-item`, and a `TextInput` is
+`inline-size: 100%`, so it took the whole line and pushed the caret above it.
+Measured: 80px against 40px for a plain-text summary. It is a two-track
+`<Layout>` now and measures 56px with the field beside the caret.
+
+#### `display: inline-flex` was invisible to the css-layout check
+
+The rule matched `display: flex` and `display: grid` literally. Under that
+blind spot polly-ui went from 4 raw flex declarations to 16 in one session
+without the reported count moving. The rule matches `inline-flex` now, its
+default exempt list is both layout primitives rather than only `Layout`, and
+`bun scripts/check.ts css-layout` gates it — it had never run in any gate.
+`inline-grid` is deliberately absent: the only occurrence in the repo is
+`Layout`'s own `inline` prop.
+
+polly-ui and the extension's own pages are both at zero.
+
+#### The extension build discarded component CSS, then overwrote a page stylesheet
+
+Two defects in `build.ts`, neither visible in its exit code. The TS build
+emits a CSS asset for every `.module.css` a component imports and the build
+dropped it, so a page rendering a polly-ui primitive got the markup and none
+of the rules. And Bun names that asset after one of the entries, which landed
+on `dist/devtools/panel.css`; because the CSS step ran before the TS step, the
+panel's own stylesheet was overwritten and the page lost its styling. The
+component CSS is written to `dist/assets/components.css` and linked from each
+page, and the two build steps are swapped.
+
+#### Two gallery ladders could not show what they demonstrate
+
+The radius specimens were sized by their own labels — 46/35/36/28/35px wide by
+42 tall — so `full` rendered as a stadium rather than a circle. The shadow
+specimens sat on the sunken card, where a soft shadow lands grey on grey. Both
+use equal 56px squares now, and the shadows are cast on a plain surface.
+
 ## [0.88.1] - 2026-09-07
 
 ### Fixed
