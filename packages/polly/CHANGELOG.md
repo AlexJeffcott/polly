@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.88.1] - 2026-09-07
+
+### Fixed
+
+#### The component registry omitted `Tabs` and `OverlayRoot`
+
+`parseComponentNames` in `scripts/build-polly-ui-registry.ts` matched
+`/export\s+\{\s*(\w+)/` and kept the capture only when it began with a capital
+letter. It therefore read the first member of each export brace and dropped the
+whole block whenever that member was not the component. Biome sorts named
+exports alphabetically, which led two of them with something else:
+
+| Export in `index.ts` | First member matched | Result |
+| --- | --- | --- |
+| `export { type Tab, Tabs, type TabsProps }` | `type` | `Tabs` lost |
+| `export { getOverlayRootNode, OverlayRoot }` | `getOverlayRootNode` | `OverlayRoot` lost |
+
+Both components have been exported and absent from `pollyUiComponents` since
+the registry was first generated. Regenerating never helped, because the parser
+produced the same result every time.
+
+The parser reads every member of each block now, keeps the value exports whose
+name begins with a capital, and resolves an `X as Y` re-export to `Y`.
+`pollyUiComponents` goes from 26 entries to 27 and matches the export list
+exactly.
+
+Anything reading the registry was affected. The gallery's coverage gap-check is
+the case in the repo: it asks the registry which components need a specimen, so
+it could not have reported a missing specimen for either component.
+
+Two tests read `index.ts` and compare it against the generated registry in both
+directions, so a component the parser loses fails the suite, and so does a
+component added to the barrel without regenerating.
+
 ## [0.88.0] - 2026-09-06
 
 ### Fixed
