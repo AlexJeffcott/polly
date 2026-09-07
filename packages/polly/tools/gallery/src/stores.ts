@@ -29,6 +29,11 @@ export const $gallerySelectMulti = $state<Set<string>>(new Set(["comet", "nebula
 /** Selection for the clearable single-select <Select> specimen. Starts empty
  *  so the "Any …" clear option is the active row. */
 export const $gallerySelectClearable = $state<Set<string>>(new Set());
+/** Selection for the long-label <Select> specimen (polly#180). The label is
+ *  wider than `--polly-control-max-width`, so the trigger must truncate it
+ *  rather than wrap the caret onto a second line. Every short-label specimen
+ *  passed throughout that regression. */
+export const $gallerySelectLong = $state<Set<string>>(new Set(["long"]));
 /** The live, signal-bound <Checkbox> specimen. */
 export const $galleryChecked = $state<boolean>(true);
 /** The controlled <TextInput> specimen value. */
@@ -65,6 +70,7 @@ export function resetGalleryStores(): void {
   $gallerySelectSingle.value = new Set(["comet"]);
   $gallerySelectMulti.value = new Set(["comet", "nebula"]);
   $gallerySelectClearable.value = new Set();
+  $gallerySelectLong.value = new Set(["long"]);
   $galleryChecked.value = true;
   $galleryText.value = "Controlled value";
   $galleryCommitted.value = "—";

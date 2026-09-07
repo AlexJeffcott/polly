@@ -426,6 +426,59 @@ describe("ActionSelect", () => {
     expect(button?.querySelector("button, select, input")).toBeNull();
   });
 
+  // polly#180 — `.trigger` styles the box and declares no flex or grid, so
+  // the component must render the label/caret row. ActionSelect kept two bare
+  // inline spans through 0.89.0 and its caret wrapped. These assert the row
+  // exists in both branches; the geometry it produces is measured by
+  // scripts/e2e-ui-control-metrics.ts, which is where a wrap is visible.
+  test("the trigger's label and caret sit inside one layout row (polly#180)", () => {
+    const el = rendered(
+      mount(
+        h(ActionSelect, {
+          value: "open",
+          action: "task:set-status",
+          options: [{ value: "open", label: "Open" }],
+        })
+      )
+    );
+    const button = el.querySelector("[data-polly-dropdown] > button");
+    const row = button?.querySelector("[data-polly-layout]");
+    expect(row).not.toBeNull();
+    // Both children are in that row, not siblings of it.
+    expect(row?.querySelector("[data-polly-select-label]")?.textContent).toBe("Open");
+    expect(row?.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(button?.children.length).toBe(1);
+  });
+
+  test("the disabled trigger gets a layout row too (polly#180)", () => {
+    const el = rendered(
+      mount(
+        h(ActionSelect, {
+          value: "open",
+          action: "task:set-status",
+          disabled: true,
+          options: [{ value: "open", label: "Open" }],
+        })
+      )
+    );
+    const row = el.querySelector("[data-polly-layout]");
+    expect(row).not.toBeNull();
+    // A <span> box may not contain a <div>.
+    expect(row?.tagName).toBe("SPAN");
+    expect(row?.querySelector("[data-polly-select-label]")?.textContent).toBe("Open");
+  });
+
+  test("Select and ActionSelect render the same trigger row (polly#180)", () => {
+    const opts = [{ value: "open", label: "Open" }];
+    const fromSelect = rendered(
+      mount(h(Select, { options: opts, selected: signal(new Set(["open"])) }))
+    ).querySelector("[data-polly-dropdown] > button")?.innerHTML;
+    const fromAction = rendered(
+      mount(h(ActionSelect, { value: "open", action: "a", options: opts }))
+    ).querySelector("[data-polly-dropdown] > button")?.innerHTML;
+    expect(fromSelect).toBe(fromAction);
+  });
+
   test("disabled trigger renders as static text with no caret (polly#131)", () => {
     const el = rendered(
       mount(

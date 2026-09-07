@@ -13,6 +13,7 @@
 import { type Signal, useComputed, useSignal } from "@preact/signals";
 import type { JSX } from "preact";
 import { Dropdown } from "./Dropdown.tsx";
+import { SelectTrigger } from "./internal/select-trigger.tsx";
 import { Layout } from "./Layout.tsx";
 import classes from "./Select.module.css";
 
@@ -110,20 +111,7 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
   if (isEmpty.value) triggerParts.push(classes["placeholder"] ?? "");
   if (wide) triggerParts.push(classes["triggerWide"] ?? "");
   const triggerClass = triggerParts.filter(Boolean).join(" ");
-  const triggerContent = (
-    <Layout
-      inline
-      columns="1fr auto"
-      gap="var(--polly-space-sm)"
-      alignItems="center"
-      maxInlineSize="100%"
-    >
-      <span class={classes["triggerLabel"]} data-polly-select-label>
-        {displayText.value}
-      </span>
-      <span class={classes["caret"]} aria-hidden="true" />
-    </Layout>
-  );
+  const triggerContent = <SelectTrigger label={displayText.value} />;
 
   const parts = [classes["select"] ?? ""];
   if (className) parts.push(className);

@@ -43,6 +43,7 @@ import {
   $galleryFileName,
   $galleryModalOpen,
   $gallerySelectClearable,
+  $gallerySelectLong,
   $gallerySelectMulti,
   $gallerySelectSingle,
   $galleryTab,
@@ -88,6 +89,20 @@ const STAR: JSX.Element = (
     ★
   </span>
 );
+
+/**
+ * polly#180: a label wider than `--polly-control-max-width`, shared by the
+ * <Select> and <ActionSelect> long-label specimens so the two triggers must
+ * measure the same box. Every catalogued Select used a short label, which is
+ * why a trigger that had lost its layout row still measured 40px and the
+ * caret only wrapped in a consumer app.
+ */
+const LONG_SELECT_LABEL = "A deliberately long option label that overflows the control max width";
+
+const LONG_SELECT_OPTIONS = [
+  { value: "long", label: LONG_SELECT_LABEL },
+  { value: "short", label: "Short" },
+];
 
 export interface GallerySection {
   /** Anchor id for the in-page nav. */
@@ -627,6 +642,14 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
             selected={$gallerySelectMulti}
           />
         </Specimen>
+        <Specimen caption="long label — truncates, caret stays on the row (polly#180)">
+          <Select
+            id="gallery-select-long"
+            label="Long label"
+            options={LONG_SELECT_OPTIONS}
+            selected={$gallerySelectLong}
+          />
+        </Specimen>
       </>
     ),
   },
@@ -779,6 +802,45 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
             ]}
             action="gallery:commit"
             disabled
+          />
+        </Specimen>
+        <Specimen caption="long label — truncates, caret stays on the row (polly#180)">
+          <ActionSelect
+            id="gallery-action-select-long"
+            label="Long label"
+            value="long"
+            options={LONG_SELECT_OPTIONS}
+            action="gallery:commit"
+          />
+        </Specimen>
+        <Specimen caption="long label, disabled — one row at the control height">
+          <ActionSelect
+            id="gallery-action-select-long-disabled"
+            label="Long label"
+            value="long"
+            options={LONG_SELECT_OPTIONS}
+            action="gallery:commit"
+            disabled
+          />
+        </Specimen>
+        <Specimen caption="empty — the placeholder is the same box as a value">
+          <ActionSelect
+            id="gallery-action-select-long-empty"
+            label="Long placeholder"
+            value=""
+            placeholder={LONG_SELECT_LABEL}
+            options={LONG_SELECT_OPTIONS}
+            action="gallery:commit"
+          />
+        </Specimen>
+        <Specimen caption="wide — short label, still one centred row">
+          <ActionSelect
+            id="gallery-action-select-wide"
+            label="Wide"
+            value="short"
+            options={LONG_SELECT_OPTIONS}
+            action="gallery:commit"
+            wide
           />
         </Specimen>
       </>

@@ -22,7 +22,7 @@
 
 export const capability = "ui.control-metrics" as const;
 
-import puppeteer, { type Browser } from "puppeteer";
+import puppeteer, { type Browser, type Page } from "puppeteer";
 import { serveGallery } from "../tools/gallery/src/server.ts";
 import { assert, selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
@@ -103,6 +103,67 @@ const OVERLAY_CONTROLS: Array<{
   },
 ];
 
+/**
+ * polly#180: the trigger box supplies no layout of its own — the component
+ * renders the label/caret row. When `.trigger` lost `display: inline-flex` and
+ * only <Select> was updated to compensate, <ActionSelect>'s label and caret
+ * became two bare inline boxes and the caret wrapped onto a second line.
+ *
+ * A short label cannot show that: the trigger sizes to its content, stays under
+ * `--polly-control-max-width`, and measures 40px whether or not it has a row.
+ * These read the long-label specimens, where the label reaches the cap.
+ */
+type TriggerCase = {
+  name: string;
+  selector: string;
+  /** Whether this trigger renders a caret. A disabled ActionSelect does not. */
+  caret: boolean;
+  /** The label is wider than the box, so it must ellipsis-truncate. */
+  truncates: boolean;
+  /** `.triggerWide`'s floor, where the specimen opts into it. */
+  minWidth?: number;
+};
+
+const LONG_LABEL_TRIGGERS: TriggerCase[] = [
+  {
+    name: "Select (long label)",
+    selector: "#gallery-select-long button[class*=trigger_]",
+    caret: true,
+    truncates: true,
+  },
+  {
+    name: "ActionSelect (long label)",
+    selector: "#gallery-action-select-long button[class*=trigger_]",
+    caret: true,
+    truncates: true,
+  },
+  {
+    name: "ActionSelect (long label, disabled)",
+    selector: "#gallery-action-select-long-disabled span[class*=trigger_]",
+    caret: false,
+    truncates: true,
+  },
+  {
+    name: "ActionSelect (long placeholder, empty)",
+    selector: "#gallery-action-select-long-empty button[class*=trigger_]",
+    caret: true,
+    truncates: true,
+  },
+  {
+    // Short label, so nothing truncates: what `wide` must not break is the
+    // row itself. --polly-control-min-width-md is 9rem.
+    name: "ActionSelect (wide)",
+    selector: "#gallery-action-select-wide button[class*=trigger_]",
+    caret: true,
+    truncates: false,
+    minWidth: 144,
+  },
+];
+
+/** Widths the polly#180 row is measured at. 350 and 900 are the two the
+ *  consumer reported the wrapped caret at; 1280 is the suite's own viewport. */
+const ROW_VIEWPORT_WIDTHS = [1280, 900, 350] as const;
+
 /** Controls that must share one corner, so a Button beside a field matches. */
 const SHARED_RADIUS: string[] = [
   "button[class*=btn_]:not([class*=btnCircle_])",
@@ -110,6 +171,158 @@ const SHARED_RADIUS: string[] = [
   "button[class*=trigger_]",
   "label[class*=fileInput_]",
 ];
+
+/**
+ * How far the caret's vertical centre may sit from the label's and still be on
+ * the same row. A wrap moves it by a full line box (~18px at the default font),
+ * so anything under a couple of pixels is centring noise, not a second line.
+ */
+const CARET_CENTRE_TOLERANCE_PX = 2;
+
+/** Two-decimal rounding, so a message reads 210.41px rather than 210.4062. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** One trigger as the browser measured it. */
+type MeasuredRow = {
+  name: string;
+  found: true;
+  height: number;
+  width: number;
+  top: number;
+  row: { display: string; gap: string } | null;
+  label: { centre: number; height: number } | null;
+  caret: { centre: number; height: number } | null;
+  truncates: boolean;
+};
+
+/** The polly#180 assertions for one trigger. Split out for the complexity gate. */
+function assertOneRow(
+  spec: TriggerCase,
+  r: MeasuredRow,
+  ctx: TierContext,
+  viewportWidth: number
+): void {
+  const height = round2(r.height);
+  assert(
+    r.row !== null,
+    `${r.name} has no [data-polly-layout] row inside its trigger — .trigger declares no ` +
+      "flex or grid of its own, so the component must render the row (polly#180)"
+  );
+  const display = r.row?.display ?? "";
+  assert(
+    display === "inline-grid" || display === "grid" || display.includes("flex"),
+    `${r.name} row computes display: ${display} — not a flex or grid container`
+  );
+  assert(
+    height === LADDER.md,
+    `${r.name} measures ${height}px, expected ${LADDER.md}px — a wrapped caret shows up here`
+  );
+  assert(r.label !== null, `${r.name} has no [data-polly-select-label] hook`);
+  if (spec.truncates) {
+    assert(
+      r.truncates,
+      `${r.name} label does not ellipsis-truncate — it is wider than the control max ` +
+        "width, so text-overflow must clip it rather than the row growing or wrapping"
+    );
+  }
+  if (spec.minWidth !== undefined) {
+    assert(
+      r.width >= spec.minWidth,
+      `${r.name} is ${round2(r.width)}px wide, under .triggerWide's ${spec.minWidth}px floor`
+    );
+  }
+  if (spec.caret) {
+    assert(r.caret !== null, `${r.name} has no caret`);
+    assert(
+      r.row?.gap === "8px",
+      `${r.name} label/caret gap is ${r.row?.gap}, expected 8px (--polly-space-sm)`
+    );
+    // Centres, not tops: the caret glyph box is shorter than the text line box,
+    // so two items correctly centred on one row have tops a couple of pixels
+    // apart. A wrap moves the centre by a whole line box.
+    const drift = round2((r.caret?.centre ?? 0) - (r.label?.centre ?? 0));
+    assert(
+      Math.abs(drift) <= CARET_CENTRE_TOLERANCE_PX,
+      `${r.name} caret centre is ${drift}px from its label's — they are on separate lines`
+    );
+  }
+  ctx.log(
+    `[e2e] @${viewportWidth}px ${r.name} = ${height}x${round2(r.width)}px, ` +
+      `row ${display}, gap ${r.row?.gap ?? "n/a"}`
+  );
+}
+
+/**
+ * polly#180 — the long-label trigger row. Height, one row, a real gap, and an
+ * ellipsis instead of a wrap.
+ *
+ * Extracted from run() only to keep that function under the complexity gate.
+ */
+async function assertLongLabelRows(
+  page: Page,
+  ctx: TierContext,
+  viewportWidth: number
+): Promise<void> {
+  const rows = await page.evaluate((triggers) => {
+    /** Vertical centre and size of one element, relative to the viewport. */
+    const measure = (el: Element | null): { centre: number; height: number } | null => {
+      if (el === null) return null;
+      const r = el.getBoundingClientRect();
+      return { centre: r.top + r.height / 2, height: r.height };
+    };
+    return triggers.map((t) => {
+      const trigger = document.querySelector(t.selector);
+      if (trigger === null) return { name: t.name, found: false as const };
+      const row = trigger.querySelector("[data-polly-layout]");
+      const label = trigger.querySelector<HTMLElement>("[data-polly-select-label]");
+      const caret = trigger.querySelector("[class*=caret_]");
+      const box = trigger.getBoundingClientRect();
+      const rowStyle = row === null ? null : getComputedStyle(row);
+      return {
+        name: t.name,
+        found: true as const,
+        height: box.height,
+        width: box.width,
+        top: box.top,
+        row: rowStyle === null ? null : { display: rowStyle.display, gap: rowStyle.columnGap },
+        label: measure(label),
+        caret: measure(caret),
+        // scrollWidth beyond clientWidth is the overflow the ellipsis hides.
+        truncates:
+          label !== null &&
+          label.scrollWidth > label.clientWidth &&
+          getComputedStyle(label).textOverflow === "ellipsis",
+      };
+    });
+  }, LONG_LABEL_TRIGGERS);
+
+  for (const [i, r] of rows.entries()) {
+    const spec = LONG_LABEL_TRIGGERS[i];
+    assert(r.found, `no specimen matched "${spec?.selector}" — ${spec?.name}`);
+    if (r.found && spec !== undefined) assertOneRow(spec, r, ctx, viewportWidth);
+  }
+
+  // A Select and an ActionSelect carrying the same label are the same box.
+  const [selectLong, actionSelectLong] = rows;
+  if (selectLong?.found === true && actionSelectLong?.found === true) {
+    // Within a pixel: both triggers cap at the same containing block, and
+    // shrink-to-fit resolution leaves hundredths of a pixel between them.
+    assert(
+      Math.abs(selectLong.width - actionSelectLong.width) <= 1 &&
+        selectLong.height === actionSelectLong.height,
+      "Select and ActionSelect with the same label measure " +
+        `${round2(selectLong.width)}x${round2(selectLong.height)} and ` +
+        `${round2(actionSelectLong.width)}x${round2(actionSelectLong.height)} — ` +
+        "they share one trigger"
+    );
+    ctx.log(
+      `[e2e] @${viewportWidth}px Select and ActionSelect agree at ` +
+        `${round2(selectLong.width)}x${round2(selectLong.height)}px`
+    );
+  }
+}
 
 export async function run(ctx: TierContext): Promise<TierResult> {
   ctx.log("[e2e] serveGallery() — the documented entry point");
@@ -222,6 +435,12 @@ export async function run(ctx: TierContext): Promise<TierResult> {
         control.selector
       );
     }
+
+    for (const width of ROW_VIEWPORT_WIDTHS) {
+      await page.setViewport({ width, height: 1024 });
+      await assertLongLabelRows(page, ctx, width);
+    }
+    await page.setViewport({ width: 1280, height: 1024 });
 
     // 4. color-scheme (polly#179). `normal` means the UA draws its date
     //    pickers, checkbox boxes and scrollbars light whatever the palette says.

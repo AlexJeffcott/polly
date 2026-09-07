@@ -12,15 +12,28 @@
   }
 
   /*
-   * The trigger is the single interactive element — applied directly
-   * to <Select>'s <button> and, via Dropdown's `triggerClassName`, to
-   * <ActionSelect>'s <button>. inline-flex lays out the label and the
-   * caret as siblings; intrinsic width by default (`.triggerWide`
+   * The trigger box — applied directly to <Select>'s <button> and, via
+   * Dropdown's `triggerClassName`, to <ActionSelect>'s <button> and to
+   * its disabled <span>. Intrinsic width by default (`.triggerWide`
    * opts into a minimum).
+   *
+   * This rule declares NO flex or grid: polly-ui routes layout through
+   * <Layout>, so the box only centres one child (`align-content`) in
+   * its `min-block-size`, and the component owes it a label/caret row.
+   * Every consumer gets that row from internal/select-trigger.tsx —
+   * changing this rule for one consumer and not the other is polly#180.
    */
-  /* The label/caret row is the <Layout> the component renders; the button
-   * itself only centres that row in its box. */
   .trigger {
+    /* The box's own display, not a layout for its children. A <button>
+     * computes inline-block anyway; the disabled <ActionSelect> renders
+     * its box as a <span>, and a plain inline box ignores min-block-size,
+     * padding-block and max-width — it measured 20px (polly#180). */
+    display: inline-block;
+    /* Every other control declares this on its own box. `.trigger` did not,
+     * and inherited it from the UA's `button` rule — so the disabled
+     * <ActionSelect>'s <span> box added its 1px borders outside the height
+     * token and measured 42px. Pre-dates polly#180; found fixing it. */
+    box-sizing: border-box;
     align-content: center;
     min-block-size: var(--polly-control-height-md);
     max-width: min(100%, var(--polly-control-max-width));

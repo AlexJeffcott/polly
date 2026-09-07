@@ -14,6 +14,10 @@
  * visible box and the interactive element are one and the same node —
  * no styled <span> nested inside an unstyled <button>. A disabled
  * ActionSelect renders as static text without a caret.
+ *
+ * Both branches render their label/caret row through <SelectTrigger>,
+ * the same row <Select> uses — `.trigger` styles the box and supplies
+ * no layout, so the component owes it one (polly#180).
  */
 
 import { useSignal } from "@preact/signals";
@@ -21,6 +25,7 @@ import type { JSX } from "preact";
 import { Dropdown } from "./Dropdown.tsx";
 import { dispatchAction } from "./internal/dispatch-action.ts";
 import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
+import { SelectTrigger } from "./internal/select-trigger.tsx";
 import classes from "./Select.module.css";
 import type { SelectOption } from "./Select.tsx";
 
@@ -97,19 +102,14 @@ export function ActionSelect(props: ActionSelectProps): JSX.Element {
       {label !== undefined && <span class={classes["label"]}>{label}</span>}
       {disabled ? (
         <span class={triggerClass} aria-disabled="true" title={displayText}>
-          <span class={classes["triggerLabel"]}>{displayText}</span>
+          <SelectTrigger as="span" caret={false} label={displayText} />
         </span>
       ) : (
         <Dropdown
           isOpen={isOpen}
           triggerClassName={triggerClass}
           triggerTitle={displayText}
-          trigger={
-            <>
-              <span class={classes["triggerLabel"]}>{displayText}</span>
-              <span class={classes["caret"]} aria-hidden="true" />
-            </>
-          }
+          trigger={<SelectTrigger label={displayText} />}
         >
           {options.map((opt) => {
             const isSelected = opt.value === value;
