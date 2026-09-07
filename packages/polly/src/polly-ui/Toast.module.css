@@ -1,17 +1,13 @@
 @layer polly-components {
+  /* The stack is a <Layout>; nothing is left to declare here. */
   .viewport {
-    display: grid; /* layout-ignore */
-    gap: var(--polly-space-sm);
+    inline-size: max-content;
   }
 
   .item {
-    /* Visual chrome (background, border, radius, shadow) lives in
-     * <Surface variant="raised">. The grid + sizing rules below are
-     * Toast-specific layout that Surface intentionally does not own. */
-    display: grid; /* layout-ignore */
-    grid-template-columns: 1fr auto;
-    gap: var(--polly-space-md);
-    align-items: center;
+    /* Visual chrome lives in <Surface variant="raised">; the message/close
+     * row is a <Layout> the component renders. What is left here is the
+     * toast's own sizing. */
     color: var(--polly-text);
     min-inline-size: 16em;
     max-inline-size: 28em;
@@ -31,10 +27,8 @@
 
   .close {
     appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-block-size: var(--polly-control-height-sm);
+    align-content: center;
     background: transparent;
     color: inherit;
     border: var(--polly-border-width-default) solid transparent;

@@ -27,6 +27,7 @@
 
 import type { ComponentChildren, JSX, VNode } from "preact";
 import classes from "./Button.module.css";
+import { Layout } from "./Layout.tsx";
 
 export type ButtonTier = "primary" | "secondary" | "tertiary";
 export type ButtonColor = "default" | "info" | "success" | "warning" | "danger";
@@ -154,17 +155,18 @@ export function Button(props: ButtonProps): JSX.Element {
   if (className) parts.push(className);
   const buttonClass = parts.filter(Boolean).join(" ");
 
-  // The button is a flex container, so the icon and the label
-  // are its direct children with a real `gap` between them. No nested
-  // Layout: the arrangement the grid used to provide is now the button's
-  // own, which is also what makes an icon button the same height as a
-  // plain one.
-  const content = (
-    <>
-      {icon !== undefined && <span class={classes["icon"]}>{icon}</span>}
-      {label !== undefined && <span class={classes["label"]}>{label}</span>}
-    </>
-  );
+  // An icon beside a label is an arrangement, so it goes through <Layout>.
+  // A label on its own is not: it is one inline child that the button's
+  // align-content and text-align centre, with no container at all.
+  const content =
+    icon === undefined ? (
+      label
+    ) : (
+      <Layout inline columns="auto auto" gap="var(--polly-space-sm)" alignItems="center">
+        <span class={classes["icon"]}>{icon}</span>
+        {label !== undefined && <span class={classes["label"]}>{label}</span>}
+      </Layout>
+    );
 
   const dataAction = props["data-action"];
   const ariaLabel = props["aria-label"];

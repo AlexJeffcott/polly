@@ -2,11 +2,9 @@
  * itself) lives in <Modal.Content>, which composes <Surface variant="raised">
  * since #67. The classes here style only the confirm/cancel button row. */
 @layer polly-components {
+  /* The row is a <Layout>; this class remains only as a styling hook. */
   .actions {
-    display: grid; /* layout-ignore */
-    grid-auto-flow: column;
-    gap: var(--polly-space-sm);
-    justify-content: end;
+    inline-size: 100%;
   }
 
   /* These are buttons, so they take the same metrics as <Button>: the
@@ -17,10 +15,8 @@
   .confirm,
   .confirmDanger {
     appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-block-size: var(--polly-control-height-md);
+    align-content: center;
     padding-block: 0;
     padding-inline: var(--polly-control-padding-md);
     font: inherit;

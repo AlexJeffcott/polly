@@ -1,8 +1,8 @@
 @layer polly-components {
+  /* The native input is visually hidden and out of flow, so the label has one
+   * visible child — centring it is not an arrangement. */
   .fileInput {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--polly-space-sm);
+    align-content: center;
     box-sizing: border-box;
     min-block-size: var(--polly-control-height-md);
     padding-block: 0;

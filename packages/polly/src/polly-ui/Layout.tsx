@@ -8,7 +8,7 @@
  * any of them in media queries without touching specificity.
  */
 
-import { type ComponentChildren, createElement, type JSX } from "preact";
+import { type ComponentChildren, createElement, type JSX, type Ref } from "preact";
 import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 import classes from "./Layout.module.css";
 
@@ -63,6 +63,21 @@ export type LayoutProps = PassthroughAttrs & {
   className?: string;
   onClick?: JSX.MouseEventHandler<HTMLElement>;
   onKeyDown?: JSX.KeyboardEventHandler<HTMLElement>;
+  onKeyUp?: JSX.KeyboardEventHandler<HTMLElement>;
+  /** Pointer-enter/leave on the container itself — a hover-scoped behaviour
+   * such as pausing a timer while the pointer is over a stack. Without these
+   * a component that needs one has to render its own element and write its
+   * own grid, which is the loophole <Layout> exists to close. */
+  onMouseEnter?: JSX.MouseEventHandler<HTMLElement>;
+  onMouseLeave?: JSX.MouseEventHandler<HTMLElement>;
+  /** Ref to the rendered element. Same reason as the handlers above: a focus
+   * trap or a measurement needs the node, and refusing it forces raw CSS.
+   *
+   * Named `elementRef`, not `ref`: Preact lifts a `ref` prop off a function
+   * component into the vnode and never passes it through props, so a plain
+   * `ref` here would be silently dropped. Caught by Modal's overlay test —
+   * the stack stopped popping because the callback never ran. */
+  elementRef?: Ref<HTMLElement>;
 
   role?: JSX.AriaRole;
   tabIndex?: number;
@@ -100,6 +115,10 @@ export function Layout(props: LayoutProps): JSX.Element {
     className,
     onClick,
     onKeyDown,
+    onKeyUp,
+    onMouseEnter,
+    onMouseLeave,
+    elementRef,
     role,
     tabIndex,
     id,
@@ -151,6 +170,10 @@ export function Layout(props: LayoutProps): JSX.Element {
       style,
       onClick,
       onKeyDown,
+      onKeyUp,
+      onMouseEnter,
+      onMouseLeave,
+      ref: elementRef,
       role,
       tabIndex,
       "aria-label": props["aria-label"],

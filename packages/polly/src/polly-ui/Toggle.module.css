@@ -1,8 +1,6 @@
 @layer polly-components {
+  /* The track/label row is the <Layout> the component renders. */
   .toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--polly-space-sm);
     box-sizing: border-box;
     min-block-size: var(--polly-control-height-md);
     cursor: pointer;
@@ -31,7 +29,6 @@
 
   .track {
     display: block;
-    flex: none;
     position: relative;
     width: 36px;
     height: 20px;

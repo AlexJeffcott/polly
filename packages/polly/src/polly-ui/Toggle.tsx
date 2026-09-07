@@ -10,6 +10,7 @@
  */
 
 import type { JSX } from "preact";
+import { Layout } from "./Layout.tsx";
 import classes from "./Toggle.module.css";
 
 export type ToggleProps = {
@@ -27,7 +28,16 @@ export function Toggle(props: ToggleProps): JSX.Element {
   if (disabled) parts.push(classes["disabled"]);
   if (className) parts.push(className);
   return (
-    <label class={parts.join(" ")} data-polly-ui data-polly-toggle>
+    <Layout
+      as="label"
+      inline
+      columns="auto auto"
+      gap="var(--polly-space-sm)"
+      alignItems="center"
+      className={parts.join(" ")}
+      data-polly-ui
+      data-polly-toggle
+    >
       <input
         id={id}
         type="checkbox"
@@ -44,6 +54,6 @@ export function Toggle(props: ToggleProps): JSX.Element {
         />
       </span>
       {label !== undefined && <span class={classes["label"]}>{label}</span>}
-    </label>
+    </Layout>
   );
 }

@@ -12,6 +12,7 @@ import type { JSX } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
 import { clearError, type ErrorEntry, errorState } from "../actions/error.ts";
+import { Layout } from "./Layout.tsx";
 import { getOverlayRootNode } from "./OverlayRoot.tsx";
 import { Surface } from "./Surface.tsx";
 import classes from "./Toast.module.css";
@@ -44,9 +45,9 @@ function Viewport(props: ToastViewportProps): JSX.Element | null {
   if (!portalNode) return null;
 
   const content = (
-    // biome-ignore lint/a11y/noStaticElementInteractions: viewport pauses auto-dismiss on hover; it is a container, not an interactive control itself.
-    <div
-      class={`${classes["viewport"]} ${props.className ?? ""}`.trim()}
+    <Layout
+      gap="var(--polly-space-sm)"
+      className={`${classes["viewport"]} ${props.className ?? ""}`.trim()}
       data-polly-ui
       data-polly-toast-viewport
       onMouseEnter={() => setPaused(true)}
@@ -55,7 +56,7 @@ function Viewport(props: ToastViewportProps): JSX.Element | null {
       {entries.map((entry) => (
         <ToastItem key={entry.id} entry={entry} />
       ))}
-    </div>
+    </Layout>
   );
   return createPortal(content, portalNode);
 }
@@ -73,18 +74,20 @@ function ToastItem({ entry }: { entry: ErrorEntry }): JSX.Element {
       role={entry.severity === "error" ? "alert" : "status"}
       aria-live={liveness}
     >
-      <span class={classes["message"]}>{entry.message}</span>
-      <button
-        type="button"
-        class={classes["close"]}
-        data-polly-ui
-        data-polly-interactive
-        data-polly-toast-close
-        onClick={() => clearError(entry.id)}
-        aria-label="Dismiss"
-      >
-        ×
-      </button>
+      <Layout columns="1fr auto" gap="var(--polly-space-md)" alignItems="center">
+        <span class={classes["message"]}>{entry.message}</span>
+        <button
+          type="button"
+          class={classes["close"]}
+          data-polly-ui
+          data-polly-interactive
+          data-polly-toast-close
+          onClick={() => clearError(entry.id)}
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      </Layout>
     </Surface>
   );
 }

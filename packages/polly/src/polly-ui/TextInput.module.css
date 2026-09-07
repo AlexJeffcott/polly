@@ -50,9 +50,10 @@
 
   /* Wrapper used only when an `error` message is supplied; absent it the
      primitive stays a bare native element. */
+  /* Arrangement lives in the <Layout> the component renders; this class only
+   * carries what is left, which is nothing but its identity as a hook. */
   .field {
-    display: grid;
-    gap: var(--polly-space-xs);
+    inline-size: 100%;
   }
 
   .error {

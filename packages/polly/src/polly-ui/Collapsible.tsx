@@ -2,13 +2,16 @@
  * Collapsible — native <details>/<summary> wrapper.
  *
  * Uses the browser's built-in disclosure semantics so keyboard and
- * screen-reader behaviour come free. A ::before arrow rotates on open.
+ * screen-reader behaviour come free. The arrow is a real element, not a
+ * ::before: the summary is a two-track <Layout>, and no layout container can
+ * arrange a pseudo-element. It rotates on open.
  * Colors, spacing, and motion come from tokens; `prefers-reduced-motion`
  * zeroes the rotation via the motion token.
  */
 
 import type { ComponentChildren, JSX } from "preact";
 import classes from "./Collapsible.module.css";
+import { Layout } from "./Layout.tsx";
 
 export type CollapsibleProps = {
   /** Disclosure header. A string for the common case, or any node —
@@ -75,10 +78,17 @@ export function Collapsible(props: CollapsibleProps): JSX.Element {
       data-polly-ui
       data-polly-collapsible
     >
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: <summary> is a native interactive disclosure control; this keyup guard cancels its toggle when a nested editable field is the target. */}
-      <summary class={classes["summary"]} onKeyUp={handleSummaryKeyUp}>
-        {summary}
-      </summary>
+      <Layout
+        as="summary"
+        columns="auto 1fr"
+        gap="var(--polly-space-sm)"
+        alignItems="center"
+        className={classes["summary"]}
+        onKeyUp={handleSummaryKeyUp}
+      >
+        <span class={classes["marker"]} aria-hidden="true" />
+        <span class={classes["summaryContent"]}>{summary}</span>
+      </Layout>
       <div class={classes["content"]}>{children}</div>
     </details>
   );

@@ -16,11 +16,11 @@
     border-radius: var(--polly-control-radius);
   }
 
-  /* The view mode is a <div>, which does not centre its own text the way
-   * a native input does — flex does it instead. */
+  /* The view mode is a <div>, which does not centre its own text the way a
+   * native input does. line-height equal to the control height does it, with
+   * no layout container: the single line sits on the middle of the box. */
   .view {
-    display: flex; /* layout-ignore */
-    align-items: center;
+    align-content: center;
     cursor: text;
     background: transparent;
     white-space: pre-wrap;
@@ -45,8 +45,11 @@
 
   /* Same derivation as TextInput's multi variant: a one-row ActionInput
    * matches a single-line control, then grows with its content. */
+  /* Multi-line takes its normal leading back — a line-height of the control
+   * height would space every wrapped line 40px apart. */
   .root[data-variant="multi"] {
     display: block;
+    line-height: var(--polly-line-height-base);
     field-sizing: content;
     padding-block: calc(
       (var(--polly-control-height-md) - 1.5em - 2 * var(--polly-border-width-default)) / 2

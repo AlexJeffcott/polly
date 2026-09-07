@@ -3,9 +3,11 @@
  *
  * `display: flex` and `display: grid` are forbidden outside the Layout
  * primitive. Apps express layout through the `<Layout>` component so
- * layout decisions are declarative and greppable. Exempted paths default
- * to `Layout.module.css`; consumers can extend the list through
- * `layoutExemptPaths`. Suppress one-off cases with a layout-ignore CSS
+ * layout decisions are declarative and greppable. There are two layout
+ * primitives and the default exempt list is exactly those two: Layout owns
+ * CSS grid, Cluster owns the one thing grid cannot do — a row of items that
+ * keep their own widths and wrap. Everything else composes them. Consumers
+ * can extend the list through `layoutExemptPaths`. Suppress one-off cases with a layout-ignore CSS
  * comment on the violating line or the line above.
  */
 
@@ -20,12 +22,21 @@ export type CssLayoutOptions = {
   skipDirs?: string[];
 };
 
+// `inline-flex` is matched too. It was not, and that blindness let polly-ui's
+// own primitives go from 4 raw flex declarations to 16 in a single session
+// without the count moving. `inline-grid` is deliberately absent: the only
+// occurrence in the repo is Layout's own `inline` prop, in the exempt file.
 const CSS_PATTERNS: Array<{ pattern: RegExp; kind: string }> = [
+  { pattern: /display\s*:\s*inline-flex/, kind: "display: inline-flex in CSS" },
   { pattern: /display\s*:\s*flex/, kind: "display: flex in CSS" },
   { pattern: /display\s*:\s*grid/, kind: "display: grid in CSS" },
 ];
 
 const TSX_PATTERNS: Array<{ pattern: RegExp; kind: string }> = [
+  {
+    pattern: /display\s*:\s*['"]inline-flex['"]/,
+    kind: "display: inline-flex in inline style",
+  },
   {
     pattern: /display\s*:\s*['"]flex['"]/,
     kind: "display: flex in inline style",
@@ -40,7 +51,12 @@ const SUPPRESS = "layout-ignore";
 
 export async function checkCssLayout(options: CssLayoutOptions): Promise<CssCheckResult> {
   const rootDir = options.rootDir;
-  const exempt = options.layoutExemptPaths ?? ["Layout.module.css", "Layout.tsx"];
+  const exempt = options.layoutExemptPaths ?? [
+    "Layout.module.css",
+    "Layout.tsx",
+    "Cluster.module.css",
+    "Cluster.tsx",
+  ];
   const violations: CssViolation[] = [];
 
   await walkDirectory(

@@ -5,11 +5,10 @@
   }
 
   /* The trigger is a bare wrapper — a consumer dresses it via
-   * `triggerClassName` (Select passes its own .trigger). inline-flex so
-   * whatever it wraps is centred rather than sitting on the baseline. */
+   * `triggerClassName` (Select passes its own .trigger). One child, so this
+   * is centring rather than an arrangement. */
   .trigger {
-    display: inline-flex;
-    align-items: center;
+    align-content: center;
   }
 
   /*

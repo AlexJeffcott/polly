@@ -10,6 +10,7 @@
 import type { Signal } from "@preact/signals";
 import type { JSX } from "preact";
 import classes from "./Checkbox.module.css";
+import { Layout } from "./Layout.tsx";
 
 export type CheckboxProps = {
   checked?: boolean | Signal<boolean>;
@@ -41,7 +42,16 @@ export function Checkbox(props: CheckboxProps): JSX.Element {
   if (className) parts.push(className);
 
   return (
-    <label class={parts.filter(Boolean).join(" ")} data-polly-ui data-polly-checkbox>
+    <Layout
+      as="label"
+      inline
+      columns="auto auto"
+      gap="var(--polly-space-sm)"
+      alignItems="center"
+      className={parts.filter(Boolean).join(" ")}
+      data-polly-ui
+      data-polly-checkbox
+    >
       <input
         id={id}
         type="checkbox"
@@ -53,6 +63,6 @@ export function Checkbox(props: CheckboxProps): JSX.Element {
         onChange={handleChange}
       />
       {label !== undefined && <span class={classes["label"]}>{label}</span>}
-    </label>
+    </Layout>
   );
 }

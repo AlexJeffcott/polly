@@ -1,9 +1,9 @@
 @layer polly-components {
+  /* Centring is the <Layout> the component renders; this class carries the
+   * fixed-viewport placement, which is chrome rather than layout. */
   .container {
     position: fixed;
     inset: 0;
-    display: grid; /* layout-ignore */
-    place-items: center;
     pointer-events: none;
   }
 
@@ -50,10 +50,8 @@
 
   .close {
     appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-block-size: var(--polly-control-height-md);
+    align-content: center;
     background: transparent;
     color: var(--polly-text);
     border: var(--polly-border-width-default) solid transparent;

@@ -9,11 +9,14 @@
     display: none;
   }
 
+  /* align-content centres the line in whatever the box ends up being, which
+   * line-height cannot: the 44px hit-target floor in styles.css raises some of
+   * these above the control token, and CSS has no way to read that back.
+   * Measured with line-height: 11px above the text and 15px below. With
+   * align-content: 13 and 13. */
   .tab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-block-size: var(--polly-control-height-md);
+    align-content: center;
     padding-block: 0;
     padding-inline: var(--polly-control-padding-md);
     border: none;

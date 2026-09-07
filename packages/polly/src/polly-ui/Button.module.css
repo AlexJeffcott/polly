@@ -9,11 +9,12 @@
    * TextInput, a Select trigger and a FileInput in the same row; the
    * old derived height was 37.19px against their 40-54px.
    */
+  /* An icon and a label are arranged by the <Layout> the component renders.
+   * The button itself only centres that content in its box — align-content
+   * on the block axis, text-align on the inline axis — so no layout decision
+   * is hidden in this stylesheet. */
   .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--polly-space-sm);
+    align-content: center;
     min-block-size: var(--polly-control-height-md);
     padding-block: 0;
     padding-inline: var(--polly-control-padding-md);
@@ -201,9 +202,7 @@
    * the label is the part that shrinks, so a bounded button truncates its
    * text and never its icon. */
   .icon {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
+    vertical-align: middle;
   }
 
   .label {
@@ -214,5 +213,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* A bounded button with no icon has no label span to truncate — the text is
+   * the button's own inline content, so the ellipsis rules sit on the button. */
+  .btnBounded {
+    text-overflow: ellipsis;
   }
 }

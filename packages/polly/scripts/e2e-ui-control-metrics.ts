@@ -34,7 +34,7 @@ const LADDER = { sm: 32, md: 40, lg: 48 } as const;
  * the rung it must land on. Selectors match the hashed CSS-module class by
  * prefix, which is stable across builds.
  */
-const CONTROLS: Array<{ name: string; selector: string; height: number }> = [
+const CONTROLS: Array<{ name: string; selector: string; height: number; index?: number }> = [
   {
     name: "Button (normal)",
     selector:
@@ -62,6 +62,45 @@ const CONTROLS: Array<{ name: string; selector: string; height: number }> = [
   { name: "Checkbox", selector: "label[class*=checkbox_]", height: LADDER.md },
   { name: "Toggle", selector: "label[class*=toggle_]", height: LADDER.md },
   { name: "Tabs tab", selector: "button[class*=tab_]", height: LADDER.md },
+  // 44, not 40: ActionInput's view carries data-polly-interactive, so the
+  // hit-target rule in styles.css raises it to the WCAG 2.5.5 target. That
+  // floor is deliberate and outranks the ladder. Index 2 is the date
+  // specimen — the view is content-sized, so a long label wraps to 78px.
+  { name: "ActionInput view", selector: "div[class*=view_]", height: 44, index: 2 },
+];
+
+/**
+ * Controls that exist only while an overlay is open. Each carries its own
+ * border and none is a <Button>, so nothing else in the suite measures them —
+ * which is how they all went 2px over when their centring moved from flex to
+ * line-height and only Tabs was covered.
+ */
+// All three carry data-polly-interactive, so styles.css raises them to the
+// 44px hit target rather than the 40px control token.
+const OVERLAY_CONTROLS: Array<{
+  name: string;
+  open: string;
+  selector: string;
+  height: number;
+}> = [
+  {
+    name: "Modal close",
+    open: '[data-action="gallery:modal-open"]',
+    selector: "[data-polly-modal-content] button[class*=close_]",
+    height: 44,
+  },
+  {
+    name: "ConfirmDialog cancel",
+    open: '[data-action="gallery:confirm"]',
+    selector: "[data-polly-confirm-cancel]",
+    height: 44,
+  },
+  {
+    name: "ConfirmDialog confirm",
+    open: '[data-action="gallery:confirm"]',
+    selector: "[data-polly-confirm-actions] button:not([data-polly-confirm-cancel])",
+    height: 44,
+  },
 ];
 
 /** Controls that must share one corner, so a Button beside a field matches. */
@@ -101,7 +140,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     // 1. Every control lands on its rung.
     const measured = await page.evaluate((controls) => {
       return controls.map((c) => {
-        const el = document.querySelector(c.selector);
+        const el = document.querySelectorAll(c.selector)[c.index ?? 0] ?? null;
         if (el === null) return { name: c.name, found: false, height: 0, expected: c.height };
         const height = Math.round(el.getBoundingClientRect().height * 100) / 100;
         return { name: c.name, found: true, height, expected: c.height };
@@ -149,6 +188,40 @@ export async function run(ctx: TierContext): Promise<TierResult> {
         radii.map((r) => `  ${r.selector}: ${r.radius}`).join("\n")
     );
     ctx.log(`[e2e] control radius is ${distinctRadii[0]} everywhere`);
+
+    // 3b. The overlay controls. Open, measure, close.
+    for (const control of OVERLAY_CONTROLS) {
+      await page.click(control.open);
+      await page.waitForSelector(control.selector, { timeout: 5_000 });
+      await page.waitForFunction(
+        () => document.documentElement.getAttribute("data-polly-scroll-locked") === "true",
+        { timeout: 5_000 }
+      );
+      const height = await page.evaluate((selector) => {
+        const el = document.querySelector(selector);
+        return el === null ? -1 : Math.round(el.getBoundingClientRect().height * 100) / 100;
+      }, control.selector);
+      assert(
+        height === control.height,
+        `${control.name} measures ${height}px, expected ${control.height}px`
+      );
+      ctx.log(`[e2e] ${control.name} = ${height}px`);
+      // Escape reads the overlay stack, and the stack registration happens in
+      // the mount effect — press before that and it no-ops against an empty
+      // stack. Focus is not the signal here: measured, focus stays on the
+      // trigger and never enters the portal. OverlayRoot's scroll lock is,
+      // because it is set from the same stack Escape reads.
+      await page.waitForFunction(
+        () => document.documentElement.getAttribute("data-polly-scroll-locked") === "true",
+        { timeout: 5_000 }
+      );
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(
+        (selector) => document.querySelector(selector) === null,
+        { timeout: 5_000 },
+        control.selector
+      );
+    }
 
     // 4. color-scheme (polly#179). `normal` means the UA draws its date
     //    pickers, checkbox boxes and scrollbars light whatever the palette says.

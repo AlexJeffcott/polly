@@ -1,11 +1,7 @@
 @layer polly-components {
-  /* inline-flex with a gap, not two vertical-align: middle siblings: the
-   * box and its label stay centred on each other at any font size, and the
-   * row is as tall as every other control. */
+  /* The row — box beside label, centred on each other — is the <Layout> the
+   * component renders. This class carries only the control's own box. */
   .checkbox {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--polly-space-sm);
     box-sizing: border-box;
     min-block-size: var(--polly-control-height-md);
     cursor: pointer;

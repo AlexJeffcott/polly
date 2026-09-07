@@ -111,10 +111,18 @@ export function Select<T = string>(props: SelectProps<T>): JSX.Element {
   if (wide) triggerParts.push(classes["triggerWide"] ?? "");
   const triggerClass = triggerParts.filter(Boolean).join(" ");
   const triggerContent = (
-    <>
-      <span class={classes["triggerLabel"]}>{displayText.value}</span>
+    <Layout
+      inline
+      columns="1fr auto"
+      gap="var(--polly-space-sm)"
+      alignItems="center"
+      maxInlineSize="100%"
+    >
+      <span class={classes["triggerLabel"]} data-polly-select-label>
+        {displayText.value}
+      </span>
       <span class={classes["caret"]} aria-hidden="true" />
-    </>
+    </Layout>
   );
 
   const parts = [classes["select"] ?? ""];

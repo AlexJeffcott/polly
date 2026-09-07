@@ -25,6 +25,7 @@ import type { Signal } from "@preact/signals";
 import type { JSX } from "preact";
 import { useId } from "preact/hooks";
 import { buildInputA11y } from "./internal/input-base.ts";
+import { Layout } from "./Layout.tsx";
 import classes from "./TextInput.module.css";
 
 type Variant = "single" | "multi";
@@ -151,11 +152,11 @@ export function TextInput(props: TextInputProps): JSX.Element {
   if (!hasError) return control;
 
   return (
-    <div class={classes["field"]} data-polly-ui data-polly-field>
+    <Layout gap="var(--polly-space-xs)" className={classes["field"]} data-polly-ui data-polly-field>
       {control}
       <span id={errorId} role="alert" class={classes["error"]}>
         {props.error}
       </span>
-    </div>
+    </Layout>
   );
 }

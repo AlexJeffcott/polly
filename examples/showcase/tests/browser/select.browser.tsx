@@ -27,7 +27,7 @@ function mount(): HTMLElement {
 }
 
 function readTriggerLabel(host: HTMLElement): string {
-  const label = host.querySelector<HTMLElement>("[data-polly-select] button > span");
+  const label = host.querySelector<HTMLElement>("[data-polly-select-label]");
   return label?.textContent?.trim() ?? "";
 }
 
@@ -93,7 +93,7 @@ describe("Select — trigger label ellipsis contract", () => {
     // The inner label span must carry the triggerLabel class so the
     // ellipsis rules apply at the trigger boundary. Width-token
     // verification (actual pixels) belongs in visual regression.
-    const labelSpan = host.querySelector<HTMLElement>("[data-polly-select] button > span");
+    const labelSpan = host.querySelector<HTMLElement>("[data-polly-select-label]");
     if (!labelSpan) throw new Error("label span not found");
     expect(labelSpan.className.includes("triggerLabel")).toBe(true);
   });

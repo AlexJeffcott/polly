@@ -143,25 +143,27 @@ describe("Button — boolean modifier classes", () => {
 });
 
 describe("Button — content", () => {
-  // The button is its own flex container, so an icon and a
-  // label are its direct children. A nested <Layout> here would mean the
-  // arrangement had moved back off the button and the two would no longer
-  // share one baseline.
-  test("with an icon, icon and label are flex siblings inside the button", () => {
+  // An icon beside a label is an arrangement, so it goes through <Layout> —
+  // the same primitive a consumer would use. Raw flex in Button.module.css
+  // would be a layout decision hidden in CSS, which is what the css-layout
+  // check forbids and what this test pins.
+  test("with an icon, icon and label are arranged by a Layout", () => {
     const icon = h("svg", { "data-icon": "true" }) as unknown as VNode;
     const el = rendered(mount(h(Button, { icon, label: "Save" })));
-    expect(el.querySelector("[data-polly-layout]")).toBeNull();
+    const layout = el.querySelector<HTMLElement>("[data-polly-layout]");
+    expect(layout).not.toBeNull();
     expect(el.querySelector("[data-icon]")).not.toBeNull();
     const spans = Array.from(el.querySelectorAll("span"));
     expect(spans.length).toBe(2);
     expect(spans[1]?.textContent).toBe("Save");
-    // Both are children of the button itself, not of a wrapper.
-    for (const span of spans) expect(span.parentElement).toBe(el);
+    for (const span of spans) expect(span.parentElement).toBe(layout);
   });
-  test("without an icon, the label is the button's only child", () => {
+  test("without an icon, the label is the button's own inline content", () => {
+    // One child needs no container: the button centres it with align-content
+    // and text-align, so there is no Layout and no wrapper span.
     const el = rendered(mount(h(Button, { label: "Save" })));
     expect(el.querySelector("[data-polly-layout]")).toBeNull();
-    expect(el.querySelectorAll("span").length).toBe(1);
+    expect(el.querySelectorAll("span").length).toBe(0);
     expect(el.textContent).toBe("Save");
   });
 });

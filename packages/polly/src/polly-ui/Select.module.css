@@ -18,10 +18,10 @@
    * caret as siblings; intrinsic width by default (`.triggerWide`
    * opts into a minimum).
    */
+  /* The label/caret row is the <Layout> the component renders; the button
+   * itself only centres that row in its box. */
   .trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--polly-space-sm);
+    align-content: center;
     min-block-size: var(--polly-control-height-md);
     max-width: min(100%, var(--polly-control-max-width));
     padding-block: 0;
@@ -50,15 +50,13 @@
   /* The label shrinks (min-width: 0) so long text ellipsis-truncates
      while the caret keeps its intrinsic size. */
   .triggerLabel {
-    flex: 1 1 auto;
-    min-width: 0;
+    min-inline-size: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .caret {
-    flex: none;
     color: var(--polly-caret-color);
     pointer-events: none;
     transition: transform var(--polly-motion-fast) ease;

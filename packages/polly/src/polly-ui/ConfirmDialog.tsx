@@ -10,6 +10,7 @@
 import { signal } from "@preact/signals";
 import type { JSX } from "preact";
 import classes from "./ConfirmDialog.module.css";
+import { Layout } from "./Layout.tsx";
 import { Modal } from "./Modal.tsx";
 
 type ConfirmRequest = {
@@ -71,7 +72,13 @@ function Host(): JSX.Element | null {
         </Modal.Header>
         {current.body ? <Modal.Body>{current.body}</Modal.Body> : null}
         <Modal.Footer>
-          <div class={classes["actions"]} data-polly-confirm-actions>
+          <Layout
+            columns="auto auto"
+            gap="var(--polly-space-sm)"
+            justifyContent="end"
+            className={classes["actions"]}
+            data-polly-confirm-actions
+          >
             <button
               type="button"
               class={classes["cancel"]}
@@ -92,7 +99,7 @@ function Host(): JSX.Element | null {
             >
               {current.confirmLabel ?? "OK"}
             </button>
-          </div>
+          </Layout>
         </Modal.Footer>
       </Modal.Content>
     </Modal.Root>

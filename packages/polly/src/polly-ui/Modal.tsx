@@ -14,6 +14,7 @@ import { createPortal } from "preact/compat";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import { popOverlay, pushOverlay } from "../actions/overlay.ts";
 import { installFocusTrap } from "./internal/focus-trap.ts";
+import { Layout } from "./Layout.tsx";
 import classes from "./Modal.module.css";
 import { getOverlayRootNode } from "./OverlayRoot.tsx";
 import { Surface } from "./Surface.tsx";
@@ -95,9 +96,12 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
 
   const content = (
     <Ctx.Provider value={ctx}>
-      <div
-        ref={mountRef}
-        class={classes["container"]}
+      <Layout
+        elementRef={mountRef}
+        alignItems="center"
+        justifyItems="center"
+        height="100%"
+        className={classes["container"]}
         data-polly-ui
         data-polly-modal-content
         data-overlay-id={id}
@@ -109,7 +113,7 @@ function Root({ when, onClose, children, "aria-label": ariaLabel }: RootProps) {
         aria-describedby={descId}
       >
         {children}
-      </div>
+      </Layout>
     </Ctx.Provider>
   );
 
