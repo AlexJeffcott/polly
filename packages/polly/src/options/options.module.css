@@ -122,9 +122,9 @@ footer {
   bottom: 0;
 }
 
+/* The row is the <Layout> the page renders; the spacing below it is not
+   arrangement, so it stays here. */
 .actions {
-  display: flex;
-  gap: 12px;
   margin-bottom: 12px;
 }
 

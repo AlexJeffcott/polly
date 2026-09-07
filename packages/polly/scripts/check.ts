@@ -10,6 +10,7 @@
  *
  *   typecheck       bunx tsc --noEmit (root + tests workspace)
  *   typecheck-examples  tsc --noEmit in every example workspace
+  css-layout          no display:flex/grid outside <Layout> and <Cluster>
  *   lint            biome check . (formatting + lint rules)
  *   secrets         gitleaks scan with .gitleaks.toml allowlist
  *   gitignore       cross-checks .gitleaks.toml allowlist against .gitignore
@@ -168,6 +169,15 @@ async function checkTautologyEnsures(): Promise<boolean> {
   );
 }
 
+async function checkCssLayout(): Promise<boolean> {
+  // Layout goes through <Layout> (grid) or <Cluster> (flex) and nowhere else.
+  // The check existed and nothing ran it, so it sat red and unread: polly-ui
+  // quadrupled its raw flex under a rule that could not match `inline-flex`,
+  // and the extension's app CSS carried nine more. Both are at zero now, so
+  // the check can gate and any new one fails the build.
+  return (await spawn(["bun", "tools/quality/src/cli.ts", "css-layout", "--no-cache"])) === 0;
+}
+
 async function checkBoundaries(): Promise<boolean> {
   return (await spawn(["bun", "scripts/check-package-boundaries.ts"])) === 0;
 }
@@ -286,6 +296,7 @@ const KNOWN_CHECKS = [
   "deps",
   "casts",
   "tautology-ensures",
+  "css-layout",
   "boundaries",
   "server-imports",
   "todo-tests",
@@ -349,6 +360,8 @@ async function runOne(name: CheckName, verbose: boolean): Promise<boolean> {
       return checkCasts();
     case "tautology-ensures":
       return checkTautologyEnsures();
+    case "css-layout":
+      return checkCssLayout();
     case "boundaries":
       return checkBoundaries();
     case "server-imports":
@@ -381,6 +394,7 @@ const ALL_CHECK_STEPS: Array<{ sub: CheckName; name: string }> = [
   { sub: "deps", name: "Forbidden Deps" },
   { sub: "casts", name: "Casts" },
   { sub: "tautology-ensures", name: "Tautology Ensures" },
+  { sub: "css-layout", name: "CSS Layout" },
   { sub: "boundaries", name: "Module Boundaries" },
   { sub: "server-imports", name: "Server Imports" },
   { sub: "todo-tests", name: "No .todo/.failing tests" },

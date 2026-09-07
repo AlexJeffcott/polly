@@ -4,6 +4,7 @@ import { computed, signal } from "@preact/signals";
 import { render } from "preact";
 import { getMessageBus } from "@/shared/lib/message-bus";
 import { settings } from "@/shared/state/app-state";
+import { Layout } from "../polly-ui/Layout.tsx";
 
 const bus = getMessageBus("popup");
 
@@ -51,11 +52,15 @@ function Popup() {
   const isDark = computed(() => settings.value.theme === "dark");
 
   return (
-    <div className={`popup ${isDark.value ? "dark" : "light"}`}>
-      <header>
+    <Layout
+      rows="auto 1fr"
+      minHeight="400px"
+      className={`popup ${isDark.value ? "dark" : "light"}`}
+    >
+      <Layout as="header" autoFlow="column" alignItems="center" justifyContent="space-between">
         <h1>{process.env["EXTENSION_NAME"]}</h1>
         <span className="version">v{process.env["VERSION"]}</span>
-      </header>
+      </Layout>
 
       <main>
         <section>
@@ -73,7 +78,7 @@ function Popup() {
 
         <section>
           <h2>Settings</h2>
-          <label>
+          <Layout as="label" autoFlow="column" justifyContent="start" alignItems="center" gap="8px">
             <input
               type="checkbox"
               checked={settings.value.debugMode}
@@ -85,9 +90,9 @@ function Popup() {
               }}
             />
             Debug Mode
-          </label>
+          </Layout>
 
-          <label>
+          <Layout as="label" autoFlow="column" justifyContent="start" alignItems="center" gap="8px">
             <input
               type="checkbox"
               checked={settings.value.notifications}
@@ -99,9 +104,9 @@ function Popup() {
               }}
             />
             Notifications
-          </label>
+          </Layout>
 
-          <div className="theme-selector">
+          <Layout columns="auto 1fr" alignItems="center" gap="8px" className="theme-selector">
             <label htmlFor="theme-select">Theme:</label>
             <select
               id="theme-select"
@@ -120,7 +125,7 @@ function Popup() {
               <option value="dark">Dark</option>
               <option value="auto">Auto</option>
             </select>
-          </div>
+          </Layout>
         </section>
 
         <footer>
@@ -134,7 +139,7 @@ function Popup() {
           </button>
         </footer>
       </main>
-    </div>
+    </Layout>
   );
 }
 

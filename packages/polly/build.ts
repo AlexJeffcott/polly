@@ -322,8 +322,28 @@ async function buildTypeScript() {
     throw new Error("TypeScript build failed");
   }
 
+  // The TS build emits a CSS asset for every `.module.css` a component
+  // imports. It used to be dropped on the floor, so a page that rendered a
+  // polly-ui primitive got the markup and none of the rules — measured after
+  // the extension pages moved onto <Layout>: every container computed
+  // `display: block` instead of `grid`. Collect it once and let each page
+  // link it.
+  const componentCss: string[] = [];
+  for (const output of result.outputs) {
+    if (output.path.endsWith(".css")) componentCss.push(await output.text());
+  }
+  if (componentCss.length > 0) {
+    mkdirSync(join("dist", "assets"), { recursive: true });
+    await Bun.write("dist/assets/components.css", componentCss.join("\n"));
+  }
+
   // Move files to correct output paths
   for (const output of result.outputs) {
+    // Never over a page's own stylesheet: this loop matches an output to an
+    // entry by path fragment, and the CSS asset emitted for src/devtools/panel
+    // matched the devtools entry and clobbered dist/devtools/panel.css — the
+    // TS build runs after buildCSS, so the page lost its styles entirely.
+    if (output.path.endsWith(".css")) continue;
     const inputPath = tsEntries.find((e) =>
       output.path.includes(e.in.replace("src/", "").replace(/\.[^.]+$/, ""))
     );
@@ -418,11 +438,14 @@ async function build() {
     // Step 4: Copy assets (icons, etc.)
     await copyAssets();
 
-    // Step 5: Build CSS files
-    await buildCSS();
-
-    // Step 6: Build TypeScript files
+    // Step 5: Build TypeScript files
     await buildTypeScript();
+
+    // Step 6: Build CSS files — after the TS build, not before. Bun names the
+    // CSS asset emitted for the component imports after one of the entries,
+    // and it landed on dist/devtools/panel.css, so a page stylesheet written
+    // first was overwritten by component CSS and the page lost its styles.
+    await buildCSS();
   } catch (error) {
     console.error("\n❌ Build failed:", error);
     process.exit(1);

@@ -3,6 +3,7 @@
 import { signal } from "@preact/signals";
 import { render } from "preact";
 import { defaultSettings, settings } from "@/shared/state/app-state";
+import { Layout } from "../polly-ui/Layout.tsx";
 
 // Local state
 const saveStatus = signal<"idle" | "saving" | "saved" | "error">("idle");
@@ -176,14 +177,14 @@ function Options() {
         </section>
 
         <footer>
-          <div className="actions">
+          <Layout autoFlow="column" justifyContent="start" gap="12px" className="actions">
             <button type="button" onClick={saveSettings} disabled={saveStatus.value === "saving"}>
               {saveStatus.value === "saving" ? "Saving..." : "Save Settings"}
             </button>
             <button type="button" onClick={resetSettings} className="secondary">
               Reset to Defaults
             </button>
-          </div>
+          </Layout>
 
           {saveStatus.value === "saved" && <div className="status success">Settings saved!</div>}
           {saveStatus.value === "error" && <div className="status error">{errorMessage.value}</div>}

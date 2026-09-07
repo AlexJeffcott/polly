@@ -4,6 +4,7 @@ import { signal } from "@preact/signals";
 import { render } from "preact";
 import { getMessageBus } from "@/shared/lib/message-bus";
 import { settings } from "@/shared/state/app-state";
+import { Layout } from "../polly-ui/Layout.tsx";
 
 const bus = getMessageBus("devtools");
 const tabId = chrome.devtools.inspectedWindow.tabId;
@@ -90,16 +91,22 @@ async function callPageFunction() {
 
 function Panel() {
   return (
-    <div className="panel">
-      <header className="header">
+    <Layout rows="auto 1fr" height="100vh" className="panel">
+      <Layout
+        as="header"
+        autoFlow="column"
+        alignItems="center"
+        justifyContent="space-between"
+        className="header"
+      >
         <h1>{process.env["EXTENSION_NAME"]}</h1>
         <span className="version">v{process.env["VERSION"]}</span>
-      </header>
+      </Layout>
 
       <div className="content">
         <section className="query-section">
           <h2>DOM Query</h2>
-          <div className="input-group">
+          <Layout columns="1fr auto" gap="8px" className="input-group">
             <input
               type="text"
               value={selectedSelector.value}
@@ -112,14 +119,20 @@ function Panel() {
             <button type="button" onClick={queryDOM} disabled={isQuerying.value}>
               {isQuerying.value ? "Querying..." : "Query"}
             </button>
-          </div>
+          </Layout>
 
           {elements.value.length > 0 && (
             <div className="results">
               <h3>Results ({elements.value.length})</h3>
               <ul>
                 {elements.value.map((el, i) => (
-                  <li key={`${el.tag}-${el.text.substring(0, 20)}-${i}`}>
+                  <Layout
+                    as="li"
+                    key={`${el.tag}-${el.text.substring(0, 20)}-${i}`}
+                    columns="auto 1fr auto"
+                    alignItems="center"
+                    gap="12px"
+                  >
                     <code>&lt;{el.tag}&gt;</code>
                     <span className="text">{el.text.substring(0, 50)}</span>
                     <button
@@ -128,7 +141,7 @@ function Panel() {
                     >
                       Inspect
                     </button>
-                  </li>
+                  </Layout>
                 ))}
               </ul>
             </div>
@@ -179,7 +192,7 @@ function Panel() {
           <div>Debug Mode: {settings.value.debugMode ? "On" : "Off"}</div>
         </section>
       </div>
-    </div>
+    </Layout>
   );
 }
 
