@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.89.1] - 2026-09-07
+
+### Fixed
+
+#### `ActionSelect`'s trigger had no layout container
+
+`.trigger` is one rule with two consumers. 0.89.0 changed it for one of
+them: `display: inline-flex` came out, `Select` gained a `<Layout>` to
+replace it, and `ActionSelect` — which applies the same class through
+Dropdown's `triggerClassName` — kept two bare sibling spans. Its label and
+caret became two inline boxes and the caret wrapped onto a second line.
+Measured in a consumer at 350px: 42px tall, 134.83px wide, caret 18px below
+the label. Every other control in that row measured 40px.
+
+Both components now render the row from one module, so the rule's contract
+and the components that must satisfy it live in one file. `Select`'s DOM is
+unchanged. `ActionSelect`'s trigger gains a `[data-polly-layout]` element
+around its label and caret, and its label carries `data-polly-select-label`
+in both the enabled and the disabled branch — prefer that named hook to a
+structural selector.
+
+#### A disabled `ActionSelect` was 42px, not 40px
+
+`.trigger` declared no `box-sizing` and inherited `border-box` from the UA's
+`button` rule. A disabled `ActionSelect` renders its box as a `<span>`, which
+gets no such rule, so its 1px borders sat outside `--polly-control-height-md`.
+It also declared no `display`, and a plain inline box ignores `min-block-size`
+altogether. The rule now states both. This pre-dates 0.89.0.
+
+### Changed
+
+`e2e-ui-control-metrics` measures five triggers at 1280, 900 and 350px:
+height on the size token, the row is a flex or grid container, the label and
+caret gap is `--polly-space-sm`, the caret's vertical centre sits within 2px
+of the label's, a long label ellipsis-truncates, and a `Select` and an
+`ActionSelect` carrying one label agree on both dimensions. Centres and not
+tops: a correctly centred caret glyph box sits 2px above the text line box,
+while a wrap moves the centre by a whole line.
+
+Five gallery specimens back it — long-label `Select`, long-label
+`ActionSelect` enabled, disabled and empty, and a `wide` one. A short label
+cannot show the defect: the trigger sizes to its content, stays under
+`--polly-control-max-width`, and measures 40px with or without a row. Every
+catalogued Select used a short label, which is why this shipped.
+
 ## [0.89.0] - 2026-09-07
 
 ### Changed
