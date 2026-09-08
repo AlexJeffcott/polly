@@ -16,6 +16,7 @@ import type {
   VerificationConfig,
 } from "../types";
 import { type Invariant, InvariantGenerator } from "./invariants";
+import { GENERATED_CONTEXTS, generatedTabValues } from "./model-constants";
 import type { RoundTripResult, RoundTripValidator } from "./round-trip";
 import { type TemporalProperty, TemporalPropertyGenerator, TemporalTLAGenerator } from "./temporal";
 import type { TLAValidator, ValidationError } from "./tla-validator";
@@ -69,8 +70,8 @@ export class TLAGenerator {
   // Populated by deriveParamDomains() before PayloadType emission. Empty when a parameter
   // cannot be linked to a config.state field — collectPayloadFields falls back to inferFieldType.
   private paramDomains: Map<string, string> = new Map();
-  // Tab symmetry state
-  private tabSymmetryEnabled: boolean = false;
+  // Tab symmetry state. The generated Tabs set itself comes from
+  // generatedTabValues (model-constants.ts); this is only the log-line count.
   private tabCount: number = 0;
   private moduleName: string = "UserApp";
   // polly#117: the verification config currently being generated. Stashed
@@ -488,7 +489,7 @@ export class TLAGenerator {
    * Add basic constants (Contexts, MaxMessages)
    */
   private addBasicConstants(lines: string[], config: VerificationConfig): void {
-    lines.push("  Contexts = {background, content, popup}");
+    lines.push(`  Contexts = {${GENERATED_CONTEXTS.join(", ")}}`);
     lines.push(`  MaxMessages = ${config.messages.maxInFlight || 3}`);
     // NULL is a model value used for null/undefined
     lines.push("  NULL = NULL");
@@ -525,31 +526,18 @@ export class TLAGenerator {
     }
     if ("maxClients" in messages && messages.maxClients !== undefined && !hasProjectConstant) {
       lines.push(`  MaxClients = ${messages.maxClients}`);
-      hasProjectConstant = true;
     }
 
-    // Handle tab constants - either model values for symmetry or integer set
-    if (this.tabSymmetryEnabled) {
-      // Tab symmetry: use model value assignments
-      for (let i = 0; i < this.tabCount; i++) {
-        lines.push(`  Tab${i} = Tab${i}`);
+    // Tab constants: model values under symmetry, integers otherwise. The set
+    // comes from generatedTabValues so the estimator reads |Tabs| off the same
+    // rule that emits this line (polly#183).
+    const tabValues = generatedTabValues(messages);
+    if (messages.tabSymmetry) {
+      for (const tab of tabValues) {
+        lines.push(`  ${tab} = ${tab}`);
       }
-      // Define Tabs as the set of model values
-      const tabValues = Array.from({ length: this.tabCount }, (_, i) => `Tab${i}`).join(", ");
-      lines.push(`  Tabs = {${tabValues}}`);
-    } else if (
-      "maxTabs" in messages &&
-      messages.maxTabs !== undefined &&
-      messages.maxTabs !== null
-    ) {
-      // Standard integer-based tabs with explicit maxTabs
-      const tabValues = Array.from({ length: messages.maxTabs + 1 }, (_, i) => i).join(", ");
-      lines.push(`  Tabs = {${tabValues}}`);
-    } else if (hasProjectConstant) {
-      lines.push("  Tabs = {0}");
-    } else {
-      lines.push("  Tabs = {0, 1}");
     }
+    lines.push(`  Tabs = {${tabValues.join(", ")}}`);
 
     lines.push("  TimeoutLimit = 3");
   }
@@ -1249,7 +1237,6 @@ export class TLAGenerator {
 
     const maxTabs = config.messages.maxTabs ?? 1;
     this.tabCount = maxTabs + 1; // 0..maxTabs = maxTabs+1 values
-    this.tabSymmetryEnabled = true;
 
     this.line("\\* Tab symmetry constants for state space reduction (Tier 1 optimization)");
     this.line("CONSTANTS");

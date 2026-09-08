@@ -94,6 +94,13 @@ interface LegacyVerificationConfig {
   verification?: {
     timeout?: number; // Timeout in seconds (0 = no timeout)
     workers?: number; // Number of TLC workers
+    /**
+     * polly#181: docker-style container memory ceiling for the TLC run, e.g.
+     * "8g". The JVM heap is sized under it, so a model too large for the
+     * ceiling ends with a TLC out-of-memory message instead of a silent kill.
+     * Unset uses a fixed default (4g), never unbounded.
+     */
+    memory?: string;
   };
 
   /**

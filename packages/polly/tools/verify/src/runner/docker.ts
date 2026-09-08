@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CONTAINER_NAME_PREFIX, mintContainerName } from "./container-name";
+import { DEFAULT_TLC_MEMORY, javaToolOptions, parseMemoryBytes } from "./memory";
 
 export type DockerRunResult = {
   exitCode: number;
@@ -159,6 +160,8 @@ export class DockerRunner {
       workers?: number;
       timeout?: number;
       maxDepth?: number;
+      /** Docker-style container memory ceiling, e.g. "8g" (polly#181). */
+      memory?: string;
     }
   ): Promise<TLCResult> {
     // Ensure spec file exists
@@ -197,14 +200,32 @@ export class DockerRunner {
     // --name so a timed-out run is removable by name: --rm only fires when the
     // container exits, and killing the client does not kill the container
     // (polly#173).
+    //
+    // --memory + -Xmx so the run has a ceiling polly sets rather than one Docker
+    // Desktop's allocation sets. Without them the JVM takes 25% of whatever the
+    // daemon was given and a long run is killed by the host with no TLC message
+    // at all (polly#181). JAVA_TOOL_OPTIONS rather than a Dockerfile change, so
+    // the setting can move without rebuilding the image.
     const containerName = mintContainerName("tlc");
     sweepOrphanedContainersOnce();
+
+    const memory = options?.memory ?? DEFAULT_TLC_MEMORY;
+    const memoryBytes = parseMemoryBytes(memory);
+    if (memoryBytes === null) {
+      throw new Error(
+        `Invalid verification.memory: "${memory}". Use a docker-style size such as "512m" or "8g".`
+      );
+    }
 
     const args = [
       "run",
       "--rm",
       "--name",
       containerName,
+      "--memory",
+      memory,
+      "-e",
+      `JAVA_TOOL_OPTIONS=${javaToolOptions(memoryBytes)}`,
       "-v",
       `${specDir}:/work`,
       this.IMAGE_NAME,
@@ -228,13 +249,13 @@ export class DockerRunner {
       containerName,
     });
 
-    return this.parseTLCOutput(result);
+    return this.parseTLCOutput(result, memory);
   }
 
   /**
    * Parse TLC output
    */
-  private parseTLCOutput(result: DockerRunResult): TLCResult {
+  private parseTLCOutput(result: DockerRunResult, memory?: string): TLCResult {
     const output = result.stdout + result.stderr;
 
     // Check for violations
@@ -255,21 +276,14 @@ export class DockerRunner {
     if (result.exitCode !== 0 || output.includes("Error:")) {
       return {
         success: false,
-        error: this.extractError(output),
+        error: this.extractError(output, result.exitCode, memory),
         output,
       };
     }
 
-    // Success
-    const statesMatch = output.match(/(\d+) states generated/);
-    const distinctMatch = output.match(/(\d+) distinct states/);
-
     return {
       success: true,
-      stats: {
-        statesGenerated: statesMatch?.[1] ? Number.parseInt(statesMatch[1], 10) : 0,
-        distinctStates: distinctMatch?.[1] ? Number.parseInt(distinctMatch[1], 10) : 0,
-      },
+      ...(parseTLCStats(output) ?? {}),
       output,
     };
   }
@@ -300,7 +314,19 @@ export class DockerRunner {
   /**
    * Extract error message from TLC output
    */
-  private extractError(output: string): string {
+  private extractError(output: string, exitCode?: number, memory?: string): string {
+    // polly#181: the two ways a run ends for want of memory. 137 is SIGKILL,
+    // which for a --memory-capped container is the cgroup OOM killer; the JVM's
+    // own OutOfMemoryError means -Xmx was reached first, which is the case we
+    // want, because TLC prints it.
+    const cap = memory ? ` (--memory ${memory})` : "";
+    if (/java\.lang\.OutOfMemoryError/.test(output)) {
+      return `TLC ran out of heap${cap}. The model is too large for this ceiling — raise verification.memory, lower messages.maxInFlight, or split the subsystem.`;
+    }
+    if (exitCode === 137) {
+      return `TLC was killed for exceeding the container memory limit${cap}. Raise verification.memory, lower messages.maxInFlight, or split the subsystem.`;
+    }
+
     // A state-pool write/read failing against a states/.../<n> path is almost
     // never a real model problem — it's the Docker Desktop file-share layer
     // dropping a small-file IO under sustained load. Since #152 we write the
@@ -460,6 +486,46 @@ export class DockerRunner {
   }
 }
 
+/**
+ * What TLC's own end-of-run summary block says, or nothing.
+ *
+ * polly#182: this used to be read with `output.match(/(\d+) distinct states/)`,
+ * and TLC prints
+ *
+ * ```
+ * Finished computing initial states: 8 distinct states generated at ...
+ * 477320 states generated, 97600 distinct states found, 0 states left on queue.
+ * ```
+ *
+ * A non-global `match` returns the first hit, so every run reported its
+ * INITIAL-state count as its distinct-state count. Three different subsystems
+ * printed the same `8 states  ✓ passed`, and a spec in which no action was ever
+ * enabled would have printed it too — the one figure that separates an
+ * exhaustive proof from an empty model.
+ *
+ * Absence of the summary line is itself a reading: TLC did not reach its own
+ * summary, so the run did not complete and `stats` is undefined rather than
+ * zero.
+ */
+export type TLCStats = {
+  statesGenerated: number;
+  distinctStates: number;
+  /** Unexplored states when TLC stopped. Non-zero means the model was not exhausted. */
+  statesLeftOnQueue: number;
+  /** `Finished computing initial states: N ...`, when TLC got that far. */
+  initialStates?: number;
+  /** `The depth of the complete state graph search is N`, when reported. */
+  searchDepth?: number;
+  /** Summary line reached AND nothing left on the queue. */
+  exhaustive: boolean;
+  /**
+   * True when the search never left its initial states — no action was ever
+   * enabled. TLC calls that a completed exploration and it is one, of a model
+   * that does nothing.
+   */
+  noActionEnabled: boolean;
+};
+
 export type TLCResult = {
   success: boolean;
   violation?: {
@@ -468,9 +534,52 @@ export type TLCResult = {
     trace: string[];
   };
   error?: string;
-  stats?: {
-    statesGenerated: number;
-    distinctStates: number;
-  };
+  stats?: TLCStats;
   output: string;
 };
+
+/**
+ * TLC's end-of-run summary line.
+ *
+ * Anchored to the start of a line on purpose. TLC's mid-run progress lines
+ * carry the same three phrases — `Progress(5) at <time>: N states generated
+ * (r s/min), N distinct states found (r ds/min), N states left on queue.` — and
+ * the rate suffixes are absent on the first report, so an unanchored pattern
+ * would read a killed run's last progress line as a completed summary.
+ */
+const TLC_SUMMARY =
+  /^(\d+) states generated, (\d+) distinct states found, (\d+) states left on queue/m;
+const TLC_INITIAL_STATES = /Finished computing initial states: (\d+) distinct states generated/;
+const TLC_SEARCH_DEPTH = /The depth of the complete state graph search is (\d+)/;
+
+/**
+ * TLC's summary figures, or `undefined` when it printed no summary line.
+ *
+ * Exported for the transcript tests: the parse is the whole defect in
+ * polly#182, and a captured TLC transcript is the only honest way to pin it.
+ */
+export function parseTLCStats(output: string): { stats: TLCStats } | undefined {
+  const summary = TLC_SUMMARY.exec(output);
+  if (!summary?.[1] || !summary[2] || !summary[3]) return undefined;
+
+  const statesGenerated = Number.parseInt(summary[1], 10);
+  const distinctStates = Number.parseInt(summary[2], 10);
+  const statesLeftOnQueue = Number.parseInt(summary[3], 10);
+
+  const initial = TLC_INITIAL_STATES.exec(output)?.[1];
+  const initialStates = initial === undefined ? undefined : Number.parseInt(initial, 10);
+  const depth = TLC_SEARCH_DEPTH.exec(output)?.[1];
+  const searchDepth = depth === undefined ? undefined : Number.parseInt(depth, 10);
+
+  return {
+    stats: {
+      statesGenerated,
+      distinctStates,
+      statesLeftOnQueue,
+      ...(initialStates === undefined ? {} : { initialStates }),
+      ...(searchDepth === undefined ? {} : { searchDepth }),
+      exhaustive: statesLeftOnQueue === 0,
+      noActionEnabled: initialStates !== undefined && distinctStates === initialStates,
+    },
+  };
+}

@@ -30,6 +30,25 @@ export interface CapabilityConfig {
 }
 
 /**
+ * TLC engine options, shared by both config arms.
+ *
+ * Declared here because the CLI reads `config.verification` off the union
+ * (`getTimeout` / `getWorkers` / `getMemory`) — neither arm carried it, so the
+ * accesses had no type behind them.
+ */
+export interface VerificationEngineOptions {
+  /** Timeout in seconds; 0 means no timeout. */
+  timeout?: number;
+  /** Number of TLC workers. */
+  workers?: number;
+  /**
+   * polly#181: docker-style container memory ceiling for the TLC run, e.g.
+   * "8g". Unset uses the runner's fixed default, never unbounded.
+   */
+  memory?: string;
+}
+
+/**
  * Adapter-based verification configuration (new format)
  */
 export interface AdapterVerificationConfig {
@@ -61,6 +80,9 @@ export interface AdapterVerificationConfig {
 
   /** polly#160: symmetric write-coupling lint groups (static warning only). */
   coupledFields?: string[][];
+
+  /** TLC engine options (timeout, workers, memory). */
+  verification?: VerificationEngineOptions;
 }
 
 // Legacy Configuration (Backward Compatibility)
@@ -119,6 +141,9 @@ export interface LegacyVerificationConfig {
    * a custom subsystem is skipped during generated-spec verification.
    */
   customTLAPaths?: Record<string, CustomTLAPath>;
+
+  /** TLC engine options (timeout, workers, memory). */
+  verification?: VerificationEngineOptions;
 }
 
 // Unified Configuration Type

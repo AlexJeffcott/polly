@@ -357,6 +357,11 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "liveness"],
           cost: "heavy",
         }),
+        e2e("verify.run-accounting", "e2e-verify-run-accounting.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "memory", "estimate"],
+          cost: "heavy",
+        }),
         e2e("bdd.witness", "e2e-bdd-witness.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "bdd", "witness"],
