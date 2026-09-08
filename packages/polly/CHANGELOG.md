@@ -5,6 +5,125 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.90.0] - 2026-09-08
+
+### Fixed
+
+#### A TLC run had no memory ceiling polly set
+
+`docker run` was passed no `--memory` and the JVM no `-Xmx`, so TLC sized its
+heap from `MaxRAMPercentage` — 25% of whatever Docker Desktop was allocated.
+The same spec on the same polly version chose 1984MB on one machine and
+6000MB on another, and a long run then died mid-check with no TLC error, no
+invariant violation and no exit message: the host's low-memory handling killed
+it.
+
+`runTLC` now passes `--memory` and, through `JAVA_TOOL_OPTIONS`,
+`-Xmx` at 75% of that limit plus `-XX:+UseParallelGC` — the collector TLC
+asked for by name in a warning on every previous run. An environment variable
+rather than a Dockerfile change, so the setting moves without rebuilding the
+`polly-tla` image. The remaining 25% is the JVM's non-heap use, which sits
+outside `-Xmx` and inside the cgroup limit, so the JVM throws
+`OutOfMemoryError` — which TLC prints — instead of the kernel killing the
+container silently. Both that and an exit code of 137 are now reported as
+memory failures rather than "Unknown error occurred during model checking".
+
+Measured: `docker inspect` on a running container reports
+`HostConfig.Memory=4294967296`, and the heap follows the setting — 683MB at
+`1g`, 2048MB at `3g`.
+
+#### The reported state count was the initial-state count
+
+`parseTLCOutput` read `output.match(/(\d+) distinct states/)`. TLC prints two
+lines carrying that substring, and the initial-states line comes first, so a
+non-global match returned it every time. Three subsystems that exhaustively
+explored 116,032, 29,248 and 97,600 states all reported `8 states  ✓ passed` —
+`8` being `|PayloadType|`, identical for every generated spec.
+
+The state count is the only figure in polly's output that separates a real
+exhaustive proof from a model whose actions are all disabled. A misgenerated
+spec in which no handler could ever fire would have printed the same line.
+
+The parse now anchors on TLC's end-of-run summary line, and anchors it to the
+start of a line: TLC's first progress report has empty rate suffixes and is
+otherwise word-for-word a summary line, so an unanchored pattern would read a
+killed run's last progress line as a completed one. Absence of that line is
+itself a reading — TLC never reached its own summary, so the statistics are
+absent and the column reports `?` rather than `0`.
+
+`states left on queue`, the initial-state count and the search depth are now
+carried separately. A run that ends with a non-zero queue is named as not
+exhausted, and a run whose distinct states equal its initial states is named
+as one in which no action was ever enabled. Neither changes the exit code:
+`tier2.boundedExploration.maxDepth` leaves a queue by design.
+
+#### `--estimate` modelled neither the contexts nor the sends the generator emits
+
+The estimator computed `maxTabs + 1` contexts. The `.cfg` writer emits a fixed
+`Contexts = {background, content, popup}`, which no config key changes, so the
+per-context term was `fieldProduct^2` against a generated `fieldProduct^3`.
+
+The send branching was absent altogether. `UserNext` quantifies over source
+context, non-empty target set, tab and message type on every send, so one
+in-flight message branches `|Contexts| * (2^|Contexts| - 1) * |Tabs| *
+handlers` ways, raised to `maxInFlight`. The estimator used
+`permutations(handlers, maxInFlight)` instead.
+
+On a consumer subsystem at 9 handlers and `maxInFlight` 2 it reported ~5,800
+states. That model reached 9.6M distinct states in three minutes, was still at
+depth 6 with 8M queued, and never terminated. Resizing the subsystem to the
+shape that finishes in one second did not move the estimate, because neither
+lever entered it.
+
+The estimate is now
+`fieldProduct^|Contexts| * (|Contexts| * (2^|Contexts| - 1) * |Tabs| *
+handlers)^maxInFlight` — 1.04e8 and 214,326 for those two shapes, against a
+measured 97,600 for the second. It remains a lower bound: `ports`, `status`,
+`deliveredTo`, `time` and `payload` are not modelled, and the output now says
+so. The suggestions name the term that dominates the particular estimate
+rather than listing the same three knobs.
+
+### Added
+
+#### `verification.memory`
+
+A docker-style container memory ceiling for the TLC run, beside `timeout` and
+`workers`:
+
+```ts
+defineVerification({
+  // ...
+  verification: { workers: 4, memory: "8g" },
+});
+```
+
+Default `4g` — a fixed value rather than a fraction of the host, so a run is
+reproducible across machines. Below `512m` is rejected at config validation
+with the minimum named, rather than started. Unset uses the default; there is
+no path back to unbounded.
+
+#### `--estimate` reports per subsystem
+
+A config declaring `subsystems` never runs the monolithic model, so
+`polly verify --estimate` now prints one block per subsystem plus a summary
+table, sized with that subsystem's own state fields, handler list and
+`bounds.maxInFlight`.
+
+### Changed
+
+`tools/verify/src/codegen/model-constants.ts` holds the context set, the tab
+set and the send-branching factor. The `.cfg` writer and the state-space
+estimator both read it, so the two cannot drift apart again — a private copy
+in each is exactly what the estimator defect was.
+
+`scripts/e2e-verify-run-accounting.ts` proves all three against one real TLC
+run in one real container: the heap moves with `verification.memory`, the
+reported count matches TLC's summary line, and the estimate is checked against
+the `.cfg` and `.tla` the generator wrote. Each part carries a falsification
+gate that recomputes the pre-fix behaviour over the same output, so a
+regression shows as the gate going quiet rather than as a green suite. Tier
+case `verify.run-accounting` (needs Docker).
+
 ## [0.89.1] - 2026-09-07
 
 ### Fixed
