@@ -1,3 +1,10 @@
+import {
+  CONTEXT_COUNT,
+  generatedTabCount,
+  sendBranchingFactor,
+  TARGET_SET_COUNT,
+  type TabSetInput,
+} from "../codegen/model-constants";
 import type {
   AdapterVerificationConfig,
   LegacyVerificationConfig,
@@ -13,12 +20,19 @@ export type FieldEstimate = {
 };
 
 export type StateSpaceEstimate = {
+  /** Subsystem this estimate is for; absent for the monolithic model. */
+  subsystem?: string;
   fields: FieldEstimate[];
   fieldProduct: number;
   handlerCount: number;
   maxInFlight: number;
   contextCount: number;
+  tabCount: number;
+  /** `|Contexts| * (2^|Contexts| - 1) * |Tabs| * handlers` — one send's successors. */
+  sendBranching: number;
+  /** `fieldProduct ** contextCount` — application state, replicated per context. */
   totalStateSpace: number;
+  /** `sendBranching ** maxInFlight` — the message configurations reachable. */
   interleavingFactor: number;
   estimatedStates: number;
   feasibility: "trivial" | "feasible" | "slow" | "infeasible";
@@ -29,17 +43,21 @@ export type StateSpaceEstimate = {
 function typedFieldCardinality(name: string, obj: Record<string, unknown>): FieldEstimate | null {
   if (!("type" in obj)) return null;
 
-  switch (obj.type) {
+  const values = obj["values"];
+  const min = obj["min"];
+  const max = obj["max"];
+
+  switch (obj["type"]) {
     case "boolean":
       return { name, cardinality: 2, kind: "boolean" };
     case "enum":
-      if (Array.isArray(obj.values)) {
-        return { name, cardinality: obj.values.length, kind: "enum" };
+      if (Array.isArray(values)) {
+        return { name, cardinality: values.length, kind: "enum" };
       }
       return { name, cardinality: "unbounded", kind: "enum" };
     case "number":
-      if (typeof obj.min === "number" && typeof obj.max === "number") {
-        return { name, cardinality: obj.max - obj.min + 1, kind: "number" };
+      if (typeof min === "number" && typeof max === "number") {
+        return { name, cardinality: max - min + 1, kind: "number" };
       }
       return { name, cardinality: "unbounded", kind: "number" };
     case "array":
@@ -52,14 +70,18 @@ function typedFieldCardinality(name: string, obj: Record<string, unknown>): Fiel
 }
 
 function legacyFieldCardinality(name: string, obj: Record<string, unknown>): FieldEstimate | null {
+  const values = obj["values"];
+  const abstract = obj["abstract"];
+  const min = obj["min"];
+  const max = obj["max"];
+
   // { values: [...], abstract?: boolean }
-  if ("values" in obj && Array.isArray(obj.values)) {
-    const base = obj.values.length;
-    const extra = obj.abstract === true ? 1 : 0;
+  if (Array.isArray(values)) {
+    const extra = abstract === true ? 1 : 0;
     return {
       name,
-      cardinality: base + extra,
-      kind: obj.abstract ? "enum (abstract)" : "enum (values)",
+      cardinality: values.length + extra,
+      kind: abstract === true ? "enum (abstract)" : "enum (values)",
     };
   }
 
@@ -69,14 +91,8 @@ function legacyFieldCardinality(name: string, obj: Record<string, unknown>): Fie
   }
 
   // { min, max } (number range)
-  if (
-    "min" in obj &&
-    "max" in obj &&
-    typeof obj.min === "number" &&
-    typeof obj.max === "number" &&
-    !("type" in obj)
-  ) {
-    return { name, cardinality: obj.max - obj.min + 1, kind: "number" };
+  if (typeof min === "number" && typeof max === "number" && !("type" in obj)) {
+    return { name, cardinality: max - min + 1, kind: "number" };
   }
 
   return null;
@@ -101,18 +117,6 @@ function fieldCardinality(name: string, value: unknown): FieldEstimate {
     typedFieldCardinality(name, obj) ??
     legacyFieldCardinality(name, obj) ?? { name, cardinality: "unbounded", kind: "unknown" }
   );
-}
-
-/**
- * Compute C(n, k) * k! = n! / (n-k)! (permutations)
- */
-function permutations(n: number, k: number): number {
-  if (k > n) return 1;
-  let result = 1;
-  for (let i = 0; i < k; i++) {
-    result *= n - i;
-  }
-  return result;
 }
 
 function getHandlerCount(config: UnifiedVerificationConfig, analysis: CodebaseAnalysis): number {
@@ -141,11 +145,15 @@ function getMaxInFlight(config: UnifiedVerificationConfig): number {
   return 1;
 }
 
-function getMaxTabs(config: UnifiedVerificationConfig): number {
+/**
+ * The message block the `.cfg` writer reads when it emits `Tabs`. An adapter
+ * config has none, and the writer's default set (`{0, 1}`) is what it gets.
+ */
+function getTabSetInput(config: UnifiedVerificationConfig): TabSetInput {
   if (isLegacyConfig(config)) {
-    return config.messages.maxTabs ?? 1;
+    return config.messages as unknown as TabSetInput;
   }
-  return 1;
+  return {};
 }
 
 function getFeasibility(states: number): StateSpaceEstimate["feasibility"] {
@@ -168,16 +176,64 @@ function feasibilityLabel(f: StateSpaceEstimate["feasibility"]): string {
   }
 }
 
-export function estimateStateSpace(
+/** Variables the generated spec carries that this figure does not model. */
+const OMITTED_VARIABLES = "ports, status, deliveredTo, time and payload";
+
+/**
+ * Which lever dominates a given estimate, by its log10 contribution.
+ *
+ * Reported so the suggestion names the term the user should move, rather than
+ * offering the same three generic knobs for every model.
+ */
+function dominantTerm(e: {
+  fieldProduct: number;
+  handlerCount: number;
+  contextCount: number;
+  tabCount: number;
+  maxInFlight: number;
+}): { label: string; decades: number } {
+  const log10 = (n: number) => (n > 0 ? Math.log10(n) : 0);
+  const topology = e.contextCount * TARGET_SET_COUNT * e.tabCount;
+
+  const terms = [
+    {
+      label: `state fields (${e.fieldProduct} combinations across ${e.contextCount} contexts)`,
+      decades: e.contextCount * log10(e.fieldProduct),
+    },
+    {
+      label: `handler count (${e.handlerCount} handlers at maxInFlight ${e.maxInFlight})`,
+      decades: e.maxInFlight * log10(e.handlerCount),
+    },
+    {
+      label: `send topology (${e.contextCount} sources x ${TARGET_SET_COUNT} target sets x ${e.tabCount} tabs)`,
+      decades: e.maxInFlight * log10(topology),
+    },
+  ];
+
+  return terms.reduce((a, b) => (b.decades > a.decades ? b : a));
+}
+
+type EstimateScope = {
+  /** Subsystem name; omitted for the monolithic model. */
+  name?: string;
+  /** State field names to include; all of them when omitted. */
+  stateFields?: string[];
+  handlerCount: number;
+  maxInFlight: number;
+};
+
+function estimateForScope(
   config: UnifiedVerificationConfig,
-  analysis: CodebaseAnalysis
+  scope: EstimateScope
 ): StateSpaceEstimate {
   const state = config.state as unknown as Record<string, unknown>;
   const fields: FieldEstimate[] = [];
   const warnings: string[] = [];
   const suggestions: string[] = [];
 
+  const included = scope.stateFields ? new Set(scope.stateFields) : undefined;
   for (const [name, value] of Object.entries(state)) {
+    if (included && !included.has(name)) continue;
     fields.push(fieldCardinality(name, value));
   }
 
@@ -199,48 +255,74 @@ export function estimateStateSpace(
     );
   }
 
-  const handlerCount = getHandlerCount(config, analysis);
-  const maxInFlight = getMaxInFlight(config);
-  const maxTabs = getMaxTabs(config);
+  const { handlerCount, maxInFlight } = scope;
+  const tabSetInput = getTabSetInput(config);
+  const tabCount = generatedTabCount(tabSetInput);
 
-  // Contexts: tabs + 1 background
-  const contextCount = maxTabs + 1;
-
+  // Contexts is the set the .cfg writer emits, not a function of maxTabs
+  // (polly#183). Every generated spec replicates application state across it.
+  const contextCount = CONTEXT_COUNT;
   const totalStateSpace = fieldProduct ** contextCount;
 
-  // Interleaving: permutations(handlerCount, maxInFlight)
-  const interleavingFactor = permutations(handlerCount, maxInFlight);
+  // Each in-flight message is one SendMessage step, and UserNext quantifies
+  // over source, non-empty target set, tab and message type on every one.
+  const sendBranching = sendBranchingFactor(handlerCount, tabCount);
+  const interleavingFactor = sendBranching ** maxInFlight;
 
   const estimatedStates = totalStateSpace * interleavingFactor;
 
   const feasibility = getFeasibility(estimatedStates);
 
-  // Generate suggestions
+  warnings.push(
+    `Lower bound: the generated spec also carries ${OMITTED_VARIABLES}, none of which this figure models.`
+  );
+
+  if (tabSetInput.tabSymmetry) {
+    warnings.push(
+      "tabSymmetry is enabled — TLC's symmetry reduction cuts the reachable set, so this is an upper bound on the tab dimension."
+    );
+  }
+
+  const dominant = dominantTerm({
+    fieldProduct,
+    handlerCount,
+    contextCount,
+    tabCount,
+    maxInFlight,
+  });
+  suggestions.push(
+    `Dominant term: ${dominant.label} — ~10^${dominant.decades.toFixed(1)} of ~10^${Math.log10(Math.max(estimatedStates, 1)).toFixed(1)}`
+  );
+
+  if (maxInFlight > 1) {
+    suggestions.push(
+      `maxInFlight ${maxInFlight} → ${maxInFlight - 1} divides the estimate by ${sendBranching.toLocaleString()}x (one fewer send to branch over)`
+    );
+  }
+
   if (handlerCount > 15) {
-    suggestions.push("Consider splitting into subsystems");
+    suggestions.push(
+      `${handlerCount} handlers enter the estimate as ${handlerCount}^${maxInFlight} — splitting into subsystems is the cheapest cut`
+    );
   }
 
   for (const f of boundedFields) {
     if ((f.cardinality as unknown as number) > 50) {
-      suggestions.push(`Consider reducing bounds for field "${f.name}" (${f.cardinality} values)`);
+      suggestions.push(
+        `Field "${f.name}" (${f.cardinality} values) is raised to the power of ${contextCount} contexts — reducing its bounds compounds`
+      );
     }
   }
 
-  if (maxInFlight > 2) {
-    const reducedInterleaving = permutations(handlerCount, 2);
-    const reduction =
-      reducedInterleaving > 0 ? Math.round(interleavingFactor / reducedInterleaving) : 1;
-    suggestions.push(
-      `Reducing maxInFlight from ${maxInFlight} to 2 would reduce interleaving by ~${reduction}x`
-    );
-  }
-
   return {
+    ...(scope.name === undefined ? {} : { subsystem: scope.name }),
     fields,
     fieldProduct,
     handlerCount,
     maxInFlight,
     contextCount,
+    tabCount,
+    sendBranching,
     totalStateSpace,
     interleavingFactor,
     estimatedStates,
@@ -248,6 +330,45 @@ export function estimateStateSpace(
     warnings,
     suggestions,
   };
+}
+
+export function estimateStateSpace(
+  config: UnifiedVerificationConfig,
+  analysis: CodebaseAnalysis
+): StateSpaceEstimate {
+  return estimateForScope(config, {
+    handlerCount: getHandlerCount(config, analysis),
+    maxInFlight: getMaxInFlight(config),
+  });
+}
+
+/**
+ * One estimate per declared subsystem, in declaration order.
+ *
+ * A config with `subsystems` never runs the monolithic model, so estimating it
+ * answers a question nobody asked (polly#183). Empty when none are declared.
+ */
+export function estimateSubsystems(config: UnifiedVerificationConfig): StateSpaceEstimate[] {
+  const subsystems = (
+    config as unknown as {
+      subsystems?: Record<
+        string,
+        { state: string[]; handlers: string[]; bounds?: { maxInFlight?: number } }
+      >;
+    }
+  ).subsystems;
+  if (!subsystems) return [];
+
+  const topLevelMaxInFlight = getMaxInFlight(config);
+
+  return Object.entries(subsystems).map(([name, sub]) =>
+    estimateForScope(config, {
+      name,
+      stateFields: sub.state,
+      handlerCount: sub.handlers.length,
+      maxInFlight: sub.bounds?.maxInFlight ?? topLevelMaxInFlight,
+    })
+  );
 }
 
 export { feasibilityLabel };

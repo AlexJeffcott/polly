@@ -57,6 +57,7 @@ export type VerificationConfig = {
   verification?: {
     timeout?: number; // Timeout in seconds (0 = no timeout)
     workers?: number; // Number of TLC workers
+    memory?: string; // polly#181: docker-style container memory ceiling, e.g. "8g"
   };
 
   /**

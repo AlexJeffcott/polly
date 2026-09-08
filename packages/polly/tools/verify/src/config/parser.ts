@@ -2,6 +2,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { MIN_TLC_MEMORY, MIN_TLC_MEMORY_BYTES, parseMemoryBytes } from "../runner/memory";
 import type { ConfigIssue, ValidationResult, VerificationConfig } from "../types";
 import { validateCapabilities, validateCoupledFields } from "./capability-validation";
 
@@ -482,6 +483,39 @@ export class ConfigValidator {
           suggestion: "Typical range is 1-8 workers",
         });
       }
+    }
+
+    this.validateMemory(verification.memory);
+  }
+
+  /**
+   * polly#181: `verification.memory` caps both the container and the JVM heap.
+   * A value TLC cannot work in is rejected here rather than started, because a
+   * run that dies for want of memory dies without a TLC message.
+   */
+  private validateMemory(memory: string | undefined): void {
+    if (memory === undefined) return;
+
+    const bytes = parseMemoryBytes(memory);
+    if (bytes === null) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "verification.memory",
+        message: `"${memory}" is not a docker-style memory size`,
+        suggestion: 'Use a number with an optional b/k/m/g suffix, e.g. "8g"',
+      });
+      return;
+    }
+
+    if (bytes < MIN_TLC_MEMORY_BYTES) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "verification.memory",
+        message: `${memory} is below the ${MIN_TLC_MEMORY} minimum TLC can run in`,
+        suggestion: `Use ${MIN_TLC_MEMORY} or more`,
+      });
     }
   }
 

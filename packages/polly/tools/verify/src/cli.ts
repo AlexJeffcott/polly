@@ -7,6 +7,7 @@ import { type ValidationResult, validateExpressions } from "./analysis/expressio
 import { computeMeshOrPeerSignalFindings } from "./analysis/mesh-signal-warnings";
 import {
   estimateStateSpace,
+  estimateSubsystems,
   feasibilityLabel,
   type StateSpaceEstimate,
 } from "./analysis/state-space-estimator";
@@ -15,6 +16,8 @@ import type { WitnessSpecLocation } from "./codegen/witness";
 import { validateConfig } from "./config/parser";
 import type { CustomTLAPath, UnifiedVerificationConfig } from "./config/types";
 import { analyzeCodebase } from "./extract/types";
+import type { DockerRunner, TLCResult, TLCStats } from "./runner/docker";
+import { DEFAULT_TLC_MEMORY } from "./runner/memory";
 import { isSeedFixDisabled, meshSeedCfg } from "./runner/mesh-seed";
 
 const COLORS = {
@@ -226,14 +229,41 @@ async function estimateCommand() {
     displayExpressionWarnings(exprValidation);
   }
 
-  // Estimate
-  const estimate = estimateStateSpace(typedConfig, typedAnalysis);
+  // A config with `subsystems` never runs the monolithic model, so estimate
+  // what will actually run: one model per subsystem (polly#183).
+  const perSubsystem = estimateSubsystems(typedConfig);
+  if (perSubsystem.length > 0) {
+    for (const estimate of perSubsystem) {
+      displayEstimate(estimate);
+    }
+    displaySubsystemEstimateSummary(perSubsystem);
+    return;
+  }
 
-  displayEstimate(estimate);
+  displayEstimate(estimateStateSpace(typedConfig, typedAnalysis));
+}
+
+function displaySubsystemEstimateSummary(estimates: StateSpaceEstimate[]): void {
+  console.log(color("Per-subsystem summary:\n", COLORS.blue));
+  for (const e of estimates) {
+    const name = (e.subsystem ?? "?").padEnd(20);
+    const states = `~${e.estimatedStates.toLocaleString()}`.padEnd(20);
+    const feasColor =
+      e.feasibility === "trivial" || e.feasibility === "feasible"
+        ? COLORS.green
+        : e.feasibility === "slow"
+          ? COLORS.yellow
+          : COLORS.red;
+    console.log(`  ${name} ${states} ${color(e.feasibility, feasColor)}`);
+  }
+  console.log();
 }
 
 function displayEstimate(estimate: StateSpaceEstimate): void {
-  console.log(color("State space estimate:\n", COLORS.blue));
+  const heading = estimate.subsystem
+    ? `State space estimate — subsystem ${estimate.subsystem}:`
+    : "State space estimate:";
+  console.log(color(`${heading}\n`, COLORS.blue));
 
   // Fields table
   console.log(color("  Fields:", COLORS.blue));
@@ -251,10 +281,14 @@ function displayEstimate(estimate: StateSpaceEstimate): void {
   console.log(`  Field combinations:     ${color(String(estimate.fieldProduct), COLORS.green)}`);
   console.log(`  Handlers:               ${estimate.handlerCount}`);
   console.log(`  Max in-flight:          ${estimate.maxInFlight}`);
+  console.log(`  Contexts:               ${estimate.contextCount} (fixed by the generated .cfg)`);
+  console.log(`  Tabs:                   ${estimate.tabCount}`);
   console.log(
-    `  Contexts:               ${estimate.contextCount} (${estimate.contextCount - 1} tab${estimate.contextCount - 1 === 1 ? "" : "s"} + background)`
+    `  State across contexts:  ${estimate.fieldProduct}^${estimate.contextCount} = ${estimate.totalStateSpace.toLocaleString()}`
   );
-  console.log(`  Interleaving factor:    ${estimate.interleavingFactor}`);
+  console.log(
+    `  Send branching:         ${estimate.sendBranching.toLocaleString()} per message (^${estimate.maxInFlight} = ${estimate.interleavingFactor.toLocaleString()})`
+  );
 
   console.log();
   console.log(
@@ -696,6 +730,14 @@ function getWorkers(config: UnifiedVerificationConfig): number {
 }
 
 /**
+ * polly#181: container memory ceiling for a TLC run. Undefined falls through to
+ * the runner's fixed default, never to unbounded.
+ */
+function getMemory(config: UnifiedVerificationConfig): string | undefined {
+  return config.verification?.memory;
+}
+
+/**
  * Get maxDepth from config for bounded model checking (Tier 2)
  */
 function getMaxDepth(config: UnifiedVerificationConfig): number | undefined {
@@ -849,6 +891,7 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
   const timeoutSeconds = getTimeout(typedConfig);
   const workers = getWorkers(typedConfig);
   const maxDepth = getMaxDepth(typedConfig);
+  const memory = getMemory(typedConfig);
 
   // Run TLC
   console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
@@ -865,19 +908,21 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
   if (maxDepth !== undefined) {
     console.log(color(`   Max depth: ${maxDepth}`, COLORS.gray));
   }
+  console.log(color(`   Memory: ${memory ?? DEFAULT_TLC_MEMORY}`, COLORS.gray));
   console.log();
 
   const result = await docker.runTLC(specPath, {
     workers,
     timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
     maxDepth,
+    memory,
   });
 
   // polly#114: when the project declares $meshState documents, also
   // model-check the concurrent first-time seed — the polly#113 race that
   // lived entirely outside verification. A failure here is reported and
   // exits before the project-spec result.
-  const meshSeed = await runMeshSeedGuard(docker, specDir, config);
+  const meshSeed = await runMeshSeedGuard(docker, specDir, config, memory);
   if (meshSeed && !meshSeed.success) {
     console.log(color("\n❌ Mesh seed-race guard failed (polly#113 / polly#114)\n", COLORS.red));
     displayVerificationResults(meshSeed, specDir);
@@ -1000,6 +1045,7 @@ async function runSubsystemVerification(
   const timeoutSeconds = getTimeout(config);
   const workers = getWorkers(config);
   const maxDepth = getMaxDepth(config);
+  const memory = getMemory(config);
 
   // Generate and run per-subsystem
   const { generateSubsystemTLA } = await import("./codegen/tla");
@@ -1008,9 +1054,8 @@ async function runSubsystemVerification(
     success: boolean;
     handlerCount: number;
     ensuresCount: number;
-    stateCount: number;
+    stats?: TLCStats;
     elapsed: number;
-    stats?: { statesGenerated: number; distinctStates: number };
     error?: string;
   }> = [];
 
@@ -1063,6 +1108,7 @@ async function runSubsystemVerification(
       workers,
       timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
       maxDepth,
+      memory,
     });
 
     const elapsed = (Date.now() - startTime) / 1000;
@@ -1072,9 +1118,8 @@ async function runSubsystemVerification(
       success: result.success,
       handlerCount: sub.handlers.length,
       ensuresCount,
-      stateCount: result.stats?.distinctStates ?? 0,
       elapsed,
-      stats: result.stats,
+      ...(result.stats === undefined ? {} : { stats: result.stats }),
       error: result.error,
     });
 
@@ -1118,6 +1163,15 @@ interface WitnessResult {
   subsystem?: string;
   predicate?: string;
   note?: string;
+}
+
+/** How much of the model a non-reaching witness run actually covered. */
+function witnessExplorationNote(stats: TLCStats | undefined): string {
+  if (!stats) return "TLC printed no summary line — exploration incomplete, verdict unsound";
+  if (!stats.exhaustive) {
+    return `${stats.distinctStates} distinct states explored, ${stats.statesLeftOnQueue} left on queue — not exhaustive`;
+  }
+  return `${stats.distinctStates} distinct states explored`;
 }
 
 /** Absolute paths matching `pattern` under `cwd`, sorted. */
@@ -1184,6 +1238,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
   const timeoutSeconds = getTimeout(config);
   const timeout = timeoutSeconds > 0 ? timeoutSeconds * 1000 : DEFAULT_WITNESS_TIMEOUT_MS;
   const workers = getWorkers(config);
+  const memory = getMemory(config);
 
   const results: WitnessResult[] = [];
   let idx = 0;
@@ -1291,7 +1346,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
 
     let tlc: Awaited<ReturnType<Awaited<ReturnType<typeof setupDocker>>["runTLC"]>>;
     try {
-      tlc = await docker.runTLC(witnessTla, { workers, timeout });
+      tlc = await docker.runTLC(witnessTla, { workers, timeout, memory });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       results.push({
@@ -1325,9 +1380,9 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
     }
 
     const verdict = witnessVerdict(polarity, reachable);
-    const note = reachable
-      ? undefined
-      : `${tlc.stats?.distinctStates ?? 0} distinct states explored`;
+    // polly#182: an "unreachable" verdict is only sound under full exploration,
+    // so the note has to say whether the exploration was one.
+    const note = reachable ? undefined : witnessExplorationNote(tlc.stats);
     results.push({
       id,
       status: verdict.status,
@@ -1431,13 +1486,87 @@ function displayEnsuresSummary(results: Array<{ ensuresCount: number }>): void {
   );
 }
 
+/**
+ * The states column, from TLC's own summary line (polly#182).
+ *
+ * `?` when TLC printed no summary: it was killed, or it stopped on a violation,
+ * and reporting a number there would put a figure that looks like a completed
+ * run next to a run that did not complete.
+ */
+function stateColumn(stats: TLCStats | undefined): string {
+  if (!stats) return "? states";
+  if (!stats.exhaustive) return `${stats.distinctStates}+ states`;
+  return `${stats.distinctStates} states`;
+}
+
+/** Everything TLC's summary block says, for the single-spec path. */
+function displayTLCStats(stats: TLCStats | undefined): void {
+  if (!stats) {
+    console.log(color("   States explored: unknown (TLC printed no summary line)", COLORS.yellow));
+    return;
+  }
+  console.log(color(`   States explored: ${stats.statesGenerated}`, COLORS.gray));
+  console.log(color(`   Distinct states: ${stats.distinctStates}`, COLORS.gray));
+  if (stats.searchDepth !== undefined) {
+    console.log(color(`   Search depth:    ${stats.searchDepth}`, COLORS.gray));
+  }
+  if (!stats.exhaustive) {
+    console.log(
+      color(
+        `   ⚠ incomplete: ${stats.statesLeftOnQueue} states left on queue — the model was not exhausted`,
+        COLORS.yellow
+      )
+    );
+  }
+  if (stats.noActionEnabled) {
+    console.log(
+      color(
+        `   ⚠ no action was ever enabled: distinct states equal the ${stats.initialStates} initial states`,
+        COLORS.yellow
+      )
+    );
+  }
+}
+
+/**
+ * polly#182: a subsystem whose run did not exhaust its model, or exhausted a
+ * model in which nothing ever fired, is not a proof. Both read as `✓` on the
+ * row above, so they are named here.
+ */
+function displayIncompleteSubsystems(
+  results: Array<{ name: string; success: boolean; stats?: TLCStats }>
+): void {
+  const notes: string[] = [];
+  for (const r of results) {
+    if (!r.success) continue;
+    if (!r.stats) {
+      notes.push(`${r.name}: TLC printed no summary line — state count unknown`);
+      continue;
+    }
+    if (!r.stats.exhaustive) {
+      notes.push(`${r.name}: ${r.stats.statesLeftOnQueue} states left on queue — not exhausted`);
+    }
+    if (r.stats.noActionEnabled) {
+      notes.push(
+        `${r.name}: no action was ever enabled — the ${r.stats.initialStates} states explored are the initial states`
+      );
+    }
+  }
+  if (notes.length === 0) return;
+
+  console.log();
+  for (const note of notes) {
+    console.log(color(`  ⚠ ${note}`, COLORS.yellow));
+  }
+}
+
 function displayCompositionalReport(
   results: Array<{
     name: string;
     success: boolean;
     handlerCount: number;
     ensuresCount: number;
-    stateCount: number;
+    stats?: TLCStats;
     elapsed: number;
   }>,
   nonInterferenceValid: boolean
@@ -1449,13 +1578,14 @@ function displayCompositionalReport(
     const name = r.name.padEnd(20);
     const handlers = `${r.handlerCount} handler${r.handlerCount === 1 ? "" : "s"}`;
     const ensures = `${r.ensuresCount} ensures`;
-    const states = `${r.stateCount} states`;
+    const states = stateColumn(r.stats);
     const time = `${r.elapsed.toFixed(1)}s`;
     console.log(
       `  ${status} ${name} ${handlers.padEnd(14)} ${ensures.padEnd(12)} ${states.padEnd(14)} ${time}`
     );
   }
 
+  displayIncompleteSubsystems(results);
   displayEnsuresSummary(results);
 
   console.log();
@@ -1624,9 +1754,10 @@ function findMeshSeedSpecDir(): string | null {
  * Returns undefined (guard skipped) when no mesh documents are declared.
  */
 async function runMeshSeedGuard(
-  docker: Awaited<ReturnType<typeof setupDocker>>,
+  docker: DockerRunner,
   specDir: string,
-  config: unknown
+  config: unknown,
+  memory: string | undefined
 ): Promise<Parameters<typeof displayVerificationResults>[0] | undefined> {
   if (getMeshDocIds(config).length === 0) return undefined;
 
@@ -1654,21 +1785,10 @@ async function runMeshSeedGuard(
       COLORS.blue
     )
   );
-  return docker.runTLC(path.join(specDir, "MeshSeed.tla"), { workers: 1 });
+  return docker.runTLC(path.join(specDir, "MeshSeed.tla"), { workers: 1, memory });
 }
 
-async function setupDocker(): Promise<{
-  runTLC: (
-    specPath: string,
-    options: { workers: number; timeout: number }
-  ) => Promise<{
-    success: boolean;
-    stats?: { statesGenerated: number; distinctStates: number };
-    violation?: { name: string; trace: string[] };
-    error?: string;
-    output: string;
-  }>;
-}> {
+async function setupDocker(): Promise<DockerRunner> {
   const { DockerRunner } = await import("./runner/docker");
 
   console.log(color("🐳 Checking Docker...", COLORS.blue));
@@ -1734,21 +1854,11 @@ async function setupDocker(): Promise<{
   return docker;
 }
 
-function displayVerificationResults(
-  result: {
-    success: boolean;
-    stats?: { statesGenerated: number; distinctStates: number };
-    violation?: { name: string; trace: string[] };
-    error?: string;
-    output: string;
-  },
-  specDir: string
-): void {
+function displayVerificationResults(result: TLCResult, specDir: string): void {
   if (result.success) {
     console.log(color("✅ Verification passed!\n", COLORS.green));
     console.log(color("Statistics:", COLORS.blue));
-    console.log(color(`   States explored: ${result.stats?.statesGenerated || 0}`, COLORS.gray));
-    console.log(color(`   Distinct states: ${result.stats?.distinctStates || 0}`, COLORS.gray));
+    displayTLCStats(result.stats);
     console.log();
     return;
   }
