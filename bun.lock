@@ -228,16 +228,13 @@
     },
     "packages/polly": {
       "name": "@fairfox/polly",
-      "version": "0.85.2",
+      "version": "0.91.0",
       "bin": {
         "polly": "./dist/cli/polly.js",
       },
       "dependencies": {
         "@cucumber/gherkin": "40.0.0",
         "@cucumber/messages": "33.0.2",
-        "@preact/signals": "2.9.0",
-        "@preact/signals-core": "1.14.2",
-        "preact": "10.29.1",
         "ts-morph": "28.0.0",
       },
       "devDependencies": {
@@ -249,6 +246,8 @@
         "@babel/traverse": "7.29.0",
         "@biomejs/biome": "2.4.14",
         "@elysiajs/eden": "1.4.9",
+        "@preact/signals": "2.9.0",
+        "@preact/signals-core": "1.14.2",
         "@stryker-mutator/api": "9.6.1",
         "@types/bun": "1.3.13",
         "@types/chrome": "0.1.40",
@@ -261,6 +260,7 @@
         "marked": "18.0.3",
         "pixelmatch": "7.2.0",
         "pngjs": "7.0.0",
+        "preact": "10.29.1",
         "puppeteer": "24.42.0",
         "tweetnacl": "1.0.3",
         "typescript": "6.0.3",
@@ -273,6 +273,7 @@
         "@automerge/automerge-repo-storage-nodefs": ">= 2.5.0",
         "@elysiajs/eden": ">= 1.2.0",
         "@preact/signals": "^2.5.1",
+        "@preact/signals-core": "^1.14.0",
         "@roamhq/wrtc": ">= 0.8.0",
         "@stryker-mutator/api": ">= 9.0.0",
         "dompurify": ">= 3.0.0",
