@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.91.0] - 2026-09-09
+
+### Changed
+
+#### preact, @preact/signals and @preact/signals-core are peers, not hard pins
+
+They were declared twice, in two fields that mean opposite things.
+`peerDependencies` said the app supplies them; `dependencies` pinned exact
+versions — `preact@10.29.1`, `@preact/signals@2.9.0`,
+`@preact/signals-core@1.14.2` — and a package manager honours both. Every
+consumer got polly's copy nested under polly and kept its own at the root.
+
+Two copies of preact means two sets of the per-module symbols that carry
+component state. A consuming app saw it as
+`Cannot read properties of undefined (reading '__H')` at runtime — one repo
+recorded a browser suite falling to 2 passed / 64 failed — or, at build time,
+as `Two different types with this name exist, but they are unrelated` on
+`typeof BRAND_SYMBOL`. The fault stayed hidden for as long as the app pinned
+the identical versions polly pinned, because the two copies then deduplicated
+to one. Raising either package in the app broke that accidental match.
+
+The three now appear in `devDependencies` for polly's own build and tests, and
+in `peerDependencies` for consumers. `@preact/signals-core` joins the peer list
+at `^1.14.0`: three shipped files import it directly, `dist/src/client/index.js`
+among them, so it has to be declared somewhere, and a peer is what makes it one
+copy. `build-lib.ts` already marked `preact` and `@preact/signals` external, so
+the built output never carried them — only the manifest claimed otherwise.
+
+Measured in a consuming app with its own `overrides` workaround removed: the
+lockfile resolves one version of each, every symlink in the app and under polly
+points at the same store entry, and the app's browser tier reads 103 passed / 0
+failed with no `__H` error.
+
+**Consumers who relied on polly to install these must now declare them.** Any
+app already rendering polly components declared `preact` and `@preact/signals`
+already; `@preact/signals-core` arrives transitively with `@preact/signals`.
+
+### Added
+
+#### A `contexts` config key, so a project pays for the contexts it has
+
+The generated model's `Contexts` set was three literal names —
+`{background, content, popup}` — chosen when polly modelled a browser
+extension. A server, an Electron app or a library paid `fieldProduct^3` for
+state replicated across two contexts it did not have. Measured on a two-handler
+model: `{background, content, popup}` 38,464 distinct states, `{background,
+content}` 4,896, `{background}` 368 — 105x. Absent, the extension default
+stands and the generated `.cfg` and `.tla` are byte-identical to before.
+
+### Fixed
+
+#### A debounced write no longer adopts another write's clock
+
+`doUpdate` closed over the local `value` but read `entry.clock` when the timer
+fired. The incoming-message handler raises `entry.clock` on every message —
+the Lamport `max` runs before the strictly-greater test — so a deferred write
+paired this context's value with somebody else's clock, persisted the pair and
+broadcast it. Measured in real Chrome: after a reload, a tab read its own local
+value back out of IndexedDB under a peer's clock, and a cold third tab settled
+on the stale value and stayed there. `clockAtWrite` is now captured beside the
+value, at the one moment the two agree.
+
+#### The browser suite and `biome check .` are green again
+
+`Surface > bubble variant` asserted the defect it was written before: `fd871c2`
+gave the variant `--polly-surface-bubble` and left the assertion demanding an
+empty background. `event-delegation.browser.ts` used an assignment expression
+as an `onClose` handler, which `noAssignInExpressions` refuses. Two test files
+had been formatted against the repo-root biome config rather than the package's.
+Browser suite 46 passed / 1 failed → 47 passed / 0 failed.
+
 ## [0.90.0] - 2026-09-08
 
 ### Fixed
