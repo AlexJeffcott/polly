@@ -280,6 +280,11 @@ export function internalPlan(): TierPlan {
           tags: ["state", "sync", "broadcast-channel"],
           cost: "light",
         }),
+        e2e("state.debounce-clock", "e2e-state-debounce-clock.ts", {
+          needs: ["browser"],
+          tags: ["state", "sync", "broadcast-channel", "storage"],
+          cost: "light",
+        }),
         e2e("elysia.offline-drain", "e2e-elysia-offline-drain.ts", {
           needs: ["browser"],
           tags: ["elysia", "offline", "drain"],

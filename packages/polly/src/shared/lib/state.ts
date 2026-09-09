@@ -3,7 +3,7 @@
 import { effect, type Signal, signal } from "@preact/signals";
 import type { MessageBus } from "./message-bus";
 import { createStorageAdapter, type StorageAdapter } from "./storage-adapter";
-import { createSyncAdapter, type SyncAdapter } from "./sync-adapter";
+import { createSyncAdapter, type StateSyncMessage, type SyncAdapter } from "./sync-adapter";
 
 /**
  * Signal extended with .loaded promise for hydration control
@@ -308,9 +308,13 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
     entry.loaded = loadFromStorage(key, sig, entry, adapters.storage, options.validator);
   }
 
+  // polly#167: the pending debounce timer lives in createState scope, not
+  // inside the `loaded` callback, because the incoming-message handler below
+  // has to be able to cancel a write the message supersedes.
+  let debounceTimer: NodeJS.Timeout | null = null;
+
   // Watch for changes after initial load
   entry.loaded.then(() => {
-    let debounceTimer: NodeJS.Timeout | null = null;
     let previousValue = sig.value;
     let isFirstRun = true;
 
@@ -356,15 +360,29 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       // Increment clock monotonically
       entry.clock++;
 
+      // polly#167: bind the clock to the value HERE, where the two agree.
+      //
+      // `doUpdate` used to read `entry.clock` when it fired. Under
+      // `debounceMs` that is a later moment, and the incoming-message handler
+      // below raises `entry.clock` to any message's clock — including a
+      // message whose value it rejects. So the deferred write paired this
+      // value with somebody else's clock, persisted the pair, and broadcast
+      // it. The persisted clock is restored on the next load, so a peer
+      // re-sending the real value at that clock was then refused by the
+      // strictly-greater rule and the divergence became durable.
+      const clockAtWrite = entry.clock;
+
       const doUpdate = () => {
+        debounceTimer = null;
+
         // Persist to storage
         if (options.enablePersist && adapters.storage) {
-          persistToStorage(key, value, entry.clock, adapters.storage);
+          persistToStorage(key, value, clockAtWrite, adapters.storage);
         }
 
         // Broadcast to other contexts
         if (options.enableSync && adapters.sync) {
-          broadcastUpdate(key, value, entry.clock, adapters.sync);
+          broadcastUpdate(key, value, clockAtWrite, adapters.sync);
         }
       };
 
@@ -385,6 +403,51 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       adapters.sync.connect();
     }
 
+    /**
+     * Take an incoming value this context has decided to accept.
+     *
+     * polly#167 put two steps in front of the apply. Both are about a pending
+     * debounce timer that the message has just made wrong.
+     */
+    const acceptIncoming = (value: T, clock: number): void => {
+      // The local value is causally older than this one, so the deferred write
+      // has nothing left to say. Dropping it stops a stale broadcast that a
+      // third context still below this clock would accept.
+      //
+      // Reached only for a value this context does not already hold: the
+      // deep-equality skip below returns first, which leaves a pending timer
+      // holding that same value armed, as it should be.
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+
+      applyUpdate(entry, value, clock);
+
+      // `applyUpdate` sets `entry.updating`, so the local effect returns
+      // without writing. Persist the incoming pair here, or storage keeps
+      // whatever it last held while the signal holds this value — and on the
+      // next load the two disagree.
+      if (options.enablePersist && adapters.storage) {
+        persistToStorage(key, value, clock, adapters.storage);
+      }
+    };
+
+    /** Whether an incoming value is one this context should take. */
+    const shouldAccept = (message: StateSyncMessage<T>): boolean => {
+      // Validate incoming value if validator provided
+      if (options.validator && !options.validator(message.value)) {
+        console.warn(
+          `[Polly] State "${key}": Received invalid value from sync (clock: ${message.clock})`,
+          message.value
+        );
+        return false;
+      }
+
+      // Skip redundant updates (deep equality check)
+      return !deepEqual(entry.signal.value, message.value);
+    };
+
     // Register sync message listener
     adapters.sync.onMessage<T>((message) => {
       if (message.key !== key) return;
@@ -397,22 +460,8 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
 
       // Only accept value updates if received clock is strictly greater than old local clock
       // This ensures we only apply causally newer updates
-      if (message.clock > oldClock) {
-        // Validate incoming value if validator provided
-        if (options.validator && !options.validator(message.value)) {
-          console.warn(
-            `[Polly] State "${key}": Received invalid value from sync (clock: ${message.clock})`,
-            message.value
-          );
-          return;
-        }
-
-        // Skip redundant updates (deep equality check)
-        if (deepEqual(entry.signal.value, message.value)) {
-          return;
-        }
-
-        applyUpdate(entry, message.value as unknown as T, message.clock);
+      if (message.clock > oldClock && shouldAccept(message)) {
+        acceptIncoming(message.value as unknown as T, message.clock);
       }
     });
   }
