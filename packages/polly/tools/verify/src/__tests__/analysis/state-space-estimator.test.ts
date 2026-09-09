@@ -175,26 +175,23 @@ describe("estimator against the generated spec", () => {
     ["one declared context", { maxInFlight: 1, maxTabs: null }, ["server"]],
     ["two declared contexts", { maxInFlight: 1, maxTabs: 1 }, ["server", "client"]],
     ["four declared contexts", { maxInFlight: 1, maxTabs: null }, ["a", "b", "c", "d"]],
-  ])(
-    "%s: contexts and tabs match the .cfg the generator writes",
-    async (_label, messages, contexts) => {
-      const config = {
-        state: AUTH_STATE,
-        ...(contexts ? { contexts } : {}),
-        messages,
-        onBuild: "warn",
-        onRelease: "error",
-      } as unknown as VerificationConfig;
-      const analysis = analysisWithHandlers(4);
+  ])("%s: contexts and tabs match the .cfg the generator writes", async (_label, messages, contexts) => {
+    const config = {
+      state: AUTH_STATE,
+      ...(contexts ? { contexts } : {}),
+      messages,
+      onBuild: "warn",
+      onRelease: "error",
+    } as unknown as VerificationConfig;
+    const analysis = analysisWithHandlers(4);
 
-      const { cfg } = await generateFor(config, analysis);
-      const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
+    const { cfg } = await generateFor(config, analysis);
+    const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
 
-      expect(cfgSetMembers(cfg, "Contexts")).toEqual(estimate.contexts);
-      expect(cfgSetMembers(cfg, "Contexts")).toHaveLength(estimate.contextCount);
-      expect(cfgSetMembers(cfg, "Tabs")).toHaveLength(estimate.tabCount);
-    }
-  );
+    expect(cfgSetMembers(cfg, "Contexts")).toEqual(estimate.contexts);
+    expect(cfgSetMembers(cfg, "Contexts")).toHaveLength(estimate.contextCount);
+    expect(cfgSetMembers(cfg, "Tabs")).toHaveLength(estimate.tabCount);
+  });
 
   test.each([
     ["the default set", undefined],

@@ -112,17 +112,20 @@ describe("contexts validation", () => {
     expect(result.valid).toBe(false);
   });
 
-  test.each([["Tabs"], ["NULL"], ["MaxMessages"], ["Contexts"], ["SUBSET"]])(
-    "%s collides with a keyword or a constant the .cfg declares",
-    (name) => {
-      const result = validateWith(`contexts: ["${name}"],`, `reserved-${name}`);
-      const [issue] = contextIssues(result);
+  test.each([
+    ["Tabs"],
+    ["NULL"],
+    ["MaxMessages"],
+    ["Contexts"],
+    ["SUBSET"],
+  ])("%s collides with a keyword or a constant the .cfg declares", (name) => {
+    const result = validateWith(`contexts: ["${name}"],`, `reserved-${name}`);
+    const [issue] = contextIssues(result);
 
-      expect(issue?.severity).toBe("error");
-      expect(issue?.message).toContain("collides");
-      expect(result.valid).toBe(false);
-    }
-  );
+    expect(issue?.severity).toBe("error");
+    expect(issue?.message).toContain("collides");
+    expect(result.valid).toBe(false);
+  });
 
   test("one context with a mesh block warns that PropagateMeshOp never fires", () => {
     const result = validateWith(

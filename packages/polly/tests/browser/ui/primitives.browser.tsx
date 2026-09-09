@@ -125,12 +125,16 @@ describe("Surface", () => {
     cleanup(host);
   });
 
-  test("bubble variant carries padding and border but no background", async () => {
+  test("bubble variant carries its own tint, plus padding and border", async () => {
+    // The tint is the point of the variant: without a background it was
+    // `callout` plus 4px of corner, and pixel-identical to `sunken` on the
+    // backdrop the gallery uses. `fd871c2` gave it `--polly-surface-bubble`
+    // and left this assertion behind on the old, defective behaviour.
     const host = mountHost();
     render(<Surface variant="bubble">hi</Surface>, host);
     await flush();
     const node = host.querySelector<HTMLElement>("[data-polly-surface='bubble']")!;
-    expect(node.style.getPropertyValue("--s-bg")).toBe("");
+    expect(node.style.getPropertyValue("--s-bg")).toBe("var(--polly-surface-bubble)");
     expect(node.style.getPropertyValue("--s-p")).toBe(
       "var(--polly-space-sm) var(--polly-space-md)"
     );

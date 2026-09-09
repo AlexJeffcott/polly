@@ -158,8 +158,18 @@ describe("installEventDelegation — keyboard", () => {
     resetOverlayStack();
     let closedA = 0;
     let closedB = 0;
-    pushOverlay({ id: "a", onClose: () => (closedA += 1) });
-    pushOverlay({ id: "b", onClose: () => (closedB += 1) });
+    pushOverlay({
+      id: "a",
+      onClose: () => {
+        closedA += 1;
+      },
+    });
+    pushOverlay({
+      id: "b",
+      onClose: () => {
+        closedB += 1;
+      },
+    });
 
     const off = installEventDelegation(() => {});
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
