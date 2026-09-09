@@ -48,6 +48,35 @@ interface CustomTLAPath {
 interface LegacyVerificationConfig {
   state: Record<string, unknown>;
   /**
+   * polly#185: the contexts this project actually has, emitted as the `.cfg`'s
+   * `Contexts` set.
+   *
+   * Every generated model replicates application state across the set and
+   * quantifies each send over `|Contexts| * (2^|Contexts| - 1)` source/target
+   * pairs, so its size is the cheapest term in the state space to cut.
+   * Measured on a two-handler model at `maxInFlight: 1`: 38,464 distinct
+   * states at three contexts, 368 at one.
+   *
+   * Names become TLA+ model values, so each must sanitise to
+   * `[A-Za-z_][A-Za-z0-9_]*`. Omit the key to keep the browser-extension
+   * default `["background", "content", "popup"]`.
+   *
+   * A single context makes every send a self-send, and disables
+   * `PropagateMeshOp` (which requires two distinct contexts) — so a `mesh`
+   * block wants at least two.
+   *
+   * @example
+   * ```ts
+   * defineVerification({
+   *   contexts: ["server", "client"],
+   *   state: { ready: { type: "boolean" } },
+   *   messages: { maxInFlight: 1 },
+   * });
+   * ```
+   */
+  contexts?: string[];
+
+  /**
    * polly#117: optional mesh-document declarations. When present, each
    * key names a `$meshState` document and its value declares the
    * field-level state schema for that document. The verifier emits a
@@ -159,6 +188,35 @@ interface LegacyVerificationConfig {
 interface AdapterVerificationConfig {
   adapter: unknown; // Adapter interface not exported to avoid heavy deps
   state: Record<string, unknown>;
+  /**
+   * polly#185: the contexts this project actually has, emitted as the `.cfg`'s
+   * `Contexts` set.
+   *
+   * Every generated model replicates application state across the set and
+   * quantifies each send over `|Contexts| * (2^|Contexts| - 1)` source/target
+   * pairs, so its size is the cheapest term in the state space to cut.
+   * Measured on a two-handler model at `maxInFlight: 1`: 38,464 distinct
+   * states at three contexts, 368 at one.
+   *
+   * Names become TLA+ model values, so each must sanitise to
+   * `[A-Za-z_][A-Za-z0-9_]*`. Omit the key to keep the browser-extension
+   * default `["background", "content", "popup"]`.
+   *
+   * A single context makes every send a self-send, and disables
+   * `PropagateMeshOp` (which requires two distinct contexts) — so a `mesh`
+   * block wants at least two.
+   *
+   * @example
+   * ```ts
+   * defineVerification({
+   *   contexts: ["server", "client"],
+   *   state: { ready: { type: "boolean" } },
+   *   messages: { maxInFlight: 1 },
+   * });
+   * ```
+   */
+  contexts?: string[];
+
   bounds?: {
     maxInFlight?: number;
     [key: string]: unknown;

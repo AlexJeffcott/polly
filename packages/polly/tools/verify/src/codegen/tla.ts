@@ -16,7 +16,7 @@ import type {
   VerificationConfig,
 } from "../types";
 import { type Invariant, InvariantGenerator } from "./invariants";
-import { GENERATED_CONTEXTS, generatedTabValues } from "./model-constants";
+import { generatedTabValues, resolveContexts } from "./model-constants";
 import type { RoundTripResult, RoundTripValidator } from "./round-trip";
 import { type TemporalProperty, TemporalPropertyGenerator, TemporalTLAGenerator } from "./temporal";
 import type { TLAValidator, ValidationError } from "./tla-validator";
@@ -487,9 +487,16 @@ export class TLAGenerator {
 
   /**
    * Add basic constants (Contexts, MaxMessages)
+   *
+   * polly#185: `Contexts` is the set `config.contexts` declares, sanitised for
+   * emission, and the three-name extension default when it declares none. The
+   * spec never names a member of the set, so this line alone decides
+   * `|Contexts|` — and the model replicates application state across it and
+   * quantifies every send over `|Contexts| * (2^|Contexts| - 1)` source/target
+   * pairs.
    */
   private addBasicConstants(lines: string[], config: VerificationConfig): void {
-    lines.push(`  Contexts = {${GENERATED_CONTEXTS.join(", ")}}`);
+    lines.push(`  Contexts = {${resolveContexts(config).join(", ")}}`);
     lines.push(`  MaxMessages = ${config.messages.maxInFlight || 3}`);
     // NULL is a model value used for null/undefined
     lines.push("  NULL = NULL");
@@ -520,8 +527,11 @@ export class TLAGenerator {
       lines.push(`  MaxRenderers = ${messages.maxRenderers}`);
       hasProjectConstant = true;
     }
+    // polly#185: `maxContexts` no longer emits a `MaxContexts` constant. The
+    // spec never declared it, so TLC read the assignment and ignored it — the
+    // key looked like it sized `Contexts` and sized nothing. It still marks the
+    // project as non-extension, which narrows the default `Tabs` set.
     if ("maxContexts" in messages && messages.maxContexts !== undefined) {
-      lines.push(`  MaxContexts = ${messages.maxContexts}`);
       hasProjectConstant = true;
     }
     if ("maxClients" in messages && messages.maxClients !== undefined && !hasProjectConstant) {

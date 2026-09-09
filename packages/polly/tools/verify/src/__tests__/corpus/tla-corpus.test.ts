@@ -321,7 +321,9 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
     const projectTypes = [
       { messages: { maxInFlight: 3, maxClients: 2 }, expectedConstant: "MaxClients" },
       { messages: { maxInFlight: 3, maxTabs: 1 }, expectedConstant: "Tabs" },
-      { messages: { maxInFlight: 3, maxContexts: 3 }, expectedConstant: "MaxContexts" },
+      // polly#185: maxContexts emits no constant of its own; it still marks the
+      // project as non-extension, which narrows Tabs to the single element.
+      { messages: { maxInFlight: 3, maxContexts: 3 }, expectedConstant: "Tabs = {0}" },
       { messages: { maxInFlight: 3, maxRenderers: 2 }, expectedConstant: "MaxRenderers" },
       {
         messages: { maxInFlight: 3, maxWorkers: 1, maxClients: 3 },

@@ -58,6 +58,35 @@ export interface AdapterVerificationConfig {
   /** State bounds (domain-agnostic) */
   state: StateSchema;
 
+  /**
+   * polly#185: the contexts this project actually has, emitted as the `.cfg`'s
+   * `Contexts` set.
+   *
+   * Every generated model replicates application state across the set and
+   * quantifies each send over `|Contexts| * (2^|Contexts| - 1)` source/target
+   * pairs, so its size is the cheapest term in the state space to cut.
+   * Measured on a two-handler model at `maxInFlight: 1`: 38,464 distinct
+   * states at three contexts, 368 at one.
+   *
+   * Names become TLA+ model values, so each must sanitise to
+   * `[A-Za-z_][A-Za-z0-9_]*`. Omit the key to keep the browser-extension
+   * default `["background", "content", "popup"]`.
+   *
+   * A single context makes every send a self-send, and disables
+   * `PropagateMeshOp` (which requires two distinct contexts) — so a `mesh`
+   * block wants at least two.
+   *
+   * @example
+   * ```ts
+   * defineVerification({
+   *   contexts: ["server", "client"],
+   *   state: { ready: { type: "boolean" } },
+   *   messages: { maxInFlight: 1 },
+   * });
+   * ```
+   */
+  contexts?: string[];
+
   /** Concurrency bounds */
   bounds?: {
     maxInFlight?: number;
@@ -116,6 +145,35 @@ export interface CustomTLAPath {
 export interface LegacyVerificationConfig {
   /** State configuration (old format) */
   state: Record<string, unknown>;
+
+  /**
+   * polly#185: the contexts this project actually has, emitted as the `.cfg`'s
+   * `Contexts` set.
+   *
+   * Every generated model replicates application state across the set and
+   * quantifies each send over `|Contexts| * (2^|Contexts| - 1)` source/target
+   * pairs, so its size is the cheapest term in the state space to cut.
+   * Measured on a two-handler model at `maxInFlight: 1`: 38,464 distinct
+   * states at three contexts, 368 at one.
+   *
+   * Names become TLA+ model values, so each must sanitise to
+   * `[A-Za-z_][A-Za-z0-9_]*`. Omit the key to keep the browser-extension
+   * default `["background", "content", "popup"]`.
+   *
+   * A single context makes every send a self-send, and disables
+   * `PropagateMeshOp` (which requires two distinct contexts) — so a `mesh`
+   * block wants at least two.
+   *
+   * @example
+   * ```ts
+   * defineVerification({
+   *   contexts: ["server", "client"],
+   *   state: { ready: { type: "boolean" } },
+   *   messages: { maxInFlight: 1 },
+   * });
+   * ```
+   */
+  contexts?: string[];
 
   /** Message configuration (old format) */
   messages: {

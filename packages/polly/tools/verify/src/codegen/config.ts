@@ -16,6 +16,7 @@ export class ConfigGenerator {
     this.addHeader();
     this.addImports();
     this.addExport();
+    this.addContextsConfig(analysis);
     this.addStateConfig(analysis.fields, analysis.resources);
     this.addMessagesConfig();
     this.addBehaviorConfig();
@@ -301,6 +302,75 @@ export class ConfigGenerator {
     return "{ min: /* CONFIGURE */ null, max: /* CONFIGURE */ null }";
   }
 
+  /**
+   * polly#185: the top-level `contexts` key — the `.cfg`'s `Contexts` set.
+   *
+   * Written from the contexts `inferContext` tagged the handlers with, marked
+   * `/* REVIEW *\/` because a wrong set changes what is verified. The set was
+   * three fixed names for every project before this, so a server paid
+   * `fieldProduct^3` for two contexts it did not have.
+   */
+  private addContextsConfig(analysis: CodebaseAnalysis): void {
+    const inferred: string[] = [];
+    for (const handler of analysis.handlers ?? []) {
+      const node = (handler as { node?: string }).node;
+      if (node === undefined || node === "unknown") continue;
+      if (!inferred.includes(node)) inferred.push(node);
+    }
+
+    this.line("// ─────────────────────────────────────────────────────────");
+    this.line("// Contexts — the processes/actors messages are routed between");
+    this.line("// ─────────────────────────────────────────────────────────");
+    this.line("// This is the cheapest term in the state space to cut. The model");
+    this.line("// replicates state across the set and quantifies every send over");
+    this.line("// |Contexts| x (2^|Contexts| - 1) source/target pairs.");
+    this.line("//");
+    this.line("// Measured on a two-handler model, one message in flight, one tab:");
+    this.line("//   • 3 contexts: 38,464 distinct states");
+    this.line("//   • 2 contexts:  4,896 distinct states");
+    this.line("//   • 1 context:     368 distinct states");
+    this.line("//");
+
+    const source = inferred.length > 0 ? inferred : this.projectTypeContexts();
+    if (source.length > 0) {
+      this.line(
+        inferred.length > 0
+          ? "// ✓ Auto-configured from the file paths of the handlers"
+          : `// ✓ Auto-configured from the project type (${this.projectType})`
+      );
+      this.line(`contexts: /* REVIEW */ [${source.map((c) => `'${c}'`).join(", ")}],`);
+    } else {
+      this.line("// No context could be inferred from the handler file paths.");
+      this.line("// Omitting the key models the browser-extension default:");
+      this.line("//   ['background', 'content', 'popup']");
+      this.line("// contexts: /* CONFIGURE */ ['server'],");
+    }
+    this.line("");
+  }
+
+  /**
+   * The contexts a project type is known to have, as TLA+ model values.
+   *
+   * The names `addEntryPointsDocumentation` already documents, without the
+   * `-*` suffixes it uses for prose: a model value is one identifier, and the
+   * count of clients or renderers is `maxClients` / `maxRenderers`, not a
+   * context per instance. Used only when the handler paths inferred nothing.
+   */
+  private projectTypeContexts(): string[] {
+    switch (this.projectType) {
+      case "websocket-app":
+        return ["server", "client"];
+      case "pwa":
+        return ["ServiceWorker", "Window"];
+      case "electron":
+        return ["main", "renderer"];
+      case "chrome-extension":
+        return ["background", "content", "popup"];
+      default:
+        return [];
+    }
+  }
+
   private addMessagesConfig(): void {
     this.line("messages: {");
     this.indent++;
@@ -377,13 +447,10 @@ export class ConfigGenerator {
         break;
 
       case "generic":
-        this.line("// Maximum contexts/actors to model.");
-        this.line("//");
-        this.line("// Recommended:");
-        this.line("//   • 2-3: Simple message passing");
-        this.line("//   • 4-5: Complex coordination");
-        this.line("//");
-        this.line("maxContexts: 3,");
+        // polly#185: the contexts a generic project has are declared by the
+        // top-level `contexts` key, written above by addContextsConfig. The
+        // `maxContexts` key that used to sit here emitted a constant the spec
+        // never declared, so it sized nothing.
         break;
     }
 

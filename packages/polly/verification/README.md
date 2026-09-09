@@ -90,6 +90,10 @@ Edit `verify.config.ts` to specify state bounds and verification settings:
 
 ```typescript
 export const verificationConfig: VerificationConfig = {
+  // The contexts this project has. Omit for the browser-extension default
+  // ['background', 'content', 'popup'].
+  contexts: ['server', 'client'],
+
   state: {
     'user.loggedIn': { type: 'boolean' },
     'user.role': { type: 'enum', values: ['guest', 'user', 'admin'] },
@@ -254,10 +258,27 @@ This was a bug in older versions of Polly where the Docker ENTRYPOINT didn't han
 ### "State space too large"
 
 Reduce bounds in `verify.config.ts`:
+- Declare `contexts` (see below) — usually the largest single cut
 - Lower `maxInFlight`
 - Lower `maxTabs`
 - Reduce enum/string value sets
 - Use smaller numeric ranges
+
+`contexts` is the cheapest of these to move. The model replicates application
+state across the set and quantifies every send over
+`|Contexts| * (2^|Contexts| - 1)` source/target pairs, so both terms fall fast.
+On a two-handler model at `maxInFlight: 1`, `maxTabs: 1`, changing only the
+`Contexts` line of the `.cfg`:
+
+| `Contexts` | distinct states | reduction |
+| --- | --- | --- |
+| `{background, content, popup}` | 38,464 | — |
+| `{background, content}` | 4,896 | 8x |
+| `{background}` | 368 | 105x |
+
+`polly verify` prints the set it inferred from the handler file paths when no
+`contexts` key is declared. It never applies that set on its own: verifying a
+different model than the config asked for is the failure the key exists to end.
 
 ### "Postcondition violated"
 

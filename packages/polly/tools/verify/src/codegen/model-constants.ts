@@ -11,17 +11,69 @@
 // cannot drift again without a test noticing.
 
 /**
- * The `Contexts` set the generated `.cfg` assigns.
+ * The `Contexts` set a config that declares none gets.
  *
- * Fixed, and not derived from any config key: the model was written for a
- * browser extension with a background worker, a content script and a popup.
- * `messages.maxContexts` emits a `MaxContexts` constant that the `Contexts`
- * definition does not read.
+ * Three names chosen when polly modelled a browser extension with a background
+ * worker, a content script and a popup. It stays the default so a config
+ * written before polly#185 generates the same spec it did.
  */
-export const GENERATED_CONTEXTS = ["background", "content", "popup"] as const;
+export const DEFAULT_CONTEXTS = ["background", "content", "popup"] as const;
 
-/** `|Contexts|` in every generated spec. */
-export const CONTEXT_COUNT = GENERATED_CONTEXTS.length;
+/**
+ * The subset of a verification config that decides the generated `Contexts`
+ * set.
+ *
+ * Structural rather than `VerificationConfig` so the estimator can pass a
+ * legacy or adapter config without narrowing it first.
+ */
+export type ContextSetInput = {
+  contexts?: readonly string[] | null | undefined;
+};
+
+/** A TLA+ model value: a letter or underscore, then letters, digits, underscores. */
+export const CONTEXT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Make a declared context name safe to emit as a TLA+ model value.
+ *
+ * The rule `TLAGenerator.sanitizeIdentifier` applies to mesh doc ids
+ * (polly#117): every character that is not a letter, digit or underscore
+ * becomes an underscore. A name whose sanitised form is still not an
+ * identifier (`"1st"`, `""`) is rejected at config validation rather than
+ * mangled here.
+ */
+export function sanitizeContextName(name: string): string {
+  return name.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+/** Whether the config declares its own context set (polly#185). */
+export function hasDeclaredContexts(config?: ContextSetInput | null): boolean {
+  const declared = config?.contexts;
+  return Array.isArray(declared) && declared.length > 0;
+}
+
+/**
+ * The literal values the generated `.cfg` assigns to `Contexts`.
+ *
+ * `config.contexts` when declared, sanitised for emission; `DEFAULT_CONTEXTS`
+ * otherwise. Nothing in the generated `.tla` or in `MessageRouter.tla` names a
+ * member of the set — every use is a quantifier or a function domain — so this
+ * one line decides `|Contexts|` for the whole model (polly#185).
+ */
+export function resolveContexts(config?: ContextSetInput | null): string[] {
+  if (!hasDeclaredContexts(config)) return [...DEFAULT_CONTEXTS];
+  return (config?.contexts as readonly string[]).map(sanitizeContextName);
+}
+
+/**
+ * `|SUBSET Contexts \ {{}}|` — the non-empty target sets a send may address.
+ *
+ * `UserNext` quantifies over every one of them, so this multiplies the
+ * successor count of a single `SendMessage` step.
+ */
+export function targetSetCount(contexts: readonly string[]): number {
+  return 2 ** contexts.length - 1;
+}
 
 /**
  * The subset of `messages` that decides the generated `Tabs` set.
@@ -77,14 +129,6 @@ export function generatedTabCount(messages: TabSetInput): number {
 }
 
 /**
- * `|SUBSET Contexts \ {{}}|` — the non-empty target sets a send may address.
- *
- * `UserNext` quantifies over every one of them, so this multiplies the
- * successor count of a single `SendMessage` step.
- */
-export const TARGET_SET_COUNT = 2 ** CONTEXT_COUNT - 1;
-
-/**
  * Distinct successor states of one `SendMessage` step in a generated spec.
  *
  * `UserNext` emits:
@@ -96,8 +140,13 @@ export const TARGET_SET_COUNT = 2 ** CONTEXT_COUNT - 1;
  * ```
  *
  * so a send branches `|Contexts| * (2^|Contexts| - 1) * |Tabs| * |handlers|`
- * ways. `MaxMessages` (`messages.maxInFlight`) is the exponent on it.
+ * ways. `MaxMessages` (`messages.maxInFlight`) is the exponent on it — which is
+ * why the context set is the cheapest term to cut (polly#185).
  */
-export function sendBranchingFactor(handlerCount: number, tabCount: number): number {
-  return CONTEXT_COUNT * TARGET_SET_COUNT * tabCount * handlerCount;
+export function sendBranchingFactor(
+  handlerCount: number,
+  tabCount: number,
+  contexts: readonly string[]
+): number {
+  return contexts.length * targetSetCount(contexts) * tabCount * handlerCount;
 }

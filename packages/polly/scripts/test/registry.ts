@@ -362,6 +362,11 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "memory", "estimate"],
           cost: "heavy",
         }),
+        e2e("verify.declared-contexts", "e2e-verify-declared-contexts.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "contexts", "estimate"],
+          cost: "heavy",
+        }),
         e2e("bdd.witness", "e2e-bdd-witness.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "bdd", "witness"],

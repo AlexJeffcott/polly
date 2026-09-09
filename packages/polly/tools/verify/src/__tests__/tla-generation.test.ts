@@ -206,9 +206,11 @@ describe("TLA+ Spec Generation", () => {
 
     const tla = await generateTLA(config, analysis);
 
-    // Generic projects now use MaxContexts (no more fallback to Chrome extension)
-    expect(tla.cfg).toContain("MaxContexts");
-    expect(tla.cfg).toMatch(/MaxContexts\s*=\s*4/);
+    // polly#185: maxContexts no longer emits a MaxContexts constant. It never
+    // sized `Contexts` — the spec did not declare it, so TLC read the
+    // assignment and ignored it. The key that does size the set is `contexts`.
+    expect(tla.cfg).not.toContain("MaxContexts");
+    expect(tla.cfg).toContain("Contexts = {background, content, popup}");
 
     // Tabs is present (required by MessageRouter.tla) but set to single element (unused)
     expect(tla.cfg).toContain("Tabs = {0}");

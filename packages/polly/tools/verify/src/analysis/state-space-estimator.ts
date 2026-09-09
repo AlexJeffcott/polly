@@ -1,9 +1,11 @@
 import {
-  CONTEXT_COUNT,
+  type ContextSetInput,
   generatedTabCount,
+  hasDeclaredContexts,
+  resolveContexts,
   sendBranchingFactor,
-  TARGET_SET_COUNT,
   type TabSetInput,
+  targetSetCount,
 } from "../codegen/model-constants";
 import type {
   AdapterVerificationConfig,
@@ -27,6 +29,10 @@ export type StateSpaceEstimate = {
   handlerCount: number;
   maxInFlight: number;
   contextCount: number;
+  /** The `Contexts` set the `.cfg` writer will emit, in emission order. */
+  contexts: string[];
+  /** Whether that set came from `config.contexts` or from the default (polly#185). */
+  contextsDeclared: boolean;
   tabCount: number;
   /** `|Contexts| * (2^|Contexts| - 1) * |Tabs| * handlers` — one send's successors. */
   sendBranching: number;
@@ -156,6 +162,14 @@ function getTabSetInput(config: UnifiedVerificationConfig): TabSetInput {
   return {};
 }
 
+/**
+ * The context set the `.cfg` writer reads (polly#185). Declared on both config
+ * arms, so no narrowing is needed — an absent key resolves to the default.
+ */
+function getContextSetInput(config: UnifiedVerificationConfig): ContextSetInput {
+  return config as unknown as ContextSetInput;
+}
+
 function getFeasibility(states: number): StateSpaceEstimate["feasibility"] {
   if (states < 100_000) return "trivial";
   if (states <= 1_000_000) return "feasible";
@@ -189,11 +203,12 @@ function dominantTerm(e: {
   fieldProduct: number;
   handlerCount: number;
   contextCount: number;
+  targetSets: number;
   tabCount: number;
   maxInFlight: number;
 }): { label: string; decades: number } {
   const log10 = (n: number) => (n > 0 ? Math.log10(n) : 0);
-  const topology = e.contextCount * TARGET_SET_COUNT * e.tabCount;
+  const topology = e.contextCount * e.targetSets * e.tabCount;
 
   const terms = [
     {
@@ -205,7 +220,7 @@ function dominantTerm(e: {
       decades: e.maxInFlight * log10(e.handlerCount),
     },
     {
-      label: `send topology (${e.contextCount} sources x ${TARGET_SET_COUNT} target sets x ${e.tabCount} tabs)`,
+      label: `send topology (${e.contextCount} sources x ${e.targetSets} target sets x ${e.tabCount} tabs)`,
       decades: e.maxInFlight * log10(topology),
     },
   ];
@@ -260,13 +275,18 @@ function estimateForScope(
   const tabCount = generatedTabCount(tabSetInput);
 
   // Contexts is the set the .cfg writer emits, not a function of maxTabs
-  // (polly#183). Every generated spec replicates application state across it.
-  const contextCount = CONTEXT_COUNT;
+  // (polly#183): `config.contexts` when declared, the extension default
+  // otherwise (polly#185). Every generated spec replicates application state
+  // across it.
+  const contextSetInput = getContextSetInput(config);
+  const contexts = resolveContexts(contextSetInput);
+  const contextsDeclared = hasDeclaredContexts(contextSetInput);
+  const contextCount = contexts.length;
   const totalStateSpace = fieldProduct ** contextCount;
 
   // Each in-flight message is one SendMessage step, and UserNext quantifies
   // over source, non-empty target set, tab and message type on every one.
-  const sendBranching = sendBranchingFactor(handlerCount, tabCount);
+  const sendBranching = sendBranchingFactor(handlerCount, tabCount, contexts);
   const interleavingFactor = sendBranching ** maxInFlight;
 
   const estimatedStates = totalStateSpace * interleavingFactor;
@@ -287,6 +307,7 @@ function estimateForScope(
     fieldProduct,
     handlerCount,
     contextCount,
+    targetSets: targetSetCount(contexts),
     tabCount,
     maxInFlight,
   });
@@ -297,6 +318,14 @@ function estimateForScope(
   if (maxInFlight > 1) {
     suggestions.push(
       `maxInFlight ${maxInFlight} → ${maxInFlight - 1} divides the estimate by ${sendBranching.toLocaleString()}x (one fewer send to branch over)`
+    );
+  }
+
+  if (!contextsDeclared) {
+    suggestions.push(
+      `Contexts is the default {${contexts.join(", ")}} — no \`contexts\` key is declared. ` +
+        `Declaring the ones this project has divides state replication by fieldProduct^(${contextCount} - n) ` +
+        "and send branching by the drop in |Contexts| * (2^|Contexts| - 1) (polly#185)"
     );
   }
 
@@ -321,6 +350,8 @@ function estimateForScope(
     handlerCount,
     maxInFlight,
     contextCount,
+    contexts,
+    contextsDeclared,
     tabCount,
     sendBranching,
     totalStateSpace,

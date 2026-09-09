@@ -7,6 +7,7 @@
 - [stateConstraint](#stateconstraint)
 - [defineVerification](#defineverification)
 - [State Config Types](#state-config-types)
+- [Contexts Config](#contexts-config)
 - [Messages Config](#messages-config)
 - [Tier 2 Optimizations](#tier-2-optimizations)
 - [Complete Example](#complete-example)
@@ -149,6 +150,43 @@ state: {
 
 **Important:** Field names in state config must match what the TLA+ analyzer generates from handler code. If a handler accesses `loginState.value.loggedIn`, the generated TLA+ field is `loginState_loggedIn`, NOT `loggedIn`. Use `[false, true]` style when the state variable name doesn't match (avoids field name mismatch errors).
 
+## Contexts Config
+
+```typescript
+contexts: ['server', 'client'],
+```
+
+The contexts the project has. They become the `.cfg`'s `Contexts` set — TLA+
+model values, so each name must sanitise to `[A-Za-z_][A-Za-z0-9_]*`
+(`main-window` is emitted as `main_window`, and warned about). Omit the key for
+the browser-extension default `['background', 'content', 'popup']`.
+
+This is usually the largest single cut available to a model. The generated spec
+replicates application state across the set (`fieldProduct ^ |Contexts|`) and
+quantifies every send over `|Contexts| * (2^|Contexts| - 1)` source/target
+pairs, raised to `maxInFlight`. On a two-handler model at `maxInFlight: 1`,
+`maxTabs: 1`: 38,464 distinct states at three contexts, 4,896 at two, 368 at
+one.
+
+**`messages.maxContexts` is not this key.** It emits no constant and never
+sized `Contexts`; it only marks the project as non-extension, which narrows the
+default `Tabs` set. `polly verify` warns when it is declared.
+
+Notes:
+
+- A single context makes every send a self-send. `ConnectPort` and
+  `DisconnectPort` still work, so the model stays meaningful.
+- A single context disables mesh propagation: `PropagateMeshOp(src, dst, docId)`
+  requires `src # dst`. Declare at least two contexts alongside a `mesh` block.
+- A cross-context invariant is vacuously true under a single context.
+- Contexts are global to the spec, not per subsystem — every generated
+  subsystem model gets the same set.
+- `customTLAPaths` subsystems are not generated, so the key does not reach a
+  hand-written spec.
+- `polly verify` prints the set inferred from the handler file paths when no
+  key is declared, as a suggestion. It never applies it on its own.
+- `polly verify --estimate` reports the same set the `.cfg` writer emits.
+
 ## Messages Config
 
 ```typescript
@@ -225,6 +263,7 @@ Rules:
 import { defineVerification } from '@fairfox/polly/verify'
 
 export default defineVerification({
+  contexts: ['background', 'content'],
   state: {
     loggedIn: [false, true],
     todoCount: { type: 'number', min: 0, max: 100 },

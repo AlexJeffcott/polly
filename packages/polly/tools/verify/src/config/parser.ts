@@ -2,9 +2,60 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  CONTEXT_NAME_PATTERN,
+  DEFAULT_CONTEXTS,
+  sanitizeContextName,
+} from "../codegen/model-constants";
 import { MIN_TLC_MEMORY, MIN_TLC_MEMORY_BYTES, parseMemoryBytes } from "../runner/memory";
 import type { ConfigIssue, ValidationResult, VerificationConfig } from "../types";
 import { validateCapabilities, validateCoupledFields } from "./capability-validation";
+
+/**
+ * Names a declared context may not take (polly#185): TLA+ keywords, and the
+ * constants and operators a generated `.cfg`/`.tla` pair already declares. A
+ * collision is a SANY error at run time, after the container is up.
+ */
+const RESERVED_CONTEXT_NAMES = new Set([
+  // Constants the generated .cfg assigns.
+  "Contexts",
+  "MaxMessages",
+  "NULL",
+  "Tabs",
+  "TimeoutLimit",
+  "MaxWorkers",
+  "MaxRenderers",
+  "MaxClients",
+  "NoTarget",
+  "MeshDocs",
+  // TLA+ keywords that may appear where a model value does.
+  "ASSUME",
+  "BOOLEAN",
+  "CASE",
+  "CHOOSE",
+  "CONSTANT",
+  "CONSTANTS",
+  "DOMAIN",
+  "ELSE",
+  "ENABLED",
+  "EXCEPT",
+  "EXTENDS",
+  "FALSE",
+  "IF",
+  "IN",
+  "INSTANCE",
+  "LET",
+  "MODULE",
+  "OTHER",
+  "SUBSET",
+  "THEN",
+  "TRUE",
+  "UNCHANGED",
+  "UNION",
+  "VARIABLE",
+  "VARIABLES",
+  "WITH",
+]);
 
 export class ConfigValidator {
   private issues: ConfigIssue[] = [];
@@ -154,6 +205,9 @@ export class ConfigValidator {
 
     // Validate Tier 1 optimizations
     this.validateTier1Optimizations(config.messages);
+
+    // polly#185: the declared context set becomes the .cfg's Contexts constant.
+    this.validateContexts(config);
 
     // Validate verification options
     if (config.verification) {
@@ -486,6 +540,152 @@ export class ConfigValidator {
     }
 
     this.validateMemory(verification.memory);
+  }
+
+  /**
+   * polly#185: `contexts` becomes the `.cfg`'s `Contexts` set, and its members
+   * become TLA+ model values.
+   *
+   * A name TLC cannot parse fails the run after the spec is generated and the
+   * container is up, with a SANY error naming a line the user never wrote — so
+   * it is rejected here instead. An empty array is rejected outright: the
+   * router's `ports` function, `contextStates` and every quantifier are over
+   * `Contexts`, and all of them are degenerate at zero.
+   */
+  private validateContexts(config: VerificationConfig): void {
+    this.warnOnDeadMaxContexts(config);
+
+    const contexts = (config as { contexts?: unknown }).contexts;
+    if (contexts === undefined) return;
+
+    if (!Array.isArray(contexts)) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "contexts",
+        message: "contexts must be an array of context names",
+        suggestion: `Use an array, e.g. ["server"], or omit the key for the default {${DEFAULT_CONTEXTS.join(", ")}}`,
+      });
+      return;
+    }
+
+    if (contexts.length === 0) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "contexts",
+        message: "contexts is empty; the model needs at least one context",
+        suggestion: `Name at least one context, e.g. ["server"], or omit the key for the default {${DEFAULT_CONTEXTS.join(", ")}}`,
+      });
+      return;
+    }
+
+    const seen = new Map<string, string>();
+    for (const name of contexts) {
+      this.validateContextName(name, seen);
+    }
+
+    this.warnOnSingleContextMesh(config, contexts.length);
+  }
+
+  /** One declared context name: type, shape, sanitising, reserved words, duplicates. */
+  private validateContextName(name: unknown, seen: Map<string, string>): void {
+    if (typeof name !== "string") {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "contexts",
+        message: `Context name ${JSON.stringify(name)} is not a string`,
+        suggestion: "Every entry must be a string naming one context",
+      });
+      return;
+    }
+
+    const emitted = sanitizeContextName(name);
+
+    if (!CONTEXT_NAME_PATTERN.test(emitted)) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "contexts",
+        message: `Context "${name}" is not a TLA+ model value (emits as "${emitted}")`,
+        suggestion: "Start with a letter or underscore, then letters, digits or underscores",
+      });
+      return;
+    }
+
+    if (RESERVED_CONTEXT_NAMES.has(emitted)) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "contexts",
+        message: `Context "${name}" collides with a TLA+ keyword or a constant the .cfg already declares`,
+        suggestion: `Pick a name outside {${[...RESERVED_CONTEXT_NAMES].sort().join(", ")}}`,
+      });
+      return;
+    }
+
+    const collidesWith = seen.get(emitted);
+    if (collidesWith !== undefined) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "contexts",
+        message:
+          collidesWith === name
+            ? `Context "${name}" is declared twice`
+            : `Contexts "${collidesWith}" and "${name}" both emit as "${emitted}"`,
+        suggestion: "Each context must emit a distinct TLA+ model value",
+      });
+      return;
+    }
+    seen.set(emitted, name);
+
+    if (emitted !== name) {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "warning",
+        field: "contexts",
+        message: `Context "${name}" is emitted as the model value "${emitted}"`,
+        suggestion: "Name it that way in the config so the spec and the config read alike",
+      });
+    }
+  }
+
+  /**
+   * polly#185: `messages.maxContexts` never sized `Contexts`. It emitted a
+   * `MaxContexts` constant the spec did not declare, which TLC read and
+   * ignored, so the key had never produced an error either.
+   */
+  private warnOnDeadMaxContexts(config: VerificationConfig): void {
+    if (config.messages?.maxContexts === undefined) return;
+
+    this.issues.push({
+      type: "invalid_value",
+      severity: "warning",
+      field: "messages.maxContexts",
+      message: "messages.maxContexts does not size the Contexts set and never did",
+      suggestion: 'Declare the set instead, e.g. contexts: ["server", "client"]',
+    });
+  }
+
+  /**
+   * polly#185: `PropagateMeshOp(src, dst, docId)` requires `src # dst`, so a
+   * single-context model never fires it — the Automerge sync the `mesh` block
+   * declares is then not modelled at all.
+   */
+  private warnOnSingleContextMesh(config: VerificationConfig, contextCount: number): void {
+    if (contextCount > 1) return;
+    if (!config.mesh || Object.keys(config.mesh).length === 0) return;
+
+    this.issues.push({
+      type: "invalid_value",
+      severity: "warning",
+      field: "contexts",
+      message:
+        "one context with a `mesh` block: PropagateMeshOp needs two distinct contexts, so mesh propagation is never enabled",
+      suggestion: "Declare at least two contexts, or drop the mesh block from this model",
+    });
   }
 
   /**

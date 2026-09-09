@@ -167,29 +167,43 @@ describe("estimator against the generated spec", () => {
   }
 
   test.each([
-    ["default tabs", { maxInFlight: 1, maxTabs: null }],
-    ["explicit maxTabs", { maxInFlight: 2, maxTabs: 2 }],
-    ["tab symmetry", { maxInFlight: 1, maxTabs: 1, tabSymmetry: true }],
-    ["project constant", { maxInFlight: 1, maxTabs: null, maxWorkers: 2 }],
-  ])("%s: contexts and tabs match the .cfg the generator writes", async (_label, messages) => {
+    ["default tabs", { maxInFlight: 1, maxTabs: null }, undefined],
+    ["explicit maxTabs", { maxInFlight: 2, maxTabs: 2 }, undefined],
+    ["tab symmetry", { maxInFlight: 1, maxTabs: 1, tabSymmetry: true }, undefined],
+    ["project constant", { maxInFlight: 1, maxTabs: null, maxWorkers: 2 }, undefined],
+    // polly#185: the declared set has to move both sides together.
+    ["one declared context", { maxInFlight: 1, maxTabs: null }, ["server"]],
+    ["two declared contexts", { maxInFlight: 1, maxTabs: 1 }, ["server", "client"]],
+    ["four declared contexts", { maxInFlight: 1, maxTabs: null }, ["a", "b", "c", "d"]],
+  ])(
+    "%s: contexts and tabs match the .cfg the generator writes",
+    async (_label, messages, contexts) => {
+      const config = {
+        state: AUTH_STATE,
+        ...(contexts ? { contexts } : {}),
+        messages,
+        onBuild: "warn",
+        onRelease: "error",
+      } as unknown as VerificationConfig;
+      const analysis = analysisWithHandlers(4);
+
+      const { cfg } = await generateFor(config, analysis);
+      const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
+
+      expect(cfgSetMembers(cfg, "Contexts")).toEqual(estimate.contexts);
+      expect(cfgSetMembers(cfg, "Contexts")).toHaveLength(estimate.contextCount);
+      expect(cfgSetMembers(cfg, "Tabs")).toHaveLength(estimate.tabCount);
+    }
+  );
+
+  test.each([
+    ["the default set", undefined],
+    ["a declared set", ["server", "client"]],
+    ["a single declared context", ["server"]],
+  ])("%s: the branching factor matches the quantifiers UserNext emits", async (_l, contexts) => {
     const config = {
       state: AUTH_STATE,
-      messages,
-      onBuild: "warn",
-      onRelease: "error",
-    } as unknown as VerificationConfig;
-    const analysis = analysisWithHandlers(4);
-
-    const { cfg } = await generateFor(config, analysis);
-    const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
-
-    expect(cfgSetMembers(cfg, "Contexts")).toHaveLength(estimate.contextCount);
-    expect(cfgSetMembers(cfg, "Tabs")).toHaveLength(estimate.tabCount);
-  });
-
-  test("the branching factor matches the quantifiers UserNext emits", async () => {
-    const config = {
-      state: AUTH_STATE,
+      ...(contexts ? { contexts } : {}),
       messages: { maxInFlight: 1, maxTabs: null },
       onBuild: "warn",
       onRelease: "error",
@@ -204,7 +218,7 @@ describe("estimator against the generated spec", () => {
       "\\/ \\E src \\in Contexts : \\E targetSet \\in (SUBSET Contexts \\ {{}}) : \\E tab \\in Tabs : \\E msgType \\in UserMessageTypes :"
     );
 
-    const contexts = cfgSetMembers(cfg, "Contexts").length;
+    const contextCount = cfgSetMembers(cfg, "Contexts").length;
     const tabs = cfgSetMembers(cfg, "Tabs").length;
     const declared = /UserMessageTypes == \{([^}]*)\}/.exec(spec)?.[1];
     if (declared === undefined) throw new Error("the generated spec declares no UserMessageTypes");
@@ -214,7 +228,7 @@ describe("estimator against the generated spec", () => {
       .filter(Boolean);
 
     expect(estimate.sendBranching).toBe(
-      contexts * (2 ** contexts - 1) * tabs * messageTypes.length
+      contextCount * (2 ** contextCount - 1) * tabs * messageTypes.length
     );
   });
 });

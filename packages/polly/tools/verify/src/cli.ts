@@ -12,6 +12,12 @@ import {
   type StateSpaceEstimate,
 } from "./analysis/state-space-estimator";
 import { generateConfig } from "./codegen/config";
+import {
+  DEFAULT_CONTEXTS,
+  hasDeclaredContexts,
+  resolveContexts,
+  sanitizeContextName,
+} from "./codegen/model-constants";
 import type { WitnessSpecLocation } from "./codegen/witness";
 import { validateConfig } from "./config/parser";
 import type { CustomTLAPath, UnifiedVerificationConfig } from "./config/types";
@@ -281,7 +287,10 @@ function displayEstimate(estimate: StateSpaceEstimate): void {
   console.log(`  Field combinations:     ${color(String(estimate.fieldProduct), COLORS.green)}`);
   console.log(`  Handlers:               ${estimate.handlerCount}`);
   console.log(`  Max in-flight:          ${estimate.maxInFlight}`);
-  console.log(`  Contexts:               ${estimate.contextCount} (fixed by the generated .cfg)`);
+  const contextSource = estimate.contextsDeclared ? "declared" : "the default — no `contexts` key";
+  console.log(
+    `  Contexts:               ${estimate.contextCount} — ${estimate.contexts.join(", ")} (${contextSource})`
+  );
   console.log(`  Tabs:                   ${estimate.tabCount}`);
   console.log(
     `  State across contexts:  ${estimate.fieldProduct}^${estimate.contextCount} = ${estimate.totalStateSpace.toLocaleString()}`
@@ -810,6 +819,114 @@ async function runCoupledFieldsLint(
   console.log();
 }
 
+/**
+ * polly#185: the `Contexts` set this run will use, and where it came from.
+ */
+function describeContextSet(config: UnifiedVerificationConfig): string {
+  const contexts = resolveContexts(config);
+  const source = hasDeclaredContexts(config) ? "declared" : "default";
+  return `${contexts.join(", ")} (${contexts.length}, ${source})`;
+}
+
+/**
+ * The contexts the analysed handlers are actually in, in first-seen order.
+ *
+ * `inferContext` tags every handler with one of main/renderer/preload, worker,
+ * server, background/content/popup, or "unknown" when nothing matched. Only
+ * `unknown` is dropped: it means inference found nothing, not that the handler
+ * disagrees with the config.
+ */
+function inferredContexts(analysis: import("./core/model").CodebaseAnalysis): string[] {
+  const seen: string[] = [];
+  for (const handler of analysis.handlers) {
+    const node = (handler as { node?: string }).node;
+    if (node === undefined || node === "unknown") continue;
+    if (!seen.includes(node)) seen.push(node);
+  }
+  return seen;
+}
+
+/**
+ * polly#185: report the context set, and the two ways it can be wrong.
+ *
+ * With no `contexts` key the model is over `{background, content, popup}` —
+ * three names an Electron app or a server does not have, paid for in
+ * `fieldProduct^3` of state replication and `3 * 7` of send branching. The
+ * inferred set is printed as a SUGGESTION, never applied: silently verifying a
+ * different model than the config asked for is the failure this key exists to
+ * end.
+ *
+ * With a `contexts` key, a handler inferred into a context outside the set is a
+ * disagreement between the config and the code, and the handler's sends are
+ * being modelled from a source it is not in.
+ */
+function displayContextDiagnostics(
+  config: UnifiedVerificationConfig,
+  analysis: import("./core/model").CodebaseAnalysis
+): void {
+  const declared = hasDeclaredContexts(config);
+  const contexts = new Set(resolveContexts(config));
+  const inferred = inferredContexts(analysis);
+
+  if (!declared) {
+    console.log(
+      color(
+        `ℹ️  No \`contexts\` key — modelling the default {${DEFAULT_CONTEXTS.join(", ")}}`,
+        COLORS.gray
+      )
+    );
+    if (inferred.length > 0) {
+      console.log(
+        color(`   polly infers from the handler paths: ${inferred.join(", ")}`, COLORS.gray)
+      );
+      console.log(
+        color(
+          `   Declaring \`contexts: [${inferred.map((c) => `"${c}"`).join(", ")}]\` shrinks the model to the contexts you have.`,
+          COLORS.gray
+        )
+      );
+    }
+    console.log();
+    return;
+  }
+
+  const outside = analysis.handlers.filter((h) => {
+    const node = (h as { node?: string }).node;
+    return node !== undefined && node !== "unknown" && !contexts.has(sanitizeContextName(node));
+  });
+
+  if (outside.length === 0) return;
+
+  console.log(
+    color(
+      `⚠️  ${outside.length} handler(s) run in a context \`contexts\` does not declare:`,
+      COLORS.yellow
+    )
+  );
+  for (const h of outside.slice(0, 10)) {
+    const node = (h as { node?: string }).node;
+    console.log(color(`   • ${h.messageType} → ${node} (${h.location.file})`, COLORS.yellow));
+  }
+  if (outside.length > 10) {
+    console.log(color(`   ... and ${outside.length - 10} more`, COLORS.yellow));
+  }
+  console.log();
+  console.log(
+    color(
+      `   The model quantifies sends over {${[...contexts].join(", ")}} only, so these handlers`,
+      COLORS.yellow
+    )
+  );
+  console.log(
+    color(
+      "   are modelled from a source they are not in. Add the missing contexts, or correct the",
+      COLORS.yellow
+    )
+  );
+  console.log(color("   file paths polly infers them from.", COLORS.yellow));
+  console.log();
+}
+
 async function runFullVerification(configPath: string) {
   // Load config
   const config = await loadVerificationConfig(configPath);
@@ -847,6 +964,10 @@ async function runFullVerification(configPath: string) {
 
   // polly#160 (Ask #1): model-coverage report + optional fail-closed gate.
   await runModelCoverage(typedConfig, typedAnalysis, meshFindingCount);
+
+  // polly#185: the declared context set against the contexts the handlers are
+  // actually in. One call here covers the subsystem and monolithic paths below.
+  displayContextDiagnostics(typedConfig, typedAnalysis);
 
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {
@@ -909,6 +1030,7 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
     console.log(color(`   Max depth: ${maxDepth}`, COLORS.gray));
   }
   console.log(color(`   Memory: ${memory ?? DEFAULT_TLC_MEMORY}`, COLORS.gray));
+  console.log(color(`   Contexts: ${describeContextSet(typedConfig)}`, COLORS.gray));
   console.log();
 
   const result = await docker.runTLC(specPath, {
@@ -1046,6 +1168,11 @@ async function runSubsystemVerification(
   const workers = getWorkers(config);
   const maxDepth = getMaxDepth(config);
   const memory = getMemory(config);
+
+  // polly#185: contexts are global to the spec, not per subsystem — every
+  // generated subsystem model below gets this same set, so it is reported once.
+  console.log(color(`⚙️  Contexts: ${describeContextSet(config)}`, COLORS.gray));
+  console.log();
 
   // Generate and run per-subsystem
   const { generateSubsystemTLA } = await import("./codegen/tla");

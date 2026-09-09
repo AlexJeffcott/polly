@@ -211,7 +211,9 @@ describe("Property-Based Testing: TLA+ Generation", () => {
           expect(result.cfg).toContain("MaxRenderers");
         }
         if (hasMaxContexts) {
-          expect(result.cfg).toContain("MaxContexts");
+          // polly#185: maxContexts emits no constant. It still suppresses
+          // MaxClients, which is what the priority order above is about.
+          expect(result.cfg).not.toContain("MaxContexts");
         }
         if (hasMaxClients) {
           expect(result.cfg).toContain("MaxClients");
