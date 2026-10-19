@@ -19,10 +19,30 @@ export interface MutateArgs {
   /** `init --force` (overwrite an existing stryker.conf.json). */
   force: boolean;
   help: boolean;
+  /** `--engine stryker|bun` — which mutation engine `run` uses. */
+  engine?: string;
+  /** `--mode fast|matrix` (bun engine). */
+  mode?: string;
+  /** `--concurrency <n>` (bun engine). */
+  concurrency?: string;
+  /** `--files a.ts,b.ts` — mutate only these targets (bun engine). */
+  files?: string;
+  /** `--since <git-ref>` — mutate only targets changed since the ref (bun engine). */
+  since?: string;
 }
 
 const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "help"]);
-const VALUE_FLAGS = new Set(["--config", "--report", "--decisions", "--db"]);
+const VALUE_FLAGS = new Set([
+  "--config",
+  "--report",
+  "--decisions",
+  "--db",
+  "--engine",
+  "--mode",
+  "--concurrency",
+  "--files",
+  "--since",
+]);
 
 export function parseMutateArgs(argv: string[]): MutateArgs {
   const positionals: string[] = [];
@@ -58,5 +78,10 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     run: bools.has("--run"),
     force: bools.has("--force"),
     help,
+    engine: flags.get("--engine"),
+    mode: flags.get("--mode"),
+    concurrency: flags.get("--concurrency"),
+    files: flags.get("--files"),
+    since: flags.get("--since"),
   };
 }

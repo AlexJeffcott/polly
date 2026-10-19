@@ -15,6 +15,7 @@
     "@preact/signals": "Reactive signals \u2014 the state primitive across polly's UI and shared state layers.",
     "@preact/signals-core": "Lower-level signals package \u2014 used by the Elysia server integration where DOM bindings aren't needed.",
     "@roamhq/wrtc": "Native WebRTC binding for node \u2014 required by the mesh module's node-side peer connections.",
+    "@stryker-mutator/api": "Plugin API for polly's Stryker ignorer. Held at 9.x: stryker-mutator-bun-runner@0.4.0 peers on core ^9, and core 10.0.0 crashes in the instrumenter.",
     "@types/bun": "TypeScript types for Bun runtime APIs.",
     "@types/chrome": "TypeScript types for Chrome extension APIs (used by the popup/content/background entry points).",
     "@types/node": "TypeScript types for Node-compatible APIs in test packages.",
@@ -25,6 +26,7 @@
     "elysia": "HTTP server framework \u2014 used by the optional elysia integration and example servers.",
     "fast-check": "Property-based testing library used by the verify tool's TLA+ codegen fuzzer.",
     "marked": "Markdown parser used by the polly-ui markdown component.",
+    "oxc-parser": "ESTree parser (native) behind `polly mutate --engine bun` \u2014 generates span mutants from TS/TSX source.",
     "pixelmatch": "Per-pixel image diff used by the visual-test tool.",
     "pngjs": "PNG decoder used by the visual-test tool to load screenshots before pixelmatch.",
     "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points. Held at 10.x: preact 11 removes JSX namespace types polly-ui uses; moving needs its own breaking release.",
@@ -34,7 +36,6 @@
     "tweetnacl": "Ed25519 / box crypto primitives used by the peer authentication layer.",
     "typescript": "Pinned at 6.0.3, once, at the monorepo root. Not the type checker (that is `bun check`); used for .d.ts generation in build-lib.ts and by Stryker, which reads tsconfig through the TypeScript JS API that the native typescript@7 does not ship. A single version also keeps one Elysia copy (Elysia peers on typescript).",
     "werift": "Pure-TS WebRTC implementation \u2014 node alternative to @roamhq/wrtc, used in environments where the native binding is unavailable.",
-    "ws": "WebSocket server/client used by mesh-node for cross-device sync.",
-    "@stryker-mutator/api": "Plugin API for polly's Stryker ignorer. Held at 9.x: stryker-mutator-bun-runner@0.4.0 peers on core ^9, and core 10.0.0 crashes in the instrumenter."
+    "ws": "WebSocket server/client used by mesh-node for cross-device sync."
   }
 }

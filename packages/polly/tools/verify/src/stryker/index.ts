@@ -38,20 +38,14 @@ import {
   PluginKind,
   tokens,
 } from "@stryker-mutator/api/plugin";
+import {
+  VERIFY_PRIMITIVES,
+  verifyCallsiteReason,
+} from "../../../mutate/src/engine/verify-callsites.ts";
 
-/**
- * The polly verify primitives whose argument expressions are runtime no-ops.
- * A mutation anywhere inside a call to one of these cannot be killed by a test,
- * so its mutants are excluded from scoring.
- */
-export const VERIFY_PRIMITIVES: ReadonlySet<string> = new Set([
-  "requires",
-  "ensures",
-  "invariant",
-  "stateConstraint",
-  "forAllPeers",
-  "somePeer",
-]);
+// The primitive list and the reason text are shared with the Bun-native engine
+// (`polly mutate --engine bun`), so the two cannot drift.
+export { VERIFY_PRIMITIVES };
 
 /** The Stryker plugin name consumers reference in `ignorers`. */
 export const POLLY_VERIFY_IGNORER_NAME = "polly-verify";
@@ -121,11 +115,7 @@ export class PollyVerifyIgnorer implements Ignorer {
     }
     const name = calleeName(path.node.callee);
     if (name && this.primitives.has(name)) {
-      return (
-        `Inside polly's ${name}(...) — a runtime no-op (compiled away in production, ` +
-        `translated to a TLA+ assertion in verification). No test can observe or kill ` +
-        `mutations here, so they are excluded from the score (polly#143).`
-      );
+      return verifyCallsiteReason(name);
     }
     return undefined;
   }

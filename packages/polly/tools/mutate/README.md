@@ -47,6 +47,41 @@ bun run test-debt:decisions  # = polly mutate decisions
 bun run test-debt:verify     # = polly mutate verify --run
 ```
 
+### The Bun-native engine (`--engine bun`)
+
+`polly mutate run --engine bun` runs mutation testing without Stryker. It reads
+the same `stryker.conf.json` (`mutate`, `bun.testFiles`, `concurrency`) and
+writes the same `reports/mutation/mutation.json`, so `report`, `decisions` and
+`verify` work on its output unchanged.
+
+| Step | How |
+|---|---|
+| Generate | `oxc-parser` spans; Stryker-named operators (`engine/operators.ts`); type-only syntax is never mutated; mutants inside verify primitives are reported `Ignored` (polly#143) |
+| Select | Test files whose import closure reaches the target, through Bun's own resolver (tsconfig `paths` work) |
+| Baseline | The selected files run once unmutated; they must pass (3 tries), and their time sets each mutant's timeout (2× + 3 s) |
+| Run | One `bun test --bail` per mutant. `engine/preload.ts` swaps the target's text in a `Bun.plugin` `onLoad` — no sandbox copy |
+
+```sh
+polly mutate run --engine bun                          # every target in the config
+polly mutate run --engine bun --files src/a.ts         # one target (globs, a.ts:10-20 ranges)
+polly mutate run --engine bun --since main             # only targets changed since a ref
+polly mutate run --engine bun --concurrency 10
+```
+
+Current limits:
+
+- **Fast mode only.** `--bail` stops at the first failing test, so `killedBy` is
+  empty and the redundancy sections stay off. A no-bail matrix mode is planned.
+- **`testRunner: "bun"` only.** Stryker's `command` runner is not supported yet.
+- **Static selection.** Reach that no import names (`mock.module`, a computed
+  `import()`, a global set by another file) is not seen. A dynamic coverage pass
+  is planned.
+- A file that a bunfig `[test].preload` imports is loaded before the mutant
+  plugin registers, so it cannot be mutated.
+
+Proof surface: `scripts/e2e-mutate.ts` (cold-start project, source and built CLI,
+`--since`); the engine's own tests are the `tools.mutate` tier case.
+
 ### Decisions log
 
 Signals are derived and regenerable; **decisions** about them are not, and live

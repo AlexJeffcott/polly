@@ -122,6 +122,17 @@ export function internalPlan(): TierPlan {
             env: { SKIP_DOCKER: "1" },
           },
         },
+        {
+          // `polly mutate`'s Bun-native engine: operators, import-graph test
+          // selection, and real `bun test` runs through the injection preload.
+          id: "tools.mutate",
+          tags: ["tools", "mutate"],
+          exec: {
+            kind: "command",
+            argv: ["bun", "test", "tools/mutate/src"],
+            cwd: packageRoot,
+          },
+        },
       ],
     },
     {
@@ -389,6 +400,11 @@ export function internalPlan(): TierPlan {
         }),
         e2e("stryker.verify", "e2e-stryker-verify.ts", {
           tags: ["stryker", "mutation"],
+          cost: "heavy",
+        }),
+        // Reads dist/cli/polly.js, like stryker.verify reads the built plugin.
+        e2e("mutate.engine", "e2e-mutate.ts", {
+          tags: ["mutate", "mutation"],
           cost: "heavy",
         }),
         {

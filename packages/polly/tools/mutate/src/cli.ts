@@ -9,7 +9,7 @@ import { resolveMutateConfig } from "./config.ts";
 import { decide, status } from "./decisions.ts";
 import { buildDb, loadMutationReport } from "./ingest.ts";
 import { initConfig } from "./init.ts";
-import { presetAdvisory, reportFromFile, runStryker } from "./run.ts";
+import { presetAdvisory, reportFromFile, resolveEngine, runBunEngine, runStryker } from "./run.ts";
 import { verifyMatrix } from "./verify-matrix.ts";
 
 const HELP = `polly mutate — mutation testing + useless-test detection
@@ -23,7 +23,7 @@ tools/mutate/README.md.
 
 Usage:
   polly mutate init [--force]        Scaffold a stryker.conf.json for this project
-  polly mutate [run]                 Run Stryker, then print the useless-test report
+  polly mutate [run]                 Run mutation testing, then print the useless-test report
   polly mutate report                Print the report from an existing mutation.json
   polly mutate decisions             Review verdicts: needs-review / stale / settled
   polly mutate decisions decide <file> <keep|prune|rewrite|investigate> "<rationale>"
@@ -36,6 +36,11 @@ Flags:
   --decisions <path>  verdict log (default: .polly/test-debt/decisions.jsonl)
   --db <path>         intermediate SQLite (default: in-memory)
   --no-report         'run' only — skip the analysis
+  --engine <name>     'run' only — stryker (default) or bun (Bun-native, no sandbox)
+  --files <a,b>       bun engine — mutate only these files (globs and :from-to ranges allowed)
+  --since <git-ref>   bun engine — mutate only targets changed since the ref
+  --concurrency <n>   bun engine — parallel bun test processes (default: config, else cores-1)
+  --mode fast         bun engine — stop each run at the first failing test (the only mode so far)
   -h, --help
 
 The redundancy/subsumption sections need a COMPLETE kill matrix (the no-bail
@@ -85,9 +90,12 @@ async function main(): Promise<number> {
     }
 
     case "run": {
-      const tip = await presetAdvisory(cfg);
-      if (tip) console.log(`${tip}\n`);
-      const code = await runStryker(cfg);
+      const engine = resolveEngine(args);
+      if (engine === "stryker") {
+        const tip = await presetAdvisory(cfg);
+        if (tip) console.log(`${tip}\n`);
+      }
+      const code = engine === "bun" ? await runBunEngine(cfg, args) : await runStryker(cfg);
       if (code !== 0) return code;
       if (args.noReport) return 0;
       console.log(`\n${await reportFromFile(cfg)}`);

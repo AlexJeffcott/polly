@@ -8,6 +8,24 @@
  */
 
 export { decide, type FileSignal, fileSignals, status } from "./decisions.ts";
+export {
+  applyMutant,
+  buildImportGraph,
+  coveringTests,
+  type EngineConfig,
+  type EngineHooks,
+  type EngineResult,
+  findTestFiles,
+  generateMutants,
+  type Mutant,
+  type MutantResult,
+  type MutantStatus,
+  type MutateTarget,
+  type MutatorName,
+  mutationScore,
+  runEngine,
+  VERIFY_PRIMITIVES,
+} from "./engine/index.ts";
 export { buildDb, type MutationReport } from "./ingest.ts";
 export { type InitResult, initConfig } from "./init.ts";
 export { report } from "./report.ts";

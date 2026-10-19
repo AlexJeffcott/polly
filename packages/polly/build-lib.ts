@@ -192,6 +192,9 @@ const toolsResult = await Bun.build({
     // command; index.ts is the @fairfox/polly/mutate library surface.
     "tools/mutate/src/cli.ts",
     "tools/mutate/src/index.ts",
+    // The bun engine's mutant-injection preload. Its own entrypoint because the
+    // runner passes it to `bun test --preload` by path, like the tiers worker.
+    "tools/mutate/src/engine/preload.ts",
     // Executable Gherkin / BDD (`polly bdd`). cli.ts is the command; index.ts is
     // the @fairfox/polly/bdd library surface (defineStep/defineWorld/driveBus).
     "tools/bdd/src/cli.ts",
@@ -231,6 +234,8 @@ const toolsResult = await Bun.build({
     "@stryker-mutator/*",
     // Gherkin parser for `polly bdd` — a dependency, kept external.
     "@cucumber/*",
+    // Parser for the bun mutation engine — a native-binding dependency, kept external.
+    "oxc-parser",
   ],
 });
 
@@ -344,6 +349,8 @@ try {
       "src/ui/**/*",
       "**/*.test.ts",
       "**/*.spec.ts",
+      // Test helpers live beside the tests and are not part of the shipped surface.
+      "**/__tests__/**",
     ],
   };
 

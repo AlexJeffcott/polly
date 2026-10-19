@@ -3,8 +3,11 @@
  * mutation report and produce the useless-test analysis — gating the redundancy
  * /subsumption sections on a complete (no-bail) kill matrix.
  */
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
+import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
+import { mutationScore, runEngine } from "./engine/index.ts";
+import { engineConfigFromStryker } from "./engine-config.ts";
 import { buildDb, loadMutationReport } from "./ingest.ts";
 import { report } from "./report.ts";
 import { isMatrixComplete } from "./verify-matrix.ts";
@@ -24,6 +27,66 @@ export async function runStryker(cfg: MutateConfig): Promise<number> {
     env: process.env,
   });
   return await proc.exited;
+}
+
+export type EngineName = "stryker" | "bun";
+
+export function resolveEngine(args: MutateArgs): EngineName {
+  const engine = args.engine ?? "stryker";
+  if (engine === "stryker" || engine === "bun") return engine;
+  throw new Error(`unknown --engine "${engine}" (expected stryker or bun)`);
+}
+
+/** Run the Bun-native engine and print a per-target summary. Returns the exit code. */
+export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise<number> {
+  const engineCfg = await engineConfigFromStryker(cfg, args);
+  if (engineCfg.targets.length === 0) {
+    console.log(
+      args.since ? `no mutate targets changed since ${args.since}` : "no mutate targets matched"
+    );
+    return 0;
+  }
+  let lastPct = -1;
+  const result = await runEngine(engineCfg, {
+    log: (line) => console.log(line),
+    progress: (done, total) => {
+      const pct = Math.floor((100 * done) / total);
+      if (pct >= lastPct + 10 || done === total) {
+        lastPct = pct;
+        console.log(`  ${done}/${total} mutants`);
+      }
+    },
+  });
+
+  console.log("\nfile | tests | killed | survived | timeout | no-cov | other | score");
+  const all = result.targets.flatMap((t) => t.results);
+  for (const t of result.targets) {
+    const count = (s: string) => t.results.filter((r) => r.status === s).length;
+    const other =
+      t.results.length -
+      count("Killed") -
+      count("Survived") -
+      count("Timeout") -
+      count("NoCoverage");
+    const score = mutationScore(t.results);
+    console.log(
+      [
+        relative(engineCfg.cwd, t.file),
+        t.coveringTests.length,
+        count("Killed"),
+        count("Survived"),
+        count("Timeout"),
+        count("NoCoverage"),
+        other,
+        score === null ? "n/a" : `${score.toFixed(1)}%`,
+      ].join(" | ")
+    );
+  }
+  const total = mutationScore(all);
+  console.log(
+    `\n${all.length} mutants in ${(result.wallMs / 1000).toFixed(1)} s · score ${total === null ? "n/a" : `${total.toFixed(1)}%`} · report ${cfg.reportPath}`
+  );
+  return 0;
 }
 
 /** Build the useless-test report from an existing mutation.json (no Stryker run). */
