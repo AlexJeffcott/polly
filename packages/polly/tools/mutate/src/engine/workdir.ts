@@ -108,3 +108,18 @@ export function createWorkdirs(projectCwd: string): Workdirs {
     remove: () => rmSync(root, { recursive: true, force: true }),
   };
 }
+
+/** Run `fn` in a fresh scratch cwd, or in `projectCwd` when `workdirs` is null. */
+export async function inCwd<R>(
+  workdirs: Workdirs | null,
+  projectCwd: string,
+  fn: (cwd: string) => Promise<R>
+): Promise<R> {
+  if (!workdirs) return fn(projectCwd);
+  const dir = workdirs.create();
+  try {
+    return await fn(dir);
+  } finally {
+    workdirs.release(dir);
+  }
+}

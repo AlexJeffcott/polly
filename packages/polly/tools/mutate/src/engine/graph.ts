@@ -113,3 +113,18 @@ export function coveringTests(graph: ImportGraph, target: string): string[] {
   const tests = new Set(graph.testFiles);
   return [...seen].filter((f) => tests.has(f)).sort();
 }
+
+/** Every project file `files` load, themselves included, sorted. */
+export function closureOf(graph: ImportGraph, files: readonly string[]): string[] {
+  const seen = new Set(files);
+  const stack = [...files];
+  for (let f = stack.pop(); f !== undefined; f = stack.pop()) {
+    for (const next of graph.imports.get(f) ?? []) {
+      if (!seen.has(next)) {
+        seen.add(next);
+        stack.push(next);
+      }
+    }
+  }
+  return [...seen].sort();
+}

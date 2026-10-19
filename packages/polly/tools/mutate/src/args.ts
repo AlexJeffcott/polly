@@ -31,6 +31,8 @@ export interface MutateArgs {
   since?: string;
   /** `--in-tree` — run test processes in the project cwd, not a scratch dir (bun engine). */
   inTree: boolean;
+  /** `--no-cache` — ignore and do not reuse cached target results (bun engine). */
+  noCache: boolean;
 }
 
 const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "help"]);
@@ -80,6 +82,7 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     run: bools.has("--run"),
     force: bools.has("--force"),
     inTree: bools.has("--in-tree"),
+    noCache: bools.has("--no-cache"),
     help,
     engine: flags.get("--engine"),
     mode: flags.get("--mode"),

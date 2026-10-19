@@ -47,6 +47,8 @@ beforeAll(async () => {
       concurrency: 2,
       timeout: { factor: 2, extraMs: 3000 },
       ignoreVerifyCallsites: true,
+      mode: "fast",
+      cacheDir: null,
       scratchCwd: true,
       reportPath: project.path("reports/mutation.json"),
     },

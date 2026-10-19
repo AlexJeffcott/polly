@@ -1,24 +1,43 @@
 /**
- * The Bun-native mutation engine: generate → select → baseline → run → report.
+ * The Bun-native mutation engine: generate → select → cache → baseline → run → report.
  *
  *   generate  oxc-parser spans, Stryker-named operators (generate.ts)
  *   select    test files whose import closure reaches the target (graph.ts)
+ *   cache     a target whose inputs are unchanged reuses its last results (cache.ts)
  *   baseline  run exactly that subset unmutated; it must pass, and its time
- *             sets the per-mutant timeout
- *   run       one `bun test --bail` per mutant, the mutant injected by a
- *             preload plugin (preload.ts) — no sandbox copy; each process
- *             gets a fresh scratch cwd (workdir.ts)
+ *             sets the per-mutant timeout (baseline.ts)
+ *   run       one `bun test` per mutant, the mutant injected by a preload
+ *             plugin (preload.ts) — no sandbox copy; each process gets a fresh
+ *             scratch cwd (workdir.ts). Fast mode bails at the first failure;
+ *             matrix mode runs every test and records each killer (junit.ts)
  *   report    mutation-testing-report-schema JSON (report-writer.ts)
  */
 import { realpathSync } from "node:fs";
-import { relative } from "node:path";
+import { join } from "node:path";
+import { type Baseline, measureBaseline } from "./baseline.ts";
+import {
+  type CacheEntry,
+  cachedResult,
+  cacheKey,
+  mutantSig,
+  readCache,
+  writeCache,
+} from "./cache.ts";
 import { generateMutants } from "./generate.ts";
-import { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
+import { buildImportGraph, closureOf, coveringTests, findTestFiles } from "./graph.ts";
+import { killers, LOAD_FAILURE_NAME, loadFailureId, parseJunit } from "./junit.ts";
 import { toMutationReport, writeReport } from "./report-writer.ts";
 import { pool, preloadPath, runBunTest } from "./runner.ts";
 import { newPaths, snapshotWorktree } from "./stray-writes.ts";
-import type { EngineConfig, EngineResult, Mutant, MutantResult, TargetSummary } from "./types.ts";
-import { createWorkdirs, type Workdirs } from "./workdir.ts";
+import type {
+  EngineConfig,
+  EngineResult,
+  Mutant,
+  MutantResult,
+  TargetSummary,
+  TestRef,
+} from "./types.ts";
+import { createWorkdirs, inCwd, type Workdirs } from "./workdir.ts";
 
 export { applyMutant, generateMutants } from "./generate.ts";
 export { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
@@ -26,10 +45,6 @@ export { toMutationReport, writeReport } from "./report-writer.ts";
 export { newPaths, snapshotWorktree } from "./stray-writes.ts";
 export type * from "./types.ts";
 export { VERIFY_PRIMITIVES } from "./verify-callsites.ts";
-
-/** Attempts before a red baseline marks a target untrustworthy (flaky subsets do exist). */
-const BASELINE_ATTEMPTS = 3;
-const BASELINE_TIMEOUT_MS = 300_000;
 
 export interface EngineHooks {
   log?: (line: string) => void;
@@ -41,83 +56,16 @@ interface PreparedTarget {
   mutants: Mutant[];
   compileErrors: Mutant[];
   covering: string[];
+  cacheKey: string | null;
+  cached: CacheEntry | null;
 }
 
-interface Baseline {
-  ok: boolean;
-  ms: number;
-  reason?: string;
-  /** The target's tests need the project cwd, so its mutants run there. */
-  inTree: boolean;
-}
-
-/** Run `fn` in a fresh scratch cwd, or in the project when `workdirs` is null. */
-async function inCwd<R>(
-  workdirs: Workdirs | null,
-  projectCwd: string,
-  fn: (cwd: string) => Promise<R>
-): Promise<R> {
-  if (!workdirs) return fn(projectCwd);
-  const dir = workdirs.create();
-  try {
-    return await fn(dir);
-  } finally {
-    workdirs.release(dir);
-  }
-}
-
-async function measureBaselineIn(
-  cwd: string,
-  preloads: string[],
-  files: string[]
-): Promise<Omit<Baseline, "inTree">> {
-  let last = "";
-  for (let attempt = 1; attempt <= BASELINE_ATTEMPTS; attempt++) {
-    const outcome = await runBunTest({
-      cwd,
-      files,
-      preloads,
-      bail: false,
-      timeoutMs: BASELINE_TIMEOUT_MS,
-      captureStderr: true,
-    });
-    if (outcome.exitCode === 0 && !outcome.timedOut) return { ok: true, ms: outcome.ms };
-    last = outcome.timedOut
-      ? `timed out after ${BASELINE_TIMEOUT_MS} ms`
-      : `exit ${outcome.exitCode}`;
-    const failLine = outcome.stderrTail?.match(/\(fail\)[^\n]*/)?.[0];
-    if (failLine) last += `: ${failLine}`;
-  }
-  return {
-    ok: false,
-    ms: 0,
-    reason: `baseline red ${BASELINE_ATTEMPTS}× on the selected tests (${last})`,
-  };
-}
-
-/**
- * Scratch cwd first. When that is red, try the project cwd: green there means
- * the tests depend on the cwd (fixtures read relative to it, say), so the
- * target runs in-tree, where the stray-write guard still reports leaks.
- */
-async function measureBaseline(
-  cfg: EngineConfig,
-  workdirs: Workdirs | null,
-  preloads: string[],
-  p: PreparedTarget,
-  log: (line: string) => void
-): Promise<Baseline> {
-  const scratch = await inCwd(workdirs, cfg.cwd, (cwd) =>
-    measureBaselineIn(cwd, preloads, p.covering)
-  );
-  if (scratch.ok || !workdirs) return { ...scratch, inTree: !workdirs };
-  const inTree = await measureBaselineIn(cfg.cwd, preloads, p.covering);
-  if (inTree.ok) {
-    log(
-      `${relative(cfg.cwd, p.file)}: tests fail outside ${cfg.cwd} (${scratch.reason}); its mutants run in-tree`
-    );
-  }
-  return { ...inTree, inTree: true };
+/** Files outside the import graph that still change every result. */
+function projectFiles(cfg: EngineConfig): string[] {
+  return [
+    ...cfg.testPreload,
+    ...["tsconfig.json", "bunfig.toml", "bun.lock"].map((f) => join(cfg.cwd, f)),
+  ];
 }
 
 export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Promise<EngineResult> {
@@ -127,6 +75,161 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
   } finally {
     workdirs?.remove();
   }
+}
+
+async function prepare(
+  cfg: EngineConfig
+): Promise<{ prepared: PreparedTarget[]; testFiles: number }> {
+  const testFiles = await findTestFiles(cfg.cwd, cfg.testInclude);
+  if (testFiles.length === 0) {
+    throw new Error(`no test files match ${cfg.testInclude.join(", ")} under ${cfg.cwd}`);
+  }
+  const graph = await buildImportGraph(testFiles);
+  const settings = {
+    mode: cfg.mode,
+    timeout: cfg.timeout,
+    scratchCwd: cfg.scratchCwd,
+    testPreload: cfg.testPreload,
+  };
+  const prepared: PreparedTarget[] = [];
+  for (const [index, target] of cfg.targets.entries()) {
+    const file = realpathSync(target.file);
+    const { mutants, compileErrors } = generateMutants(file, await Bun.file(file).text(), {
+      ignoreVerifyCallsites: cfg.ignoreVerifyCallsites,
+      lines: target.lines,
+      idPrefix: `${index}.`,
+    });
+    const covering = coveringTests(graph, file);
+    const key =
+      cfg.cacheDir && covering.length > 0
+        ? await cacheKey({
+            mutants,
+            closure: closureOf(graph, covering),
+            projectFiles: projectFiles(cfg),
+            settings,
+          })
+        : null;
+    const cached = cfg.cacheDir && key ? await readCache(cfg.cacheDir, key) : null;
+    prepared.push({ file, mutants, compileErrors, covering, cacheKey: key, cached });
+  }
+  return { prepared, testFiles: testFiles.length };
+}
+
+interface Job {
+  target: number;
+  mutant: Mutant;
+  timeoutMs: number;
+  inTree: boolean;
+}
+
+async function runMutant(
+  cfg: EngineConfig,
+  workdirs: Workdirs | null,
+  preloads: string[],
+  p: PreparedTarget,
+  baseline: Baseline,
+  job: Job
+): Promise<MutantResult> {
+  const matrix = cfg.mode === "matrix";
+  let runCwd = cfg.cwd;
+  const outcome = await inCwd(job.inTree ? null : workdirs, cfg.cwd, (cwd) => {
+    runCwd = cwd;
+    return runBunTest({
+      cwd,
+      files: p.covering,
+      preloads,
+      env: {
+        POLLY_MUTATE_FILE: job.mutant.file,
+        POLLY_MUTATE_SPAN: JSON.stringify({
+          start: job.mutant.start,
+          end: job.mutant.end,
+          replacement: job.mutant.replacement,
+        }),
+      },
+      bail: !matrix,
+      junit: matrix,
+      timeoutMs: job.timeoutMs,
+    });
+  });
+  const durationMs = Math.round(outcome.ms);
+  if (outcome.timedOut) return { mutant: job.mutant, status: "Timeout", durationMs };
+  if (outcome.exitCode === 0) return { mutant: job.mutant, status: "Survived", durationMs };
+  if (!matrix) return { mutant: job.mutant, status: "Killed", durationMs };
+  const cases = parseJunit(outcome.junitXml ?? "", runCwd);
+  const killedBy = killers(cases, baseline.reportedFiles, cfg.cwd);
+  return { mutant: job.mutant, status: "Killed", durationMs, killedBy };
+}
+
+/** A target's summary from the cache: results matched by mutant content. */
+function fromCache(p: PreparedTarget, entry: CacheEntry): TargetSummary {
+  const bySig = new Map(entry.results.map((r) => [r.sig, r]));
+  const results: MutantResult[] = [...p.mutants, ...p.compileErrors].map((mutant) => {
+    const hit = bySig.get(mutantSig(mutant));
+    if (!hit)
+      return { mutant, status: "RuntimeError", statusReason: "missing from the cache entry" };
+    const { sig: _sig, ...rest } = hit;
+    return { mutant, ...rest };
+  });
+  results.sort((a, b) => a.mutant.start - b.mutant.start);
+  return {
+    file: p.file,
+    coveringTests: p.covering,
+    baselineMs: entry.baselineMs,
+    inTree: entry.inTree,
+    cached: true,
+    tests: entry.tests,
+    results,
+  };
+}
+
+/** The baseline's tests, plus a stand-in for each file a mutant named as produced-no-results. */
+function testsFor(
+  cfg: EngineConfig,
+  p: PreparedTarget,
+  baseline: Baseline,
+  results: MutantResult[]
+): TestRef[] {
+  const tests = [...baseline.tests];
+  const known = new Set(tests.map((t) => t.id));
+  const used = new Set(results.flatMap((r) => r.killedBy ?? []));
+  for (const file of p.covering) {
+    const id = loadFailureId(cfg.cwd, file);
+    if (used.has(id) && !known.has(id)) tests.push({ id, file, name: LOAD_FAILURE_NAME, line: 0 });
+  }
+  return tests;
+}
+
+function summarise(
+  cfg: EngineConfig,
+  p: PreparedTarget,
+  baseline: Baseline | null,
+  byId: Map<string, MutantResult>,
+  workdirs: Workdirs | null
+): TargetSummary {
+  const results: MutantResult[] = p.mutants.map((mutant) => {
+    if (mutant.ignoredReason)
+      return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
+    if (p.covering.length === 0) {
+      return { mutant, status: "NoCoverage", statusReason: "no test file imports this target" };
+    }
+    if (!baseline?.ok) return { mutant, status: "RuntimeError", statusReason: baseline?.reason };
+    return (
+      byId.get(mutant.id) ?? { mutant, status: "RuntimeError", statusReason: "mutant was not run" }
+    );
+  });
+  for (const mutant of p.compileErrors) {
+    results.push({ mutant, status: "CompileError", statusReason: "mutated source does not parse" });
+  }
+  results.sort((a, b) => a.mutant.start - b.mutant.start);
+  return {
+    file: p.file,
+    coveringTests: p.covering,
+    baselineMs: baseline?.ok ? Math.round(baseline.ms) : null,
+    inTree: baseline?.inTree ?? !workdirs,
+    cached: false,
+    tests: baseline?.ok ? testsFor(cfg, p, baseline, results) : [],
+    results,
+  };
 }
 
 async function run(
@@ -139,112 +242,48 @@ async function run(
   const preloads = [...cfg.testPreload, preloadPath()];
   const beforeRun = snapshotWorktree(cfg.cwd);
 
-  const testFiles = await findTestFiles(cfg.cwd, cfg.testInclude);
-  if (testFiles.length === 0) {
-    throw new Error(`no test files match ${cfg.testInclude.join(", ")} under ${cfg.cwd}`);
-  }
-  const graph = await buildImportGraph(testFiles);
-
-  const prepared: PreparedTarget[] = [];
-  for (const [index, target] of cfg.targets.entries()) {
-    const file = realpathSync(target.file);
-    const { mutants, compileErrors } = generateMutants(file, await Bun.file(file).text(), {
-      ignoreVerifyCallsites: cfg.ignoreVerifyCallsites,
-      lines: target.lines,
-      idPrefix: `${index}.`,
-    });
-    prepared.push({ file, mutants, compileErrors, covering: coveringTests(graph, file) });
-  }
+  const { prepared, testFiles } = await prepare(cfg);
   const totalMutants = prepared.reduce((n, p) => n + p.mutants.length, 0);
+  const hits = prepared.filter((p) => p.cached).length;
   log(
-    `${prepared.length} target(s), ${totalMutants} mutants, ${testFiles.length} test files in scope`
+    `${prepared.length} target(s), ${totalMutants} mutants, ${testFiles} test files in scope, ${cfg.mode} mode` +
+      (cfg.cacheDir ? `, ${hits} target(s) from cache` : "")
   );
 
-  const baselines = await pool(prepared, cfg.concurrency, (p) =>
-    p.covering.length === 0
-      ? Promise.resolve(null)
-      : measureBaseline(cfg, workdirs, preloads, p, log)
+  const fresh = prepared.filter((p) => !p.cached && p.covering.length > 0);
+  const measured = await pool(fresh, cfg.concurrency, (p) =>
+    measureBaseline(cfg, workdirs, preloads, p, log)
   );
-
+  const baselines = new Map(fresh.map((p, i) => [p, measured[i] ?? null]));
   const afterBaselines = snapshotWorktree(cfg.cwd);
 
-  interface Job {
-    target: number;
-    mutant: Mutant;
-    timeoutMs: number;
-    inTree: boolean;
-  }
   const jobs: Job[] = [];
   prepared.forEach((p, target) => {
-    const baseline = baselines[target];
+    const baseline = baselines.get(p);
     if (!baseline?.ok) return;
     const timeoutMs = Math.round(baseline.ms * cfg.timeout.factor + cfg.timeout.extraMs);
-    for (const mutant of p.mutants)
+    for (const mutant of p.mutants) {
       if (!mutant.ignoredReason) jobs.push({ target, mutant, timeoutMs, inTree: baseline.inTree });
+    }
   });
   // Slowest targets first, so a long tail does not start last.
   jobs.sort((a, b) => b.timeoutMs - a.timeoutMs);
 
   let done = 0;
-  const runResults = await pool(jobs, cfg.concurrency, async (job): Promise<MutantResult> => {
+  const runResults = await pool(jobs, cfg.concurrency, async (job) => {
     const p = prepared[job.target];
-    const outcome = await inCwd(job.inTree ? null : workdirs, cfg.cwd, (cwd) =>
-      runBunTest({
-        cwd,
-        files: p?.covering ?? [],
-        preloads,
-        env: {
-          POLLY_MUTATE_FILE: job.mutant.file,
-          POLLY_MUTATE_SPAN: JSON.stringify({
-            start: job.mutant.start,
-            end: job.mutant.end,
-            replacement: job.mutant.replacement,
-          }),
-        },
-        bail: true,
-        timeoutMs: job.timeoutMs,
-      })
-    );
+    const baseline = p && baselines.get(p);
+    if (!p || !baseline) throw new Error(`job for target ${job.target} has no baseline`);
+    const result = await runMutant(cfg, workdirs, preloads, p, baseline, job);
     done++;
     hooks.progress?.(done, jobs.length);
-    const status = outcome.timedOut ? "Timeout" : outcome.exitCode === 0 ? "Survived" : "Killed";
-    return { mutant: job.mutant, status, durationMs: Math.round(outcome.ms) };
+    return result;
   });
   const byId = new Map(runResults.map((r) => [r.mutant.id, r]));
 
-  const targets: TargetSummary[] = prepared.map((p, target) => {
-    const baseline = baselines[target];
-    const results: MutantResult[] = p.mutants.map((mutant) => {
-      if (mutant.ignoredReason)
-        return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
-      if (p.covering.length === 0) {
-        return { mutant, status: "NoCoverage", statusReason: "no test file imports this target" };
-      }
-      if (!baseline?.ok) return { mutant, status: "RuntimeError", statusReason: baseline?.reason };
-      return (
-        byId.get(mutant.id) ?? {
-          mutant,
-          status: "RuntimeError",
-          statusReason: "mutant was not run",
-        }
-      );
-    });
-    for (const mutant of p.compileErrors) {
-      results.push({
-        mutant,
-        status: "CompileError",
-        statusReason: "mutated source does not parse",
-      });
-    }
-    results.sort((a, b) => a.mutant.start - b.mutant.start);
-    return {
-      file: p.file,
-      coveringTests: p.covering,
-      baselineMs: baseline?.ok ? Math.round(baseline.ms) : null,
-      inTree: baseline?.inTree ?? !workdirs,
-      results,
-    };
-  });
+  const targets: TargetSummary[] = prepared.map((p) =>
+    p.cached ? fromCache(p, p.cached) : summarise(cfg, p, baselines.get(p) ?? null, byId, workdirs)
+  );
 
   const afterMutants = snapshotWorktree(cfg.cwd);
   const strayWrites = beforeRun
@@ -255,6 +294,20 @@ async function run(
       }
     : null;
   for (const path of strayWrites?.mutants ?? []) log(`warning: a mutant run wrote ${path}`);
+
+  // After the last snapshot, so cache writes are never reported as stray.
+  if (cfg.cacheDir) {
+    targets.forEach((t, i) => {
+      const p = prepared[i];
+      if (!cfg.cacheDir || !p?.cacheKey || t.cached || t.baselineMs === null) return;
+      writeCache(cfg.cacheDir, p.cacheKey, {
+        baselineMs: t.baselineMs,
+        inTree: t.inTree,
+        tests: t.tests,
+        results: t.results.map(cachedResult),
+      });
+    });
+  }
 
   const result: EngineResult = {
     targets,

@@ -71,10 +71,22 @@ describe("engineConfigFromStryker", () => {
     expect(cfg.concurrency).toBe(8);
   });
 
+  test("mode, cache dir and --no-cache", async () => {
+    const fast = await engineConfigFromStryker(baseCfg, parseMutateArgs([]));
+    expect(fast.mode).toBe("fast");
+    expect(fast.cacheDir).toBe(project.path(".polly/mutate/cache"));
+    const matrix = await engineConfigFromStryker(
+      baseCfg,
+      parseMutateArgs(["--mode", "matrix", "--no-cache"])
+    );
+    expect(matrix.mode).toBe("matrix");
+    expect(matrix.cacheDir).toBeNull();
+  });
+
   test("rejects what the bun engine cannot do yet", async () => {
     await expect(
-      engineConfigFromStryker(baseCfg, parseMutateArgs(["--mode", "matrix"]))
-    ).rejects.toThrow("fast mode only");
+      engineConfigFromStryker(baseCfg, parseMutateArgs(["--mode", "slow"]))
+    ).rejects.toThrow("expected fast or matrix");
     await expect(
       engineConfigFromStryker(baseCfg, parseMutateArgs(["--concurrency", "0"]))
     ).rejects.toThrow("positive integer");

@@ -7,7 +7,7 @@
  * so both engines mutate the same targets.
  */
 import { availableParallelism } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { Glob } from "bun";
 import { isRecord } from "../../../src/shared/lib/guards";
 import type { MutateArgs } from "./args.ts";
@@ -141,10 +141,9 @@ export async function engineConfigFromStryker(
   cfg: MutateConfig,
   args: MutateArgs
 ): Promise<EngineConfig> {
-  if (args.mode && args.mode !== "fast") {
-    throw new Error(
-      `--mode ${args.mode}: the bun engine runs in fast mode only for now; use --engine stryker for a kill matrix`
-    );
+  const mode = args.mode ?? "fast";
+  if (mode !== "fast" && mode !== "matrix") {
+    throw new Error(`--mode ${mode}: expected fast or matrix`);
   }
   if (!cfg.strykerConfigPath) {
     throw new Error(
@@ -157,10 +156,12 @@ export async function engineConfigFromStryker(
     targets: await selectTargets(shape, args),
     testInclude: shape.testInclude,
     testPreload: shape.testPreload,
+    mode,
     concurrency: resolveConcurrency(args.concurrency, shape.concurrency),
     timeout: { factor: 2, extraMs: 3000 },
     ignoreVerifyCallsites: true,
     scratchCwd: !args.inTree,
+    cacheDir: args.noCache ? null : join(shape.cwd, ".polly", "mutate", "cache"),
     reportPath: cfg.reportPath,
   };
 }

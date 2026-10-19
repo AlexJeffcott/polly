@@ -156,9 +156,9 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
   } else {
     p(`\n⚠ KILL MATRIX INCOMPLETE — redundancy/subsumption analysis suppressed.`);
     p(`  Every mutant has at most one recorded killer, so "which tests are redundant"`);
-    p(`  cannot be derived. This needs the no-bail patched Bun runner (not shipped with`);
+    p(`  cannot be derived. Run 'polly mutate run --engine bun --mode matrix' (every`);
     p(
-      `  @fairfox/polly). Run 'polly mutate verify' to diagnose. Score/gaps/theatre below still hold.`
+      `  killer recorded), or 'polly mutate verify' to diagnose. Score/gaps/theatre below still hold.`
     );
   }
 

@@ -7,7 +7,10 @@
  * of milliseconds, and test selection keeps each run to the files that reach
  * the target.
  */
-import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export interface BunTestRun {
   cwd: string;
@@ -19,6 +22,8 @@ export interface BunTestRun {
   timeoutMs: number;
   /** Capture the tail of stderr (baselines only; mutant runs discard output). */
   captureStderr?: boolean;
+  /** Ask for Bun's junit report and return its XML (matrix mode). */
+  junit?: boolean;
 }
 
 export interface BunTestOutcome {
@@ -26,6 +31,8 @@ export interface BunTestOutcome {
   timedOut: boolean;
   ms: number;
   stderrTail?: string;
+  /** The junit XML; undefined when not asked for or not written (a crash). */
+  junitXml?: string;
 }
 
 /** The preload as built (dist) or as source (monorepo / bun-run-from-source). */
@@ -49,13 +56,26 @@ function cleanEnv(extra: Record<string, string> | undefined): Record<string, str
   return { ...env, ...extra };
 }
 
+async function readJunit(path: string | undefined): Promise<string | undefined> {
+  if (!path) return undefined;
+  const file = Bun.file(path);
+  if (!(await file.exists())) return undefined;
+  const xml = await file.text();
+  rmSync(path, { force: true });
+  return xml;
+}
+
 export async function runBunTest(run: BunTestRun): Promise<BunTestOutcome> {
   const started = performance.now();
+  const junitPath = run.junit
+    ? join(tmpdir(), `polly-mutate-junit-${randomUUID()}.xml`)
+    : undefined;
   const argv = [
     "bun",
     "test",
     ...run.preloads.flatMap((p) => ["--preload", p]),
     ...(run.bail ? ["--bail"] : []),
+    ...(junitPath ? ["--reporter=junit", `--reporter-outfile=${junitPath}`] : []),
     ...run.files,
   ];
   const proc = Bun.spawn(argv, {
@@ -75,9 +95,10 @@ export async function runBunTest(run: BunTestRun): Promise<BunTestOutcome> {
   const exitCode = await proc.exited;
   clearTimeout(timer);
   const ms = performance.now() - started;
-  if (stderrText === undefined) return { exitCode, timedOut, ms };
-  const text = await stderrText;
-  return { exitCode, timedOut, ms, stderrTail: text.slice(-2000) };
+  const junitXml = await readJunit(junitPath);
+  const outcome: BunTestOutcome = { exitCode, timedOut, ms, ...(junitXml ? { junitXml } : {}) };
+  if (stderrText === undefined) return outcome;
+  return { ...outcome, stderrTail: (await stderrText).slice(-2000) };
 }
 
 /** Run `fn` over `items` with at most `concurrency` in flight; results keep input order. */

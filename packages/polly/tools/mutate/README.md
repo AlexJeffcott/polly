@@ -61,6 +61,8 @@ writes the same `reports/mutation/mutation.json`, so `report`, `decisions` and
 | Baseline | The selected files run once unmutated; they must pass (3 tries), and their time sets each mutant's timeout (2× + 3 s) |
 | Run | One `bun test --bail` per mutant. `engine/preload.ts` swaps the target's text in a `Bun.plugin` `onLoad` — no sandbox copy |
 | Isolate | Each test process runs in a fresh scratch cwd that carries the project's `tsconfig.json` (by `extends`) and `bunfig.toml` (preloads made absolute). A target whose tests pass only in the project dir (a fixture read through `process.cwd()`) runs in-tree, and the run says so. `--in-tree` turns this off |
+| Matrix | `--mode matrix`: no `--bail`, a junit report per run, and every failing test in `killedBy`, so the redundancy sections turn on. A covering file that the baseline reported and a mutant run did not (it threw while loading) is named as `<file>#(file produced no results)@0`. A green baseline with no junit test case fails the target |
+| Cache | `.polly/mutate/cache/` (it ignores itself in git). The key covers the generated mutants, every file the covering tests import, the preloads, tsconfig, bunfig, bun.lock, the mode and Bun's version. `--no-cache` reruns |
 | Guard | `git status` snapshots before the run, after the baselines and after the mutants. Each path a mutant run adds to the worktree prints as a warning; nothing is deleted |
 
 ```sh
@@ -68,6 +70,8 @@ polly mutate run --engine bun                          # every target in the con
 polly mutate run --engine bun --files src/a.ts         # one target (globs, a.ts:10-20 ranges)
 polly mutate run --engine bun --since main             # only targets changed since a ref
 polly mutate run --engine bun --concurrency 10
+polly mutate run --engine bun --mode matrix           # every killer recorded
+polly mutate verify --run --engine bun                # matrix pass, then the kill-matrix contract
 polly mutate run --engine bun --in-tree              # test processes run in the project dir
 ```
 
@@ -94,8 +98,11 @@ normalising quotes and whitespace.
 
 Current limits:
 
-- **Fast mode only.** `--bail` stops at the first failing test, so `killedBy` is
-  empty and the redundancy sections stay off. A no-bail matrix mode is planned.
+- **Fast mode has no killers.** `--bail` stops at the first failing test, so
+  `killedBy` is empty and the redundancy sections stay off; use `--mode matrix`.
+- **A Timeout has no killers.** The process is killed before Bun writes its
+  junit report. Without `--bail` more mutants time out (179 vs 41 on polly's 44
+  targets), so a test whose only kills are Timeouts can look subsumed.
 - **`testRunner: "bun"` only.** Stryker's `command` runner is not supported yet.
 - **Static selection.** Reach that no import names (`mock.module`, a computed
   `import()`, a global set by another file) is not seen. A dynamic coverage pass

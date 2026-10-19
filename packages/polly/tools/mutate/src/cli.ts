@@ -41,12 +41,15 @@ Flags:
   --since <git-ref>   bun engine — mutate only targets changed since the ref
   --in-tree           bun engine — run tests in the project dir, not a scratch cwd
   --concurrency <n>   bun engine — parallel bun test processes (default: config, else cores-1)
-  --mode fast         bun engine — stop each run at the first failing test (the only mode so far)
+  --mode <fast|matrix> bun engine — fast stops each run at the first failing test (default);
+                      matrix runs every test and records each killer (the kill matrix)
+  --no-cache          bun engine — rerun targets whose inputs are unchanged
   -h, --help
 
-The redundancy/subsumption sections need a COMPLETE kill matrix (the no-bail
-patched Bun runner). Without it the report degrades to score + gaps + theatre;
-'polly mutate verify' diagnoses the matrix.`;
+The redundancy/subsumption sections need a COMPLETE kill matrix ('--engine bun
+--mode matrix', or Stryker with the no-bail patched Bun runner). Without it the
+report degrades to score + gaps + theatre; 'polly mutate verify' diagnoses the
+matrix ('verify --run --engine bun' runs a matrix pass first).`;
 
 async function openDb(
   reportPath: string,
@@ -131,9 +134,11 @@ async function main(): Promise<number> {
     }
 
     case "verify": {
+      const bun = args.run && resolveEngine(args) === "bun";
+      if (bun) await runBunEngine(cfg, { ...args, mode: "matrix" });
       const result = await verifyMatrix({
         reportPath: cfg.reportPath,
-        run: args.run,
+        run: args.run && !bun,
         strykerConfig: cfg.strykerConfigPath ?? undefined,
       });
       console.log("\nKill-matrix contract:");

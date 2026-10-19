@@ -6,7 +6,8 @@
  *
  * Fast mode (`--bail`) does not know which test killed a mutant, so
  * `killedBy` stays empty and `isMatrixComplete` correctly reports the matrix
- * as incomplete; the redundancy sections of the report then stay off.
+ * as incomplete; the redundancy sections of the report then stay off. Matrix
+ * mode fills `killedBy` and `testFiles[].tests[]` from the same ids (junit.ts).
  */
 import { mkdirSync } from "node:fs";
 import { dirname, relative } from "node:path";
@@ -56,11 +57,23 @@ export async function toMutationReport(result: EngineResult, cwd: string): Promi
         status: r.status,
         ...(r.statusReason ? { statusReason: r.statusReason } : {}),
         location: r.mutant.location,
-        killedBy: [],
+        killedBy: r.killedBy ?? [],
         coveredBy: [],
       })),
     };
-    for (const t of target.coveringTests) testFiles[relative(cwd, t)] = { tests: [] };
+    for (const t of target.coveringTests) testFiles[relative(cwd, t)] ??= { tests: [] };
+    for (const t of target.tests) {
+      const rel = relative(cwd, t.file);
+      testFiles[rel] ??= { tests: [] };
+      const entry = testFiles[rel];
+      if (!entry.tests.some((x) => x.id === t.id)) {
+        entry.tests.push({
+          id: t.id,
+          name: t.name,
+          location: { start: { line: t.line, column: 1 } },
+        });
+      }
+    }
   }
   return {
     schemaVersion: "1",

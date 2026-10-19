@@ -59,7 +59,24 @@ export interface MutantResult {
   status: MutantStatus;
   statusReason?: string;
   durationMs?: number;
+  /** Matrix mode: ids (see junit.ts `testId`) of every test that failed under the mutant. */
+  killedBy?: string[];
 }
+
+/** One test the baseline ran (matrix mode). */
+export interface TestRef {
+  id: string;
+  /** Absolute path of the test file. */
+  file: string;
+  name: string;
+  line: number;
+}
+
+/**
+ * fast    `--bail`: stop at the first failing test; status only.
+ * matrix  no bail, junit per run: every killing test, for the redundancy analysis.
+ */
+export type EngineMode = "fast" | "matrix";
 
 /** A target file, optionally narrowed to a line range (Stryker's `file.ts:10-20`). */
 export interface MutateTarget {
@@ -79,6 +96,7 @@ export interface EngineConfig {
    * the full suite happens to load some other way (polly's CSS-module shim).
    */
   testPreload: string[];
+  mode: EngineMode;
   concurrency: number;
   timeout: { factor: number; extraMs: number };
   /** Mark mutants inside requires/ensures/… as Ignored instead of running them. */
@@ -88,6 +106,8 @@ export interface EngineConfig {
    * relative writes miss the repo. False runs everything in `cwd`.
    */
   scratchCwd: boolean;
+  /** Result cache directory (cache.ts); null runs everything. */
+  cacheDir: string | null;
   reportPath: string;
 }
 
@@ -97,6 +117,10 @@ export interface TargetSummary {
   baselineMs: number | null;
   /** Its mutants ran in the project cwd (scratch off, or its tests need the cwd). */
   inTree: boolean;
+  /** Results came from the cache; nothing ran. */
+  cached: boolean;
+  /** Matrix mode: every test the baseline ran, plus any load-failure stand-in a mutant named. */
+  tests: TestRef[];
   results: MutantResult[];
 }
 
