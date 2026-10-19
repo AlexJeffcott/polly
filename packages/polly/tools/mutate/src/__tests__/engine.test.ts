@@ -55,6 +55,8 @@ beforeAll(async () => {
     testPreload: [project.path("tests/setup.ts")],
     concurrency: 4,
     timeout: { factor: 2, extraMs: 3000 },
+    runner: { kind: "bun-test" },
+    excludeMutators: [],
     ignoreVerifyCallsites: true,
     mode: "fast",
     cacheDir: null,

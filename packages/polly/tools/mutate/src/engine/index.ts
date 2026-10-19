@@ -56,6 +56,8 @@ interface PreparedTarget {
   mutants: Mutant[];
   compileErrors: Mutant[];
   covering: string[];
+  /** Something runs against it: a covering test file, or the command runner. */
+  covered: boolean;
   cacheKey: string | null;
   cached: CacheEntry | null;
 }
@@ -69,6 +71,9 @@ function projectFiles(cfg: EngineConfig): string[] {
 }
 
 export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Promise<EngineResult> {
+  if (cfg.runner.kind === "command" && cfg.mode === "matrix") {
+    throw new Error("matrix mode needs per-test results; the command runner has none");
+  }
   const workdirs = cfg.scratchCwd ? createWorkdirs(cfg.cwd) : null;
   try {
     return await run(cfg, hooks, workdirs);
@@ -80,11 +85,13 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
 async function prepare(
   cfg: EngineConfig
 ): Promise<{ prepared: PreparedTarget[]; testFiles: number }> {
-  const testFiles = await findTestFiles(cfg.cwd, cfg.testInclude);
-  if (testFiles.length === 0) {
+  // The command runner selects nothing: every mutant runs the whole command.
+  const command = cfg.runner.kind === "command";
+  const testFiles = command ? [] : await findTestFiles(cfg.cwd, cfg.testInclude);
+  if (!command && testFiles.length === 0) {
     throw new Error(`no test files match ${cfg.testInclude.join(", ")} under ${cfg.cwd}`);
   }
-  const graph = await buildImportGraph(testFiles);
+  const graph = command ? null : await buildImportGraph(testFiles);
   const settings = {
     mode: cfg.mode,
     timeout: cfg.timeout,
@@ -98,10 +105,12 @@ async function prepare(
       ignoreVerifyCallsites: cfg.ignoreVerifyCallsites,
       lines: target.lines,
       idPrefix: `${index}.`,
+      exclude: cfg.excludeMutators,
     });
-    const covering = coveringTests(graph, file);
+    const covering = graph ? coveringTests(graph, file) : [];
+    // No import graph bounds what a command reads, so its results are never cached.
     const key =
-      cfg.cacheDir && covering.length > 0
+      cfg.cacheDir && graph && covering.length > 0
         ? await cacheKey({
             mutants,
             closure: closureOf(graph, covering),
@@ -110,7 +119,15 @@ async function prepare(
           })
         : null;
     const cached = cfg.cacheDir && key ? await readCache(cfg.cacheDir, key) : null;
-    prepared.push({ file, mutants, compileErrors, covering, cacheKey: key, cached });
+    prepared.push({
+      file,
+      mutants,
+      compileErrors,
+      covering,
+      covered: command || covering.length > 0,
+      cacheKey: key,
+      cached,
+    });
   }
   return { prepared, testFiles: testFiles.length };
 }
@@ -134,22 +151,25 @@ async function runMutant(
   let runCwd = cfg.cwd;
   const outcome = await inCwd(job.inTree ? null : workdirs, cfg.cwd, (cwd) => {
     runCwd = cwd;
-    return runBunTest({
-      cwd,
-      files: p.covering,
-      preloads,
-      env: {
-        POLLY_MUTATE_FILE: job.mutant.file,
-        POLLY_MUTATE_SPAN: JSON.stringify({
-          start: job.mutant.start,
-          end: job.mutant.end,
-          replacement: job.mutant.replacement,
-        }),
+    return runBunTest(
+      {
+        cwd,
+        files: p.covering,
+        preloads,
+        env: {
+          POLLY_MUTATE_FILE: job.mutant.file,
+          POLLY_MUTATE_SPAN: JSON.stringify({
+            start: job.mutant.start,
+            end: job.mutant.end,
+            replacement: job.mutant.replacement,
+          }),
+        },
+        bail: !matrix,
+        junit: matrix,
+        timeoutMs: job.timeoutMs,
       },
-      bail: !matrix,
-      junit: matrix,
-      timeoutMs: job.timeoutMs,
-    });
+      cfg.runner
+    );
   });
   const durationMs = Math.round(outcome.ms);
   if (outcome.timedOut) return { mutant: job.mutant, status: "Timeout", durationMs };
@@ -209,7 +229,7 @@ function summarise(
   const results: MutantResult[] = p.mutants.map((mutant) => {
     if (mutant.ignoredReason)
       return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
-    if (p.covering.length === 0) {
+    if (!p.covered) {
       return { mutant, status: "NoCoverage", statusReason: "no test file imports this target" };
     }
     if (!baseline?.ok) return { mutant, status: "RuntimeError", statusReason: baseline?.reason };
@@ -246,11 +266,15 @@ async function run(
   const totalMutants = prepared.reduce((n, p) => n + p.mutants.length, 0);
   const hits = prepared.filter((p) => p.cached).length;
   log(
-    `${prepared.length} target(s), ${totalMutants} mutants, ${testFiles} test files in scope, ${cfg.mode} mode` +
+    `${prepared.length} target(s), ${totalMutants} mutants, ` +
+      (cfg.runner.kind === "command"
+        ? `command \`${cfg.runner.argv.join(" ")}\``
+        : `${testFiles} test files in scope`) +
+      `, ${cfg.mode} mode` +
       (cfg.cacheDir ? `, ${hits} target(s) from cache` : "")
   );
 
-  const fresh = prepared.filter((p) => !p.cached && p.covering.length > 0);
+  const fresh = prepared.filter((p) => !p.cached && p.covered);
   const measured = await pool(fresh, cfg.concurrency, (p) =>
     measureBaseline(cfg, workdirs, preloads, p, log)
   );

@@ -98,7 +98,7 @@ function showHelp(): void {
       "  and flags orphans (source no test imports) and drifted Stryker targets.\n\n" +
       "  --strict-orphans   fail on source no unit test imports\n" +
       "  --orphans          list orphan files\n" +
-      "  --no-mutate        skip the Stryker mutate/testFiles check\n" +
+      "  --no-mutate        skip the mutation target/test-glob check\n" +
       "  --config <path>    explicit coverage.config.ts\n" +
       "  --stdin            read a `bun test --coverage` table from stdin\n"
   );
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
     const where = source ? "" : " — zero-config";
     const orphanNote = findings.orphans.length ? `, ${findings.orphans.length} orphan` : "";
     const mutateNote = mutate.configs.length
-      ? `, ${mutate.configs.length} stryker config(s) ok`
+      ? `, ${mutate.configs.length} mutation config(s) ok`
       : "";
     process.stdout.write(
       `✅ coverage ok — ${findings.rowCount} src files, ${mode}${where}${orphanNote}${mutateNote}\n`

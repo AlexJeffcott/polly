@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 /**
- * e2e: `polly mutate run --engine bun`, from cold state, through both CLIs a
- * user can reach — the working-tree `cli/polly.ts` and the built
- * `dist/cli/polly.js` that ships. The built one matters on its own: it finds
- * the injection preload at a different path (dist/tools/mutate/src/engine).
+ * e2e: `polly mutate run` (the Bun-native engine, the default), from cold
+ * state, through both CLIs a user can reach — the working-tree `cli/polly.ts`
+ * and the built `dist/cli/polly.js` that ships. The built one matters on its
+ * own: it finds the injection preload at a different path
+ * (dist/tools/mutate/src/engine).
  *
- * A throwaway consumer project — no node_modules, no cache, no report — with
- * a state machine whose `requires`/`ensures` callsites sit next to real logic,
- * and a test that pins one branch but not the other. Each CLI must:
+ * A throwaway consumer project — no cache, no report, and a node_modules that
+ * holds only @fairfox/polly (linked to this package, as an install would) so
+ * its `polly.mutate.ts` imports `defineMutation` from "@fairfox/polly/mutate"
+ * — with a state machine whose `requires`/`ensures` callsites sit next to
+ * real logic, and a test that pins one branch but not the other. Each CLI must:
  *
  *   1. exit 0 and write reports/mutation/mutation.json;
  *   2. report the verify-callsite mutants as Ignored (polly#143), never run;
@@ -19,12 +22,17 @@
  * Then `--since HEAD` in a git checkout: no change → nothing runs; one target
  * edited → only that target runs.
  *
+ * Then the two ways a project gets a config: `polly mutate init` in a project
+ * with none, and a Stryker-only project — which runs with a deprecation
+ * notice, then `polly mutate migrate --write` gives it a polly.mutate.ts that
+ * runs without one and yields the same statuses.
+ *
  * Usage:  bun scripts/e2e-mutate.ts
  * Needs:  `bun run build:lib` first (drives dist/cli/polly.js).
  */
 
-import { existsSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { isRecord } from "../src/shared/lib/guards";
 import { POLLY_PKG_DIR, runBun, withTempDir } from "../tools/test/src/e2e-cli";
 import {
@@ -40,13 +48,23 @@ export const capability = "mutate.engine" as const;
 const SOURCE_CLI = resolve(POLLY_PKG_DIR, "cli/polly.ts");
 const BUILT_CLI = resolve(POLLY_PKG_DIR, "dist/cli/polly.js");
 
-const FILES: Record<string, string> = {
+const POLLY_CONFIG = [
+  'import { defineMutation } from "@fairfox/polly/mutate";',
+  "export default defineMutation({",
+  '  targets: ["src/**/*.ts"],',
+  '  tests: { include: ["tests/**/*.test.ts"] },',
+  "});",
+].join("\n");
+
+const STRYKER_CONFIG = JSON.stringify({
+  testRunner: "bun",
+  bun: { testFiles: ["tests/**/*.test.ts"] },
+  mutate: ["src/**/*.ts"],
+});
+
+/** The project without a mutation config. */
+const SOURCES: Record<string, string> = {
   "package.json": JSON.stringify({ name: "mutate-e2e", private: true, type: "module" }),
-  "stryker.conf.json": JSON.stringify({
-    testRunner: "bun",
-    bun: { testFiles: ["tests/**/*.test.ts"] },
-    mutate: ["src/**/*.ts"],
-  }),
   "src/machine.ts": [
     "const requires = (_c: boolean, _m: string) => {};",
     "const ensures = (_c: boolean, _m: string) => {};",
@@ -74,6 +92,16 @@ const FILES: Record<string, string> = {
     'test("double", () => expect(double(2)).toBe(4));',
   ].join("\n"),
 };
+
+const FILES: Record<string, string> = { ...SOURCES, "polly.mutate.ts": POLLY_CONFIG };
+
+/** Write `files` into `dir` and link @fairfox/polly into its node_modules. */
+async function writeProject(dir: string, files: Record<string, string>): Promise<void> {
+  for (const [rel, content] of Object.entries(files)) await Bun.write(join(dir, rel), content);
+  const link = join(dir, "node_modules/@fairfox/polly");
+  mkdirSync(dirname(link), { recursive: true });
+  symlinkSync(POLLY_PKG_DIR, link);
+}
 
 const TERNARY_LINE = 5;
 const DESCRIBE_LINE = 10;
@@ -115,12 +143,10 @@ async function mutate(cli: string, dir: string, args: string[]) {
 async function checkCli(ctx: TierContext, label: string, cli: string): Promise<void> {
   const temp = withTempDir(`polly-e2e-mutate-${label}-`);
   try {
-    for (const [rel, content] of Object.entries(FILES)) {
-      const abs = join(temp.dir, rel);
-      await Bun.write(abs, content);
-    }
-    ctx.log(`[e2e] ${label}: polly mutate run --engine bun`);
-    await mutate(cli, temp.dir, ["run", "--engine", "bun", "--no-report"]);
+    await writeProject(temp.dir, FILES);
+    ctx.log(`[e2e] ${label}: polly mutate run`);
+    const out = await mutate(cli, temp.dir, ["run", "--no-report"]);
+    assert(/mutants in/.test(out), `the bun engine did not run by default:\n${out}`);
 
     const mutants = await readMutants(temp.dir, "src/machine.ts");
     const ignored = mutants.filter((m) => m.status === "Ignored");
@@ -161,8 +187,7 @@ async function checkCli(ctx: TierContext, label: string, cli: string): Promise<v
 async function checkSince(ctx: TierContext): Promise<void> {
   const temp = withTempDir("polly-e2e-mutate-since-");
   try {
-    for (const [rel, content] of Object.entries(FILES))
-      await Bun.write(join(temp.dir, rel), content);
+    await writeProject(temp.dir, FILES);
     const git = async (...args: string[]) => {
       const proc = Bun.spawn(
         ["git", "-c", "user.email=e2e@polly", "-c", "user.name=e2e", ...args],
@@ -180,14 +205,7 @@ async function checkSince(ctx: TierContext): Promise<void> {
     await git("commit", "-q", "-m", "fixture");
 
     ctx.log("[e2e] --since HEAD with a clean checkout");
-    const clean = await mutate(SOURCE_CLI, temp.dir, [
-      "run",
-      "--engine",
-      "bun",
-      "--since",
-      "HEAD",
-      "--no-report",
-    ]);
+    const clean = await mutate(SOURCE_CLI, temp.dir, ["run", "--since", "HEAD", "--no-report"]);
     assert(
       /no mutate targets changed since HEAD/.test(clean),
       `expected nothing to run:\n${clean}`
@@ -198,18 +216,65 @@ async function checkSince(ctx: TierContext): Promise<void> {
       "export const double = (n: number) => n * 2 + 0;\n"
     );
     ctx.log("[e2e] --since HEAD after editing src/other.ts");
-    const edited = await mutate(SOURCE_CLI, temp.dir, [
-      "run",
-      "--engine",
-      "bun",
-      "--since",
-      "HEAD",
-      "--no-report",
-    ]);
+    const edited = await mutate(SOURCE_CLI, temp.dir, ["run", "--since", "HEAD", "--no-report"]);
     assert(/1 target\(s\)/.test(edited), `expected exactly one target:\n${edited}`);
     const otherMutants = await readMutants(temp.dir, "src/other.ts");
     assert(otherMutants.length > 0, "the edited target was not mutated");
     ctx.log("  ✓ --since runs only what changed");
+  } finally {
+    temp.cleanup();
+  }
+}
+
+function statusCounts(mutants: ReportMutant[]): string {
+  const counts = new Map<string, number>();
+  for (const m of mutants) counts.set(m.status, (counts.get(m.status) ?? 0) + 1);
+  return JSON.stringify([...counts].sort());
+}
+
+async function checkInit(ctx: TierContext): Promise<void> {
+  const temp = withTempDir("polly-e2e-mutate-init-");
+  try {
+    await writeProject(temp.dir, SOURCES);
+    ctx.log("[e2e] built: polly mutate init, then run");
+    await mutate(BUILT_CLI, temp.dir, ["init"]);
+    const config = await Bun.file(join(temp.dir, "polly.mutate.ts")).text();
+    assert(
+      config.includes('from "@fairfox/polly/mutate"'),
+      `init did not import the package export:\n${config}`
+    );
+    await mutate(BUILT_CLI, temp.dir, ["run", "--no-report"]);
+    const mutants = await readMutants(temp.dir, "src/machine.ts");
+    assert(
+      mutants.some((m) => m.status === "Killed"),
+      "the init config ran but killed nothing"
+    );
+    ctx.log(`  ✓ init writes a polly.mutate.ts that runs (${mutants.length} mutants)`);
+  } finally {
+    temp.cleanup();
+  }
+}
+
+async function checkMigrate(ctx: TierContext): Promise<void> {
+  const temp = withTempDir("polly-e2e-mutate-migrate-");
+  try {
+    await writeProject(temp.dir, { ...SOURCES, "stryker.conf.json": STRYKER_CONFIG });
+    ctx.log("[e2e] built: a Stryker-only project runs, with a deprecation notice");
+    const legacy = await mutate(BUILT_CLI, temp.dir, ["run", "--no-report"]);
+    assert(/deprecated: reading stryker\.conf\.json/.test(legacy), `no notice:\n${legacy}`);
+    const before = statusCounts(await readMutants(temp.dir, "src/machine.ts"));
+
+    ctx.log("[e2e] built: polly mutate migrate --write, then run");
+    await mutate(BUILT_CLI, temp.dir, ["migrate", "--write"]);
+    assert(
+      existsSync(join(temp.dir, "polly.mutate.ts")),
+      "migrate --write wrote no polly.mutate.ts"
+    );
+    const migrated = await mutate(BUILT_CLI, temp.dir, ["run", "--no-report", "--no-cache"]);
+    assert(!/deprecated/.test(migrated), `the migrated config still reads Stryker:\n${migrated}`);
+    const after = statusCounts(await readMutants(temp.dir, "src/machine.ts"));
+    assert(before === after, `statuses changed across migration: ${before} → ${after}`);
+    ctx.log(`  ✓ migrate keeps the result: ${after}`);
   } finally {
     temp.cleanup();
   }
@@ -222,6 +287,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     await checkCli(ctx, "source", SOURCE_CLI);
     await checkCli(ctx, "built", BUILT_CLI);
     await checkSince(ctx);
+    await checkInit(ctx);
+    await checkMigrate(ctx);
     ctx.log("\n✅ OK mutate e2e\n");
     return { pass: true };
   } catch (err) {

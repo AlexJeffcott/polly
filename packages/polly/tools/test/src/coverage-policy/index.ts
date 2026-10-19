@@ -17,7 +17,9 @@ export {
   type Violation,
 } from "./enforce";
 export {
+  findMutateConfigs,
   findStrykerConfigs,
+  type MutateConfigEntry,
   type MutateTargetIssue,
   type MutateTargetReport,
   validateMutateTargets,

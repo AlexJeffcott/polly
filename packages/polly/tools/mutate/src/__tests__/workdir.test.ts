@@ -46,6 +46,8 @@ beforeAll(async () => {
       testPreload: [],
       concurrency: 2,
       timeout: { factor: 2, extraMs: 3000 },
+      runner: { kind: "bun-test" },
+      excludeMutators: [],
       ignoreVerifyCallsites: true,
       mode: "fast",
       cacheDir: null,

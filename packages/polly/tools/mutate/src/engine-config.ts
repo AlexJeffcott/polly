@@ -1,24 +1,17 @@
 /**
- * Build the bun engine's config from what `polly mutate` already knows: the
- * Stryker config (`mutate`, `bun.testFiles`, `concurrency`) plus CLI flags.
- *
- * Interim: a typed `polly.mutate.ts` replaces the Stryker config as the source
- * in a later step. Until then the bun engine reads the same file Stryker does,
- * so both engines mutate the same targets.
+ * Build the bun engine's config from the loaded mutation config
+ * (`polly.mutate.ts`, or a Stryker JSON read through the migration mapping)
+ * plus CLI flags.
  */
 import { availableParallelism } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { Glob } from "bun";
-import { isRecord } from "../../../src/shared/lib/guards";
 import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
-import type { EngineConfig, MutateTarget } from "./engine/types.ts";
+import { MUTATION_CONFIG_FILE, type MutationConfig } from "./define.ts";
+import type { EngineConfig, EngineMode, MutateTarget } from "./engine/types.ts";
 
 const RANGE = /^(.*?):(\d+)(?::\d+)?-(\d+)(?::\d+)?$/;
-
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
-}
 
 async function scanGlob(cwd: string, pattern: string): Promise<string[]> {
   const out: string[] = [];
@@ -68,63 +61,20 @@ async function changedSince(cwd: string, ref: string): Promise<Set<string>> {
   );
 }
 
-interface StrykerShape {
-  cwd: string;
-  testInclude: string[];
-  testPreload: string[];
-  mutate: string[];
-  concurrency: number | undefined;
-}
-
-/**
- * `--preload <p>` / `--preload=<p>` pairs from the bun runner's `nodeArgs`,
- * which it passes to `bun test` — so one config entry serves both engines.
- */
-export function preloadsFromNodeArgs(cwd: string, nodeArgs: string[]): string[] {
-  const out: string[] = [];
-  nodeArgs.forEach((arg, i) => {
-    const value =
-      arg === "--preload"
-        ? nodeArgs[i + 1]
-        : arg.startsWith("--preload=")
-          ? arg.slice(10)
-          : undefined;
-    if (value) out.push(resolve(cwd, value));
-  });
-  return out;
-}
-
-async function readStrykerShape(path: string): Promise<StrykerShape> {
-  const raw: unknown = await Bun.file(path).json();
-  if (!isRecord(raw)) throw new Error(`${path} is not a JSON object`);
-  const runner = raw["testRunner"];
-  if (runner !== undefined && runner !== "bun") {
-    throw new Error(
-      `testRunner "${String(runner)}": the bun engine drives \`bun test\` only for now`
-    );
-  }
-  const bun = isRecord(raw["bun"]) ? raw["bun"] : {};
-  const testInclude = stringArray(bun["testFiles"]);
-  if (testInclude.length === 0) throw new Error(`${path} has no bun.testFiles`);
-  return {
-    cwd: dirname(path),
-    testInclude,
-    testPreload: preloadsFromNodeArgs(dirname(path), stringArray(bun["nodeArgs"])),
-    mutate: stringArray(raw["mutate"]),
-    concurrency: typeof raw["concurrency"] === "number" ? raw["concurrency"] : undefined,
-  };
-}
-
-async function selectTargets(shape: StrykerShape, args: MutateArgs): Promise<MutateTarget[]> {
+async function selectTargets(
+  dir: string,
+  config: MutationConfig,
+  args: MutateArgs
+): Promise<MutateTarget[]> {
   const entries = args.files
     ? args.files
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean)
-    : shape.mutate;
-  const targets = await expandMutateEntries(shape.cwd, entries);
+    : config.targets;
+  const targets = await expandMutateEntries(dir, entries);
   if (!args.since) return targets;
-  const changed = await changedSince(shape.cwd, args.since);
+  const changed = await changedSince(dir, args.since);
   return targets.filter((t) => changed.has(t.file));
 }
 
@@ -137,31 +87,43 @@ function resolveConcurrency(flag: string | undefined, fromConfig: number | undef
   return n;
 }
 
-export async function engineConfigFromStryker(
-  cfg: MutateConfig,
-  args: MutateArgs
-): Promise<EngineConfig> {
-  const mode = args.mode ?? "fast";
+function resolveMode(flag: string | undefined, config: MutationConfig): EngineMode {
+  const mode = flag ?? config.mode ?? "fast";
   if (mode !== "fast" && mode !== "matrix") {
     throw new Error(`--mode ${mode}: expected fast or matrix`);
   }
-  if (!cfg.strykerConfigPath) {
+  if (mode === "matrix" && config.runner?.kind === "command") {
+    throw new Error("matrix mode needs per-test results; the command runner has none (use fast)");
+  }
+  return mode;
+}
+
+/** The engine's config from the loaded mutation config plus CLI flags (flags win). */
+export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Promise<EngineConfig> {
+  if (!cfg.mutation) {
     throw new Error(
-      "no stryker.conf.json found — run 'polly mutate init', or pass --config <path>"
+      cfg.mutationError ??
+        `no ${MUTATION_CONFIG_FILE} found — run 'polly mutate init', or pass --config <path>`
     );
   }
-  const shape = await readStrykerShape(cfg.strykerConfigPath);
+  const { config, path } = cfg.mutation;
+  const dir = dirname(path);
+  const mode = resolveMode(args.mode, config);
+  const command = config.runner?.kind === "command" ? config.runner : null;
   return {
-    cwd: shape.cwd,
-    targets: await selectTargets(shape, args),
-    testInclude: shape.testInclude,
-    testPreload: shape.testPreload,
+    cwd: dir,
+    targets: await selectTargets(dir, config, args),
+    runner: command ?? { kind: "bun-test" },
+    testInclude: config.tests?.include ?? [],
+    testPreload: (config.tests?.preload ?? []).map((p) => resolve(dir, p)),
     mode,
-    concurrency: resolveConcurrency(args.concurrency, shape.concurrency),
-    timeout: { factor: 2, extraMs: 3000 },
-    ignoreVerifyCallsites: true,
-    scratchCwd: !args.inTree,
-    cacheDir: args.noCache ? null : join(shape.cwd, ".polly", "mutate", "cache"),
+    concurrency: resolveConcurrency(args.concurrency, config.concurrency),
+    timeout: config.timeout ?? { factor: 2, extraMs: 3000 },
+    excludeMutators: config.mutators?.exclude ?? [],
+    ignoreVerifyCallsites: config.ignoreVerifyCallsites ?? true,
+    // A command runs where its package.json is; it gets no scratch cwd.
+    scratchCwd: !(args.inTree || command),
+    cacheDir: args.noCache ? null : join(dir, ".polly", "mutate", "cache"),
     reportPath: cfg.reportPath,
   };
 }

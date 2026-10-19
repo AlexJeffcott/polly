@@ -5,7 +5,7 @@
  */
 
 export interface MutateArgs {
-  /** First positional: "run" (default when bare) | "report" | "decisions" | "verify" | an unknown token to error on. */
+  /** First positional: "run" (default when bare) | "report" | "decisions" | "verify" | "init" | "migrate" | an unknown token to error on. */
   verb: string;
   /** Positionals after the verb (e.g. ["decide", file, verdict, ...rationale] for `decisions decide …`). */
   rest: string[];
@@ -16,10 +16,12 @@ export interface MutateArgs {
   noReport: boolean;
   /** `verify --run` (run a fresh Stryker pass before checking the contract). */
   run: boolean;
-  /** `init --force` (overwrite an existing stryker.conf.json). */
+  /** `init --force` / `migrate --write --force` (overwrite an existing polly.mutate.ts). */
   force: boolean;
+  /** `migrate --write` (write polly.mutate.ts instead of printing it). */
+  write: boolean;
   help: boolean;
-  /** `--engine stryker|bun` — which mutation engine `run` uses. */
+  /** `--engine bun|stryker` — which mutation engine `run` uses (default bun). */
   engine?: string;
   /** `--mode fast|matrix` (bun engine). */
   mode?: string;
@@ -35,7 +37,7 @@ export interface MutateArgs {
   noCache: boolean;
 }
 
-const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "help"]);
+const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "migrate", "help"]);
 const VALUE_FLAGS = new Set([
   "--config",
   "--report",
@@ -81,6 +83,7 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     noReport: bools.has("--no-report"),
     run: bools.has("--run"),
     force: bools.has("--force"),
+    write: bools.has("--write"),
     inTree: bools.has("--in-tree"),
     noCache: bools.has("--no-cache"),
     help,

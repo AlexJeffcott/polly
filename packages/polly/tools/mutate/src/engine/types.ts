@@ -84,10 +84,17 @@ export interface MutateTarget {
   lines?: { from: number; to: number };
 }
 
+export type EngineRunner = { kind: "bun-test" } | { kind: "command"; argv: string[] };
+
 export interface EngineConfig {
   /** Directory `bun test` runs from; test globs and report paths are relative to it. */
   cwd: string;
   targets: MutateTarget[];
+  /**
+   * bun-test  `bun test` on the test files that reach each target.
+   * command   the argv, whole, for every mutant (polly.mutate.ts `runner`).
+   */
+  runner: EngineRunner;
   /** Test-file globs (relative to cwd) the import graph starts from. */
   testInclude: string[];
   /**
@@ -99,6 +106,8 @@ export interface EngineConfig {
   mode: EngineMode;
   concurrency: number;
   timeout: { factor: number; extraMs: number };
+  /** Mutators that generate nothing. */
+  excludeMutators: MutatorName[];
   /** Mark mutants inside requires/ensures/… as Ignored instead of running them. */
   ignoreVerifyCallsites: boolean;
   /**

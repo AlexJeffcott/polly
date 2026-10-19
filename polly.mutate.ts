@@ -1,0 +1,62 @@
+// Mutation testing for polly's own source (`polly mutate`). Imported from the
+// source tree: the monorepo root has no @fairfox/polly in node_modules.
+import { defineMutation } from "./packages/polly/tools/mutate/src/define.ts";
+
+export default defineMutation({
+  targets: [
+    "packages/polly/src/shared/lib/validation.ts",
+    "packages/polly/src/shared/lib/constraints.ts",
+    "packages/polly/src/shared/lib/state.ts",
+    "packages/polly/src/shared/lib/access.ts",
+    "packages/polly/src/shared/lib/crdt-state.ts",
+    "packages/polly/src/shared/lib/crdt-specialised.ts",
+    "packages/polly/src/shared/lib/guards.ts",
+    "packages/polly/src/shared/lib/revocation.ts",
+    "packages/polly/src/shared/lib/peer-state.ts",
+    "packages/polly/src/shared/lib/primitive-registry.ts",
+    "packages/polly/src/shared/lib/migrate-primitive.ts",
+    "packages/polly/src/shared/lib/schema-version.ts",
+    "packages/polly/src/shared/lib/revocation-summary.ts",
+    "packages/polly/src/shared/lib/signing.ts",
+    "packages/polly/src/shared/lib/mesh-diagnostics.ts",
+    "packages/polly/src/shared/lib/peer-relay-adapter.ts",
+    "packages/polly/src/shared/lib/mesh-signaling-client.ts",
+    "packages/polly/src/shared/lib/mesh-network-adapter.ts",
+    "packages/polly/src/shared/lib/mesh-client.ts",
+    "packages/polly/src/shared/lib/mesh-webrtc-adapter.ts",
+    "packages/polly/src/shared/lib/storage-adapter.ts",
+    "packages/polly/src/shared/lib/peer-repo-server.ts",
+    "packages/polly/src/shared/lib/handler-execution-tracker.ts",
+    "packages/polly/src/shared/lib/adapter-factory.ts",
+    "packages/polly/src/shared/lib/context-helpers.ts",
+    "packages/polly/src/shared/lib/context-specific-helpers.ts",
+    "packages/polly/src/shared/lib/blob-store-impl.ts",
+    "packages/polly/src/background/log-store.ts",
+    "packages/polly/src/polly-ui/Text.tsx",
+    "packages/polly/src/polly-ui/Cluster.tsx",
+    "packages/polly/src/polly-ui/Code.tsx",
+    "packages/polly/src/polly-ui/Surface.tsx",
+    "packages/polly/src/polly-ui/Layout.tsx",
+    "packages/polly/src/polly-ui/Button.tsx",
+    "packages/polly/src/polly-ui/Link.tsx",
+    "packages/polly/src/polly-ui/Output.tsx",
+    "packages/polly/src/polly-ui/Html.tsx",
+    "packages/polly/src/polly-ui/Collapsible.tsx",
+    "packages/polly/src/polly-ui/FileInput.tsx",
+    "packages/polly/src/polly-ui/ActionInput.tsx",
+    "packages/polly/src/polly-ui/ActionSelect.tsx",
+    "packages/polly/src/polly-ui/Select.tsx",
+    "packages/polly/src/polly-ui/Dropdown.tsx",
+    "packages/polly/src/polly-ui/internal/dispatch-action.ts",
+  ],
+  tests: {
+    include: ["packages/polly/tests/unit/**/*.test.ts"],
+    preload: ["./packages/polly/tests/setup.ts"],
+  },
+  // The kill matrix feeds the test-debt analysis (`polly mutate report`);
+  // `--mode fast` stops each run at the first failure instead.
+  mode: "matrix",
+  concurrency: 6,
+  // No `timeout`: Stryker's 90 s budget covered a full-suite run per mutant.
+  // The engine runs only the covering tests, so its default (baseline × 2 + 3 s) fits.
+});

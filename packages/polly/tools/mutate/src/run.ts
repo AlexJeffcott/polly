@@ -1,13 +1,14 @@
 /**
- * Orchestration for `polly mutate run` / `report`: spawn Stryker, then read the
- * mutation report and produce the useless-test analysis — gating the redundancy
- * /subsumption sections on a complete (no-bail) kill matrix.
+ * Orchestration for `polly mutate run` / `report`: run the engine (Bun-native by
+ * default; `--engine stryker` is deprecated), then read the mutation report and
+ * produce the useless-test analysis — gating the redundancy/subsumption
+ * sections on a complete (no-bail) kill matrix.
  */
 import { relative, resolve } from "node:path";
 import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
 import { mutationScore, runEngine } from "./engine/index.ts";
-import { engineConfigFromStryker } from "./engine-config.ts";
+import { engineConfigFor } from "./engine-config.ts";
 import { buildDb, loadMutationReport } from "./ingest.ts";
 import { report } from "./report.ts";
 import { isMatrixComplete } from "./verify-matrix.ts";
@@ -32,14 +33,34 @@ export async function runStryker(cfg: MutateConfig): Promise<number> {
 export type EngineName = "stryker" | "bun";
 
 export function resolveEngine(args: MutateArgs): EngineName {
-  const engine = args.engine ?? "stryker";
+  const engine = args.engine ?? "bun";
   if (engine === "stryker" || engine === "bun") return engine;
-  throw new Error(`unknown --engine "${engine}" (expected stryker or bun)`);
+  throw new Error(`unknown --engine "${engine}" (expected bun or stryker)`);
+}
+
+/** The notice printed when the bun engine reads a Stryker config; null for polly.mutate.ts. */
+export function deprecationNotice(cfg: MutateConfig): string | null {
+  const m = cfg.mutation;
+  if (m?.format !== "stryker") return null;
+  return [
+    `deprecated: reading ${relative(cfg.cwd, m.path) || m.path} — Stryker configs go away with Stryker.`,
+    "  'polly mutate migrate --write' writes the equivalent polly.mutate.ts.",
+    ...m.notes.map((n) => `  ${n}`),
+  ].join("\n");
+}
+
+/** `thresholds.break` failure line, or null when the score clears it (or none is set). */
+export function thresholdFailure(score: number | null, cfg: MutateConfig): string | null {
+  const floor = cfg.mutation?.config.thresholds?.break;
+  if (floor === undefined || score === null || score >= floor) return null;
+  return `mutation score ${score.toFixed(1)}% is below thresholds.break ${floor}%`;
 }
 
 /** Run the Bun-native engine and print a per-target summary. Returns the exit code. */
 export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise<number> {
-  const engineCfg = await engineConfigFromStryker(cfg, args);
+  const notice = deprecationNotice(cfg);
+  if (notice) console.log(`${notice}\n`);
+  const engineCfg = await engineConfigFor(cfg, args);
   if (engineCfg.targets.length === 0) {
     console.log(
       args.since ? `no mutate targets changed since ${args.since}` : "no mutate targets matched"
@@ -92,6 +113,11 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
       `\nwarning: mutant runs wrote ${stray.mutants.length} path(s) into ${stray.root} (not deleted — check, then remove):`
     );
     for (const path of stray.mutants) console.log(`  ${path}`);
+  }
+  const failure = thresholdFailure(total, cfg);
+  if (failure) {
+    console.log(`\n✗ ${failure}`);
+    return 1;
   }
   return 0;
 }

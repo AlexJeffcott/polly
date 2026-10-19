@@ -45,6 +45,8 @@ export interface GenerateOptions {
   lines?: { from: number; to: number };
   /** Prefix for mutant ids, so ids stay unique across files in one report. */
   idPrefix?: string;
+  /** Mutators whose edits are dropped (polly.mutate.ts `mutators.exclude`). */
+  exclude?: readonly MutatorName[];
 }
 
 export interface GenerateResult {
@@ -103,6 +105,7 @@ export function generateMutants(
   const ignoreVerify = opts.ignoreVerifyCallsites ?? true;
   const prefix = opts.idPrefix ?? "";
   const seen = new Set<string>();
+  const excluded = new Set(opts.exclude ?? []);
   const all: Mutant[] = [];
 
   const ancestors: AstNode[] = [];
@@ -117,6 +120,7 @@ export function generateMutants(
       key,
       ancestors,
       emit(start: number, end: number, replacement: string, mutatorName: MutatorName) {
+        if (excluded.has(mutatorName)) return;
         // Two operators can propose the same edit; keep one.
         const dedupe = `${start}:${end}:${replacement}`;
         if (seen.has(dedupe)) return;

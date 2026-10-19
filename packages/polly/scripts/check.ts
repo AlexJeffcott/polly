@@ -326,7 +326,7 @@ Subcommands:
   server-imports  no node:/bun: imports in browser-targeted code
   todo-tests      no it.todo / test.failing forms under tests/
   suppressions    new biome-ignore/ts-ignore must carry a ticket reference
-  mutate-targets  every stryker.conf.json mutate path still exists
+  mutate-targets  every polly.mutate.ts / stryker.conf.json target still exists
   all             every check above, concurrently (reports all failures)
 
 Options:

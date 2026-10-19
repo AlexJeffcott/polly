@@ -47,15 +47,18 @@ async function measureIn(
 ): Promise<Attempt> {
   let last = "";
   for (let attempt = 1; attempt <= BASELINE_ATTEMPTS; attempt++) {
-    const outcome = await runBunTest({
-      cwd,
-      files,
-      preloads,
-      bail: false,
-      timeoutMs: BASELINE_TIMEOUT_MS,
-      captureStderr: true,
-      junit: cfg.mode === "matrix",
-    });
+    const outcome = await runBunTest(
+      {
+        cwd,
+        files,
+        preloads,
+        bail: false,
+        timeoutMs: BASELINE_TIMEOUT_MS,
+        captureStderr: true,
+        junit: cfg.mode === "matrix",
+      },
+      cfg.runner
+    );
     if (outcome.exitCode === 0 && !outcome.timedOut) {
       if (cfg.mode === "fast")
         return { ok: true, ms: outcome.ms, tests: [], reportedFiles: new Set() };

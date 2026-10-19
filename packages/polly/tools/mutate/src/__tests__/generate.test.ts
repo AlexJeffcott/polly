@@ -280,3 +280,16 @@ describe("ids, ranges, locations", () => {
     expect(() => generateMutants("t.ts", "function (")).toThrow("cannot parse target");
   });
 });
+
+describe("exclude", () => {
+  test("an excluded mutator generates nothing; the others are unchanged", () => {
+    const src = 'const s = a > 1 ? "x" : "y";';
+    const names = (exclude: Parameters<typeof generateMutants>[2]) =>
+      new Set(generateMutants("t.ts", src, exclude).mutants.map((m) => m.mutatorName));
+    const all = names({});
+    expect(all.has("StringLiteral")).toBe(true);
+    const without = names({ exclude: ["StringLiteral"] });
+    expect(without.has("StringLiteral")).toBe(false);
+    expect([...without]).toEqual([...all].filter((n) => n !== "StringLiteral"));
+  });
+});

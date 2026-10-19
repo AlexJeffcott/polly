@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { EngineRunner } from "./types.ts";
 
 export interface BunTestRun {
   cwd: string;
@@ -65,22 +66,54 @@ async function readJunit(path: string | undefined): Promise<string | undefined> 
   return xml;
 }
 
-export async function runBunTest(run: BunTestRun): Promise<BunTestOutcome> {
+/**
+ * The argv for one test process. `bun-test` builds the `bun test` line;
+ * `command` runs the configured argv whole and reaches every Bun process it
+ * starts through BUN_OPTIONS, so `files`, `bail` and `junit` do not apply.
+ */
+function processArgv(
+  runner: EngineRunner,
+  run: BunTestRun,
+  junitPath: string | undefined
+): { argv: string[]; env: Record<string, string> } {
+  if (runner.kind === "command") {
+    const inherited = process.env["BUN_OPTIONS"];
+    const preloads = run.preloads.map((p) => `--preload=${p}`).join(" ");
+    return {
+      argv: runner.argv,
+      env: { ...run.env, BUN_OPTIONS: inherited ? `${inherited} ${preloads}` : preloads },
+    };
+  }
+  return {
+    argv: [
+      "bun",
+      "test",
+      ...run.preloads.flatMap((p) => ["--preload", p]),
+      ...(run.bail ? ["--bail"] : []),
+      ...(junitPath ? ["--reporter=junit", `--reporter-outfile=${junitPath}`] : []),
+      ...run.files,
+    ],
+    env: run.env ?? {},
+  };
+}
+
+export async function runBunTest(
+  run: BunTestRun,
+  runner: EngineRunner = { kind: "bun-test" }
+): Promise<BunTestOutcome> {
   const started = performance.now();
-  const junitPath = run.junit
-    ? join(tmpdir(), `polly-mutate-junit-${randomUUID()}.xml`)
-    : undefined;
-  const argv = [
-    "bun",
-    "test",
-    ...run.preloads.flatMap((p) => ["--preload", p]),
-    ...(run.bail ? ["--bail"] : []),
-    ...(junitPath ? ["--reporter=junit", `--reporter-outfile=${junitPath}`] : []),
-    ...run.files,
-  ];
+  const junitPath =
+    run.junit && runner.kind === "bun-test"
+      ? join(tmpdir(), `polly-mutate-junit-${randomUUID()}.xml`)
+      : undefined;
+  const { argv, env } = processArgv(runner, run, junitPath);
+  // A command (`bun run bdd`) starts a process tree; its own group lets a
+  // timeout kill the whole tree, not just the shell at the top.
+  const group = runner.kind === "command";
   const proc = Bun.spawn(argv, {
     cwd: run.cwd,
-    env: cleanEnv(run.env),
+    detached: group,
+    env: cleanEnv(env),
     stdin: "ignore",
     stdout: "ignore",
     stderr: run.captureStderr ? "pipe" : "ignore",
@@ -88,7 +121,8 @@ export async function runBunTest(run: BunTestRun): Promise<BunTestOutcome> {
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    proc.kill(9);
+    if (group) process.kill(-proc.pid, 9);
+    else proc.kill(9);
   }, run.timeoutMs);
   const stderrText =
     run.captureStderr && proc.stderr ? new Response(proc.stderr).text() : undefined;

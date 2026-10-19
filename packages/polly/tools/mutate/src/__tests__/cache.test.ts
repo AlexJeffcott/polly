@@ -35,6 +35,8 @@ const config = (over: Partial<EngineConfig> = {}): EngineConfig => ({
   mode: "matrix",
   concurrency: 4,
   timeout: { factor: 2, extraMs: 3000 },
+  runner: { kind: "bun-test" },
+  excludeMutators: [],
   ignoreVerifyCallsites: true,
   scratchCwd: true,
   cacheDir,

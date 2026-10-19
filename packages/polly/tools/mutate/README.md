@@ -28,14 +28,16 @@ Shipped as the `polly mutate` command — consumers get it via `@fairfox/polly`,
 the pure analysis pieces are importable from `@fairfox/polly/mutate`:
 
 ```sh
-polly mutate run             # run Stryker, then print the signals report
+polly mutate init            # write a polly.mutate.ts for this project
+polly mutate migrate         # print the polly.mutate.ts equivalent of stryker.conf.json (--write writes it)
+polly mutate run             # run the Bun-native engine, then print the signals report
 polly mutate report          # print the signals from an existing mutation.json
 polly mutate decisions       # join signals against the committed decisions log
 polly mutate verify          # assert the matrix contract (--run for a fresh pass)
 ```
 
-The redundancy/subsumption sections need a **complete** kill matrix (the patched,
-no-bail Bun runner below). Without it `report`/`run` degrade to score + gaps +
+The redundancy/subsumption sections need a **complete** kill matrix (`--mode
+matrix`, or Stryker's patched, no-bail Bun runner below). Without it `report`/`run` degrade to score + gaps +
 theatre and print a warning; `verify` reports the broken contract.
 
 In this monorepo the same code also backs the root scripts:
@@ -47,12 +49,52 @@ bun run test-debt:decisions  # = polly mutate decisions
 bun run test-debt:verify     # = polly mutate verify --run
 ```
 
-### The Bun-native engine (`--engine bun`)
+### Config: `polly.mutate.ts`
 
-`polly mutate run --engine bun` runs mutation testing without Stryker. It reads
-the same `stryker.conf.json` (`mutate`, `bun.testFiles`, `concurrency`) and
-writes the same `reports/mutation/mutation.json`, so `report`, `decisions` and
-`verify` work on its output unchanged.
+```ts
+import { defineMutation } from "@fairfox/polly/mutate";
+
+export default defineMutation({
+  targets: ["src/**/*.ts", "!src/**/*.test.ts"], // globs, ! exclusions, a.ts:10-20 ranges
+  tests: { include: ["tests/**/*.test.ts"], preload: ["./tests/setup.ts"] },
+  // runner: { kind: "command", argv: ["bun", "run", "bdd"] }, // instead of `tests`
+  mode: "fast",                                  // or "matrix"
+  concurrency: 6,                                // default: cores − 1
+  timeout: { factor: 2, extraMs: 3000 },         // per mutant: baseline × factor + extraMs
+  mutators: { exclude: ["StringLiteral"] },
+  ignoreVerifyCallsites: true,                   // requires/ensures mutants → Ignored (polly#143)
+  thresholds: { break: 60 },                     // `run` exits 1 below this score
+  report: "reports/mutation/mutation.json",
+  decisions: ".polly/test-debt/decisions.jsonl",
+});
+```
+
+Paths are relative to the config's directory, which is where the tests run.
+CLI flags (`--mode`, `--concurrency`, `--report`, …) override the file. The CLI
+loads `./polly.mutate.ts`, else `--config <path>`; without either it falls back
+to a discovered `stryker.conf.json`, read through the same mapping `polly mutate
+migrate` writes out, and prints a deprecation notice.
+
+| `stryker.conf.json` | `polly.mutate.ts` |
+|---|---|
+| `mutate` | `targets` |
+| `bun.testFiles` | `tests.include` |
+| `bun.nodeArgs` `--preload` | `tests.preload` |
+| `testRunner: "command"`, `commandRunner.command` | `runner: { kind: "command", argv }` (shell syntax → `sh -c`) |
+| `concurrency` | `concurrency` |
+| `timeoutFactor`, `timeoutMS` | `timeout.factor`, `timeout.extraMs` |
+| `disableBail` | `mode: "matrix"` |
+| `mutator.excludedMutations` | `mutators.exclude` |
+| `thresholds.break` | `thresholds.break` |
+
+Every other key is Stryker machinery; `migrate` lists the ones it drops.
+
+### The Bun-native engine (the default)
+
+`polly mutate run` runs mutation testing without Stryker (`--engine stryker`
+still runs Stryker, deprecated). It writes the same
+`reports/mutation/mutation.json`, so `report`, `decisions` and `verify` work on
+its output unchanged.
 
 | Step | How |
 |---|---|
@@ -66,14 +108,21 @@ writes the same `reports/mutation/mutation.json`, so `report`, `decisions` and
 | Guard | `git status` snapshots before the run, after the baselines and after the mutants. Each path a mutant run adds to the worktree prints as a warning; nothing is deleted |
 
 ```sh
-polly mutate run --engine bun                          # every target in the config
-polly mutate run --engine bun --files src/a.ts         # one target (globs, a.ts:10-20 ranges)
-polly mutate run --engine bun --since main             # only targets changed since a ref
-polly mutate run --engine bun --concurrency 10
-polly mutate run --engine bun --mode matrix           # every killer recorded
-polly mutate verify --run --engine bun                # matrix pass, then the kill-matrix contract
-polly mutate run --engine bun --in-tree              # test processes run in the project dir
+polly mutate run                          # every target in the config
+polly mutate run --files src/a.ts         # one target (globs, a.ts:10-20 ranges)
+polly mutate run --since main             # only targets changed since a ref
+polly mutate run --concurrency 10
+polly mutate run --mode matrix            # every killer recorded
+polly mutate verify --run                 # matrix pass, then the kill-matrix contract
+polly mutate run --in-tree                # test processes run in the project dir
 ```
+
+The **command runner** (`runner: { kind: "command", argv }`) runs the argv once
+per mutant in the config's directory; a non-zero exit kills the mutant. The
+injection preload reaches every Bun process the command starts through
+`BUN_OPTIONS`, so `bun run bdd` → `polly bdd run` sees the mutant. It selects
+no tests, runs fast mode only, is never cached (no import graph bounds what the
+command reads), and a timeout kills the command's whole process group.
 
 Operators are Stryker's 16 mutators, with Stryker's names and the rules of
 `@stryker-mutator/instrumenter` 9.6.1, so a report reads the same from either
@@ -103,7 +152,8 @@ Current limits:
 - **A Timeout has no killers.** The process is killed before Bun writes its
   junit report. Without `--bail` more mutants time out (179 vs 41 on polly's 44
   targets), so a test whose only kills are Timeouts can look subsumed.
-- **`testRunner: "bun"` only.** Stryker's `command` runner is not supported yet.
+- **The command runner reaches Bun processes only.** A command that runs the
+  target under Node never loads the preload, so every mutant survives.
 - **Static selection.** Reach that no import names (`mock.module`, a computed
   `import()`, a global set by another file) is not seen. A dynamic coverage pass
   is planned.
@@ -111,7 +161,8 @@ Current limits:
   plugin registers, so it cannot be mutated.
 
 Proof surface: `scripts/e2e-mutate.ts` (cold-start project, source and built CLI,
-`--since`); the engine's own tests are the `tools.mutate` tier case.
+`--since`, `init` then `run`, a Stryker-only project before and after `migrate
+--write`); the engine's own tests are the `tools.mutate` tier case.
 
 ### Decisions log
 

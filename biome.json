@@ -86,6 +86,16 @@
   },
   "overrides": [
     {
+      "includes": ["**/polly.mutate.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": [
         "packages/polly/src/shared/adapters/**",
         "packages/polly/src/shared/lib/**",
