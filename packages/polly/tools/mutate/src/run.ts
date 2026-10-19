@@ -86,6 +86,13 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
   console.log(
     `\n${all.length} mutants in ${(result.wallMs / 1000).toFixed(1)} s · score ${total === null ? "n/a" : `${total.toFixed(1)}%`} · report ${cfg.reportPath}`
   );
+  const stray = result.strayWrites;
+  if (stray && stray.mutants.length > 0) {
+    console.log(
+      `\nwarning: mutant runs wrote ${stray.mutants.length} path(s) into ${stray.root} (not deleted — check, then remove):`
+    );
+    for (const path of stray.mutants) console.log(`  ${path}`);
+  }
   return 0;
 }
 

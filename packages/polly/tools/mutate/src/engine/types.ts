@@ -92,4 +92,11 @@ export interface TargetSummary {
 export interface EngineResult {
   targets: TargetSummary[];
   wallMs: number;
+  /**
+   * Paths new to `git status` (relative to `root`), split by phase: written by
+   * the unmutated baselines (the tests' own side effects) or by mutant runs
+   * (a mutant redirected a write into the tree). Null outside a git worktree.
+   * The report is written after the last snapshot, so it never appears here.
+   */
+  strayWrites: { root: string; baseline: string[]; mutants: string[] } | null;
 }

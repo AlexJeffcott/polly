@@ -14,11 +14,13 @@ import { generateMutants } from "./generate.ts";
 import { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
 import { toMutationReport, writeReport } from "./report-writer.ts";
 import { pool, preloadPath, runBunTest } from "./runner.ts";
+import { newPaths, snapshotWorktree } from "./stray-writes.ts";
 import type { EngineConfig, EngineResult, Mutant, MutantResult, TargetSummary } from "./types.ts";
 
 export { applyMutant, generateMutants } from "./generate.ts";
 export { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
 export { toMutationReport, writeReport } from "./report-writer.ts";
+export { newPaths, snapshotWorktree } from "./stray-writes.ts";
 export type * from "./types.ts";
 export { VERIFY_PRIMITIVES } from "./verify-callsites.ts";
 
@@ -77,6 +79,7 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
   const log = hooks.log ?? (() => undefined);
   const started = performance.now();
   const preloads = [...cfg.testPreload, preloadPath()];
+  const beforeRun = snapshotWorktree(cfg.cwd);
 
   const testFiles = await findTestFiles(cfg.cwd, cfg.testInclude);
   if (testFiles.length === 0) {
@@ -102,6 +105,8 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
   const baselines = await pool(prepared, cfg.concurrency, (p) =>
     p.covering.length === 0 ? Promise.resolve(null) : measureBaseline(cfg, preloads, p.covering)
   );
+
+  const afterBaselines = snapshotWorktree(cfg.cwd);
 
   interface Job {
     target: number;
@@ -177,7 +182,21 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
     };
   });
 
-  const result: EngineResult = { targets, wallMs: Math.round(performance.now() - started) };
+  const afterMutants = snapshotWorktree(cfg.cwd);
+  const strayWrites = beforeRun
+    ? {
+        root: beforeRun.root,
+        baseline: newPaths(beforeRun, afterBaselines),
+        mutants: newPaths(afterBaselines, afterMutants),
+      }
+    : null;
+  for (const path of strayWrites?.mutants ?? []) log(`warning: a mutant run wrote ${path}`);
+
+  const result: EngineResult = {
+    targets,
+    wallMs: Math.round(performance.now() - started),
+    strayWrites,
+  };
   await writeReport(await toMutationReport(result, cfg.cwd), cfg.reportPath);
   return result;
 }
