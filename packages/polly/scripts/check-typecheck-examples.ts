@@ -12,7 +12,7 @@
  * components could not be used as JSX.
  *
  * The examples are the documentation consumers copy, so a broken one is a
- * broken instruction. This check runs `tsc --noEmit` in each workspace that
+ * broken instruction. This check runs `bun check` in each workspace that
  * has a tsconfig.json and reports every failure, not just the first.
  *
  *   bun scripts/check-typecheck-examples.ts [--verbose]
@@ -56,7 +56,7 @@ interface Failure {
 }
 
 async function typecheck(dir: string): Promise<Failure | null> {
-  const proc = Bun.spawn(["bunx", "tsc", "--noEmit"], {
+  const proc = Bun.spawn(["bun", "--check"], {
     cwd: dir,
     stdout: "pipe",
     stderr: "pipe",
@@ -74,7 +74,7 @@ async function typecheck(dir: string): Promise<Failure | null> {
   return { workspace, output: `${out}${err}`.trim() };
 }
 
-/** Drain the workspaces through a bounded pool — `tsc` is memory-hungry. */
+/** Drain the workspaces through a bounded pool — `bun check` uses every core. */
 async function run(): Promise<number> {
   const dirs = await exampleWorkspaces();
   if (dirs.length === 0) {
@@ -103,7 +103,9 @@ async function run(): Promise<number> {
   }
 
   failures.sort((a, b) => a.workspace.localeCompare(b.workspace));
-  process.stdout.write(`❌ ${failures.length} of ${dirs.length} example workspace(s) fail tsc:\n`);
+  process.stdout.write(
+    `❌ ${failures.length} of ${dirs.length} example workspace(s) fail bun check:\n`
+  );
   for (const failure of failures) {
     process.stdout.write(`\n  ${failure.workspace}\n`);
     for (const line of failure.output.split("\n").slice(0, 10)) {

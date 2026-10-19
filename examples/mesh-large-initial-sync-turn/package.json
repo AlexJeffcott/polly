@@ -5,18 +5,17 @@
   "type": "module",
   "scripts": {
     "start": "POLLY_105_TURN_MODE=real bun run main.ts",
-    "typecheck": "bunx tsc --noEmit",
+    "typecheck": "bun check",
     "build:turn-server": "cd pion-turn-server && go build -o pion-turn-server ."
   },
   "dependencies": {
-    "@automerge/automerge": ">= 2.5.0",
-    "@automerge/automerge-repo": ">= 2.5.0",
+    "@automerge/automerge": "3.5.0",
+    "@automerge/automerge-repo": "2.5.6",
     "@fairfox/polly": "workspace:*",
-    "elysia": ">= 1.4.0",
-    "werift": ">= 0.19.0"
+    "elysia": "1.4.30",
+    "werift": "0.25.1"
   },
   "devDependencies": {
-    "@types/bun": "1.3.13",
-    "typescript": "6.0.3"
+    "@types/bun": "1.4.3"
   }
 }

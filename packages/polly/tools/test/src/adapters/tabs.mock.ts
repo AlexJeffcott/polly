@@ -73,6 +73,7 @@ export function createMockTabs(): MockTabs {
         url: createProperties.url || "about:blank",
         title: createProperties.url || "New Tab",
         frozen: false,
+        lastAccessed: 0,
       };
       if (newTab.id !== undefined) {
         tabs.set(newTab.id, newTab);

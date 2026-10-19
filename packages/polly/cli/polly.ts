@@ -264,7 +264,7 @@ async function quality() {
  * Typecheck command - run TypeScript type checking
  */
 async function typecheck() {
-  const proc = Bun.spawn(["bunx", "tsc", "--noEmit"], {
+  const proc = Bun.spawn(["bun", "--check"], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",

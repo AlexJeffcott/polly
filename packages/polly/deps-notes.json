@@ -1,18 +1,7 @@
 {
   "$schema-comment": "Annotation file for `bun check deps-audit --verbose`. Each entry maps a package name (matching package.json keys) to a short note explaining what the dep is used for in this codebase. Missing entries trigger a warning in verbose mode. Keep notes one line each.",
   "advisoryAllowlist-comment": "Advisories `bun check deps-audit` accepts deliberately. Every entry needs a ghsa id, the package, and a reason explaining why it is safe to carry AND why it cannot be fixed by upgrading. The gate stays hard for anything not listed. Re-justify or delete entries when deps change.",
-  "advisoryAllowlist": [
-    {
-      "ghsa": "GHSA-2p57-rm9w-gvfp",
-      "package": "ip",
-      "reason": "werift (the node-side WebRTC stack used only by the mesh contract-harness examples) hard-depends on ip@<=2.0.1 and no patched release of `ip` exists. The examples never ship in the published @fairfox/polly package, and their werift peers only ever talk to loopback test peers, so the SSRF mis-categorization in isPublic has nothing to reach."
-    },
-    {
-      "ghsa": "GHSA-jmr9-qjv8-65gv",
-      "package": "extract-zip",
-      "reason": "extract-zip@2.0.1 is the latest published release and no patched version exists. It reaches the tree only through @puppeteer/browsers, a transitive of the puppeteer devDependency, where its single job is unpacking the Chrome archive puppeteer itself downloaded from Google's CDN. It never ships in the published @fairfox/polly package, and the archive it extracts is not attacker-supplied, so the symlink path traversal has no input to act on."
-    }
-  ],
+  "advisoryAllowlist": [],
   "notes": {
     "@automerge/automerge": "CRDT core used by the peer/mesh modules for conflict-free shared state.",
     "@automerge/automerge-repo": "Repository layer over Automerge \u2014 manages document identity, sync, and persistence.",
@@ -38,13 +27,14 @@
     "marked": "Markdown parser used by the polly-ui markdown component.",
     "pixelmatch": "Per-pixel image diff used by the visual-test tool.",
     "pngjs": "PNG decoder used by the visual-test tool to load screenshots before pixelmatch.",
-    "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points.",
+    "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points. Held at 10.x: preact 11 removes JSX namespace types polly-ui uses; moving needs its own breaking release.",
     "preact-render-to-string": "Server-side rendering for example Elysia clients.",
     "puppeteer": "Headless Chrome driver \u2014 used by the e2e visualize verification script and browser tests.",
     "ts-morph": "TypeScript AST library used by tools/analysis to extract handlers, contexts, flows, types, and integrations.",
     "tweetnacl": "Ed25519 / box crypto primitives used by the peer authentication layer.",
-    "typescript": "TypeScript compiler \u2014 used for type-checking and declaration generation.",
+    "typescript": "Pinned at 6.0.3, once, at the monorepo root. Not the type checker (that is `bun check`); used for .d.ts generation in build-lib.ts and by Stryker, which reads tsconfig through the TypeScript JS API that the native typescript@7 does not ship. A single version also keeps one Elysia copy (Elysia peers on typescript).",
     "werift": "Pure-TS WebRTC implementation \u2014 node alternative to @roamhq/wrtc, used in environments where the native binding is unavailable.",
-    "ws": "WebSocket server/client used by mesh-node for cross-device sync."
+    "ws": "WebSocket server/client used by mesh-node for cross-device sync.",
+    "@stryker-mutator/api": "Plugin API for polly's Stryker ignorer. Held at 9.x: stryker-mutator-bun-runner@0.4.0 peers on core ^9, and core 10.0.0 crashes in the instrumenter."
   }
 }

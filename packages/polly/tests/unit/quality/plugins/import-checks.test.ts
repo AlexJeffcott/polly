@@ -198,7 +198,7 @@ describe("polly:types", () => {
     const reg = registerPlugins([pollyCorePlugin]);
     const entry = reg.get("polly:types");
     expect(entry).toBeDefined();
-    expect(entry?.check.description.toLowerCase()).toContain("tsc");
+    expect(entry?.check.description.toLowerCase()).toContain("bun check");
   });
 
   test("returns an informational message when no workspace packages match", async () => {

@@ -8,8 +8,8 @@
  *
  * Implemented checks:
  *
- *   typecheck       bunx tsc --noEmit (root + tests workspace)
- *   typecheck-examples  tsc --noEmit in every example workspace
+ *   typecheck       bun check (root + tests workspace)
+ *   typecheck-examples  bun check in every example workspace
   css-layout          no display:flex/grid outside <Layout> and <Cluster>
  *   lint            biome check . (formatting + lint rules)
  *   secrets         gitleaks scan with .gitleaks.toml allowlist
@@ -79,7 +79,7 @@ async function requireBinary(name: string, hint: string): Promise<boolean> {
 async function checkTypecheck(): Promise<boolean> {
   const code = await spawn(["bun", "run", "typecheck"]);
   if (code === 0) {
-    process.stdout.write("✅ Typecheck clean (tsc --noEmit)\n");
+    process.stdout.write("✅ Typecheck clean (bun check)\n");
   }
   return code === 0;
 }
@@ -312,8 +312,8 @@ function showHelp(): void {
 Usage: bun run check <subcommand>
 
 Subcommands:
-  typecheck       tsc --noEmit (root + tests workspace)
-  typecheck-examples  tsc --noEmit in every example workspace
+  typecheck       bun check (root + tests workspace)
+  typecheck-examples  bun check in every example workspace
   lint            biome check (formatting + lint rules)
   secrets         gitleaks secret scanning
   gitignore       gitleaks allowlist must be reflected in .gitignore
@@ -418,7 +418,7 @@ function hoistLongPoles<T extends { sub: CheckName }>(steps: T[]): T[] {
   return [...poles, ...steps.filter((s) => !LONG_POLE_CHECKS.has(s.sub))];
 }
 
-/** Cap the auto pool: `tsc`/`semgrep` are memory-hungry, so don't oversubscribe. */
+/** Cap the auto pool: `bun check`/`semgrep` are memory-hungry, so don't oversubscribe. */
 const DEFAULT_MAX_CONCURRENCY = 8;
 
 /** Read `--concurrency N` (space form) or `--concurrency=N` from argv. */

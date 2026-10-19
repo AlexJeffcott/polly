@@ -47,7 +47,9 @@ export function sanitizeContextName(name: string): string {
 }
 
 /** Whether the config declares its own context set (polly#185). */
-export function hasDeclaredContexts(config?: ContextSetInput | null): boolean {
+export function hasDeclaredContexts(
+  config?: ContextSetInput | null
+): config is { contexts: readonly string[] } {
   const declared = config?.contexts;
   return Array.isArray(declared) && declared.length > 0;
 }
@@ -62,7 +64,7 @@ export function hasDeclaredContexts(config?: ContextSetInput | null): boolean {
  */
 export function resolveContexts(config?: ContextSetInput | null): string[] {
   if (!hasDeclaredContexts(config)) return [...DEFAULT_CONTEXTS];
-  return (config?.contexts as readonly string[]).map(sanitizeContextName);
+  return config.contexts.map(sanitizeContextName);
 }
 
 /**

@@ -8,21 +8,20 @@
     "build": "bun build src/client.tsx --outdir=dist --target=browser",
     "serve": "NODE_ENV=production bun src/server.tsx",
     "test": "bun test",
-    "typecheck": "bun tsc --noEmit"
+    "typecheck": "bun check"
   },
   "dependencies": {
     "@elysiajs/eden": "1.4.9",
-    "@elysiajs/html": "1.2.0",
+    "@elysiajs/html": "1.4.2",
     "@fairfox/polly": "workspace:*",
-    "@preact/signals": "2.9.0",
-    "elysia": "1.4.28",
-    "preact": "10.29.1",
-    "preact-render-to-string": "6.5.11",
+    "@preact/signals": "2.11.3",
+    "elysia": "1.4.30",
+    "preact": "10.29.8",
+    "preact-render-to-string": "6.8.1",
     "elysia-todo-app-server": "workspace:*"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "20.9.0",
-    "@types/bun": "1.3.13",
-    "typescript": "6.0.3"
+    "@happy-dom/global-registrator": "21.0.3",
+    "@types/bun": "1.4.3"
   }
 }

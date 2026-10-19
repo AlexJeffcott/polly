@@ -2201,7 +2201,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    *  mark (caller should retry after a delay). */
   sendBlobMessage(peerId: string, bytes: Uint8Array<ArrayBuffer>): boolean {
     const slot = this.slots.get(peerId);
-    if (!slot?.channel || slot.channel.readyState !== "open") return false;
+    if (slot?.channel?.readyState !== "open") return false;
     return this.trySendOnChannel(slot.channel, bytes);
   }
 

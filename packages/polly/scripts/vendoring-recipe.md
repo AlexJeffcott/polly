@@ -19,7 +19,7 @@ scripts/vendor-polly.sh <source-polly-pkg-dir> <target-dir> [--check]
 - `<source-polly-pkg-dir>` — path to polly's `packages/polly` (must contain
   `src/` and `tools/verify/`).
 - `<target-dir>` — where the vendored copy is written (created if absent).
-- `--check` — after vendoring, run `bun install` + `bunx tsc --noEmit` in the
+- `--check` — after vendoring, run `bun install` + `bun check` in the
   target to verify it builds.
 
 ```bash

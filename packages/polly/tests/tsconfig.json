@@ -5,7 +5,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "exactOptionalPropertyTypes": false,
-    "baseUrl": ".",
+    "types": ["bun", "chrome", "node"],
     "paths": {
       "@/*": ["../src/*"],
       "@fairfox/polly": ["../src/index.ts"],

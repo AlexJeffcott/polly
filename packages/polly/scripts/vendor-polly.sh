@@ -31,8 +31,8 @@
 #                           src/ and tools/verify/)
 #   <target-dir>            where the vendored copy is written (created if
 #                           absent; existing files are overwritten/removed)
-#   --check                 after vendoring, run `bun install` + `bunx tsc
-#                           --noEmit` in the target to verify it builds
+#   --check                 after vendoring, run `bun install` + `bun check`
+#                           in the target to verify it builds
 #
 set -euo pipefail
 
@@ -175,7 +175,7 @@ cat > "$TARGET/tools/visualize/src/_vendor-mesh-stub.ts" <<'STUB'
  * still compiles against the loose types below, but deriveDocumentId throws
  * if it is ever invoked.
  *
- * If `bunx tsc --noEmit` reports a type mismatch against the overlay code,
+ * If `bun check` reports a type mismatch against the overlay code,
  * loosen the fields below (the feature is inert, so precision is optional).
  */
 
@@ -284,7 +284,7 @@ cat > "$TARGET/package.json" <<'PKG'
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "build:lib": "bun run build-lib.ts",
-    "typecheck": "bunx tsc --noEmit",
+    "typecheck": "bun check",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write ."
@@ -503,12 +503,12 @@ printf '%s' "$c_off"
 
 if [ "$CHECK" -eq 1 ]; then
   echo
-  # Run BOTH tsc and the real build. tsc alone is not enough: the slice's
+  # Run BOTH bun check and the real build. bun check alone is not enough: the slice's
   # tsconfig only includes src/cli/quality, so a broken import inside a built
   # tool (e.g. verify's CLI dynamic-importing bdd) type-checks clean but fails
   # to bundle. build:lib is the only step that exercises every entrypoint.
-  log "running --check (bun install + tsc --noEmit + build:lib) …"
-  ( cd "$TARGET" && bun install && bunx tsc --noEmit && bun run build:lib ) \
+  log "running --check (bun install + bun check + build:lib) …"
+  ( cd "$TARGET" && bun install && bun check && bun run build:lib ) \
     && ok "typecheck + build passed" \
     || warn "check reported issues — review above (the mesh stub types or a missing dep are the likely culprits)"
 fi

@@ -244,7 +244,7 @@ export class TLAValidator {
 
     if (char === ">" && nextChar === ">") {
       const top = stack.pop();
-      if (!top || top.char !== "<<") {
+      if (top?.char !== "<<") {
         return {
           error: {
             type: "bracket",

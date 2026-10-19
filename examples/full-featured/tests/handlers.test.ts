@@ -236,6 +236,7 @@ describe("Mock Adapters", () => {
       discarded: false,
       autoDiscardable: true,
       groupId: -1,
+      lastAccessed: 0,
     };
 
     adapters.tabs._tabs.set(1, mockTab);

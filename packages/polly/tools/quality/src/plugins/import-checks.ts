@@ -4,7 +4,7 @@
  *   - polly:relative-imports — ban `../` imports beyond a depth threshold (#84)
  *   - polly:tsconfig-paths   — ban `compilerOptions.paths` aliases (#84)
  *   - polly:no-raw-http      — force HTTP through a canonical client (#86)
- *   - polly:types            — multi-package tsc --noEmit orchestrator (#85)
+ *   - polly:types            — multi-package `bun check` orchestrator (#85)
  *
  * All four are parameterised. Defaults are silent or zero-impact unless a
  * consumer opts in via `polly.config.ts`. Polly's own pre-commit pipeline
@@ -323,7 +323,7 @@ const noRawHttp: Check<NoRawHttpConfig | undefined> = {
   },
 };
 
-// polly:types — multi-package tsc --noEmit orchestrator
+// polly:types — multi-package `bun check` orchestrator
 
 type TypesConfig = {
   /** Workspace globs to discover packages. */
@@ -332,12 +332,11 @@ type TypesConfig = {
   concurrency?: number;
 };
 
-async function runTscFor(
-  packagePath: string,
-  rootDir: string
-): Promise<{ ok: boolean; output: string }> {
-  const proc = Bun.spawn(["bunx", "tsc", "--noEmit", "-p", packagePath], {
-    cwd: rootDir,
+async function runTypecheckFor(packagePath: string): Promise<{ ok: boolean; output: string }> {
+  // `bun --check`, not `bun check`: the package may define its own `check`
+  // script, which `bun check` would run instead of the type checker.
+  const proc = Bun.spawn(["bun", "--check"], {
+    cwd: packagePath,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -363,26 +362,26 @@ async function findWorkspaces(rootDir: string, patterns: string[]): Promise<stri
 
 const types: Check<TypesConfig | undefined> = {
   id: "polly:types",
-  description: "Run `tsc --noEmit` against each workspace package in parallel",
+  description: "Run `bun check` (tsc-compatible) against each workspace package in parallel",
   filesRead: async () => {
     // The TypeScript compiler walks the entire dependency graph from
     // tsconfig.json out, which is far wider than what we can easily
     // declare here. We keep filesRead empty so the orchestrator cache
-    // always misses on this check; tsc has its own incremental cache,
-    // and that is the right place for that complexity to live.
+    // always misses on this check; bun check keeps no cache of its own
+    // and re-checks the whole project on every run.
     return [];
   },
   run: async ({ rootDir, config }) => {
     const patterns = config?.workspaces ?? ["packages/*", "."];
     const packages = await findWorkspaces(rootDir, patterns);
     if (packages.length === 0) return { ok: true, messages: ["no workspace packages found"] };
-    const results = await Promise.all(packages.map((p) => runTscFor(p, rootDir)));
+    const results = await Promise.all(packages.map((p) => runTypecheckFor(p)));
     return aggregateTypesResults(packages, results, rootDir);
   },
 };
 
-function appendTscFailure(messages: string[], relPkg: string, output: string): void {
-  messages.push(`${relPkg}: tsc --noEmit failed`);
+function appendTypecheckFailure(messages: string[], relPkg: string, output: string): void {
+  messages.push(`${relPkg}: bun check failed`);
   const trimmed = output.trim();
   if (!trimmed) return;
   for (const ln of trimmed.split("\n").slice(0, 30)) messages.push(`  ${ln}`);
@@ -400,7 +399,7 @@ function aggregateTypesResults(
     const r = results[i];
     if (!pkg || !r || r.ok) continue;
     ok = false;
-    appendTscFailure(messages, relative(rootDir, pkg) || ".", r.output);
+    appendTypecheckFailure(messages, relative(rootDir, pkg) || ".", r.output);
   }
   return { ok, messages };
 }

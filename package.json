@@ -47,20 +47,22 @@
   },
   "devDependencies": {
     "@stryker-mutator/core": "9.6.1",
-    "stryker-mutator-bun-runner": "0.4.0"
+    "stryker-mutator-bun-runner": "0.4.0",
+    "typescript": "6.0.3"
   },
   "patchedDependencies": {
     "stryker-mutator-bun-runner@0.4.0": "patches/stryker-mutator-bun-runner@0.4.0.patch"
   },
   "overrides": {
-    "qs": "6.15.2",
+    "qs": "6.16.1",
     "uuid": "11.1.1",
-    "ws": "8.21.0",
+    "ws": "8.22.0",
     "@babel/core": "7.29.7",
     "js-yaml": "4.3.2",
-    "brace-expansion": "5.0.9",
-    "fast-uri": "3.1.6",
-    "ip-address": "10.5.0",
-    "minimatch": "10.2.5"
-  }
+    "brace-expansion": "5.0.12",
+    "fast-uri": "3.1.8",
+    "ip-address": "10.7.4",
+    "minimatch": "10.2.6"
+  },
+  "packageManager": "bun@1.4.3"
 }
