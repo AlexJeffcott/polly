@@ -22,7 +22,13 @@ describe("operators", () => {
 
   test("LogicalOperator", () => {
     expect(edits("f(a && b);")).toEqual(["LogicalOperator: && → ||"]);
-    expect(edits("f(a ?? b);")).toEqual(["LogicalOperator: ?? → &&"]);
+    expect(edits("f(a ?? b);")).toEqual(["LogicalOperator: a ?? b → (a && b)"]);
+  });
+
+  test("a ?? chain mutates to a parseable expression", () => {
+    const { mutants, compileErrors } = generateMutants("t.ts", "f(a ?? b ?? c);");
+    expect(compileErrors).toEqual([]);
+    expect(mutants.map((m) => m.replacement)).toEqual(["(a && b)", "((a ?? b) && c)"]);
   });
 
   test("BooleanLiteral flips literals and drops logical not", () => {

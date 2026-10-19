@@ -64,27 +64,62 @@ function isStringish(node: AstNode | undefined): boolean {
   );
 }
 
-const binary: Operator = (node, ctx) => {
-  if (node.type !== "BinaryExpression" && node.type !== "LogicalExpression") return;
+interface BinaryParts {
+  op: string;
+  left: AstNode;
+  right: AstNode;
+  /** Offset of the operator token in the source. */
+  at: number;
+}
+
+function binaryParts(node: AstNode, src: string): BinaryParts | undefined {
   const op = stringField(node, "operator");
   const left = child(node, "left");
   const right = child(node, "right");
-  if (!op || !left || !right) return;
-  const at = operatorOffset(ctx.src, op, left, right);
-  if (at === -1) return;
-  const span = (rep: string, mutator: MutatorName) => ctx.emit(at, at + op.length, rep, mutator);
+  if (!op || !left || !right) return undefined;
+  const at = operatorOffset(src, op, left, right);
+  return at === -1 ? undefined : { op, left, right, at };
+}
 
-  if (node.type === "LogicalExpression") {
-    const rep = LOGICAL[op];
-    if (rep) span(rep, "LogicalOperator");
-    return;
-  }
+const binary: Operator = (node, ctx) => {
+  if (node.type !== "BinaryExpression") return;
+  const parts = binaryParts(node, ctx.src);
+  if (!parts) return;
+  const { op, left, right, at } = parts;
+  const span = (rep: string, mutator: MutatorName) => ctx.emit(at, at + op.length, rep, mutator);
   for (const rep of EQUALITY[op] ?? []) span(rep, "EqualityOperator");
   const arith = ARITHMETIC[op];
   // `"a" + b` is concatenation; Stryker leaves it alone and so do we.
   if (arith && !(op === "+" && (isStringish(left) || isStringish(right)))) {
     span(arith, "ArithmeticOperator");
   }
+};
+
+const logical: Operator = (node, ctx) => {
+  if (node.type !== "LogicalExpression") return;
+  const parts = binaryParts(node, ctx.src);
+  const rep = parts && LOGICAL[parts.op];
+  if (!parts || !rep) return;
+  const { op, left, right, at } = parts;
+  if (op !== "??") {
+    ctx.emit(at, at + op.length, rep, "LogicalOperator");
+    return;
+  }
+  // `??` cannot sit next to `&&`/`||` without parentheses, so in a chain such
+  // as `a ?? b ?? c` the bare swap does not parse. Parenthesise the result and
+  // any logical operand.
+  const operand = (n: AstNode) => {
+    const text = ctx.src.slice(n.start, n.end);
+    return n.type === "LogicalExpression" ? `(${text})` : text;
+  };
+  const gapBefore = ctx.src.slice(left.end, at);
+  const gapAfter = ctx.src.slice(at + op.length, right.start);
+  ctx.emit(
+    node.start,
+    node.end,
+    `(${operand(left)}${gapBefore}${rep}${gapAfter}${operand(right)})`,
+    "LogicalOperator"
+  );
 };
 
 const booleanLiteral: Operator = (node, ctx) => {
@@ -213,6 +248,7 @@ const methodExpression: Operator = (node, ctx) => {
 
 export const OPERATORS: readonly Operator[] = [
   binary,
+  logical,
   booleanLiteral,
   unary,
   update,

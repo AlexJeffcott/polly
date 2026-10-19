@@ -71,8 +71,27 @@ async function changedSince(cwd: string, ref: string): Promise<Set<string>> {
 interface StrykerShape {
   cwd: string;
   testInclude: string[];
+  testPreload: string[];
   mutate: string[];
   concurrency: number | undefined;
+}
+
+/**
+ * `--preload <p>` / `--preload=<p>` pairs from the bun runner's `nodeArgs`,
+ * which it passes to `bun test` — so one config entry serves both engines.
+ */
+export function preloadsFromNodeArgs(cwd: string, nodeArgs: string[]): string[] {
+  const out: string[] = [];
+  nodeArgs.forEach((arg, i) => {
+    const value =
+      arg === "--preload"
+        ? nodeArgs[i + 1]
+        : arg.startsWith("--preload=")
+          ? arg.slice(10)
+          : undefined;
+    if (value) out.push(resolve(cwd, value));
+  });
+  return out;
 }
 
 async function readStrykerShape(path: string): Promise<StrykerShape> {
@@ -90,6 +109,7 @@ async function readStrykerShape(path: string): Promise<StrykerShape> {
   return {
     cwd: dirname(path),
     testInclude,
+    testPreload: preloadsFromNodeArgs(dirname(path), stringArray(bun["nodeArgs"])),
     mutate: stringArray(raw["mutate"]),
     concurrency: typeof raw["concurrency"] === "number" ? raw["concurrency"] : undefined,
   };
@@ -136,6 +156,7 @@ export async function engineConfigFromStryker(
     cwd: shape.cwd,
     targets: await selectTargets(shape, args),
     testInclude: shape.testInclude,
+    testPreload: shape.testPreload,
     concurrency: resolveConcurrency(args.concurrency, shape.concurrency),
     timeout: { factor: 2, extraMs: 3000 },
     ignoreVerifyCallsites: true,

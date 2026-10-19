@@ -69,6 +69,12 @@ export interface EngineConfig {
   targets: MutateTarget[];
   /** Test-file globs (relative to cwd) the import graph starts from. */
   testInclude: string[];
+  /**
+   * The project's own test preloads (absolute), passed before the mutant
+   * preload. Needed because a subset of test files can depend on a preload
+   * the full suite happens to load some other way (polly's CSS-module shim).
+   */
+  testPreload: string[];
   concurrency: number;
   timeout: { factor: number; extraMs: number };
   /** Mark mutants inside requires/ensures/… as Ignored instead of running them. */

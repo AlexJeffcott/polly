@@ -23,9 +23,13 @@ const project = createFixtureProject("polly-mutate-engine-", {
   ].join("\n"),
   "src/untested.ts": "export const flag = (a: number) => a > 1;",
   "src/broken.ts": "export const positive = (a: number) => a > 0;",
+  // Stands in for a project preload such as polly's CSS-module shim: the clamp
+  // tests are red without it, so a green baseline proves testPreload is passed.
+  "tests/setup.ts": "Reflect.set(globalThis, '__fixtureShim', true);",
   "tests/clamp.test.ts": [
     'import { expect, test } from "bun:test";',
     'import { clamp } from "../src/clamp.ts";',
+    "test(\"preload ran\", () => expect(Reflect.get(globalThis, '__fixtureShim')).toBe(true));",
     'test("inside", () => expect(clamp(5, 0, 10)).toBe(5));',
     'test("below", () => expect(clamp(-1, 0, 10)).toBe(0));',
   ].join("\n"),
@@ -48,6 +52,7 @@ beforeAll(async () => {
       { file: project.path("src/broken.ts") },
     ],
     testInclude: ["tests/**/*.test.ts"],
+    testPreload: [project.path("tests/setup.ts")],
     concurrency: 4,
     timeout: { factor: 2, extraMs: 3000 },
     ignoreVerifyCallsites: true,

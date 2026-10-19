@@ -1,6 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { parseMutateArgs } from "../args.ts";
-import { engineConfigFromStryker, expandMutateEntries } from "../engine-config.ts";
+import {
+  engineConfigFromStryker,
+  expandMutateEntries,
+  preloadsFromNodeArgs,
+} from "../engine-config.ts";
 import { createFixtureProject } from "./fixture-project.ts";
 
 const project = createFixtureProject("polly-mutate-config-", {
@@ -9,7 +13,7 @@ const project = createFixtureProject("polly-mutate-config-", {
   "src/b.test.ts": "",
   "stryker.conf.json": JSON.stringify({
     testRunner: "bun",
-    bun: { testFiles: ["tests/**/*.test.ts"] },
+    bun: { testFiles: ["tests/**/*.test.ts"], nodeArgs: ["--preload", "./tests/setup.ts"] },
     mutate: ["src/**/*.ts", "!src/**/*.test.ts", "src/a.ts:2-4"],
     concurrency: 3,
   }),
@@ -45,6 +49,7 @@ describe("engineConfigFromStryker", () => {
     expect(cfg.cwd).toBe(project.dir);
     expect(cfg.testInclude).toEqual(["tests/**/*.test.ts"]);
     expect(cfg.concurrency).toBe(3);
+    expect(cfg.testPreload).toEqual([project.path("tests/setup.ts")]);
     expect(cfg.targets.map((t) => t.file)).toEqual([
       project.path("src/a.ts"),
       project.path("src/b.ts"),
@@ -77,6 +82,13 @@ describe("engineConfigFromStryker", () => {
     await expect(engineConfigFromStryker(commandCfg, parseMutateArgs([]))).rejects.toThrow(
       'testRunner "command"'
     );
+  });
+});
+
+describe("preloadsFromNodeArgs", () => {
+  test("both flag spellings, resolved against the config dir; other args ignored", () => {
+    const args = ["--smol", "--preload", "./a.ts", "--preload=b/c.ts", "--preload"];
+    expect(preloadsFromNodeArgs("/p", args)).toEqual(["/p/a.ts", "/p/b/c.ts"]);
   });
 });
 

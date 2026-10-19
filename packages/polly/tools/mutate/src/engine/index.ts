@@ -46,7 +46,7 @@ interface Baseline {
 
 async function measureBaseline(
   cfg: EngineConfig,
-  preload: string,
+  preloads: string[],
   files: string[]
 ): Promise<Baseline> {
   let last = "";
@@ -54,7 +54,7 @@ async function measureBaseline(
     const outcome = await runBunTest({
       cwd: cfg.cwd,
       files,
-      preloadPath: preload,
+      preloads,
       bail: false,
       timeoutMs: BASELINE_TIMEOUT_MS,
       captureStderr: true,
@@ -76,7 +76,7 @@ async function measureBaseline(
 export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Promise<EngineResult> {
   const log = hooks.log ?? (() => undefined);
   const started = performance.now();
-  const preload = preloadPath();
+  const preloads = [...cfg.testPreload, preloadPath()];
 
   const testFiles = await findTestFiles(cfg.cwd, cfg.testInclude);
   if (testFiles.length === 0) {
@@ -100,7 +100,7 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
   );
 
   const baselines = await pool(prepared, cfg.concurrency, (p) =>
-    p.covering.length === 0 ? Promise.resolve(null) : measureBaseline(cfg, preload, p.covering)
+    p.covering.length === 0 ? Promise.resolve(null) : measureBaseline(cfg, preloads, p.covering)
   );
 
   interface Job {
@@ -125,7 +125,7 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
     const outcome = await runBunTest({
       cwd: cfg.cwd,
       files: p?.covering ?? [],
-      preloadPath: preload,
+      preloads,
       env: {
         POLLY_MUTATE_FILE: job.mutant.file,
         POLLY_MUTATE_SPAN: JSON.stringify({

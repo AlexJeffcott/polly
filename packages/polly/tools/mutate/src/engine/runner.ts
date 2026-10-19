@@ -12,7 +12,8 @@ import { existsSync } from "node:fs";
 export interface BunTestRun {
   cwd: string;
   files: string[];
-  preloadPath: string;
+  /** Every `--preload`, in order; the mutant preload goes last. */
+  preloads: string[];
   env?: Record<string, string>;
   bail: boolean;
   timeoutMs: number;
@@ -53,8 +54,7 @@ export async function runBunTest(run: BunTestRun): Promise<BunTestOutcome> {
   const argv = [
     "bun",
     "test",
-    "--preload",
-    run.preloadPath,
+    ...run.preloads.flatMap((p) => ["--preload", p]),
     ...(run.bail ? ["--bail"] : []),
     ...run.files,
   ];

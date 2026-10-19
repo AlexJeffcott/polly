@@ -7,6 +7,7 @@
     "testFiles": [
       "packages/polly/tests/unit/**/*.test.ts"
     ],
+    "nodeArgs": ["--preload", "./packages/polly/tests/setup.ts"],
     "timeout": 30000
   },
   "coverageAnalysis": "all",
