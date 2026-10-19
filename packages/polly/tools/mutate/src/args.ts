@@ -29,6 +29,8 @@ export interface MutateArgs {
   files?: string;
   /** `--since <git-ref>` — mutate only targets changed since the ref (bun engine). */
   since?: string;
+  /** `--in-tree` — run test processes in the project cwd, not a scratch dir (bun engine). */
+  inTree: boolean;
 }
 
 const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "help"]);
@@ -77,6 +79,7 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     noReport: bools.has("--no-report"),
     run: bools.has("--run"),
     force: bools.has("--force"),
+    inTree: bools.has("--in-tree"),
     help,
     engine: flags.get("--engine"),
     mode: flags.get("--mode"),

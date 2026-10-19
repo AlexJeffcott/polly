@@ -6,16 +6,19 @@
  *   baseline  run exactly that subset unmutated; it must pass, and its time
  *             sets the per-mutant timeout
  *   run       one `bun test --bail` per mutant, the mutant injected by a
- *             preload plugin (preload.ts) — no sandbox copy
+ *             preload plugin (preload.ts) — no sandbox copy; each process
+ *             gets a fresh scratch cwd (workdir.ts)
  *   report    mutation-testing-report-schema JSON (report-writer.ts)
  */
 import { realpathSync } from "node:fs";
+import { relative } from "node:path";
 import { generateMutants } from "./generate.ts";
 import { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
 import { toMutationReport, writeReport } from "./report-writer.ts";
 import { pool, preloadPath, runBunTest } from "./runner.ts";
 import { newPaths, snapshotWorktree } from "./stray-writes.ts";
 import type { EngineConfig, EngineResult, Mutant, MutantResult, TargetSummary } from "./types.ts";
+import { createWorkdirs, type Workdirs } from "./workdir.ts";
 
 export { applyMutant, generateMutants } from "./generate.ts";
 export { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
@@ -44,17 +47,34 @@ interface Baseline {
   ok: boolean;
   ms: number;
   reason?: string;
+  /** The target's tests need the project cwd, so its mutants run there. */
+  inTree: boolean;
 }
 
-async function measureBaseline(
-  cfg: EngineConfig,
+/** Run `fn` in a fresh scratch cwd, or in the project when `workdirs` is null. */
+async function inCwd<R>(
+  workdirs: Workdirs | null,
+  projectCwd: string,
+  fn: (cwd: string) => Promise<R>
+): Promise<R> {
+  if (!workdirs) return fn(projectCwd);
+  const dir = workdirs.create();
+  try {
+    return await fn(dir);
+  } finally {
+    workdirs.release(dir);
+  }
+}
+
+async function measureBaselineIn(
+  cwd: string,
   preloads: string[],
   files: string[]
-): Promise<Baseline> {
+): Promise<Omit<Baseline, "inTree">> {
   let last = "";
   for (let attempt = 1; attempt <= BASELINE_ATTEMPTS; attempt++) {
     const outcome = await runBunTest({
-      cwd: cfg.cwd,
+      cwd,
       files,
       preloads,
       bail: false,
@@ -75,7 +95,45 @@ async function measureBaseline(
   };
 }
 
+/**
+ * Scratch cwd first. When that is red, try the project cwd: green there means
+ * the tests depend on the cwd (fixtures read relative to it, say), so the
+ * target runs in-tree, where the stray-write guard still reports leaks.
+ */
+async function measureBaseline(
+  cfg: EngineConfig,
+  workdirs: Workdirs | null,
+  preloads: string[],
+  p: PreparedTarget,
+  log: (line: string) => void
+): Promise<Baseline> {
+  const scratch = await inCwd(workdirs, cfg.cwd, (cwd) =>
+    measureBaselineIn(cwd, preloads, p.covering)
+  );
+  if (scratch.ok || !workdirs) return { ...scratch, inTree: !workdirs };
+  const inTree = await measureBaselineIn(cfg.cwd, preloads, p.covering);
+  if (inTree.ok) {
+    log(
+      `${relative(cfg.cwd, p.file)}: tests fail outside ${cfg.cwd} (${scratch.reason}); its mutants run in-tree`
+    );
+  }
+  return { ...inTree, inTree: true };
+}
+
 export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Promise<EngineResult> {
+  const workdirs = cfg.scratchCwd ? createWorkdirs(cfg.cwd) : null;
+  try {
+    return await run(cfg, hooks, workdirs);
+  } finally {
+    workdirs?.remove();
+  }
+}
+
+async function run(
+  cfg: EngineConfig,
+  hooks: EngineHooks,
+  workdirs: Workdirs | null
+): Promise<EngineResult> {
   const log = hooks.log ?? (() => undefined);
   const started = performance.now();
   const preloads = [...cfg.testPreload, preloadPath()];
@@ -103,7 +161,9 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
   );
 
   const baselines = await pool(prepared, cfg.concurrency, (p) =>
-    p.covering.length === 0 ? Promise.resolve(null) : measureBaseline(cfg, preloads, p.covering)
+    p.covering.length === 0
+      ? Promise.resolve(null)
+      : measureBaseline(cfg, workdirs, preloads, p, log)
   );
 
   const afterBaselines = snapshotWorktree(cfg.cwd);
@@ -112,6 +172,7 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
     target: number;
     mutant: Mutant;
     timeoutMs: number;
+    inTree: boolean;
   }
   const jobs: Job[] = [];
   prepared.forEach((p, target) => {
@@ -119,7 +180,7 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
     if (!baseline?.ok) return;
     const timeoutMs = Math.round(baseline.ms * cfg.timeout.factor + cfg.timeout.extraMs);
     for (const mutant of p.mutants)
-      if (!mutant.ignoredReason) jobs.push({ target, mutant, timeoutMs });
+      if (!mutant.ignoredReason) jobs.push({ target, mutant, timeoutMs, inTree: baseline.inTree });
   });
   // Slowest targets first, so a long tail does not start last.
   jobs.sort((a, b) => b.timeoutMs - a.timeoutMs);
@@ -127,21 +188,23 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
   let done = 0;
   const runResults = await pool(jobs, cfg.concurrency, async (job): Promise<MutantResult> => {
     const p = prepared[job.target];
-    const outcome = await runBunTest({
-      cwd: cfg.cwd,
-      files: p?.covering ?? [],
-      preloads,
-      env: {
-        POLLY_MUTATE_FILE: job.mutant.file,
-        POLLY_MUTATE_SPAN: JSON.stringify({
-          start: job.mutant.start,
-          end: job.mutant.end,
-          replacement: job.mutant.replacement,
-        }),
-      },
-      bail: true,
-      timeoutMs: job.timeoutMs,
-    });
+    const outcome = await inCwd(job.inTree ? null : workdirs, cfg.cwd, (cwd) =>
+      runBunTest({
+        cwd,
+        files: p?.covering ?? [],
+        preloads,
+        env: {
+          POLLY_MUTATE_FILE: job.mutant.file,
+          POLLY_MUTATE_SPAN: JSON.stringify({
+            start: job.mutant.start,
+            end: job.mutant.end,
+            replacement: job.mutant.replacement,
+          }),
+        },
+        bail: true,
+        timeoutMs: job.timeoutMs,
+      })
+    );
     done++;
     hooks.progress?.(done, jobs.length);
     const status = outcome.timedOut ? "Timeout" : outcome.exitCode === 0 ? "Survived" : "Killed";
@@ -178,6 +241,7 @@ export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Pro
       file: p.file,
       coveringTests: p.covering,
       baselineMs: baseline?.ok ? Math.round(baseline.ms) : null,
+      inTree: baseline?.inTree ?? !workdirs,
       results,
     };
   });

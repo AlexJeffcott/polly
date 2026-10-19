@@ -56,6 +56,7 @@ beforeAll(async () => {
     concurrency: 4,
     timeout: { factor: 2, extraMs: 3000 },
     ignoreVerifyCallsites: true,
+    scratchCwd: true,
     reportPath,
   });
 }, 120_000);

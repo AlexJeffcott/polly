@@ -160,6 +160,7 @@ export async function engineConfigFromStryker(
     concurrency: resolveConcurrency(args.concurrency, shape.concurrency),
     timeout: { factor: 2, extraMs: 3000 },
     ignoreVerifyCallsites: true,
+    scratchCwd: !args.inTree,
     reportPath: cfg.reportPath,
   };
 }

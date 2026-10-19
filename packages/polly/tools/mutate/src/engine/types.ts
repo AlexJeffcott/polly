@@ -79,6 +79,11 @@ export interface EngineConfig {
   timeout: { factor: number; extraMs: number };
   /** Mark mutants inside requires/ensures/… as Ignored instead of running them. */
   ignoreVerifyCallsites: boolean;
+  /**
+   * Run each test process in a fresh scratch cwd (workdir.ts), so a mutant's
+   * relative writes miss the repo. False runs everything in `cwd`.
+   */
+  scratchCwd: boolean;
   reportPath: string;
 }
 
@@ -86,6 +91,8 @@ export interface TargetSummary {
   file: string;
   coveringTests: string[];
   baselineMs: number | null;
+  /** Its mutants ran in the project cwd (scratch off, or its tests need the cwd). */
+  inTree: boolean;
   results: MutantResult[];
 }
 

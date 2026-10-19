@@ -60,12 +60,15 @@ writes the same `reports/mutation/mutation.json`, so `report`, `decisions` and
 | Select | Test files whose import closure reaches the target, through Bun's own resolver (tsconfig `paths` work) |
 | Baseline | The selected files run once unmutated; they must pass (3 tries), and their time sets each mutant's timeout (2× + 3 s) |
 | Run | One `bun test --bail` per mutant. `engine/preload.ts` swaps the target's text in a `Bun.plugin` `onLoad` — no sandbox copy |
+| Isolate | Each test process runs in a fresh scratch cwd that carries the project's `tsconfig.json` (by `extends`) and `bunfig.toml` (preloads made absolute). A target whose tests pass only in the project dir (a fixture read through `process.cwd()`) runs in-tree, and the run says so. `--in-tree` turns this off |
+| Guard | `git status` snapshots before the run, after the baselines and after the mutants. Each path a mutant run adds to the worktree prints as a warning; nothing is deleted |
 
 ```sh
 polly mutate run --engine bun                          # every target in the config
 polly mutate run --engine bun --files src/a.ts         # one target (globs, a.ts:10-20 ranges)
 polly mutate run --engine bun --since main             # only targets changed since a ref
 polly mutate run --engine bun --concurrency 10
+polly mutate run --engine bun --in-tree              # test processes run in the project dir
 ```
 
 Current limits:

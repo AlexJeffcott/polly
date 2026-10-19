@@ -39,6 +39,7 @@ Flags:
   --engine <name>     'run' only — stryker (default) or bun (Bun-native, no sandbox)
   --files <a,b>       bun engine — mutate only these files (globs and :from-to ranges allowed)
   --since <git-ref>   bun engine — mutate only targets changed since the ref
+  --in-tree           bun engine — run tests in the project dir, not a scratch cwd
   --concurrency <n>   bun engine — parallel bun test processes (default: config, else cores-1)
   --mode fast         bun engine — stop each run at the first failing test (the only mode so far)
   -h, --help

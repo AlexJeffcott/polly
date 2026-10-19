@@ -4,6 +4,9 @@
  * the fixture repo — the shape of polly's storage-adapter `st/orage-adapter-id`
  * leak. The baseline test also writes a file of its own, which must be
  * attributed to the baseline and not to the mutants.
+ *
+ * The guard run uses `scratchCwd: false`, so the leak reaches the repo; the
+ * scratch run shows the same mutants leave the repo untouched.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -33,10 +36,8 @@ const project = createFixtureProject("polly-mutate-stray-", {
 });
 Bun.spawnSync(["git", "init", "-q"], { cwd: project.dir });
 
-let result: EngineResult;
-
-beforeAll(async () => {
-  result = await runEngine({
+const run = (scratchCwd: boolean) =>
+  runEngine({
     cwd: project.dir,
     targets: [{ file: project.path("src/out.ts") }],
     testInclude: ["tests/**/*.test.ts"],
@@ -44,8 +45,16 @@ beforeAll(async () => {
     concurrency: 2,
     timeout: { factor: 2, extraMs: 3000 },
     ignoreVerifyCallsites: true,
+    scratchCwd,
     reportPath: project.path("reports/mutation.json"),
   });
+
+let result: EngineResult;
+let scratch: EngineResult;
+
+beforeAll(async () => {
+  scratch = await run(true);
+  result = await run(false);
 }, 120_000);
 afterAll(() => project.remove());
 
@@ -62,6 +71,12 @@ describe("stray-write guard", () => {
   test("the report the engine writes on purpose is not a stray write", () => {
     expect(existsSync(project.path("reports/mutation.json"))).toBe(true);
     expect(JSON.stringify(result.strayWrites)).not.toContain("reports/");
+  });
+
+  test("with a scratch cwd the same mutants and tests write nothing into the repo", () => {
+    expect(scratch.strayWrites).toEqual({ root: project.dir, baseline: [], mutants: [] });
+    expect(scratch.targets[0]?.inTree).toBe(false);
+    expect(scratch.targets[0]?.results.some((r) => r.status === "Killed")).toBe(true);
   });
 
   test("snapshots see new files in untracked dirs, ignored files and modified ones", () => {
