@@ -11,12 +11,12 @@ import { isMatrixComplete } from "./verify-matrix.ts";
 
 /** Run Stryker against the resolved config. Inherits stdio for the live reporter; returns the exit code. */
 export async function runStryker(cfg: MutateConfig): Promise<number> {
-  // Pass --configFile only when the located config is NOT the auto-discoverable
-  // root stryker.conf.json — that keeps a bare repo run identical to `stryker run`.
+  // Pass the config only when it is NOT the auto-discoverable root
+  // stryker.conf.json — that keeps a bare repo run identical to `stryker run`.
+  // Stryker takes it as a positional argument; it rejects `--configFile`.
   const autoDiscoverable = cfg.strykerConfigPath === resolve(cfg.cwd, "stryker.conf.json");
-  const configFlag =
-    cfg.strykerConfigPath && !autoDiscoverable ? ["--configFile", cfg.strykerConfigPath] : [];
-  const proc = Bun.spawn(["bunx", "stryker", "run", ...configFlag], {
+  const configArg = cfg.strykerConfigPath && !autoDiscoverable ? [cfg.strykerConfigPath] : [];
+  const proc = Bun.spawn(["bunx", "stryker", "run", ...configArg], {
     cwd: cfg.cwd,
     stdout: "inherit",
     stderr: "inherit",

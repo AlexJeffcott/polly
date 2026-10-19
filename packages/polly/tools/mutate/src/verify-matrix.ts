@@ -62,7 +62,8 @@ export async function verifyMatrix(
       "bunx",
       "stryker",
       "run",
-      ...(opts.strykerConfig ? ["--configFile", opts.strykerConfig] : []),
+      // Stryker takes the config file as a positional argument; it rejects `--configFile`.
+      ...(opts.strykerConfig ? [opts.strykerConfig] : []),
     ];
     const proc = Bun.spawn(cmd, { stdout: "inherit", stderr: "inherit" });
     const code = await proc.exited;
