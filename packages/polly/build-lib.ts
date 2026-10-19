@@ -236,6 +236,8 @@ const toolsResult = await Bun.build({
     "@cucumber/*",
     // Parser for the bun mutation engine — a native-binding dependency, kept external.
     "oxc-parser",
+    // Regex mutants for the bun mutation engine (Stryker's own generator) — a dependency, kept external.
+    "weapon-regex",
   ],
 });
 

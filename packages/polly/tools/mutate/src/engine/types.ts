@@ -10,13 +10,17 @@
 export type MutatorName =
   | "ArithmeticOperator"
   | "ArrayDeclaration"
+  | "ArrowFunction"
+  | "AssignmentOperator"
   | "BlockStatement"
   | "BooleanLiteral"
   | "ConditionalExpression"
   | "EqualityOperator"
   | "LogicalOperator"
   | "MethodExpression"
+  | "ObjectLiteral"
   | "OptionalChaining"
+  | "Regex"
   | "StringLiteral"
   | "UnaryOperator"
   | "UpdateOperator";

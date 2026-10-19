@@ -3,8 +3,12 @@
  * the tree, and collect span replacements from the operators.
  *
  * Type-only syntax is never mutated — a mutant there changes nothing Bun
- * executes. Mutants inside polly verify primitives are kept but marked
+ * executes — and neither are decorators or `declare` statements (Stryker's
+ * skip rules). Mutants inside polly verify primitives are kept but marked
  * ignored, the way Stryker's polly-verify ignorer reports them.
+ *
+ * Parentheses are not nodes (`preserveParens: false`), as in the Babel AST
+ * Stryker walks, so operators that look at a parent see the real one.
  */
 import { parseSync } from "oxc-parser";
 import { type AstNode, calleeName, isAstNode } from "./ast.ts";
@@ -18,9 +22,22 @@ const TS_RUNTIME_WRAPPERS = new Set([
   "TSSatisfiesExpression",
   "TSNonNullExpression",
   "TSInstantiationExpression",
+  "TSTypeAssertion",
+  // `constructor(private x = 1)`: the default is runtime code.
+  "TSParameterProperty",
+  // A namespace body runs; only `declare namespace` / `declare module` is type-only.
+  "TSModuleBlock",
 ]);
+const PARSE_OPTIONS = { preserveParens: false };
 const TYPE_KEYS = new Set(["typeAnnotation", "returnType", "typeParameters", "typeArguments"]);
-const SKIPPED_STATEMENTS = new Set(["ImportDeclaration", "ExportAllDeclaration"]);
+const SKIPPED_STATEMENTS = new Set(["ImportDeclaration", "ExportAllDeclaration", "Decorator"]);
+
+function isSkipped(node: AstNode): boolean {
+  if (SKIPPED_STATEMENTS.has(node.type)) return true;
+  if (node.type === "VariableDeclaration") return node["declare"] === true;
+  if (node.type === "TSModuleDeclaration") return node["declare"] === true;
+  return node.type.startsWith("TS") && !TS_RUNTIME_WRAPPERS.has(node.type);
+}
 
 export interface GenerateOptions {
   ignoreVerifyCallsites?: boolean;
@@ -78,7 +95,7 @@ export function generateMutants(
   src: string,
   opts: GenerateOptions = {}
 ): GenerateResult {
-  const parsed = parseSync(file, src);
+  const parsed = parseSync(file, src, PARSE_OPTIONS);
   const first = parsed.errors[0];
   if (first) throw new Error(`${file}: cannot parse target: ${first.message}`);
 
@@ -88,20 +105,17 @@ export function generateMutants(
   const seen = new Set<string>();
   const all: Mutant[] = [];
 
-  const visit = (
-    node: AstNode,
-    parent: AstNode | undefined,
-    key: string,
-    ignored: string | undefined
-  ) => {
-    if (node.type.startsWith("TS") && !TS_RUNTIME_WRAPPERS.has(node.type)) return;
-    if (SKIPPED_STATEMENTS.has(node.type)) return;
+  const ancestors: AstNode[] = [];
+  const visit = (node: AstNode, key: string, ignored: string | undefined) => {
+    if (isSkipped(node)) return;
+    const parent = ancestors[ancestors.length - 1];
 
     const ignoredHere = ignored ?? (ignoreVerify ? verifyReason(node) : undefined);
     const ctx: OperatorContext = {
       src,
       parent,
       key,
+      ancestors,
       emit(start: number, end: number, replacement: string, mutatorName: MutatorName) {
         // Two operators can propose the same edit; keep one.
         const dedupe = `${start}:${end}:${replacement}`;
@@ -121,11 +135,13 @@ export function generateMutants(
     };
     for (const op of OPERATORS) op(node, ctx);
 
-    for (const [k, c] of runtimeChildren(node)) visit(c, node, k, ignoredHere);
+    ancestors.push(node);
+    for (const [k, c] of runtimeChildren(node)) visit(c, k, ignoredHere);
+    ancestors.pop();
   };
 
   for (const statement of parsed.program.body) {
-    if (isAstNode(statement)) visit(statement, undefined, "body", undefined);
+    if (isAstNode(statement)) visit(statement, "body", undefined);
   }
 
   const inRange = opts.lines
@@ -143,7 +159,8 @@ export function generateMutants(
   const mutants: Mutant[] = [];
   const compileErrors: Mutant[] = [];
   for (const m of inRange) {
-    if (parseSync(file, applyMutant(src, m)).errors.length > 0) compileErrors.push(m);
+    if (parseSync(file, applyMutant(src, m), PARSE_OPTIONS).errors.length > 0)
+      compileErrors.push(m);
     else mutants.push(m);
   }
   return { mutants, compileErrors };

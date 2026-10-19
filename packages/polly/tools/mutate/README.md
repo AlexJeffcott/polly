@@ -71,6 +71,27 @@ polly mutate run --engine bun --concurrency 10
 polly mutate run --engine bun --in-tree              # test processes run in the project dir
 ```
 
+Operators are Stryker's 16 mutators, with Stryker's names and the rules of
+`@stryker-mutator/instrumenter` 9.6.1, so a report reads the same from either
+engine: ArithmeticOperator, ArrayDeclaration, ArrowFunction,
+AssignmentOperator, BlockStatement, BooleanLiteral, ConditionalExpression,
+EqualityOperator, LogicalOperator, MethodExpression, ObjectLiteral,
+OptionalChaining, Regex (weapon-regex 1.3.6, level 1, the version Stryker
+resolves), StringLiteral, UnaryOperator, UpdateOperator. Like Stryker, it
+skips type-only syntax, imports, decorators and `declare` statements.
+
+Intended differences from Stryker:
+
+| Where | Stryker | This engine | Why |
+|---|---|---|---|
+| `expr as T` | Skips the whole subtree, `expr` included | Mutates `expr` | `expr` runs; skipping it hides mutants |
+| `a ?? b` → `&&` | Babel regenerates the code | The result is parenthesised in the source span | `a ?? b ?? c` does not parse otherwise |
+| Verify primitives | Mutated unless the polly ignorer is configured | `Ignored` by default (`ignoreVerifyCallsites`) | polly#143 |
+| Mutant text | Babel's generated code | The original source with one span swapped | Comments and formatting stay byte-identical |
+
+The last row means a parity check must compare replacements after
+normalising quotes and whitespace.
+
 Current limits:
 
 - **Fast mode only.** `--bail` stops at the first failing test, so `killedBy` is

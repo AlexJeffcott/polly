@@ -27,6 +27,7 @@
     "fast-check": "Property-based testing library used by the verify tool's TLA+ codegen fuzzer.",
     "marked": "Markdown parser used by the polly-ui markdown component.",
     "oxc-parser": "ESTree parser (native) behind `polly mutate --engine bun` \u2014 generates span mutants from TS/TSX source.",
+    "weapon-regex": "Regex mutant generator behind `polly mutate --engine bun` \u2014 the generator Stryker's Regex mutator uses, pinned to the version Stryker 9.6.1 resolves (1.3.6) so mutants match.",
     "pixelmatch": "Per-pixel image diff used by the visual-test tool.",
     "pngjs": "PNG decoder used by the visual-test tool to load screenshots before pixelmatch.",
     "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points. Held at 10.x: preact 11 removes JSX namespace types polly-ui uses; moving needs its own breaking release.",
