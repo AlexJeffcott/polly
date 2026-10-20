@@ -39,6 +39,7 @@ const config = (over: Partial<EngineConfig> = {}): EngineConfig => ({
   runner: { kind: "bun-test" },
   excludeMutators: [],
   ignoreVerifyCallsites: true,
+  contracts: "off",
   scratchCwd: true,
   typecheck: false,
   cacheDir,
@@ -83,6 +84,10 @@ describe("result cache", () => {
   test("a change to the target reruns it", async () => {
     append("src/add.ts", "\nexport const sub = (n: number) => n - base;");
     expect(cachedFlags(await runEngine(config()))).toEqual([false, true]);
+  }, 120_000);
+
+  test("another contracts mode is another key", async () => {
+    expect(cachedFlags(await runEngine(config({ contracts: "all" })))).toEqual([false, false]);
   }, 120_000);
 
   test("another mode is another key; no cache dir runs everything", async () => {

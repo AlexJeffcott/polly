@@ -42,7 +42,7 @@ import { isRecord } from "../../../../src/shared/lib/guards";
 import { type JunitCase, parseJunit, testId } from "./junit.ts";
 import { instrument } from "./probes.ts";
 import { pool, runBunTest } from "./runner.ts";
-import type { Mutant, TestRef } from "./types.ts";
+import type { ContractsMode, Mutant, TestRef } from "./types.ts";
 import { inCwd, type Workdirs } from "./workdir.ts";
 
 /** Bump when attribution changes; part of the coverage cache key. */
@@ -92,6 +92,8 @@ export interface CoverageRun {
   concurrency: number;
   /** Scratch cwds (workdir.ts); null runs in `cwd`. */
   workdirs: Workdirs | null;
+  /** POLLY_CONTRACTS for the pass, as for every other run. */
+  contracts: ContractsMode;
   log: (line: string) => void;
 }
 
@@ -308,6 +310,7 @@ export async function collectCoverage(run: CoverageRun): Promise<Coverage | null
             files,
             preloads: run.preloads,
             env: { POLLY_MUTATE_COVERAGE: planPath, POLLY_MUTATE_COVERAGE_OUT: out },
+            contracts: run.contracts,
             bail: false,
             junit: true,
             timeoutMs: COVERAGE_TIMEOUT_MS,

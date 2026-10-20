@@ -55,6 +55,10 @@ Flags:
   --no-cache          rerun targets whose inputs are unchanged
   --no-typecheck      run mutants the project's tsconfig rejects (default: report
                       them CompileError without a run; needs typescript-7)
+  --contracts <off|ensures|all> POLLY_CONTRACTS for every test process: a false
+                      requires/ensures throws, so each contract kills the mutants
+                      that falsify it (default all; ensures leaves requires inert;
+                      a baseline that violates a contract stops the run)
   -h, --help
 
 The redundancy/subsumption sections need a COMPLETE kill matrix ('--mode matrix').

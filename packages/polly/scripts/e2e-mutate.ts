@@ -29,6 +29,14 @@
  *
  * Then `--no-typecheck`: the same mutants run and get a real status.
  *
+ * Then contracts through the BUILT package: a handler whose only check on a
+ * value it sets is an `ensures` from "@fairfox/polly/verify", under a test
+ * that never asserts on that value. `--contracts off` leaves the mutant
+ * Survived; `--contracts all` (the default) kills it, names the ensures site
+ * in `killedByContract`, and `polly mutate report` renders the CONTRACTS
+ * section. This proves the dist primitives throw and that the preload's
+ * afterEach drain fails the test when the handler swallowed the throw.
+ *
  * Then `--since HEAD` in a git checkout: no change → nothing runs; one target
  * edited → only that target runs.
  *
@@ -135,6 +143,46 @@ async function writeProject(dir: string, files: Record<string, string>): Promise
   symlinkSync(POLLY_PKG_DIR, link);
 }
 
+/** A handler whose role check is only an `ensures` (built @fairfox/polly/verify). */
+const CONTRACT_SOURCES: Record<string, string> = {
+  "package.json": SOURCES["package.json"] ?? "",
+  "tsconfig.json": SOURCES["tsconfig.json"] ?? "",
+  "src/account.ts": [
+    'import { ensures, requires } from "@fairfox/polly/verify";',
+    'export const state = { loggedIn: false, role: "" };',
+    "export function login(role: string): { success: boolean } {",
+    "  try {",
+    '    requires(state.loggedIn === false, "must be logged out");',
+    "    state.loggedIn = true;",
+    '    state.role = role || "member";',
+    '    ensures(state.role !== "", "role is set");',
+    "    return { success: true };",
+    "  } catch {",
+    "    return { success: false };",
+    "  }",
+    "}",
+  ].join("\n"),
+  "tests/account.test.ts": [
+    'import { beforeEach, expect, test } from "bun:test";',
+    'import { login, state } from "../src/account.ts";',
+    'beforeEach(() => { state.loggedIn = false; state.role = ""; });',
+    'test("login sets loggedIn", () => {',
+    '  login("");',
+    "  expect(state.loggedIn).toBe(true);",
+    "});",
+  ].join("\n"),
+  "polly.mutate.ts": [
+    'import { defineMutation } from "@fairfox/polly/mutate";',
+    "export default defineMutation({",
+    '  targets: ["src/**/*.ts"],',
+    '  tests: { include: ["tests/**/*.test.ts"] },',
+    '  mode: "matrix",',
+    "});",
+  ].join("\n"),
+};
+const ROLE_LINE = 7;
+const ENSURES_LINE = 8;
+
 const TERNARY_LINE = 5;
 const DESCRIBE_LINE = 10;
 /** `transition`'s body: emptied, a string-returning function returns nothing (TS2355). */
@@ -144,6 +192,9 @@ interface ReportMutant {
   status: string;
   statusReason?: string;
   line: number;
+  mutatorName?: string;
+  killedByContract?: string[];
+  contractOnly?: boolean;
 }
 
 async function readMutants(dir: string, file: string): Promise<ReportMutant[]> {
@@ -158,11 +209,21 @@ async function readMutants(dir: string, file: string): Promise<ReportMutant[]> {
     if (!isRecord(m) || typeof m["status"] !== "string" || !isRecord(m["location"])) return [];
     const start = m["location"]["start"];
     if (!isRecord(start) || typeof start["line"] !== "number") return [];
-    const reason = typeof m["statusReason"] === "string" ? m["statusReason"] : undefined;
-    return [
-      { status: m["status"], line: start["line"], ...(reason ? { statusReason: reason } : {}) },
-    ];
+    return [{ status: m["status"], line: start["line"], ...optionalFields(m) }];
   });
+}
+
+/** The optional report fields a check may read, when present and well-typed. */
+function optionalFields(m: Record<string, unknown>): Omit<ReportMutant, "status" | "line"> {
+  const contracts = m["killedByContract"];
+  return {
+    ...(typeof m["statusReason"] === "string" ? { statusReason: m["statusReason"] } : {}),
+    ...(typeof m["mutatorName"] === "string" ? { mutatorName: m["mutatorName"] } : {}),
+    ...(Array.isArray(contracts) && contracts.every((c) => typeof c === "string")
+      ? { killedByContract: contracts }
+      : {}),
+    ...(m["contractOnly"] === true ? { contractOnly: true } : {}),
+  };
 }
 
 async function mutate(cli: string, dir: string, args: string[]) {
@@ -358,6 +419,52 @@ async function checkMigrate(ctx: TierContext): Promise<void> {
   }
 }
 
+async function checkContracts(ctx: TierContext): Promise<void> {
+  const temp = withTempDir("polly-e2e-mutate-contracts-");
+  try {
+    await writeProject(temp.dir, CONTRACT_SOURCES);
+    const roleMutant = (mutants: ReportMutant[]) =>
+      mutants.find((m) => m.line === ROLE_LINE && m.mutatorName === "LogicalOperator");
+
+    ctx.log("[e2e] built: polly mutate run --contracts off");
+    await mutate(BUILT_CLI, temp.dir, ["run", "--no-report", "--no-cache", "--contracts", "off"]);
+    const off = roleMutant(await readMutants(temp.dir, "src/account.ts"));
+    assert(
+      off?.status === "Survived",
+      `with contracts off the role mutant (line ${ROLE_LINE}) should survive: ${JSON.stringify(off)}`
+    );
+
+    ctx.log("[e2e] built: polly mutate run (contracts all by default)");
+    const out = await mutate(BUILT_CLI, temp.dir, ["run", "--no-report", "--no-cache"]);
+    const on = roleMutant(await readMutants(temp.dir, "src/account.ts"));
+    assert(
+      on?.status === "Killed",
+      `with contracts on the role mutant should be Killed: ${JSON.stringify(on)}\n${out}`
+    );
+    assert(
+      JSON.stringify(on.killedByContract) === JSON.stringify([`src/account.ts:${ENSURES_LINE}`]),
+      `killedByContract should name the ensures site: ${JSON.stringify(on)}`
+    );
+    assert(on.contractOnly === true, `the kill should be contract-only: ${JSON.stringify(on)}`);
+
+    const rendered = await mutate(BUILT_CLI, temp.dir, ["report"]);
+    assert(
+      rendered.includes("CONTRACTS  (requires/ensures as kill oracles — mode all, 2 site(s))"),
+      `polly mutate report did not render the CONTRACTS section:\n${rendered}`
+    );
+    assert(
+      rendered.includes(`src/account.ts:${ENSURES_LINE}  ensures`) &&
+        rendered.includes("CONTRACT-ONLY KILLS"),
+      `the CONTRACTS section lacks the per-site kills or the contract-only list:\n${rendered}`
+    );
+    ctx.log(
+      `  ✓ contracts: the swallowed ensures (src/account.ts:${ENSURES_LINE}) kills the mutant the test never asserts on; off → Survived, all → Killed, attributed, contract-only`
+    );
+  } finally {
+    temp.cleanup();
+  }
+}
+
 export async function run(ctx: TierContext): Promise<TierResult> {
   try {
     if (!existsSync(BUILT_CLI))
@@ -365,6 +472,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     await checkCli(ctx, "source", SOURCE_CLI);
     await checkCli(ctx, "built", BUILT_CLI);
     await checkTypecheckOff(ctx);
+    await checkContracts(ctx);
     await checkSince(ctx);
     await checkInit(ctx);
     await checkMigrate(ctx);

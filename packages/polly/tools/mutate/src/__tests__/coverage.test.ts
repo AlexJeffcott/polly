@@ -67,6 +67,7 @@ const config = (over: Partial<EngineConfig>): EngineConfig => ({
   runner: { kind: "bun-test" },
   excludeMutators: [],
   ignoreVerifyCallsites: true,
+  contracts: "off",
   scratchCwd: true,
   typecheck: false,
   cacheDir: null,

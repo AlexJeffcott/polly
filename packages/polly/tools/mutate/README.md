@@ -17,6 +17,7 @@ redundancy ratio — 106 killing tests doing the work of ~14.
 | **gaps** | survived mutants — code no test pins | status |
 | **redundancy** | tests/files whose every kill is caught elsewhere too | `killedBy` matrix |
 | **theatre** | covered-but-survived — assertions ran the code but caught nothing | coverage `"all"` |
+| **contracts** | mutants only a `requires`/`ensures` caught, kills per contract, and contracts whose handler ran yet never fired | `killedByContract` (bun engine, `--mode matrix`, contracts on) |
 
 Redundancy is reported at both **file** and **case** level. Decisions should be
 keyed at file level — file identity is stable across `describe` restructuring,
@@ -110,6 +111,7 @@ its output unchanged.
 | Matrix | `--mode matrix`: no `--bail`, a junit report per run, and every failing test in `killedBy`, so the redundancy sections turn on. A covering file that the baseline reported and a mutant run did not (it threw while loading) is named as `<file>#(file produced no results)@0`. A green baseline with no junit test case fails the target |
 | Cache | `.polly/mutate/cache/` (it ignores itself in git). The key covers the generated mutants, every file the covering tests import, each mutant's selection, the preloads, tsconfig, bunfig, bun.lock, the mode, the type filter's on/off and Bun's version. The coverage pass has its own entry, keyed on every file the import graph holds. `--no-cache` reruns |
 | Guard | `git status` snapshots before the run, after the baselines and after the mutants. Each path a mutant run adds to the worktree prints as a warning; nothing is deleted |
+| Contracts | Every test process runs with `POLLY_CONTRACTS` set (default `all`), so a false `requires`/`ensures` from `@fairfox/polly/verify` throws a `ContractViolation` instead of being a no-op. See "Contracts as oracles" below |
 
 ```sh
 polly mutate run                          # every target in the config
@@ -120,7 +122,65 @@ polly mutate run --mode matrix            # every killer recorded
 polly mutate verify --run                 # matrix pass, then the kill-matrix contract
 polly mutate run --in-tree                # test processes run in the project dir
 polly mutate run --coverage static        # no coverage pass: import-graph selection
+polly mutate run --contracts ensures      # enforce postconditions only; off restores the no-ops
 ```
+
+### Contracts as oracles
+
+`requires(cond, msg)` and `ensures(cond, msg)` are runtime no-ops: the caller
+evaluates `cond`, the primitive discards it, and only `polly verify` reads
+the call. Every one of them is still an assertion the author wrote, placed in
+the handler it describes. Under `POLLY_CONTRACTS` a false condition throws a
+`ContractViolation` whose message starts with a marker
+(`[polly-contract ensures /abs/handlers.ts:50] the author's message`), and the
+engine sets that variable on every test process it starts — baseline,
+coverage pass, mutant runs, both runner kinds — so each contract kills the
+mutants that falsify it, in every test that drives its handler, whether or not
+the test asserts on the outcome.
+
+| Setting | Effect |
+|---|---|
+| `contracts: "all"` / `--contracts all` (default) | `requires` and `ensures` throw when false |
+| `"ensures"` | postconditions throw; preconditions stay inert |
+| `"off"` | the primitives are no-ops, as outside the engine |
+
+The message bus turns a handler's throw into `{ success: false }`, so a
+violation can pass unseen by the test that caused it. The primitives therefore
+record each violation on `globalThis` before throwing, and the harness drains
+the list: the engine preload fails the test in a global `afterEach` (a
+violation during module load or `beforeAll` belongs to no test and is
+logged), and `polly bdd run` fails the step. The preload also keeps the
+target's line count when a mutant drops lines (an emptied block is followed by
+a comment holding them), so the site a violation names is the source line.
+
+What the run reports, in matrix mode:
+
+- **`killedByContract`** on a mutant: the contract ids
+  (`<file>:<line>`) the killing tests' failures named. **`contractOnly`**
+  when every killer failed that way — no assertion caught the mutant, a
+  contract did.
+- **`CONTRACTS`** section of the report: contract-only kills; kills per
+  contract; **contracts without teeth** — a site whose handler had mutants
+  run and that never fired, the semantic twin of the static
+  `no-tautology-ensures` check; and sites whose handler no mutant exercised.
+- **`TEST VIOLATES CONTRACT`**: the unmutated code failed a contract under
+  one of its own tests — a test drives a handler outside its declared
+  precondition, or a handler breaks its own postcondition. The run stops
+  with exit 1, names the test and the site, and that target's mutants are
+  `RuntimeError`. This is deterministic, so the baseline is not retried.
+  `--contracts ensures` leaves `requires` inert; `--contracts off` restores
+  the no-ops. A silent fallback would make off/on kill counts incomparable.
+
+Limits: fast mode (`--bail`) has no per-test results, so kills are not
+attributed; the command runner has none either, so only the aggregate kill
+count moves (compare a `--contracts off` run) and a red command is rerun once
+with contracts off to tell a contract violation from any other failure. The
+report and cache key carry the mode, so `off` and `all` never share results.
+
+Proof surface: `scripts/e2e-mutate.ts` (`checkContracts`: the built package's
+primitives, a swallowed `ensures`, off → Survived, all → Killed and attributed)
+and `scripts/e2e-mutate-contracts.ts` (examples/todo-list through the BDD
+command runner, killed count off against all).
 
 The **command runner** (`runner: { kind: "command", argv }`) runs the argv once
 per mutant in the config's directory; a non-zero exit kills the mutant. The
@@ -175,6 +235,8 @@ Current limits:
   because it runs every test file.
 - A file that a bunfig `[test].preload` imports is loaded before the mutant
   plugin registers, so it cannot be mutated.
+- **A contract violated outside any test** (module load, `beforeAll`) is
+  logged, not attributed: no test owns it.
 
 Proof surface: `scripts/e2e-mutate.ts` (cold-start project, source and built CLI,
 `--since`, `init` then `run`, a Stryker-only project before and after `migrate

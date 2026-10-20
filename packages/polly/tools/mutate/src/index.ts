@@ -21,6 +21,9 @@ export {
 export {
   applyMutant,
   buildImportGraph,
+  type ContractSite,
+  type ContractsMode,
+  type ContractViolationRecord,
   coveringTests,
   type EngineConfig,
   type EngineHooks,
@@ -36,7 +39,7 @@ export {
   runEngine,
   VERIFY_PRIMITIVES,
 } from "./engine/index.ts";
-export { buildDb, type MutationReport } from "./ingest.ts";
+export { buildDb, type MutationReport, type ReportContracts } from "./ingest.ts";
 export { type InitResult, initConfig } from "./init.ts";
 export { type Migration, migrateConfig, strykerToMutation } from "./migrate.ts";
 export { report } from "./report.ts";

@@ -403,6 +403,12 @@ export function internalPlan(): TierPlan {
           tags: ["mutate", "mutation"],
           cost: "heavy",
         }),
+        // Contracts as a kill oracle on examples/todo-list through the BDD
+        // command runner: killed count with --contracts off against all.
+        e2e("mutate.contracts", "e2e-mutate-contracts.ts", {
+          tags: ["mutate", "mutation", "contracts", "bdd"],
+          cost: "heavy",
+        }),
         {
           // The half of the `tools` tier that drives real containers: SANY
           // validation and the polly#173 container-leak guard. Without docker

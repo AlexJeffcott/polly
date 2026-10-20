@@ -63,6 +63,43 @@ export interface MutantResult {
   killedBy?: string[];
   /** Dynamic coverage: ids of every test that ran the mutant's code (coverage.ts). */
   coveredBy?: string[];
+  /**
+   * Matrix mode with contracts on: ids (`<file relative to cwd>:<line>`) of
+   * every requires/ensures whose violation a killing test reported.
+   */
+  killedByContract?: string[];
+  /** Every killing test failed through a contract violation: no assertion caught it. */
+  contractOnly?: boolean;
+}
+
+/**
+ * POLLY_CONTRACTS for every test process the engine starts: off keeps
+ * requires/ensures as no-ops; ensures makes a false postcondition throw;
+ * all makes a false precondition throw too.
+ */
+export type ContractsMode = "off" | "ensures" | "all";
+
+/** A `requires` / `ensures` call in a target (generate.ts). */
+export interface ContractSite {
+  /** Absolute, symlink-resolved path, as `Mutant.file`. */
+  file: string;
+  /** 1-based line of the call. */
+  line: number;
+  primitive: "requires" | "ensures";
+  /** The author's message, when it is a string literal. */
+  message?: string;
+  /** Lines of the enclosing `bus.on(...)` call, else the enclosing function. */
+  handler?: { from: number; to: number };
+}
+
+/** A baseline test (or the command) that fails only because a contract is false. */
+export interface ContractViolationRecord {
+  /** Absolute path of the target whose baseline reported it. */
+  target: string;
+  /** Test id (junit.ts `testId`), or "(command)" for the command runner. */
+  test: string;
+  /** Contract ids, `<file relative to cwd>:<line>`; empty for the command runner. */
+  contracts: string[];
 }
 
 /** One test the baseline ran (matrix mode). */
@@ -126,6 +163,8 @@ export interface EngineConfig {
   excludeMutators: MutatorName[];
   /** Mark mutants inside requires/ensures/… as Ignored instead of running them. */
   ignoreVerifyCallsites: boolean;
+  /** POLLY_CONTRACTS for every test process (baseline, coverage pass, mutant runs). */
+  contracts: ContractsMode;
   /**
    * Run each test process in a fresh scratch cwd (workdir.ts), so a mutant's
    * relative writes miss the repo. False runs everything in `cwd`.
@@ -147,6 +186,8 @@ export interface TargetSummary {
   /** Matrix mode: every test the baseline ran, plus any load-failure stand-in a mutant named. */
   tests: TestRef[];
   results: MutantResult[];
+  /** Every requires/ensures call in the target, whatever the contracts mode. */
+  contracts: ContractSite[];
 }
 
 export interface EngineResult {
@@ -159,4 +200,10 @@ export interface EngineResult {
    * The report is written after the last snapshot, so it never appears here.
    */
   strayWrites: { root: string; baseline: string[]; mutants: string[] } | null;
+  /**
+   * Baselines that failed through a contract: a test drives a handler outside
+   * its declared precondition, or a handler breaks its own postcondition.
+   * Those targets' mutants are RuntimeError; `run` exits 1 and names them.
+   */
+  contractViolations: ContractViolationRecord[];
 }

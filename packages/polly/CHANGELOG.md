@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+#### Breaking: Stryker is removed; `polly mutate` runs its own Bun-native engine
+
+`@fairfox/polly/stryker` and `--engine stryker` are gone. `polly mutate run`
+mutates with its own engine: `oxc-parser` spans, Stryker's 16 operators with
+Stryker's names and rules, one `bun test` process per mutant with the mutant
+served by a `Bun.plugin` `onLoad` (no sandbox copy), a scratch cwd per test
+process, a result cache, and the same mutation-testing-report-schema output,
+so `report`, `decisions` and `verify` read it unchanged. A
+`stryker.conf.json` is read for migration only and prints a deprecation
+notice; `polly mutate migrate --write` writes the equivalent
+`polly.mutate.ts`. Measured against Stryker on polly's targets: 99.3 % of
+mutants matched, 0 lost kills, 39.5× faster (`scripts/mutate-parity.ts`).
+
+### Added
+
+#### `polly.mutate.ts`, dynamic coverage, and a type filter for `polly mutate`
+
+- `defineMutation()` from `@fairfox/polly/mutate` types the config
+  (`polly mutate init` writes one); `runner: { kind: "command", argv }` runs
+  any command per mutant, reaching its Bun processes through `BUN_OPTIONS`.
+- Dynamic coverage: one probed pass over every test file decides, per mutant,
+  which tests run it; a mutant no test runs is `NoCoverage` without a run.
+- Type filter: a mutant the project's TypeScript config rejects is
+  `CompileError`, never run (TypeScript 7 through `typescript-7`); 38 % of
+  polly's mutants.
+
+#### Contracts as a kill oracle: `requires`/`ensures` under `POLLY_CONTRACTS`
+
+`requires(cond, msg)` and `ensures(cond, msg)` from `@fairfox/polly/verify`
+stay runtime no-ops in production. Under `POLLY_CONTRACTS=all` (or `ensures`)
+a false condition throws a `ContractViolation` that names the primitive, the
+author's message and the call's `file:line`, and records itself on
+`globalThis` (`drainContractViolations()`) so a harness can fail the test
+even where the message bus swallowed the throw. `polly mutate` sets the
+variable on every test process (config `contracts`, flag `--contracts`,
+default `all`); the engine preload fails a test that left a violation behind
+and `polly bdd run` fails the step. In matrix mode each kill carries
+`killedByContract` and `contractOnly`; the report gains a `CONTRACTS` section
+(contract-only kills, kills per contract, contracts without teeth); a baseline
+that violates a contract stops the run with `TEST VIOLATES CONTRACT` and exit
+1. The report's `contracts` block lists every site and violation. Proof:
+`scripts/e2e-mutate.ts` (built package) and `scripts/e2e-mutate-contracts.ts`
+(examples/todo-list through the BDD runner).
+
 ## [0.91.0] - 2026-09-09
 
 ### Changed

@@ -14,7 +14,7 @@
  * typo fails with a message, not a crash deep in the engine.
  */
 import { isRecord } from "../../../src/shared/lib/guards";
-import type { CoverageMode, EngineMode, MutatorName } from "./engine/types.ts";
+import type { ContractsMode, CoverageMode, EngineMode, MutatorName } from "./engine/types.ts";
 
 export const MUTATION_CONFIG_FILE = "polly.mutate.ts";
 
@@ -58,6 +58,12 @@ interface MutationCommon {
   typecheck?: boolean;
   /** Report mutants inside requires/ensures/… as Ignored (polly#143). Default true. */
   ignoreVerifyCallsites?: boolean;
+  /**
+   * POLLY_CONTRACTS for every test process: a false requires/ensures throws,
+   * so each contract kills the mutants that falsify it. off keeps them
+   * no-ops; ensures enforces postconditions only. Default all.
+   */
+  contracts?: ContractsMode;
   /** `polly mutate run` exits 1 when the score is below `break`. */
   thresholds?: { break?: number };
   /** Report path. Default reports/mutation/mutation.json. */
@@ -176,7 +182,20 @@ function parseMutants(raw: Record<string, unknown>, where: string): Partial<Muta
     if (typeof typecheck !== "boolean") throw new Error(`${where}: typecheck must be boolean`);
     out.typecheck = typecheck;
   }
-  return out;
+  return { ...out, ...parseContracts(raw, where) };
+}
+
+export function isContractsMode(v: unknown): v is ContractsMode {
+  return v === "off" || v === "ensures" || v === "all";
+}
+
+function parseContracts(raw: Record<string, unknown>, where: string): Partial<MutationCommon> {
+  const contracts = raw["contracts"];
+  if (contracts === undefined) return {};
+  if (!isContractsMode(contracts)) {
+    throw new Error(`${where}: contracts must be "off", "ensures" or "all"`);
+  }
+  return { contracts };
 }
 
 function parseOutputs(raw: Record<string, unknown>, where: string): Partial<MutationCommon> {

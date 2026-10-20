@@ -5,6 +5,9 @@
  *   redundancy  tests/files whose every kill is also caught elsewhere
  *   theatre     covered-but-survived — code a test runs but no test detects
  *               (the Survived status under coverageAnalysis "all")
+ *   contracts   (bun engine, contracts on) mutants only a requires/ensures
+ *               caught, kills per contract, and contracts whose handler was
+ *               exercised yet never fired — a contract without teeth
  *
  * Redundancy is reported at BOTH file and case level. Decisions are keyed at
  * file level (stable identity); case level is the drill-down.
@@ -14,6 +17,86 @@ import { buildDb, loadMutationReport, queryAll, queryGet } from "./ingest.ts";
 
 type SubsumedCase = { file: string; name: string; total: number };
 type LineCount = { file: string; line: number; mutator: string; n: number };
+type SiteKills = {
+  id: string;
+  primitive: string;
+  message: string | null;
+  n: number;
+  exercised: number;
+};
+
+/** The CONTRACTS section; nothing when the report has no contracts block (Stryker-era). */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one section with its three lists, kept together like the others.
+function contractsSection(db: Database, p: (s?: string) => void): void {
+  const meta = new Map(
+    queryAll<{ key: string; value: string }>(db, "SELECT key, value FROM report_meta").map((r) => [
+      r.key,
+      r.value,
+    ])
+  );
+  const mode = meta.get("contracts_mode");
+  if (mode === undefined) return;
+  const nSites = queryGet<{ n: number }>(db, "SELECT count(*) n FROM contract_sites")?.n ?? 0;
+  p(`\nCONTRACTS  (requires/ensures as kill oracles — mode ${mode}, ${nSites} site(s))`);
+  if (mode === "off") {
+    p(
+      `  off — the sites are inventoried only; 'polly mutate run --contracts all' makes each one fail the test that falsifies it`
+    );
+    return;
+  }
+  const violations = queryAll<{ target: string; test: string; contract_id: string | null }>(
+    db,
+    "SELECT target, test, contract_id FROM contract_violations ORDER BY target, test, contract_id"
+  );
+  if (violations.length > 0) {
+    p(
+      `  TEST VIOLATES CONTRACT  (the unmutated code fails a contract under a test: ${violations.length})`
+    );
+    for (const v of violations) {
+      p(`    ${v.target}: ${v.test}${v.contract_id ? ` → ${v.contract_id}` : ""}`);
+    }
+  }
+  if (meta.get("runner") === "command") {
+    p(
+      `  command runner: no per-test results, so kills are not attributed to contracts; compare the killed count against a --contracts off run`
+    );
+    return;
+  }
+  if (mode === "ensures") p(`  requires sites are inventoried, not enforced (mode ensures)`);
+  const only = queryAll<LineCount>(
+    db,
+    "SELECT file, line, mutator, count(*) n FROM mutants WHERE contract_only=1 GROUP BY file, line, mutator ORDER BY file, line"
+  );
+  const onlyTotal = only.reduce((a, r) => a + r.n, 0);
+  p(`  CONTRACT-ONLY KILLS  (no test assertion caught these; a contract did: ${onlyTotal})`);
+  for (const r of only) p(`    ${r.file}:${r.line}  ${r.mutator}${r.n > 1 ? ` ×${r.n}` : ""}`);
+  if (nSites === 0) return;
+  const sites = queryAll<SiteKills>(
+    db,
+    `SELECT s.id, s.primitive, s.message,
+            (SELECT count(*) FROM contract_kills k WHERE k.contract_id = s.id) n,
+            (SELECT count(*) FROM mutants m
+              WHERE m.file = s.file AND s.handler_from IS NOT NULL
+                AND m.line BETWEEN s.handler_from AND s.handler_to
+                AND m.status IN ('Killed', 'Survived', 'Timeout')) exercised
+     FROM contract_sites s ORDER BY n DESC, s.id`
+  );
+  p(`  KILLS PER CONTRACT`);
+  for (const s of sites) {
+    p(`    ${s.id}  ${s.primitive}  ${s.n} kill(s)${s.message ? `  “${s.message}”` : ""}`);
+  }
+  const toothless = sites.filter((s) => s.n === 0 && s.exercised > 0);
+  const idle = sites.filter((s) => s.n === 0 && s.exercised === 0);
+  p(
+    `  CONTRACTS WITHOUT TEETH  (the handler's mutants ran, the contract never fired: ${toothless.length})`
+  );
+  if (toothless.length === 0) p(`    none`);
+  for (const s of toothless) p(`    ${s.id}  ${s.primitive}${s.message ? `  “${s.message}”` : ""}`);
+  if (idle.length > 0) {
+    p(`  HANDLER NOT EXERCISED  (no mutant in the contract's handler ran: ${idle.length})`);
+    for (const s of idle) p(`    ${s.id}  ${s.primitive}`);
+  }
+}
 
 /** Greedy set cover: smallest set of `units` whose kill-sets cover all killed mutants. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a textbook greedy set-cover loop — clearer whole than split.
@@ -199,6 +282,8 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
   p(`\nTHEATRE  (Survived — code is covered but no test detects the mutation: ${theatreTotal})`);
   if (theatreTotal === 0) p(`  none`);
   for (const r of theatre) p(lineOf(r));
+
+  contractsSection(db, p);
 
   return out.join("\n");
 }

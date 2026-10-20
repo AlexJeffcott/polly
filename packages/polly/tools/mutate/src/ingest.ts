@@ -13,6 +13,8 @@ export interface MutationReport {
   schemaVersion: string;
   files: Record<string, { mutants: Mutant[] }>;
   testFiles?: Record<string, { tests: TestDef[] }>;
+  /** Written by the bun engine; absent from Stryker-era reports. */
+  contracts?: ReportContracts;
 }
 interface Mutant {
   id: string;
@@ -21,6 +23,27 @@ interface Mutant {
   location: { start: { line: number; column: number } };
   killedBy?: string[];
   coveredBy?: string[];
+  /** Contract ids (`<file>:<line>`) a killing test's failure named. */
+  killedByContract?: string[];
+  /** Every killer failed through a contract: no assertion caught the mutant. */
+  contractOnly?: boolean;
+}
+
+/** The engine's contracts block: how the run enforced requires/ensures, and what it found. */
+export interface ReportContracts {
+  mode: "off" | "ensures" | "all";
+  runner: "bun-test" | "command";
+  sites: ContractSiteDef[];
+  violations: { target: string; test: string; contracts: string[] }[];
+}
+export interface ContractSiteDef {
+  /** `<file>:<line>`, what `killedByContract` holds. */
+  id: string;
+  file: string;
+  line: number;
+  primitive: "requires" | "ensures";
+  message?: string;
+  handler?: { from: number; to: number };
 }
 interface TestDef {
   id: string;
@@ -34,6 +57,10 @@ export function buildDb(report: MutationReport, dbPath = ":memory:"): Database {
   db.exec(`
 		DROP TABLE IF EXISTS kills;
 		DROP TABLE IF EXISTS covers;
+		DROP TABLE IF EXISTS contract_kills;
+		DROP TABLE IF EXISTS contract_sites;
+		DROP TABLE IF EXISTS contract_violations;
+		DROP TABLE IF EXISTS report_meta;
 		DROP TABLE IF EXISTS mutants;
 		DROP TABLE IF EXISTS tests;
 		CREATE TABLE tests (
@@ -47,8 +74,30 @@ export function buildDb(report: MutationReport, dbPath = ":memory:"): Database {
 			mutator TEXT NOT NULL,
 			file TEXT NOT NULL,
 			line INTEGER,
-			status TEXT NOT NULL
+			status TEXT NOT NULL,
+			contract_only INTEGER NOT NULL DEFAULT 0
 		);
+		-- requires/ensures sites and the mutants each one killed (bun engine, contracts on)
+		CREATE TABLE contract_sites (
+			id TEXT PRIMARY KEY,
+			file TEXT NOT NULL,
+			line INTEGER NOT NULL,
+			primitive TEXT NOT NULL,
+			message TEXT,
+			handler_from INTEGER,
+			handler_to INTEGER
+		);
+		CREATE TABLE contract_kills (
+			mutant_id TEXT NOT NULL REFERENCES mutants(id),
+			contract_id TEXT NOT NULL,
+			PRIMARY KEY (mutant_id, contract_id)
+		);
+		CREATE TABLE contract_violations (
+			target TEXT NOT NULL,
+			test TEXT NOT NULL,
+			contract_id TEXT
+		);
+		CREATE TABLE report_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 		-- the kill matrix: (mutant, test) where test detects mutant
 		CREATE TABLE kills (
 			mutant_id TEXT NOT NULL REFERENCES mutants(id),
@@ -69,10 +118,20 @@ export function buildDb(report: MutationReport, dbPath = ":memory:"): Database {
     "INSERT OR IGNORE INTO tests (id, file, name, line) VALUES (?, ?, ?, ?)"
   );
   const insMut = db.prepare(
-    "INSERT INTO mutants (id, mutator, file, line, status) VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO mutants (id, mutator, file, line, status, contract_only) VALUES (?, ?, ?, ?, ?, ?)"
   );
   const insKill = db.prepare("INSERT OR IGNORE INTO kills (mutant_id, test_id) VALUES (?, ?)");
   const insCover = db.prepare("INSERT OR IGNORE INTO covers (mutant_id, test_id) VALUES (?, ?)");
+  const insContractKill = db.prepare(
+    "INSERT OR IGNORE INTO contract_kills (mutant_id, contract_id) VALUES (?, ?)"
+  );
+  const insSite = db.prepare(
+    "INSERT OR IGNORE INTO contract_sites (id, file, line, primitive, message, handler_from, handler_to) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  );
+  const insViolation = db.prepare(
+    "INSERT INTO contract_violations (target, test, contract_id) VALUES (?, ?, ?)"
+  );
+  const insMeta = db.prepare("INSERT INTO report_meta (key, value) VALUES (?, ?)");
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: two flat insert loops inside one transaction — keeping them together is the point.
   const ingest = db.transaction(() => {
@@ -83,9 +142,37 @@ export function buildDb(report: MutationReport, dbPath = ":memory:"): Database {
     }
     for (const [file, f] of Object.entries(report.files)) {
       for (const m of f.mutants) {
-        insMut.run(m.id, m.mutatorName, file, m.location.start.line, m.status);
+        insMut.run(
+          m.id,
+          m.mutatorName,
+          file,
+          m.location.start.line,
+          m.status,
+          m.contractOnly ? 1 : 0
+        );
         for (const tid of m.killedBy ?? []) insKill.run(m.id, tid);
         for (const tid of m.coveredBy ?? []) insCover.run(m.id, tid);
+        for (const cid of m.killedByContract ?? []) insContractKill.run(m.id, cid);
+      }
+    }
+    const contracts = report.contracts;
+    if (contracts) {
+      insMeta.run("contracts_mode", contracts.mode);
+      insMeta.run("runner", contracts.runner);
+      for (const s of contracts.sites) {
+        insSite.run(
+          s.id,
+          s.file,
+          s.line,
+          s.primitive,
+          s.message ?? null,
+          s.handler?.from ?? null,
+          s.handler?.to ?? null
+        );
+      }
+      for (const v of contracts.violations) {
+        if (v.contracts.length === 0) insViolation.run(v.target, v.test, null);
+        for (const cid of v.contracts) insViolation.run(v.target, v.test, cid);
       }
     }
   });

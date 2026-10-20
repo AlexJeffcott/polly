@@ -11,6 +11,7 @@
  * One function, `testId`, builds the id for both the report's test list and
  * each mutant's `killedBy`, so the two always resolve against each other.
  */
+import { realpathSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
 export interface JunitCase {
@@ -22,6 +23,8 @@ export interface JunitCase {
   filterName: string;
   line: number;
   status: "passed" | "failed" | "skipped";
+  /** A failed case: the `<failure>` message attribute and body, decoded. */
+  failureMessage?: string;
 }
 
 const ENTITIES: Record<string, string> = {
@@ -50,6 +53,16 @@ function caseStatus(body: string): JunitCase["status"] {
   return /<skipped\b/.test(body) ? "skipped" : "passed";
 }
 
+const FAILURE = /<(?:failure|error)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:failure|error)>)/;
+
+/** The failure's message attribute, then its text, decoded; undefined when not failed. */
+function failureMessage(body: string): string | undefined {
+  const m = FAILURE.exec(body);
+  if (!m) return undefined;
+  const parts = [attr(m[1] ?? "", "message"), decode(m[2] ?? "")].filter((s) => s.length > 0);
+  return parts.join("\n");
+}
+
 const TAG =
   /<testsuite\b([^>]*?)(\/?)>|<\/testsuite>|<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g;
 
@@ -61,23 +74,75 @@ export function parseJunit(xml: string, cwd: string): JunitCase[] {
   for (const [whole, suiteAttrs, selfClosing, caseAttrs, body] of xml.matchAll(TAG)) {
     if (whole.startsWith("</testsuite")) suites.pop();
     else if (suiteAttrs !== undefined && selfClosing !== "/") suites.push(attr(suiteAttrs, "name"));
-    else if (caseAttrs !== undefined) {
-      const path = [...suites.slice(1), attr(caseAttrs, "name")];
-      cases.push({
-        file: resolve(cwd, attr(caseAttrs, "file")),
-        name: path.join(" > "),
-        filterName: path.join(" "),
-        line: Number(attr(caseAttrs, "line")) || 0,
-        status: caseStatus(body ?? ""),
-      });
-    }
+    else if (caseAttrs !== undefined) cases.push(caseFrom(suites, caseAttrs, body ?? "", cwd));
   }
   return cases;
+}
+
+function caseFrom(
+  suites: readonly string[],
+  caseAttrs: string,
+  body: string,
+  cwd: string
+): JunitCase {
+  const path = [...suites.slice(1), attr(caseAttrs, "name")];
+  const status = caseStatus(body);
+  const message = status === "failed" ? failureMessage(body) : undefined;
+  return {
+    file: resolve(cwd, attr(caseAttrs, "file")),
+    name: path.join(" > "),
+    filterName: path.join(" "),
+    line: Number(attr(caseAttrs, "line")) || 0,
+    status,
+    ...(message === undefined ? {} : { failureMessage: message }),
+  };
 }
 
 /** `<file relative to the project>#<full name>@<line>`. */
 export function testId(projectCwd: string, file: string, name: string, line: number): string {
   return `${relative(projectCwd, file)}#${name}@${line}`;
+}
+
+/**
+ * The marker a ContractViolation's message starts with (verify primitives):
+ * `[polly-contract ensures /abs/handlers.ts:50] the author's message`.
+ */
+export const CONTRACT_MARKER = /\[polly-contract (requires|ensures) (.+?):(\d+)\]/g;
+
+function realOr(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+/** Contract ids (`<file relative to the project>:<line>`) named in a failure text, sorted unique. */
+export function contractsIn(text: string, projectCwd: string): string[] {
+  const ids = new Set<string>();
+  for (const m of text.matchAll(CONTRACT_MARKER)) {
+    if (m[2] && m[3]) ids.add(`${relative(projectCwd, realOr(m[2]))}:${m[3]}`);
+  }
+  return [...ids].sort();
+}
+
+export interface ContractKill {
+  /** junit.ts `testId` of the failed case. */
+  test: string;
+  contracts: string[];
+}
+
+/** Each failed case whose failure names a contract, with the contracts it names. */
+export function contractKills(cases: readonly JunitCase[], projectCwd: string): ContractKill[] {
+  const out: ContractKill[] = [];
+  for (const c of cases) {
+    if (c.status !== "failed" || c.failureMessage === undefined) continue;
+    const contracts = contractsIn(c.failureMessage, projectCwd);
+    if (contracts.length > 0) {
+      out.push({ test: testId(projectCwd, c.file, c.name, c.line), contracts });
+    }
+  }
+  return out;
 }
 
 export const LOAD_FAILURE_NAME = "(file produced no results)";

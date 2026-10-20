@@ -156,6 +156,24 @@ describe("engineConfigFor", () => {
     expect(matrix.cacheDir).toBeNull();
   });
 
+  test("contracts: all unless the config or --contracts says otherwise", async () => {
+    const base = await load("");
+    expect((await engineConfigFor(base, parseMutateArgs([]))).contracts).toBe("all");
+    const flag = await engineConfigFor(base, parseMutateArgs(["--contracts", "ensures"]));
+    expect(flag.contracts).toBe("ensures");
+    const config = parseMutationConfig(
+      { targets: ["a.ts"], tests: { include: ["t"] }, contracts: "off" },
+      "f"
+    );
+    expect(config.contracts).toBe("off");
+    expect(() =>
+      parseMutationConfig({ targets: [], tests: { include: ["t"] }, contracts: "some" }, "f")
+    ).toThrow('contracts must be "off", "ensures" or "all"');
+    await expect(engineConfigFor(base, parseMutateArgs(["--contracts", "maybe"]))).rejects.toThrow(
+      "expected off, ensures or all"
+    );
+  });
+
   test("a command runner runs in-tree and refuses matrix mode", async () => {
     const cfg = await load("command");
     const fast = await engineConfigFor(cfg, parseMutateArgs([]));

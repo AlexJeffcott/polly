@@ -34,6 +34,8 @@ export interface CachedResult {
   durationMs?: number;
   killedBy?: string[];
   coveredBy?: string[];
+  killedByContract?: string[];
+  contractOnly?: boolean;
 }
 
 export interface CacheEntry {
@@ -116,5 +118,7 @@ export function cachedResult(r: MutantResult): CachedResult {
     ...(r.durationMs === undefined ? {} : { durationMs: r.durationMs }),
     ...(r.killedBy ? { killedBy: r.killedBy } : {}),
     ...(r.coveredBy ? { coveredBy: r.coveredBy } : {}),
+    ...(r.killedByContract ? { killedByContract: r.killedByContract } : {}),
+    ...(r.contractOnly ? { contractOnly: true } : {}),
   };
 }

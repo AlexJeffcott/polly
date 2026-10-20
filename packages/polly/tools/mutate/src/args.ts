@@ -39,6 +39,8 @@ export interface MutateArgs {
   noCache: boolean;
   /** `--no-typecheck` — run mutants the project's TypeScript config rejects instead of reporting CompileError. */
   noTypecheck: boolean;
+  /** `--contracts off|ensures|all` — POLLY_CONTRACTS for every test process (bun engine). */
+  contracts?: string;
 }
 
 const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "migrate", "help"]);
@@ -53,6 +55,7 @@ const VALUE_FLAGS = new Set([
   "--concurrency",
   "--files",
   "--since",
+  "--contracts",
 ]);
 
 export function parseMutateArgs(argv: string[]): MutateArgs {
@@ -99,5 +102,6 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     concurrency: flags.get("--concurrency"),
     files: flags.get("--files"),
     since: flags.get("--since"),
+    contracts: flags.get("--contracts"),
   };
 }

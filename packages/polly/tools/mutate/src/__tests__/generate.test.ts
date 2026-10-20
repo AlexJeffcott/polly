@@ -293,3 +293,36 @@ describe("exclude", () => {
     expect([...without]).toEqual([...all].filter((n) => n !== "StringLiteral"));
   });
 });
+
+describe("contract sites", () => {
+  const src = [
+    'bus.on("LOGIN", (p) => {',
+    '  requires(user.loggedIn === false, "must be out");',
+    "  user.loggedIn = true;",
+    "  ensures(user.loggedIn === true);",
+    "});",
+    "function bare() {",
+    '  ensures(x > 1, "x");',
+    "}",
+  ].join("\n");
+
+  test("every requires/ensures, with its message and the enclosing bus.on, else the function; whole file", () => {
+    const { contracts } = generateMutants("t.ts", src, { lines: { from: 6, to: 8 } });
+    expect(contracts).toEqual([
+      {
+        file: "t.ts",
+        line: 2,
+        primitive: "requires",
+        message: "must be out",
+        handler: { from: 1, to: 5 },
+      },
+      { file: "t.ts", line: 4, primitive: "ensures", handler: { from: 1, to: 5 } },
+      { file: "t.ts", line: 7, primitive: "ensures", message: "x", handler: { from: 6, to: 8 } },
+    ]);
+  });
+
+  test("other verify primitives are not contracts; a top-level call has no handler", () => {
+    const { contracts } = generateMutants("t.ts", 'stateConstraint("S", () => a);\nensures(b);');
+    expect(contracts).toEqual([{ file: "t.ts", line: 2, primitive: "ensures" }]);
+  });
+});

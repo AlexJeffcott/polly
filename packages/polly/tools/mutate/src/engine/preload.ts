@@ -21,6 +21,14 @@
  * CLI `--preload` adds to a bunfig `[test].preload`, so the project's own
  * preloads still run. One limit: a file that a project preload imports is
  * already loaded before this plugin registers, so it cannot be mutated.
+ *
+ * Contracts (POLLY_CONTRACTS, set by the runner): the verify primitives
+ * record each violation on globalThis before throwing, because the message
+ * bus turns a handler's throw into `{ success: false }` and the test may
+ * never see it. A global afterEach fails the test that left a violation
+ * behind; a beforeEach clears what module load or beforeAll left, since that
+ * belongs to no test. Under the command runner `bun:test` is absent and the
+ * BDD runner drains the list itself.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { plugin } from "bun";
@@ -58,10 +66,30 @@ function parseSpan(raw: string): { start: number; end: number; replacement: stri
   throw new Error(`polly mutate preload: malformed POLLY_MUTATE_SPAN: ${raw}`);
 }
 
+function newlines(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) n++;
+  return n;
+}
+
+/**
+ * The mutated text, with the line count kept: a replacement that drops lines
+ * (an emptied block, object or arrow body) is followed by a comment holding
+ * them, so a contract after it still reports its own `file:line`.
+ */
+export function mutatedText(
+  src: string,
+  span: { start: number; end: number; replacement: string }
+): string {
+  const lost = newlines(src.slice(span.start, span.end)) - newlines(span.replacement);
+  const pad = lost > 0 ? `/*${"\n".repeat(lost)}*/` : "";
+  return src.slice(0, span.start) + span.replacement + pad + src.slice(span.end);
+}
+
 if (target && rawSpan) {
   const span = parseSpan(rawSpan);
   const src = await Bun.file(target).text();
-  const contents = src.slice(0, span.start) + span.replacement + src.slice(span.end);
+  const contents = mutatedText(src, span);
   const loader = loaderFor(target);
   plugin({
     name: "polly-mutate",
@@ -69,6 +97,34 @@ if (target && rawSpan) {
       build.onLoad({ filter: exactly([target]) }, () => ({ contents, loader }));
     },
   });
+}
+
+const CONTRACT_VIOLATIONS_KEY = "__pollyContractViolations";
+
+function violationMessages(): string[] {
+  const list = (globalThis as Record<string, unknown>)[CONTRACT_VIOLATIONS_KEY];
+  if (!Array.isArray(list)) return [];
+  const messages = list.map((v) => (v instanceof Error ? v.message : String(v)));
+  list.length = 0;
+  return messages;
+}
+
+const contracts = process.env["POLLY_CONTRACTS"];
+if (contracts === "ensures" || contracts === "all") {
+  try {
+    const { afterEach, beforeEach } = await import("bun:test");
+    beforeEach(() => {
+      for (const m of violationMessages()) {
+        process.stderr.write(`polly mutate: contract violated outside any test: ${m}\n`);
+      }
+    });
+    afterEach(() => {
+      const messages = violationMessages();
+      if (messages.length > 0) throw new Error(messages.join("\n"));
+    });
+  } catch {
+    // Not under `bun test` (the command runner): the BDD runner drains the list.
+  }
 }
 
 interface CoveragePlan {

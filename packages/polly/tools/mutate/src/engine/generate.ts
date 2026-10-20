@@ -11,9 +11,9 @@
  * Stryker walks, so operators that look at a parent see the real one.
  */
 import { parseSync } from "oxc-parser";
-import { type AstNode, calleeName, isAstNode } from "./ast.ts";
+import { type AstNode, calleeName, children, isAstNode } from "./ast.ts";
 import { OPERATORS, type OperatorContext } from "./operators.ts";
-import type { Mutant, MutatorName, Position } from "./types.ts";
+import type { ContractSite, Mutant, MutatorName, Position } from "./types.ts";
 import { VERIFY_PRIMITIVES, verifyCallsiteReason } from "./verify-callsites.ts";
 
 /** TS nodes that wrap a runtime expression. Every other `TS*` node is type-only. */
@@ -53,6 +53,8 @@ export interface GenerateResult {
   mutants: Mutant[];
   /** Mutants whose mutated text no longer parses. Reported, never run. */
   compileErrors: Mutant[];
+  /** Every requires/ensures call, whole file, whatever `lines` and the ignore flag say. */
+  contracts: ContractSite[];
 }
 
 export function lineIndex(src: string): (offset: number) => Position {
@@ -81,6 +83,44 @@ function verifyReason(node: AstNode): string | undefined {
   return name && VERIFY_PRIMITIVES.has(name) ? verifyCallsiteReason(name) : undefined;
 }
 
+const FUNCTION_NODES = new Set([
+  "FunctionDeclaration",
+  "FunctionExpression",
+  "ArrowFunctionExpression",
+]);
+
+/**
+ * The contract site when `node` is a requires/ensures call: its line, its
+ * message literal, and the handler it sits in — the nearest enclosing
+ * `bus.on(...)` call, else the nearest enclosing function.
+ */
+function contractSite(
+  file: string,
+  node: AstNode,
+  ancestors: readonly AstNode[],
+  position: (offset: number) => Position
+): ContractSite | undefined {
+  if (node.type !== "CallExpression") return undefined;
+  const name = calleeName(node);
+  if (name !== "requires" && name !== "ensures") return undefined;
+  const second = children(node, "arguments")[1];
+  const message =
+    second?.type === "Literal" && typeof second["value"] === "string" ? second["value"] : undefined;
+  const handlerNode =
+    [...ancestors].reverse().find((a) => a.type === "CallExpression" && calleeName(a) === "on") ??
+    [...ancestors].reverse().find((a) => FUNCTION_NODES.has(a.type));
+  const handler = handlerNode
+    ? { from: position(handlerNode.start).line, to: position(handlerNode.end).line }
+    : undefined;
+  return {
+    file,
+    line: position(node.start).line,
+    primitive: name,
+    ...(message === undefined ? {} : { message }),
+    ...(handler ? { handler } : {}),
+  };
+}
+
 /** Child nodes with the key they hang under, minus type annotations. */
 function runtimeChildren(node: AstNode): [string, AstNode][] {
   const out: [string, AstNode][] = [];
@@ -107,11 +147,14 @@ export function generateMutants(
   const seen = new Set<string>();
   const excluded = new Set(opts.exclude ?? []);
   const all: Mutant[] = [];
+  const contracts: ContractSite[] = [];
 
   const ancestors: AstNode[] = [];
   const visit = (node: AstNode, key: string, ignored: string | undefined) => {
     if (isSkipped(node)) return;
     const parent = ancestors[ancestors.length - 1];
+    const site = contractSite(file, node, ancestors, position);
+    if (site) contracts.push(site);
 
     const ignoredHere = ignored ?? (ignoreVerify ? verifyReason(node) : undefined);
     const ctx: OperatorContext = {
@@ -167,5 +210,5 @@ export function generateMutants(
       compileErrors.push(m);
     else mutants.push(m);
   }
-  return { mutants, compileErrors };
+  return { mutants, compileErrors, contracts };
 }

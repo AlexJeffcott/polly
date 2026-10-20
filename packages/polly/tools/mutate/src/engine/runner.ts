@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EngineRunner } from "./types.ts";
+import type { ContractsMode, EngineRunner } from "./types.ts";
 
 export interface BunTestRun {
   cwd: string;
@@ -19,6 +19,8 @@ export interface BunTestRun {
   /** Every `--preload`, in order; the mutant preload goes last. */
   preloads: string[];
   env?: Record<string, string>;
+  /** POLLY_CONTRACTS for the process (both runner kinds). Unset: off. */
+  contracts?: ContractsMode;
   bail: boolean;
   timeoutMs: number;
   /** Capture the tail of stderr (baselines only; mutant runs discard output). */
@@ -51,10 +53,11 @@ export function preloadPath(): string {
   return found;
 }
 
+/** The engine's own variables never leak in from the shell; the run sets them. */
 function cleanEnv(extra: Record<string, string> | undefined): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
-    if (v !== undefined && !k.startsWith("POLLY_MUTATE_")) env[k] = v;
+    if (v !== undefined && !k.startsWith("POLLY_MUTATE_") && k !== "POLLY_CONTRACTS") env[k] = v;
   }
   return { ...env, ...extra };
 }
@@ -78,12 +81,13 @@ function processArgv(
   run: BunTestRun,
   junitPath: string | undefined
 ): { argv: string[]; env: Record<string, string> } {
+  const env = { ...run.env, POLLY_CONTRACTS: run.contracts ?? "off" };
   if (runner.kind === "command") {
     const inherited = process.env["BUN_OPTIONS"];
     const preloads = run.preloads.map((p) => `--preload=${p}`).join(" ");
     return {
       argv: runner.argv,
-      env: { ...run.env, BUN_OPTIONS: inherited ? `${inherited} ${preloads}` : preloads },
+      env: { ...env, BUN_OPTIONS: inherited ? `${inherited} ${preloads}` : preloads },
     };
   }
   return {
@@ -96,7 +100,7 @@ function processArgv(
       ...(junitPath ? ["--reporter=junit", `--reporter-outfile=${junitPath}`] : []),
       ...run.files,
     ],
-    env: run.env ?? {},
+    env,
   };
 }
 

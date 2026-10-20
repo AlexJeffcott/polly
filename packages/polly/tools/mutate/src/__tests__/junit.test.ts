@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { killers, loadFailureId, parseJunit, testId } from "../engine/junit.ts";
+import {
+  contractKills,
+  contractsIn,
+  killers,
+  loadFailureId,
+  parseJunit,
+  testId,
+} from "../engine/junit.ts";
 
 // Shaped like Bun 1.4.3's output: one suite per file, one per describe.
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -65,5 +72,47 @@ describe("killers", () => {
 
   test("a file with no tests, absent from the baseline too, is not", () => {
     expect(killers([], new Set(), "/proj")).toEqual([]);
+  });
+});
+
+describe("contract markers", () => {
+  // Shaped like Bun 1.4.3's output for an afterEach-raised error and a direct throw.
+  const xml = `<testsuites name="bun test">
+  <testsuite name="tests/c.test.ts" file="tests/c.test.ts">
+    <testcase name="ensures" file="tests/c.test.ts" line="3">
+      <failure type="Error" message="[polly-contract ensures /proj/src/h.ts:50] must &quot;hold&quot; &amp; more">Error: [polly-contract ensures /proj/src/h.ts:50] must &quot;hold&quot; &amp; more&#10;      at pre.ts:3:137&#10;</failure>
+    </testcase>
+    <testcase name="assertion" file="tests/c.test.ts" line="4">
+      <failure type="AssertionError" message="Expected: 2&#10;Received: 1">x</failure>
+    </testcase>
+    <testcase name="two" file="tests/c.test.ts" line="5">
+      <failure message="[polly-contract requires /proj/src/h.ts:12] a&#10;[polly-contract ensures /proj/src/h.ts:50] b&#10;[polly-contract ensures /proj/src/h.ts:50] b again">y</failure>
+    </testcase>
+    <testcase name="green" file="tests/c.test.ts" line="6" />
+  </testsuite>
+</testsuites>`;
+  const cases = parseJunit(xml, "/proj");
+
+  test("a failed case carries its decoded failure text; a passed one does not", () => {
+    expect(cases[0]?.failureMessage).toBe(
+      '[polly-contract ensures /proj/src/h.ts:50] must "hold" & more\nError: [polly-contract ensures /proj/src/h.ts:50] must "hold" & more\n      at pre.ts:3:137\n'
+    );
+    expect(cases[1]?.failureMessage).toBe("Expected: 2\nReceived: 1\nx");
+    expect(cases[3]?.failureMessage).toBeUndefined();
+  });
+
+  test("contractsIn: every marker, relative to the project, sorted and unique", () => {
+    expect(contractsIn(cases[2]?.failureMessage ?? "", "/proj")).toEqual([
+      "src/h.ts:12",
+      "src/h.ts:50",
+    ]);
+    expect(contractsIn("Expected: 2", "/proj")).toEqual([]);
+  });
+
+  test("contractKills: the failed cases that name a contract, by test id", () => {
+    expect(contractKills(cases, "/proj")).toEqual([
+      { test: "tests/c.test.ts#ensures@3", contracts: ["src/h.ts:50"] },
+      { test: "tests/c.test.ts#two@5", contracts: ["src/h.ts:12", "src/h.ts:50"] },
+    ]);
   });
 });

@@ -8,8 +8,14 @@ import { dirname, join, resolve } from "node:path";
 import { Glob } from "bun";
 import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
-import { MUTATION_CONFIG_FILE, type MutationConfig } from "./define.ts";
-import type { CoverageMode, EngineConfig, EngineMode, MutateTarget } from "./engine/types.ts";
+import { isContractsMode, MUTATION_CONFIG_FILE, type MutationConfig } from "./define.ts";
+import type {
+  ContractsMode,
+  CoverageMode,
+  EngineConfig,
+  EngineMode,
+  MutateTarget,
+} from "./engine/types.ts";
 
 const RANGE = /^(.*?):(\d+)(?::\d+)?-(\d+)(?::\d+)?$/;
 
@@ -106,6 +112,14 @@ function resolveCoverage(flag: string | undefined, config: MutationConfig): Cove
   return coverage;
 }
 
+function resolveContracts(flag: string | undefined, config: MutationConfig): ContractsMode {
+  const contracts = flag ?? config.contracts ?? "all";
+  if (!isContractsMode(contracts)) {
+    throw new Error(`--contracts ${contracts}: expected off, ensures or all`);
+  }
+  return contracts;
+}
+
 /** The engine's config from the loaded mutation config plus CLI flags (flags win). */
 export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Promise<EngineConfig> {
   if (!cfg.mutation) {
@@ -132,6 +146,7 @@ export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Prom
     typecheck: !args.noTypecheck && (config.typecheck ?? true),
     excludeMutators: config.mutators?.exclude ?? [],
     ignoreVerifyCallsites: config.ignoreVerifyCallsites ?? true,
+    contracts: resolveContracts(args.contracts, config),
     // A command runs where its package.json is; it gets no scratch cwd.
     scratchCwd: !(args.inTree || command),
     cacheDir: args.noCache ? null : join(dir, ".polly", "mutate", "cache"),

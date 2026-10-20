@@ -8,6 +8,7 @@ import { relative } from "node:path";
 import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
 import { mutationScore, runEngine } from "./engine/index.ts";
+import type { ContractSite, EngineResult } from "./engine/types.ts";
 import { engineConfigFor } from "./engine-config.ts";
 import { buildDb, loadMutationReport } from "./ingest.ts";
 import { report } from "./report.ts";
@@ -101,12 +102,47 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
     );
     for (const path of stray.mutants) console.log(`  ${path}`);
   }
+  if (result.contractViolations.length > 0) {
+    console.log(contractViolationsBlock(result, engineCfg.cwd));
+    return 1;
+  }
   const failure = thresholdFailure(total, cfg);
   if (failure) {
     console.log(`\n✗ ${failure}`);
     return 1;
   }
   return 0;
+}
+
+/**
+ * The block printed when a baseline failed through a contract: the unmutated
+ * code, under one of its own tests, falsified a requires/ensures. That is a
+ * finding about the test or the handler, not about any mutant, so the run
+ * stops instead of scoring the target.
+ */
+export function contractViolationsBlock(result: EngineResult, cwd: string): string {
+  const sites = new Map<string, ContractSite>(
+    result.targets.flatMap((t) =>
+      t.contracts.map((c): [string, ContractSite] => [`${relative(cwd, c.file)}:${c.line}`, c])
+    )
+  );
+  const lines = [
+    `\n✗ TEST VIOLATES CONTRACT  (${result.contractViolations.length}; the mutants of these targets did not run)`,
+  ];
+  for (const v of result.contractViolations) {
+    const where = v.contracts.length === 0 ? "" : ` → ${v.contracts.join(", ")}`;
+    lines.push(`  ${relative(cwd, v.target)}: ${v.test}${where}`);
+    for (const id of v.contracts) {
+      const site = sites.get(id);
+      if (site) lines.push(`      ${site.primitive}${site.message ? ` “${site.message}”` : ""}`);
+    }
+  }
+  lines.push(
+    "  A test drives a handler outside its declared precondition, or a handler breaks its own",
+    "  postcondition. Fix the test or the contract; '--contracts ensures' leaves requires inert,",
+    "  '--contracts off' restores the no-op primitives."
+  );
+  return lines.join("\n");
 }
 
 /** Build the useless-test report from an existing mutation.json (no engine run). */

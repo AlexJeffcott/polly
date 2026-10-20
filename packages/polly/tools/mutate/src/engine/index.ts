@@ -46,12 +46,21 @@ import {
   findTestFiles,
   type ImportGraph,
 } from "./graph.ts";
-import { type JunitCase, killers, LOAD_FAILURE_NAME, loadFailureId, parseJunit } from "./junit.ts";
+import {
+  contractKills,
+  type JunitCase,
+  killers,
+  LOAD_FAILURE_NAME,
+  loadFailureId,
+  parseJunit,
+} from "./junit.ts";
 import { toMutationReport, writeReport } from "./report-writer.ts";
 import { pool, preloadPath, runBunTest } from "./runner.ts";
 import { newPaths, snapshotWorktree } from "./stray-writes.ts";
 import { typecheckMutants } from "./typecheck.ts";
 import type {
+  ContractSite,
+  ContractViolationRecord,
   EngineConfig,
   EngineResult,
   Mutant,
@@ -89,6 +98,7 @@ interface PreparedTarget {
   covered: boolean;
   cacheKey: string | null;
   cached: CacheEntry | null;
+  contracts: ContractSite[];
 }
 
 /** Files outside the import graph that still change every result. */
@@ -117,19 +127,30 @@ interface Generated {
   compileErrors: Mutant[];
   /** Static selection. */
   covering: string[];
+  contracts: ContractSite[];
 }
 
 async function generateAll(cfg: EngineConfig, graph: ImportGraph | null): Promise<Generated[]> {
   const out: Generated[] = [];
   for (const [index, target] of cfg.targets.entries()) {
     const file = realpathSync(target.file);
-    const { mutants, compileErrors } = generateMutants(file, await Bun.file(file).text(), {
-      ignoreVerifyCallsites: cfg.ignoreVerifyCallsites,
-      lines: target.lines,
-      idPrefix: `${index}.`,
-      exclude: cfg.excludeMutators,
+    const { mutants, compileErrors, contracts } = generateMutants(
+      file,
+      await Bun.file(file).text(),
+      {
+        ignoreVerifyCallsites: cfg.ignoreVerifyCallsites,
+        lines: target.lines,
+        idPrefix: `${index}.`,
+        exclude: cfg.excludeMutators,
+      }
+    );
+    out.push({
+      file,
+      mutants,
+      compileErrors,
+      covering: graph ? coveringTests(graph, file) : [],
+      contracts,
     });
-    out.push({ file, mutants, compileErrors, covering: graph ? coveringTests(graph, file) : [] });
   }
   return out;
 }
@@ -157,6 +178,7 @@ async function dynamicCoverage(
           coverage: COVERAGE_VERSION,
           targets: targets.map((t) => [t.file, t.mutants.length]),
           tests: graph.testFiles,
+          contracts: cfg.contracts,
         },
       })
     : null;
@@ -173,6 +195,7 @@ async function dynamicCoverage(
     preloads,
     concurrency: cfg.concurrency,
     workdirs,
+    contracts: cfg.contracts,
     log,
   });
   if (!coverage) return null;
@@ -238,6 +261,7 @@ async function withCache(
     testPreload: cfg.testPreload,
     coverage: cfg.coverage,
     typecheck: cfg.typecheck,
+    contracts: cfg.contracts,
     selections: selectionKey(g.mutants, selections),
   };
   // No import graph bounds what a command reads, so its results are never cached.
@@ -258,6 +282,7 @@ async function withCache(
     covered: cfg.runner.kind === "command" || covering.length > 0,
     cacheKey: key,
     cached: cfg.cacheDir && key ? await readCache(cfg.cacheDir, key) : null,
+    contracts: g.contracts,
   };
 }
 
@@ -294,6 +319,23 @@ async function prepare(
   return { prepared, testFiles: testFiles.length };
 }
 
+/** Every baseline that failed through a contract, logged as it is collected. */
+function collectContractViolations(
+  cfg: EngineConfig,
+  baselines: ReadonlyMap<PreparedTarget, Baseline | null>,
+  log: (line: string) => void
+): ContractViolationRecord[] {
+  const out: ContractViolationRecord[] = [];
+  for (const [p, baseline] of baselines) {
+    for (const v of baseline?.contractViolations ?? []) {
+      out.push({ target: p.file, test: v.test, contracts: v.contracts });
+      const where = v.contracts.length > 0 ? ` → ${v.contracts.join(", ")}` : "";
+      log(`${relative(cfg.cwd, p.file)}: test violates contract: ${v.test}${where}`);
+    }
+  }
+  return out;
+}
+
 /** Some test runs the mutant: always under static selection, else when coverage picked a file. */
 function selected(p: PreparedTarget, mutant: Mutant): boolean {
   return !p.selections || (p.selections.get(mutant.id)?.files.length ?? 0) > 0;
@@ -327,6 +369,7 @@ async function runMutant(
           cwd,
           files,
           preloads,
+          contracts: cfg.contracts,
           env: {
             POLLY_MUTATE_FILE: job.mutant.file,
             POLLY_MUTATE_SPAN: JSON.stringify({
@@ -362,7 +405,28 @@ async function runMutant(
   if (!matrix) return { ...result, status: "Killed" };
   const ran = new Set(files);
   const reported = new Set([...baseline.reportedFiles].filter((f) => ran.has(f)));
-  return { ...result, status: "Killed", killedBy: killers(cases, reported, cfg.cwd) };
+  const killedBy = killers(cases, reported, cfg.cwd);
+  return { ...result, status: "Killed", killedBy, ...contractAttribution(cfg, cases, killedBy) };
+}
+
+/**
+ * Contracts on, matrix mode: the contracts the killing tests' failures name,
+ * and whether every killer failed that way — then no assertion caught the
+ * mutant, only a contract did.
+ */
+function contractAttribution(
+  cfg: EngineConfig,
+  cases: readonly JunitCase[],
+  killedBy: readonly string[]
+): Pick<MutantResult, "killedByContract" | "contractOnly"> {
+  if (cfg.contracts === "off") return {};
+  const kills = contractKills(cases, cfg.cwd);
+  if (kills.length === 0) return {};
+  const killedByContract = sortedUnique(kills.flatMap((k) => k.contracts));
+  const failed = cases.filter((c) => c.status === "failed").length;
+  // Every failed case named a contract, and no load-failure stand-in joined them.
+  const contractOnly = kills.length === failed && killedBy.length === failed;
+  return { killedByContract, ...(contractOnly ? { contractOnly: true } : {}) };
 }
 
 /** `bun test -t` exits 1 when its pattern matches no test; that is no kill. */
@@ -389,6 +453,7 @@ function fromCache(p: PreparedTarget, entry: CacheEntry): TargetSummary {
     cached: true,
     tests: entry.tests,
     results,
+    contracts: p.contracts,
   };
 }
 
@@ -415,6 +480,26 @@ function testsFor(
   return tests;
 }
 
+function unrun(mutant: Mutant, statusReason: string | undefined): MutantResult {
+  return { mutant, status: "RuntimeError", statusReason };
+}
+
+/** The status of a mutant that never ran, or null when a run result decides. */
+function notRun(p: PreparedTarget, baseline: Baseline | null, mutant: Mutant): MutantResult | null {
+  if (!p.covered) {
+    const reason = p.selections ? "no test ran this target" : "no test file imports this target";
+    return { mutant, status: "NoCoverage", statusReason: reason };
+  }
+  // A contract violated by the unmutated code voids the target, coverage included:
+  // the throw stopped the test before it reached the rest of the handler.
+  if (baseline?.contractViolations) return unrun(mutant, baseline.reason);
+  if (!selected(p, mutant)) {
+    return { mutant, status: "NoCoverage", statusReason: "no test ran this code", coveredBy: [] };
+  }
+  if (!baseline?.ok) return unrun(mutant, baseline?.reason);
+  return null;
+}
+
 function summarise(
   cfg: EngineConfig,
   p: PreparedTarget,
@@ -428,16 +513,8 @@ function summarise(
       return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
     const typeError = invalid.get(mutant.id);
     if (typeError) return { mutant, status: "CompileError", statusReason: typeError };
-    if (!p.covered) {
-      const reason = p.selections ? "no test ran this target" : "no test file imports this target";
-      return { mutant, status: "NoCoverage", statusReason: reason };
-    }
-    if (!selected(p, mutant)) {
-      return { mutant, status: "NoCoverage", statusReason: "no test ran this code", coveredBy: [] };
-    }
-    if (!baseline?.ok) return { mutant, status: "RuntimeError", statusReason: baseline?.reason };
     return (
-      byId.get(mutant.id) ?? { mutant, status: "RuntimeError", statusReason: "mutant was not run" }
+      notRun(p, baseline, mutant) ?? byId.get(mutant.id) ?? unrun(mutant, "mutant was not run")
     );
   });
   for (const mutant of p.compileErrors) {
@@ -452,6 +529,7 @@ function summarise(
     cached: false,
     tests: baseline?.ok ? testsFor(cfg, p, baseline, results) : p.coverageTests,
     results,
+    contracts: p.contracts,
   };
 }
 
@@ -494,6 +572,7 @@ async function run(
   const invalid: ReadonlyMap<string, string> = typed?.invalid ?? new Map();
   const baselines = new Map(fresh.map((p, i) => [p, measured[i] ?? null]));
   const afterBaselines = snapshotWorktree(cfg.cwd);
+  const contractViolations = collectContractViolations(cfg, baselines, log);
 
   const jobs: Job[] = [];
   prepared.forEach((p, target) => {
@@ -554,8 +633,12 @@ async function run(
     targets,
     wallMs: Math.round(performance.now() - started),
     strayWrites,
+    contractViolations,
   };
-  await writeReport(await toMutationReport(result, cfg.cwd), cfg.reportPath);
+  await writeReport(
+    await toMutationReport(result, cfg.cwd, { contracts: cfg.contracts, runner: cfg.runner.kind }),
+    cfg.reportPath
+  );
   return result;
 }
 

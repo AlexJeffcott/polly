@@ -58,6 +58,7 @@ beforeAll(async () => {
     runner: { kind: "bun-test" },
     excludeMutators: [],
     ignoreVerifyCallsites: true,
+    contracts: "off",
     mode: "fast",
     coverage: "dynamic",
     cacheDir: null,
