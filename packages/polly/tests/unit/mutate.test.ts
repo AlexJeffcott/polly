@@ -127,3 +127,80 @@ describe("parseMutateArgs", () => {
     expect(a.force).toBe(true);
   });
 });
+
+describe("report — score and per-line attribution", () => {
+  // Two targets. b.ts holds the mutants the score must leave out: CompileError
+  // (the type filter) and Ignored (verify call sites), plus one Timeout.
+  function twoFileReport(): MutationReport {
+    const r = sampleReport();
+    r.files["src/b.ts"] = {
+      mutants: [
+        {
+          id: "m5",
+          mutatorName: "Y",
+          status: "Timeout",
+          location: { start: { line: 7, column: 1 } },
+        },
+        {
+          id: "m6",
+          mutatorName: "Y",
+          status: "CompileError",
+          location: { start: { line: 8, column: 1 } },
+        },
+        {
+          id: "m7",
+          mutatorName: "Y",
+          status: "Ignored",
+          location: { start: { line: 9, column: 1 } },
+        },
+        {
+          id: "m8",
+          mutatorName: "Y",
+          status: "Survived",
+          location: { start: { line: 10, column: 1 } },
+        },
+        {
+          id: "m9",
+          mutatorName: "Z",
+          status: "Survived",
+          location: { start: { line: 10, column: 5 } },
+        },
+      ],
+    };
+    return r;
+  }
+
+  test("the score is Stryker's: detected / (detected + undetected), invalid and ignored left out", () => {
+    const db = buildDb(twoFileReport());
+    const out = report(db, { matrixComplete: false });
+    db.close();
+    // detected 3 (m1, m2, m5) of valid 7 (+ m3, m4, m8, m9); m6 and m7 do not count.
+    expect(out).toContain(
+      "MUTATION  score 42.9%   2 killed · 1 timeout · 3 survived · 1 no-coverage · 1 invalid · 1 ignored   (9 mutants, 2 tests)"
+    );
+  });
+
+  test("a run with no valid mutant has no score", () => {
+    const r = sampleReport();
+    for (const f of Object.values(r.files)) for (const m of f.mutants) m.status = "CompileError";
+    const db = buildDb(r);
+    const out = report(db, { matrixComplete: false });
+    db.close();
+    expect(out).toContain("MUTATION  score n/a   0 killed");
+  });
+
+  test("gap and theatre lines name the file each mutant is in", () => {
+    const db = buildDb(twoFileReport());
+    const out = report(db, { matrixComplete: false });
+    db.close();
+    const lines = out.split("\n");
+    const section = (title: string) => {
+      const from = lines.findIndex((l) => l.startsWith(title));
+      const body = lines.slice(from + 1);
+      const to = body.findIndex((l) => l === "" || !l.startsWith("  "));
+      return body.slice(0, to === -1 ? undefined : to);
+    };
+    expect(section("GAPS")).toEqual(["  src/a.ts:4  X"]);
+    expect(section("THEATRE")).toEqual(["  src/a.ts:3  X", "  src/b.ts:10  Y", "  src/b.ts:10  Z"]);
+  });
+});

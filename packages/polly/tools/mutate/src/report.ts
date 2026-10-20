@@ -13,7 +13,7 @@ import type { Database } from "bun:sqlite";
 import { buildDb, loadMutationReport, queryAll, queryGet } from "./ingest.ts";
 
 type SubsumedCase = { file: string; name: string; total: number };
-type LineCount = { line: number; mutator: string; n: number };
+type LineCount = { file: string; line: number; mutator: string; n: number };
 
 /** Greedy set cover: smallest set of `units` whose kill-sets cover all killed mutants. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a textbook greedy set-cover loop — clearer whole than split.
@@ -57,15 +57,27 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
     survived: number;
     timeout: number;
     nocov: number;
+    invalid: number;
+    ignored: number;
   }>(
     db,
-    "SELECT count(*) n, sum(status='Killed') killed, sum(status='Survived') survived, sum(status='Timeout') timeout, sum(status='NoCoverage') nocov FROM mutants"
-  ) ?? { n: 0, killed: 0, survived: 0, timeout: 0, nocov: 0 };
+    "SELECT count(*) n, sum(status='Killed') killed, sum(status='Survived') survived, sum(status='Timeout') timeout, sum(status='NoCoverage') nocov, sum(status='CompileError') invalid, sum(status='Ignored') ignored FROM mutants"
+  ) ?? { n: 0, killed: 0, survived: 0, timeout: 0, nocov: 0, invalid: 0, ignored: 0 };
   const nTests = queryGet<{ n: number }>(db, "SELECT count(*) n FROM tests")?.n ?? 0;
+  // Stryker's score, the same one `run` prints: detected / (detected +
+  // undetected). CompileError, Ignored and RuntimeError mutants are not in it.
   const detected = tot.killed + tot.timeout;
-  const score = ((detected / (tot.n - tot.nocov || 1)) * 100).toFixed(1);
+  const valid = detected + tot.survived + tot.nocov;
+  const score = valid === 0 ? "n/a" : `${((detected / valid) * 100).toFixed(1)}%`;
+  const excluded = [
+    tot.invalid > 0 ? `${tot.invalid} invalid` : "",
+    tot.ignored > 0 ? `${tot.ignored} ignored` : "",
+  ]
+    .filter(Boolean)
+    .map((s) => ` · ${s}`)
+    .join("");
   p(
-    `MUTATION  score ${score}%   ${tot.killed} killed · ${tot.timeout} timeout · ${tot.survived} survived · ${tot.nocov} no-coverage   (${tot.n} mutants, ${nTests} tests)`
+    `MUTATION  score ${score}   ${tot.killed} killed · ${tot.timeout} timeout · ${tot.survived} survived · ${tot.nocov} no-coverage${excluded}   (${tot.n} mutants, ${nTests} tests)`
   );
 
   if (matrixComplete) {
@@ -165,27 +177,28 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
   // A non-killed mutant is NoCoverage (no test reaches it — a true gap) or
   // Survived (a test reaches it but nothing detects the mutation — theatre).
   // That status split IS the gap/theatre distinction (see README).
-  const srcFile = queryGet<{ file: string }>(db, "SELECT file FROM mutants LIMIT 1")?.file;
+  // Each line names its own file: a run holds many targets.
+  const byLine = (status: string) =>
+    queryAll<LineCount>(
+      db,
+      `SELECT file, line, mutator, count(*) n FROM mutants WHERE status='${status}' GROUP BY file, line, mutator ORDER BY file, line`
+    );
+  const lineOf = (r: LineCount) =>
+    `  ${r.file}:${r.line}  ${r.mutator}${r.n > 1 ? ` ×${r.n}` : ""}`;
 
   // --- gaps: code no test even executes ---
-  const gaps = queryAll<LineCount>(
-    db,
-    "SELECT line, mutator, count(*) n FROM mutants WHERE status='NoCoverage' GROUP BY line, mutator ORDER BY line"
-  );
+  const gaps = byLine("NoCoverage");
   const gapTotal = gaps.reduce((a, r) => a + r.n, 0);
   p(`\nGAPS  (NoCoverage — no test executes this code: ${gapTotal})`);
   if (gapTotal === 0) p(`  none — every mutable location is reached by some test`);
-  for (const r of gaps) p(`  ${srcFile}:${r.line}  ${r.mutator}${r.n > 1 ? ` ×${r.n}` : ""}`);
+  for (const r of gaps) p(lineOf(r));
 
   // --- theatre: covered but survived ---
-  const theatre = queryAll<LineCount>(
-    db,
-    "SELECT line, mutator, count(*) n FROM mutants WHERE status='Survived' GROUP BY line, mutator ORDER BY line"
-  );
+  const theatre = byLine("Survived");
   const theatreTotal = theatre.reduce((a, r) => a + r.n, 0);
   p(`\nTHEATRE  (Survived — code is covered but no test detects the mutation: ${theatreTotal})`);
   if (theatreTotal === 0) p(`  none`);
-  for (const r of theatre) p(`  ${srcFile}:${r.line}  ${r.mutator}${r.n > 1 ? ` ×${r.n}` : ""}`);
+  for (const r of theatre) p(lineOf(r));
 
   return out.join("\n");
 }
