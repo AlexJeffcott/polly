@@ -113,3 +113,33 @@ describe("$syncedState — sync stays two-way", () => {
     expect(sync.broadcasts.map((m) => m.value)).toEqual(["local-after-remote"]);
   });
 });
+
+describe("$syncedState — incoming messages are applied by key and by clock", () => {
+  test("an update for another key leaves this key untouched", async () => {
+    const sync = makeFakeSyncAdapter();
+    const a = $syncedState<string>("sync-key-a", "a-initial", { sync });
+    const b = $syncedState<string>("sync-key-b", "b-initial", { sync });
+    await flushMicrotasks();
+
+    sync.deliver({ key: "sync-key-b", value: "b-remote", clock: 1 });
+
+    expect(b.value).toBe("b-remote");
+    expect(a.value).toBe("a-initial");
+  });
+
+  test("a rejected older update does not lower the clock", async () => {
+    const sync = makeFakeSyncAdapter();
+    const sig = $syncedState<string>("sync-clock-merge", "initial", { sync });
+    await flushMicrotasks();
+
+    sync.deliver({ key: "sync-clock-merge", value: "remote-5", clock: 5 });
+    sync.deliver({ key: "sync-clock-merge", value: "remote-3", clock: 3 });
+    // Accepted only if the merge took min(5, 3): 4 > 3 would then hold.
+    sync.deliver({ key: "sync-clock-merge", value: "remote-4", clock: 4 });
+    expect(sig.value).toBe("remote-5");
+
+    sig.value = "local";
+    const broadcast = sync.broadcasts.find((m) => m.value === "local");
+    expect(broadcast?.clock).toBe(6);
+  });
+});
