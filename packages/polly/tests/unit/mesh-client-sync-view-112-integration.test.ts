@@ -64,7 +64,7 @@ class LoopbackAdapter extends NetworkAdapter {
 const SYNC_FIND_TIMEOUT_MS = 2000;
 
 // (bounded so a mutant that stalls cross-repo sync fails fast instead of
-// hanging to Stryker's 90s timeoutMS — see polly#161)
+// hanging to the mutation timeout — see polly#161)
 async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

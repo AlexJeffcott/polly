@@ -105,7 +105,7 @@ function makeLoopbackPair(): [LoopbackAdapter, LoopbackAdapter] {
 /** Bound on every cross-repo `find` in these two-repo loopback tests. On the
  * happy path the document syncs in well under this; a mutant that breaks the
  * sign/verify/wrap path stalls the sync, and without a bound `find` would hang
- * to Stryker's 90s `timeoutMS` (scored a slow Timeout-kill). Aborting at 2s
+ * to the mutation timeout (scored a slow Timeout-kill). Aborting at 2s
  * turns that into a fast, ordinary Killed. */
 const SYNC_FIND_TIMEOUT_MS = 2000;
 

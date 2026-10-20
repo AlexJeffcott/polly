@@ -398,11 +398,7 @@ export function internalPlan(): TierPlan {
           tags: ["visualize", "serve"],
           cost: "heavy",
         }),
-        e2e("stryker.verify", "e2e-stryker-verify.ts", {
-          tags: ["stryker", "mutation"],
-          cost: "heavy",
-        }),
-        // Reads dist/cli/polly.js, like stryker.verify reads the built plugin.
+        // Reads dist/cli/polly.js: needs build:lib.
         e2e("mutate.engine", "e2e-mutate.ts", {
           tags: ["mutate", "mutation"],
           cost: "heavy",

@@ -1,10 +1,10 @@
 /**
- * Orchestration for `polly mutate run` / `report`: run the engine (Bun-native by
- * default; `--engine stryker` is deprecated), then read the mutation report and
+ * Orchestration for `polly mutate run` / `report`: run the Bun-native engine,
+ * then read the mutation report and
  * produce the useless-test analysis — gating the redundancy/subsumption
  * sections on a complete (no-bail) kill matrix.
  */
-import { relative, resolve } from "node:path";
+import { relative } from "node:path";
 import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
 import { mutationScore, runEngine } from "./engine/index.ts";
@@ -13,29 +13,14 @@ import { buildDb, loadMutationReport } from "./ingest.ts";
 import { report } from "./report.ts";
 import { isMatrixComplete } from "./verify-matrix.ts";
 
-/** Run Stryker against the resolved config. Inherits stdio for the live reporter; returns the exit code. */
-export async function runStryker(cfg: MutateConfig): Promise<number> {
-  // Pass the config only when it is NOT the auto-discoverable root
-  // stryker.conf.json — that keeps a bare repo run identical to `stryker run`.
-  // Stryker takes it as a positional argument; it rejects `--configFile`.
-  const autoDiscoverable = cfg.strykerConfigPath === resolve(cfg.cwd, "stryker.conf.json");
-  const configArg = cfg.strykerConfigPath && !autoDiscoverable ? [cfg.strykerConfigPath] : [];
-  const proc = Bun.spawn(["bunx", "stryker", "run", ...configArg], {
-    cwd: cfg.cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-    env: process.env,
-  });
-  return await proc.exited;
-}
-
-export type EngineName = "stryker" | "bun";
-
-export function resolveEngine(args: MutateArgs): EngineName {
+/** `--engine` survives for scripts that pass `--engine bun`; Stryker is gone. */
+export function resolveEngine(args: MutateArgs): "bun" {
   const engine = args.engine ?? "bun";
-  if (engine === "stryker" || engine === "bun") return engine;
-  throw new Error(`unknown --engine "${engine}" (expected bun or stryker)`);
+  if (engine === "bun") return engine;
+  if (engine === "stryker") {
+    throw new Error("--engine stryker was removed; the bun engine (the default) replaces it");
+  }
+  throw new Error(`unknown --engine "${engine}" (expected bun)`);
 }
 
 /** The notice printed when the bun engine reads a Stryker config; null for polly.mutate.ts. */
@@ -43,7 +28,7 @@ export function deprecationNotice(cfg: MutateConfig): string | null {
   const m = cfg.mutation;
   if (m?.format !== "stryker") return null;
   return [
-    `deprecated: reading ${relative(cfg.cwd, m.path) || m.path} — Stryker configs go away with Stryker.`,
+    `deprecated: reading ${relative(cfg.cwd, m.path) || m.path} — Stryker is no longer supported; its config is read for migration only.`,
     "  'polly mutate migrate --write' writes the equivalent polly.mutate.ts.",
     ...m.notes.map((n) => `  ${n}`),
   ].join("\n");
@@ -122,11 +107,11 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
   return 0;
 }
 
-/** Build the useless-test report from an existing mutation.json (no Stryker run). */
+/** Build the useless-test report from an existing mutation.json (no engine run). */
 export async function reportFromFile(cfg: MutateConfig): Promise<string> {
   if (!(await Bun.file(cfg.reportPath).exists())) {
     throw new Error(
-      `no mutation report at ${cfg.reportPath}. Run 'polly mutate run' (or 'bun run mutation') first, or pass --report <path>.`
+      `no mutation report at ${cfg.reportPath}. Run 'polly mutate run' first, or pass --report <path>.`
     );
   }
   const mreport = await loadMutationReport(cfg.reportPath);
@@ -135,27 +120,5 @@ export async function reportFromFile(cfg: MutateConfig): Promise<string> {
     return report(db, { matrixComplete: isMatrixComplete(mreport) });
   } finally {
     db.close();
-  }
-}
-
-/**
- * If the Stryker config doesn't already load polly's verify-primitive ignorer,
- * return a one-line tip. The ignorer must be in the config before the run (it's
- * read at Stryker startup), so this advises rather than mutating the user's config.
- */
-export async function presetAdvisory(cfg: MutateConfig): Promise<string | null> {
-  if (!cfg.strykerConfigPath?.endsWith(".json")) return null;
-  try {
-    const conf = (await Bun.file(cfg.strykerConfigPath).json()) as unknown as {
-      plugins?: string[];
-    };
-    if ((conf.plugins ?? []).includes("@fairfox/polly/stryker")) return null;
-    return (
-      "Tip: spread pollyStrykerPreset (from @fairfox/polly/stryker) into your Stryker config — " +
-      "verify primitives (requires/ensures/…) are runtime no-ops and their mutants always survive, " +
-      "dragging the score down with noise. See polly#143."
-    );
-  } catch {
-    return null;
   }
 }

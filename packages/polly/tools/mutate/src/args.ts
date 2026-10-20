@@ -14,14 +14,14 @@ export interface MutateArgs {
   decisions?: string;
   db?: string;
   noReport: boolean;
-  /** `verify --run` (run a fresh Stryker pass before checking the contract). */
+  /** `verify --run` (run the engine in matrix mode before checking the contract). */
   run: boolean;
   /** `init --force` / `migrate --write --force` (overwrite an existing polly.mutate.ts). */
   force: boolean;
   /** `migrate --write` (write polly.mutate.ts instead of printing it). */
   write: boolean;
   help: boolean;
-  /** `--engine bun|stryker` — which mutation engine `run` uses (default bun). */
+  /** `--engine bun` — accepted for old scripts; bun is the only engine. */
   engine?: string;
   /** `--mode fast|matrix` (bun engine). */
   mode?: string;

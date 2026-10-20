@@ -40,8 +40,7 @@ silently mis-vendor.
   `message-router`, `adapters`, `errors`, `guards`, `types`, `actions`,
   `client`.
 - **Elysia integration** — with the mesh `peerRepo` plugin trimmed out.
-- **`verify`** — formal verification, plus its `analysis` extraction engine
-  and the Stryker ignorer.
+- **`verify`** — formal verification, plus its `analysis` extraction engine.
 - **`visualize`** — architecture diagrams, with the mesh `--snapshot` overlay
   neutralised.
 - **`quality`** — conformance checks (no-as-casting, no-require,

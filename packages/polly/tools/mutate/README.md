@@ -1,7 +1,7 @@
 # test-debt
 
 Finds **dead weight in the test suite** — the inverse of mutation testing.
-Where Stryker tells you what code no test pins (surviving mutants), this reads
+Where mutation testing tells you what code no test pins (surviving mutants), this reads
 the same kill matrix the other way and tells you which tests pin nothing the
 rest of the suite doesn't already pin.
 
@@ -37,13 +37,13 @@ polly mutate verify          # assert the matrix contract (--run for a fresh pas
 ```
 
 The redundancy/subsumption sections need a **complete** kill matrix (`--mode
-matrix`, or Stryker's patched, no-bail Bun runner below). Without it `report`/`run` degrade to score + gaps +
+matrix`). Without it `report`/`run` degrade to score + gaps +
 theatre and print a warning; `verify` reports the broken contract.
 
 In this monorepo the same code also backs the root scripts:
 
 ```sh
-bun run mutation             # produce reports/mutation/mutation.json
+bun packages/polly/cli/polly.ts mutate run   # produce reports/mutation/mutation.json
 bun run test-debt            # = polly mutate report
 bun run test-debt:decisions  # = polly mutate decisions
 bun run test-debt:verify     # = polly mutate verify --run
@@ -91,9 +91,9 @@ Every other key is Stryker machinery; `migrate` lists the ones it drops.
 
 ### The Bun-native engine (the default)
 
-`polly mutate run` runs mutation testing without Stryker (`--engine stryker`
-still runs Stryker, deprecated). It writes the same
-`reports/mutation/mutation.json`, so `report`, `decisions` and `verify` work on
+`polly mutate run` runs mutation testing on Bun alone; Stryker is no longer
+used or supported (see "Comparing with Stryker" below). It writes
+`reports/mutation/mutation.json` in mutation-testing-report-schema, so `report`, `decisions` and `verify` work on
 its output unchanged.
 
 | Step | How |
@@ -190,40 +190,37 @@ specific runner, so the analysis is portable to any matrix-producing runner.
 
 ## How the matrix is produced (the fragile part)
 
-Bun has no Stryker plugin and the `command` runner can't report per-test
-results, so there's no kill matrix by default. We use the community
-`stryker-mutator-bun-runner`, **pinned to 0.4.0 and patched** (`bun patch`,
-diff committed under `patches/`). Plugin 0.4.0 predates Bun 1.3.x and was
-broken against it; the patch:
+Matrix mode runs every covering test for each mutant, with no `--bail`, and
+reads Bun's junit output (`--reporter=junit`, parsed in `engine/junit.ts`):
+every failing test is a killer, keyed `<relfile>#<name>@<line>`, and the same
+function builds the `testFiles[].tests[]` ids, so every `killedBy` id
+resolves. A test file that fails to load leaves no junit element; it is
+recorded as a `(file produced no results)` stand-in killer.
 
-1. **Emits + parses JUnit XML** (`--reporter=junit --reporter-outfile`). Bun
-   1.3.x prints no per-test console lines when piped and has no TAP reporter,
-   so the plugin's console-scraping parser found zero tests. JUnit is the only
-   machine-readable per-test source Bun exposes.
-2. **Carries `fileName`/`startPosition`** into each test result, so the report
-   is keyed by real test-file paths instead of one `""` bucket — file-level
-   identity.
-3. **Disables the per-mutant bail** so `killedBy` lists *every* killing test,
-   not just the first — without this the redundancy signal is dead.
-4. **Extracts coverage from the Bun child.** The plugin's collector read
-   `__stryker__` in the *runner* process, where it's always empty — the
-   instrumented code runs in the Bun child. The patch dumps
-   `__stryker__.mutantCoverage` from a global `afterAll` (Bun's `bun test`
-   doesn't fire `process` exit events in preloads) and the adapter reads it
-   back. That makes coverage `"all"` work, which is what splits gaps (NoCoverage)
-   from theatre (Survived).
+This rests on Bun's junit format. A Bun upgrade that changes it, or a `--bail`
+that creeps back into matrix runs, collapses the matrix to one killer per
+mutant. `polly mutate verify` is the guard — run it after any Bun bump.
 
-This rests on a pinned pair: **(Bun version, plugin+patch)**. A Bun upgrade or a
-patch that stops applying can silently collapse the matrix. `verify-matrix.ts`
-is the guard — run it after any bump.
+**NoCoverage vs Survived.** The engine selects test files by import graph. A
+target that no test file reaches gets NoCoverage for all its mutants (a true
+gap); a reached target's undetected mutants are Survived (theatre). The split
+is per file, not per line: a line no test executes inside a reached file reads
+Survived. Per-test, per-line coverage (`coveredBy`) is plan Phase 7.
 
-`coverageAnalysis` is `"all"`: Stryker then runs only covered mutants, marking
-the rest **NoCoverage** (true gaps) and leaving covered-but-undetected ones
-**Survived** (theatre). That status split *is* the gap/theatre distinction —
-flip coverage to `"off"` and it's lost (everything non-killed shows as
-Survived). Per-mutant `coveredBy` (which *specific* tests cover a theatre mutant
-— the rewrite target) still needs per-test coverage and is not yet wired; the
-file/suite-level theatre signal works today.
+## Comparing with Stryker
+
+Stryker is not a dependency. `scripts/mutate-parity.ts` compares the two on the
+current tree, using a pinned Stryker held outside the workspace
+(`scripts/mutate-parity/stryker/`, installed into `~/.cache/polly` on first use):
+
+```sh
+bun packages/polly/scripts/mutate-parity.ts                    # the four reference targets
+bun packages/polly/scripts/mutate-parity.ts --files a.ts,b.tsx # any targets
+```
+
+It checks mutant match rate, lost kills, score gap and wall time.
+`scripts/mutate-parity.results.md` holds the committed run (2026-10-20: 99.3 %
+matched, 0 lost kills, score gap 0.07, 39.5× faster).
 
 ## Caveats — the matrix nominates, a human convicts
 
@@ -250,27 +247,13 @@ file/suite-level theatre signal works today.
   hundreds of NoCoverage + Survived mutants. Surfacing those was the measurement
   Phase 3 set out to take; closing the remaining gaps is follow-up work.
 
-- **Timeouts inflate runtime.** Mutating async/retry code in `signing` (36) and
-  `mesh-network-adapter` (41) produces hangs that only resolve at `timeoutMS` (90s).
-  They score correctly (a timeout is a detected mutant) but stretch the 20-module run
-  to ~90min. Raising concurrency or lowering `timeoutMS` trades wall-clock against the
-  risk of flagging a slow-but-correct test as a false timeout-kill.
+- **Timeouts.** Mutating async/retry code produces hangs. The engine's budget is
+  the target's baseline × `timeout.factor` + `timeout.extraMs` (default ×2 + 3 s),
+  so a hang costs seconds, not Stryker's former 90 s. A timeout scores as detected.
 
-- **Two test directories, run from the repo root.** Stryker's bun runner spawns
-  `bun test` from the sandbox root, not `packages/polly`, so `bun.testFiles` are
-  repo-root globs (`packages/polly/tests/unit/**`, `packages/polly/src/**`). Six
-  UI/action test files (`tests/unit/actions/*`, `polly-ui-components.test.ts`)
-  **do not load** from that cwd: Bun resolves the JSX runtime against the nearest
-  tsconfig to the cwd, and with no root tsconfig it defaults to `react` instead of
-  the package's `jsxImportSource: preact`, so the TSX imports fail. These six are
-  excluded from the matrix (76 of 82 test files present). Verified harmless: the
-  per-module kill counts are identical to the command-runner baseline (which ran
-  all 82 from `packages/polly`), so the excluded files kill nothing in the mutated
-  set. `bun.command` can't fix this — it disables the patch's JUnit emission, which
-  is the matrix — and the plugin doesn't pass `cwd` to the spawn.
-
-- **All mutants are "static".** The patch reports coverage as a single
-  `mutantCoverage` dump, not per-test, so Stryker can't filter tests per mutant and
-  marks every covered mutant static — the full suite runs for each. Expected (the
-  per-test `coveredBy` rewrite target is out of scope here). Leave `ignoreStatic`
-  off, or the covered mutants are skipped entirely.
+- **Tests run from the repo root.** `polly.mutate.ts` sits at the monorepo root,
+  so test globs are repo-root relative and each test process gets a scratch cwd
+  whose `tsconfig.json` extends the root one (Bun reads JSX settings from the cwd
+  tsconfig; without it polly-ui `.tsx` would compile for react). Polly-ui test
+  subsets need `tests/setup.ts` (the CSS-module shim) as a preload; the config
+  lists it.

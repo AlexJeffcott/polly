@@ -17,7 +17,7 @@
  *   polly format                     Format your code
  *   polly test [args]                Run tests (requires bun test)
  *   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
- *   polly coverage [flags]           Coverage policy + orphan + Stryker checks
+ *   polly coverage [flags]           Coverage policy + orphan + mutate-target checks
  *   polly mutate [args]              Mutation testing + useless-test detection
  *   polly verify [args]              Run formal verification
  *   polly visualize [args]           Generate architecture diagrams
@@ -144,7 +144,7 @@ async function verify() {
 }
 
 /**
- * Mutate command - delegate to tools/mutate (Stryker + useless-test detection)
+ * Mutate command - delegate to tools/mutate (mutation engine + useless-test detection)
  */
 async function mutate() {
   // Check if bundled (published) or in monorepo
@@ -367,7 +367,7 @@ async function testTiers() {
 }
 
 /**
- * Coverage command — per-file coverage policy, orphan detection, and Stryker
+ * Coverage command — per-file coverage policy, orphan detection, and
  * mutate-target validation. Zero-config in a consumer project; inside the
  * Polly repo it runs against Polly's own coverage.config.ts.
  */
@@ -384,7 +384,7 @@ async function coverage() {
 
   const args = [...commandArgs];
   if (isMonorepo) {
-    // Polly's config lives under scripts/, and its Stryker config sits at the
+    // Polly's config lives under scripts/, and its polly.mutate.ts sits at the
     // monorepo root (checked separately by `polly check`).
     args.unshift("--config", "scripts/coverage.config.ts", "--no-mutate");
   }
@@ -516,7 +516,7 @@ Usage:
                                    → browser → e2e → verify) with timed reports
   polly test:browser [dir]         Run *.browser.{ts,tsx} in Puppeteer
   polly coverage [flags]           Per-file coverage policy, orphan detection,
-                                   and Stryker target validation (zero-config)
+                                   and mutate-target validation (zero-config)
   polly mutate [init|run|report|verify] Mutation testing + useless/redundant-test detection
   polly mutate decisions [decide]  Review/record verdicts on subsumed tests
   polly verify [args]              Run formal verification

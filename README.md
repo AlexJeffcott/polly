@@ -272,7 +272,7 @@ $ polly verify --strict
 
 ## Executable specs that link to the model
 
-`polly bdd` adds a third verification stratum alongside `verify` (TLA+) and `mutate` (Stryker): acceptance examples written from the user's perspective, as Gherkin, run across the **real factory boundary** — the same `createBackground` your extension boots, never a hand-wired bus that quietly papers over a gap the real path has.
+`polly bdd` adds a third verification stratum alongside `verify` (TLA+) and `mutate` (mutation testing): acceptance examples written from the user's perspective, as Gherkin, run across the **real factory boundary** — the same `createBackground` your extension boots, never a hand-wired bus that quietly papers over a gap the real path has.
 
 ```gherkin
 # features/auth.feature
@@ -357,7 +357,7 @@ polly test:browser [dir]          Run *.browser.{ts,tsx} in Puppeteer
 polly verify [--witness]          Run formal verification (TLA+/TLC); --witness adds
                                   per-scenario reachability checks for your BDD outcomes
 polly bdd [run|check|new]         Executable Gherkin across the real boundary, linked to the model
-polly mutate [run|report]         Mutation testing (Stryker) — prove the tests have teeth
+polly mutate [run|report]         Mutation testing — prove the tests have teeth
 polly visualize                   Generate architecture diagrams (Structurizr DSL)
 polly quality [args]              Run conformance checks (no-as-casting, boundaries, secrets,
                                   server-imports, forbidden-deps, banners, marketing, ...)

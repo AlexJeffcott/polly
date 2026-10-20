@@ -8,7 +8,7 @@
 #   - the core framework (state, resource, message-bus, background,
 #     message-router, adapters, errors, guards, types, actions, client)
 #   - the elysia integration (with the mesh peerRepo plugin trimmed out)
-#   - the `verify` tool (formal verification) + its analysis engine + stryker
+#   - the `verify` tool (formal verification) + its analysis engine
 #   - the `bdd` tool (executable Gherkin, exported as @fairfox/polly/bdd) +
 #     `polly verify --witness`, which dynamic-imports it
 #   - the `visualize` tool (with the mesh --snapshot overlay neutralised)
@@ -277,7 +277,6 @@ cat > "$TARGET/package.json" <<'PKG'
     "./client":         { "import": "./dist/src/client/index.js",               "types": "./dist/src/client/index.d.ts" },
     "./elysia":         { "import": "./dist/src/elysia/index.js",               "types": "./dist/src/elysia/index.d.ts" },
     "./verify":         { "import": "./dist/tools/verify/src/config.js",        "types": "./dist/tools/verify/src/config.d.ts" },
-    "./stryker":        { "import": "./dist/tools/verify/src/stryker/index.js", "types": "./dist/tools/verify/src/stryker/index.d.ts" },
     "./bdd":            { "import": "./dist/tools/bdd/src/index.js",            "types": "./dist/tools/bdd/src/index.d.ts" },
     "./quality":        { "import": "./dist/tools/quality/src/index.js",        "types": "./dist/tools/quality/src/index.d.ts" }
   },
@@ -300,18 +299,15 @@ cat > "$TARGET/package.json" <<'PKG'
   "peerDependencies": {
     "typescript": ">= 5.9.3",
     "elysia": ">= 1.4.0",
-    "@elysiajs/eden": ">= 1.2.0",
-    "@stryker-mutator/api": ">= 9.0.0"
+    "@elysiajs/eden": ">= 1.2.0"
   },
   "peerDependenciesMeta": {
     "elysia": { "optional": true },
-    "@elysiajs/eden": { "optional": true },
-    "@stryker-mutator/api": { "optional": true }
+    "@elysiajs/eden": { "optional": true }
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.14",
     "@elysiajs/eden": "1.4.9",
-    "@stryker-mutator/api": "9.6.1",
     "@types/bun": "1.3.13",
     "@types/chrome": "0.1.40",
     "elysia": "1.4.28",
@@ -336,7 +332,7 @@ cat > "$TARGET/build-lib.ts" <<'BUILD'
  *
  * Builds the mesh-free vendored slice:
  *   - core library (browser target)
- *   - polly bin + verify + stryker + visualize CLIs (node target, bundled)
+ *   - polly bin + verify + visualize CLIs (node target, bundled)
  *   - copies verify's TLA+ specs + Dockerfile
  *   - emits .d.ts declarations
  */
@@ -391,7 +387,6 @@ const toolsResult = await Bun.build({
   entrypoints: [
     "cli/polly.ts",
     "tools/verify/src/cli.ts",
-    "tools/verify/src/stryker/index.ts",
     "tools/visualize/src/cli.ts",
     // bdd: the `polly bdd` CLI (cli/polly.ts spawns it) + the `./bdd` library
     // export (defineStep/defineWorld). `polly verify --witness` also
@@ -413,7 +408,7 @@ const toolsResult = await Bun.build({
   sourcemap: "external",
   // @cucumber/* stays external (the bdd Gherkin parser) — resolved at runtime
   // from dependencies, never bundled.
-  external: ["ts-morph", "bun", "bun:*", "node:*", "elysia", "@elysiajs/*", "@stryker-mutator/*", "@cucumber/*"],
+  external: ["ts-morph", "bun", "bun:*", "node:*", "elysia", "@elysiajs/*", "@cucumber/*"],
 });
 if (!toolsResult.success) {
   console.error("❌ Tools build failed:");
@@ -452,7 +447,6 @@ try {
       "src/**/*",
       "bun-env.d.ts",
       "tools/verify/src/config.ts",
-      "tools/verify/src/stryker/index.ts",
       "tools/bdd/src/**/*",
       "tools/quality/src/**/*",
     ],
@@ -479,7 +473,7 @@ echo
 ok "vendored polly into $TARGET"
 printf '%s' "$c_dim"
 cat <<NOTES
-Kept:    core framework, elysia (peerRepo trimmed), verify (+analysis+stryker),
+Kept:    core framework, elysia (peerRepo trimmed), verify (+analysis),
          bdd (@fairfox/polly/bdd + polly bdd + verify --witness), visualize, quality
 Removed: UI (polly-ui), mesh runtime, chrome-extension contexts, all tests, init/test tooling
 Notes:

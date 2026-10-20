@@ -1,20 +1,20 @@
 /**
  * Verification artefact for the kill-matrix contract.
  *
- * The whole useless-test analysis rests on one fact: the patched bun runner
- * emits a COMPLETE kill matrix — every test that detects a mutant appears in
- * killedBy, not just the first. That depends on a pinned pair: (Bun version,
- * plugin version + our patch). A Bun upgrade that changes JUnit output, or a
- * patch that stops applying, would silently collapse killedBy to one id each —
- * a green board with the redundancy signal quietly dead (the classic trap).
+ * The whole useless-test analysis rests on one fact: matrix mode emits a
+ * COMPLETE kill matrix — every test that detects a mutant appears in killedBy,
+ * not just the first. That depends on Bun's junit output (engine/junit.ts). A
+ * Bun upgrade that changes it, or a `--bail` that creeps back into matrix runs,
+ * would silently collapse killedBy to one id each — a green board with the
+ * redundancy signal quietly dead (the classic trap).
  *
  * `verifyMatrix` runs the full contract and returns the result; `isMatrixComplete`
  * is the side-effect-free gate the report path consults to decide whether the
  * redundancy/subsumption sections are trustworthy. Run the CLI form after any
- * bump of Bun or the plugin:
+ * Bun bump:
  *
  *   polly mutate verify          # uses the existing report
- *   polly mutate verify --run    # runs stryker first
+ *   polly mutate verify --run    # runs the engine in matrix mode first
  */
 import { loadMutationReport, type MutationReport } from "./ingest.ts";
 
@@ -28,7 +28,7 @@ export interface MatrixCheck {
 /**
  * Side-effect-free gate: is the kill matrix trustworthy for redundancy /
  * subsumption analysis? True only when
- *   (a) some killed mutant has >1 killer — proof the no-bail patched runner
+ *   (a) some killed mutant has >1 killer — proof the no-bail matrix run
  *       recorded EVERY killer, not just the first (verifyMatrix check #4), and
  *   (b) coverage was collected — not every mutant is NoCoverage, which would
  *       mean the coverage dump broke (verifyMatrix check #5).
@@ -46,31 +46,12 @@ export function isMatrixComplete(report: MutationReport): boolean {
 }
 
 /**
- * Run the full kill-matrix contract (all five checks), optionally running a
- * fresh Stryker pass first. Returns the result rather than exiting, so callers
- * decide what to do with it; the `import.meta.main` wrapper prints and sets the
- * exit code.
+ * Run the full kill-matrix contract (all five checks) on a report. Returns the
+ * result rather than exiting, so callers decide what to do with it.
+ * `polly mutate verify --run` writes a fresh matrix-mode report first.
  */
-export async function verifyMatrix(
-  opts: { reportPath?: string; run?: boolean; strykerConfig?: string } = {}
-): Promise<MatrixCheck> {
+export async function verifyMatrix(opts: { reportPath?: string } = {}): Promise<MatrixCheck> {
   const reportPath = opts.reportPath ?? DEFAULT_REPORT;
-
-  if (opts.run) {
-    console.log("Running mutation pass (this can take many minutes for a large mutate set)...");
-    const cmd = [
-      "bunx",
-      "stryker",
-      "run",
-      // Stryker takes the config file as a positional argument; it rejects `--configFile`.
-      ...(opts.strykerConfig ? [opts.strykerConfig] : []),
-    ];
-    const proc = Bun.spawn(cmd, { stdout: "inherit", stderr: "inherit" });
-    const code = await proc.exited;
-    if (code !== 0) {
-      return { ok: false, checks: [{ name: "stryker run", ok: false, detail: `exited ${code}` }] };
-    }
-  }
 
   if (!(await Bun.file(reportPath).exists())) {
     return {
@@ -79,7 +60,7 @@ export async function verifyMatrix(
         {
           name: "report exists",
           ok: false,
-          detail: `no report at ${reportPath}. Run with --run, or 'bun run mutation' first.`,
+          detail: `no report at ${reportPath}. Run 'polly mutate verify --run' first.`,
         },
       ],
     };
@@ -130,7 +111,7 @@ export async function verifyMatrix(
   );
 
   // 5. coverage extraction works: if the afterAll dump fails, the coverage map is
-  //    empty and Stryker marks EVERY mutant NoCoverage (theatre/gap split dies).
+  //    empty and EVERY mutant reads NoCoverage (theatre/gap split dies).
   const noCov = mutants.filter((m) => m.status === "NoCoverage").length;
   add(
     "coverage collected (not all NoCoverage)",
@@ -139,19 +120,4 @@ export async function verifyMatrix(
   );
 
   return { ok: checks.every((c) => c.ok), checks };
-}
-
-if (import.meta.main) {
-  const result = await verifyMatrix({ run: process.argv.includes("--run") });
-  console.log("\nKill-matrix contract:");
-  for (const c of result.checks) {
-    console.log(`  ${c.ok ? "✓" : "✗"} ${c.name}  (${c.detail})`);
-  }
-  if (!result.ok) {
-    console.log(
-      "\n✗ Contract broken. The pinned pair has drifted — re-check Bun version and that the patch applies (bun install)."
-    );
-    process.exit(1);
-  }
-  console.log("\n✓ Kill-matrix contract holds.");
 }

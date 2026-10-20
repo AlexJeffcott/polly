@@ -57,6 +57,6 @@ export default defineMutation({
   // `--mode fast` stops each run at the first failure instead.
   mode: "matrix",
   concurrency: 6,
-  // No `timeout`: Stryker's 90 s budget covered a full-suite run per mutant.
-  // The engine runs only the covering tests, so its default (baseline × 2 + 3 s) fits.
+  // No `timeout`: the engine runs only the covering tests, so its default
+  // (baseline × 2 + 3 s) fits.
 });

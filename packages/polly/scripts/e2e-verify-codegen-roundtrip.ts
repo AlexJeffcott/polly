@@ -2,8 +2,8 @@
 /**
  * E2e: `polly verify` codegen → TLC roundtrip for a real example project.
  *
- * `e2e-verify-mesh-seed.ts` runs a hand-written TLA spec through TLC, and
- * `e2e-stryker-verify.ts` is mutation testing — neither exercises the full
+ * `e2e-verify-mesh-seed.ts` runs a hand-written TLA spec through TLC — it
+ * does not exercise the full
  * chain the `polly verify` CLI runs for a real consumer: read the handlers
  * and `verification.config.ts`, generate the TLA+ spec, run TLC, report the
  * result. That chain is the core promise of `polly verify`, and nothing

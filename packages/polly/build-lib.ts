@@ -172,9 +172,6 @@ const toolsResult = await Bun.build({
     "cli/polly.ts",
     "tools/init/src/cli.ts",
     "tools/verify/src/cli.ts",
-    // Stryker mutation-testing ignorer (polly#143). Node target: it runs
-    // inside the consumer's Stryker process and imports @stryker-mutator/api.
-    "tools/verify/src/stryker/index.ts",
     "tools/visualize/src/cli.ts",
     "tools/test/src/cli.ts",
     "tools/test/src/browser/run.ts",
@@ -230,13 +227,11 @@ const toolsResult = await Bun.build({
     "tweetnacl",
     "pixelmatch",
     "pngjs",
-    // Provided by the consumer's Stryker install — never bundle (polly#143).
-    "@stryker-mutator/*",
     // Gherkin parser for `polly bdd` — a dependency, kept external.
     "@cucumber/*",
     // Parser for the bun mutation engine — a native-binding dependency, kept external.
     "oxc-parser",
-    // Regex mutants for the bun mutation engine (Stryker's own generator) — a dependency, kept external.
+    // Regex mutants for the bun mutation engine (the generator Stryker used, so mutants stay comparable) — a dependency, kept external.
     "weapon-regex",
   ],
 });
@@ -332,7 +327,6 @@ try {
       "src/**/*",
       "bun-env.d.ts",
       "tools/verify/src/config.ts",
-      "tools/verify/src/stryker/index.ts",
       "tools/test/src/**/*",
       "tools/mutate/src/**/*",
       "tools/bdd/src/**/*",

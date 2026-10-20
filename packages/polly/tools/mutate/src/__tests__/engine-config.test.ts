@@ -80,8 +80,6 @@ describe("resolveMutateConfig", () => {
     const cfg = await load("");
     expect(cfg.mutation?.format).toBe("polly");
     expect(cfg.mutation?.path).toBe(project.path("polly.mutate.ts"));
-    // The Stryker engine still finds its own config.
-    expect(cfg.strykerConfigPath).toBe(project.path("stryker/stryker.conf.json"));
     expect(cfg.reportPath).toBe(project.path("out/m.json"));
   });
 

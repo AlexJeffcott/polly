@@ -4,7 +4,7 @@ Polly already derives two verification strata from one source of truth —
 `{ message-handlers (types + `requires`/`ensures`), state signals }`:
 
 - **`polly verify` (TLA+/TLC)** — exhaustive *invariants* over the handler state machine.
-- **`polly mutate` (Stryker)** — *test adequacy*: are the tests actually killing mutants.
+- **`polly mutate`** — *test adequacy*: are the tests actually killing mutants.
 
 `polly bdd` adds the third, **outside-in** stratum: concrete acceptance examples *from the user's
 perspective*, captured as executable Gherkin and run across the **real factory boundary**. It is the
@@ -105,8 +105,8 @@ formal-only; the runtime runner defers them and `polly verify --witness` settles
 The negative-complement check is the static, Docker-free enforcer of the mutation-testing
 discipline: a positive-only feature can pass against an over-permissive build (a filter that returns
 *everything* still returns the match), exactly the mutant `polly mutate` would surface as a survivor.
-The BDD tier is also wired into the Stryker kill matrix as its own surface (Stryker's `command` runner
-over `polly bdd run`): mutate the handlers, run the scenarios, and any mutant a scenario *should* have
+The BDD tier is also wired into mutation testing as its own surface (the `command` runner over
+`polly bdd run`, as in `examples/todo-list/polly.mutate.ts`): mutate the handlers, run the scenarios, and any mutant a scenario *should* have
 killed but didn't is a survivor — the mechanical complement to the negative-complement warning.
 
 ## Commands

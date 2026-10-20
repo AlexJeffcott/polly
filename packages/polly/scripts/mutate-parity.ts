@@ -11,8 +11,11 @@
  *
  * Both tools run in fast mode (bail at the first failing test) with the same
  * concurrency, one after the other. Mutants match on
- * (file, mutatorName, line, replacement); replacements are normalised first,
- * because the engine's are source text and Stryker's are Babel output.
+ * (file, mutatorName, line, mutated file text), normalised (see `key`).
+ *
+ * Stryker is no longer a polly dependency. It comes from the pinned reference
+ * install in scripts/mutate-parity/stryker/, which this script copies into
+ * ~/.cache/polly/stryker-reference/<hash> and installs there on first use.
  *
  * Pass criteria:
  *   1. ≥ 95 % of Stryker's mutants matched, for the mutators both tools have.
@@ -23,37 +26,50 @@
  *      verify-callsite mutants the engine marks Ignored.
  *   4. The engine is ≥ 10× faster in wall time.
  *
- * Writes scripts/mutate-parity.results.md; raw reports go to
- * reports/mutate-parity/ (gitignored).
+ * Writes scripts/mutate-parity.results.md for the four default targets; raw
+ * reports go to reports/mutate-parity/ (gitignored). `--files` runs write
+ * everything, results.md included, to reports/mutate-parity/files/.
  *
  * Usage (from anywhere; runs at the monorepo root):
  *   bun packages/polly/scripts/mutate-parity.ts
+ *     --files a.ts,b.tsx  compare on these targets (repo-root relative) instead
  *     --reuse-stryker   use reports/mutate-parity/stryker.json from a past run
  *     --reuse-engine    use reports/mutate-parity/engine.json from a past run
  *     --full-run        also run the engine alone on every polly.mutate.ts target
  * Exit 0 when all four criteria pass.
  */
 
-import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { isRecord } from "../src/shared/lib/guards";
 
 const PKG = resolve(import.meta.dir, "..");
 const ROOT = resolve(PKG, "../..");
-const OUT = join(ROOT, "reports/mutate-parity");
-const RESULTS = join(PKG, "scripts/mutate-parity.results.md");
+const REFERENCE = join(PKG, "scripts/mutate-parity/stryker");
 const CLI = join(PKG, "cli/polly.ts");
 const PRELOAD = join(PKG, "tools/mutate/src/engine/preload.ts");
 const SETUP = "./packages/polly/tests/setup.ts";
 const TEST_GLOB = "packages/polly/tests/unit/**/*.test.ts";
 const CONCURRENCY = 6;
 
-const TARGETS = [
+const DEFAULT_TARGETS = [
   "packages/polly/src/shared/lib/validation.ts",
   "packages/polly/src/shared/lib/mesh-network-adapter.ts",
   "packages/polly/src/shared/lib/crdt-state.ts",
   "packages/polly/src/polly-ui/ActionInput.tsx",
 ];
+
+const argv = process.argv.slice(2);
+const flags = new Set(argv);
+const filesArg = argv[argv.indexOf("--files") + 1];
+const targets = flags.has("--files") && filesArg ? filesArg.split(",") : DEFAULT_TARGETS;
+// `--files` runs keep their raw reports apart, so `--reuse-*` on the default
+// targets still finds the default run's.
+const OUT = join(ROOT, "reports/mutate-parity", flags.has("--files") ? "files" : "");
+const RESULTS = flags.has("--files")
+  ? join(OUT, "results.md")
+  : join(PKG, "scripts/mutate-parity.results.md");
 
 interface ReportMutant {
   file: string;
@@ -102,7 +118,25 @@ async function runEngine(files: string[] | null, report: string): Promise<number
   ]);
 }
 
-/** Stryker on the targets, with the root stryker.conf.json's runner setup but bail on. */
+/** The reference Stryker's binary, installed into a cache keyed by the reference files. */
+async function strykerBin(): Promise<string> {
+  const files = ["package.json", "bun.lock", "patches/stryker-mutator-bun-runner@0.4.0.patch"];
+  const hash = Bun.hash(files.map((f) => readFileSync(join(REFERENCE, f), "utf8")).join("\0"));
+  const dir = join(homedir(), ".cache/polly/stryker-reference", hash.toString(16));
+  const bin = join(dir, "node_modules/.bin/stryker");
+  if (existsSync(bin)) return bin;
+  mkdirSync(dir, { recursive: true });
+  for (const f of files) cpSync(join(REFERENCE, f), join(dir, f));
+  const install = Bun.spawn(["bun", "install", "--frozen-lockfile"], {
+    cwd: dir,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  if ((await install.exited) !== 0) throw new Error(`bun install failed in ${dir}`);
+  return bin;
+}
+
+/** Stryker on the targets: the runner setup polly's stryker.conf.json had, with bail on. */
 async function runStryker(report: string): Promise<number> {
   const config = join(OUT, "stryker.parity.json");
   writeFileSync(
@@ -118,7 +152,7 @@ async function runStryker(report: string): Promise<number> {
         checkers: [],
         reporters: ["json", "progress"],
         jsonReporter: { fileName: report },
-        mutate: TARGETS,
+        mutate: targets,
         ignorePatterns: [
           "**/node_modules/**",
           "**/dist/**",
@@ -133,7 +167,8 @@ async function runStryker(report: string): Promise<number> {
       2
     )
   );
-  return await timed(["bunx", "stryker", "run", config]);
+  const bin = await strykerBin();
+  return await timed([bin, "run", config]);
 }
 
 // ── reading reports ────────────────────────────────────────────────────────
@@ -265,7 +300,6 @@ async function fullSuite(m: ReportMutant | null, src: string, files: string[]): 
 
 // ── main ───────────────────────────────────────────────────────────────────
 
-const flags = new Set(process.argv.slice(2));
 mkdirSync(OUT, { recursive: true });
 const engineReport = join(OUT, "engine.json");
 const strykerReport = join(OUT, "stryker.json");
@@ -274,7 +308,7 @@ const times: Record<string, number> = (await Bun.file(timesPath).exists())
   ? await Bun.file(timesPath).json()
   : {};
 
-if (!flags.has("--reuse-engine")) times["engine"] = await runEngine(TARGETS, engineReport);
+if (!flags.has("--reuse-engine")) times["engine"] = await runEngine(targets, engineReport);
 if (!flags.has("--reuse-stryker")) times["stryker"] = await runStryker(strykerReport);
 if (flags.has("--full-run")) {
   times["engineFull"] = await runEngine(null, join(OUT, "engine-full.json"));
@@ -341,7 +375,7 @@ const secs = (ms: number | undefined) => (ms === undefined ? "n/a" : `${(ms / 10
 const row = (m: ReportMutant) =>
   `| ${m.file.replace("packages/polly/src/", "")}:${m.start.line}:${m.start.column} | ${m.mutatorName} | \`${m.replacement.replace(/\s+/g, " ").replace(/\|/g, "\\|").slice(0, 60)}\` | ${m.status} |`;
 
-const perFile = TARGETS.map((file) => {
+const perFile = targets.map((file) => {
   const e = engine.mutants.filter((m) => m.file === file);
   const s = stryker.mutants.filter((m) => m.file === file);
   return `| ${file.replace("packages/polly/src/", "")} | ${s.length} | ${e.length} | ${matched.filter((p) => p.stryker.file === file).length} | ${pct(score(s.filter((m) => !ignoredIds.has(m.id)).map((m) => m.status)))} | ${pct(score(e.filter((m) => m.status !== "Ignored").map((m) => m.status)))} |`;

@@ -5,8 +5,7 @@
  * Stryker config `findStrykerConfigs` discovers, read through the migration
  * mapping (deprecated: `polly mutate migrate --write` converts it). Paths
  * inside a config resolve against its directory; CLI flags resolve against
- * the cwd. The Stryker engine still needs the Stryker JSON itself, so that
- * path is discovered separately.
+ * the cwd.
  */
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -31,10 +30,8 @@ export interface MutateConfig {
   cwd: string;
   /** The config the bun engine runs from. Null if none was found or it failed to load. */
   mutation: LoadedMutationConfig | null;
-  /** Why a Stryker config found as the fallback could not be mapped (the Stryker engine may still run it). */
+  /** Why a Stryker config found as the fallback could not be mapped (fatal only when the engine runs). */
   mutationError: string | null;
-  /** The Stryker config for `--engine stryker` — explicit `--config *.json`, else discovered. */
-  strykerConfigPath: string | null;
   /** mutation-testing-report-schema JSON the analysis reads. */
   reportPath: string;
   /** Intermediate SQLite db (":memory:" by default; a path persists it). */
@@ -56,15 +53,14 @@ export async function resolveMutateConfig(cwd: string, args: MutateArgs): Promis
   // findStrykerConfigs returns sorted absolute paths; the root stryker.conf.json
   // sorts before any stryker/ shard, so [0] is the root config when present.
   const discoveredStryker = (await findStrykerConfigs(cwd))[0] ?? null;
-  const strykerConfigPath = explicit?.endsWith(".json") ? explicit : discoveredStryker;
 
   const local = resolve(cwd, MUTATION_CONFIG_FILE);
   const mutationPath = explicit ?? (existsSync(local) ? local : discoveredStryker);
   let mutation: LoadedMutationConfig | null = null;
   let mutationError: string | null = null;
   if (mutationPath?.endsWith(".json")) {
-    // A Stryker config the mapping cannot read (a jest runner, say) still
-    // serves `--engine stryker` and the report verbs, so it is not fatal here.
+    // A Stryker config the mapping cannot read (a jest runner, say) must not
+    // block the report verbs, which need no config, so it is not fatal here.
     try {
       mutation = await loadAt(mutationPath);
     } catch (err) {
@@ -81,7 +77,6 @@ export async function resolveMutateConfig(cwd: string, args: MutateArgs): Promis
     cwd,
     mutation,
     mutationError,
-    strykerConfigPath,
     reportPath: fromConfig(args.report, mutation?.config.report, DEFAULT_REPORT),
     dbPath: args.db ? resolve(cwd, args.db) : ":memory:",
     decisionsPath: fromConfig(args.decisions, mutation?.config.decisions, DEFAULT_DECISIONS),

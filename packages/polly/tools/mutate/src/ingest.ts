@@ -1,5 +1,5 @@
 /**
- * Ingest a Stryker mutation report (mutation-testing-report-schema) into a
+ * Ingest a mutation report (mutation-testing-report-schema) into a
  * regenerable SQLite database holding the kill matrix.
  *
  * The tool consumes the *schema*, never a specific runner — so the same

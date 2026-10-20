@@ -4,7 +4,7 @@
  * @fairfox/polly/test/coverage — consumer-facing `polly coverage`.
  *
  * Zero-config: run it in any Polly project and it reports per-file coverage,
- * orphan source files, and (if a Stryker config is present) dead mutate/test
+ * orphan source files, and (if a mutation config is present) dead mutate/test
  * globs. Add a `coverage.config.ts` with a `defaultThreshold` to turn the
  * report into an enforced gate, and `exempt` entries to record which
  * higher-tier test covers a unit-thin file.
@@ -13,7 +13,7 @@
  *   polly coverage                 # report (zero-config) or enforce (with config)
  *   polly coverage --strict-orphans  # fail on source no unit test imports
  *   polly coverage --orphans         # list the orphan files
- *   polly coverage --no-mutate       # skip the Stryker target check
+ *   polly coverage --no-mutate       # skip the mutate-target check
  *   polly coverage --config <path>   # explicit coverage.config.ts
  *   bun test --coverage | polly coverage --stdin
  */
@@ -84,7 +84,7 @@ function reportOrphans(f: CoverageFindings, args: Args): void {
 
 function reportMutate(report: MutateTargetReport): void {
   if (report.issues.length === 0) return;
-  process.stderr.write(`❌ ${report.issues.length} Stryker target(s) resolve to no files:\n`);
+  process.stderr.write(`❌ ${report.issues.length} mutate target(s) resolve to no files:\n`);
   for (const i of report.issues) {
     process.stderr.write(`   ${i.config} [${i.field}] ${i.pattern}\n`);
   }
@@ -92,10 +92,10 @@ function reportMutate(report: MutateTargetReport): void {
 
 function showHelp(): void {
   process.stdout.write(
-    "polly coverage — coverage policy, orphan detection, Stryker target validation\n\n" +
+    "polly coverage — coverage policy, orphan detection, mutate-target validation\n\n" +
       "  Coverage that a line ran isn't proof anything checks it. This enforces a\n" +
       "  per-file floor with explicit, owned exemptions so test debt stays visible,\n" +
-      "  and flags orphans (source no test imports) and drifted Stryker targets.\n\n" +
+      "  and flags orphans (source no test imports) and drifted mutate targets.\n\n" +
       "  --strict-orphans   fail on source no unit test imports\n" +
       "  --orphans          list orphan files\n" +
       "  --no-mutate        skip the mutation target/test-glob check\n" +

@@ -13,7 +13,7 @@
  * It is a faithful double: production maps each key to a distinct hashed
  * class, the proxy maps each key to its own name — distinct per key, so
  * "which class did the branch pick" becomes observable. An empty-string
- * key (what Stryker's StringLiteral mutator produces) still returns the
+ * key (what the StringLiteral mutator produces) still returns the
  * empty string, which `parts.filter(Boolean)` strips exactly as a
  * missing production class would be.
  *

@@ -483,7 +483,7 @@ Compositional result: ✓ PASS
 
 ## BDD — Executable Specs & Reachability Witnesses (v0.82–v0.84)
 
-`polly bdd` is the third verification stratum, alongside `verify` (TLA+) and `mutate` (Stryker). It runs acceptance examples written from the user's perspective as Gherkin, across the **real factory boundary** — the same `createBackground`/`createMeshClient` the app boots, never a hand-wired bus (the polly#57 lesson). It's the runner a three-amigos session writes `.feature` files into.
+`polly bdd` is the third verification stratum, alongside `verify` (TLA+) and `mutate` (mutation testing). It runs acceptance examples written from the user's perspective as Gherkin, across the **real factory boundary** — the same `createBackground`/`createMeshClient` the app boots, never a hand-wired bus (the polly#57 lesson). It's the runner a three-amigos session writes `.feature` files into.
 
 ```typescript
 import { defineStep, defineWorld, driveBus } from '@fairfox/polly/bdd'

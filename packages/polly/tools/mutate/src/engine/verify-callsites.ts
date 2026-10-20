@@ -3,8 +3,7 @@
  * A mutation anywhere inside a call to one of these cannot be killed by a test,
  * so its mutants are excluded from scoring (polly#143).
  *
- * The single source for both engines: the Stryker ignorer in
- * tools/verify/src/stryker re-exports this set.
+ * The single source: generate.ts marks mutants inside these calls Ignored.
  */
 export const VERIFY_PRIMITIVES: ReadonlySet<string> = new Set([
   "requires",

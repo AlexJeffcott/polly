@@ -162,10 +162,9 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
     );
   }
 
-  // Under coverageAnalysis "all", Stryker classifies a non-killed mutant as
-  // NoCoverage (no test runs it — a true gap) or Survived (a test runs it but
-  // nothing detects the mutation — theatre). That status split IS the
-  // gap/theatre distinction; it requires coverage to be on (see README).
+  // A non-killed mutant is NoCoverage (no test reaches it — a true gap) or
+  // Survived (a test reaches it but nothing detects the mutation — theatre).
+  // That status split IS the gap/theatre distinction (see README).
   const srcFile = queryGet<{ file: string }>(db, "SELECT file FROM mutants LIMIT 1")?.file;
 
   // --- gaps: code no test even executes ---

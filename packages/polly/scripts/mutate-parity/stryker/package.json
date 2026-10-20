@@ -1,0 +1,16 @@
+{
+  "name": "polly-stryker-reference",
+  "private": true,
+  "description": "Stryker, held outside the workspace, for scripts/mutate-parity.ts speed and parity comparisons only. Installed into a cache directory, never into the repo.",
+  "dependencies": {
+    "@stryker-mutator/core": "9.6.1",
+    "stryker-mutator-bun-runner": "0.4.0",
+    "typescript": "6.0.3"
+  },
+  "patchedDependencies": {
+    "stryker-mutator-bun-runner@0.4.0": "patches/stryker-mutator-bun-runner@0.4.0.patch"
+  },
+  "overrides": {
+    "@babel/core": "7.29.7"
+  }
+}

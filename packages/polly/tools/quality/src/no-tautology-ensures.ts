@@ -5,8 +5,8 @@
  * first positional argument) is a tautology: a bare literal (`true`,
  * `false`, `null`, `undefined`, a number, a string) or a comparison of
  * two literals (`1 === 1`). These primitives are Polly's formal-verify
- * contracts — `ensures`/`requires` (and the wider verify family the
- * Stryker ignorer lists in `tools/verify/src/stryker`) compile away at
+ * contracts — `ensures`/`requires` (and the wider verify family listed in
+ * `tools/mutate/src/engine/verify-callsites.ts`) compile away at
  * runtime and translate to TLA+ assertions under verification. A
  * tautological predicate therefore asserts nothing, yet reads in review
  * like a genuine safety check. Swapping a real predicate for `true`

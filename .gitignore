@@ -54,6 +54,6 @@ test-results
 .claude/worktrees/
 .cache/
 
-# Stryker mutation testing
+# Stryker sandbox (scripts/mutate-parity.ts runs the reference Stryker)
 .stryker-tmp/
 reports/

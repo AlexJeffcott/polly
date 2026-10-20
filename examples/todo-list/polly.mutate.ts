@@ -13,6 +13,6 @@ export default defineMutation({
     argv: ["bun", "run", "bdd"],
   },
   concurrency: 4,
-  // No `timeout`: Stryker's 60 s budget was for its sandbox overhead. The
-  // scenarios run in well under a second, so the default (baseline × 2 + 3 s) fits.
+  // No `timeout`: the scenarios run in well under a second, so the default
+  // (baseline × 2 + 3 s) fits.
 });

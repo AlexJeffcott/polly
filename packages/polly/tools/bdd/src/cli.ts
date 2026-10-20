@@ -3,7 +3,7 @@
  * `polly bdd` — author and run executable Gherkin against polly's own model.
  *
  * BDD is polly's third verification stratum. verify (TLA+) proves invariants
- * over the handler state machine; mutate (Stryker) proves the tests have teeth;
+ * over the handler state machine; mutate proves the tests have teeth;
  * BDD pins down what a feature should do *from the user's perspective*, as
  * concrete examples that run across the real factory boundary. A Gherkin
  * scenario decomposes onto the same vocabulary the other two already speak:

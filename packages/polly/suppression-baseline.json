@@ -374,9 +374,5 @@
   {
     "file": "tools/verify/src/primitives/index.ts",
     "text": "// @ts-expect-error - Dynamic import path resolves correctly at runtime"
-  },
-  {
-    "file": "tools/verify/src/stryker/index.ts",
-    "text": "// biome-ignore lint/style/noDefaultExport: ergonomic `import preset from \"@fairfox/polly/stryker\"`"
   }
 ]

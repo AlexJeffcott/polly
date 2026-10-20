@@ -12,7 +12,7 @@ import { decide, status } from "./decisions.ts";
 import { buildDb, loadMutationReport } from "./ingest.ts";
 import { initConfig } from "./init.ts";
 import { migrateConfig } from "./migrate.ts";
-import { presetAdvisory, reportFromFile, resolveEngine, runBunEngine, runStryker } from "./run.ts";
+import { reportFromFile, resolveEngine, runBunEngine } from "./run.ts";
 import { verifyMatrix } from "./verify-matrix.ts";
 
 const HELP = `polly mutate — mutation testing + useless-test detection
@@ -42,19 +42,18 @@ Flags:
   --decisions <path>  verdict log (default: .polly/test-debt/decisions.jsonl)
   --db <path>         intermediate SQLite (default: in-memory)
   --no-report         'run' only — skip the analysis
-  --engine <name>     bun (default; Bun-native, no sandbox) or stryker (deprecated)
-  --files <a,b>       bun engine — mutate only these files (globs and :from-to ranges allowed)
-  --since <git-ref>   bun engine — mutate only targets changed since the ref
-  --in-tree           bun engine — run tests in the project dir, not a scratch cwd
-  --concurrency <n>   bun engine — parallel test processes (default: config, else cores-1)
-  --mode <fast|matrix> bun engine — fast stops each run at the first failing test (default
+  --files <a,b>       mutate only these files (globs and :from-to ranges allowed)
+  --since <git-ref>   mutate only targets changed since the ref
+  --in-tree           run tests in the project dir, not a scratch cwd
+  --concurrency <n>   parallel test processes (default: config, else cores-1)
+  --mode <fast|matrix> fast stops each run at the first failing test (default
                       unless the config sets mode);
                       matrix runs every test and records each killer (the kill matrix)
-  --no-cache          bun engine — rerun targets whose inputs are unchanged
+  --no-cache          rerun targets whose inputs are unchanged
   -h, --help
 
-The redundancy/subsumption sections need a COMPLETE kill matrix ('--mode matrix',
-or Stryker with the no-bail patched Bun runner). Without it the report degrades
+The redundancy/subsumption sections need a COMPLETE kill matrix ('--mode matrix').
+Without it the report degrades
 to score + gaps + theatre; 'polly mutate verify' diagnoses the matrix
 ('verify --run' runs a matrix pass first).`;
 
@@ -106,9 +105,7 @@ async function migrate(cwd: string, args: ReturnType<typeof parseMutateArgs>): P
     return 1;
   }
   console.log(`✓ wrote ${result.path}`);
-  console.log(
-    `  ${strykerPath} still drives --engine stryker; delete it once you no longer need that.`
-  );
+  console.log(`  ${strykerPath} is no longer read once polly.mutate.ts exists; delete it.`);
   return 0;
 }
 
@@ -128,12 +125,8 @@ async function main(): Promise<number> {
 
   switch (args.verb) {
     case "run": {
-      const engine = resolveEngine(args);
-      if (engine === "stryker") {
-        const tip = await presetAdvisory(cfg);
-        if (tip) console.log(`${tip}\n`);
-      }
-      const code = engine === "bun" ? await runBunEngine(cfg, args) : await runStryker(cfg);
+      resolveEngine(args);
+      const code = await runBunEngine(cfg, args);
       if (code !== 0) return code;
       if (args.noReport) return 0;
       console.log(`\n${await reportFromFile(cfg)}`);
@@ -168,18 +161,16 @@ async function main(): Promise<number> {
     }
 
     case "verify": {
-      const bun = args.run && resolveEngine(args) === "bun";
-      if (bun) await runBunEngine(cfg, { ...args, mode: "matrix" });
-      const result = await verifyMatrix({
-        reportPath: cfg.reportPath,
-        run: args.run && !bun,
-        strykerConfig: cfg.strykerConfigPath ?? undefined,
-      });
+      if (args.run) {
+        resolveEngine(args);
+        await runBunEngine(cfg, { ...args, mode: "matrix" });
+      }
+      const result = await verifyMatrix({ reportPath: cfg.reportPath });
       console.log("\nKill-matrix contract:");
       for (const c of result.checks) console.log(`  ${c.ok ? "✓" : "✗"} ${c.name}  (${c.detail})`);
       if (!result.ok) {
         console.log(
-          "\n✗ Contract broken. The pinned pair has drifted — re-check Bun version and that the patch applies (bun install)."
+          "\n✗ Contract broken. Re-check the Bun version: matrix mode reads Bun's junit output (engine/junit.ts)."
         );
         return 1;
       }
