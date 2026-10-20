@@ -64,7 +64,7 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
     },
   });
 
-  console.log("\nfile | tests | killed | survived | timeout | no-cov | other | score");
+  console.log("\nfile | tests | killed | survived | timeout | no-cov | invalid | other | score");
   const all = result.targets.flatMap((t) => t.results);
   for (const t of result.targets) {
     const count = (s: string) => t.results.filter((r) => r.status === s).length;
@@ -73,7 +73,8 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
       count("Killed") -
       count("Survived") -
       count("Timeout") -
-      count("NoCoverage");
+      count("NoCoverage") -
+      count("CompileError");
     const score = mutationScore(t.results);
     console.log(
       [
@@ -83,6 +84,7 @@ export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise
         count("Survived"),
         count("Timeout"),
         count("NoCoverage"),
+        count("CompileError"),
         other,
         score === null ? "n/a" : `${score.toFixed(1)}%`,
       ].join(" | ")

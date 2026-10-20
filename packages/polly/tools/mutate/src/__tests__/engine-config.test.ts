@@ -118,6 +118,7 @@ describe("engineConfigFor", () => {
     expect(cfg.excludeMutators).toEqual(["StringLiteral"]);
     expect(cfg.timeout).toEqual({ factor: 2, extraMs: 3000 });
     expect(cfg.ignoreVerifyCallsites).toBe(true);
+    expect(cfg.typecheck).toBe(true);
     expect(cfg.targets).toEqual([
       { file: project.path("src/a.ts"), lines: { from: 2, to: 4 } },
       { file: project.path("src/b.ts") },
@@ -129,6 +130,20 @@ describe("engineConfigFor", () => {
     const cfg = await engineConfigFor(await load(""), args);
     expect(cfg.targets).toEqual([{ file: project.path("src/b.ts") }]);
     expect(cfg.concurrency).toBe(8);
+  });
+
+  test("typecheck is on unless the config or --no-typecheck turns it off", async () => {
+    const base = await load("");
+    const off = await engineConfigFor(base, parseMutateArgs(["--no-typecheck"]));
+    expect(off.typecheck).toBe(false);
+    const config = parseMutationConfig(
+      { targets: ["a.ts"], tests: { include: ["t"] }, typecheck: false },
+      "f"
+    );
+    expect(config.typecheck).toBe(false);
+    expect(() =>
+      parseMutationConfig({ targets: [], tests: { include: ["t"] }, typecheck: "yes" }, "f")
+    ).toThrow("typecheck must be boolean");
   });
 
   test("mode, cache dir and --no-cache", async () => {

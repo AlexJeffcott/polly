@@ -53,6 +53,7 @@ beforeAll(async () => {
       coverage: "dynamic",
       cacheDir: null,
       scratchCwd: true,
+      typecheck: false,
       reportPath: project.path("reports/mutation.json"),
     },
     { log: (line) => logs.push(line) }

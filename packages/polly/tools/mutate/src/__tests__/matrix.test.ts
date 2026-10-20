@@ -59,6 +59,7 @@ beforeAll(async () => {
     excludeMutators: [],
     ignoreVerifyCallsites: true,
     scratchCwd: true,
+    typecheck: false,
     cacheDir: null,
     reportPath,
   });
@@ -130,6 +131,7 @@ describe("fast mode on the same project", () => {
       excludeMutators: [],
       ignoreVerifyCallsites: true,
       scratchCwd: true,
+      typecheck: false,
       cacheDir: null,
       reportPath: fastReport,
     });

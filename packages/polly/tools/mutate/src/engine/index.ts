@@ -12,7 +12,9 @@
  *   run       one `bun test` per mutant, the mutant injected by a preload
  *             plugin (preload.ts) — no sandbox copy; each process gets a fresh
  *             scratch cwd (workdir.ts). Fast mode bails at the first failure;
- *             matrix mode runs every test and records each killer (junit.ts)
+ *             matrix mode runs every test and records each killer (junit.ts).
+ *             A mutant the project's tsconfig rejects is CompileError and
+ *             never runs (typecheck.ts); the check overlaps the baselines
  *   report    mutation-testing-report-schema JSON (report-writer.ts)
  */
 import { realpathSync } from "node:fs";
@@ -48,6 +50,7 @@ import { type JunitCase, killers, LOAD_FAILURE_NAME, loadFailureId, parseJunit }
 import { toMutationReport, writeReport } from "./report-writer.ts";
 import { pool, preloadPath, runBunTest } from "./runner.ts";
 import { newPaths, snapshotWorktree } from "./stray-writes.ts";
+import { typecheckMutants } from "./typecheck.ts";
 import type {
   EngineConfig,
   EngineResult,
@@ -63,6 +66,7 @@ export { applyMutant, generateMutants } from "./generate.ts";
 export { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
 export { toMutationReport, writeReport } from "./report-writer.ts";
 export { newPaths, snapshotWorktree } from "./stray-writes.ts";
+export { typecheckMutants } from "./typecheck.ts";
 export type * from "./types.ts";
 export { VERIFY_PRIMITIVES } from "./verify-callsites.ts";
 
@@ -233,6 +237,7 @@ async function withCache(
     scratchCwd: cfg.scratchCwd,
     testPreload: cfg.testPreload,
     coverage: cfg.coverage,
+    typecheck: cfg.typecheck,
     selections: selectionKey(g.mutants, selections),
   };
   // No import graph bounds what a command reads, so its results are never cached.
@@ -415,11 +420,14 @@ function summarise(
   p: PreparedTarget,
   baseline: Baseline | null,
   byId: Map<string, MutantResult>,
+  invalid: ReadonlyMap<string, string>,
   workdirs: Workdirs | null
 ): TargetSummary {
   const results: MutantResult[] = p.mutants.map((mutant) => {
     if (mutant.ignoredReason)
       return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
+    const typeError = invalid.get(mutant.id);
+    if (typeError) return { mutant, status: "CompileError", statusReason: typeError };
     if (!p.covered) {
       const reason = p.selections ? "no test ran this target" : "no test file imports this target";
       return { mutant, status: "NoCoverage", statusReason: reason };
@@ -471,9 +479,19 @@ async function run(
   );
 
   const fresh = prepared.filter((p) => !p.cached && p.covered);
-  const measured = await pool(fresh, cfg.concurrency, (p) =>
-    measureBaseline(cfg, workdirs, preloads, p, log)
-  );
+  // The type filter is one tsgo process; it runs while the baselines use the pool.
+  const [measured, typed] = await Promise.all([
+    pool(fresh, cfg.concurrency, (p) => measureBaseline(cfg, workdirs, preloads, p, log)),
+    cfg.typecheck
+      ? typecheckMutants(
+          prepared
+            .filter((p) => !p.cached)
+            .map((p) => ({ file: p.file, mutants: p.mutants.filter((m) => !m.ignoredReason) })),
+          { cwd: cfg.cwd, log }
+        )
+      : null,
+  ]);
+  const invalid: ReadonlyMap<string, string> = typed?.invalid ?? new Map();
   const baselines = new Map(fresh.map((p, i) => [p, measured[i] ?? null]));
   const afterBaselines = snapshotWorktree(cfg.cwd);
 
@@ -483,7 +501,7 @@ async function run(
     if (!baseline?.ok) return;
     const timeoutMs = Math.round(baseline.ms * cfg.timeout.factor + cfg.timeout.extraMs);
     for (const mutant of p.mutants) {
-      if (!mutant.ignoredReason && selected(p, mutant))
+      if (!mutant.ignoredReason && !invalid.has(mutant.id) && selected(p, mutant))
         jobs.push({ target, mutant, timeoutMs, inTree: baseline.inTree });
     }
   });
@@ -503,7 +521,9 @@ async function run(
   const byId = new Map(runResults.map((r) => [r.mutant.id, r]));
 
   const targets: TargetSummary[] = prepared.map((p) =>
-    p.cached ? fromCache(p, p.cached) : summarise(cfg, p, baselines.get(p) ?? null, byId, workdirs)
+    p.cached
+      ? fromCache(p, p.cached)
+      : summarise(cfg, p, baselines.get(p) ?? null, byId, invalid, workdirs)
   );
 
   const afterMutants = snapshotWorktree(cfg.cwd);

@@ -51,6 +51,11 @@ interface MutationCommon {
   /** Per-mutant timeout = baseline × factor + extraMs. Default 2 / 3000. */
   timeout?: { factor: number; extraMs: number };
   mutators?: { exclude?: MutatorName[] };
+  /**
+   * Report mutants the project's TypeScript config rejects as CompileError,
+   * never run (TypeScript 7 through the `typescript-7` dependency). Default true.
+   */
+  typecheck?: boolean;
   /** Report mutants inside requires/ensures/… as Ignored (polly#143). Default true. */
   ignoreVerifyCallsites?: boolean;
   /** `polly mutate run` exits 1 when the score is below `break`. */
@@ -165,6 +170,11 @@ function parseMutants(raw: Record<string, unknown>, where: string): Partial<Muta
     if (typeof ignore !== "boolean")
       throw new Error(`${where}: ignoreVerifyCallsites must be boolean`);
     out.ignoreVerifyCallsites = ignore;
+  }
+  const typecheck = raw["typecheck"];
+  if (typecheck !== undefined) {
+    if (typeof typecheck !== "boolean") throw new Error(`${where}: typecheck must be boolean`);
+    out.typecheck = typecheck;
   }
   return out;
 }

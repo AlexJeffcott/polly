@@ -22,7 +22,12 @@
  *   5. kill mutants in the module only `mock.module` reaches — static
  *      selection sees no test for it, so this proves the coverage pass, and
  *      that the built CLI finds the preload's coverage mode;
- *   6. render the report through `polly mutate report`.
+ *   6. report the mutants the project's tsconfig rejects (a typed function's
+ *      body emptied) as CompileError with the TS reason, never run — this
+ *      proves the built CLI resolves typescript-7 and spawns tsgo;
+ *   7. render the report through `polly mutate report`.
+ *
+ * Then `--no-typecheck`: the same mutants run and get a real status.
  *
  * Then `--since HEAD` in a git checkout: no change → nothing runs; one target
  * edited → only that target runs.
@@ -70,6 +75,17 @@ const STRYKER_CONFIG = JSON.stringify({
 /** The project without a mutation config. */
 const SOURCES: Record<string, string> = {
   "package.json": JSON.stringify({ name: "mutate-e2e", private: true, type: "module" }),
+  "tsconfig.json": JSON.stringify({
+    compilerOptions: {
+      strict: true,
+      noEmit: true,
+      module: "preserve",
+      moduleResolution: "bundler",
+      target: "esnext",
+      allowImportingTsExtensions: true,
+    },
+    include: ["src/**/*"],
+  }),
   "src/machine.ts": [
     "const requires = (_c: boolean, _m: string) => {};",
     "const ensures = (_c: boolean, _m: string) => {};",
@@ -121,6 +137,8 @@ async function writeProject(dir: string, files: Record<string, string>): Promise
 
 const TERNARY_LINE = 5;
 const DESCRIBE_LINE = 10;
+/** `transition`'s body: emptied, a string-returning function returns nothing (TS2355). */
+const TRANSITION_BODY_LINE = 3;
 
 interface ReportMutant {
   status: string;
@@ -178,7 +196,10 @@ async function checkCli(ctx: TierContext, label: string, cli: string): Promise<v
       killedOnTernary.length > 0,
       `nothing killed on the tested ternary (line ${TERNARY_LINE}) — is the preload injecting?`
     );
-    const onDescribe = mutants.filter((m) => m.line === DESCRIBE_LINE);
+    // The type filter outranks coverage: an invalid mutant is not a mutant.
+    const onDescribe = mutants.filter(
+      (m) => m.line === DESCRIBE_LINE && m.status !== "CompileError"
+    );
     assert(
       onDescribe.length > 0 &&
         onDescribe.every(
@@ -186,8 +207,19 @@ async function checkCli(ctx: TierContext, label: string, cli: string): Promise<v
         ),
       `the never-called describe() (line ${DESCRIBE_LINE}) is not all NoCoverage: ${JSON.stringify(onDescribe)}`
     );
+    const invalid = mutants.filter((m) => m.status === "CompileError");
+    assert(
+      invalid.some(
+        (m) => m.line === TRANSITION_BODY_LINE && /^TS2355: /.test(m.statusReason ?? "")
+      ),
+      `the emptied body of transition() (line ${TRANSITION_BODY_LINE}) is not CompileError TS2355: ${JSON.stringify(invalid)}`
+    );
+    assert(
+      /type filter: \d+ of \d+ mutants fail to type-check/.test(out),
+      `the run did not report the type filter:\n${out}`
+    );
     ctx.log(
-      `  ✓ ${mutants.length} mutants: ${ignored.length} ignored, ${killedOnTernary.length} killed on the tested branch, ${onDescribe.length} NoCoverage in the never-called function`
+      `  ✓ ${mutants.length} mutants: ${ignored.length} ignored, ${killedOnTernary.length} killed on the tested branch, ${onDescribe.length} NoCoverage in the never-called function, ${invalid.length} CompileError from the type filter`
     );
     const hidden = await readMutants(temp.dir, "src/hidden.ts");
     assert(
@@ -202,6 +234,29 @@ async function checkCli(ctx: TierContext, label: string, cli: string): Promise<v
       `polly mutate report did not render a score:\n${rendered}`
     );
     ctx.log("  ✓ polly mutate report renders the engine's report");
+  } finally {
+    temp.cleanup();
+  }
+}
+
+async function checkTypecheckOff(ctx: TierContext): Promise<void> {
+  const temp = withTempDir("polly-e2e-mutate-notypecheck-");
+  try {
+    await writeProject(temp.dir, FILES);
+    ctx.log("[e2e] --no-typecheck runs the mutants the tsconfig rejects");
+    const out = await mutate(SOURCE_CLI, temp.dir, ["run", "--no-typecheck", "--no-report"]);
+    assert(!/type filter/.test(out), `--no-typecheck still ran the type filter:\n${out}`);
+    const mutants = await readMutants(temp.dir, "src/machine.ts");
+    assert(
+      !mutants.some((m) => m.status === "CompileError"),
+      `--no-typecheck still reported CompileError: ${statusCounts(mutants)}`
+    );
+    const body = mutants.filter((m) => m.line === TRANSITION_BODY_LINE);
+    assert(
+      body.some((m) => m.status === "Killed"),
+      `the emptied body ran but was not killed: ${JSON.stringify(body)}`
+    );
+    ctx.log(`  ✓ --no-typecheck: ${statusCounts(mutants)}`);
   } finally {
     temp.cleanup();
   }
@@ -309,6 +364,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       fail(`Built CLI not found at ${BUILT_CLI}. Run \`bun run build:lib\` first.`);
     await checkCli(ctx, "source", SOURCE_CLI);
     await checkCli(ctx, "built", BUILT_CLI);
+    await checkTypecheckOff(ctx);
     await checkSince(ctx);
     await checkInit(ctx);
     await checkMigrate(ctx);

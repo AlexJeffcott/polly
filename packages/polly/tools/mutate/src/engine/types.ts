@@ -113,6 +113,11 @@ export interface EngineConfig {
    */
   testPreload: string[];
   mode: EngineMode;
+  /**
+   * Report mutants the project's TypeScript config rejects as CompileError
+   * without running them (typecheck.ts). Needs `typescript-7`.
+   */
+  typecheck: boolean;
   /** Test selection. The command runner selects nothing, so it is always static. */
   coverage: CoverageMode;
   concurrency: number;

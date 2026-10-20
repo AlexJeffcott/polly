@@ -62,6 +62,7 @@ beforeAll(async () => {
     coverage: "dynamic",
     cacheDir: null,
     scratchCwd: true,
+    typecheck: false,
     reportPath,
   });
 }, 120_000);

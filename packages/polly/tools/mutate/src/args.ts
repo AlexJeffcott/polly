@@ -37,6 +37,8 @@ export interface MutateArgs {
   inTree: boolean;
   /** `--no-cache` — ignore and do not reuse cached target results (bun engine). */
   noCache: boolean;
+  /** `--no-typecheck` — run mutants the project's TypeScript config rejects instead of reporting CompileError. */
+  noTypecheck: boolean;
 }
 
 const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "migrate", "help"]);
@@ -89,6 +91,7 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     write: bools.has("--write"),
     inTree: bools.has("--in-tree"),
     noCache: bools.has("--no-cache"),
+    noTypecheck: bools.has("--no-typecheck"),
     help,
     engine: flags.get("--engine"),
     mode: flags.get("--mode"),

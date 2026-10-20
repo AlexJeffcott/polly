@@ -51,6 +51,7 @@ const run = (scratchCwd: boolean) =>
     coverage: "dynamic",
     cacheDir: null,
     scratchCwd,
+    typecheck: false,
     reportPath: project.path("reports/mutation.json"),
   });
 

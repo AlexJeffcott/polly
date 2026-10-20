@@ -44,6 +44,7 @@ beforeAll(async () => {
     coverage: "dynamic",
     cacheDir: project.path(".polly/mutate/cache"),
     scratchCwd: false,
+    typecheck: false,
     reportPath: project.path("reports/mutation.json"),
   });
 }, 120_000);
@@ -84,6 +85,7 @@ describe("command runner", () => {
         coverage: "dynamic",
         cacheDir: null,
         scratchCwd: false,
+        typecheck: false,
         reportPath: project.path("reports/m.json"),
       })
     ).rejects.toThrow("command runner");

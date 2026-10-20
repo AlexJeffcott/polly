@@ -53,6 +53,8 @@ Flags:
                       tests that run each mutant, and marks unrun code NoCoverage;
                       static runs every test file that imports the target
   --no-cache          rerun targets whose inputs are unchanged
+  --no-typecheck      run mutants the project's tsconfig rejects (default: report
+                      them CompileError without a run; needs typescript-7)
   -h, --help
 
 The redundancy/subsumption sections need a COMPLETE kill matrix ('--mode matrix').

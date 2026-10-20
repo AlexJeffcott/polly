@@ -68,6 +68,7 @@ const config = (over: Partial<EngineConfig>): EngineConfig => ({
   excludeMutators: [],
   ignoreVerifyCallsites: true,
   scratchCwd: true,
+  typecheck: false,
   cacheDir: null,
   reportPath: project.path("reports/mutation.json"),
   ...over,

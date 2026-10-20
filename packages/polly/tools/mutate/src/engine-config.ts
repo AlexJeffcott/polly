@@ -129,6 +129,7 @@ export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Prom
     coverage: command ? "static" : resolveCoverage(args.coverage, config),
     concurrency: resolveConcurrency(args.concurrency, config.concurrency),
     timeout: config.timeout ?? { factor: 2, extraMs: 3000 },
+    typecheck: !args.noTypecheck && (config.typecheck ?? true),
     excludeMutators: config.mutators?.exclude ?? [],
     ignoreVerifyCallsites: config.ignoreVerifyCallsites ?? true,
     // A command runs where its package.json is; it gets no scratch cwd.
