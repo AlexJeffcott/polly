@@ -25,6 +25,8 @@ export interface MutateArgs {
   engine?: string;
   /** `--mode fast|matrix` (bun engine). */
   mode?: string;
+  /** `--coverage dynamic|static` (bun engine). */
+  coverage?: string;
   /** `--concurrency <n>` (bun engine). */
   concurrency?: string;
   /** `--files a.ts,b.ts` — mutate only these targets (bun engine). */
@@ -45,6 +47,7 @@ const VALUE_FLAGS = new Set([
   "--db",
   "--engine",
   "--mode",
+  "--coverage",
   "--concurrency",
   "--files",
   "--since",
@@ -89,6 +92,7 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     help,
     engine: flags.get("--engine"),
     mode: flags.get("--mode"),
+    coverage: flags.get("--coverage"),
     concurrency: flags.get("--concurrency"),
     files: flags.get("--files"),
     since: flags.get("--since"),

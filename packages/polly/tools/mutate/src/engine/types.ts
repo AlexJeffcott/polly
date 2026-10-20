@@ -61,6 +61,8 @@ export interface MutantResult {
   durationMs?: number;
   /** Matrix mode: ids (see junit.ts `testId`) of every test that failed under the mutant. */
   killedBy?: string[];
+  /** Dynamic coverage: ids of every test that ran the mutant's code (coverage.ts). */
+  coveredBy?: string[];
 }
 
 /** One test the baseline ran (matrix mode). */
@@ -86,6 +88,13 @@ export interface MutateTarget {
 
 export type EngineRunner = { kind: "bun-test" } | { kind: "command"; argv: string[] };
 
+/**
+ * dynamic  one probed pass over every test file decides, per mutant, which
+ *          tests run it (coverage.ts); a mutant no test runs is NoCoverage
+ * static   every test file whose import closure reaches the target (graph.ts)
+ */
+export type CoverageMode = "dynamic" | "static";
+
 export interface EngineConfig {
   /** Directory `bun test` runs from; test globs and report paths are relative to it. */
   cwd: string;
@@ -104,6 +113,8 @@ export interface EngineConfig {
    */
   testPreload: string[];
   mode: EngineMode;
+  /** Test selection. The command runner selects nothing, so it is always static. */
+  coverage: CoverageMode;
   concurrency: number;
   timeout: { factor: number; extraMs: number };
   /** Mutators that generate nothing. */

@@ -59,6 +59,7 @@ beforeAll(async () => {
     excludeMutators: [],
     ignoreVerifyCallsites: true,
     mode: "fast",
+    coverage: "dynamic",
     cacheDir: null,
     scratchCwd: true,
     reportPath,

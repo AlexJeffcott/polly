@@ -14,7 +14,7 @@
  * typo fails with a message, not a crash deep in the engine.
  */
 import { isRecord } from "../../../src/shared/lib/guards";
-import type { EngineMode, MutatorName } from "./engine/types.ts";
+import type { CoverageMode, EngineMode, MutatorName } from "./engine/types.ts";
 
 export const MUTATION_CONFIG_FILE = "polly.mutate.ts";
 
@@ -40,6 +40,12 @@ interface MutationCommon {
   targets: string[];
   /** fast stops at the first failing test; matrix records every killer. Default fast. */
   mode?: EngineMode;
+  /**
+   * dynamic: one probed pass over every test file finds the tests that run
+   * each mutant; a mutant no test runs is NoCoverage. static: the test files
+   * that import the target. Default dynamic; the command runner is always static.
+   */
+  coverage?: CoverageMode;
   /** Parallel test processes. Default: cores − 1. */
   concurrency?: number;
   /** Per-mutant timeout = baseline × factor + extraMs. Default 2 / 3000. */
@@ -108,17 +114,30 @@ function optionalString(value: unknown, where: string): string | undefined {
   return value;
 }
 
+function isEngineMode(v: unknown): v is EngineMode {
+  return v === "fast" || v === "matrix";
+}
+
+function isCoverageMode(v: unknown): v is CoverageMode {
+  return v === "dynamic" || v === "static";
+}
+
 function parseRun(raw: Record<string, unknown>, where: string): MutationCommon {
   const mode = raw["mode"];
-  if (mode !== undefined && mode !== "fast" && mode !== "matrix") {
+  if (mode !== undefined && !isEngineMode(mode)) {
     throw new Error(`${where}: mode must be "fast" or "matrix"`);
   }
   const concurrency = optionalNumber(raw["concurrency"], `${where}: concurrency`);
   if (concurrency !== undefined && !(Number.isInteger(concurrency) && concurrency > 0)) {
     throw new Error(`${where}: concurrency must be a positive integer`);
   }
+  const coverage = raw["coverage"];
+  if (coverage !== undefined && !isCoverageMode(coverage)) {
+    throw new Error(`${where}: coverage must be "dynamic" or "static"`);
+  }
   const common: MutationCommon = { targets: strings(raw["targets"], `${where}: targets`) };
-  if (mode === "fast" || mode === "matrix") common.mode = mode;
+  if (isEngineMode(mode)) common.mode = mode;
+  if (isCoverageMode(coverage)) common.coverage = coverage;
   if (concurrency !== undefined) common.concurrency = concurrency;
   const timeout = raw["timeout"];
   if (timeout !== undefined) {

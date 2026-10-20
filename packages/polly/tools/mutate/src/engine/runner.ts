@@ -25,6 +25,8 @@ export interface BunTestRun {
   captureStderr?: boolean;
   /** Ask for Bun's junit report and return its XML (matrix mode). */
   junit?: boolean;
+  /** `bun test -t`: run only the tests whose full name matches. */
+  namePattern?: string;
 }
 
 export interface BunTestOutcome {
@@ -90,6 +92,7 @@ function processArgv(
       "test",
       ...run.preloads.flatMap((p) => ["--preload", p]),
       ...(run.bail ? ["--bail"] : []),
+      ...(run.namePattern ? ["-t", run.namePattern] : []),
       ...(junitPath ? ["--reporter=junit", `--reporter-outfile=${junitPath}`] : []),
       ...run.files,
     ],

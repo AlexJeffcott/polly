@@ -10,14 +10,19 @@
  * holds only @fairfox/polly (linked to this package, as an install would) so
  * its `polly.mutate.ts` imports `defineMutation` from "@fairfox/polly/mutate"
  * — with a state machine whose `requires`/`ensures` callsites sit next to
- * real logic, and a test that pins one branch but not the other. Each CLI must:
+ * real logic, a test that pins one branch but not the other, and a module
+ * reached only through `mock.module` with a computed specifier. Each CLI must:
  *
  *   1. exit 0 and write reports/mutation/mutation.json;
  *   2. report the verify-callsite mutants as Ignored (polly#143), never run;
  *   3. kill mutants on the tested branch — the falsification gate: if the
  *      preload stopped injecting, nothing would be killed;
- *   4. leave mutants on the untested branch Survived;
- *   5. render the report through `polly mutate report`.
+ *   4. report the never-called describe() as NoCoverage (dynamic coverage:
+ *      no test ran it);
+ *   5. kill mutants in the module only `mock.module` reaches — static
+ *      selection sees no test for it, so this proves the coverage pass, and
+ *      that the built CLI finds the preload's coverage mode;
+ *   6. render the report through `polly mutate report`.
  *
  * Then `--since HEAD` in a git checkout: no change → nothing runs; one target
  * edited → only that target runs.
@@ -79,12 +84,23 @@ const SOURCES: Record<string, string> = {
     "}",
   ].join("\n"),
   "src/other.ts": "export const double = (n: number) => n * 2;",
-  // Pins transition() both ways; never calls describe(), so its mutants survive.
+  "src/hidden.ts": "export const triple = (n: number) => n * 3;",
+  "src/port.ts": "export const triple = (_n: number) => -1;",
+  "src/use-port.ts":
+    'import { triple } from "./port.ts";\nexport const run = (n: number) => triple(n);',
+  // Pins transition() both ways; never calls describe(), so its mutants are NoCoverage.
   "tests/machine.test.ts": [
     'import { expect, test } from "bun:test";',
     'import { transition } from "../src/machine.ts";',
     'test("go runs", () => expect(transition("idle", "go")).toBe("running"));',
     'test("stop idles", () => expect(transition("running", "stop")).toBe("idle"));',
+  ].join("\n"),
+  "tests/hidden.test.ts": [
+    'import { expect, mock, test } from "bun:test";',
+    'const spec = ["../src/hid", "den.ts"].join("");',
+    'mock.module("../src/port.ts", () => require(spec));',
+    'const { run } = await import("../src/use-port.ts");',
+    'test("triple", () => expect(run(2)).toBe(6));',
   ].join("\n"),
   "tests/other.test.ts": [
     'import { expect, test } from "bun:test";',
@@ -162,16 +178,23 @@ async function checkCli(ctx: TierContext, label: string, cli: string): Promise<v
       killedOnTernary.length > 0,
       `nothing killed on the tested ternary (line ${TERNARY_LINE}) — is the preload injecting?`
     );
-    const survivedOnDescribe = mutants.filter(
-      (m) => m.line === DESCRIBE_LINE && m.status === "Survived"
-    );
+    const onDescribe = mutants.filter((m) => m.line === DESCRIBE_LINE);
     assert(
-      survivedOnDescribe.length > 0,
-      `nothing survived on the untested describe() (line ${DESCRIBE_LINE})`
+      onDescribe.length > 0 &&
+        onDescribe.every(
+          (m) => m.status === "NoCoverage" && m.statusReason === "no test ran this code"
+        ),
+      `the never-called describe() (line ${DESCRIBE_LINE}) is not all NoCoverage: ${JSON.stringify(onDescribe)}`
     );
     ctx.log(
-      `  ✓ ${mutants.length} mutants: ${ignored.length} ignored, ${killedOnTernary.length} killed on the tested branch, ${survivedOnDescribe.length} survived on the untested one`
+      `  ✓ ${mutants.length} mutants: ${ignored.length} ignored, ${killedOnTernary.length} killed on the tested branch, ${onDescribe.length} NoCoverage in the never-called function`
     );
+    const hidden = await readMutants(temp.dir, "src/hidden.ts");
+    assert(
+      hidden.length > 0 && hidden.every((m) => m.status === "Killed"),
+      `mutants reached only through mock.module were not all killed: ${JSON.stringify(hidden)}`
+    );
+    ctx.log(`  ✓ ${hidden.length} mutant(s) reached only through mock.module killed`);
 
     const rendered = await mutate(cli, temp.dir, ["report"]);
     assert(

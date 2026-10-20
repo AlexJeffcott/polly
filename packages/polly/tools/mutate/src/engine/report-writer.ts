@@ -8,6 +8,8 @@
  * `killedBy` stays empty and `isMatrixComplete` correctly reports the matrix
  * as incomplete; the redundancy sections of the report then stay off. Matrix
  * mode fills `killedBy` and `testFiles[].tests[]` from the same ids (junit.ts).
+ * Dynamic coverage fills `coveredBy` in either mode, with ids from the same
+ * function, and adds the tests it saw to `testFiles[].tests[]`.
  */
 import { mkdirSync } from "node:fs";
 import { dirname, relative } from "node:path";
@@ -58,7 +60,7 @@ export async function toMutationReport(result: EngineResult, cwd: string): Promi
         ...(r.statusReason ? { statusReason: r.statusReason } : {}),
         location: r.mutant.location,
         killedBy: r.killedBy ?? [],
-        coveredBy: [],
+        coveredBy: r.coveredBy ?? [],
       })),
     };
     for (const t of target.coveringTests) testFiles[relative(cwd, t)] ??= { tests: [] };

@@ -33,6 +33,7 @@ const config = (over: Partial<EngineConfig> = {}): EngineConfig => ({
   testInclude: ["tests/**/*.test.ts"],
   testPreload: [],
   mode: "matrix",
+  coverage: "dynamic",
   concurrency: 4,
   timeout: { factor: 2, extraMs: 3000 },
   runner: { kind: "bun-test" },
@@ -55,7 +56,9 @@ describe("result cache", () => {
   test("a first run fills the cache, and the cache dir ignores itself", async () => {
     first = await runEngine(config());
     expect(cachedFlags(first)).toEqual([false, false]);
-    expect(readdirSync(cacheDir).filter((f) => f.endsWith(".json")).length).toBe(2);
+    const entries = readdirSync(cacheDir).filter((f) => f.endsWith(".json"));
+    expect(entries.filter((f) => f.startsWith("coverage-")).length).toBe(1);
+    expect(entries.length).toBe(3);
     expect(readFileSync(`${cacheDir}/.gitignore`, "utf8")).toBe("*\n");
   }, 120_000);
 

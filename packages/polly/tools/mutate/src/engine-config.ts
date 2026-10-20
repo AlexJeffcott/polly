@@ -9,7 +9,7 @@ import { Glob } from "bun";
 import type { MutateArgs } from "./args.ts";
 import type { MutateConfig } from "./config.ts";
 import { MUTATION_CONFIG_FILE, type MutationConfig } from "./define.ts";
-import type { EngineConfig, EngineMode, MutateTarget } from "./engine/types.ts";
+import type { CoverageMode, EngineConfig, EngineMode, MutateTarget } from "./engine/types.ts";
 
 const RANGE = /^(.*?):(\d+)(?::\d+)?-(\d+)(?::\d+)?$/;
 
@@ -98,6 +98,14 @@ function resolveMode(flag: string | undefined, config: MutationConfig): EngineMo
   return mode;
 }
 
+function resolveCoverage(flag: string | undefined, config: MutationConfig): CoverageMode {
+  const coverage = flag ?? config.coverage ?? "dynamic";
+  if (coverage !== "dynamic" && coverage !== "static") {
+    throw new Error(`--coverage ${coverage}: expected dynamic or static`);
+  }
+  return coverage;
+}
+
 /** The engine's config from the loaded mutation config plus CLI flags (flags win). */
 export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Promise<EngineConfig> {
   if (!cfg.mutation) {
@@ -117,6 +125,8 @@ export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Prom
     testInclude: config.tests?.include ?? [],
     testPreload: (config.tests?.preload ?? []).map((p) => resolve(dir, p)),
     mode,
+    // The command runner reports no per-test results to attribute hits to.
+    coverage: command ? "static" : resolveCoverage(args.coverage, config),
     concurrency: resolveConcurrency(args.concurrency, config.concurrency),
     timeout: config.timeout ?? { factor: 2, extraMs: 3000 },
     excludeMutators: config.mutators?.exclude ?? [],

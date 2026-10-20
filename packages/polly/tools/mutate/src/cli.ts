@@ -49,6 +49,9 @@ Flags:
   --mode <fast|matrix> fast stops each run at the first failing test (default
                       unless the config sets mode);
                       matrix runs every test and records each killer (the kill matrix)
+  --coverage <dynamic|static> dynamic (default) runs one probed pass to find the
+                      tests that run each mutant, and marks unrun code NoCoverage;
+                      static runs every test file that imports the target
   --no-cache          rerun targets whose inputs are unchanged
   -h, --help
 

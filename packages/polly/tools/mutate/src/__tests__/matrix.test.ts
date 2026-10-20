@@ -5,7 +5,8 @@
  * must each carry two killers; `boom.ts` has a mutant that makes a covering
  * file throw at import, which must still name a killer. `idle.ts` is reached
  * only by a test file with no tests: a green run with an empty junit report,
- * which the baseline guard must refuse.
+ * which the baseline guard must refuse. Only its arrow runs (at import), so
+ * the mutants in the never-called body are NoCoverage.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { runEngine } from "../engine/index.ts";
@@ -51,6 +52,7 @@ beforeAll(async () => {
     testInclude: ["tests/**/*.test.ts"],
     testPreload: [],
     mode: "matrix",
+    coverage: "dynamic",
     concurrency: 4,
     timeout: { factor: 2, extraMs: 3000 },
     runner: { kind: "bun-test" },
@@ -86,7 +88,10 @@ describe("matrix mode", () => {
   test("a green baseline with an empty junit report fails the target (baseline guard)", () => {
     const idle = result.targets[2];
     expect(idle?.baselineMs).toBeNull();
-    expect(new Set(idle?.results.map((r) => r.status))).toEqual(new Set(["RuntimeError"]));
+    const status = (name: string) =>
+      new Set(idle?.results.filter((r) => r.mutant.mutatorName === name).map((r) => r.status));
+    expect(status("ArrowFunction")).toEqual(new Set(["RuntimeError"]));
+    expect(status("ArithmeticOperator")).toEqual(new Set(["NoCoverage"]));
     expect(idle?.results[0]?.statusReason).toContain("junit report holds no test case");
   });
 
@@ -118,6 +123,7 @@ describe("fast mode on the same project", () => {
       testInclude: ["tests/**/*.test.ts"],
       testPreload: [],
       mode: "fast",
+      coverage: "dynamic",
       concurrency: 4,
       timeout: { factor: 2, extraMs: 3000 },
       runner: { kind: "bun-test" },

@@ -18,6 +18,8 @@ export interface JunitCase {
   file: string;
   /** describe path and test name, outermost first, joined with " > ". */
   name: string;
+  /** The same path joined with spaces: the full name `bun test -t` matches. */
+  filterName: string;
   line: number;
   status: "passed" | "failed" | "skipped";
 }
@@ -60,9 +62,11 @@ export function parseJunit(xml: string, cwd: string): JunitCase[] {
     if (whole.startsWith("</testsuite")) suites.pop();
     else if (suiteAttrs !== undefined && selfClosing !== "/") suites.push(attr(suiteAttrs, "name"));
     else if (caseAttrs !== undefined) {
+      const path = [...suites.slice(1), attr(caseAttrs, "name")];
       cases.push({
         file: resolve(cwd, attr(caseAttrs, "file")),
-        name: [...suites.slice(1), attr(caseAttrs, "name")].join(" > "),
+        name: path.join(" > "),
+        filterName: path.join(" "),
         line: Number(attr(caseAttrs, "line")) || 0,
         status: caseStatus(body ?? ""),
       });

@@ -48,6 +48,7 @@ const run = (scratchCwd: boolean) =>
     excludeMutators: [],
     ignoreVerifyCallsites: true,
     mode: "fast",
+    coverage: "dynamic",
     cacheDir: null,
     scratchCwd,
     reportPath: project.path("reports/mutation.json"),

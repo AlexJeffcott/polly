@@ -59,6 +59,7 @@ export default defineMutation({
   tests: { include: ["tests/**/*.test.ts"], preload: ["./tests/setup.ts"] },
   // runner: { kind: "command", argv: ["bun", "run", "bdd"] }, // instead of `tests`
   mode: "fast",                                  // or "matrix"
+  coverage: "dynamic",                           // or "static" (import graph only)
   concurrency: 6,                                // default: cores − 1
   timeout: { factor: 2, extraMs: 3000 },         // per mutant: baseline × factor + extraMs
   mutators: { exclude: ["StringLiteral"] },
@@ -99,12 +100,13 @@ its output unchanged.
 | Step | How |
 |---|---|
 | Generate | `oxc-parser` spans; Stryker-named operators (`engine/operators.ts`); type-only syntax is never mutated; mutants inside verify primitives are reported `Ignored` (polly#143) |
-| Select | Test files whose import closure reaches the target, through Bun's own resolver (tsconfig `paths` work) |
+| Coverage | One pass before any mutant runs: every test file once, split over `concurrency` processes, with each target served probed (`engine/probes.ts`: a hit call before the statement, inside the block, or around the expression that holds each mutant; no line moves). Hits are bucketed per test by global `beforeEach`/`afterEach` hooks and matched to junit order. A mutant no test ran is `NoCoverage`, decided without a run. Each mutant's `coveredBy` lists the tests that ran it |
+| Select | Per mutant: the tests that ran it (`bun test -t`), or whole files for code that runs between tests or at module load. `--coverage static` (or a target the pass could not probe) selects the test files whose import closure reaches the target, through Bun's own resolver |
 | Baseline | The selected files run once unmutated; they must pass (3 tries), and their time sets each mutant's timeout (2× + 3 s) |
 | Run | One `bun test --bail` per mutant. `engine/preload.ts` swaps the target's text in a `Bun.plugin` `onLoad` — no sandbox copy |
 | Isolate | Each test process runs in a fresh scratch cwd that carries the project's `tsconfig.json` (by `extends`) and `bunfig.toml` (preloads made absolute). A target whose tests pass only in the project dir (a fixture read through `process.cwd()`) runs in-tree, and the run says so. `--in-tree` turns this off |
 | Matrix | `--mode matrix`: no `--bail`, a junit report per run, and every failing test in `killedBy`, so the redundancy sections turn on. A covering file that the baseline reported and a mutant run did not (it threw while loading) is named as `<file>#(file produced no results)@0`. A green baseline with no junit test case fails the target |
-| Cache | `.polly/mutate/cache/` (it ignores itself in git). The key covers the generated mutants, every file the covering tests import, the preloads, tsconfig, bunfig, bun.lock, the mode and Bun's version. `--no-cache` reruns |
+| Cache | `.polly/mutate/cache/` (it ignores itself in git). The key covers the generated mutants, every file the covering tests import, each mutant's selection, the preloads, tsconfig, bunfig, bun.lock, the mode and Bun's version. The coverage pass has its own entry, keyed on every file the import graph holds. `--no-cache` reruns |
 | Guard | `git status` snapshots before the run, after the baselines and after the mutants. Each path a mutant run adds to the worktree prints as a warning; nothing is deleted |
 
 ```sh
@@ -115,13 +117,14 @@ polly mutate run --concurrency 10
 polly mutate run --mode matrix            # every killer recorded
 polly mutate verify --run                 # matrix pass, then the kill-matrix contract
 polly mutate run --in-tree                # test processes run in the project dir
+polly mutate run --coverage static        # no coverage pass: import-graph selection
 ```
 
 The **command runner** (`runner: { kind: "command", argv }`) runs the argv once
 per mutant in the config's directory; a non-zero exit kills the mutant. The
 injection preload reaches every Bun process the command starts through
 `BUN_OPTIONS`, so `bun run bdd` → `polly bdd run` sees the mutant. It selects
-no tests, runs fast mode only, is never cached (no import graph bounds what the
+no tests, runs no coverage pass, runs fast mode only, is never cached (no import graph bounds what the
 command reads), and a timeout kills the command's whole process group.
 
 Operators are Stryker's 16 mutators, with Stryker's names and the rules of
@@ -154,9 +157,20 @@ Current limits:
   targets), so a test whose only kills are Timeouts can look subsumed.
 - **The command runner reaches Bun processes only.** A command that runs the
   target under Node never loads the preload, so every mutant survives.
-- **Static selection.** Reach that no import names (`mock.module`, a computed
-  `import()`, a global set by another file) is not seen. A dynamic coverage pass
-  is planned.
+- **Per-test selection drops kills that need another test's state.** A mutant
+  runs only the tests that ran its code. A test that fails only through state an
+  earlier test left behind (a lazy cache filled once) is not selected. On polly's
+  44 targets this lost 0 kills against static selection (2026-10-20).
+- **Module top-level code runs once per process.** Bun shares one module registry
+  across the test files of a process, so a top-level hit lands in whichever file
+  loaded the module first. Such a mutant runs, whole, every file that imports the
+  target or hit any of its probes.
+- **Concurrent tests** (`test.concurrent`, `--concurrent`), retries and
+  `--rerun-each` break the ordinal match between hooks and junit cases. That file
+  falls back to whole-file selection.
+- **`--coverage static`** cannot see reach that no import names (`mock.module`, a
+  computed `import()`, a global set by another file); the coverage pass sees it,
+  because it runs every test file.
 - A file that a bunfig `[test].preload` imports is loaded before the mutant
   plugin registers, so it cannot be mutated.
 
@@ -201,11 +215,11 @@ This rests on Bun's junit format. A Bun upgrade that changes it, or a `--bail`
 that creeps back into matrix runs, collapses the matrix to one killer per
 mutant. `polly mutate verify` is the guard — run it after any Bun bump.
 
-**NoCoverage vs Survived.** The engine selects test files by import graph. A
-target that no test file reaches gets NoCoverage for all its mutants (a true
-gap); a reached target's undetected mutants are Survived (theatre). The split
-is per file, not per line: a line no test executes inside a reached file reads
-Survived. Per-test, per-line coverage (`coveredBy`) is plan Phase 7.
+**NoCoverage vs Survived.** With dynamic coverage (the default) the split is per
+mutant: a mutant whose code no test ran is NoCoverage (a true gap); one that ran
+and was not detected is Survived (theatre). `coveredBy` names the tests that ran
+it. Under `--coverage static` the split is per file: a target no test file
+imports is NoCoverage, and every undetected mutant in a reached file is Survived.
 
 ## Comparing with Stryker
 
