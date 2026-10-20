@@ -30,6 +30,24 @@ import type {
 // settled by `polly verify --witness`.
 const DEFERRED_TAGS = new Set(["formal", "forbidden"]);
 
+/**
+ * Where the verify primitives record a requires/ensures violation before
+ * throwing (POLLY_CONTRACTS on; the key is repeated from
+ * tools/verify/src/primitives/index.ts). The bus turns a handler's throw into
+ * `{ success: false }`, so a step that drove the handler can pass with the
+ * violation unseen; the runner fails that step instead. Off, the list never
+ * exists and nothing here runs.
+ */
+const CONTRACT_VIOLATIONS_KEY = "__pollyContractViolations";
+
+function drainContractViolations(): string[] {
+  const list = (globalThis as Record<string, unknown>)[CONTRACT_VIOLATIONS_KEY];
+  if (!Array.isArray(list)) return [];
+  const messages = list.map((v) => (v instanceof Error ? v.message : String(v)));
+  list.length = 0;
+  return messages;
+}
+
 export interface RunOptions {
   featureFiles: string[];
   stepFiles: string[];
@@ -70,10 +88,16 @@ async function runStep(world: World, step: ParsedStep): Promise<StepResult> {
     const ret = await fn(world, ...match.args);
     // A `when` that returns the send promise gets its response captured.
     if (ret !== undefined) world.lastResponse = ret;
+    const violations = drainContractViolations();
+    if (violations.length > 0) {
+      return { ...base, outcome: "fail", message: violations.join("\n") };
+    }
     return { ...base, outcome: "pass" };
   } catch (err) {
     world.lastError = err;
-    return { ...base, outcome: "fail", message: err instanceof Error ? err.message : String(err) };
+    const violations = drainContractViolations();
+    const message = err instanceof Error ? err.message : String(err);
+    return { ...base, outcome: "fail", message: [message, ...violations].join("\n") };
   }
 }
 
@@ -94,6 +118,8 @@ async function runScenario(
 
   // Cold start: reset the world (signals → initial) and clear per-scenario scratch.
   await reset(world);
+  // A violation during reset belongs to no step.
+  drainContractViolations();
   world.vars = {};
   world.lastResponse = undefined;
   world.lastError = undefined;

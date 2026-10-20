@@ -281,6 +281,12 @@ export function defineVerification<T extends UnifiedVerificationConfig>(config: 
 // Re-export verification primitives for user code
 export {
   $constraints,
+  CONTRACT_VIOLATIONS_KEY,
+  type ContractPrimitive,
+  ContractViolation,
+  type ContractsMode,
+  contractsMode,
+  drainContractViolations,
   ensures,
   forAllPeers,
   hasLength,

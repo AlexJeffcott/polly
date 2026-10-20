@@ -1,11 +1,110 @@
-// Verification primitives for formal verification
-// These are runtime no-ops but extracted during verification
+// Verification primitives for formal verification.
+//
+// `requires` / `ensures` are runtime no-ops in production: the caller
+// evaluates the condition, the primitive discards it, and only the verifier
+// reads the call. Under POLLY_CONTRACTS (set by `polly mutate`, or by hand)
+// a false condition throws a ContractViolation instead, so every contract
+// doubles as an assertion in whatever test drives its handler.
+
+/**
+ * POLLY_CONTRACTS: off (default) keeps requires/ensures as no-ops; "ensures"
+ * makes a false postcondition throw; "all" makes a false precondition throw too.
+ */
+export type ContractsMode = "off" | "ensures" | "all";
+
+export type ContractPrimitive = "requires" | "ensures";
+
+/**
+ * Where violations are recorded before they are thrown, so a harness can fail
+ * a test even when the caller (the message bus) swallowed the throw. The
+ * mutate preload and the BDD runner read this key; they repeat the string
+ * because they import no module of this package.
+ */
+export const CONTRACT_VIOLATIONS_KEY = "__pollyContractViolations";
+
+/** Read once at load; browser bundles have no `process`, so they stay off. */
+function readContractsMode(): ContractsMode {
+  const v =
+    typeof process !== "undefined" && process.env ? process.env["POLLY_CONTRACTS"] : undefined;
+  return v === "all" || v === "ensures" ? v : "off";
+}
+
+const MODE: ContractsMode = readContractsMode();
+
+/** The mode this process runs under (read from POLLY_CONTRACTS at load). */
+export function contractsMode(): ContractsMode {
+  return MODE;
+}
+
+/**
+ * A false `requires` / `ensures` under POLLY_CONTRACTS. The message starts
+ * with a marker the mutate engine reads out of junit failure text:
+ * `[polly-contract ensures /abs/handlers.ts:50] the author's message`.
+ */
+export class ContractViolation extends Error {
+  override readonly name = "ContractViolation";
+  constructor(
+    readonly primitive: ContractPrimitive,
+    /** `file:line` of the call, absolute. */
+    readonly site: string,
+    readonly contractMessage?: string
+  ) {
+    super(
+      `[polly-contract ${primitive} ${site}]${contractMessage === undefined ? "" : ` ${contractMessage}`}`
+    );
+  }
+}
+
+const OWN_FILE = import.meta.url.startsWith("file://")
+  ? decodeURIComponent(import.meta.url.slice("file://".length))
+  : import.meta.url;
+const FRAME = /\(?([^()\s]+):(\d+):\d+\)?\s*$/;
+
+/**
+ * `file:line` of the `requires` / `ensures` call: the first stack frame
+ * outside this module. When this module is bundled with its caller every
+ * frame is "own", so the fourth frame (callSite, violate, the primitive,
+ * caller) is taken instead.
+ */
+function callSite(): string {
+  const frames: { file: string; line: string }[] = [];
+  for (const line of (new Error().stack ?? "").split("\n")) {
+    const m = FRAME.exec(line);
+    if (m?.[1] && m[2]) frames.push({ file: m[1], line: m[2] });
+  }
+  const outside = frames.find((f) => f.file !== OWN_FILE) ?? frames[3];
+  return outside ? `${outside.file}:${outside.line}` : "unknown:0";
+}
+
+function violationList(): ContractViolation[] {
+  const g = globalThis as Record<string, unknown>;
+  const existing = g[CONTRACT_VIOLATIONS_KEY];
+  if (Array.isArray(existing)) return existing as ContractViolation[];
+  const list: ContractViolation[] = [];
+  g[CONTRACT_VIOLATIONS_KEY] = list;
+  return list;
+}
+
+function violate(primitive: ContractPrimitive, condition: boolean, message?: string): void {
+  if (condition) return;
+  if (MODE === "off" || (MODE === "ensures" && primitive === "requires")) return;
+  const violation = new ContractViolation(primitive, callSite(), message);
+  violationList().push(violation);
+  throw violation;
+}
+
+/** Return every violation recorded since the last drain, and clear the list. */
+export function drainContractViolations(): ContractViolation[] {
+  const list = violationList();
+  return list.splice(0, list.length);
+}
 
 /**
  * Assert a precondition that must be true when the handler executes.
  *
  * In production: No-op (compiled away)
  * In verification: Translated to TLA+ assertion
+ * Under POLLY_CONTRACTS=all: throws ContractViolation when false
  *
  * @example
  * messageBus.on("USER_LOGIN", (payload) => {
@@ -14,10 +113,8 @@
  * })
  */
 export function requires(condition: boolean, message?: string): void {
-  // Runtime no-op - only used during verification
-  // Condition and message are checked during static analysis only
-  void condition;
-  void message;
+  // No-op unless POLLY_CONTRACTS is "all"; the verifier reads the call statically.
+  violate("requires", condition, message);
 }
 
 /**
@@ -25,6 +122,7 @@ export function requires(condition: boolean, message?: string): void {
  *
  * In production: No-op (compiled away)
  * In verification: Translated to TLA+ assertion
+ * Under POLLY_CONTRACTS=ensures|all: throws ContractViolation when false
  *
  * @example
  * messageBus.on("USER_LOGIN", (payload) => {
@@ -33,10 +131,8 @@ export function requires(condition: boolean, message?: string): void {
  * })
  */
 export function ensures(condition: boolean, message?: string): void {
-  // Runtime no-op - only used during verification
-  // Condition and message are checked during static analysis only
-  void condition;
-  void message;
+  // No-op unless POLLY_CONTRACTS is set; the verifier reads the call statically.
+  violate("ensures", condition, message);
 }
 
 /**

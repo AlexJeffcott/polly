@@ -3,43 +3,11 @@
 // These are runtime no-ops but extracted during verification.
 // They work with ANY message-passing system, not just web extensions.
 
-/**
- * Assert a precondition that must be true when the handler executes.
- *
- * In production: No-op (compiled away)
- * In verification: Translated to TLA+ assertion
- *
- * @example
- * messageBus.on("USER_LOGIN", (payload) => {
- *   requires(state.user.loggedIn === false, "User must not be logged in")
- *   state.user.loggedIn = true
- * })
- */
-export function requires(condition: boolean, message?: string): void {
-  // Runtime no-op - only used during verification
-  if (!condition && message && process.env["NODE_ENV"] === "development") {
-    // Intentionally empty - verification happens at compile time
-  }
-}
+// `requires` / `ensures` live in ../primitives/index.ts: the copy
+// @fairfox/polly/verify exports, and the one POLLY_CONTRACTS enforces.
+import { ensures, requires } from "../primitives/index";
 
-/**
- * Assert a postcondition that must be true after the handler completes.
- *
- * In production: No-op (compiled away)
- * In verification: Translated to TLA+ assertion
- *
- * @example
- * messageBus.on("USER_LOGIN", (payload) => {
- *   state.user.loggedIn = true
- *   ensures(state.user.loggedIn === true, "User must be logged in")
- * })
- */
-export function ensures(condition: boolean, message?: string): void {
-  // Runtime no-op - only used during verification
-  if (!condition && message && process.env["NODE_ENV"] === "development") {
-    // Intentionally empty - verification happens at compile time
-  }
-}
+export { ensures, requires };
 
 /**
  * Define a global invariant that must always hold.
