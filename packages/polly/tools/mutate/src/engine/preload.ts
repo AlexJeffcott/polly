@@ -46,6 +46,7 @@ function loaderFor(file: string): "tsx" | "jsx" | "ts" | "js" {
 
 function exactly(paths: readonly string[]): RegExp {
   const escaped = paths.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — every path is escaped above; an anchored alternation of literals cannot backtrack exponentially.
   return new RegExp(`^(?:${escaped.join("|")})$`);
 }
 
