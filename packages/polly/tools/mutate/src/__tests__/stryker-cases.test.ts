@@ -107,16 +107,14 @@ table("BlockStatement", {
     [
       ["class Foo extends Bar { constructor(private baz: string) { super(); } }"],
       [
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is source text under test
-        "class Foo extends Bar { constructor(private baz: string) { const errorBody: Body = { message: `msg: ${baz}` }; super(errorBody);  } }",
+        `class Foo extends Bar { constructor(private baz: string) { const errorBody: Body = { message: \`msg: \${baz}\` }; super(errorBody);  } }`,
       ],
     ],
   "classes / should not mutate a constructor containing a super call and contains initialized properties":
     [
       ['class Foo extends Bar { private baz = "qux"; constructor() { super(); } }'],
       [
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is source text under test
-        'class Foo extends Bar { private baz = "qux"; constructor() { const errorBody: Body = { message: `msg: ${baz}` }; super(errorBody);  } }',
+        `class Foo extends Bar { private baz = "qux"; constructor() { const errorBody: Body = { message: \`msg: \${baz}\` }; super(errorBody);  } }`,
       ],
     ],
 });
@@ -244,12 +242,9 @@ table("StringLiteral", {
     ["const b = `Hello world!`;", "const b = ``;"],
   ],
   "string literals / should mutate a template string referencing another variable": [
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is source text under test
-    ["const a = 10; const b = `${a} mutations`;", "const a = 10; const b = ``;"],
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is source text under test
-    ["const a = 10; const b = `mutations: ${a}`;", "const a = 10; const b = ``;"],
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is source text under test
-    ["const a = 10; const b = `mutations: ${a} out of 10`;", "const a = 10; const b = ``;"],
+    [`const a = 10; const b = \`\${a} mutations\`;`, "const a = 10; const b = ``;"],
+    [`const a = 10; const b = \`mutations: \${a}\`;`, "const a = 10; const b = ``;"],
+    [`const a = 10; const b = \`mutations: \${a} out of 10\`;`, "const a = 10; const b = ``;"],
   ],
   "string literals / should mutate empty strings": [
     ['const b = "";', 'const b = "Stryker was here!";'],
