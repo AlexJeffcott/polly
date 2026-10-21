@@ -17,6 +17,7 @@
       "!**/reports",
       "!**/test-results",
       "!**/.stryker-tmp",
+      "!**/.polly",
       "!**/vendor",
       "!**/build*.ts",
       "!**/examples/**/docs",
