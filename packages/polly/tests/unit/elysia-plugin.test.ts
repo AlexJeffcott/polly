@@ -4,10 +4,13 @@
  * their scope, so a hook that fires for the plugin's own `/polly/ws` route but
  * not for `.use(polly()).post("/todos")` is the exact defect pinned here.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import type { Treaty } from "@elysiajs/eden";
 import { Elysia } from "elysia";
+import { WebSocket as WsClient } from "ws";
 import { polly } from "@/elysia/plugin";
 import type { PollyResponseMetadata } from "@/elysia/types";
+import { isRecord } from "@/shared/lib/guards";
 
 type Handles = { handle: (request: Request) => Promise<Response> };
 
@@ -44,9 +47,19 @@ function post(app: Handles, path: string, body: unknown, headers: Record<string,
   );
 }
 
+function isResponseMetadata(input: unknown): input is PollyResponseMetadata {
+  return (
+    isRecord(input) &&
+    isRecord(input.clock) &&
+    typeof input.clock.tick === "number" &&
+    typeof input.clock.contextId === "string"
+  );
+}
+
 function metadataOf(response: Response): PollyResponseMetadata | undefined {
   const header = response.headers.get("X-Polly-Metadata");
-  return header ? (JSON.parse(header) as PollyResponseMetadata) : undefined;
+  const parsed: unknown = header ? JSON.parse(header) : undefined;
+  return isResponseMetadata(parsed) ? parsed : undefined;
 }
 
 describe("polly() hooks on consumer routes", () => {
@@ -78,8 +91,8 @@ describe("polly() hooks on consumer routes", () => {
     const first = metadataOf(await post(app, "/todos", {}))?.clock.tick;
     const second = metadataOf(await post(app, "/todos", {}))?.clock.tick;
 
-    expect(typeof first).toBe("number");
-    expect(second).toBe((first as number) + 1);
+    if (typeof first !== "number") throw new Error("first response carried no clock tick");
+    expect(second).toBe(first + 1);
   });
 
   test("before-handle authorization denies the consumer's route with 403", async () => {
@@ -108,6 +121,35 @@ describe("polly() hooks on consumer routes", () => {
   });
 });
 
+/**
+ * The hooks are scoped to the consumer, so Elysia folds their return types
+ * into every consumer route's response map. These assertions are checked by
+ * `bun run typecheck` (the tests workspace): a hook that returns a bare
+ * `Response` puts it under 200, and every Eden `data` becomes `T | Response`.
+ */
+type ConsumerApp = ReturnType<typeof consumerApp>["app"];
+type EdenResult<F extends (...args: never[]) => unknown> = Awaited<ReturnType<F>>;
+type PostTodos = EdenResult<Treaty.Create<ConsumerApp>["todos"]["post"]>;
+type DeleteTodo = EdenResult<ReturnType<Treaty.Create<ConsumerApp>["todos"]>["delete"]>;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+describe("polly() hook types on consumer routes", () => {
+  test("Eden data is the handler's own result, with no Response folded in", () => {
+    const postData: Equal<NonNullable<PostTodos["data"]>, { created: unknown }> = true;
+    const deleteData: Equal<NonNullable<DeleteTodo["data"]>, { deleted: string }> = true;
+    expect([postData, deleteData]).toEqual([true, true]);
+  });
+
+  test("the authorization 403 is typed as an Eden error, not as data", () => {
+    const forbidden: Equal<
+      Extract<NonNullable<DeleteTodo["error"]>, { status: 403 }>["value"],
+      "Unauthorized"
+    > = true;
+    expect(forbidden).toBe(true);
+  });
+});
+
 describe("polly() broadcast to connected clients", () => {
   const { app } = consumerApp();
   let base = "";
@@ -131,7 +173,7 @@ describe("polly() broadcast to connected clients", () => {
     // state-sync arrives on open
     await Bun.sleep(20);
     expect(messages).toHaveLength(1);
-    expect((messages[0] as { type: string }).type).toBe("state-sync");
+    expect(messages[0]).toMatchObject({ type: "state-sync" });
 
     const response = await fetch(`http://${base}/todos`, {
       method: "POST",
@@ -149,5 +191,176 @@ describe("polly() broadcast to connected clients", () => {
       result: { created: { text: "b" } },
     });
     ws.close();
+  });
+});
+
+type Received = { type: string; result?: unknown };
+
+/**
+ * Per-client broadcast filtering. A client reports its state over the socket
+ * (`state-update`), keyed by its `x-client-id`; `broadcastFilter` decides from
+ * that state whether the client receives an effect. Closing the socket must
+ * drop the stored state, or a reconnecting client inherits whatever it
+ * reported last time.
+ */
+describe("polly() broadcastFilter and connection lifecycle", () => {
+  const app = new Elysia()
+    .use(
+      polly({
+        effects: {
+          "POST /alerts": {
+            broadcast: true,
+            broadcastFilter: (state) => state.role === "admin",
+          },
+          // Unfiltered: every open client receives it. A socket delivers in
+          // order, so once a client has seen a ping it has seen every effect
+          // broadcast before it — the barrier the negative assertions need.
+          "POST /pings": { broadcast: true },
+        },
+      })
+    )
+    .post("/alerts", ({ body }) => ({ alert: body }))
+    .post("/pings", ({ body }) => ({ ping: body }));
+  let base = "";
+  let pingSeq = 0;
+  const sockets: Array<{ ws: WsClient; messages: Received[] }> = [];
+
+  beforeAll(() => {
+    app.listen(0);
+    base = `localhost:${app.server?.port}`;
+  });
+
+  afterEach(() => {
+    for (const { ws } of sockets.splice(0)) ws.close();
+  });
+
+  afterAll(() => {
+    app.stop();
+  });
+
+  async function waitFor(predicate: () => boolean, label: string, timeoutMs = 2000) {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+      if (Date.now() > deadline) throw new Error(`timed out waiting for ${label}`);
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 5));
+    }
+  }
+
+  async function connect(clientId: string) {
+    const messages: Received[] = [];
+    // The `ws` client, not the global: DOM's WebSocket type has no `headers`
+    // option, and the plugin keys client state by the `x-client-id` header.
+    const client = {
+      ws: new WsClient(`ws://${base}/polly/ws`, { headers: { "x-client-id": clientId } }),
+      messages,
+    };
+    sockets.push(client);
+    client.ws.onmessage = (event) => client.messages.push(JSON.parse(String(event.data)));
+    await waitFor(
+      () => client.messages.some((m) => m.type === "state-sync"),
+      `${clientId} state-sync`
+    );
+    return client;
+  }
+
+  function sendState(ws: WsClient, type: string, state: Record<string, unknown>) {
+    ws.send(JSON.stringify({ type, state }));
+  }
+
+  // A client's own frames reach the server on its socket; the HTTP request
+  // that triggers a broadcast does not, so there is no ordering between them
+  // to wait on. Give the server a beat to read the frame.
+  const letServerRead = () => Bun.sleep(20);
+
+  function closeAndWait(ws: WsClient) {
+    return new Promise<void>((resolve) => {
+      ws.onclose = () => resolve();
+      ws.close();
+    });
+  }
+
+  async function post(path: string, body: unknown) {
+    const response = await fetch(`http://${base}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(response.ok).toBe(true);
+  }
+
+  /** Post an alert, then wait until every open client has seen the ping after it. */
+  async function postAlertAndDrain(text: string) {
+    await post("/alerts", { text });
+    const seq = ++pingSeq;
+    await post("/pings", { seq });
+    const open = sockets.filter(({ ws }) => ws.readyState === WsClient.OPEN);
+    await waitFor(
+      () =>
+        open.every(({ messages }) =>
+          messages.some(
+            (m) => isRecord(m.result) && isRecord(m.result.ping) && m.result.ping.seq === seq
+          )
+        ),
+      `ping ${seq}`
+    );
+  }
+
+  const alerts = (messages: Received[]) =>
+    messages
+      .filter((m) => m.type === "effect" && isRecord(m.result) && m.result.alert)
+      .map((m) => m.result);
+
+  test("only clients whose reported state passes the filter receive the effect", async () => {
+    const admin = await connect("filter-admin");
+    const viewer = await connect("filter-viewer");
+    const silent = await connect("filter-silent");
+    sendState(admin.ws, "state-update", { role: "admin" });
+    sendState(viewer.ws, "state-update", { role: "viewer" });
+    await letServerRead();
+
+    await postAlertAndDrain("x");
+
+    expect(alerts(admin.messages)).toEqual([{ alert: { text: "x" } }]);
+    expect(alerts(viewer.messages)).toEqual([]);
+    // Never reported state: the filter sees `{}` and rejects it.
+    expect(alerts(silent.messages)).toEqual([]);
+  });
+
+  test("a later state-update replaces the earlier one", async () => {
+    const client = await connect("filter-demoted");
+    sendState(client.ws, "state-update", { role: "admin" });
+    await letServerRead();
+    await postAlertAndDrain("as-admin");
+
+    sendState(client.ws, "state-update", { role: "viewer" });
+    await letServerRead();
+    await postAlertAndDrain("as-viewer");
+
+    expect(alerts(client.messages)).toEqual([{ alert: { text: "as-admin" } }]);
+  });
+
+  test("a message that is not a state-update leaves the stored state alone", async () => {
+    const client = await connect("filter-noise");
+    sendState(client.ws, "state-update", { role: "admin" });
+    sendState(client.ws, "presence", { role: "viewer" });
+    await letServerRead();
+
+    await postAlertAndDrain("z");
+
+    expect(alerts(client.messages)).toEqual([{ alert: { text: "z" } }]);
+  });
+
+  test("closing drops the stored state, so a reconnect under the same id is filtered afresh", async () => {
+    const first = await connect("filter-reconnect");
+    sendState(first.ws, "state-update", { role: "admin" });
+    await letServerRead();
+    await postAlertAndDrain("before-close");
+    expect(alerts(first.messages)).toEqual([{ alert: { text: "before-close" } }]);
+    await closeAndWait(first.ws);
+
+    const second = await connect("filter-reconnect");
+    await postAlertAndDrain("after-reconnect");
+
+    expect(alerts(second.messages)).toEqual([]);
   });
 });

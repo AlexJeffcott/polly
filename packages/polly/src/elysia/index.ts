@@ -22,6 +22,7 @@
  *       },
  *       server: {
  *         db: $serverState('db', db),
+ *         session: $serverState('session', null),
  *       },
  *     },
  *     effects: {
@@ -33,7 +34,9 @@
  *       },
  *     },
  *     authorization: {
- *       'POST /todos': ({ state }) => state.client.user.value !== null,
+ *       // Runs on the server against the server's state: set `session` in
+ *       // the login route. Clients never write the server's `client` copy.
+ *       'POST /todos': ({ state }) => state.server.session.value !== null,
  *     },
  *   }))
  *   .post('/todos', handler, { body: t.Object({ text: t.String() }) });

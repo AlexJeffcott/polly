@@ -44,6 +44,7 @@ function decode(s: string): string {
 }
 
 function attr(attrs: string, key: string): string {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — key is a callsite literal attribute name (name / file / line / message); [^"]* cannot backtrack.
   const m = new RegExp(`\\b${key}="([^"]*)"`).exec(attrs);
   return m?.[1] === undefined ? "" : decode(m[1]);
 }

@@ -82,6 +82,7 @@ function writeSpecDir(spec: string, cfg: string, label: string): string {
 
 /** Members of a `Name = {a, b, c}` assignment in a `.cfg`. */
 function cfgSetMembers(cfg: string, name: string): string[] {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — name is a callsite literal ("Contexts" / "Tabs"), not input; the pattern has no nested quantifier.
   const match = new RegExp(`^\\s*${name} = \\{([^}]*)\\}`, "m").exec(cfg);
   assert(Boolean(match?.[1]), `no ${name} assignment in the generated cfg`);
   return (match?.[1] ?? "")
@@ -121,6 +122,7 @@ async function measure(
   // line sizes the model, so a member leaking into the .tla would break it.
   for (const name of contexts) {
     assert(
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — name is a context the test itself declared (an identifier); a \b-bounded literal cannot backtrack.
       !new RegExp(`\\b${name}\\b`).test(spec),
       `the generated spec names the context "${name}"; the set must reach TLC only through the .cfg`
     );

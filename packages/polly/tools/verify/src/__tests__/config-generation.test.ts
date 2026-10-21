@@ -2,8 +2,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ProjectType } from "../../../analysis/src/types/architecture";
 import { generateConfig } from "../codegen/config";
 import { validateConfig } from "../config/parser";
+import type { CodebaseAnalysis } from "../types";
 
 describe("Config Generation for Different Project Types", () => {
   // Mock analysis result
@@ -95,10 +97,11 @@ describe("the scaffold's contexts key (polly#185)", () => {
     fs.rmSync(scaffoldTmp, { recursive: true, force: true });
   });
 
-  const analysisIn = (nodes: string[]) => ({
+  const analysisIn = (nodes: string[]): CodebaseAnalysis => ({
     stateType: null,
     messageTypes: nodes.map((_n, i) => `MSG_${i}`),
     fields: [],
+    stateConstraints: [],
     handlers: nodes.map((node, i) => ({
       messageType: `MSG_${i}`,
       node,
@@ -110,33 +113,40 @@ describe("the scaffold's contexts key (polly#185)", () => {
   });
 
   test("the handler file paths decide the set when they infer one", () => {
-    const content = generateConfig(analysisIn(["server", "worker"]) as never, "generic");
+    const content = generateConfig(analysisIn(["server", "worker"]), "generic");
 
     expect(content).toContain("contexts: /* REVIEW */ ['server', 'worker'],");
     expect(content).toContain("Auto-configured from the file paths of the handlers");
   });
 
-  test.each([
+  test.each<[ProjectType, string]>([
     ["websocket-app", "['server', 'client']"],
     ["pwa", "['ServiceWorker', 'Window']"],
     ["electron", "['main', 'renderer']"],
     ["chrome-extension", "['background', 'content', 'popup']"],
   ])("%s falls back to the contexts that project type has", (projectType, expected) => {
-    const content = generateConfig(analysisIn([]) as never, projectType as never);
+    const content = generateConfig(analysisIn([]), projectType);
 
     expect(content).toContain(`contexts: /* REVIEW */ ${expected},`);
   });
 
   test("a generic project with nothing inferred leaves the key commented out", () => {
-    const content = generateConfig(analysisIn([]) as never, "generic");
+    const content = generateConfig(analysisIn([]), "generic");
 
     expect(content).toContain("// contexts: /* CONFIGURE */ ['server'],");
     expect(content).not.toMatch(/^\s*contexts:/m);
   });
 
   test("no project type writes the dead maxContexts key any more", () => {
-    for (const projectType of ["websocket-app", "pwa", "electron", "chrome-extension", "generic"]) {
-      const content = generateConfig(analysisIn(["server"]) as never, projectType as never);
+    const projectTypes: ProjectType[] = [
+      "websocket-app",
+      "pwa",
+      "electron",
+      "chrome-extension",
+      "generic",
+    ];
+    for (const projectType of projectTypes) {
+      const content = generateConfig(analysisIn(["server"]), projectType);
       expect(content).not.toContain("maxContexts");
     }
   });
@@ -145,7 +155,7 @@ describe("the scaffold's contexts key (polly#185)", () => {
     // The documented entry point end to end: scaffold a config, then run the
     // validator the CLI runs on it. A scaffold that immediately warns is the
     // defect this guards.
-    const content = generateConfig(analysisIn(["server", "worker"]) as never, "generic");
+    const content = generateConfig(analysisIn(["server", "worker"]), "generic");
     const configPath = path.join(scaffoldTmp, "verification.config.ts");
     fs.writeFileSync(
       configPath,

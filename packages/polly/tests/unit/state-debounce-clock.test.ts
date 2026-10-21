@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { $sharedState, $syncedState, clearStateRegistry } from "@/shared/lib/state";
-import type { StorageAdapter } from "@/shared/lib/storage-adapter";
+import { MemoryStorageAdapter, type StorageAdapter } from "@/shared/lib/storage-adapter";
 import type { StateSyncMessage, SyncAdapter } from "@/shared/lib/sync-adapter";
 
 /**
@@ -65,12 +65,12 @@ function makeFakeStorageAdapter(seed: Record<string, unknown> = {}): FakeStorage
   const contents: Record<string, unknown> = { ...seed };
   const writes: Array<Record<string, unknown>> = [];
   return {
+    // Reads go through the real in-memory adapter over the current contents,
+    // so the fake takes its type-erased `get<T>` rather than re-casting.
     async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {
-      const out: Record<string, unknown> = {};
-      for (const k of keys) {
-        if (k in contents) out[k] = contents[k];
-      }
-      return out as Record<string, T>;
+      const view = new MemoryStorageAdapter();
+      await view.set(contents);
+      return view.get<T>(keys);
     },
     async set(items: Record<string, unknown>): Promise<void> {
       writes.push({ ...items });

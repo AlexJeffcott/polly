@@ -25,44 +25,23 @@ type SiteKills = {
   exercised: number;
 };
 
-/** The CONTRACTS section; nothing when the report has no contracts block (Stryker-era). */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one section with its three lists, kept together like the others.
-function contractsSection(db: Database, p: (s?: string) => void): void {
-  const meta = new Map(
-    queryAll<{ key: string; value: string }>(db, "SELECT key, value FROM report_meta").map((r) => [
-      r.key,
-      r.value,
-    ])
-  );
-  const mode = meta.get("contracts_mode");
-  if (mode === undefined) return;
-  const nSites = queryGet<{ n: number }>(db, "SELECT count(*) n FROM contract_sites")?.n ?? 0;
-  p(`\nCONTRACTS  (requires/ensures as kill oracles — mode ${mode}, ${nSites} site(s))`);
-  if (mode === "off") {
-    p(
-      `  off — the sites are inventoried only; 'polly mutate run --contracts all' makes each one fail the test that falsifies it`
-    );
-    return;
-  }
+/** Tests under which the unmutated code already fails a contract. */
+function violationLines(db: Database, p: (s?: string) => void): void {
   const violations = queryAll<{ target: string; test: string; contract_id: string | null }>(
     db,
     "SELECT target, test, contract_id FROM contract_violations ORDER BY target, test, contract_id"
   );
-  if (violations.length > 0) {
-    p(
-      `  TEST VIOLATES CONTRACT  (the unmutated code fails a contract under a test: ${violations.length})`
-    );
-    for (const v of violations) {
-      p(`    ${v.target}: ${v.test}${v.contract_id ? ` → ${v.contract_id}` : ""}`);
-    }
+  if (violations.length === 0) return;
+  p(
+    `  TEST VIOLATES CONTRACT  (the unmutated code fails a contract under a test: ${violations.length})`
+  );
+  for (const v of violations) {
+    p(`    ${v.target}: ${v.test}${v.contract_id ? ` → ${v.contract_id}` : ""}`);
   }
-  if (meta.get("runner") === "command") {
-    p(
-      `  command runner: no per-test results, so kills are not attributed to contracts; compare the killed count against a --contracts off run`
-    );
-    return;
-  }
-  if (mode === "ensures") p(`  requires sites are inventoried, not enforced (mode ensures)`);
+}
+
+/** Mutants only a contract killed, grouped by line and mutator. */
+function contractOnlyLines(db: Database, p: (s?: string) => void): void {
   const only = queryAll<LineCount>(
     db,
     "SELECT file, line, mutator, count(*) n FROM mutants WHERE contract_only=1 GROUP BY file, line, mutator ORDER BY file, line"
@@ -70,7 +49,10 @@ function contractsSection(db: Database, p: (s?: string) => void): void {
   const onlyTotal = only.reduce((a, r) => a + r.n, 0);
   p(`  CONTRACT-ONLY KILLS  (no test assertion caught these; a contract did: ${onlyTotal})`);
   for (const r of only) p(`    ${r.file}:${r.line}  ${r.mutator}${r.n > 1 ? ` ×${r.n}` : ""}`);
-  if (nSites === 0) return;
+}
+
+/** Kills per contract site, then the sites that never fired and why. */
+function perContractLines(db: Database, p: (s?: string) => void): void {
   const sites = queryAll<SiteKills>(
     db,
     `SELECT s.id, s.primitive, s.message,
@@ -96,6 +78,37 @@ function contractsSection(db: Database, p: (s?: string) => void): void {
     p(`  HANDLER NOT EXERCISED  (no mutant in the contract's handler ran: ${idle.length})`);
     for (const s of idle) p(`    ${s.id}  ${s.primitive}`);
   }
+}
+
+/** The CONTRACTS section; nothing when the report has no contracts block (Stryker-era). */
+function contractsSection(db: Database, p: (s?: string) => void): void {
+  const meta = new Map(
+    queryAll<{ key: string; value: string }>(db, "SELECT key, value FROM report_meta").map((r) => [
+      r.key,
+      r.value,
+    ])
+  );
+  const mode = meta.get("contracts_mode");
+  if (mode === undefined) return;
+  const nSites = queryGet<{ n: number }>(db, "SELECT count(*) n FROM contract_sites")?.n ?? 0;
+  p(`\nCONTRACTS  (requires/ensures as kill oracles — mode ${mode}, ${nSites} site(s))`);
+  if (mode === "off") {
+    p(
+      `  off — the sites are inventoried only; 'polly mutate run --contracts all' makes each one fail the test that falsifies it`
+    );
+    return;
+  }
+  violationLines(db, p);
+  if (meta.get("runner") === "command") {
+    p(
+      `  command runner: no per-test results, so kills are not attributed to contracts; compare the killed count against a --contracts off run`
+    );
+    return;
+  }
+  if (mode === "ensures") p(`  requires sites are inventoried, not enforced (mode ensures)`);
+  contractOnlyLines(db, p);
+  if (nSites === 0) return;
+  perContractLines(db, p);
 }
 
 /** Greedy set cover: smallest set of `units` whose kill-sets cover all killed mutants. */

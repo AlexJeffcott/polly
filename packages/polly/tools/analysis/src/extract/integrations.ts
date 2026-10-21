@@ -1,15 +1,36 @@
 // External integration detection - find external APIs, services, etc.
 
+import * as path from "node:path";
 import { Node, Project, type SourceFile } from "ts-morph";
 import type { ExternalIntegration } from "../types/architecture";
 
 export class IntegrationAnalyzer {
   private project: Project;
+  private projectRoot: string;
 
   constructor(tsConfigPath: string) {
+    this.projectRoot = path.dirname(path.resolve(tsConfigPath));
     this.project = new Project({
       tsConfigFilePath: tsConfigPath,
     });
+  }
+
+  /**
+   * The files whose calls are the app's own. A test, spec or e2e file that
+   * fetches the app's server is a client of the app, not an integration of it.
+   * Same rule as `HandlerExtractor.isOffSurfaceScannable`, matched against the
+   * path inside the project so a project that itself sits under a `__tests__`
+   * fixture directory still counts.
+   */
+  private applicationSourceFiles(): SourceFile[] {
+    return this.project
+      .getSourceFiles()
+      .filter(
+        (file) =>
+          !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
+            `/${path.relative(this.projectRoot, file.getFilePath())}`
+          )
+      );
   }
 
   /**
@@ -57,7 +78,7 @@ export class IntegrationAnalyzer {
       description?: string;
     }> = [];
 
-    for (const sourceFile of this.project.getSourceFiles()) {
+    for (const sourceFile of this.applicationSourceFiles()) {
       sourceFile.forEachDescendant((node) => {
         this.processFetchCall(node, sourceFile, calls);
       });
@@ -180,7 +201,7 @@ export class IntegrationAnalyzer {
       description?: string;
     }> = [];
 
-    for (const sourceFile of this.project.getSourceFiles()) {
+    for (const sourceFile of this.applicationSourceFiles()) {
       sourceFile.forEachDescendant((node) => {
         if (Node.isNewExpression(node)) {
           const expression = node.getExpression();
@@ -214,7 +235,7 @@ export class IntegrationAnalyzer {
     const scripts: ExternalIntegration[] = [];
     const seen = new Set<string>();
 
-    for (const sourceFile of this.project.getSourceFiles()) {
+    for (const sourceFile of this.applicationSourceFiles()) {
       this.extractExternalImportsFromFile(sourceFile, scripts, seen);
     }
 

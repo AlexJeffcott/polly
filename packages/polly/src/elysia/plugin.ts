@@ -1,7 +1,6 @@
-// @ts-nocheck - Optional peer dependencies (elysia, @elysiajs/eden)
-import type { Signal } from "@preact/signals-core";
 import { Elysia } from "elysia";
 import { createLamportClock } from "../core/clock";
+import { isRecord } from "../shared/lib/guards";
 import { findMatchingConfig } from "./route-match";
 import type { PollyConfig, PollyResponseMetadata } from "./types";
 
@@ -58,7 +57,7 @@ export function polly(config: PollyConfig = {}) {
   const isDev = process.env.NODE_ENV !== "production";
   const clock = createLamportClock("server");
   const broadcaster = new BroadcastManager();
-  const clientStateByConnection = new Map<string, Record<string, Signal<unknown>>>();
+  const clientStateByConnection = new Map<string, Record<string, unknown>>();
 
   const app = new Elysia({ name: "polly" })
     // Add state to context
@@ -71,7 +70,6 @@ export function polly(config: PollyConfig = {}) {
 
     // WebSocket endpoint for real-time updates
     .ws(config.websocketPath || "/polly/ws", {
-      // @ts-expect-error - Elysia WebSocket types from optional peer dependency
       open(ws) {
         const clientId = ws.data.headers?.["x-client-id"] || crypto.randomUUID();
         broadcaster.register(clientId, ws.raw);
@@ -85,7 +83,6 @@ export function polly(config: PollyConfig = {}) {
           })
         );
       },
-      // @ts-expect-error - Elysia WebSocket types from optional peer dependency
       close(ws) {
         const clientId = ws.data.headers?.["x-client-id"];
         if (clientId) {
@@ -93,12 +90,13 @@ export function polly(config: PollyConfig = {}) {
           clientStateByConnection.delete(clientId);
         }
       },
-      // @ts-expect-error - Elysia WebSocket types from optional peer dependency
       message(ws, message) {
-        // Handle client state updates
-        const data = JSON.parse(message as unknown as string);
+        // Elysia parses a JSON text frame before calling this hook, so
+        // `message` is usually already an object. `JSON.parse` on it threw,
+        // no state-update was ever stored, and every `broadcastFilter` saw `{}`.
+        const data = typeof message === "string" ? JSON.parse(message) : message;
 
-        if (data.type === "state-update") {
+        if (data.type === "state-update" && isRecord(data.state)) {
           const clientId = ws.data.headers?.["x-client-id"];
           if (clientId) {
             clientStateByConnection.set(clientId, data.state);
@@ -108,8 +106,7 @@ export function polly(config: PollyConfig = {}) {
     })
 
     // Authorization hook (runs before handler)
-    // @ts-expect-error - Elysia context types from optional peer dependency
-    .onBeforeHandle(async ({ request, pollyState, body, params }) => {
+    .onBeforeHandle(async ({ request, pollyState, body, params, status }) => {
       const method = request.method;
       const path = new URL(request.url).pathname;
 
@@ -123,79 +120,71 @@ export function polly(config: PollyConfig = {}) {
           headers: Object.fromEntries(request.headers.entries()),
         });
 
+        // `status()` rather than a bare `new Response`: this hook is scoped
+        // to the consumer, so Elysia folds its return type into every
+        // consumer route's response map. A Response lands under 200 and
+        // turns each route's Eden `data` into `T | Response`; `status(403)`
+        // lands under 403, where Eden reports it as `error`.
         if (!allowed) {
-          return new Response("Unauthorized", { status: 403 });
+          return status(403, "Unauthorized");
         }
       }
+      return undefined;
     })
 
     // Response hook (runs after handler)
-    // @ts-expect-error - Elysia context types from optional peer dependency
-    .onAfterHandle(
-      async ({ request, response, _pollyState, pollyClock, pollyBroadcast, _body, _params }) => {
-        const method = request.method;
-        const path = new URL(request.url).pathname;
+    .onAfterHandle(async ({ request, response, set, pollyClock, pollyBroadcast }) => {
+      const method = request.method;
+      const path = new URL(request.url).pathname;
 
-        // Find matching effect config
-        const effectConfig = findMatchingConfig(config.effects, method, path);
+      // Find matching effect config
+      const effectConfig = findMatchingConfig(config.effects, method, path);
 
-        // Tick clock
-        pollyClock.tick();
+      // Tick clock
+      pollyClock.tick();
 
-        // If broadcast enabled, send to all connected clients
-        // This works in both dev and prod for real-time updates
-        if (effectConfig?.broadcast) {
-          const broadcastMessage = {
-            type: "effect",
-            path,
-            method,
-            result: response,
-            clock: pollyClock.now(),
-          };
-
-          if (effectConfig.broadcastFilter) {
-            pollyBroadcast.broadcast(broadcastMessage, (clientId) => {
-              const clientState = clientStateByConnection.get(clientId) || {};
-              return effectConfig.broadcastFilter?.(clientState) ?? false;
-            });
-          } else {
-            pollyBroadcast.broadcast(broadcastMessage);
-          }
-        }
-
-        // In production, skip expensive metadata operations
-        if (!isDev) {
-          return response;
-        }
-
-        // DEV ONLY: Add Polly metadata to response for debugging/hot-reload
-        const offlineConfig = findMatchingConfig(config.offline, method, path);
-        const metadata: PollyResponseMetadata = {
-          hasClientEffect: !!effectConfig,
-          offline: offlineConfig,
+      // If broadcast enabled, send to all connected clients
+      // This works in both dev and prod for real-time updates
+      if (effectConfig?.broadcast) {
+        const broadcastMessage: BroadcastMessage = {
+          type: "effect",
+          path,
+          method,
+          result: response,
           clock: pollyClock.now(),
         };
 
-        // Attach metadata as header. A handler (or the authorization hook
-        // above, via its 403) may already have built a Response: keep its
-        // status, headers and body, and only add the header.
-        if (response instanceof Response) {
-          const headers = new Headers(response.headers);
-          headers.set("X-Polly-Metadata", JSON.stringify(metadata));
-          return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers,
+        if (effectConfig.broadcastFilter) {
+          pollyBroadcast.broadcast(broadcastMessage, (clientId) => {
+            const clientState = clientStateByConnection.get(clientId) || {};
+            return effectConfig.broadcastFilter?.(clientState) ?? false;
           });
+        } else {
+          pollyBroadcast.broadcast(broadcastMessage);
         }
-        return new Response(JSON.stringify(response), {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Polly-Metadata": JSON.stringify(metadata),
-          },
-        });
       }
-    )
+
+      // In production, skip expensive metadata operations
+      if (!isDev) {
+        return;
+      }
+
+      // DEV ONLY: Add Polly metadata to response for debugging/hot-reload
+      const offlineConfig = findMatchingConfig(config.offline, method, path);
+      const metadata: PollyResponseMetadata = {
+        hasClientEffect: !!effectConfig,
+        offline: offlineConfig,
+        clock: pollyClock.now(),
+      };
+
+      // Attach the header through `set` and return nothing. Elysia merges
+      // `set.headers` into whatever the handler produced — a plain value or
+      // its own Response, status and headers intact. Returning a value here
+      // would replace the handler's result, and because this hook is scoped
+      // to the consumer, its return type would join every consumer route's
+      // response type (a `Response` under 200, breaking Eden's `data`).
+      set.headers["X-Polly-Metadata"] = JSON.stringify(metadata);
+    })
     // Elysia scopes a plugin's lifecycle hooks to the plugin itself. Without
     // this, the authorization and metadata/broadcast hooks above ran only for
     // the plugin's own `/polly/ws` route and never for the consumer's routes.

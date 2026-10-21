@@ -46,6 +46,7 @@ function loaderFor(file: string): "tsx" | "jsx" | "ts" | "js" {
 
 function exactly(paths: readonly string[]): RegExp {
   const escaped = paths.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — every path is escaped above; an anchored alternation of literals cannot backtrack exponentially.
   return new RegExp(`^(?:${escaped.join("|")})$`);
 }
 
@@ -102,7 +103,9 @@ if (target && rawSpan) {
 const CONTRACT_VIOLATIONS_KEY = "__pollyContractViolations";
 
 function violationMessages(): string[] {
-  const list = (globalThis as Record<string, unknown>)[CONTRACT_VIOLATIONS_KEY];
+  const g: object = globalThis;
+  if (!(CONTRACT_VIOLATIONS_KEY in g)) return [];
+  const list = g[CONTRACT_VIOLATIONS_KEY];
   if (!Array.isArray(list)) return [];
   const messages = list.map((v) => (v instanceof Error ? v.message : String(v)));
   list.length = 0;
