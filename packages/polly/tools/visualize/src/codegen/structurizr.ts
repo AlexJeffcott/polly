@@ -24,7 +24,6 @@ import type {
 import {
   DEFAULT_ELEMENT_STYLES,
   DEFAULT_RELATIONSHIP_STYLES,
-  DEFAULT_THEME,
   MESH_OVERLAY_ELEMENT_STYLES,
   MESH_OVERLAY_RELATIONSHIP_STYLES,
 } from "../types/structurizr";
@@ -136,7 +135,10 @@ export class StructurizrDSLGenerator {
       deploymentNodes: [],
       ...options,
       styles: {
-        theme: options.styles?.theme || DEFAULT_THEME,
+        // No remote theme by default: `structurizr validate` fetches it, so a
+        // theme URL makes validation depend on a third-party host. The
+        // default static.structurizr.com URL stopped resolving and broke it.
+        ...(options.styles?.theme ? { theme: options.styles.theme } : {}),
         elements: {
           ...DEFAULT_ELEMENT_STYLES,
           // polly#127: overlay element styles only join the set when a
