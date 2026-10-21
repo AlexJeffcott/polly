@@ -5,10 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.93.0] - 2026-10-21
 
 ### Changed
 
+#### Breaking: preact 11 is required
+
+The `preact` peer range moves from `^10.28.1` to `^11.0.1`; preact 10 is no
+longer supported. Upgrade `preact` to 11 in the same change as polly, and pin
+it inside polly's range, or polly-ui components resolve to a second preact and
+cannot be used as JSX.
+
+- polly-ui imports `HTMLAttributes`, `TargetedEvent`,
+  `TargetedKeyboardEvent`, `MouseEventHandler`, `KeyboardEventHandler`,
+  `AriaRole` and `CSSProperties` from `preact`, where preact 11 moved them
+  out of the `JSX` namespace. `JSX.Element` and `JSX.IntrinsicElements` are
+  unchanged.
+- `Modal` and `Toast` import `createPortal` from `preact`, not
+  `preact/compat`. Loading polly-ui no longer rebinds `onBlur` to `focusout`
+  for the whole process.
+
+#### `typescript-7` is TypeScript 7.1.0-beta
+
+- `typescript-7` is a runtime `dependency` of `@fairfox/polly`, so every
+  consumer installs `npm:typescript@7.1.0-beta`. The consumer's own
+  `typescript` is not affected.
 - The `polly mutate` type filter runs on TypeScript 7.1 (`typescript-7` is now
   `npm:typescript@7.1.0-beta`) through the stable `typescript/async` and
   `typescript/fs` entry points, which replace 7.0's `typescript/unstable/*`.
@@ -19,6 +40,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The monorepo root `typescript` devDependency moves from 6.0.3 to
   7.1.0-beta. Declaration output is byte-identical (257 files), Elysia stays
   one copy.
+
+#### `polly visualize` omits the remote Structurizr theme by default
+
+Generated DSL no longer ends its styles block with
+`theme https://static.structurizr.com/themes/default/theme.json`. That host
+no longer resolves, and `structurizr validate` fetches the theme, so every
+generated workspace failed validation. Polly's element and relationship
+styles are inline. `styles.theme` still emits a theme when set. The removed
+line is the only change to generated output.
+
+### Fixed
+
+- **`broadcastFilter` received `{}` for every client.** Elysia parses a JSON
+  text frame before the `polly()` ws `message` hook runs; the hook called
+  `JSON.parse` on the parsed object, threw, and never stored client state, so
+  every filtered client got no effects. `state-update` frames are now stored
+  per connection and dropped on close.
+- **`broadcastFilter` state type.** The parameter was
+  `Record<string, Signal<unknown>>`, but the plugin stores the parsed JSON
+  the client sent. A filter that read `state.role.value` type-checked and saw
+  `undefined`. The parameter is now `Record<string, unknown>`, and the hook
+  stores `state` only when it is a record.
+- **`polly()` hooks added `Response` to every consumer route.** The scoped
+  hooks returned a bare `Response`, so each route gained `200: Response` and
+  every Eden `data` was `T | Response`. `onBeforeHandle` now denies with
+  `status(403, "Unauthorized")`, which Eden reports as `error`.
+  `onAfterHandle` sets `X-Polly-Metadata` through `set.headers` and returns
+  nothing. `@ts-nocheck` is removed from the plugin.
+- **`polly visualize` drew test files as external integrations.** A test that
+  fetched the project's own server at `localhost` appeared as an external
+  system. `IntegrationAnalyzer` now skips test, spec, e2e and story files,
+  matched on the path inside the project, so a fixture project under
+  `__tests__/fixtures/` still counts.
 
 ## [0.92.1] - 2026-10-21
 
