@@ -23,8 +23,8 @@
  * filter, and never a false `CompileError`.
  *
  * `typescript-7` is the npm alias polly depends on (`npm:typescript@7.1.0-beta`,
- * exact), so polly's own `typescript` can stay on the version its other tools
- * need. The sync flavour of the API cannot run under Bun (it reads
+ * exact), so a consumer's own `typescript` can stay on whatever version its
+ * other tools need. The sync flavour of the API cannot run under Bun (it reads
  * `child.stdout._handle.fd`, which Bun's child process does not expose); the
  * async one can, and it batches the requests a tick issues into one message.
  */

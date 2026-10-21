@@ -5,7 +5,7 @@
     "": {
       "name": "polly-monorepo",
       "devDependencies": {
-        "typescript": "6.0.3",
+        "typescript": "7.1.0-beta",
       },
     },
     "examples/blob-share/client": {
@@ -759,7 +759,7 @@
 
     "typed-query-selector": ["typed-query-selector@2.12.3", "", {}, "sha512-/dtuMZyutHLlrxWhhC1uib00ELUr2dZ8C9B8YzZYsJmeE3V56OxRblrSM2UaF142pcMtak7ehZ6+poWGeehNIg=="],
 
-    "typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
+    "typescript": ["typescript@7.1.0-beta", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.1.0-beta", "@typescript/typescript-android-arm64": "7.1.0-beta", "@typescript/typescript-darwin-arm64": "7.1.0-beta", "@typescript/typescript-darwin-x64": "7.1.0-beta", "@typescript/typescript-freebsd-arm64": "7.1.0-beta", "@typescript/typescript-freebsd-x64": "7.1.0-beta", "@typescript/typescript-linux-arm": "7.1.0-beta", "@typescript/typescript-linux-arm64": "7.1.0-beta", "@typescript/typescript-linux-loong64": "7.1.0-beta", "@typescript/typescript-linux-mips64el": "7.1.0-beta", "@typescript/typescript-linux-ppc64": "7.1.0-beta", "@typescript/typescript-linux-riscv64": "7.1.0-beta", "@typescript/typescript-linux-s390x": "7.1.0-beta", "@typescript/typescript-linux-x64": "7.1.0-beta", "@typescript/typescript-netbsd-arm64": "7.1.0-beta", "@typescript/typescript-netbsd-x64": "7.1.0-beta", "@typescript/typescript-openbsd-arm64": "7.1.0-beta", "@typescript/typescript-openbsd-x64": "7.1.0-beta", "@typescript/typescript-sunos-x64": "7.1.0-beta", "@typescript/typescript-win32-arm64": "7.1.0-beta", "@typescript/typescript-win32-x64": "7.1.0-beta" }, "bin": { "tsc": "bin/tsc" } }, "sha512-cjWjZAJDsmZzsNC5GwHNlW0YPM65jZa5oR0KyQcYX3KSVIfTvtBq//vewISyatKk4OLi5grZjHhIVE9fdrw1UQ=="],
 
     "typescript-7": ["typescript@7.1.0-beta", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.1.0-beta", "@typescript/typescript-android-arm64": "7.1.0-beta", "@typescript/typescript-darwin-arm64": "7.1.0-beta", "@typescript/typescript-darwin-x64": "7.1.0-beta", "@typescript/typescript-freebsd-arm64": "7.1.0-beta", "@typescript/typescript-freebsd-x64": "7.1.0-beta", "@typescript/typescript-linux-arm": "7.1.0-beta", "@typescript/typescript-linux-arm64": "7.1.0-beta", "@typescript/typescript-linux-loong64": "7.1.0-beta", "@typescript/typescript-linux-mips64el": "7.1.0-beta", "@typescript/typescript-linux-ppc64": "7.1.0-beta", "@typescript/typescript-linux-riscv64": "7.1.0-beta", "@typescript/typescript-linux-s390x": "7.1.0-beta", "@typescript/typescript-linux-x64": "7.1.0-beta", "@typescript/typescript-netbsd-arm64": "7.1.0-beta", "@typescript/typescript-netbsd-x64": "7.1.0-beta", "@typescript/typescript-openbsd-arm64": "7.1.0-beta", "@typescript/typescript-openbsd-x64": "7.1.0-beta", "@typescript/typescript-sunos-x64": "7.1.0-beta", "@typescript/typescript-win32-arm64": "7.1.0-beta", "@typescript/typescript-win32-x64": "7.1.0-beta" }, "bin": { "tsc": "bin/tsc" } }, "sha512-cjWjZAJDsmZzsNC5GwHNlW0YPM65jZa5oR0KyQcYX3KSVIfTvtBq//vewISyatKk4OLi5grZjHhIVE9fdrw1UQ=="],
 
