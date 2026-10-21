@@ -29,12 +29,12 @@
     "weapon-regex": "Regex mutant generator behind `polly mutate` \u2014 the generator Stryker's Regex mutator used, pinned to the version Stryker 9.6.1 resolved (1.3.6) so mutants match the parity reference (scripts/mutate-parity/stryker).",
     "pixelmatch": "Per-pixel image diff used by the visual-test tool.",
     "pngjs": "PNG decoder used by the visual-test tool to load screenshots before pixelmatch.",
-    "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points. Held at 10.x: preact 11 removes JSX namespace types polly-ui uses; moving needs its own breaking release.",
+    "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points. On 11.x: polly-ui imports its attribute/event types from `preact` (11 cut the JSX namespace) and createPortal from core, so nothing pulls in preact/compat.",
     "preact-render-to-string": "Server-side rendering for example Elysia clients.",
     "puppeteer": "Headless Chrome driver \u2014 used by the e2e visualize verification script and browser tests.",
     "ts-morph": "TypeScript AST library used by tools/analysis to extract handlers, contexts, flows, types, and integrations.",
     "tweetnacl": "Ed25519 / box crypto primitives used by the peer authentication layer.",
-    "typescript": "Pinned at 6.0.3, once, at the monorepo root. Not the type checker (that is `bun check`); used for .d.ts generation in build-lib.ts. A single version also keeps one Elysia copy (Elysia peers on typescript).",
+    "typescript": "Pinned at 7.1.0-beta, once, at the monorepo root, the same version as packages/polly's `typescript-7` alias so one copy installs. Not the type checker (that is `bun check`); `bunx tsc` in build-lib.ts emits the .d.ts. A single version also keeps one Elysia copy (Elysia peers on typescript).",
     "werift": "Pure-TS WebRTC implementation \u2014 node alternative to @roamhq/wrtc, used in environments where the native binding is unavailable.",
     "ws": "WebSocket server/client used by mesh-node for cross-device sync."
   }
