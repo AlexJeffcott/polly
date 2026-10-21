@@ -14,7 +14,7 @@
     "@fairfox/polly": "workspace:*",
     "@preact/signals": "2.11.3",
     "@preact/signals-core": "1.14.4",
-    "preact": "10.29.8"
+    "preact": "11.0.1"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",

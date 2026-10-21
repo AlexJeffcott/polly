@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@fairfox/polly": "workspace:*",
-    "preact": "10.29.8",
+    "preact": "11.0.1",
     "@preact/signals": "2.11.3"
   },
   "devDependencies": {
