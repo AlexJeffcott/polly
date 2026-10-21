@@ -101,8 +101,10 @@ const cases: Case[] = [
       "get_todos",
     ],
     minComponents: 8,
-    expectedExternalSystems: ["localhost_api"],
-    minRelationships: 6,
+    // No external systems: the `localhost_api` this case used to expect was
+    // api.test.ts fetching the example's own server, which is not an
+    // integration. Integration analysis skips test files now.
+    minRelationships: 5,
   },
   {
     label: "webrtc-p2p-chat",
