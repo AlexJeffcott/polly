@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The `polly mutate` type filter runs on TypeScript 7.1 (`typescript-7` is now
+  `npm:typescript@7.1.0-beta`) through the stable `typescript/async` and
+  `typescript/fs` entry points, which replace 7.0's `typescript/unstable/*`.
+  Verdicts are unchanged: 1,848 of 4,894 mutants on polly's 44 targets, same
+  mutant ids (`scripts/mutate-typecheck-parity.ts`). The filter takes 43.7 s
+  on those targets against 35.1 s on 7.0.2. The sync API still cannot run
+  under Bun.
+- The monorepo root `typescript` devDependency moves from 6.0.3 to
+  7.1.0-beta. Declaration output is byte-identical (257 files), Elysia stays
+  one copy.
+
 ## [0.92.1] - 2026-10-21
 
 ### Changed

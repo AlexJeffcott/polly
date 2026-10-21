@@ -45,7 +45,7 @@
     "publish:public": "bun run --filter @fairfox/polly publish:public"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "7.1.0-beta"
   },
   "overrides": {
     "qs": "6.16.1",
