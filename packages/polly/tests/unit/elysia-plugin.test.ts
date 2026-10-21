@@ -4,7 +4,7 @@
  * their scope, so a hook that fires for the plugin's own `/polly/ws` route but
  * not for `.use(polly()).post("/todos")` is the exact defect pinned here.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { Treaty } from "@elysiajs/eden";
 import { Elysia } from "elysia";
 import { polly } from "@/elysia/plugin";
@@ -179,5 +179,171 @@ describe("polly() broadcast to connected clients", () => {
       result: { created: { text: "b" } },
     });
     ws.close();
+  });
+});
+
+type Received = { type: string; result?: unknown };
+
+/**
+ * Per-client broadcast filtering. A client reports its state over the socket
+ * (`state-update`), keyed by its `x-client-id`; `broadcastFilter` decides from
+ * that state whether the client receives an effect. Closing the socket must
+ * drop the stored state, or a reconnecting client inherits whatever it
+ * reported last time.
+ */
+describe("polly() broadcastFilter and connection lifecycle", () => {
+  const app = new Elysia()
+    .use(
+      polly({
+        effects: {
+          "POST /alerts": {
+            broadcast: true,
+            broadcastFilter: (state) => (state as Record<string, unknown>).role === "admin",
+          },
+          // Unfiltered: every open client receives it. A socket delivers in
+          // order, so once a client has seen a ping it has seen every effect
+          // broadcast before it — the barrier the negative assertions need.
+          "POST /pings": { broadcast: true },
+        },
+      })
+    )
+    .post("/alerts", ({ body }) => ({ alert: body }))
+    .post("/pings", ({ body }) => ({ ping: body }));
+  let base = "";
+  let pingSeq = 0;
+  const sockets: Array<{ ws: WebSocket; messages: Received[] }> = [];
+
+  beforeAll(() => {
+    app.listen(0);
+    base = `localhost:${app.server?.port}`;
+  });
+
+  afterEach(() => {
+    for (const { ws } of sockets.splice(0)) ws.close();
+  });
+
+  afterAll(() => {
+    app.stop();
+  });
+
+  async function waitFor(predicate: () => boolean, label: string, timeoutMs = 2000) {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+      if (Date.now() > deadline) throw new Error(`timed out waiting for ${label}`);
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 5));
+    }
+  }
+
+  async function connect(clientId: string) {
+    const client = {
+      ws: new WebSocket(`ws://${base}/polly/ws`, { headers: { "x-client-id": clientId } }),
+      messages: [] as Received[],
+    };
+    sockets.push(client);
+    client.ws.onmessage = (event) => client.messages.push(JSON.parse(String(event.data)));
+    await waitFor(
+      () => client.messages.some((m) => m.type === "state-sync"),
+      `${clientId} state-sync`
+    );
+    return client;
+  }
+
+  function sendState(ws: WebSocket, type: string, state: Record<string, unknown>) {
+    ws.send(JSON.stringify({ type, state }));
+  }
+
+  // A client's own frames reach the server on its socket; the HTTP request
+  // that triggers a broadcast does not, so there is no ordering between them
+  // to wait on. Give the server a beat to read the frame.
+  const letServerRead = () => Bun.sleep(20);
+
+  function closeAndWait(ws: WebSocket) {
+    return new Promise<void>((resolve) => {
+      ws.onclose = () => resolve();
+      ws.close();
+    });
+  }
+
+  async function post(path: string, body: unknown) {
+    const response = await fetch(`http://${base}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(response.ok).toBe(true);
+  }
+
+  /** Post an alert, then wait until every open client has seen the ping after it. */
+  async function postAlertAndDrain(text: string) {
+    await post("/alerts", { text });
+    const seq = ++pingSeq;
+    await post("/pings", { seq });
+    const open = sockets.filter(({ ws }) => ws.readyState === WebSocket.OPEN);
+    await waitFor(
+      () =>
+        open.every(({ messages }) =>
+          messages.some((m) => (m.result as { ping?: { seq: number } })?.ping?.seq === seq)
+        ),
+      `ping ${seq}`
+    );
+  }
+
+  const alerts = (messages: Received[]) =>
+    messages
+      .filter((m) => m.type === "effect" && (m.result as { alert?: unknown }).alert)
+      .map((m) => m.result);
+
+  test("only clients whose reported state passes the filter receive the effect", async () => {
+    const admin = await connect("filter-admin");
+    const viewer = await connect("filter-viewer");
+    const silent = await connect("filter-silent");
+    sendState(admin.ws, "state-update", { role: "admin" });
+    sendState(viewer.ws, "state-update", { role: "viewer" });
+    await letServerRead();
+
+    await postAlertAndDrain("x");
+
+    expect(alerts(admin.messages)).toEqual([{ alert: { text: "x" } }]);
+    expect(alerts(viewer.messages)).toEqual([]);
+    // Never reported state: the filter sees `{}` and rejects it.
+    expect(alerts(silent.messages)).toEqual([]);
+  });
+
+  test("a later state-update replaces the earlier one", async () => {
+    const client = await connect("filter-demoted");
+    sendState(client.ws, "state-update", { role: "admin" });
+    await letServerRead();
+    await postAlertAndDrain("as-admin");
+
+    sendState(client.ws, "state-update", { role: "viewer" });
+    await letServerRead();
+    await postAlertAndDrain("as-viewer");
+
+    expect(alerts(client.messages)).toEqual([{ alert: { text: "as-admin" } }]);
+  });
+
+  test("a message that is not a state-update leaves the stored state alone", async () => {
+    const client = await connect("filter-noise");
+    sendState(client.ws, "state-update", { role: "admin" });
+    sendState(client.ws, "presence", { role: "viewer" });
+    await letServerRead();
+
+    await postAlertAndDrain("z");
+
+    expect(alerts(client.messages)).toEqual([{ alert: { text: "z" } }]);
+  });
+
+  test("closing drops the stored state, so a reconnect under the same id is filtered afresh", async () => {
+    const first = await connect("filter-reconnect");
+    sendState(first.ws, "state-update", { role: "admin" });
+    await letServerRead();
+    await postAlertAndDrain("before-close");
+    expect(alerts(first.messages)).toEqual([{ alert: { text: "before-close" } }]);
+    await closeAndWait(first.ws);
+
+    const second = await connect("filter-reconnect");
+    await postAlertAndDrain("after-reconnect");
+
+    expect(alerts(second.messages)).toEqual([]);
   });
 });

@@ -91,8 +91,10 @@ export function polly(config: PollyConfig = {}) {
         }
       },
       message(ws, message) {
-        // Handle client state updates
-        const data = JSON.parse(message as unknown as string);
+        // Elysia parses a JSON text frame before calling this hook, so
+        // `message` is usually already an object. `JSON.parse` on it threw,
+        // no state-update was ever stored, and every `broadcastFilter` saw `{}`.
+        const data = typeof message === "string" ? JSON.parse(message) : message;
 
         if (data.type === "state-update") {
           const clientId = ws.data.headers?.["x-client-id"];
