@@ -30,7 +30,7 @@ const app = new Elysia()
   .use(polly({
     state: {
       client: { todos: $syncedState("todos", []), user: $syncedState("user", null) },
-      server: { db: $serverState("db", database) },
+      server: { db: $serverState("db", database), session: $serverState("session", null) },
     },
     effects: {
       "POST /todos": {
@@ -41,7 +41,8 @@ const app = new Elysia()
       },
     },
     authorization: {
-      "POST /todos": ({ state }) => state.client.user.value !== null,
+      // Server state: the login route sets `session`.
+      "POST /todos": ({ state }) => state.server.session.value !== null,
     },
     offline: {
       "POST /todos": { queue: true, optimistic: (body) => ({ id: -Date.now(), ...body }) },
@@ -90,7 +91,8 @@ Run `bun run verify` from the root to generate and check the TLA+ specification.
 ```
 server/
   src/
-    index.ts                Elysia server with polly() middleware
+    app.ts                  Elysia app with polly() middleware
+    index.ts                Listens on :3000
     state.ts                $sharedState with { verify: true }
     handlers.ts             State mutations with requires/ensures
   specs/

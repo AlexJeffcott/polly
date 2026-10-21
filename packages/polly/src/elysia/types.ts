@@ -62,6 +62,11 @@ export interface ClientEffectConfig {
  * Authorization handler context
  */
 export interface AuthorizationContext {
+  /**
+   * The server's `polly({ state })`. Its `client` signals are the server's
+   * own copies: clients update theirs locally and never write these, so
+   * authorize from `server` state (or from `headers`).
+   */
   state: {
     client: Record<string, Signal<unknown>>;
     server: Record<string, Signal<unknown>>;

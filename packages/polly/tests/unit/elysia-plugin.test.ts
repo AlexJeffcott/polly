@@ -5,6 +5,7 @@
  * not for `.use(polly()).post("/todos")` is the exact defect pinned here.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { Treaty } from "@elysiajs/eden";
 import { Elysia } from "elysia";
 import { polly } from "@/elysia/plugin";
 import type { PollyResponseMetadata } from "@/elysia/types";
@@ -105,6 +106,35 @@ describe("polly() hooks on consumer routes", () => {
     expect(response.headers.get("x-own")).toBe("kept");
     expect(await response.text()).toBe("plain");
     expect(metadataOf(response)?.hasClientEffect).toBe(false);
+  });
+});
+
+/**
+ * The hooks are scoped to the consumer, so Elysia folds their return types
+ * into every consumer route's response map. These assertions are checked by
+ * `bun run typecheck` (the tests workspace): a hook that returns a bare
+ * `Response` puts it under 200, and every Eden `data` becomes `T | Response`.
+ */
+type ConsumerApp = ReturnType<typeof consumerApp>["app"];
+type EdenResult<F extends (...args: never[]) => unknown> = Awaited<ReturnType<F>>;
+type PostTodos = EdenResult<Treaty.Create<ConsumerApp>["todos"]["post"]>;
+type DeleteTodo = EdenResult<ReturnType<Treaty.Create<ConsumerApp>["todos"]>["delete"]>;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+describe("polly() hook types on consumer routes", () => {
+  test("Eden data is the handler's own result, with no Response folded in", () => {
+    const postData: Equal<NonNullable<PostTodos["data"]>, { created: unknown }> = true;
+    const deleteData: Equal<NonNullable<DeleteTodo["data"]>, { deleted: string }> = true;
+    expect([postData, deleteData]).toEqual([true, true]);
+  });
+
+  test("the authorization 403 is typed as an Eden error, not as data", () => {
+    const forbidden: Equal<
+      Extract<NonNullable<DeleteTodo["error"]>, { status: 403 }>["value"],
+      "Unauthorized"
+    > = true;
+    expect(forbidden).toBe(true);
   });
 });
 
