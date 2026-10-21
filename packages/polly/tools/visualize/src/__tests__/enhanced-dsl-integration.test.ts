@@ -718,12 +718,14 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
       expect(dsl).toContain("routing Orthogonal");
     });
 
-    test("should include theme URL", () => {
+    test("should not reference a remote theme by default", () => {
       const dsl = generateStructurizrDSL(analysis, {
         componentDiagramContexts: Object.keys(analysis.contexts),
       });
 
-      expect(dsl).toContain("theme https://static.structurizr.com/themes/default/theme.json");
+      // structurizr validate fetches any theme URL, so a default one makes
+      // validation depend on a third-party host.
+      expect(dsl).not.toMatch(/^\s*theme /m);
     });
 
     test("should apply handler-specific colors to components", () => {

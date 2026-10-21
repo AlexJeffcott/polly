@@ -89,7 +89,12 @@ export interface StructurizrStyles {
   elements?: Record<string, ElementStyle>;
   /** Relationship styles keyed by tag */
   relationships?: Record<string, RelationshipStyle>;
-  /** Theme URL */
+  /**
+   * Theme URL, opt-in. None is emitted by default: `structurizr validate`
+   * fetches it, so it ties validation to the host serving it. Structurizr's
+   * legacy default theme lives at
+   * https://raw.githubusercontent.com/structurizr/themes/master/default/theme.json
+   */
   theme?: string;
 }
 
@@ -433,8 +438,3 @@ export const MESH_OVERLAY_RELATIONSHIP_STYLES: Record<string, RelationshipStyle>
     thickness: 2,
   },
 };
-
-/**
- * Default theme URL
- */
-export const DEFAULT_THEME = "https://static.structurizr.com/themes/default/theme.json";
