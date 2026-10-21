@@ -1,6 +1,6 @@
-import type { Signal } from "@preact/signals-core";
 import { Elysia } from "elysia";
 import { createLamportClock } from "../core/clock";
+import { isRecord } from "../shared/lib/guards";
 import { findMatchingConfig } from "./route-match";
 import type { PollyConfig, PollyResponseMetadata } from "./types";
 
@@ -57,7 +57,7 @@ export function polly(config: PollyConfig = {}) {
   const isDev = process.env.NODE_ENV !== "production";
   const clock = createLamportClock("server");
   const broadcaster = new BroadcastManager();
-  const clientStateByConnection = new Map<string, Record<string, Signal<unknown>>>();
+  const clientStateByConnection = new Map<string, Record<string, unknown>>();
 
   const app = new Elysia({ name: "polly" })
     // Add state to context
@@ -96,7 +96,7 @@ export function polly(config: PollyConfig = {}) {
         // no state-update was ever stored, and every `broadcastFilter` saw `{}`.
         const data = typeof message === "string" ? JSON.parse(message) : message;
 
-        if (data.type === "state-update") {
+        if (data.type === "state-update" && isRecord(data.state)) {
           const clientId = ws.data.headers?.["x-client-id"];
           if (clientId) {
             clientStateByConnection.set(clientId, data.state);

@@ -53,9 +53,13 @@ export interface ClientEffectConfig {
   broadcast?: boolean;
 
   /**
-   * Broadcast filter - only send to clients matching this condition
+   * Broadcast filter - only send to clients matching this condition.
+   *
+   * `clientState` is the last `state` object the client sent in a
+   * `state-update` frame: plain JSON values, not signals. A client that never
+   * sent one is filtered with `{}`.
    */
-  broadcastFilter?: (clientState: Record<string, Signal<unknown>>) => boolean;
+  broadcastFilter?: (clientState: Record<string, unknown>) => boolean;
 }
 
 /**

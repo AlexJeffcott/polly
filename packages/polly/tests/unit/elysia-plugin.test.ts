@@ -7,8 +7,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { Treaty } from "@elysiajs/eden";
 import { Elysia } from "elysia";
+import { WebSocket as WsClient } from "ws";
 import { polly } from "@/elysia/plugin";
 import type { PollyResponseMetadata } from "@/elysia/types";
+import { isRecord } from "@/shared/lib/guards";
 
 type Handles = { handle: (request: Request) => Promise<Response> };
 
@@ -45,9 +47,19 @@ function post(app: Handles, path: string, body: unknown, headers: Record<string,
   );
 }
 
+function isResponseMetadata(input: unknown): input is PollyResponseMetadata {
+  return (
+    isRecord(input) &&
+    isRecord(input.clock) &&
+    typeof input.clock.tick === "number" &&
+    typeof input.clock.contextId === "string"
+  );
+}
+
 function metadataOf(response: Response): PollyResponseMetadata | undefined {
   const header = response.headers.get("X-Polly-Metadata");
-  return header ? (JSON.parse(header) as PollyResponseMetadata) : undefined;
+  const parsed: unknown = header ? JSON.parse(header) : undefined;
+  return isResponseMetadata(parsed) ? parsed : undefined;
 }
 
 describe("polly() hooks on consumer routes", () => {
@@ -79,8 +91,8 @@ describe("polly() hooks on consumer routes", () => {
     const first = metadataOf(await post(app, "/todos", {}))?.clock.tick;
     const second = metadataOf(await post(app, "/todos", {}))?.clock.tick;
 
-    expect(typeof first).toBe("number");
-    expect(second).toBe((first as number) + 1);
+    if (typeof first !== "number") throw new Error("first response carried no clock tick");
+    expect(second).toBe(first + 1);
   });
 
   test("before-handle authorization denies the consumer's route with 403", async () => {
@@ -161,7 +173,7 @@ describe("polly() broadcast to connected clients", () => {
     // state-sync arrives on open
     await Bun.sleep(20);
     expect(messages).toHaveLength(1);
-    expect((messages[0] as { type: string }).type).toBe("state-sync");
+    expect(messages[0]).toMatchObject({ type: "state-sync" });
 
     const response = await fetch(`http://${base}/todos`, {
       method: "POST",
@@ -198,7 +210,7 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
         effects: {
           "POST /alerts": {
             broadcast: true,
-            broadcastFilter: (state) => (state as Record<string, unknown>).role === "admin",
+            broadcastFilter: (state) => state.role === "admin",
           },
           // Unfiltered: every open client receives it. A socket delivers in
           // order, so once a client has seen a ping it has seen every effect
@@ -211,7 +223,7 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
     .post("/pings", ({ body }) => ({ ping: body }));
   let base = "";
   let pingSeq = 0;
-  const sockets: Array<{ ws: WebSocket; messages: Received[] }> = [];
+  const sockets: Array<{ ws: WsClient; messages: Received[] }> = [];
 
   beforeAll(() => {
     app.listen(0);
@@ -235,9 +247,12 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
   }
 
   async function connect(clientId: string) {
+    const messages: Received[] = [];
+    // The `ws` client, not the global: DOM's WebSocket type has no `headers`
+    // option, and the plugin keys client state by the `x-client-id` header.
     const client = {
-      ws: new WebSocket(`ws://${base}/polly/ws`, { headers: { "x-client-id": clientId } }),
-      messages: [] as Received[],
+      ws: new WsClient(`ws://${base}/polly/ws`, { headers: { "x-client-id": clientId } }),
+      messages,
     };
     sockets.push(client);
     client.ws.onmessage = (event) => client.messages.push(JSON.parse(String(event.data)));
@@ -248,7 +263,7 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
     return client;
   }
 
-  function sendState(ws: WebSocket, type: string, state: Record<string, unknown>) {
+  function sendState(ws: WsClient, type: string, state: Record<string, unknown>) {
     ws.send(JSON.stringify({ type, state }));
   }
 
@@ -257,7 +272,7 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
   // to wait on. Give the server a beat to read the frame.
   const letServerRead = () => Bun.sleep(20);
 
-  function closeAndWait(ws: WebSocket) {
+  function closeAndWait(ws: WsClient) {
     return new Promise<void>((resolve) => {
       ws.onclose = () => resolve();
       ws.close();
@@ -278,11 +293,13 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
     await post("/alerts", { text });
     const seq = ++pingSeq;
     await post("/pings", { seq });
-    const open = sockets.filter(({ ws }) => ws.readyState === WebSocket.OPEN);
+    const open = sockets.filter(({ ws }) => ws.readyState === WsClient.OPEN);
     await waitFor(
       () =>
         open.every(({ messages }) =>
-          messages.some((m) => (m.result as { ping?: { seq: number } })?.ping?.seq === seq)
+          messages.some(
+            (m) => isRecord(m.result) && isRecord(m.result.ping) && m.result.ping.seq === seq
+          )
         ),
       `ping ${seq}`
     );
@@ -290,7 +307,7 @@ describe("polly() broadcastFilter and connection lifecycle", () => {
 
   const alerts = (messages: Received[]) =>
     messages
-      .filter((m) => m.type === "effect" && (m.result as { alert?: unknown }).alert)
+      .filter((m) => m.type === "effect" && isRecord(m.result) && m.result.alert)
       .map((m) => m.result);
 
   test("only clients whose reported state passes the filter receive the effect", async () => {

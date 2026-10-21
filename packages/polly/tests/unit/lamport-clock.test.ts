@@ -90,8 +90,8 @@ describe("createLamportClock", () => {
     client.update(server.now());
     events.push(client.now().tick);
 
-    for (let i = 1; i < events.length; i++) {
-      expect(events[i]).toBeGreaterThan(events[i - 1] as number);
-    }
+    // Strictly increasing: already in ascending order, and no tick repeats.
+    expect(events).toEqual(events.toSorted((a, b) => a - b));
+    expect(new Set(events).size).toBe(events.length);
   });
 });
