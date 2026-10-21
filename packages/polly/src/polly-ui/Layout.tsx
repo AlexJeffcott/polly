@@ -8,7 +8,15 @@
  * any of them in media queries without touching specificity.
  */
 
-import { type ComponentChildren, createElement, type JSX, type Ref } from "preact";
+import {
+  type AriaRole,
+  type ComponentChildren,
+  createElement,
+  type JSX,
+  type KeyboardEventHandler,
+  type MouseEventHandler,
+  type Ref,
+} from "preact";
 import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 import classes from "./Layout.module.css";
 
@@ -61,15 +69,15 @@ export type LayoutProps = PassthroughAttrs & {
   inline?: boolean;
 
   className?: string;
-  onClick?: JSX.MouseEventHandler<HTMLElement>;
-  onKeyDown?: JSX.KeyboardEventHandler<HTMLElement>;
-  onKeyUp?: JSX.KeyboardEventHandler<HTMLElement>;
+  onClick?: MouseEventHandler<HTMLElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLElement>;
+  onKeyUp?: KeyboardEventHandler<HTMLElement>;
   /** Pointer-enter/leave on the container itself — a hover-scoped behaviour
    * such as pausing a timer while the pointer is over a stack. Without these
    * a component that needs one has to render its own element and write its
    * own grid, which is the loophole <Layout> exists to close. */
-  onMouseEnter?: JSX.MouseEventHandler<HTMLElement>;
-  onMouseLeave?: JSX.MouseEventHandler<HTMLElement>;
+  onMouseEnter?: MouseEventHandler<HTMLElement>;
+  onMouseLeave?: MouseEventHandler<HTMLElement>;
   /** Ref to the rendered element. Same reason as the handlers above: a focus
    * trap or a measurement needs the node, and refusing it forces raw CSS.
    *
@@ -79,7 +87,7 @@ export type LayoutProps = PassthroughAttrs & {
    * the stack stopped popping because the callback never ran. */
   elementRef?: Ref<HTMLElement>;
 
-  role?: JSX.AriaRole;
+  role?: AriaRole;
   tabIndex?: number;
   id?: string;
   "aria-label"?: string;

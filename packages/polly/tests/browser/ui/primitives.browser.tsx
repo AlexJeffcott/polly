@@ -8,7 +8,7 @@
  */
 
 import { signal } from "@preact/signals";
-import { type JSX, render } from "preact";
+import { type CSSProperties, render } from "preact";
 import {
   type ActionRegistry,
   clearError,
@@ -222,7 +222,7 @@ describe("Surface", () => {
     render(
       <Surface
         variant="raised"
-        style={{ "--polly-surface-raised": "#fef3c7" } as unknown as JSX.CSSProperties}
+        style={{ "--polly-surface-raised": "#fef3c7" } as unknown as CSSProperties}
       >
         x
       </Surface>,

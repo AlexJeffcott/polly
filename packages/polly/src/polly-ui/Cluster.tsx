@@ -14,7 +14,7 @@
  * through <Layout>, a wrapping cluster goes through <Cluster>.
  */
 
-import { type ComponentChildren, createElement, type JSX } from "preact";
+import { type AriaRole, type ComponentChildren, createElement, type JSX } from "preact";
 import classes from "./Cluster.module.css";
 import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 
@@ -38,7 +38,7 @@ export type ClusterProps = PassthroughAttrs & {
 
   className?: string;
   id?: string;
-  role?: JSX.AriaRole;
+  role?: AriaRole;
   "aria-label"?: string;
 };
 

@@ -9,7 +9,7 @@
  * keyboard-accessible (polly#135).
  */
 
-import type { JSX } from "preact";
+import type { JSX, TargetedEvent } from "preact";
 import classes from "./FileInput.module.css";
 
 export type FileInputProps = {
@@ -29,7 +29,7 @@ export type FileInputProps = {
 export function FileInput(props: FileInputProps): JSX.Element {
   const { onFiles, label = "Choose file", accept, multiple, disabled, className, id } = props;
 
-  const handleChange = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
+  const handleChange = (e: TargetedEvent<HTMLInputElement>): void => {
     const { files } = e.currentTarget;
     if (files && files.length > 0) onFiles(files);
   };

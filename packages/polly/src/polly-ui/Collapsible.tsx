@@ -9,7 +9,7 @@
  * zeroes the rotation via the motion token.
  */
 
-import type { ComponentChildren, JSX } from "preact";
+import type { ComponentChildren, JSX, TargetedKeyboardEvent } from "preact";
 import classes from "./Collapsible.module.css";
 import { Layout } from "./Layout.tsx";
 
@@ -60,7 +60,7 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
  * activation; the summary itself (no nested field) keeps normal keyboard
  * disclosure.
  */
-function handleSummaryKeyUp(event: JSX.TargetedKeyboardEvent<HTMLElement>): void {
+function handleSummaryKeyUp(event: TargetedKeyboardEvent<HTMLElement>): void {
   if (event.key !== " " && event.key !== "Enter") return;
   if (!isTextEntryTarget(event.target)) return;
   event.preventDefault();

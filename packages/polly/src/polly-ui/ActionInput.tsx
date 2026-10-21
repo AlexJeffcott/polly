@@ -24,7 +24,13 @@
  * font, and line-height so the toggle causes no reflow.
  */
 
-import type { JSX } from "preact";
+import type {
+  AccessibleInputHTMLAttributes,
+  JSX,
+  TargetedEvent,
+  TargetedKeyboardEvent,
+  TextareaHTMLAttributes,
+} from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import classes from "./ActionInput.module.css";
 import { dispatchAction } from "./internal/dispatch-action.ts";
@@ -113,7 +119,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
   }, [props.value, live]);
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard handler encodes the saveOn × variant matrix.
-  const onKeyDown = (event: JSX.TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const onKeyDown = (event: TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
       cancel();
@@ -182,7 +188,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
     "data-variant": variant,
     placeholder: props.placeholder,
     value: draft,
-    onInput: (e: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    onInput: (e: TargetedEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const next = e.currentTarget.value;
       setDraft(next);
       if (live) commit(next);
@@ -202,7 +208,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
         ref={(el) => {
           inputRef.current = el;
         }}
-        {...(common as unknown as JSX.HTMLAttributes<HTMLTextAreaElement>)}
+        {...(common as unknown as TextareaHTMLAttributes<HTMLTextAreaElement>)}
       />
     );
   }
@@ -211,8 +217,10 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
       ref={(el) => {
         inputRef.current = el;
       }}
-      type={props.inputType ?? "text"}
-      {...(common as unknown as JSX.HTMLAttributes<HTMLInputElement>)}
+      {...({
+        type: props.inputType ?? "text",
+        ...common,
+      } as unknown as AccessibleInputHTMLAttributes)}
     />
   );
 }

@@ -1,4 +1,4 @@
-import type { ComponentChildren, JSX } from "preact";
+import type { ComponentChildren, CSSProperties } from "preact";
 
 type Props = {
   children: ComponentChildren;
@@ -28,7 +28,7 @@ type Props = {
   autoRows?: string;
   autoColumns?: string;
   className?: string;
-  style?: JSX.CSSProperties;
+  style?: CSSProperties;
 };
 
 export function Layout({
@@ -47,7 +47,7 @@ export function Layout({
   className,
   style: customStyle,
 }: Props) {
-  const style: JSX.CSSProperties = { ...customStyle };
+  const style: CSSProperties = { ...customStyle };
 
   if (rows) style.gridTemplateRows = rows;
   if (columns) style.gridTemplateColumns = columns;

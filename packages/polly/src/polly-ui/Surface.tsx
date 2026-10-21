@@ -11,7 +11,15 @@
  * primitive's CSS.
  */
 
-import { type ComponentChildren, createElement, type JSX } from "preact";
+import {
+  type AriaRole,
+  type ComponentChildren,
+  type CSSProperties,
+  createElement,
+  type JSX,
+  type KeyboardEventHandler,
+  type MouseEventHandler,
+} from "preact";
 import classes from "./Surface.module.css";
 
 export type SurfaceVariant =
@@ -119,16 +127,16 @@ export type SurfaceProps = SurfaceDataAttrs & {
    * here, e.g. `style={{ "--polly-surface-raised": "#fef3c7" }}`. Surface
    * merges this into its own computed style.
    */
-  style?: JSX.CSSProperties;
+  style?: CSSProperties;
 
   id?: string;
-  role?: JSX.AriaRole;
+  role?: AriaRole;
   tabIndex?: number;
   "aria-label"?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
-  onClick?: JSX.MouseEventHandler<HTMLElement>;
-  onKeyDown?: JSX.KeyboardEventHandler<HTMLElement>;
+  onClick?: MouseEventHandler<HTMLElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLElement>;
 };
 
 type VariantDefaults = Partial<

@@ -8,7 +8,7 @@
  */
 
 import type { Signal } from "@preact/signals";
-import type { JSX } from "preact";
+import type { JSX, TargetedEvent } from "preact";
 import classes from "./Checkbox.module.css";
 import { Layout } from "./Layout.tsx";
 
@@ -29,7 +29,7 @@ function isSignal(value: unknown): value is Signal<boolean> {
 export function Checkbox(props: CheckboxProps): JSX.Element {
   const { checked, defaultChecked, name, disabled = false, label, className, id } = props;
 
-  const handleChange = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
+  const handleChange = (e: TargetedEvent<HTMLInputElement>): void => {
     if (isSignal(checked)) {
       checked.value = e.currentTarget.checked;
     }

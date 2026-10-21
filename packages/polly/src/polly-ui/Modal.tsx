@@ -9,7 +9,7 @@
  */
 
 import type { ReadonlySignal } from "@preact/signals";
-import { type ComponentChildren, createContext, type JSX } from "preact";
+import { type ComponentChildren, type CSSProperties, createContext } from "preact";
 import { createPortal } from "preact/compat";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import { popOverlay, pushOverlay } from "../actions/overlay.ts";
@@ -130,7 +130,7 @@ function Backdrop() {
 type ContentProps = {
   children: ComponentChildren;
   className?: string;
-  style?: JSX.CSSProperties;
+  style?: CSSProperties;
 };
 
 function Content({ children, className, style }: ContentProps) {
