@@ -9,7 +9,7 @@ import { Surface } from "@fairfox/polly/ui";
 import { render } from "preact";
 import type { Settings } from "../shared/types/messages";
 
-const settings = $sharedState<Settings>("app-settings", {
+const settings = $sharedState<Settings>("full-featured-settings", {
   theme: "auto",
   autoSync: true,
   debugMode: false,
