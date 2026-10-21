@@ -8,8 +8,7 @@
  * toast or its close button removes that single entry.
  */
 
-import type { JSX } from "preact";
-import { createPortal } from "preact/compat";
+import { createPortal, type JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { clearError, type ErrorEntry, errorState } from "../actions/error.ts";
 import { Layout } from "./Layout.tsx";

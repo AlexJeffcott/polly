@@ -9,8 +9,8 @@
  */
 
 import type { ReadonlySignal } from "@preact/signals";
-import { type ComponentChildren, type CSSProperties, createContext } from "preact";
-import { createPortal } from "preact/compat";
+import { type ComponentChildren, type CSSProperties, createContext, createPortal } from "preact";
+
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import { popOverlay, pushOverlay } from "../actions/overlay.ts";
 import { installFocusTrap } from "./internal/focus-trap.ts";

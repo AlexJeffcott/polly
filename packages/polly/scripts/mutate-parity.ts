@@ -6,8 +6,7 @@
  *   mesh-network-adapter.ts  the spike's target; async, event-driven
  *   crdt-state.ts            automerge-backed state
  *   ActionInput.tsx          polly-ui; its covering tests need the CSS-module
- *                            shim (tests/setup.ts) and pull in Modal, whose
- *                            preact/compat import rebinds onBlur process-wide
+ *                            shim (tests/setup.ts) and pull in Modal
  *
  * Both tools run in fast mode (bail at the first failing test) with the same
  * concurrency, one after the other. Mutants match on

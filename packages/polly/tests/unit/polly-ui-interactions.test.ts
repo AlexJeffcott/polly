@@ -60,10 +60,10 @@ const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
  *
  * A real browser fires `blur` and then `focusout` when focus leaves an
  * element. Bare preact binds `onBlur` to `blur`; preact/compat rebinds it to
- * `focusout` for React's bubbling semantics, and compat is loaded for the
- * whole process as soon as any test imports a component that portals — the
- * Modal regression tests added for polly#177 do. Dispatching both keeps these
- * tests true under either binding.
+ * `focusout` for React's bubbling semantics, process-wide, once anything
+ * imports it. polly-ui no longer does (Modal/Toast take `createPortal` from
+ * core preact since preact 11), but a consumer or a future test still might.
+ * Dispatching both keeps these tests true under either binding.
  */
 function blurAway(el: Element): void {
   el.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
