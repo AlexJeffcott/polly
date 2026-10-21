@@ -43,9 +43,12 @@ interface TestResult {
  */
 function reportProgress(event: ProgressEvent): void {
   const fn = (window as unknown as Record<string, unknown>)["__pollyProgress"];
-  if (typeof fn === "function") {
-    (fn as (e: ProgressEvent) => void)(event);
-  }
+  if (isProgressFunction(fn)) fn(event);
+}
+
+/** The runner binds `window.__pollyProgress`; all we can check is callability. */
+function isProgressFunction(value: unknown): value is (e: ProgressEvent) => void {
+  return typeof value === "function";
 }
 
 const results: TestResult[] = [];

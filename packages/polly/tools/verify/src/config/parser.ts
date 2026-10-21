@@ -555,7 +555,8 @@ export class ConfigValidator {
   private validateContexts(config: VerificationConfig): void {
     this.warnOnDeadMaxContexts(config);
 
-    const contexts = (config as { contexts?: unknown }).contexts;
+    // A loaded user file: the declared type is not yet checked at runtime.
+    const contexts: unknown = config.contexts;
     if (contexts === undefined) return;
 
     if (!Array.isArray(contexts)) {

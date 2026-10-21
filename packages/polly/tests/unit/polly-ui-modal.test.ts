@@ -242,8 +242,8 @@ describe("installFocusTrap", () => {
   }
 
   test("moves focus to the first focusable element", () => {
-    const { buttons } = trapRoot();
-    const release = installFocusTrap(buttons[0]?.parentElement as HTMLElement);
+    const { root, buttons } = trapRoot();
+    const release = installFocusTrap(root);
 
     expect(document.activeElement).toBe(buttons[0] ?? null);
     release();

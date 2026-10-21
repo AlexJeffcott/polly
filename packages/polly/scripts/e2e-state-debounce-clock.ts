@@ -92,6 +92,11 @@ const REMOTE_CLOCK = 5;
 const LOCAL_VALUE = "V_local";
 const REMOTE_VALUE = "V_remote";
 
+/** The peer's newer value for `key`, as it goes on the wire. */
+function remoteFrame(key: string): SyncFrame {
+  return { type: "STATE_SYNC", key, value: REMOTE_VALUE, clock: REMOTE_CLOCK };
+}
+
 /** Browser-side app. The documented entry point, no hand-wired adapter. */
 const ENTRY_SOURCE = `
 import { $sharedState } from ${JSON.stringify(indexPath)};
@@ -213,12 +218,9 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     await tabA.evaluate((v) => {
       window.pollyE2e167.setNote(v);
     }, LOCAL_VALUE);
-    await probe.evaluate(
-      (frame) => {
-        window.polly167Send(frame);
-      },
-      { type: "STATE_SYNC", key: NOTE_KEY, value: REMOTE_VALUE, clock: REMOTE_CLOCK } as SyncFrame
-    );
+    await probe.evaluate((frame) => {
+      window.polly167Send(frame);
+    }, remoteFrame(NOTE_KEY));
     await waitFor(
       tabA,
       () => window.pollyE2e167.note(),
@@ -262,12 +264,9 @@ export async function run(ctx: TierContext): Promise<TierResult> {
         window.polly167Send(f);
       }, frame);
     }
-    await probe.evaluate(
-      (frame) => {
-        window.polly167Send(frame);
-      },
-      { type: "STATE_SYNC", key: PLAIN_KEY, value: REMOTE_VALUE, clock: REMOTE_CLOCK } as SyncFrame
-    );
+    await probe.evaluate((frame) => {
+      window.polly167Send(frame);
+    }, remoteFrame(PLAIN_KEY));
     const cValue = await waitFor(
       tabC,
       () => window.pollyE2e167.plain(),
