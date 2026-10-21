@@ -2,32 +2,22 @@
 /**
  * Showcase dev server.
  *
- * Replaces `bun --hot src/index.html` for two reasons:
+ * Replaces `bun --hot src/index.html` because we need a reliable
+ * recursive file watcher. Bun 1.3.14 rewrote `fs.watch` on POSIX to talk
+ * to the OS APIs (FSEvents on macOS, inotify on Linux) directly — but the
+ * callback form can still drop or coalesce rapid event bursts during an
+ * editor save. The async-iterator form from `node:fs/promises` plus a
+ * debounced rebuild queue gives us the reliability we want without
+ * pulling in chokidar.
  *
- * 1. We apply a bundler plugin that rewrites `preact/compat` to its
- *    `.mjs` entry. Bun's HTML dev server otherwise picks
- *    `compat.module.js` (the "browser" export condition) and dies with
- *    "Failed to load bundled module … this is not a dynamic import."
- *    Modal/Toast inside @fairfox/polly/ui reach `preact/compat` for
- *    `createPortal`, so the showcase pulls it through the barrel even
- *    without rendering either component directly.
- *
- * 2. We need a reliable recursive file watcher. Bun 1.3.14 rewrote
- *    `fs.watch` on POSIX to talk to the OS APIs (FSEvents on macOS,
- *    inotify on Linux) directly — but the callback form can still drop
- *    or coalesce rapid event bursts during an editor save. The async-
- *    iterator form from `node:fs/promises` plus a debounced rebuild
- *    queue gives us the reliability we want without pulling in chokidar.
- *
- * Drop the plugin + revisit when Bun's bundler bug for `preact/compat`
- * is fixed.
+ * (A former `preact/compat` → `.mjs` resolve plugin is gone: preact 11
+ * is ESM-only, and polly-ui no longer imports preact/compat.)
  */
 
 import { readFileSync } from "node:fs";
 import { watch } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { BunPlugin } from "bun";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(here, "..");
@@ -35,23 +25,6 @@ const srcDir = resolve(projectRoot, "src");
 const entry = resolve(srcDir, "index.tsx");
 const htmlPath = resolve(srcDir, "index.html");
 const cssPath = resolve(srcDir, "showcase.css");
-
-// Resolve preact/compat through Bun's module resolver so we pick
-// whichever copy the workspace has installed (bun's flat node_modules
-// layout puts it under .bun/<pkg>@<ver>/…).
-const compatMjs = (() => {
-  const compatPkg = Bun.resolveSync("preact/compat/package.json", projectRoot);
-  return resolve(dirname(compatPkg), "dist/compat.mjs");
-})();
-
-const preactCompatPlugin: BunPlugin = {
-  name: "preact-compat-mjs",
-  setup(build) {
-    build.onResolve({ filter: /^preact\/compat$/ }, () => ({
-      path: compatMjs,
-    }));
-  },
-};
 
 let bundleVersion = 0;
 let cachedJs = "";
@@ -64,7 +37,6 @@ async function rebuild(): Promise<void> {
     format: "esm",
     minify: false,
     sourcemap: "inline",
-    plugins: [preactCompatPlugin],
   });
   if (!jsBuild.success) {
     process.stderr.write("[dev] JS build failed:\n");
