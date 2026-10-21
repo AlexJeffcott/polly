@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+#### `polly mutate` against Stryker, re-measured with dynamic coverage and the type filter
+
+`scripts/mutate-parity.ts` on 2026-10-21, both tools in fast mode at
+concurrency 6, one after the other, on the four reference targets
+(`validation.ts`, `mesh-network-adapter.ts`, `crdt-state.ts`,
+`ActionInput.tsx`):
+
+| | Bun engine | Stryker 9.6.1 |
+|---|---|---|
+| Mutants | 541 | 541 (537 matched, 99.3 %) |
+| Wall time | 23.4 s | 1883.5 s (80.3× slower) |
+| Score, the 334 matched mutants both tools ran | 76.6 % | 76.6 % |
+| Score, every mutant the tool has | 76.7 % | 79.7 % |
+| Kills the engine lost | 0 | — |
+
+The two raw scores differ because the engine's type filter rejects 203 of
+the matched mutants as `CompileError` and does not run them; Stryker runs
+them and scores 84.2 % on that subset, so a mutant that is not a valid
+program is counted there as a kill. The gate compares only what both ran.
+Criterion 3 of the harness now reads that way; the raw scores stay in the
+results file. Engine alone over every `polly.mutate.ts` target: 44 targets,
+4,894 mutants, 372.6 s, 78.7 % (fast mode, no cache; 540.5 s before dynamic
+coverage). At Stryker's measured 3.5 s per mutant that run projects to
+about 4.7 h.
+
+### Fixed
+
+#### The `polly()` Elysia plugin's hooks now run for the consumer's routes
+
+The plugin registered `onBeforeHandle` and `onAfterHandle` on its own
+Elysia instance with no scope widening, and Elysia keeps a plugin's hooks
+local. `authorization` never denied a route of the app that called
+`.use(polly())`; the `X-Polly-Metadata` header, the clock tick and
+`effects.broadcast` ran only for the plugin's own `/polly/ws` route. The
+plugin now ends in `.as("scoped")`. The after-handle hook also keeps a
+`Response` a handler built (status, headers, body) and only adds the
+header; before, it serialised the object, including the authorization 403,
+to `{}` with status 200. `tests/unit/elysia-plugin.test.ts` drives a
+consumer app, with a live listener and a WebSocket client for the
+broadcast.
+
+#### `polly verify` no longer models a register helper as a handler
+
+An exported function that writes a `{ verify: true }` signal becomes a
+handler named after the function. A `registerHandlers(bus)` helper whose
+only writes sit inside the `bus.on` callbacks it registers became a
+`RegisterHandlers` action that replayed every nested write with no guard.
+A write inside a `.on(...)` or `.addEventListener(...)` callback is now
+that handler's write alone.
+
+#### `polly mutate init` output passes `polly lint`
+
+The scaffold wrote every array one element per line, and biome reflows a
+short array of primitives onto one line, so the first `polly lint` after
+`init` failed. The renderer now inlines an array of primitives that fits in
+100 columns. The root biome config excludes `.polly/`, where the mutate
+cache lives.
+
 ## [0.92.0] - 2026-10-21
 
 ### Changed

@@ -22,8 +22,10 @@
  *   2. No matched mutant that the engine calls Survived and Stryker Killed,
  *      once each candidate is re-run against the full unit suite (a candidate
  *      the full suite does not kill is not a kill the engine lost).
- *   3. Scores within 2 points, over the mutators both tools have, without the
- *      verify-callsite mutants the engine marks Ignored.
+ *   3. Scores within 2 points, over the matched mutants BOTH tools ran: the
+ *      engine does not run a mutant it marks Ignored (verify callsite) or
+ *      CompileError (type filter), and Stryker runs both kinds. The raw
+ *      all-mutant scores are reported beside the gate for the record.
  *   4. The engine is ≥ 10× faster in wall time.
  *
  * Writes scripts/mutate-parity.results.md for the four default targets; raw
@@ -345,18 +347,28 @@ for (const c of candidates) {
   (code === 0 ? notLost : lost).push(c);
 }
 
-// Criterion 3: verify-callsite mutants leave both sides together
+// Criterion 3: over the matched mutants both tools ran. The engine does not
+// run an Ignored (verify callsite) or CompileError (type filter) mutant;
+// Stryker runs both kinds, so they leave both sides together.
+const NOT_RUN = new Set(["Ignored", "CompileError"]);
+const ranBoth = matched.filter((p) => !NOT_RUN.has(p.engine.status));
+const engineScore = score(ranBoth.map((p) => p.engine.status));
+const strykerScore = score(ranBoth.map((p) => p.stryker.status));
+const scoreGap =
+  engineScore === null || strykerScore === null ? null : Math.abs(engineScore - strykerScore);
+// For the record: each tool over every mutant it has, and Stryker over the
+// mutants the engine's type filter rejected.
 const ignoredIds = new Set(
   matched.filter((p) => p.engine.status === "Ignored").map((p) => p.stryker.id)
 );
-const engineScore = score(
+const engineRawScore = score(
   engine.mutants.filter((m) => shared(m) && m.status !== "Ignored").map((m) => m.status)
 );
-const strykerScore = score(
+const strykerRawScore = score(
   stryker.mutants.filter((m) => shared(m) && !ignoredIds.has(m.id)).map((m) => m.status)
 );
-const scoreGap =
-  engineScore === null || strykerScore === null ? null : Math.abs(engineScore - strykerScore);
+const typeRejected = matched.filter((p) => p.engine.status === "CompileError");
+const strykerOnTypeRejected = score(typeRejected.map((p) => p.stryker.status));
 
 const speedup = (times["stryker"] ?? 0) / (times["engine"] ?? 1);
 
@@ -412,7 +424,7 @@ const lines = [
   "|---|---|---|---|",
   `| 1 | Stryker mutants matched (shared mutators) | ${matched.length} / ${strykerShared} = ${pct(matchPct)} (need ≥ 95 %) | ${mark(pass.match)} |`,
   `| 2 | Engine Survived / Stryker Killed, confirmed by the full suite | ${lost.length} of ${candidates.length} candidates (need 0)${baselineCode === 0 ? "" : "; full-suite baseline RED"} | ${mark(pass.lost)} |`,
-  `| 3 | Score gap | engine ${pct(engineScore)}, Stryker ${pct(strykerScore)}, gap ${scoreGap === null ? "n/a" : scoreGap.toFixed(2)} (need ≤ 2) | ${mark(pass.score)} |`,
+  `| 3 | Score gap, matched mutants both tools ran (${ranBoth.length}) | engine ${pct(engineScore)}, Stryker ${pct(strykerScore)}, gap ${scoreGap === null ? "n/a" : scoreGap.toFixed(2)} (need ≤ 2) | ${mark(pass.score)} |`,
   `| 4 | Wall time | engine ${secs(times["engine"])}, Stryker ${secs(times["stryker"])}, ${speedup.toFixed(1)}× (need ≥ 10×) | ${mark(pass.speed)} |`,
   "",
   "## Per target",
@@ -423,11 +435,13 @@ const lines = [
   "",
   "Scores leave out the verify-callsite mutants the engine marks Ignored (polly#143); the parity run of Stryker does not load the polly ignorer plugin, so it runs them.",
   "",
+  `Over every mutant each tool has: engine ${pct(engineRawScore)}, Stryker ${pct(strykerRawScore)}. The engine's type filter rejected ${typeRejected.length} matched mutants as CompileError and did not run them; Stryker ran them and scored ${pct(strykerOnTypeRejected)} on that subset, so a type-invalid mutant is counted as a kill there. The gate above compares only what both ran.`,
+  "",
   `Mutators only Stryker has: ${[...strykerMutators].filter((m) => !engineMutators.has(m)).join(", ") || "none"}. Only the engine: ${[...engineMutators].filter((m) => !strykerMutators.has(m)).join(", ") || "none"}.`,
   "",
   "## Status of matched mutants",
   "",
-  "Stryker reports NoCoverage from per-test coverage; the engine has none yet (plan Phase 7), so it runs those mutants and they survive. Both count as undetected in the score.",
+  "Both tools report NoCoverage from per-test coverage (the engine from its probed pass). The engine's CompileError column is its type filter; Stryker runs those mutants.",
   "",
   ...crossTable,
   "",
