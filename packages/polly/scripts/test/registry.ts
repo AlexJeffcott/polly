@@ -123,6 +123,20 @@ export function internalPlan(): TierPlan {
           },
         },
         {
+          // `polly visualize` DSL codegen and mesh-snapshot overlay, and the
+          // `polly bdd` parser/steps. 95 tests that ran in no tier until
+          // 2026-10-21, found when the dead structurizr theme URL broke
+          // `visualize.generate` and its unit suite was not running.
+          id: "tools.visualize-bdd",
+          tags: ["tools", "visualize", "bdd"],
+          exec: {
+            kind: "command",
+            argv: ["bun", "test", "tools/visualize/src", "tools/bdd/src"],
+            cwd: packageRoot,
+            env: { SKIP_DOCKER: "1" },
+          },
+        },
+        {
           // `polly mutate`'s Bun-native engine: operators, import-graph test
           // selection, and real `bun test` runs through the injection preload.
           id: "tools.mutate",
