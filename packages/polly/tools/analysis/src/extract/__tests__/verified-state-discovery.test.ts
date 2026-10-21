@@ -376,4 +376,46 @@ export function handleSetTheme(theme: string): void {
     expect(result.handlers.some((h) => h.messageType === "Login")).toBe(true);
     expect(result.handlers.some((h) => h.messageType === "SetTheme")).toBe(true);
   });
+  test("does not lift a register helper whose writes sit inside bus.on callbacks", () => {
+    const testFile = path.join(tempDir, "register-handlers.ts");
+    fs.writeFileSync(
+      testFile,
+      `
+function $sharedState<T>(key: string, initial: T, options?: { verify?: boolean }) {
+  return { value: initial };
+}
+type Bus = { on(type: string, handler: (payload: unknown) => Promise<unknown>): void };
+
+export const loginState = $sharedState('login', { loggedIn: false }, { verify: true });
+
+// The composite helper the entry and the tests both call. Its only writes are
+// inside the handlers it registers, so it must not become a handler itself.
+export function registerHandlers(bus: Bus): void {
+  bus.on('USER_LOGIN', async () => {
+    loginState.value = { loggedIn: true };
+    return { success: true };
+  });
+  bus.on('USER_LOGOUT', async () => {
+    loginState.value = { loggedIn: false };
+    return { success: true };
+  });
+}
+
+// An exported function that writes directly is still lifted.
+export function handleReset(): void {
+  loginState.value = { loggedIn: false };
+}
+`
+    );
+
+    const tsConfigPath = createTsConfig();
+    const extractor = new HandlerExtractor(tsConfigPath);
+    const result = extractor.extractHandlers();
+
+    const types = result.handlers.map((h) => h.messageType);
+    expect(types).not.toContain("RegisterHandlers");
+    expect(types).toContain("USER_LOGIN");
+    expect(types).toContain("USER_LOGOUT");
+    expect(types).toContain("Reset");
+  });
 });

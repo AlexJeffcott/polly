@@ -3802,6 +3802,27 @@ export class HandlerExtractor {
   }
 
   /**
+   * True when `node` sits in a callback passed to `.on(...)` /
+   * `.addEventListener(...)` somewhere below `func`.
+   */
+  private isInsideHandlerRegistration(node: Node, func: Node): boolean {
+    let current: Node | undefined = node.getParent();
+    while (current && current !== func) {
+      if (Node.isCallExpression(current)) {
+        const callee = current.getExpression();
+        if (
+          Node.isPropertyAccessExpression(callee) &&
+          (callee.getName() === "on" || callee.getName() === "addEventListener")
+        ) {
+          return true;
+        }
+      }
+      current = current.getParent();
+    }
+    return false;
+  }
+
+  /**
    * Find state mutations within a function that target verified state signals
    */
   private findStateMutationsInFunction(
@@ -3820,6 +3841,12 @@ export class HandlerExtractor {
 
       const operator = node.getOperatorToken().getText();
       if (operator !== "=") return;
+
+      // A write inside a `bus.on(...)` callback registered by this function is
+      // that handler's write, already modelled by the dispatch extraction. A
+      // `registerHandlers(bus)` composite helper must not become a handler of
+      // its own that replays every nested write unguarded.
+      if (this.isInsideHandlerRegistration(node, func)) return;
 
       const left = node.getLeft();
       if (!Node.isPropertyAccessExpression(left)) return;
