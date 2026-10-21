@@ -5,36 +5,39 @@
  * filter existed: 1,848 of 4,894 mutants (38 %) failed to type-check, among
  * them 323 of the 974 survivors — a third of the review queue.
  *
- * Mechanism: one `tsgo` process through TypeScript 7's `unstable/async` API,
- * with a virtual file system. The project is opened through a virtual
+ * Mechanism: one `tsgo` process through TypeScript 7's `typescript/async`
+ * API, with request file-system layers (`typescript/fs`) in place of disk
+ * writes. The project is opened through a virtual
  * `tsconfig.polly-mutate.json` beside the nearest `tsconfig.json` that lists
  * the target; it extends that config and relaxes three options
  * (`TYPECHECK_OVERRIDES`), because a mutant routinely leaves a block
  * unreachable or a binding unused and neither is a type error. Each mutant is
- * then served as the target's text through the same virtual file system and
- * only the target's own diagnostics are read: on polly, checking every
- * importer as well found no extra mutant in 4,894 and cost 12 s of 57.
+ * then served as the target's text through a temporary snapshot layered on
+ * the unmutated one, and only the target's own diagnostics are read: on
+ * polly, checking every importer as well found no extra mutant in 4,894 and
+ * cost 12 s of 57.
  *
  * The verdict is relative: a mutant is invalid when its error-category
  * diagnostics include one (by code and text) the unmutated file does not
  * have, so a project whose target already fails to type-check still gets a
  * filter, and never a false `CompileError`.
  *
- * `typescript-7` is the npm alias polly depends on (`npm:typescript@7.0.2`,
+ * `typescript-7` is the npm alias polly depends on (`npm:typescript@7.1.0-beta`,
  * exact), so polly's own `typescript` can stay on the version its other tools
- * need. The sync flavour of the API cannot run under Bun; the async one can.
+ * need. The sync flavour of the API cannot run under Bun (it reads
+ * `child.stdout._handle.fd`, which Bun's child process does not expose); the
+ * async one can, and it batches the requests a tick issues into one message.
  */
 import { existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import type { Diagnostic, Snapshot } from "typescript-7/async";
 import { applyMutant } from "./generate.ts";
 import type { Mutant } from "./types.ts";
 
-type AsyncApi = typeof import("typescript-7/unstable/async");
+type AsyncApi = typeof import("typescript-7/async");
+type FsApi = typeof import("typescript-7/fs");
 type Api = InstanceType<AsyncApi["API"]>;
-type Snapshot = Awaited<ReturnType<Api["updateSnapshot"]>>;
-type Diagnostic = Awaited<
-  ReturnType<ReturnType<Snapshot["getProjects"]>[number]["program"]["getSemanticDiagnostics"]>
->[number];
+type SnapshotParams = Parameters<Snapshot["update"]>[0];
 
 /** Relaxed in the virtual config: mutants make code unreachable and bindings unused by design. */
 export const TYPECHECK_OVERRIDES = {
@@ -44,6 +47,9 @@ export const TYPECHECK_OVERRIDES = {
 };
 
 export const TYPECHECK_CONFIG_NAME = "tsconfig.polly-mutate.json";
+
+/** The `typescript-7` version polly pins, for the install hint. */
+const TYPESCRIPT_7 = "7.1.0-beta";
 
 /** Caps a verdict's text, so a long assignability chain does not swamp the report. */
 const REASON_LIMIT = 300;
@@ -70,10 +76,16 @@ export interface TypecheckOptions {
   log?: (line: string) => void;
 }
 
-/** The TypeScript 7 API module, or null when `typescript-7` is not installed. */
-async function loadApi(): Promise<AsyncApi | null> {
+interface Modules {
+  api: AsyncApi;
+  fs: FsApi;
+}
+
+/** The TypeScript 7 API modules, or null when `typescript-7` is not installed. */
+async function loadApi(): Promise<Modules | null> {
   try {
-    return await import("typescript-7/unstable/async");
+    const [api, fs] = await Promise.all([import("typescript-7/async"), import("typescript-7/fs")]);
+    return { api, fs };
   } catch {
     return null;
   }
@@ -114,40 +126,37 @@ function reasonOf(key: string): string {
   return reason.length > REASON_LIMIT ? `${reason.slice(0, REASON_LIMIT - 1)}…` : reason;
 }
 
-/** One tsgo session: a virtual FS overlay, the latest snapshot, and the projects opened so far. */
+/**
+ * One tsgo session: the base snapshot (every virtual config opened so far,
+ * every target unmutated) and the projects opened in it. Mutants never change
+ * the base: each is checked in a temporary snapshot layered on it.
+ */
 class Session {
-  private snapshot: Snapshot | null = null;
-  private readonly overlay = new Map<string, string>();
+  private base: Snapshot | null = null;
   /** tsconfig.json → its virtual override config, or null when it could not be opened. */
   private readonly opened = new Map<string, string | null>();
   private readonly api: Api;
 
   constructor(
-    private readonly mod: AsyncApi,
+    private readonly mod: Modules,
     cwd: string
   ) {
-    this.api = new mod.API({
-      cwd,
-      fs: {
-        readFile: (f) => this.overlay.get(f),
-        fileExists: (f) => (this.overlay.has(f) ? true : undefined),
-      },
-    });
+    this.api = new mod.api.API({ cwd });
   }
 
-  private async update(
-    params: Parameters<Api["updateSnapshot"]>[0]
-  ): Promise<NonNullable<Snapshot>> {
-    const next = await this.api.updateSnapshot(params);
-    await this.snapshot?.dispose();
-    this.snapshot = next;
+  /** Opens `config` (served by a layer) in a new base snapshot. */
+  private async open(config: string): Promise<Snapshot> {
+    // A snapshot update builds its programs lazily; without `ensurePrograms`
+    // the diagnostics come from the stale program and every mutant passes.
+    const params: SnapshotParams = {
+      openProjects: [config],
+      fileSystem: this.mod.fs.createFileSystemLayer([[config, VIRTUAL_CONFIG_TEXT]]),
+      ensurePrograms: true,
+    };
+    const next = this.base ? await this.base.update(params) : await this.api.createSnapshot(params);
+    await this.base?.dispose();
+    this.base = next;
     return next;
-  }
-
-  private program(config: string) {
-    const project = this.snapshot?.getProject(config);
-    if (!project) throw new Error(`polly mutate: tsgo lost the project ${config}`);
-    return project.program;
   }
 
   /** The virtual config of the nearest tsconfig.json whose program lists `file`, or null. */
@@ -156,41 +165,44 @@ class Session {
       let config = this.opened.get(tsconfig);
       if (config === undefined) {
         config = virtualConfigFor(tsconfig);
-        this.overlay.set(config, VIRTUAL_CONFIG_TEXT);
-        const snap = await this.update({ openProjects: [config] });
-        if (!snap.getProject(config)) config = null;
+        const snap = await this.open(config);
+        if (!snap.getConfiguredProject(config)) config = null;
         this.opened.set(tsconfig, config);
       }
       if (config === null) continue;
-      const project = this.snapshot?.getProject(config);
-      if (project?.rootFiles.some((f) => samePath(f, file))) return config;
+      const project = this.base?.getConfiguredProject(config);
+      if (project?.parsedCommandLine.fileNames.some((f) => samePath(f, file))) return config;
     }
     return null;
   }
 
-  private async errorsIn(config: string, file: string): Promise<string[]> {
-    const program = this.program(config);
+  private async errorsIn(snapshot: Snapshot, config: string, file: string): Promise<string[]> {
+    const program = snapshot.getConfiguredProject(config)?.program;
+    if (!program) throw new Error(`polly mutate: tsgo lost the project ${config}`);
     const [syntactic, semantic] = await Promise.all([
       program.getSyntacticDiagnostics(file),
       program.getSemanticDiagnostics(file),
     ]);
-    return [...errorKeys(this.mod, syntactic), ...errorKeys(this.mod, semantic)];
+    return [...errorKeys(this.mod.api, syntactic), ...errorKeys(this.mod.api, semantic)];
   }
 
   /** Verdicts for one target: mutant id → reason, for the mutants that add an error. */
   async check(config: string, target: TypecheckTarget, src: string): Promise<Map<string, string>> {
+    const base = this.base;
+    if (!base) throw new Error(`polly mutate: no snapshot for ${config}`);
     const invalid = new Map<string, string>();
-    const baseline = new Set(await this.errorsIn(config, target.file));
-    try {
-      for (const m of target.mutants) {
-        this.overlay.set(target.file, applyMutant(src, m));
-        await this.update({ fileChanges: { changed: [target.file] } });
-        const fresh = (await this.errorsIn(config, target.file)).find((k) => !baseline.has(k));
-        if (fresh !== undefined) invalid.set(m.id, reasonOf(fresh));
-      }
-    } finally {
-      this.overlay.delete(target.file);
-      await this.update({ fileChanges: { changed: [target.file] } });
+    const baseline = new Set(await this.errorsIn(base, config, target.file));
+    for (const m of target.mutants) {
+      await this.api.runWithTemporaryFileUpdate(
+        base,
+        target.file,
+        applyMutant(src, m),
+        async (snap) => {
+          const errors = await this.errorsIn(snap, config, target.file);
+          const fresh = errors.find((k) => !baseline.has(k));
+          if (fresh !== undefined) invalid.set(m.id, reasonOf(fresh));
+        }
+      );
     }
     return invalid;
   }
@@ -228,7 +240,7 @@ export async function typecheckMutants(
   const mod = await loadApi();
   if (!mod) {
     log(
-      "type filter off: typescript-7 is not installed (bun add typescript-7@npm:typescript@7.0.2)"
+      `type filter off: typescript-7 is not installed (bun add typescript-7@npm:typescript@${TYPESCRIPT_7})`
     );
     return null;
   }
