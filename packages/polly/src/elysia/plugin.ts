@@ -176,7 +176,18 @@ export function polly(config: PollyConfig = {}) {
           clock: pollyClock.now(),
         };
 
-        // Attach metadata as header
+        // Attach metadata as header. A handler (or the authorization hook
+        // above, via its 403) may already have built a Response: keep its
+        // status, headers and body, and only add the header.
+        if (response instanceof Response) {
+          const headers = new Headers(response.headers);
+          headers.set("X-Polly-Metadata", JSON.stringify(metadata));
+          return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+          });
+        }
         return new Response(JSON.stringify(response), {
           headers: {
             "Content-Type": "application/json",
@@ -184,7 +195,12 @@ export function polly(config: PollyConfig = {}) {
           },
         });
       }
-    );
+    )
+    // Elysia scopes a plugin's lifecycle hooks to the plugin itself. Without
+    // this, the authorization and metadata/broadcast hooks above ran only for
+    // the plugin's own `/polly/ws` route and never for the consumer's routes.
+    // `scoped` lifts them to the app that calls `.use(polly())`.
+    .as("scoped");
 
   return app;
 }
