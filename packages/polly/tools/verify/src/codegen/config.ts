@@ -313,7 +313,7 @@ export class ConfigGenerator {
   private addContextsConfig(analysis: CodebaseAnalysis): void {
     const inferred: string[] = [];
     for (const handler of analysis.handlers ?? []) {
-      const node = (handler as { node?: string }).node;
+      const node: string | undefined = handler.node;
       if (node === undefined || node === "unknown") continue;
       if (!inferred.includes(node)) inferred.push(node);
     }

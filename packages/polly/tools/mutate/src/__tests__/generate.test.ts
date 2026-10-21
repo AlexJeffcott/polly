@@ -146,8 +146,7 @@ describe("operators", () => {
   });
 
   test("StringLiteral empties template literals, tagged ones too", () => {
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is source text under test
-    expect(edits("f(`a${b}`);")).toEqual(["StringLiteral: `a${b}` → ``"]);
+    expect(edits(`f(\`a\${b}\`);`)).toEqual([`StringLiteral: \`a\${b}\` → \`\``]);
     expect(edits("f(``);")).toEqual(["StringLiteral: `` → `Stryker was here!`"]);
     expect(edits("f(tag`x`);")).toEqual(["StringLiteral: `x` → ``"]);
   });

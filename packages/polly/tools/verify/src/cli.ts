@@ -839,7 +839,7 @@ function describeContextSet(config: UnifiedVerificationConfig): string {
 function inferredContexts(analysis: import("./core/model").CodebaseAnalysis): string[] {
   const seen: string[] = [];
   for (const handler of analysis.handlers) {
-    const node = (handler as { node?: string }).node;
+    const node: string | undefined = handler.node;
     if (node === undefined || node === "unknown") continue;
     if (!seen.includes(node)) seen.push(node);
   }
@@ -891,7 +891,7 @@ function displayContextDiagnostics(
   }
 
   const outside = analysis.handlers.filter((h) => {
-    const node = (h as { node?: string }).node;
+    const node: string | undefined = h.node;
     return node !== undefined && node !== "unknown" && !contexts.has(sanitizeContextName(node));
   });
 
@@ -904,7 +904,7 @@ function displayContextDiagnostics(
     )
   );
   for (const h of outside.slice(0, 10)) {
-    const node = (h as { node?: string }).node;
+    const node: string | undefined = h.node;
     console.log(color(`   • ${h.messageType} → ${node} (${h.location.file})`, COLORS.yellow));
   }
   if (outside.length > 10) {

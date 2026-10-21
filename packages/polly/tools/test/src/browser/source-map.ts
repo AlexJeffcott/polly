@@ -94,7 +94,8 @@ export function parseInlineSourceMap(bundle: string): SourceMap | undefined {
   try {
     const parsed: unknown = JSON.parse(Buffer.from(encoded, "base64").toString("utf8"));
     if (typeof parsed !== "object" || parsed === null) return undefined;
-    const { sources, mappings } = parsed as { sources?: unknown; mappings?: unknown };
+    const sources = "sources" in parsed ? parsed.sources : undefined;
+    const mappings = "mappings" in parsed ? parsed.mappings : undefined;
     if (!Array.isArray(sources) || typeof mappings !== "string") return undefined;
     return { sources: sources.map(String), mappings };
   } catch {

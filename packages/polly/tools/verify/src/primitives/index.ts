@@ -76,12 +76,17 @@ function callSite(): string {
   return outside ? `${outside.file}:${outside.line}` : "unknown:0";
 }
 
+declare global {
+  // An ambient global declaration — `var` is the only legal form here. Only
+  // these primitives write the list; readers elsewhere treat it as unknown.
+  var __pollyContractViolations: ContractViolation[] | undefined;
+}
+
 function violationList(): ContractViolation[] {
-  const g = globalThis as Record<string, unknown>;
-  const existing = g[CONTRACT_VIOLATIONS_KEY];
-  if (Array.isArray(existing)) return existing as ContractViolation[];
+  const existing = globalThis[CONTRACT_VIOLATIONS_KEY];
+  if (Array.isArray(existing)) return existing;
   const list: ContractViolation[] = [];
-  g[CONTRACT_VIOLATIONS_KEY] = list;
+  globalThis[CONTRACT_VIOLATIONS_KEY] = list;
   return list;
 }
 

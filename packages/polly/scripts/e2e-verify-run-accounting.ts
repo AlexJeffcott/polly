@@ -80,6 +80,7 @@ function writeSpecDir(spec: string, cfg: string): string {
 
 /** Members of a `Name = {a, b, c}` assignment in a `.cfg`. */
 function cfgSetMembers(cfg: string, name: string): string[] {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp — name is a callsite literal ("Contexts" / "Tabs"), not input; the pattern has no nested quantifier.
   const match = new RegExp(`^\\s*${name} = \\{([^}]*)\\}`, "m").exec(cfg);
   assert(Boolean(match?.[1]), `no ${name} assignment in the generated cfg`);
   return (match?.[1] ?? "")
