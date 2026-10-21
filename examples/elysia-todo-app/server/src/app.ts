@@ -36,6 +36,7 @@ interface AppState {
   };
   server: {
     db: Signal<typeof db>;
+    session: Signal<User | null>;
   };
 }
 
@@ -46,8 +47,9 @@ function appState(state: {
   return state as unknown as AppState;
 }
 
-// Polly-enhanced Elysia app
-const app = new Elysia()
+// Polly-enhanced Elysia app. `index.ts` listens on it; tests drive it in
+// process through Eden, without a port.
+export const app = new Elysia()
   .use(cors())
   .use(
     polly({
@@ -59,6 +61,11 @@ const app = new Elysia()
         },
         server: {
           db: $serverState("db", db),
+          // Who is logged in, as the server knows it. The login route sets
+          // it and authorization reads it. `client.user` is client state:
+          // the client's login effect sets it in the browser, and nothing
+          // ever writes the server's copy.
+          session: $serverState<User | null>("session", null),
         },
       },
 
@@ -111,10 +118,13 @@ const app = new Elysia()
       },
 
       // Authorization rules
+      // Authorization rules, checked against server state. This demo keeps
+      // one server-wide session; a real app would resolve the caller from a
+      // token in `headers`.
       authorization: {
-        "POST /todos": ({ state }) => state.client.user.value !== null,
-        "PATCH /todos/:id": ({ state }) => state.client.user.value !== null,
-        "DELETE /todos/:id": ({ state }) => state.client.user.value !== null,
+        "POST /todos": ({ state }) => appState(state).server.session.value !== null,
+        "PATCH /todos/:id": ({ state }) => appState(state).server.session.value !== null,
+        "DELETE /todos/:id": ({ state }) => appState(state).server.session.value !== null,
       },
 
       // Offline behavior
@@ -143,13 +153,14 @@ const app = new Elysia()
   // Authentication endpoints
   .post(
     "/auth/login",
-    ({ body }) => {
+    ({ body, pollyState }) => {
       const user = db.users.value.find((u) => u.username === body.username);
       if (!user) {
         throw new Error("User not found");
       }
       // Track auth state for verification
       login(user.username);
+      appState(pollyState).server.session.value = user;
       return { user, token: "demo-token" };
     },
     {
@@ -159,9 +170,10 @@ const app = new Elysia()
     }
   )
 
-  .post("/auth/logout", () => {
+  .post("/auth/logout", ({ pollyState }) => {
     // Track auth state for verification
     logout();
+    appState(pollyState).server.session.value = null;
     return { success: true };
   })
 
@@ -248,10 +260,6 @@ const app = new Elysia()
         id: t.String(),
       }),
     }
-  )
-
-  .listen(3000);
-
-console.log(`🦊 Elysia server running at ${app.server?.hostname}:${app.server?.port}`);
+  );
 
 export type App = typeof app;
