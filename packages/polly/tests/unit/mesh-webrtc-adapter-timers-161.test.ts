@@ -13,13 +13,13 @@
  * survived every mutation. These tests pin the boundaries.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import type { PeerMetadata, StorageId } from "@automerge/automerge-repo/slim";
+import type { PeerMetadata } from "@automerge/automerge-repo/slim";
 import type { MeshKeyring } from "@/shared/lib/mesh-network-adapter";
 import type { MeshSignalingClient } from "@/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
-import { peerId } from "./helpers/branded";
 import { toStorageId } from "../../src/shared/lib/branded";
+import { peerId } from "./helpers/branded";
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;

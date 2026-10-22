@@ -21,7 +21,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { DocumentId } from "@automerge/automerge-repo";
 import { type Message, NetworkAdapter, type PeerId, Repo } from "@automerge/automerge-repo";
 import { generateDocumentKey } from "@/shared/lib/encryption";
 import {

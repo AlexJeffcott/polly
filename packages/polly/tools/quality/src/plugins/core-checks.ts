@@ -379,8 +379,4 @@ const serverImports: Check<ServerImportsConfig | undefined> = {
   },
 };
 
-export const additionalCoreChecks: Check<unknown>[] = [
-  security,
-  boundaries,
-  serverImports,
-];
+export const additionalCoreChecks: Check<unknown>[] = [security, boundaries, serverImports];

@@ -279,12 +279,5 @@ export const POLLY_UI_PLUGIN_VERSION = "0.46.0";
 export const pollyUiPlugin: QualityPlugin = {
   name: "polly-ui",
   version: POLLY_UI_PLUGIN_VERSION,
-  checks: [
-    cssLayout,
-    cssQuality,
-    cssVars,
-    cssUnused,
-    sharedComponents,
-    noInlineHandlers,
-  ],
+  checks: [cssLayout, cssQuality, cssVars, cssUnused, sharedComponents, noInlineHandlers],
 };

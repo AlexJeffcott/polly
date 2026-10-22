@@ -554,6 +554,22 @@ function baselineKey(f: { file: string; key: string }): string {
   return `${f.file}::${f.key}`;
 }
 
+function singleAdvice(f: Finding): string {
+  if (f.probe === "removable") return "delete the cast: the operand already fits (`--fix` does it)";
+  if (f.blocked === "changes-exports") {
+    return "removing it changes the file's exported types; annotate the declaration, or narrow with a type guard";
+  }
+  if (f.brand) {
+    return "a branded type needs one cast, in its constructor; mark it `// cast: <reason>`, and call the constructor everywhere else";
+  }
+  return "narrow with a type guard, or fix the type where the value comes from";
+}
+
+function decideSingle(f: Finding): Pick<Finding, "status" | "advice"> {
+  if (f.brand && f.probe === "required" && f.justified) return { status: "allowed" };
+  return { status: "violation", advice: singleAdvice(f) };
+}
+
 /** The verdict for a probed (or unprobed but double-cast-free) finding. */
 function decide(f: Finding): Pick<Finding, "status" | "advice"> {
   if (f.blocked === "unchecked") {
@@ -563,22 +579,7 @@ function decide(f: Finding): Pick<Finding, "status" | "advice"> {
         "the compiler does not check this line; remove the `@ts-nocheck` / `@ts-ignore` first, then the probe can judge the cast",
     };
   }
-  if (f.kind === "single" && f.brand && f.probe === "required" && f.justified) {
-    return { status: "allowed" };
-  }
-  if (f.kind === "single") {
-    return {
-      status: "violation",
-      advice:
-        f.probe === "removable"
-          ? "delete the cast: the operand already fits (`--fix` does it)"
-          : f.blocked === "changes-exports"
-            ? "removing it changes the file's exported types; annotate the declaration, or narrow with a type guard"
-            : f.brand
-              ? "a branded type needs one cast, in its constructor; mark it `// cast: <reason>`, and call the constructor everywhere else"
-              : "narrow with a type guard, or fix the type where the value comes from",
-    };
-  }
+  if (f.kind === "single") return decideSingle(f);
   if (f.probe === "removable") {
     return {
       status: "violation",

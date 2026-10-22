@@ -360,8 +360,4 @@ async function runTypographicScan(
   return { ok: violations.length === 0, messages: violations };
 }
 
-export const extraCoreChecks: Check<unknown>[] = [
-  forbiddenDeps,
-  noStateHooks,
-  typographicQuotes,
-];
+export const extraCoreChecks: Check<unknown>[] = [forbiddenDeps, noStateHooks, typographicQuotes];
