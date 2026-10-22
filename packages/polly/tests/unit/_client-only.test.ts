@@ -16,6 +16,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { caughtAs } from "./helpers/caught";
 
 describe("client-only exclusion prototype", () => {
   test("importing the client-only module from a server-side runtime throws", async () => {
@@ -26,7 +27,7 @@ describe("client-only exclusion prototype", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    const message = (caught as unknown as Error).message;
+    const message = caughtAs(Error, caught).message;
     expect(message).toMatch(/client-only/i);
     expect(message).toMatch(/_client-only\.ts/);
     expect(message).toMatch(/plan risk #4/);

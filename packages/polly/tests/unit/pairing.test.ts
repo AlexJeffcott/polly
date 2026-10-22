@@ -19,6 +19,7 @@ import {
   generateSigningKeyPair,
   PUBLIC_KEY_BYTES as SIGNING_PUBLIC_KEY_BYTES,
 } from "@/shared/lib/signing";
+import { caughtAs } from "./helpers/caught";
 
 function makeKeyring(): MeshKeyring {
   return {
@@ -168,7 +169,7 @@ describe("applyPairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as unknown as PairingError).code).toBe("expired");
+    expect(caughtAs(PairingError, caught).code).toBe("expired");
     // Keyring is unchanged on failure.
     expect(keyring.knownPeers.size).toBe(0);
     expect(keyring.documentKeys.size).toBe(0);
@@ -239,7 +240,7 @@ describe("serialisePairingToken and parsePairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as unknown as PairingError).code).toBe("wrong-magic");
+    expect(caughtAs(PairingError, caught).code).toBe("wrong-magic");
   });
 
   test("parse throws on an unknown version", () => {
@@ -259,7 +260,7 @@ describe("serialisePairingToken and parsePairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as unknown as PairingError).code).toBe("unknown-version");
+    expect(caughtAs(PairingError, caught).code).toBe("unknown-version");
   });
 
   test("parse throws on a truncated blob", () => {
@@ -278,7 +279,7 @@ describe("serialisePairingToken and parsePairingToken", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(PairingError);
-    expect((caught as unknown as PairingError).code).toBe("truncated");
+    expect(caughtAs(PairingError, caught).code).toBe("truncated");
   });
 });
 

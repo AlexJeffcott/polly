@@ -7,6 +7,7 @@ import {
   migrationRegistry,
 } from "@/shared/lib/migrate-primitive";
 import type { PrimitiveKind } from "@/shared/lib/primitive-registry";
+import { caughtAs } from "./helpers/caught";
 
 function makeState<T>(key: string, primitive: PrimitiveKind, initial: T): MigratableState<T> {
   return {
@@ -113,7 +114,7 @@ describe("migratePrimitive", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(MigrationError);
-    const error = caught as unknown as MigrationError;
+    const error = caughtAs(MigrationError, caught);
     expect(error.code).toBe("already-migrated");
     expect(error.key).toBe("notes");
     expect(error.primitive).toBe("sharedState");
@@ -130,7 +131,7 @@ describe("migratePrimitive", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(MigrationError);
-    const error = caught as unknown as MigrationError;
+    const error = caughtAs(MigrationError, caught);
     expect(error.code).toBe("same-primitive-instance");
   });
 
