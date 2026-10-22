@@ -220,9 +220,9 @@ const noMarketing: Check<MarketingConfig | undefined> = {
 };
 
 export const clicheCoreChecks: Check<unknown>[] = [
-  noBanners as Check<unknown>,
-  noDecorativeEmoji as Check<unknown>,
-  noMarketing as Check<unknown>,
-  noNotePrefix as Check<unknown>,
-  noCommentedCode as Check<unknown>,
+  noBanners,
+  noDecorativeEmoji,
+  noMarketing,
+  noNotePrefix,
+  noCommentedCode,
 ];

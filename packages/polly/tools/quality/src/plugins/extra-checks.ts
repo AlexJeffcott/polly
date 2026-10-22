@@ -361,7 +361,7 @@ async function runTypographicScan(
 }
 
 export const extraCoreChecks: Check<unknown>[] = [
-  forbiddenDeps as Check<unknown>,
-  noStateHooks as Check<unknown>,
-  typographicQuotes as Check<unknown>,
+  forbiddenDeps,
+  noStateHooks,
+  typographicQuotes,
 ];

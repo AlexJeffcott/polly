@@ -405,8 +405,8 @@ function aggregateTypesResults(
 }
 
 export const importCoreChecks: Check<unknown>[] = [
-  relativeImports as Check<unknown>,
-  tsconfigPaths as Check<unknown>,
-  noRawHttp as Check<unknown>,
-  types as Check<unknown>,
+  relativeImports,
+  tsconfigPaths,
+  noRawHttp,
+  types,
 ];

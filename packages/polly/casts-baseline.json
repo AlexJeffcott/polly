@@ -77,10 +77,6 @@
   },
   {
     "file": "scripts/e2e-verify-declared-contexts.ts",
-    "text": "{ \"session.active\": { type: \"boolean\" }, } as unknown as VerificationConfig[\"state\"]"
-  },
-  {
-    "file": "scripts/e2e-verify-declared-contexts.ts",
     "text": "config as unknown as UnifiedVerificationConfig"
   },
   {
@@ -502,14 +498,6 @@
   {
     "file": "src/shared/lib/mesh-webrtc-adapter.ts",
     "text": "this.peerId as unknown as string"
-  },
-  {
-    "file": "src/shared/lib/migrate-primitive.ts",
-    "text": "destination as unknown as unknown"
-  },
-  {
-    "file": "src/shared/lib/migrate-primitive.ts",
-    "text": "source as unknown as unknown"
   },
   {
     "file": "src/shared/lib/peer-repo-server.ts",
@@ -1593,10 +1581,6 @@
   },
   {
     "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { BroadcastChannel: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
     "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
   },
   {
@@ -1908,116 +1892,8 @@
     "text": "(await import(path)) as unknown as { default?: { quality?: QualityRunConfig } }"
   },
   {
-    "file": "tools/quality/src/plugins/cliche-checks.ts",
-    "text": "noBanners as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/cliche-checks.ts",
-    "text": "noCommentedCode as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/cliche-checks.ts",
-    "text": "noDecorativeEmoji as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/cliche-checks.ts",
-    "text": "noMarketing as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/cliche-checks.ts",
-    "text": "noNotePrefix as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core-checks.ts",
-    "text": "boundaries as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core-checks.ts",
-    "text": "security as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core-checks.ts",
-    "text": "serverImports as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core.ts",
-    "text": "gitignoreCrossCheck as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core.ts",
-    "text": "noAsCasting as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core.ts",
-    "text": "noFixedWaits as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core.ts",
-    "text": "noRequire as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core.ts",
-    "text": "noTautologyEnsures as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/core.ts",
-    "text": "secrets as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/extra-checks.ts",
-    "text": "forbiddenDeps as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/extra-checks.ts",
-    "text": "noStateHooks as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/extra-checks.ts",
-    "text": "typographicQuotes as Check<unknown>"
-  },
-  {
     "file": "tools/quality/src/plugins/import-checks.ts",
     "text": "JSON.parse(stripped) as unknown as { compilerOptions?: { paths?: Record<string, unknown> }; }"
-  },
-  {
-    "file": "tools/quality/src/plugins/import-checks.ts",
-    "text": "noRawHttp as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/import-checks.ts",
-    "text": "relativeImports as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/import-checks.ts",
-    "text": "tsconfigPaths as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/import-checks.ts",
-    "text": "types as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/polly-ui.ts",
-    "text": "cssLayout as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/polly-ui.ts",
-    "text": "cssQuality as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/polly-ui.ts",
-    "text": "cssUnused as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/polly-ui.ts",
-    "text": "cssVars as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/polly-ui.ts",
-    "text": "noInlineHandlers as Check<unknown>"
-  },
-  {
-    "file": "tools/quality/src/plugins/polly-ui.ts",
-    "text": "sharedComponents as Check<unknown>"
   },
   {
     "file": "tools/test/src/adapters/fetch.mock.ts",

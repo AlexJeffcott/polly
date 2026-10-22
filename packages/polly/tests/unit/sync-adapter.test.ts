@@ -363,7 +363,7 @@ describe("sync-adapter listener-cleanup and construction edge branches", () => {
       // broadcast on an uninitialised channel warns rather than throwing.
       expect(() => a.broadcast(msg())).not.toThrow();
     } finally {
-      (globalThis as unknown as { BroadcastChannel: unknown }).BroadcastChannel = saved;
+      globalThis.BroadcastChannel = saved;
     }
   });
 

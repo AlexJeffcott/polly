@@ -280,11 +280,11 @@ export const pollyUiPlugin: QualityPlugin = {
   name: "polly-ui",
   version: POLLY_UI_PLUGIN_VERSION,
   checks: [
-    cssLayout as Check<unknown>,
-    cssQuality as Check<unknown>,
-    cssVars as Check<unknown>,
-    cssUnused as Check<unknown>,
-    sharedComponents as Check<unknown>,
-    noInlineHandlers as Check<unknown>,
+    cssLayout,
+    cssQuality,
+    cssVars,
+    cssUnused,
+    sharedComponents,
+    noInlineHandlers,
   ],
 };
