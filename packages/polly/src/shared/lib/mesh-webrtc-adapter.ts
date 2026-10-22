@@ -77,11 +77,11 @@ import {
  * `probe-stats.ts` does to validate the stats shape before threading
  * the result through the polly layer. */
 async function collectTransportSnapshot(
-  connection: RTCPeerConnection,
+  connection: MeshPeerConnection,
   lastDataChannelError: string | undefined
 ): Promise<TransportSnapshot> {
   const at = performance.now();
-  let report: RTCStatsReport | undefined;
+  let report: unknown;
   try {
     report = await connection.getStats();
   } catch {
@@ -123,7 +123,7 @@ function emptyTransportSnapshot(
   };
 }
 
-function partitionStats(report: RTCStatsReport): ParsedStats {
+function partitionStats(report: unknown): ParsedStats {
   const out: ParsedStats = {
     localCands: new Map(),
     remoteCands: new Map(),
@@ -326,6 +326,60 @@ export interface MeshSignalingTransport {
   close(): void;
 }
 
+/** An event-handler slot on {@link MeshPeerConnection} or
+ * {@link MeshDataChannel}. Method syntax makes the parameter bivariant,
+ * so the DOM's handler type (which takes the full `Event` subclass) and a
+ * test fake's narrower one both fit. */
+type MeshHandler<E> = { handle(event: E): unknown }["handle"] | null | undefined;
+
+/** The part of an ICE candidate the adapter reads. */
+export interface MeshIceCandidate {
+  readonly candidate: string;
+  readonly type: string | null;
+  toJSON(): RTCIceCandidateInit;
+}
+
+/** The part of an `RTCDataChannel` the adapter uses. The DOM's
+ * `RTCDataChannel` satisfies it; a test fake needs only these members. */
+export interface MeshDataChannel {
+  readonly readyState: string;
+  readonly bufferedAmount: number;
+  send(data: Uint8Array<ArrayBuffer>): void;
+  close(): void;
+  onopen: MeshHandler<Event>;
+  onclose: MeshHandler<Event>;
+  onerror: MeshHandler<Event>;
+  onmessage: MeshHandler<{ readonly data: unknown }>;
+}
+
+/** The part of an `RTCPeerConnection` the adapter uses. The DOM's
+ * `RTCPeerConnection` satisfies it; a test fake needs only these members. */
+export interface MeshPeerConnection {
+  readonly connectionState: string;
+  readonly signalingState: string;
+  readonly iceConnectionState: string;
+  readonly localDescription: RTCSessionDescriptionInit | null;
+  readonly remoteDescription: RTCSessionDescriptionInit | null;
+  onicecandidate: MeshHandler<{ readonly candidate: MeshIceCandidate | null }>;
+  onconnectionstatechange: MeshHandler<Event>;
+  ondatachannel: MeshHandler<{ readonly channel: MeshDataChannel }>;
+  createDataChannel(label: string, options?: RTCDataChannelInit): MeshDataChannel;
+  createOffer(): Promise<RTCSessionDescriptionInit>;
+  createAnswer(): Promise<RTCSessionDescriptionInit>;
+  setLocalDescription(description: RTCSessionDescriptionInit): Promise<unknown>;
+  setRemoteDescription(description: RTCSessionDescriptionInit): Promise<unknown>;
+  addIceCandidate(candidate: RTCIceCandidateInit): Promise<unknown>;
+  /** The adapter probes the report's shape, so any value is accepted. */
+  getStats(): Promise<unknown>;
+  close(): unknown;
+}
+
+/** A constructor for {@link MeshPeerConnection}. `globalThis.RTCPeerConnection`
+ * satisfies it. */
+export type MeshPeerConnectionConstructor = new (
+  configuration?: RTCConfiguration
+) => MeshPeerConnection;
+
 export interface MeshWebRTCAdapterOptions {
   /** The signalling client the adapter uses to exchange SDP and ICE
    * candidates with other peers. Typically constructed once per
@@ -405,7 +459,7 @@ export interface MeshWebRTCAdapterOptions {
    * `globalThis.RTCPeerConnection`. Inject a different implementation
    * (e.g. `werift` or `@roamhq/wrtc`) when running outside a browser, or
    * to use a custom subclass for tests or instrumentation. */
-  RTCPeerConnection?: typeof RTCPeerConnection;
+  RTCPeerConnection?: MeshPeerConnectionConstructor;
   /** When `true` (the default), the adapter yields to the event loop
    * between the points where a large initial sync would otherwise hold
    * the main thread for tens of seconds: between each batch of
@@ -733,8 +787,8 @@ function emptyHandleSyncSnapshot(): HandleSyncSnapshot {
 
 /** State tracked for each remote peer. */
 export interface PeerSlot {
-  connection: RTCPeerConnection;
-  channel: RTCDataChannel | undefined;
+  connection: MeshPeerConnection;
+  channel: MeshDataChannel | undefined;
   /** Outgoing messages queued while the channel is still connecting.
    * Typed as ArrayBuffer-backed so they are directly usable by
    * RTCDataChannel.send under TypeScript's strict buffer-source typing. */
@@ -913,7 +967,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * message. Keeping a private mirror keeps those code paths honest
    * without depending on Automerge's lifecycle. */
   private readonly localPeerId: string;
-  private readonly RTCPeerConnectionCtor: typeof RTCPeerConnection;
+  private readonly RTCPeerConnectionCtor: MeshPeerConnectionConstructor;
   private readonly slots = new Map<string, PeerSlot>();
   private ready = false;
   private readyResolver: (() => void) | undefined;
@@ -1611,7 +1665,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    *  issue #104, sender side). When the option is false the legacy
    *  tight-loop shape is preserved for the falsification path. */
   private async sendBytesMaybeFragmented(
-    channel: RTCDataChannel,
+    channel: MeshDataChannel,
     bytes: Uint8Array<ArrayBuffer>
   ): Promise<void> {
     if (bytes.length <= SYNC_FRAGMENT_THRESHOLD) {
@@ -1696,7 +1750,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     return m?.[1]?.toLowerCase() === "relay";
   }
 
-  private shouldSendCandidate(candidate: RTCIceCandidate): boolean {
+  private shouldSendCandidate(candidate: MeshIceCandidate): boolean {
     if (!this.iceRelayEnforcement) return true;
     if (this.iceTransportPolicy !== "relay") return true;
     const typed = candidate.type;
@@ -1784,7 +1838,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     return slot;
   }
 
-  private async initiateOffer(targetId: string, connection: RTCPeerConnection): Promise<void> {
+  private async initiateOffer(targetId: string, connection: MeshPeerConnection): Promise<void> {
     const offer = await connection.createOffer();
     await connection.setLocalDescription(offer);
     const localOffer = connection.localDescription ?? offer;
@@ -1916,7 +1970,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     }
   }
 
-  private wireConnection(peerId: string, connection: RTCPeerConnection): void {
+  private wireConnection(peerId: string, connection: MeshPeerConnection): void {
     connection.onicecandidate = (event) => {
       if (!event.candidate) return;
       if (!this.shouldSendCandidate(event.candidate)) return;
@@ -1965,7 +2019,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     });
   }
 
-  private wireDataChannel(peerId: string, channel: RTCDataChannel): void {
+  private wireDataChannel(peerId: string, channel: MeshDataChannel): void {
     channel.onopen = () => {
       const slot = this.slots.get(peerId);
       if (!slot) return;
@@ -2296,7 +2350,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
 
   /** Send bytes on a data channel if the buffer is below the high-water
    *  mark. Returns true if sent, false if backpressure applies. */
-  private trySendOnChannel(channel: RTCDataChannel, bytes: Uint8Array<ArrayBuffer>): boolean {
+  private trySendOnChannel(channel: MeshDataChannel, bytes: Uint8Array<ArrayBuffer>): boolean {
     // 256 KiB high-water mark — matches the blob transfer default.
     if (channel.bufferedAmount > 256 * 1024) return false;
     channel.send(bytes);

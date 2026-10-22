@@ -112,6 +112,10 @@ export {
 export type {
   HandleSyncSnapshot,
   InFlightSyncSnapshot,
+  MeshDataChannel,
+  MeshIceCandidate,
+  MeshPeerConnection,
+  MeshPeerConnectionConstructor,
   MeshSignalingTransport,
   MeshWebRTCAdapterOptions,
   SlotInitiationDecision,
