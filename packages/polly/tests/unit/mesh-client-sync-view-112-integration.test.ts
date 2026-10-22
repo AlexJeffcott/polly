@@ -19,6 +19,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { type Message, NetworkAdapter, type PeerId, Repo } from "@automerge/automerge-repo";
 import { __test__ } from "@/shared/lib/mesh-client";
+import { toPeerId } from "../../src/shared/lib/branded";
 
 const { buildSyncView, getCollectionSynchronizer, enrichPeerSlot, EMPTY_SYNC_VIEW } = __test__;
 
@@ -166,8 +167,8 @@ describe("buildSyncView (#112 integration — real Repo)", () => {
     ];
     loopA.partner = loopB;
     loopB.partner = loopA;
-    const repoA = trackRepo(new Repo({ network: [loopA], peerId: "peer-a" as unknown as PeerId }));
-    const repoB = trackRepo(new Repo({ network: [loopB], peerId: "peer-b" as unknown as PeerId }));
+    const repoA = trackRepo(new Repo({ network: [loopA], peerId: toPeerId("peer-a") }));
+    const repoB = trackRepo(new Repo({ network: [loopB], peerId: toPeerId("peer-b") }));
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -201,7 +202,7 @@ describe("buildSyncView (#112 integration — real Repo)", () => {
     // the "docSynchronizer exists, peer not registered" shape — the
     // exact fingerprint the #112 hypothesis predicts mesh:users will
     // show in fairfox's failing e2e.
-    const repo = trackRepo(new Repo({ peerId: "peer-solo" as unknown as PeerId }));
+    const repo = trackRepo(new Repo({ peerId: toPeerId("peer-solo") }));
     const handle = repo.create<{ value: number }>({ value: 99 });
     const docId = handle.documentId;
     await handle.whenReady();

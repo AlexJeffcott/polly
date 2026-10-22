@@ -59,6 +59,7 @@ import {
   encodeRevocationSummary,
   type RevocationSummaryEntry,
 } from "./revocation-summary";
+import { toPeerId } from "./branded";
 
 /** Options for {@link createMeshClient}. */
 export interface CreateMeshClientOptions {
@@ -1019,7 +1020,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     // against this peer's summary, so both sides converge to the
     // union after one round trip.
     // Wire-carried peer id string, branded for the adapter's targeting API.
-    const senderPeerId = senderId as unknown as PeerId;
+    const senderPeerId = toPeerId(senderId);
     for (const bytes of revocationsMissingFromSummary(revocationStore, summary)) {
       networkAdapter.sendControlMessage(MESH_CONTROL_TYPE.Revocation, bytes, [senderPeerId]);
     }
@@ -1073,7 +1074,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
   // apply.
   const repo = new Repo({
     network: [networkAdapter],
-    peerId: options.signaling.peerId as unknown as PeerId,
+    peerId: toPeerId(options.signaling.peerId),
     ...(options.repoStorage !== undefined && { storage: options.repoStorage }),
   });
 

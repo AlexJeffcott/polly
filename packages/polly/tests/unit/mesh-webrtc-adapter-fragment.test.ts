@@ -22,6 +22,7 @@ import {
   parseSyncFragment,
   SYNC_FRAGMENT_THRESHOLD,
 } from "@/shared/lib/sync-fragment";
+import { toDocumentId, toPeerId } from "../../src/shared/lib/branded";
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;
@@ -144,9 +145,9 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
   test("sends a small message in a single non-fragment frame", () => {
     const message: Message = {
       type: "sync",
-      senderId: "peer-z" as unknown as Message["senderId"],
-      targetId: remotePeerId as unknown as Message["targetId"],
-      documentId: "doc-small" as unknown as Message["documentId"],
+      senderId: toPeerId("peer-z"),
+      targetId: toPeerId(remotePeerId),
+      documentId: toDocumentId("doc-small"),
       data: new Uint8Array([1, 2, 3, 4]),
     };
     adapter.send(message);
@@ -161,9 +162,9 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     for (let i = 0; i < payload.length; i++) payload[i] = i & 0xff;
     const message: Message = {
       type: "sync",
-      senderId: "peer-z" as unknown as Message["senderId"],
-      targetId: remotePeerId as unknown as Message["targetId"],
-      documentId: "doc-big" as unknown as Message["documentId"],
+      senderId: toPeerId("peer-z"),
+      targetId: toPeerId(remotePeerId),
+      documentId: toDocumentId("doc-big"),
       data: payload,
     };
     adapter.send(message);
@@ -200,9 +201,9 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     for (let i = 0; i < original.length; i++) original[i] = (i * 7 + 1) & 0xff;
     const outgoing: Message = {
       type: "sync",
-      senderId: "peer-z" as unknown as Message["senderId"],
-      targetId: remotePeerId as unknown as Message["targetId"],
-      documentId: "doc-roundtrip" as unknown as Message["documentId"],
+      senderId: toPeerId("peer-z"),
+      targetId: toPeerId(remotePeerId),
+      documentId: toDocumentId("doc-roundtrip"),
       data: original,
     };
     adapter.send(outgoing);
@@ -238,9 +239,9 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     for (let i = 0; i < payload.length; i++) payload[i] = (i + 13) & 0xff;
     const outgoing: Message = {
       type: "sync",
-      senderId: "peer-z" as unknown as Message["senderId"],
-      targetId: remotePeerId as unknown as Message["targetId"],
-      documentId: "doc-reorder" as unknown as Message["documentId"],
+      senderId: toPeerId("peer-z"),
+      targetId: toPeerId(remotePeerId),
+      documentId: toDocumentId("doc-reorder"),
       data: payload,
     };
     adapter.send(outgoing);

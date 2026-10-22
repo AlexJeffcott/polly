@@ -34,6 +34,7 @@ import {
   serialiseRevocationPayload,
 } from "@/shared/lib/revocation";
 import { encodeSignedEnvelope, generateSigningKeyPair, signEnvelope } from "@/shared/lib/signing";
+import { toPeerId } from "../../src/shared/lib/branded";
 
 type Doc = { title: string };
 
@@ -446,8 +447,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
 
     // Wait for base-adapter peer discovery.
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
@@ -489,8 +490,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -531,8 +532,8 @@ describe("MeshNetworkAdapter — revocation enforcement", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 

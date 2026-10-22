@@ -35,6 +35,7 @@ import { MeshSignalingClient } from "../../src/shared/lib/mesh-signaling-client"
 import { MeshWebRTCAdapter } from "../../src/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "../../src/shared/lib/signing";
 import { describe, done, expect, test, waitFor } from "../../tools/test/src/browser/harness";
+import { toPeerId } from "../../src/shared/lib/branded";
 
 // The signalling URL is injected by the runner via Bun.build define.
 const SIGNALING_URL = process.env.SIGNALING_URL ?? "ws://127.0.0.1:39000/polly/signaling";
@@ -146,8 +147,8 @@ describe("MeshWebRTCAdapter polly#110 watchdog in a real browser", () => {
     const meshA = new MeshNetworkAdapter({ base: webrtcA, keyringSource: () => aKeyring });
     const meshB = new MeshNetworkAdapter({ base: webrtcB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [meshA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [meshB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [meshA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [meshB], peerId: toPeerId("peer-b") });
 
     // Observe A's teardown signal.
     const disconnects: string[] = [];

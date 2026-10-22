@@ -42,6 +42,7 @@ import { migrationRegistry } from "@/shared/lib/migrate-primitive";
 import { primitiveRegistry } from "@/shared/lib/primitive-registry";
 import type { VersionedDoc } from "@/shared/lib/schema-version";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
+import { toDocumentId, toPeerId } from "../../src/shared/lib/branded";
 
 type Notes = VersionedDoc & {
   title: string;
@@ -172,7 +173,7 @@ describe("$meshState — DocumentId derivation", () => {
     configureMeshState(repo);
     const prim = $meshState<Notes>("domain-test", { title: "", body: "" });
     await prim.loaded;
-    expect(prim.handle?.documentId).toBe("2XzGLTRxBs5q9GZpwY5jwGSMNKBi" as unknown as DocumentId);
+    expect(prim.handle?.documentId).toBe(toDocumentId("2XzGLTRxBs5q9GZpwY5jwGSMNKBi"));
   });
 
   test("derives different DocumentIds for different keys", async () => {
@@ -249,11 +250,11 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
 
     const repoA = new Repo({
       network: [adapterA],
-      peerId: "peer-a" as unknown as PeerId,
+      peerId: toPeerId("peer-a"),
     });
     const repoB = new Repo({
       network: [adapterB],
-      peerId: "peer-b" as unknown as PeerId,
+      peerId: toPeerId("peer-b"),
     });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
@@ -287,8 +288,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -320,8 +321,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -359,8 +360,8 @@ describe("MeshNetworkAdapter — encryption + signing round-trip", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
 
@@ -423,8 +424,8 @@ describe("$meshState — concurrent first-time seed race (#113)", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
     activeRepos.push(repoA, repoB);
 
     // Handshake first so sync is live the moment seeds land.
@@ -514,8 +515,8 @@ describe("$meshState — concurrent first-time seed race (#113)", () => {
     const adapterA = new MeshNetworkAdapter({ base: loopA, keyringSource: () => aKeyring });
     const adapterB = new MeshNetworkAdapter({ base: loopB, keyringSource: () => bKeyring });
 
-    const repoA = new Repo({ network: [adapterA], peerId: "peer-a" as unknown as PeerId });
-    const repoB = new Repo({ network: [adapterB], peerId: "peer-b" as unknown as PeerId });
+    const repoA = new Repo({ network: [adapterA], peerId: toPeerId("peer-a") });
+    const repoB = new Repo({ network: [adapterB], peerId: toPeerId("peer-b") });
     activeRepos.push(repoA, repoB);
 
     await waitFor(() => repoA.peers.length > 0 && repoB.peers.length > 0);
@@ -563,8 +564,8 @@ describe("$meshState — seed byte determinism (#113/#114)", () => {
   // and the TLA+ seed verifier; see tools/verify/MUTATION-ORACLE-SPIKE.md.)
   // deriveSeedActor treats the DocumentId as an opaque string it hashes, so
   // any stable, distinct strings exercise the actor-derivation contract.
-  const docId = "2XzGLTRxBs5q9GZpwY5jwGSMNKBi" as unknown as DocumentId;
-  const otherDocId = "4Nkp2vQwYbR8sT1uX6yZ9aBcDeFg" as unknown as DocumentId;
+  const docId = toDocumentId("2XzGLTRxBs5q9GZpwY5jwGSMNKBi");
+  const otherDocId = toDocumentId("4Nkp2vQwYbR8sT1uX6yZ9aBcDeFg");
   const initial = { title: "hello", body: "world", items: ["a", "b"] };
 
   test("seed bytes are independent of wall-clock time (the `time: 0` lever)", () => {

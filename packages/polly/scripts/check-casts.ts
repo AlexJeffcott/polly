@@ -16,7 +16,10 @@
  * needs it — `x` and `T` are not comparable, so a single `as` fails with
  * TS2352 — AND a comment on its line or the line above says why:
  * `// cast: <reason>`. A double cast the compiler does not need exists only to
- * get past this gate.
+ * get past this gate. One exception for single casts: a primitive cast to an
+ * intersection that contains it (a branded type, `"a" as PeerId`) has no
+ * alternative, so it passes with a `// cast:` comment. Put it in the brand's
+ * constructor and call that, rather than marking every call site.
  *
  * Casts are found by syntax (`AsExpression` / `TypeAssertion` nodes), so a
  * cast that spans lines, or sits in an index, an array or a `${}`, is seen,
@@ -100,6 +103,7 @@ const JSON_OUT = args.has("--json");
 const UNUSED_CODES = new Set([6133, 6138, 6192, 6196, 6198, 6199, 6205]);
 /** `// cast: <reason>` or `/* cast: <reason>` on the cast's line or the line above. */
 const JUSTIFICATION = /(?:\/\/|\/\*)\s*cast:\s*\S/;
+const PRIMITIVE = TypeFlags.StringLike | TypeFlags.NumberLike | TypeFlags.BigIntLike;
 /** A file the compiler does not check: no rewrite of it can produce an error. */
 const NOCHECK = /^\s*\/\/\s*@ts-nocheck\b/m;
 /** A line comment that hides the errors on the next line. */
@@ -134,6 +138,8 @@ interface Finding {
   blocked?: "opaque-operand" | "opaque-context" | "changes-exports" | "unchecked";
   /** `@ts-nocheck` on the file, or `@ts-expect-error` / `@ts-expect-error` over the cast's lines. */
   unchecked?: true;
+  /** A primitive operand cast to an intersection with it: a branded type such as `string & { __brand }`. */
+  brand?: true;
   justified: boolean;
   status: Status;
   advice?: string;
@@ -265,7 +271,7 @@ async function judge(
   checker: Checker,
   from: Type,
   to: Type
-): Promise<{ fast: Fast; from: string; to: string }> {
+): Promise<{ fast: Fast; from: string; to: string; brand: boolean }> {
   const [fromText, toText, up, down] = await Promise.all([
     checker.typeToString(from),
     checker.typeToString(to),
@@ -279,7 +285,12 @@ async function judge(
   else if (up) fast = "widening";
   else if (down) fast = "narrowing";
   else fast = "unrelated";
-  return { fast, from: fromText, to: toText };
+  // Nothing produces a branded value but a cast; the brand's constructor needs one.
+  const brand =
+    (from.flags & PRIMITIVE) !== 0 &&
+    (from.flags & TypeFlags.UnionOrIntersection) === 0 &&
+    (to.flags & TypeFlags.Intersection) !== 0;
+  return { fast, from: fromText, to: toText, brand };
 }
 
 /**
@@ -552,6 +563,9 @@ function decide(f: Finding): Pick<Finding, "status" | "advice"> {
         "the compiler does not check this line; remove the `@ts-nocheck` / `@ts-ignore` first, then the probe can judge the cast",
     };
   }
+  if (f.kind === "single" && f.brand && f.probe === "required" && f.justified) {
+    return { status: "allowed" };
+  }
   if (f.kind === "single") {
     return {
       status: "violation",
@@ -560,7 +574,9 @@ function decide(f: Finding): Pick<Finding, "status" | "advice"> {
           ? "delete the cast: the operand already fits (`--fix` does it)"
           : f.blocked === "changes-exports"
             ? "removing it changes the file's exported types; annotate the declaration, or narrow with a type guard"
-            : "narrow with a type guard, or fix the type where the value comes from",
+            : f.brand
+              ? "a branded type needs one cast, in its constructor; mark it `// cast: <reason>`, and call the constructor everywhere else"
+              : "narrow with a type guard, or fix the type where the value comes from",
     };
   }
   if (f.probe === "removable") {
@@ -683,7 +699,7 @@ async function describe(
     checker.getTypeAtLocation(site.cast.type),
     context ? checker.getTypeAtLocation(context) : undefined,
   ]);
-  const judged = await judge(checker, from, to);
+  const { brand, ...judged } = await judge(checker, from, to);
   const contextText = contextType ? await checker.typeToString(contextType) : "";
   let opaque: Finding["opaque"];
   if (from.isErrorType() || containsAny(judged.from)) opaque = "operand";
@@ -698,6 +714,7 @@ async function describe(
     kind: site.kind,
     ...judged,
     ...(opaque ? { opaque } : {}),
+    ...(brand ? { brand: true as const } : {}),
     justified: isJustified(textOf(site.sf.fileName), site.sf, start),
     ...(isUnchecked(textOf(site.sf.fileName), site.sf, site.cast)
       ? { unchecked: true as const }
