@@ -17,7 +17,8 @@
  *   security        semgrep SAST with --config auto
  *   deps-audit      osv-scanner + bun audit + bun outdated (cached)
  *   deps            bans superseded dev tooling and deprecated runtime libs
- *   casts           bans `x as Y` outside `as const` and `as unknown as Y`
+ *   casts           bans `x as Y` outside `as const`; `as unknown as Y` only where
+ *                   the compiler needs it and a `// cast:` comment says why (TS 7 API)
  *   tautology-ensures  bans ensures/requires with a literal predicate (via the quality host)
  *   boundaries      enforces src/ vs tools/ vs cli/ vs scripts/ direction
  *   server-imports  bans node:/bun: imports from browser-targeted code
@@ -125,6 +126,8 @@ async function checkSecurity(verbose: boolean): Promise<boolean> {
     "WARNING",
     "--exclude=Dockerfile*",
     "--exclude=docker-compose*",
+    // Generated: copies of cast expressions; their source files are scanned.
+    "--exclude=casts-baseline.json",
     "--error",
   ];
   if (!verbose) {
@@ -150,7 +153,7 @@ async function checkForbiddenDeps(): Promise<boolean> {
 }
 
 async function checkCasts(): Promise<boolean> {
-  return (await spawn(["bun", "scripts/check-no-as-casting.ts"])) === 0;
+  return (await spawn(["bun", "scripts/check-casts.ts"])) === 0;
 }
 
 async function checkTautologyEnsures(): Promise<boolean> {

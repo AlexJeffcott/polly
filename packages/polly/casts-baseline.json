@@ -1,0 +1,2478 @@
+[
+  {
+    "file": "cli/polly.ts",
+    "text": "[ args.config, `${cwd}/polly.config.ts`, `${cwd}/polly.config.js`, `${cwd}/polly.config.mjs`, ].filter(Boolean) as unknown as string[]"
+  },
+  {
+    "file": "scripts/check-deps-audit.ts",
+    "text": "JSON.parse(proc.stdout || \"{}\") as unknown as Record<string, BunAuditAdvisory[]>"
+  },
+  {
+    "file": "scripts/check-deps-audit.ts",
+    "text": "JSON.parse(readFileSync(CACHE_FILE, \"utf8\")) as unknown as CachedResult"
+  },
+  {
+    "file": "scripts/check-deps-audit.ts",
+    "text": "JSON.parse(readFileSync(NOTES_FILE, \"utf8\")) as unknown as Notes"
+  },
+  {
+    "file": "scripts/check-deps-audit.ts",
+    "text": "JSON.parse(readFileSync(NOTES_FILE, \"utf8\")) as unknown as NotesFile"
+  },
+  {
+    "file": "scripts/check-deps-audit.ts",
+    "text": "JSON.parse(readFileSync(path, \"utf8\")) as unknown as PkgJson"
+  },
+  {
+    "file": "scripts/check-deps-audit.ts",
+    "text": "JSON.parse(stdout) as unknown as OsvOutput"
+  },
+  {
+    "file": "scripts/check.ts",
+    "text": "subcommand as unknown as CheckName"
+  },
+  {
+    "file": "scripts/check.ts",
+    "text": "subcommand as unknown as CheckName"
+  },
+  {
+    "file": "scripts/e2e-mesh-blob-transfer.ts",
+    "text": "window as unknown as { __pollyE2eBlobGet?: (h: string) => Promise<string | null> }"
+  },
+  {
+    "file": "scripts/e2e-mesh-blob-transfer.ts",
+    "text": "window as unknown as { __pollyE2eBlobPut?: (b: string, name: string, mime: string) => Promise<string>; }"
+  },
+  {
+    "file": "scripts/e2e-mesh-blob-transfer.ts",
+    "text": "window as unknown as { __pollyE2eBlobPut?: (b: string, name: string, mime: string) => Promise<string>; }"
+  },
+  {
+    "file": "scripts/e2e-mesh-pairing-ceremony.ts",
+    "text": "window as unknown as { __pollyE2eApplyPairingToken?: (e: string) => boolean }"
+  },
+  {
+    "file": "scripts/e2e-mesh-pairing-ceremony.ts",
+    "text": "window as unknown as { __pollyE2eCreatePairingToken?: () => string }"
+  },
+  {
+    "file": "scripts/e2e-mesh-pairing-ceremony.ts",
+    "text": "window as unknown as { __pollyE2eJoinMesh?: () => Promise<boolean> }"
+  },
+  {
+    "file": "scripts/e2e-mesh-revocation-offline-catchup.ts",
+    "text": "window as unknown as { __pollyE2eRevokeViaProtocol?: (id: string, reason?: string) => Promise<boolean>; }"
+  },
+  {
+    "file": "scripts/e2e-mesh-revocation-propagation.ts",
+    "text": "window as unknown as { __pollyE2eRevokeViaProtocol?: (id: string, reason?: string) => Promise<boolean>; }"
+  },
+  {
+    "file": "scripts/e2e-mesh-revocation-propagation.ts",
+    "text": "window as unknown as { __pollyE2eSelfRevocation?: () => unknown }"
+  },
+  {
+    "file": "scripts/e2e-mesh-revocation-runtime.ts",
+    "text": "window as unknown as { __pollyE2eRevoke?: (id: string) => boolean }"
+  },
+  {
+    "file": "scripts/e2e-verify-declared-contexts.ts",
+    "text": "{ \"session.active\": { type: \"boolean\" }, } as unknown as VerificationConfig[\"state\"]"
+  },
+  {
+    "file": "scripts/e2e-verify-declared-contexts.ts",
+    "text": "config as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "scripts/e2e-verify-declared-contexts.ts",
+    "text": "configFor() as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "scripts/e2e-verify-liveness.ts",
+    "text": "{ queue: { draining: { type: \"boolean\" }, done: { type: \"boolean\" } }, } as unknown as VerificationConfig[\"state\"]"
+  },
+  {
+    "file": "scripts/e2e-verify-run-accounting.ts",
+    "text": "CONFIG as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "scripts/verify-issue-128.ts",
+    "text": "window as unknown as { __mountDropdown: (m: unknown) => void }"
+  },
+  {
+    "file": "scripts/verify-issue-128.ts",
+    "text": "window as unknown as { __open: () => void }"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "{} as unknown as { [K in keyof TValues]: Signal<TValues[K]> }"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "{} as unknown as TValues"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "k as keyof TValues"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "k as keyof TValues"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "key as unknown as string"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "Object.keys(config.initialValues) as unknown as (keyof TValues)[]"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "String(raw) as unknown as TValues[typeof key]"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "target as unknown as { tagName?: unknown }"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "v as TValues[keyof TValues]"
+  },
+  {
+    "file": "src/actions/form.ts",
+    "text": "v as TValues[keyof TValues]"
+  },
+  {
+    "file": "src/actions/store.tsx",
+    "text": "useContext(StoreContext) as unknown as TStores | null"
+  },
+  {
+    "file": "src/actions/testing.ts",
+    "text": "{ nodeType: 1, tagName: \"FORM\", elements: Object.entries(fields).map(([name, value]) => ({ name, value, })), } as unknown as HTMLFormElement"
+  },
+  {
+    "file": "src/actions/testing.ts",
+    "text": "{ tagName, nodeType: 1, getAttribute: (name: string) => attrMap.get(name) ?? null, setAttribute: (name: string, value: string) => { attrMap.set(name, value); }, hasAttribute: (name: string) => attrMap.has(name), removeAttribute: (name: string) => { attrMap.delete(name); }, attributes: Array.from(attrMap.entries()).map(([name, value]) => ({ name, value, })), } as unknown as HTMLElement"
+  },
+  {
+    "file": "src/actions/testing.ts",
+    "text": "{ type: \"submit\", target, currentTarget: target, preventDefault() { defaultPrevented = true; }, stopPropagation() { /* noop */ }, get defaultPrevented() { return defaultPrevented; }, } as unknown as Event"
+  },
+  {
+    "file": "src/actions/testing.ts",
+    "text": "partial as unknown as TStores"
+  },
+  {
+    "file": "src/background/context-menu.ts",
+    "text": "info.menuItemId as unknown as string"
+  },
+  {
+    "file": "src/background/context-menu.ts",
+    "text": "payload.contexts as unknown as [ chrome.contextMenus.ContextType, ...chrome.contextMenus.ContextType[], ]"
+  },
+  {
+    "file": "src/client/wrapper.ts",
+    "text": "makePathProxy([]) as unknown as typeof baseClient & { $polly: typeof pollyApi }"
+  },
+  {
+    "file": "src/content/index.ts",
+    "text": "el as unknown as HTMLElement"
+  },
+  {
+    "file": "src/content/index.ts",
+    "text": "el as unknown as HTMLElement"
+  },
+  {
+    "file": "src/content/index.ts",
+    "text": "el as unknown as HTMLElement"
+  },
+  {
+    "file": "src/devtools/panel.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/elysia/peer-repo-plugin.ts",
+    "text": "null as unknown as PeerRepoServer | null"
+  },
+  {
+    "file": "src/elysia/peer-repo-plugin.ts",
+    "text": "null as unknown as PeerRepoServer[\"repo\"] | null"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "(ws.data as unknown as Record<string, unknown>).peerId as unknown as | string | undefined"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"error\", reason: \"malformed\" } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"error\", reason: \"malformed\" } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"error\", reason: \"not-joined\" } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"error\", reason: \"unknown-target\", targetPeerId, } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"peer-joined\", peerId } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"peer-left\", peerId } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "{ type: \"peers-present\", peerIds: incumbents.map((i) => i.peerId), } as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "mapped as unknown as { data?: Record<string, unknown> } | undefined"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "msg as unknown as CustomSignalingFrame"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "raw as unknown as SignalingMessage"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "target as unknown as { readyState?: number }"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws as unknown as { data: Record<string, unknown> }"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws as unknown as { data: Record<string, unknown> }"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws as unknown as { data: Record<string, unknown>; send: (m: unknown) => void; }"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws as unknown as { send: (m: unknown) => void }"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws as unknown as { send: (m: unknown) => void }"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws as unknown as CustomFrameSocket"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "ws.data as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/elysia/signaling-server-plugin.ts",
+    "text": "wsWithData.data.peerId as unknown as string | undefined"
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "(e.target as unknown as HTMLSelectElement).value as unknown as | \"light\" | \"dark\" | \"auto\""
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/options/index.tsx",
+    "text": "e.target as unknown as HTMLSelectElement"
+  },
+  {
+    "file": "src/page/index.ts",
+    "text": "window as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/page/index.ts",
+    "text": "window as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/page/index.ts",
+    "text": "window as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/polly-ui/ActionInput.tsx",
+    "text": "{ type: props.inputType ?? \"text\", ...common, } as unknown as AccessibleInputHTMLAttributes"
+  },
+  {
+    "file": "src/polly-ui/Button.tsx",
+    "text": "props as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/polly-ui/Surface.tsx",
+    "text": "props as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/polly-ui/TextInput.tsx",
+    "text": "{ ...a11y, type: props.inputType ?? \"text\", } as unknown as AccessibleInputHTMLAttributes"
+  },
+  {
+    "file": "src/polly-ui/TextInput.tsx",
+    "text": "props.value as unknown as Signal<string>"
+  },
+  {
+    "file": "src/polly-ui/TextInput.tsx",
+    "text": "props.value as unknown as Signal<string>"
+  },
+  {
+    "file": "src/popup/index.tsx",
+    "text": "(e.target as unknown as HTMLSelectElement).value as unknown as | \"light\" | \"dark\" | \"auto\""
+  },
+  {
+    "file": "src/popup/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/popup/index.tsx",
+    "text": "e.target as unknown as HTMLInputElement"
+  },
+  {
+    "file": "src/popup/index.tsx",
+    "text": "e.target as unknown as HTMLSelectElement"
+  },
+  {
+    "file": "src/shared/adapters/chrome/storage.chrome.ts",
+    "text": "keys as unknown as never"
+  },
+  {
+    "file": "src/shared/adapters/chrome/window.chrome.ts",
+    "text": "listener as unknown as EventListener"
+  },
+  {
+    "file": "src/shared/adapters/chrome/window.chrome.ts",
+    "text": "listener as unknown as EventListener"
+  },
+  {
+    "file": "src/shared/lib/blob-ref.ts",
+    "text": "value as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/blob-store-impl.ts",
+    "text": "event.peerId as unknown as string"
+  },
+  {
+    "file": "src/shared/lib/blob-store-impl.ts",
+    "text": "header as unknown as BlobChunkHeader"
+  },
+  {
+    "file": "src/shared/lib/blob-store-impl.ts",
+    "text": "header as unknown as BlobHaveHeader"
+  },
+  {
+    "file": "src/shared/lib/blob-store-impl.ts",
+    "text": "header as unknown as BlobRequestHeader"
+  },
+  {
+    "file": "src/shared/lib/blob-transfer.ts",
+    "text": "chunks.get(i) as unknown as Uint8Array"
+  },
+  {
+    "file": "src/shared/lib/blob-transfer.ts",
+    "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as BlobMessageHeader"
+  },
+  {
+    "file": "src/shared/lib/context-specific-helpers.ts",
+    "text": "result as unknown as T"
+  },
+  {
+    "file": "src/shared/lib/crdt-state.ts",
+    "text": "JSON.parse(JSON.stringify(doc)) as unknown as T"
+  },
+  {
+    "file": "src/shared/lib/derive-document-id.ts",
+    "text": "bytes as unknown as BinaryDocumentId"
+  },
+  {
+    "file": "src/shared/lib/idb-helpers.ts",
+    "text": "event.target as unknown as IDBOpenDBRequest"
+  },
+  {
+    "file": "src/shared/lib/keyring-storage.ts",
+    "text": "err as Error"
+  },
+  {
+    "file": "src/shared/lib/keyring-storage.ts",
+    "text": "raw as unknown as Partial<SerialisedKeyring>"
+  },
+  {
+    "file": "src/shared/lib/mesh-client.ts",
+    "text": "options.signaling.peerId as unknown as PeerId"
+  },
+  {
+    "file": "src/shared/lib/mesh-client.ts",
+    "text": "repo as unknown as { synchronizer?: SynchronizerStructural }"
+  },
+  {
+    "file": "src/shared/lib/mesh-client.ts",
+    "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
+  },
+  {
+    "file": "src/shared/lib/mesh-client.ts",
+    "text": "senderId as unknown as PeerId"
+  },
+  {
+    "file": "src/shared/lib/mesh-client.ts",
+    "text": "undefined as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "src/shared/lib/mesh-network-adapter.ts",
+    "text": "{ ...header, data } as unknown as Message"
+  },
+  {
+    "file": "src/shared/lib/mesh-network-adapter.ts",
+    "text": "outer as unknown as Message"
+  },
+  {
+    "file": "src/shared/lib/mesh-network-adapter.ts",
+    "text": "outer as unknown as Message"
+  },
+  {
+    "file": "src/shared/lib/mesh-signaling-client.ts",
+    "text": "parsed as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/mesh-signaling-client.ts",
+    "text": "record as unknown as CustomSignalingFrame"
+  },
+  {
+    "file": "src/shared/lib/mesh-signaling-client.ts",
+    "text": "record[\"peerIds\"] as unknown as string[]"
+  },
+  {
+    "file": "src/shared/lib/mesh-state.ts",
+    "text": "cached as unknown as DocHandle<D>"
+  },
+  {
+    "file": "src/shared/lib/mesh-state.ts",
+    "text": "initialDoc as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/mesh-state.ts",
+    "text": "initialDoc as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/mesh-state.ts",
+    "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "{ ...header, data } as unknown as Message"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "event as unknown as { error?: { message?: unknown }; message?: unknown }"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "peerId as unknown as PeerId"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "peerId as unknown as PeerId"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "peerId as unknown as PeerId"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "rawPayload as unknown as SignalingPayload"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "this as unknown as { emit: (event: string, payload: SyncProgressEvent) => void; }"
+  },
+  {
+    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
+    "text": "this.peerId as unknown as string"
+  },
+  {
+    "file": "src/shared/lib/migrate-primitive.ts",
+    "text": "destination as unknown as unknown"
+  },
+  {
+    "file": "src/shared/lib/migrate-primitive.ts",
+    "text": "source as unknown as unknown"
+  },
+  {
+    "file": "src/shared/lib/peer-repo-server.ts",
+    "text": "wss as unknown as ConstructorParameters<typeof WebSocketServerAdapter>[0]"
+  },
+  {
+    "file": "src/shared/lib/schema-version.ts",
+    "text": "doc as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "a as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "b as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "entry?.signal as unknown as Signal<T> | undefined"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "existing as unknown as Signal<T>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "JSON.parse(JSON.stringify(initialValue)) as unknown as T"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "result[`${key}:clock`] as unknown as number"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "sig as unknown as Signal<T> & { loaded: Promise<void> }"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "sig as unknown as Signal<T> & { loaded: Promise<void> }"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "sig as unknown as SignalWithLoaded<T>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "sig as unknown as SignalWithLoaded<T>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "sig as unknown as SignalWithVerify<T>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "sig as unknown as SignalWithVerify<T>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "stateRegistry.get(key)?.signal as unknown as Signal<T>"
+  },
+  {
+    "file": "src/shared/lib/state.ts",
+    "text": "stored as unknown as T"
+  },
+  {
+    "file": "src/shared/lib/storage-adapter.ts",
+    "text": "value as unknown as T"
+  },
+  {
+    "file": "src/shared/lib/sweep-sealed.ts",
+    "text": "documentId as unknown as DocumentId"
+  },
+  {
+    "file": "src/shared/lib/sync-adapter.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "src/shared/lib/sync-adapter.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "src/shared/lib/sync-adapter.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "src/shared/lib/sync-adapter.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "src/shared/lib/sync-fragment.ts",
+    "text": "chunks.get(i) as unknown as Uint8Array"
+  },
+  {
+    "file": "src/shared/lib/sync-fragment.ts",
+    "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as SyncFragmentHeader"
+  },
+  {
+    "file": "src/shared/lib/validation.ts",
+    "text": "value as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "src/shared/lib/validation.ts",
+    "text": "value as unknown as T"
+  },
+  {
+    "file": "src/shared/state/app-state.ts",
+    "text": "\"main\" as unknown as \"main\" | \"settings\" | \"debug\""
+  },
+  {
+    "file": "tests/browser/blob-store.browser.ts",
+    "text": "\"blob-peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/blob-store.browser.ts",
+    "text": "\"blob-peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/blob-store.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/blob-store.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-late-join.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-late-join.browser.ts",
+    "text": "peerId as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-multi-peer.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-multi-peer.browser.ts",
+    "text": "peerId as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
+    "text": "adapter as unknown as { slots: Map<string, { channel?: { send?: unknown } }>; }"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
+    "text": "webrtcA as unknown as { slots: Map<string, { connection: RTCPeerConnection }>; }"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc.browser.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc.browser.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/browser/mesh-webrtc.browser.ts",
+    "text": "null as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/integration/centralized-logging.test.ts",
+    "text": "log.context.metadata as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/integration/peer-state-relay.test.ts",
+    "text": "\"\" as unknown as never"
+  },
+  {
+    "file": "tests/integration/real-world-logging-scenarios.test.ts",
+    "text": "adapters.logger as unknown as MockLogger"
+  },
+  {
+    "file": "tests/integration/real-world-logging-scenarios.test.ts",
+    "text": "adapters.runtime as unknown as MockRuntime"
+  },
+  {
+    "file": "tests/integration/signaling-peer-notifications.test.ts",
+    "text": "(await waitForMessage(eve)) as unknown as { type: string; reason: string }"
+  },
+  {
+    "file": "tests/integration/signaling-server.test.ts",
+    "text": "(await waitForMessage(carol)) as unknown as { type: string; reason: string }"
+  },
+  {
+    "file": "tests/integration/signaling-server.test.ts",
+    "text": "(await waitForNonDiscoveryMessage(bob)) as unknown as { type: string; peerId: string; targetPeerId: string; payload: unknown; }"
+  },
+  {
+    "file": "tests/integration/signaling-server.test.ts",
+    "text": "(await waitForNonDiscoveryMessage(dave)) as unknown as { type: string; reason: string; targetPeerId: string; }"
+  },
+  {
+    "file": "tests/integration/signaling-server.test.ts",
+    "text": "(await waitForNonDiscoveryMessage(frank)) as unknown as { peerId: string }"
+  },
+  {
+    "file": "tests/integration/signaling-server.test.ts",
+    "text": "(await waitForNonDiscoveryMessage(grace)) as unknown as { type: string; reason: string; }"
+  },
+  {
+    "file": "tests/unit/_client-only.test.ts",
+    "text": "caught as unknown as Error"
+  },
+  {
+    "file": "tests/unit/adapter-factory.test.ts",
+    "text": "storage as unknown as { dbName: string }"
+  },
+  {
+    "file": "tests/unit/adapter-factory.test.ts",
+    "text": "sync as unknown as { channel: BroadcastChannel }"
+  },
+  {
+    "file": "tests/unit/adapter-factory.test.ts",
+    "text": "sync as unknown as { channel: BroadcastChannel }"
+  },
+  {
+    "file": "tests/unit/adapters.test.ts",
+    "text": "message as unknown as { type: string }"
+  },
+  {
+    "file": "tests/unit/blob-cache.test.ts",
+    "text": "cache as unknown as { store: Map<string, { accessedAt: number }> }"
+  },
+  {
+    "file": "tests/unit/blob-store-impl-internals.test.ts",
+    "text": "((fn: () => void, delay?: number) => { const id = nextTimerId++; scheduled.push({ fn, delay: delay ?? 0, id }); return id; }) as unknown as typeof setTimeout"
+  },
+  {
+    "file": "tests/unit/blob-store-impl-internals.test.ts",
+    "text": "((id?: ReturnType<typeof setTimeout>) => { const i = scheduled.findIndex((s) => s.id === (id as unknown as number)); if (i >= 0) scheduled.splice(i, 1); }) as unknown as typeof clearTimeout"
+  },
+  {
+    "file": "tests/unit/blob-store-impl-internals.test.ts",
+    "text": "a as unknown as MeshWebRTCAdapter"
+  },
+  {
+    "file": "tests/unit/blob-store-impl-internals.test.ts",
+    "text": "header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store-impl-internals.test.ts",
+    "text": "id as unknown as number"
+  },
+  {
+    "file": "tests/unit/blob-store-impl.test.ts",
+    "text": "a as unknown as MeshWebRTCAdapter"
+  },
+  {
+    "file": "tests/unit/blob-store-impl.test.ts",
+    "text": "parsed.header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "adapter as unknown as never"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "header as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "header0 as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/blob-store.test.ts",
+    "text": "requestHeader as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/context-helpers.test.ts",
+    "text": "\"option\" as unknown as Context"
+  },
+  {
+    "file": "tests/unit/context-specific-helpers.test.ts",
+    "text": "{ tabs: { query: async (filter: unknown) => { calls.query.push(filter); return [{ id: 1, active: true }]; }, create: (options: unknown) => { calls.create.push(options); }, }, runtime: { openOptionsPage: () => { calls.openOptionsPage += 1; }, }, } as unknown as ExtensionAdapters"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "text.handle as unknown as DocHandle<TextDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "text.handle as unknown as DocHandle<TextDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "text.handle as unknown as DocHandle<TextDoc>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "todos.handle as unknown as DocHandle<ListDoc<number>>"
+  },
+  {
+    "file": "tests/unit/crdt-specialised.test.ts",
+    "text": "todos.handle as unknown as DocHandle<ListDoc<number>>"
+  },
+  {
+    "file": "tests/unit/crdt-state.test.ts",
+    "text": "{} as unknown as V2"
+  },
+  {
+    "file": "tests/unit/crdt-state.test.ts",
+    "text": "prim.handle?.doc() as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/crdt-state.test.ts",
+    "text": "prim.handle?.doc() as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/crdt-state.test.ts",
+    "text": "prim.handle?.doc() as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/derive-document-id.test.ts",
+    "text": "digest.slice(0, 16) as unknown as BinaryDocumentId"
+  },
+  {
+    "file": "tests/unit/guards.test.ts",
+    "text": "{ kind: \"c\" } as unknown as never"
+  },
+  {
+    "file": "tests/unit/handler-execution-tracker.test.ts",
+    "text": "((fn: () => void, ms: number) => { timers.push({ fn, ms }); return 0; }) as unknown as typeof setTimeout"
+  },
+  {
+    "file": "tests/unit/handler-execution-tracker.test.ts",
+    "text": "globalThis as unknown as { setTimeout: typeof setTimeout }"
+  },
+  {
+    "file": "tests/unit/handler-execution-tracker.test.ts",
+    "text": "globalThis as unknown as { setTimeout: unknown }"
+  },
+  {
+    "file": "tests/unit/helpers/branded.ts",
+    "text": "id as unknown as DocumentId"
+  },
+  {
+    "file": "tests/unit/helpers/branded.ts",
+    "text": "id as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/helpers/css-module-keys.ts",
+    "text": "globalThis as unknown as Record<string, boolean>"
+  },
+  {
+    "file": "tests/unit/helpers/popover-shim.ts",
+    "text": "globalThis as unknown as { HTMLElement?: { prototype: Record<string, unknown> } }"
+  },
+  {
+    "file": "tests/unit/idb-helpers.test.ts",
+    "text": "{ close: () => {} } as unknown as IDBDatabase"
+  },
+  {
+    "file": "tests/unit/idb-helpers.test.ts",
+    "text": "blocked as unknown as IDBOpenDBRequest"
+  },
+  {
+    "file": "tests/unit/idb-helpers.test.ts",
+    "text": "ok as unknown as IDBOpenDBRequest"
+  },
+  {
+    "file": "tests/unit/idb-helpers.test.ts",
+    "text": "request as unknown as IDBOpenDBRequest"
+  },
+  {
+    "file": "tests/unit/idb-helpers.test.ts",
+    "text": "request as unknown as IDBOpenDBRequest"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "adapter as unknown as { iceRelayEnforcement: boolean; syncYieldEnabled: boolean; syncFragmentChunkSize: number; }"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "client.repo.peerId as unknown as string"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-client-create-161.test.ts",
+    "text": "FakeWebSocket as unknown as typeof WebSocket"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "{ on(event: string, cb: () => void): void { state.onCalls += 1; if (event === \"peer-candidate\") handler = cb; }, } as unknown as MeshNetworkAdapter"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "{ synchronizer } as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "{ synchronizer: { reevaluateDocumentShare: 123 } } as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "{ synchronizer: { reevaluateDocumentShare: spy } } as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "{} as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "{} as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
+    "text": "pairs.map(([key, docId]) => ({ key, docId })) as unknown as MeshStateLazyWrapperRecord[]"
+  },
+  {
+    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
+    "text": "{ peerId: \"peer-1\", slot: { handles } } as unknown as AdapterPeer"
+  },
+  {
+    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
+    "text": "{ peerId: \"peer-1\", slot: undefined } as unknown as AdapterPeer"
+  },
+  {
+    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
+    "text": "{ synchronizer } as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
+    "text": "{ synchronizer: () => {} } as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
+    "text": "{} as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "\"peer-solo\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "{ peerId: \"peer-fake\", slot: { handles: { \"unknown-doc-id\": { lastSyncMessageOutAt: undefined, lastSyncMessageInAt: 999, lastSyncMessageOutSize: undefined, lastSyncMessageOutType: undefined, }, }, }, } as unknown as Parameters<typeof enrichPeerSlot>[0]"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "{ peerId: \"peer-fake\", slot: { handles: { [docId]: { lastSyncMessageOutAt: 123, lastSyncMessageInAt: undefined, lastSyncMessageOutSize: 256, lastSyncMessageOutType: \"sync\", }, }, }, } as unknown as Parameters<typeof enrichPeerSlot>[0]"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
+  },
+  {
+    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
+    "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "{ type: \"sync\", senderId: SENDER_ID, targetId: \"receiver-peer\", documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "0x7f as unknown as MeshControlType"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "out as unknown as { documentId?: string }"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "received[0] as unknown as { count?: number; sessionId?: string }"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "received[0] as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "senderBase.sent[0] as unknown as { documentId?: string; data?: unknown }"
+  },
+  {
+    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
+    "text": "senderBase.sent[0] as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tests/unit/mesh-signaling-client.test.ts",
+    "text": "((fn: () => void, delay?: number) => { scheduled.push({ fn, delay: delay ?? 0 }); return scheduled.length; }) as unknown as typeof setTimeout"
+  },
+  {
+    "file": "tests/unit/mesh-signaling-client.test.ts",
+    "text": "FakeWebSocket as unknown as typeof WebSocket"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"2XzGLTRxBs5q9GZpwY5jwGSMNKBi\" as unknown as DocumentId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"2XzGLTRxBs5q9GZpwY5jwGSMNKBi\" as unknown as DocumentId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"4Nkp2vQwYbR8sT1uX6yZ9aBcDeFg\" as unknown as DocumentId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-state.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "\"peer-a\" as unknown as Message[\"senderId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "\"peer-z\" as unknown as Message[\"targetId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "{ type: \"sync\", senderId: \"peer-a\", targetId: LOCAL, documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "adapter as unknown as { deserialiseMessage(b: Uint8Array): Message }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array<ArrayBuffer> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
+    "text": "decoded as unknown as { documentId?: string }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "(adapter as unknown as { slots: Map<string, { inFlightSync?: unknown }> }).slots.get( REMOTE ) as { inFlightSync?: unknown }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "{ type: \"sync\", senderId: LOCAL, targetId: REMOTE, documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array<ArrayBuffer> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "adapter as unknown as { slots: Map<string, { inFlightSync?: unknown }> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
+    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"doc-big\" as unknown as Message[\"documentId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"doc-reorder\" as unknown as Message[\"documentId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"doc-roundtrip\" as unknown as Message[\"documentId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"doc-small\" as unknown as Message[\"documentId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(_target: string, _payload: unknown): boolean { return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "reassembled as unknown as { data: Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "reassembled as unknown as { documentId: string }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "received[0] as unknown as { data: Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "remotePeerId as unknown as Message[\"targetId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "remotePeerId as unknown as Message[\"targetId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "remotePeerId as unknown as Message[\"targetId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
+    "text": "remotePeerId as unknown as Message[\"targetId\"]"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
+    "text": "adapter as unknown as { lastSlotInitiationDecisions: Map<string, Decision> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
+    "text": "adapter as unknown as { presentPeers: Set<string> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
+    "text": "adapter as unknown as { ready: boolean }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
+    "text": "ThrowingPC as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(targetPeerId: string, payload: unknown): boolean { sent.push({ targetPeerId, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
+    "text": "sent[0]?.payload as unknown as { kind?: string }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-pending-ice.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(targetPeerId: string, payload: unknown): boolean { sent.push({ targetPeerId, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-pending-ice.test.ts",
+    "text": "TrackingPC as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "{ candidate: opts.candidate, type: opts.type, toJSON(): RTCIceCandidateInit { return { candidate: opts.candidate }; }, } as unknown as RTCIceCandidate"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(target: string, payload: SentSignal[\"payload\"]): boolean { sent.push({ target, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "adapter as unknown as { createInitiatingSlot(id: string): unknown }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "adapter as unknown as { handleAnswer(id: string, sdp: RTCSessionDescriptionInit): Promise<void>; }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "adapter as unknown as { handleOffer(id: string, sdp: RTCSessionDescriptionInit): Promise<void>; }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "adapter as unknown as { peerId: string }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "adapter as unknown as { peerId: string }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "adapter as unknown as { peerId: string }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "\"a string frame\" as unknown as ArrayBuffer"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "{ type: \"sync\", senderId: LOCAL, targetId: REMOTE, documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { finishInFlightSyncApply(id: string): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { on(ev: string, cb: (e: { kind: string }) => void): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { slots: Map<string, SlotView> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { slots: Map<string, unknown> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { stampFirstInboundMessage(id: string): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "adapter as unknown as { stampHandleInbound(id: string, m: Message): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
+    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
+    "text": "adapter as unknown as { evictStaleSlotForRejoin(id: string): void }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
+    "text": "adapter as unknown as { slots: Map<string, SlotInternals> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
+    "text": "\"store-1\" as unknown as StorageId"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
+    "text": "{ url: \"ws://stub\", peerId, isConnected: true, sendSignal: () => true, connect: async () => {}, close: () => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
+    "text": "adapter as unknown as { slots: Map< string, { connection: FakePeerConnection; channel: FakeDataChannel | undefined } >; }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
+    "text": "new Map() as unknown as RTCStatsReport"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
+    "text": "{} as unknown as RTCStatsReport"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "\"peer-m\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "\"peer-m\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "\"peer-m\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "\"peer-m\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(targetPeerId: string, payload: unknown): boolean { sent.push({ targetPeerId, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "adapter as unknown as { slots: Map< string, { connection: FakePeerConnection; channel: FakeDataChannel | undefined } >; }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "adapter as unknown as { slots: Map<string, unknown> }"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "new Map() as unknown as RTCStatsReport"
+  },
+  {
+    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
+    "text": "slotEntries[0]?.[1] as unknown as { connection: FakePeerConnection; channel: FakeDataChannel | undefined; }"
+  },
+  {
+    "file": "tests/unit/messages.test.ts",
+    "text": "{ menuItemId: \"test-menu\", pageUrl: \"https://example.com\", selectionText: \"selected text\", } as unknown as chrome.contextMenus.OnClickData"
+  },
+  {
+    "file": "tests/unit/migrate-primitive.test.ts",
+    "text": "[] as unknown as number[]"
+  },
+  {
+    "file": "tests/unit/migrate-primitive.test.ts",
+    "text": "caught as unknown as MigrationError"
+  },
+  {
+    "file": "tests/unit/migrate-primitive.test.ts",
+    "text": "caught as unknown as MigrationError"
+  },
+  {
+    "file": "tests/unit/pairing.test.ts",
+    "text": "caught as unknown as PairingError"
+  },
+  {
+    "file": "tests/unit/pairing.test.ts",
+    "text": "caught as unknown as PairingError"
+  },
+  {
+    "file": "tests/unit/pairing.test.ts",
+    "text": "caught as unknown as PairingError"
+  },
+  {
+    "file": "tests/unit/pairing.test.ts",
+    "text": "caught as unknown as PairingError"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "adapter as unknown as { emit: (e: string, p?: unknown) => void }"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "adapter as unknown as { onError?: unknown }"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "adapter as unknown as WebSocketClientAdapter"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "adapter as unknown as WebSocketClientAdapter"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "adapter as unknown as WebSocketClientAdapter"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "adapter as unknown as WebSocketClientAdapter"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "new FakeAdapter() as unknown as WebSocketClientAdapter"
+  },
+  {
+    "file": "tests/unit/peer-relay-adapter.test.ts",
+    "text": "this as unknown as { emit: (e: string, p?: unknown) => void }"
+  },
+  {
+    "file": "tests/unit/peer-repo-server.test.ts",
+    "text": "server.storage as unknown as { baseDirectory: string }"
+  },
+  {
+    "file": "tests/unit/peer-repo-server.test.ts",
+    "text": "server.storage as unknown as { baseDirectory: string }"
+  },
+  {
+    "file": "tests/unit/polly-ui-class-mapping.test.ts",
+    "text": "h(\"svg\", { \"data-icon\": \"true\" }) as unknown as VNode"
+  },
+  {
+    "file": "tests/unit/polly-ui-coverage-fill.test.ts",
+    "text": "{ 0: file, length: 1, item: () => file } as unknown as FileList"
+  },
+  {
+    "file": "tests/unit/primitive-registry.test.ts",
+    "text": "err as unknown as Error"
+  },
+  {
+    "file": "tests/unit/primitive-registry.test.ts",
+    "text": "err as unknown as PrimitiveCollisionError"
+  },
+  {
+    "file": "tests/unit/primitive-registry.test.ts",
+    "text": "err as unknown as PrimitiveCollisionError"
+  },
+  {
+    "file": "tests/unit/primitive-registry.test.ts",
+    "text": "err as unknown as PrimitiveCollisionError"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "\"peer-a\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "\"peer-b\" as unknown as PeerId"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "caught as unknown as RevocationError"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "caught as unknown as RevocationError"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "caught as unknown as RevocationError"
+  },
+  {
+    "file": "tests/unit/revocation.test.ts",
+    "text": "caught as unknown as RevocationError"
+  },
+  {
+    "file": "tests/unit/schema-version.test.ts",
+    "text": "err as unknown as SchemaVersionError"
+  },
+  {
+    "file": "tests/unit/schema-version.test.ts",
+    "text": "err as unknown as SchemaVersionError"
+  },
+  {
+    "file": "tests/unit/schema-version.test.ts",
+    "text": "err as unknown as SchemaVersionError"
+  },
+  {
+    "file": "tests/unit/schema-version.test.ts",
+    "text": "err as unknown as SchemaVersionError"
+  },
+  {
+    "file": "tests/unit/schema-version.test.ts",
+    "text": "err as unknown as SchemaVersionError"
+  },
+  {
+    "file": "tests/unit/state-debounce-clock.test.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "tests/unit/state-debounce-clock.test.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "tests/unit/state-enhancements.test.ts",
+    "text": "undefined as unknown as string | undefined"
+  },
+  {
+    "file": "tests/unit/state-primitives.test.ts",
+    "text": "store.get(k) as unknown as T"
+  },
+  {
+    "file": "tests/unit/state-sync.test.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "tests/unit/state-sync.test.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "tests/unit/state.test.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "tests/unit/state.test.ts",
+    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
+  },
+  {
+    "file": "tests/unit/storage-adapter.test.ts",
+    "text": "globalThis as unknown as GlobalWithChrome"
+  },
+  {
+    "file": "tests/unit/storage-adapter.test.ts",
+    "text": "globalThis as unknown as GlobalWithChrome"
+  },
+  {
+    "file": "tests/unit/storage-adapter.test.ts",
+    "text": "globalThis as unknown as GlobalWithIDB"
+  },
+  {
+    "file": "tests/unit/storage-adapter.test.ts",
+    "text": "globalThis as unknown as GlobalWithIDB"
+  },
+  {
+    "file": "tests/unit/storage-adapter.test.ts",
+    "text": "globalThis as unknown as GlobalWithIDB"
+  },
+  {
+    "file": "tests/unit/storage-adapter.test.ts",
+    "text": "globalThis as unknown as GlobalWithIDB"
+  },
+  {
+    "file": "tests/unit/sweep-sealed.test.ts",
+    "text": "{ handles } as unknown as Repo"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "\"v\" as unknown as T"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "a as unknown as { channel: { postMessage: () => void; close: () => void } }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { BroadcastChannel: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { BroadcastChannel: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tests/unit/sync-adapter.test.ts",
+    "text": "globalThis as unknown as { chrome?: unknown }"
+  },
+  {
+    "file": "tools/analysis/src/extract/adr.ts",
+    "text": "status as unknown as ADRStatus"
+  },
+  {
+    "file": "tools/analysis/src/extract/flows.ts",
+    "text": "targetNode as unknown as any"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "ifNode as unknown as IfStatement"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "ifNode as unknown as IfStatement"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "operator as unknown as { getText(): string }"
+  },
+  {
+    "file": "tools/analysis/src/extract/handlers.ts",
+    "text": "prop as unknown as FunctionDeclaration"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "action[\"default_popup\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "bg[\"page\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "bg[\"scripts\"] as unknown as string[]"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "bg[\"service_worker\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "devtools as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "manifest[\"description\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "manifest[\"host_permissions\"] as unknown as string[]"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "manifest[\"manifest_version\"] as unknown as number"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "manifest[\"name\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "manifest[\"permissions\"] as unknown as string[]"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "manifest[\"version\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "options as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "optionsObj[\"open_in_tab\"] as unknown as boolean"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "optionsObj[\"page\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "script[\"css\"] as unknown as string[] | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "script[\"js\"] as unknown as string[]"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "script[\"matches\"] as unknown as string[]"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "this.manifestData[\"action\"] as unknown as Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "this.manifestData[\"background\"] as unknown as Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/manifest.ts",
+    "text": "this.manifestData[\"browser_action\"] as unknown as Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "(workspacesRaw as unknown as Record<string, unknown>)[\"packages\"] as unknown as string[]"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "action?.[\"default_popup\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "background[\"page\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "background[\"scripts\"] as unknown as string[] | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "background[\"service_worker\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "browserAction?.[\"default_popup\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "firstScriptObj[\"js\"] as unknown as string[] | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "manifest[\"action\"] as unknown as Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "manifest[\"background\"] as unknown as Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "manifest[\"browser_action\"] as unknown as | Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "manifest[\"content_scripts\"] as unknown as | Record<string, unknown>[] | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "manifest[\"options_page\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "manifest[\"options_ui\"] as unknown as Record<string, unknown> | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "optionsUi?.[\"page\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"description\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"description\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"description\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"name\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"name\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"name\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"version\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"version\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "packageJson[\"version\"] as unknown as string | undefined"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "workspacesRaw as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "workspacesRaw as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/analysis/src/extract/project-detector.ts",
+    "text": "wsPkg[\"name\"] as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "t.getLiteralValue() as unknown as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "type as unknown as any"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "type as unknown as any"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "typeType.getLiteralValue() as string"
+  },
+  {
+    "file": "tools/analysis/src/extract/types.ts",
+    "text": "unionType.getLiteralValue() as string"
+  },
+  {
+    "file": "tools/bdd/src/bus-driver.ts",
+    "text": "(await bus.handleMessage(message)) as | { success?: boolean; data?: unknown; error?: string } | undefined"
+  },
+  {
+    "file": "tools/mutate/src/decisions.ts",
+    "text": "JSON.parse(t) as unknown as Decision"
+  },
+  {
+    "file": "tools/mutate/src/ingest.ts",
+    "text": "(await Bun.file(path).json()) as unknown as MutationReport"
+  },
+  {
+    "file": "tools/mutate/src/ingest.ts",
+    "text": "db.query(sql).all() as unknown as T[]"
+  },
+  {
+    "file": "tools/mutate/src/ingest.ts",
+    "text": "db.query(sql).get() as unknown as T | null"
+  },
+  {
+    "file": "tools/quality/src/attest.ts",
+    "text": "JSON.parse(raw) as unknown as { digest?: string }"
+  },
+  {
+    "file": "tools/quality/src/cache.ts",
+    "text": "JSON.parse(raw) as unknown as CacheEntry"
+  },
+  {
+    "file": "tools/quality/src/config.ts",
+    "text": "(await import(path)) as unknown as { default?: { quality?: QualityRunConfig } }"
+  },
+  {
+    "file": "tools/quality/src/plugins/cliche-checks.ts",
+    "text": "noBanners as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/cliche-checks.ts",
+    "text": "noCommentedCode as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/cliche-checks.ts",
+    "text": "noDecorativeEmoji as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/cliche-checks.ts",
+    "text": "noMarketing as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/cliche-checks.ts",
+    "text": "noNotePrefix as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core-checks.ts",
+    "text": "boundaries as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core-checks.ts",
+    "text": "security as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core-checks.ts",
+    "text": "serverImports as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core.ts",
+    "text": "gitignoreCrossCheck as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core.ts",
+    "text": "noAsCasting as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core.ts",
+    "text": "noFixedWaits as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core.ts",
+    "text": "noRequire as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core.ts",
+    "text": "noTautologyEnsures as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/core.ts",
+    "text": "secrets as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/extra-checks.ts",
+    "text": "forbiddenDeps as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/extra-checks.ts",
+    "text": "noStateHooks as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/extra-checks.ts",
+    "text": "typographicQuotes as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/import-checks.ts",
+    "text": "JSON.parse(stripped) as unknown as { compilerOptions?: { paths?: Record<string, unknown> }; }"
+  },
+  {
+    "file": "tools/quality/src/plugins/import-checks.ts",
+    "text": "noRawHttp as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/import-checks.ts",
+    "text": "relativeImports as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/import-checks.ts",
+    "text": "tsconfigPaths as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/import-checks.ts",
+    "text": "types as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/polly-ui.ts",
+    "text": "cssLayout as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/polly-ui.ts",
+    "text": "cssQuality as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/polly-ui.ts",
+    "text": "cssUnused as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/polly-ui.ts",
+    "text": "cssVars as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/polly-ui.ts",
+    "text": "noInlineHandlers as Check<unknown>"
+  },
+  {
+    "file": "tools/quality/src/plugins/polly-ui.ts",
+    "text": "sharedComponents as Check<unknown>"
+  },
+  {
+    "file": "tools/test/src/adapters/fetch.mock.ts",
+    "text": "mockResponse as unknown as Response"
+  },
+  {
+    "file": "tools/test/src/adapters/storage.mock.ts",
+    "text": "(data.has(keys) ? { [keys]: data.get(keys) } : {}) as unknown as T"
+  },
+  {
+    "file": "tools/test/src/adapters/storage.mock.ts",
+    "text": "Object.fromEntries(data) as unknown as T"
+  },
+  {
+    "file": "tools/test/src/adapters/storage.mock.ts",
+    "text": "result as unknown as T"
+  },
+  {
+    "file": "tools/test/src/adapters/storage.mock.ts",
+    "text": "result as unknown as T"
+  },
+  {
+    "file": "tools/test/src/browser/harness.ts",
+    "text": "window as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/test/src/browser/harness.ts",
+    "text": "window as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/test/src/coverage-policy/mutate-targets.ts",
+    "text": "JSON.parse(readFileSync(path, \"utf8\")) as unknown as StrykerConfig"
+  },
+  {
+    "file": "tools/test/src/e2e-mesh/launch-peer.ts",
+    "text": "window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] }"
+  },
+  {
+    "file": "tools/test/src/e2e-mesh/launch-peer.ts",
+    "text": "window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] }"
+  },
+  {
+    "file": "tools/test/src/e2e-shared/ephemeral-port.ts",
+    "text": "app as unknown as BunServerHost"
+  },
+  {
+    "file": "tools/test/src/e2e-shared/ephemeral-port.ts",
+    "text": "wss as unknown as AddressHost"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
+    "text": "{ state: { ...AUTH_STATE, paired: { type: \"boolean\" }, }, messages: { maxInFlight: 2, maxTabs: null }, onBuild: \"warn\", onRelease: \"error\", subsystems: { auth: { state: [\"session\", \"token\"], handlers: [\"AUTH_0\", \"AUTH_1\"] }, pairing: { state: [\"paired\"], handlers: [\"PAIR_0\"], bounds: { maxInFlight: 1 } }, }, } as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
+    "text": "{ state: AUTH_STATE, ...(contexts ? { contexts } : {}), messages, onBuild: \"warn\", onRelease: \"error\", } as unknown as VerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
+    "text": "{ state: AUTH_STATE, ...(contexts ? { contexts } : {}), messages: { maxInFlight: 1, maxTabs: null }, onBuild: \"warn\", onRelease: \"error\", } as unknown as VerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
+    "text": "config as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
+    "text": "config as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
+    "text": "config as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
+    "text": "configWith() as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
+    "text": "configWith() as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
+    "text": "configWith({ contexts: [\"server\"] }) as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/__tests__/validation/error-messages.test.ts",
+    "text": "error as unknown as Error"
+  },
+  {
+    "file": "tools/verify/src/adapters/detection.ts",
+    "text": "this.project.getCompilerOptions()[\"configFilePath\"] as unknown as string"
+  },
+  {
+    "file": "tools/verify/src/adapters/detection.ts",
+    "text": "this.project.getCompilerOptions()[\"configFilePath\"] as unknown as string"
+  },
+  {
+    "file": "tools/verify/src/analysis/expression-validator.ts",
+    "text": "configEntry as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/verify/src/analysis/expression-validator.ts",
+    "text": "configEntry as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/verify/src/analysis/state-space-estimator.ts",
+    "text": "config as unknown as { subsystems?: Record< string, { state: string[]; handlers: string[]; bounds?: { maxInFlight?: number } } >; }"
+  },
+  {
+    "file": "tools/verify/src/analysis/state-space-estimator.ts",
+    "text": "config.messages as unknown as LegacyVerificationConfig[\"messages\"] & { include?: string[]; exclude?: string[]; }"
+  },
+  {
+    "file": "tools/verify/src/analysis/state-space-estimator.ts",
+    "text": "f.cardinality as unknown as number"
+  },
+  {
+    "file": "tools/verify/src/analysis/state-space-estimator.ts",
+    "text": "f.cardinality as unknown as number"
+  },
+  {
+    "file": "tools/verify/src/analysis/state-space-estimator.ts",
+    "text": "value as unknown as Record<string, unknown>"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "analysis as unknown as import(\"./core/model\").CodebaseAnalysis"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "analysis as unknown as import(\"./core/model\").CodebaseAnalysis"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "config as unknown as import(\"./config/types\").UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "config as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "config as unknown as UnifiedVerificationConfig"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "config.subsystems as unknown as Record< string, { state: string[]; handlers: string[] } >"
+  },
+  {
+    "file": "tools/verify/src/cli.ts",
+    "text": "config.subsystems as unknown as Record<string, { state: string[] }>"
+  },
+  {
+    "file": "tools/verify/src/codegen/__tests__/tla-codegen-validation.test.ts",
+    "text": "generator as unknown as any"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "filteredState as unknown as VerificationConfig[\"state\"]"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "firstType as unknown as FieldAnalysis[\"type\"]"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "value as unknown as FieldConfig"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "value as unknown as FieldConfig"
+  },
+  {
+    "file": "tools/verify/src/codegen/tla.ts",
+    "text": "value as unknown as FieldConfig"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "fieldConfig as unknown as { max?: number | null }"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "fieldConfig as unknown as { maxLength?: number | null }"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "fieldConfig as unknown as { maxSize?: number | null }"
+  },
+  {
+    "file": "tools/verify/src/config/parser.ts",
+    "text": "fieldConfig as unknown as { min?: number | null }"
+  },
+  {
+    "file": "tools/visualize/src/__tests__/fixtures/cross-file-handlers/server.ts",
+    "text": "JSON.parse(data) as unknown as RequestMessage"
+  },
+  {
+    "file": "tools/visualize/src/__tests__/fixtures/mesh-app/src/server.ts",
+    "text": "JSON.parse(data.toString()) as unknown as RequestMessage"
+  },
+  {
+    "file": "tools/visualize/src/__tests__/fixtures/simple-websocket/src/server.ts",
+    "text": "JSON.parse(data.toString()) as unknown as RequestMessage"
+  },
+  {
+    "file": "tools/visualize/src/__tests__/viewer-charset.test.ts",
+    "text": "server as unknown as { serveMainPage(dsl: string): Response; serveDslFile(dsl: string): Response; }"
+  },
+  {
+    "file": "tools/visualize/src/mesh-snapshot.ts",
+    "text": "data as unknown as MeshClientPeerStateSnapshot"
+  },
+  {
+    "file": "tools/visualize/src/mesh-snapshot.ts",
+    "text": "value as unknown as MeshClientHandleSnapshot"
+  },
+  {
+    "file": "tools/visualize/src/mesh-snapshot.ts",
+    "text": "value as unknown as MeshClientPeerStateSnapshot[\"peers\"][number]"
+  }
+]
