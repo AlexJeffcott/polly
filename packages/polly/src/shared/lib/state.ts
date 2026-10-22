@@ -1,19 +1,10 @@
 // State primitives with optional sync and persistence
 
 import { effect, type Signal, signal } from "@preact/signals";
+import { readNumber } from "./guards";
 import type { MessageBus } from "./message-bus";
 import { createStorageAdapter, type StorageAdapter } from "./storage-adapter";
 import { createSyncAdapter, type StateSyncMessage, type SyncAdapter } from "./sync-adapter";
-
-/**
- * Signal extended with .loaded promise for hydration control
- */
-type SignalWithLoaded<T> = Signal<T> & { loaded: Promise<void> };
-
-/**
- * Signal extended with .loaded and .verify properties for verification tracking
- */
-type SignalWithVerify<T> = Signal<T> & { loaded: Promise<void>; verify: T };
 
 type StateEntry<T> = {
   signal: Signal<T>;
@@ -68,19 +59,14 @@ export function $sharedState<T>(
   initialValue: T,
   options: StateOptions<T> = {}
 ): Signal<T> & { loaded: Promise<void>; verify?: T } {
-  const sig = createState(key, initialValue, {
+  const entry = createState(key, initialValue, {
     ...options,
     enableSync: true,
     enablePersist: true,
   });
 
   // Expose loaded promise for awaiting hydration
-  const entry = stateRegistry.get(key);
-  if (entry) {
-    (sig as unknown as SignalWithLoaded<T>).loaded = entry.loaded;
-  }
-
-  return sig as unknown as Signal<T> & { loaded: Promise<void> };
+  return Object.assign(entry.signal, { loaded: entry.loaded });
 }
 
 /**
@@ -111,7 +97,7 @@ export function $syncedState<T>(
     ...options,
     enableSync: true,
     enablePersist: false,
-  });
+  }).signal;
 }
 
 /**
@@ -139,19 +125,14 @@ export function $persistedState<T>(
   initialValue: T,
   options: StateOptions<T> = {}
 ): Signal<T> & { loaded: Promise<void> } {
-  const sig = createState(key, initialValue, {
+  const entry = createState(key, initialValue, {
     ...options,
     enableSync: false,
     enablePersist: true,
   });
 
   // Expose loaded promise for awaiting hydration
-  const entry = stateRegistry.get(key);
-  if (entry) {
-    (sig as unknown as SignalWithLoaded<T>).loaded = entry.loaded;
-  }
-
-  return sig as unknown as Signal<T> & { loaded: Promise<void> };
+  return Object.assign(entry.signal, { loaded: entry.loaded });
 }
 
 /**
@@ -272,21 +253,31 @@ function resolveAdapters(options: InternalStateOptions): {
   };
 }
 
-function createState<T>(key: string, initialValue: T, options: InternalStateOptions<T>): Signal<T> {
-  // Return existing signal if already registered
-  if (stateRegistry.has(key)) {
-    return stateRegistry.get(key)?.signal as unknown as Signal<T>;
+function createState<T>(
+  key: string,
+  initialValue: T,
+  options: InternalStateOptions<T>
+): StateEntry<T> {
+  // Return existing entry if already registered
+  const existing = stateRegistry.get(key);
+  if (existing) {
+    // The registry erases T (it stores StateEntry<unknown>); the key is the
+    // caller's contract that the stored entry carries their T.
+    return existing as unknown as StateEntry<T>;
   }
 
   const sig = signal(initialValue);
 
-  // Create verification mirror if requested
+  // Create verification mirror if requested. The effect below updates the
+  // mirror in place; `sig.verify` exposes it to verification tooling.
+  let mirror: T | undefined;
   if (options.verify) {
     // Create plain object mirror for verification
     const copy: unknown = JSON.parse(JSON.stringify(initialValue));
     // cast: a JSON round trip of a T; the verification mirror is plain data
-    const mirror = copy as T;
-    (sig as unknown as SignalWithVerify<T>).verify = mirror;
+    mirror = copy as T;
+    // nosemgrep: javascript.lang.security.insecure-object-assign.insecure-object-assign — one constant key; the value is a JSON clone of the caller's own initial value.
+    Object.assign(sig, { verify: mirror });
   }
 
   const entry: StateEntry<T> = {
@@ -345,12 +336,9 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       previousValue = value;
 
       // Update verification mirror if enabled
-      if (options.verify) {
-        const verifySignal = sig as unknown as SignalWithVerify<T>;
-        if (verifySignal.verify) {
-          // nosemgrep: javascript.lang.security.insecure-object-assign.insecure-object-assign — internal mirror; value is a deep JSON clone, not arbitrary external input.
-          Object.assign(verifySignal.verify, JSON.parse(JSON.stringify(value)));
-        }
+      if (mirror) {
+        // nosemgrep: javascript.lang.security.insecure-object-assign.insecure-object-assign — internal mirror; value is a deep JSON clone, not arbitrary external input.
+        Object.assign(mirror, JSON.parse(JSON.stringify(value)));
       }
 
       // Increment clock monotonically
@@ -463,7 +451,7 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   }
 
   stateRegistry.set(key, entry);
-  return sig;
+  return entry;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -518,8 +506,9 @@ async function loadFromStorage<T>(
       }
     }
 
-    if (result[`${key}:clock`] !== undefined) {
-      entry.clock = result[`${key}:clock`] as unknown as number;
+    const storedClock = readNumber(result[`${key}:clock`]);
+    if (storedClock !== undefined) {
+      entry.clock = storedClock;
     }
   } catch (error) {
     console.warn(`[Polly] Failed to load state from storage: ${key}`, error);
