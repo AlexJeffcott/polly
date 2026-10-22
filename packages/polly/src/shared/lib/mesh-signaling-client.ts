@@ -18,6 +18,8 @@
  * in-process. A Playwright harness still covers the real-browser socket.
  */
 
+import { isRecord } from "./guards";
+
 /** A signal message either sent to or received from the signalling server.
  * Matches the wire format produced by the Elysia signalingServer plugin. */
 export interface SignalingMessage {
@@ -113,10 +115,10 @@ function parseFrame(raw: unknown): Record<string, unknown> | undefined {
   } catch {
     return undefined;
   }
-  if (typeof parsed !== "object" || parsed === null) {
+  if (!isRecord(parsed)) {
     return undefined;
   }
-  const record = parsed as unknown as Record<string, unknown>;
+  const record = parsed;
   if (typeof record["type"] !== "string") {
     return undefined;
   }

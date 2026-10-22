@@ -3,6 +3,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  readRecord,
+  readRecordArray,
+  readString,
+  readStringArray,
+} from "../../../../src/shared/lib/guards";
 import type { ProjectConfig } from "../types/architecture";
 
 /**
@@ -90,7 +96,7 @@ export class ProjectDetector {
    * Detect Chrome extension from manifest.json
    */
   private detectChromeExtension(manifestPath: string): ProjectConfig {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+    const manifest = readRecord(JSON.parse(fs.readFileSync(manifestPath, "utf-8"))) ?? {};
     const entryPoints: Record<string, string> = {};
 
     this.detectBackgroundEntry(manifest, entryPoints);
@@ -102,9 +108,9 @@ export class ProjectDetector {
       type: "chrome-extension",
       entryPoints,
       metadata: {
-        name: manifest.name,
-        version: manifest.version,
-        description: manifest.description,
+        name: readString(manifest["name"]),
+        version: readString(manifest["version"]),
+        description: readString(manifest["description"]),
       },
     };
   }
@@ -116,13 +122,13 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const background = manifest["background"] as unknown as Record<string, unknown> | undefined;
+    const background = readRecord(manifest["background"]);
     if (!background) return;
 
     const file =
-      (background["service_worker"] as unknown as string | undefined) ||
-      (background["scripts"] as unknown as string[] | undefined)?.[0] ||
-      (background["page"] as unknown as string | undefined);
+      readString(background["service_worker"]) ||
+      readStringArray(background["scripts"])?.[0] ||
+      readString(background["page"]);
     if (file) {
       entryPoints["background"] = this.findSourceFile(file);
     }
@@ -135,15 +141,10 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const contentScripts = manifest["content_scripts"] as unknown as
-      | Record<string, unknown>[]
-      | undefined;
-    if (!contentScripts || contentScripts.length === 0) return;
-
-    const firstScriptObj = contentScripts[0];
+    const firstScriptObj = readRecordArray(manifest["content_scripts"])?.[0];
     if (!firstScriptObj) return;
 
-    const firstScript = (firstScriptObj["js"] as unknown as string[] | undefined)?.[0];
+    const firstScript = readStringArray(firstScriptObj["js"])?.[0];
     if (firstScript) {
       entryPoints["content"] = this.findSourceFile(firstScript);
     }
@@ -156,13 +157,9 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const action = manifest["action"] as unknown as Record<string, unknown> | undefined;
-    const browserAction = manifest["browser_action"] as unknown as
-      | Record<string, unknown>
-      | undefined;
     const popup =
-      (action?.["default_popup"] as unknown as string | undefined) ||
-      (browserAction?.["default_popup"] as unknown as string | undefined);
+      readString(readRecord(manifest["action"])?.["default_popup"]) ||
+      readString(readRecord(manifest["browser_action"])?.["default_popup"]);
     if (!popup) return;
 
     const jsFile = this.findAssociatedJS(path.join(this.projectRoot, popup));
@@ -178,10 +175,9 @@ export class ProjectDetector {
     manifest: Record<string, unknown>,
     entryPoints: Record<string, string>
   ): void {
-    const optionsUi = manifest["options_ui"] as unknown as Record<string, unknown> | undefined;
     const options =
-      (optionsUi?.["page"] as unknown as string | undefined) ||
-      (manifest["options_page"] as unknown as string | undefined);
+      readString(readRecord(manifest["options_ui"])?.["page"]) ||
+      readString(manifest["options_page"]);
     if (!options) return;
 
     const jsFile = this.findAssociatedJS(path.join(this.projectRoot, options));
@@ -292,9 +288,9 @@ export class ProjectDetector {
         renderer: "Renderer Process",
       },
       metadata: {
-        name: packageJson["name"] as unknown as string | undefined,
-        version: packageJson["version"] as unknown as string | undefined,
-        description: packageJson["description"] as unknown as string | undefined,
+        name: readString(packageJson["name"]),
+        version: readString(packageJson["version"]),
+        description: readString(packageJson["description"]),
       },
     };
   }
@@ -369,9 +365,9 @@ export class ProjectDetector {
               client: "Client",
             },
       metadata: {
-        name: packageJson["name"] as unknown as string | undefined,
-        version: packageJson["version"] as unknown as string | undefined,
-        description: packageJson["description"] as unknown as string | undefined,
+        name: readString(packageJson["name"]),
+        version: readString(packageJson["version"]),
+        description: readString(packageJson["description"]),
       },
     };
   }
@@ -690,11 +686,11 @@ export class ProjectDetector {
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Monorepo detection requires iterating workspaces and scoring candidates
   private detectMonorepo(packageJson: Record<string, unknown>): ProjectConfig | null {
     const workspacesRaw = packageJson["workspaces"];
-    const patterns: string[] = Array.isArray(workspacesRaw)
-      ? workspacesRaw
-      : Array.isArray((workspacesRaw as unknown as Record<string, unknown>)?.["packages"])
-        ? ((workspacesRaw as unknown as Record<string, unknown>)["packages"] as unknown as string[])
-        : [];
+    // `workspaces` is either a list of globs or `{ packages: [...] }` (yarn).
+    const patterns =
+      readStringArray(workspacesRaw) ??
+      readStringArray(readRecord(workspacesRaw)?.["packages"]) ??
+      [];
 
     if (patterns.length === 0) return null;
 
@@ -720,7 +716,7 @@ export class ProjectDetector {
         continue;
       }
 
-      const pkgName = (wsPkg["name"] as unknown as string) || path.basename(wsDir);
+      const pkgName = readString(wsPkg["name"]) || path.basename(wsDir);
       const context = this.inferContextFromPackageName(pkgName);
 
       // Score server candidates relative to this workspace
@@ -787,9 +783,9 @@ export class ProjectDetector {
       contextMapping,
       workspacePackages,
       metadata: {
-        name: packageJson["name"] as unknown as string | undefined,
-        version: packageJson["version"] as unknown as string | undefined,
-        description: packageJson["description"] as unknown as string | undefined,
+        name: readString(packageJson["name"]),
+        version: readString(packageJson["version"]),
+        description: readString(packageJson["description"]),
       },
     };
   }

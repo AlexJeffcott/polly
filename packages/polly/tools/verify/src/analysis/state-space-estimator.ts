@@ -1,3 +1,4 @@
+import { isRecord } from "../../../../src/shared/lib/guards";
 import {
   type ContextSetInput,
   generatedTabCount,
@@ -109,11 +110,11 @@ function fieldCardinality(name: string, value: unknown): FieldEstimate {
     return { name, cardinality: value.length, kind: "enum (literal)" };
   }
 
-  if (typeof value !== "object" || value === null) {
+  if (!isRecord(value)) {
     return { name, cardinality: "unbounded", kind: "unknown" };
   }
 
-  const obj = value as unknown as Record<string, unknown>;
+  const obj = value;
 
   return (
     typedFieldCardinality(name, obj) ??

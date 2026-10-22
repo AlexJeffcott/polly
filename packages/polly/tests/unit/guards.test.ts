@@ -1,5 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { assertNever, hasKeyInObject, isRecord } from "@/shared/lib/guards";
+import {
+  assertNever,
+  hasKeyInObject,
+  isRecord,
+  readBoolean,
+  readNumber,
+  readRecord,
+  readRecordArray,
+  readString,
+  readStringArray,
+} from "@/shared/lib/guards";
 
 describe("isRecord", () => {
   test("returns true for plain objects", () => {
@@ -89,5 +99,31 @@ describe("assertNever", () => {
     // fires. If assertNever's parameter were widened, this directive would
     // become unused and `tsc` (the project typecheck) would fail.
     expect(() => assertNever(stillB)).toThrow();
+  });
+});
+
+describe("readers", () => {
+  test("return the value only when it has the named type", () => {
+    expect(readString("a")).toBe("a");
+    expect(readString(1)).toBeUndefined();
+    expect(readNumber(0)).toBe(0);
+    expect(readNumber("0")).toBeUndefined();
+    expect(readBoolean(false)).toBe(false);
+    expect(readBoolean(0)).toBeUndefined();
+    expect(readRecord({ a: 1 })).toEqual({ a: 1 });
+    expect(readRecord([])).toBeUndefined();
+    expect(readRecord(null)).toBeUndefined();
+  });
+
+  test("readStringArray rejects an array with any non-string element", () => {
+    expect(readStringArray(["a", "b"])).toEqual(["a", "b"]);
+    expect(readStringArray([])).toEqual([]);
+    expect(readStringArray(["a", 1])).toBeUndefined();
+    expect(readStringArray("a")).toBeUndefined();
+  });
+
+  test("readRecordArray drops non-object elements", () => {
+    expect(readRecordArray([{ a: 1 }, 2, null, [], { b: 2 }])).toEqual([{ a: 1 }, { b: 2 }]);
+    expect(readRecordArray({})).toBeUndefined();
   });
 });

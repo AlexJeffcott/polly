@@ -35,6 +35,41 @@ export function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
 }
 
+/*
+ * Readers for values of unknown shape, such as fields of parsed JSON. Each
+ * returns the value when it has the named type and `undefined` otherwise, so
+ * `readString(pkg["name"]) ?? "unnamed"` replaces `pkg["name"] as string`,
+ * which claims a type the data never promised.
+ */
+
+export function readString(input: unknown): string | undefined {
+  return typeof input === "string" ? input : undefined;
+}
+
+export function readNumber(input: unknown): number | undefined {
+  return typeof input === "number" ? input : undefined;
+}
+
+export function readBoolean(input: unknown): boolean | undefined {
+  return typeof input === "boolean" ? input : undefined;
+}
+
+/** The array when every element is a string; `undefined` for anything else. */
+export function readStringArray(input: unknown): string[] | undefined {
+  return Array.isArray(input) && input.every((item): item is string => typeof item === "string")
+    ? input
+    : undefined;
+}
+
+export function readRecord(input: unknown): Record<string, unknown> | undefined {
+  return isRecord(input) ? input : undefined;
+}
+
+/** The array, with every element that is not a plain object dropped; `undefined` for a non-array. */
+export function readRecordArray(input: unknown): Record<string, unknown>[] | undefined {
+  return Array.isArray(input) ? input.filter(isRecord) : undefined;
+}
+
 /**
  * Compile-time exhaustiveness check for discriminated unions.
  *

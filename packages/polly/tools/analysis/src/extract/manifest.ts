@@ -2,6 +2,14 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  readBoolean,
+  readNumber,
+  readRecord,
+  readRecordArray,
+  readString,
+  readStringArray,
+} from "../../../../src/shared/lib/guards";
 import type { ManifestInfo } from "../types/architecture";
 
 /**
@@ -26,7 +34,7 @@ export class ManifestParser {
 
     try {
       const content = fs.readFileSync(this.manifestPath, "utf-8");
-      this.manifestData = JSON.parse(content);
+      this.manifestData = readRecord(JSON.parse(content)) ?? null;
     } catch (error) {
       throw new Error(`Failed to parse manifest.json: ${error}`);
     }
@@ -52,17 +60,17 @@ export class ManifestParser {
     const manifest = this.manifestData;
 
     return {
-      name: (manifest["name"] as unknown as string) || "Unknown Extension",
-      version: (manifest["version"] as unknown as string) || "0.0.0",
-      description: manifest["description"] as unknown as string | undefined,
-      manifestVersion: (manifest["manifest_version"] as unknown as number) || 2,
+      name: readString(manifest["name"]) || "Unknown Extension",
+      version: readString(manifest["version"]) || "0.0.0",
+      description: readString(manifest["description"]),
+      manifestVersion: readNumber(manifest["manifest_version"]) || 2,
       background: this.parseBackground(),
       contentScripts: this.parseContentScripts(),
       popup: this.parsePopup(),
       options: this.parseOptions(),
       devtools: this.parseDevtools(),
-      permissions: (manifest["permissions"] as unknown as string[]) || [],
-      hostPermissions: (manifest["host_permissions"] as unknown as string[]) || [],
+      permissions: readStringArray(manifest["permissions"]) ?? [],
+      hostPermissions: readStringArray(manifest["host_permissions"]) ?? [],
     };
   }
 
@@ -144,31 +152,25 @@ export class ManifestParser {
   private parseBackground(): ManifestInfo["background"] {
     if (!this.manifestData) return undefined;
 
-    const bg = this.manifestData["background"] as unknown as Record<string, unknown> | undefined;
+    const bg = readRecord(this.manifestData["background"]);
     if (!bg) return undefined;
 
     // Manifest V3 - service worker
-    if (bg["service_worker"]) {
-      return {
-        type: "service_worker",
-        files: [bg["service_worker"] as unknown as string],
-      };
+    const serviceWorker = readString(bg["service_worker"]);
+    if (serviceWorker) {
+      return { type: "service_worker", files: [serviceWorker] };
     }
 
     // Manifest V2 - scripts
-    if (bg["scripts"]) {
-      return {
-        type: "script",
-        files: bg["scripts"] as unknown as string[],
-      };
+    const scripts = readStringArray(bg["scripts"]);
+    if (scripts) {
+      return { type: "script", files: scripts };
     }
 
     // Manifest V2 - page
-    if (bg["page"]) {
-      return {
-        type: "script",
-        files: [bg["page"] as unknown as string],
-      };
+    const page = readString(bg["page"]);
+    if (page) {
+      return { type: "script", files: [page] };
     }
 
     return undefined;
@@ -180,13 +182,13 @@ export class ManifestParser {
   private parseContentScripts(): ManifestInfo["contentScripts"] {
     if (!this.manifestData) return undefined;
 
-    const cs = this.manifestData["content_scripts"];
-    if (!cs || !Array.isArray(cs)) return undefined;
+    const cs = readRecordArray(this.manifestData["content_scripts"]);
+    if (!cs) return undefined;
 
-    return cs.map((script: Record<string, unknown>) => ({
-      matches: (script["matches"] as unknown as string[]) || [],
-      js: (script["js"] as unknown as string[]) || [],
-      css: script["css"] as unknown as string[] | undefined,
+    return cs.map((script) => ({
+      matches: readStringArray(script["matches"]) ?? [],
+      js: readStringArray(script["js"]) ?? [],
+      css: readStringArray(script["css"]),
     }));
   }
 
@@ -197,15 +199,12 @@ export class ManifestParser {
     if (!this.manifestData) return undefined;
 
     const action =
-      (this.manifestData["action"] as unknown as Record<string, unknown> | undefined) ||
-      (this.manifestData["browser_action"] as unknown as Record<string, unknown> | undefined);
+      readRecord(this.manifestData["action"]) ?? readRecord(this.manifestData["browser_action"]);
     if (!action) return undefined;
 
-    if (action["default_popup"]) {
-      return {
-        html: action["default_popup"] as unknown as string,
-        default: true,
-      };
+    const popup = readString(action["default_popup"]);
+    if (popup) {
+      return { html: popup, default: true };
     }
 
     return undefined;
@@ -227,10 +226,12 @@ export class ManifestParser {
       };
     }
 
-    const optionsObj = options as unknown as Record<string, unknown>;
+    const optionsObj = readRecord(options);
+    const page = readString(optionsObj?.["page"]);
+    if (!page) return undefined;
     return {
-      page: optionsObj["page"] as unknown as string,
-      openInTab: optionsObj["open_in_tab"] as unknown as boolean,
+      page,
+      openInTab: readBoolean(optionsObj?.["open_in_tab"]) ?? false,
     };
   }
 
@@ -240,12 +241,10 @@ export class ManifestParser {
   private parseDevtools(): ManifestInfo["devtools"] {
     if (!this.manifestData) return undefined;
 
-    const devtools = this.manifestData["devtools_page"];
+    const devtools = readString(this.manifestData["devtools_page"]);
     if (!devtools) return undefined;
 
-    return {
-      page: devtools as unknown as string,
-    };
+    return { page: devtools };
   }
 
   /**

@@ -24,6 +24,8 @@
  * these helpers; nothing in this file depends on Automerge or any transport.
  */
 
+import { isRecord } from "./guards";
+
 /**
  * The reserved field name used to store the schema version on every peer-first
  * document. Applications must not use this field for their own data; the
@@ -110,9 +112,8 @@ export class SchemaVersionError extends Error {
  * handles the undefined-to-1 transition.
  */
 export function getDocVersion(doc: unknown): number {
-  if (typeof doc !== "object" || doc === null) return 0;
-  const record = doc as unknown as Record<string, unknown>;
-  const value = record[SCHEMA_VERSION_FIELD];
+  if (!isRecord(doc)) return 0;
+  const value = doc[SCHEMA_VERSION_FIELD];
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
