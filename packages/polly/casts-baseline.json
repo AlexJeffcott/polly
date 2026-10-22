@@ -368,10 +368,6 @@
     "text": "listener as unknown as EventListener"
   },
   {
-    "file": "src/shared/lib/blob-ref.ts",
-    "text": "value as unknown as Record<string, unknown>"
-  },
-  {
     "file": "src/shared/lib/blob-store-impl.ts",
     "text": "header as unknown as BlobChunkHeader"
   },
@@ -437,10 +433,6 @@
   },
   {
     "file": "src/shared/lib/mesh-signaling-client.ts",
-    "text": "parsed as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/mesh-signaling-client.ts",
     "text": "record as unknown as CustomSignalingFrame"
   },
   {
@@ -494,18 +486,6 @@
   {
     "file": "src/shared/lib/peer-repo-server.ts",
     "text": "wss as unknown as ConstructorParameters<typeof WebSocketServerAdapter>[0]"
-  },
-  {
-    "file": "src/shared/lib/schema-version.ts",
-    "text": "doc as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "a as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "b as unknown as Record<string, unknown>"
   },
   {
     "file": "src/shared/lib/state.ts",
@@ -585,10 +565,6 @@
   },
   {
     "file": "src/shared/lib/validation.ts",
-    "text": "value as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/validation.ts",
     "text": "value as unknown as T"
   },
   {
@@ -634,10 +610,6 @@
   {
     "file": "tests/browser/mesh-webrtc.browser.ts",
     "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/integration/centralized-logging.test.ts",
-    "text": "log.context.metadata as unknown as Record<string, unknown>"
   },
   {
     "file": "tests/integration/peer-state-relay.test.ts",
@@ -1484,190 +1456,6 @@
     "text": "prop as unknown as FunctionDeclaration"
   },
   {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "action[\"default_popup\"] as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "bg[\"page\"] as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "bg[\"scripts\"] as unknown as string[]"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "bg[\"service_worker\"] as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "devtools as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "manifest[\"description\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "manifest[\"host_permissions\"] as unknown as string[]"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "manifest[\"manifest_version\"] as unknown as number"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "manifest[\"name\"] as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "manifest[\"permissions\"] as unknown as string[]"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "manifest[\"version\"] as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "options as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "optionsObj[\"open_in_tab\"] as unknown as boolean"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "optionsObj[\"page\"] as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "script[\"css\"] as unknown as string[] | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "script[\"js\"] as unknown as string[]"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "script[\"matches\"] as unknown as string[]"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "this.manifestData[\"action\"] as unknown as Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "this.manifestData[\"background\"] as unknown as Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/manifest.ts",
-    "text": "this.manifestData[\"browser_action\"] as unknown as Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "(workspacesRaw as unknown as Record<string, unknown>)[\"packages\"] as unknown as string[]"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "action?.[\"default_popup\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "background[\"page\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "background[\"scripts\"] as unknown as string[] | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "background[\"service_worker\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "browserAction?.[\"default_popup\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "firstScriptObj[\"js\"] as unknown as string[] | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "manifest[\"action\"] as unknown as Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "manifest[\"background\"] as unknown as Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "manifest[\"browser_action\"] as unknown as | Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "manifest[\"content_scripts\"] as unknown as | Record<string, unknown>[] | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "manifest[\"options_page\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "manifest[\"options_ui\"] as unknown as Record<string, unknown> | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "optionsUi?.[\"page\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"description\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"description\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"description\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"name\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"name\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"name\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"version\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"version\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "packageJson[\"version\"] as unknown as string | undefined"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "workspacesRaw as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "workspacesRaw as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tools/analysis/src/extract/project-detector.ts",
-    "text": "wsPkg[\"name\"] as unknown as string"
-  },
-  {
     "file": "tools/analysis/src/extract/types.ts",
     "text": "t.getLiteralValue() as unknown as string"
   },
@@ -1816,14 +1604,6 @@
     "text": "this.project.getCompilerOptions()[\"configFilePath\"] as unknown as string"
   },
   {
-    "file": "tools/verify/src/analysis/expression-validator.ts",
-    "text": "configEntry as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tools/verify/src/analysis/expression-validator.ts",
-    "text": "configEntry as unknown as Record<string, unknown>"
-  },
-  {
     "file": "tools/verify/src/analysis/state-space-estimator.ts",
     "text": "config as unknown as { subsystems?: Record< string, { state: string[]; handlers: string[]; bounds?: { maxInFlight?: number } } >; }"
   },
@@ -1838,10 +1618,6 @@
   {
     "file": "tools/verify/src/analysis/state-space-estimator.ts",
     "text": "f.cardinality as unknown as number"
-  },
-  {
-    "file": "tools/verify/src/analysis/state-space-estimator.ts",
-    "text": "value as unknown as Record<string, unknown>"
   },
   {
     "file": "tools/verify/src/cli.ts",
@@ -1894,22 +1670,6 @@
   {
     "file": "tools/verify/src/codegen/tla.ts",
     "text": "value as unknown as FieldConfig"
-  },
-  {
-    "file": "tools/verify/src/config/parser.ts",
-    "text": "fieldConfig as unknown as { max?: number | null }"
-  },
-  {
-    "file": "tools/verify/src/config/parser.ts",
-    "text": "fieldConfig as unknown as { maxLength?: number | null }"
-  },
-  {
-    "file": "tools/verify/src/config/parser.ts",
-    "text": "fieldConfig as unknown as { maxSize?: number | null }"
-  },
-  {
-    "file": "tools/verify/src/config/parser.ts",
-    "text": "fieldConfig as unknown as { min?: number | null }"
   },
   {
     "file": "tools/visualize/src/__tests__/fixtures/cross-file-handlers/server.ts",

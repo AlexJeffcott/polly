@@ -3,6 +3,7 @@
  * Catches patterns that produce broken TLA+ and gives actionable warnings.
  */
 
+import { isRecord } from "../../../../src/shared/lib/guards";
 import type { MessageHandler } from "../core/model";
 
 // Types
@@ -113,8 +114,8 @@ function resolveConfigEntry(
 // Type resolution helpers
 
 function isArrayLike(configEntry: unknown): boolean {
-  if (configEntry && typeof configEntry === "object") {
-    const obj = configEntry as unknown as Record<string, unknown>;
+  if (isRecord(configEntry)) {
+    const obj = configEntry;
     if (obj["type"] === "array") return true;
     if ("maxLength" in obj) return true;
     if ("maxSize" in obj) return true;
@@ -126,8 +127,8 @@ function isNullable(configEntry: unknown): boolean {
   if (Array.isArray(configEntry)) {
     return configEntry.includes(null);
   }
-  if (configEntry && typeof configEntry === "object") {
-    const obj = configEntry as unknown as Record<string, unknown>;
+  if (isRecord(configEntry)) {
+    const obj = configEntry;
     // { abstract: true } allows extra values including null-like
     if (obj["abstract"] === true) return true;
     // { values: [...] } — check if null is in the values array

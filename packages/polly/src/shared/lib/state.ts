@@ -225,20 +225,14 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   if (a == null || b == null) return false;
   if (typeof a !== "object" || typeof b !== "object") return false;
 
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
+  const entriesA = Object.entries(a);
+  const valuesB = new Map<string, unknown>(Object.entries(b));
 
-  if (keysA.length !== keysB.length) return false;
+  if (entriesA.length !== valuesB.size) return false;
 
-  for (const key of keysA) {
-    if (!keysB.includes(key)) return false;
-    if (
-      !deepEqual(
-        (a as unknown as Record<string, unknown>)[key],
-        (b as unknown as Record<string, unknown>)[key]
-      )
-    )
-      return false;
+  for (const [key, value] of entriesA) {
+    if (!valuesB.has(key)) return false;
+    if (!deepEqual(value, valuesB.get(key))) return false;
   }
 
   return true;

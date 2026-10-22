@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from "bun:test";
 import type { MockExtensionAdapters } from "@fairfox/polly/test";
 import { createMockAdapters } from "@fairfox/polly/test";
 import { LogStore } from "@/background/log-store";
+import { isRecord } from "@/shared/lib/guards";
 import { MessageBus } from "@/shared/lib/message-bus";
 
 let backgroundAdapters: MockExtensionAdapters;
@@ -500,11 +501,9 @@ test("Integration - Context metadata is preserved in logs", async () => {
 
   expect(log.context?.userId).toBe("12345");
   expect(log.context?.action).toBe("click");
-  if (!log.context?.metadata || typeof log.context.metadata !== "object") {
-    throw new Error("Invalid metadata");
-  }
-  const metadata = log.context.metadata as unknown as Record<string, unknown>;
-  expect(metadata.page).toBe("settings");
+  const metadata = log.context?.metadata;
+  if (!isRecord(metadata)) throw new Error("Invalid metadata");
+  expect(metadata["page"]).toBe("settings");
 });
 
 test("Integration - Error stack traces are captured", async () => {

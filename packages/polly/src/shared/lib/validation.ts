@@ -5,6 +5,8 @@
  * For more complex validation, consider using Zod or similar libraries.
  */
 
+import { isRecord } from "./guards";
+
 type PrimitiveType = "string" | "number" | "boolean" | "object" | "array" | "null" | "undefined";
 
 type ShapeDefinition = Record<string, PrimitiveType | Record<string, PrimitiveType>>;
@@ -72,9 +74,9 @@ function checkFieldType(
  */
 export function validateShape<T>(shape: ShapeDefinition): (value: unknown) => value is T {
   return (value: unknown): value is T => {
-    if (typeof value !== "object" || value === null) return false;
+    if (!isRecord(value)) return false;
 
-    const obj = value as unknown as Record<string, unknown>;
+    const obj = value;
 
     for (const [key, type] of Object.entries(shape)) {
       if (!(key in obj)) return false;

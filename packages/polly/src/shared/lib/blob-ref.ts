@@ -31,6 +31,8 @@
  * ```
  */
 
+import { isRecord } from "./guards";
+
 /**
  * Content-addressed reference to a binary blob.
  *
@@ -54,8 +56,8 @@ export type BlobRef = {
  * may have been authored by older clients or by clients running different schemas.
  */
 export function isBlobRef(value: unknown): value is BlobRef {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as unknown as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const v = value;
   return (
     typeof v["hash"] === "string" &&
     /^[0-9a-f]{64}$/.test(v["hash"]) &&

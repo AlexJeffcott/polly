@@ -145,4 +145,33 @@ describe("ManifestParser", () => {
       expect(result1.version).toBe(result2.version);
     });
   });
+
+  describe("fields of the wrong type", () => {
+    function parseManifest(manifest: Record<string, unknown>) {
+      const dir = fs.mkdtempSync(path.join(tempDir, "fields-"));
+      fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest));
+      return new ManifestParser(dir).parse();
+    }
+
+    test("read as absent, not passed through", () => {
+      const info = parseManifest({
+        name: 42,
+        permissions: "tabs",
+        background: { service_worker: ["sw.js"] },
+        content_scripts: [{ matches: ["<all_urls>"], js: "content.js" }, "junk"],
+      });
+      expect(info.name).toBe("Unknown Extension");
+      expect(info.permissions).toEqual([]);
+      expect(info.background).toBeUndefined();
+      expect(info.contentScripts).toEqual([{ matches: ["<all_urls>"], js: [], css: undefined }]);
+    });
+
+    test("options_ui without a page string gives no options; open_in_tab defaults to false", () => {
+      expect(parseManifest({ options_ui: { open_in_tab: true } }).options).toBeUndefined();
+      expect(parseManifest({ options_ui: { page: "options.html" } }).options).toEqual({
+        page: "options.html",
+        openInTab: false,
+      });
+    });
+  });
 });

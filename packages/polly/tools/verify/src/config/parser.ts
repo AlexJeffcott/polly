@@ -2,6 +2,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { readNumber } from "../../../../src/shared/lib/guards";
 import {
   CONTEXT_NAME_PATTERN,
   DEFAULT_CONTEXTS,
@@ -343,8 +344,9 @@ export class ConfigValidator {
   }
 
   private validateArrayBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
-    const maxLength = (fieldConfig as unknown as { maxLength?: number | null }).maxLength;
-    if (maxLength === null) return;
+    // `null` means unbounded; an absent or non-number bound has nothing to check.
+    const maxLength = readNumber(fieldConfig["maxLength"]);
+    if (maxLength === undefined) return;
 
     if (maxLength < 0) {
       this.issues.push({
@@ -368,10 +370,11 @@ export class ConfigValidator {
   }
 
   private validateNumberBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
-    const min = (fieldConfig as unknown as { min?: number | null }).min;
-    const max = (fieldConfig as unknown as { max?: number | null }).max;
+    const min = readNumber(fieldConfig["min"]);
+    const max = readNumber(fieldConfig["max"]);
+    if (min === undefined || max === undefined) return;
 
-    if (min !== null && max !== null && min > max) {
+    if (min > max) {
       this.issues.push({
         type: "invalid_value",
         severity: "error",
@@ -381,7 +384,7 @@ export class ConfigValidator {
       });
     }
 
-    if (min !== null && max !== null && max - min > 1000) {
+    if (max - min > 1000) {
       this.issues.push({
         type: "unrealistic_bound",
         severity: "warning",
@@ -393,8 +396,8 @@ export class ConfigValidator {
   }
 
   private validateMapSetBounds(fieldName: string, fieldConfig: Record<string, unknown>): void {
-    const maxSize = (fieldConfig as unknown as { maxSize?: number | null }).maxSize;
-    if (maxSize === null) return;
+    const maxSize = readNumber(fieldConfig["maxSize"]);
+    if (maxSize === undefined) return;
 
     if (maxSize < 0) {
       this.issues.push({
