@@ -19,7 +19,10 @@
  * get past this gate. One exception for single casts: a primitive cast to an
  * intersection that contains it (a branded type, `"a" as PeerId`) has no
  * alternative, so it passes with a `// cast:` comment. Put it in the brand's
- * constructor and call that, rather than marking every call site.
+ * constructor and call that, rather than marking every call site. The same
+ * holds for `unknown` cast to a type parameter (`stored as T`, `T | null`):
+ * at a generic deserialisation boundary nothing can test the value against
+ * the caller's `T`, so a marked single cast passes.
  *
  * Hollow predicates. The compiler trusts a type predicate's body, so
  * `(x): x is T => true` is a cast without an `as`. A predicate whose every
@@ -163,6 +166,8 @@ interface Finding {
   unchecked?: true;
   /** A primitive operand cast to an intersection with it: a branded type such as `string & { __brand }`. */
   brand?: true;
+  /** `unknown` cast to a type parameter (`T`, `T | null`): a generic deserialisation boundary. */
+  generic?: true;
   justified: boolean;
   status: Status;
   advice?: string;
@@ -377,12 +382,24 @@ interface Checker {
   typeToString(t: Type): Promise<string>;
 }
 
+/** `T`, or a union of type parameters with `null` / `undefined` (`T | null`). */
+async function isTypeParameterTarget(to: Type): Promise<boolean> {
+  if (to.flags & TypeFlags.TypeParameter) return true;
+  if (!to.isUnionType()) return false;
+  const members = await to.getTypes();
+  const nullish = TypeFlags.Null | TypeFlags.Undefined;
+  return (
+    members.some((m) => (m.flags & TypeFlags.TypeParameter) !== 0) &&
+    members.every((m) => (m.flags & (TypeFlags.TypeParameter | nullish)) !== 0)
+  );
+}
+
 /** The fast reading: assignability both ways. Display only; the probe decides. */
 async function judge(
   checker: Checker,
   from: Type,
   to: Type
-): Promise<{ fast: Fast; from: string; to: string; brand: boolean }> {
+): Promise<{ fast: Fast; from: string; to: string; brand: boolean; generic: boolean }> {
   const [fromText, toText, up, down] = await Promise.all([
     checker.typeToString(from),
     checker.typeToString(to),
@@ -401,7 +418,9 @@ async function judge(
     (from.flags & PRIMITIVE) !== 0 &&
     (from.flags & TypeFlags.UnionOrIntersection) === 0 &&
     (to.flags & TypeFlags.Intersection) !== 0;
-  return { fast, from: fromText, to: toText, brand };
+  // Nothing at runtime can test a value against a caller's `T`.
+  const generic = from.flags === TypeFlags.Unknown && (await isTypeParameterTarget(to));
+  return { fast, from: fromText, to: toText, brand, generic };
 }
 
 /**
@@ -673,11 +692,14 @@ function singleAdvice(f: Finding): string {
   if (f.brand) {
     return "a branded type needs one cast, in its constructor; mark it `// cast: <reason>`, and call the constructor everywhere else";
   }
+  if (f.generic) {
+    return "nothing can test a value against a caller's type parameter; mark the cast `// cast: <reason>`, or take a validator from the caller";
+  }
   return "narrow with a type guard, or fix the type where the value comes from";
 }
 
 function decideSingle(f: Finding): Pick<Finding, "status" | "advice"> {
-  if (f.brand && f.probe === "required" && f.justified) return { status: "allowed" };
+  if ((f.brand || f.generic) && f.probe === "required" && f.justified) return { status: "allowed" };
   return { status: "violation", advice: singleAdvice(f) };
 }
 
@@ -812,7 +834,7 @@ async function describe(
     checker.getTypeAtLocation(site.cast.type),
     context ? checker.getTypeAtLocation(context) : undefined,
   ]);
-  const { brand, ...judged } = await judge(checker, from, to);
+  const { brand, generic, ...judged } = await judge(checker, from, to);
   const contextText = contextType ? await checker.typeToString(contextType) : "";
   let opaque: Finding["opaque"];
   if (from.isErrorType() || containsAny(judged.from)) opaque = "operand";
@@ -828,6 +850,7 @@ async function describe(
     ...judged,
     ...(opaque ? { opaque } : {}),
     ...(brand ? { brand: true as const } : {}),
+    ...(generic ? { generic: true as const } : {}),
     justified: isJustified(textOf(site.sf.fileName), site.sf, start),
     ...(isUnchecked(textOf(site.sf.fileName), site.sf, site.cast)
       ? { unchecked: true as const }
@@ -1054,4 +1077,5 @@ if (JSON_OUT) {
   );
 }
 
-process.exit(!UPDATE && !FIX && violations.length + hollowViolations.length > 0 ? 1 : 0);
+// Not process.exit(): it drops stdout still queued for a pipe, which cut `--json` short.
+process.exitCode = !UPDATE && !FIX && violations.length + hollowViolations.length > 0 ? 1 : 0;

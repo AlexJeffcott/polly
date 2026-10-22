@@ -298,7 +298,9 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
  * application code does not accidentally mutate the CRDT through the signal.
  */
 function cloneDoc<T>(doc: T): T {
-  return JSON.parse(JSON.stringify(doc)) as unknown as T;
+  const copy: unknown = JSON.parse(JSON.stringify(doc));
+  // cast: a JSON round trip of an Automerge doc of type T, without its proxies
+  return copy as T;
 }
 
 /**

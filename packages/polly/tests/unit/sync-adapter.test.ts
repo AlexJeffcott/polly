@@ -19,10 +19,12 @@ import {
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 15));
 
-const msg = <T>(over: Partial<StateSyncMessage<T>> = {}): StateSyncMessage<T> => {
-  const base: StateSyncMessage<T> = { key: "k", value: "v" as unknown as T, clock: 1 };
-  return { ...base, ...over };
-};
+const msg = (over: Partial<StateSyncMessage<unknown>> = {}): StateSyncMessage<unknown> => ({
+  key: "k",
+  value: "v",
+  clock: 1,
+  ...over,
+});
 
 // console.warn is captured per test so the warn paths can be asserted and
 // the output does not pollute the test log.

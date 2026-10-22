@@ -283,7 +283,9 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
   // Create verification mirror if requested
   if (options.verify) {
     // Create plain object mirror for verification
-    const mirror = JSON.parse(JSON.stringify(initialValue)) as unknown as T;
+    const copy: unknown = JSON.parse(JSON.stringify(initialValue));
+    // cast: a JSON round trip of a T; the verification mirror is plain data
+    const mirror = copy as T;
     (sig as unknown as SignalWithVerify<T>).verify = mirror;
   }
 
@@ -482,7 +484,8 @@ function reconcileWithDefaults<T>(defaults: T, stored: unknown): T {
   if (isPlainObject(defaults) && isPlainObject(stored)) {
     return { ...defaults, ...stored };
   }
-  return stored as unknown as T;
+  // cast: a persisted value is trusted to be the T its key was registered with
+  return stored as T;
 }
 
 async function loadFromStorage<T>(

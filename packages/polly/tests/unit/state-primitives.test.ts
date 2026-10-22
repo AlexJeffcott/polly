@@ -103,7 +103,8 @@ function seededStorage(seed: Record<string, unknown>) {
       // back whatever shape they seeded.
       const out: Record<string, T> = {};
       for (const k of keys) {
-        if (store.has(k)) out[k] = store.get(k) as unknown as T;
+        // cast: the caller names the type it seeded under this key
+        if (store.has(k)) out[k] = store.get(k) as T;
       }
       return out;
     },
