@@ -374,3 +374,29 @@ describe("the edges the fix must not break", () => {
     expect(sync.broadcasts[0]?.value).toBe("c");
   });
 });
+
+describe("the clock restored from storage", () => {
+  test("a stored clock is restored, so a message at that clock is refused", async () => {
+    const sync = makeFakeSyncAdapter();
+    const storage = makeFakeStorageAdapter({ "d-restored": "stored", "d-restored:clock": 5 });
+    const sig = $sharedState<string>("d-restored", "initial", { sync, storage });
+    await ready(sig);
+    expect(sig.value).toBe("stored");
+
+    sync.deliver({ key: "d-restored", value: "same-clock", clock: 5 });
+    expect(sig.value).toBe("stored");
+    sync.deliver({ key: "d-restored", value: "newer", clock: 6 });
+    expect(sig.value).toBe("newer");
+  });
+
+  test("a stored clock that is not a number is ignored", async () => {
+    const sync = makeFakeSyncAdapter();
+    const storage = makeFakeStorageAdapter({ "d-bad-clock": "stored", "d-bad-clock:clock": "5" });
+    const sig = $sharedState<string>("d-bad-clock", "initial", { sync, storage });
+    await ready(sig);
+
+    // The clock stays at 0, so the first remote message at clock 1 is newer.
+    sync.deliver({ key: "d-bad-clock", value: "remote", clock: 1 });
+    expect(sig.value).toBe("remote");
+  });
+});

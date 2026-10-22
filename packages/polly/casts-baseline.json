@@ -365,35 +365,7 @@
   },
   {
     "file": "src/shared/lib/state.ts",
-    "text": "result[`${key}:clock`] as unknown as number"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "sig as unknown as Signal<T> & { loaded: Promise<void> }"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "sig as unknown as Signal<T> & { loaded: Promise<void> }"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "sig as unknown as SignalWithLoaded<T>"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "sig as unknown as SignalWithLoaded<T>"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "sig as unknown as SignalWithVerify<T>"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "sig as unknown as SignalWithVerify<T>"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
-    "text": "stateRegistry.get(key)?.signal as unknown as Signal<T>"
+    "text": "existing as unknown as StateEntry<T>"
   },
   {
     "file": "src/shared/lib/sync-adapter.ts",
