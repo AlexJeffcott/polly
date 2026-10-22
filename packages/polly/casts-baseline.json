@@ -373,10 +373,6 @@
   },
   {
     "file": "src/shared/lib/blob-store-impl.ts",
-    "text": "event.peerId as unknown as string"
-  },
-  {
-    "file": "src/shared/lib/blob-store-impl.ts",
     "text": "header as unknown as BlobChunkHeader"
   },
   {
@@ -717,10 +713,6 @@
   },
   {
     "file": "tests/unit/blob-store-impl-internals.test.ts",
-    "text": "a as unknown as MeshWebRTCAdapter"
-  },
-  {
-    "file": "tests/unit/blob-store-impl-internals.test.ts",
     "text": "header as unknown as Record<string, unknown>"
   },
   {
@@ -729,87 +721,7 @@
   },
   {
     "file": "tests/unit/blob-store-impl.test.ts",
-    "text": "a as unknown as MeshWebRTCAdapter"
-  },
-  {
-    "file": "tests/unit/blob-store-impl.test.ts",
     "text": "parsed.header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "adapter as unknown as never"
   },
   {
     "file": "tests/unit/blob-store.test.ts",

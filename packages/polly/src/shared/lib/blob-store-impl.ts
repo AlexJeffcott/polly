@@ -27,6 +27,7 @@
  * against another.
  */
 
+import type { PeerId } from "@automerge/automerge-repo/slim";
 import { MemoryBlobCache } from "./blob-cache";
 import { computeBlobHash } from "./blob-ref";
 import type { BlobCache, BlobProgressCallback, BlobStore, BlobStoreOptions } from "./blob-store";
@@ -39,7 +40,6 @@ import {
   reassembleChunks,
   serialiseBlobMessage,
 } from "./blob-transfer";
-import type { MeshWebRTCAdapter } from "./mesh-webrtc-adapter";
 
 const DEFAULT_MAX_BLOB_SIZE = 100 * 1024 * 1024; // 100 MiB
 const DOWNLOAD_TIMEOUT_MS = 60_000;
@@ -65,7 +65,19 @@ interface DownloadState {
 
 /** Create a blob store that transfers blobs peer-to-peer over a
  *  MeshWebRTCAdapter's data channels. */
-export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreOptions): BlobStore {
+/**
+ * The part of `MeshWebRTCAdapter` a blob store uses. A
+ * `MeshWebRTCAdapter` is one; so is any test double with these members.
+ */
+export interface BlobTransport {
+  onBlobMessage?: (peerId: string, header: Record<string, unknown>, data: Uint8Array) => void;
+  readonly connectedPeerIds: string[];
+  sendBlobMessage(peerId: string, bytes: Uint8Array<ArrayBuffer>): boolean;
+  on(event: "peer-candidate", handler: (event: { peerId: PeerId }) => void): unknown;
+  off(event: "peer-candidate", handler: (event: { peerId: PeerId }) => void): unknown;
+}
+
+export function createBlobStore(adapter: BlobTransport, options?: BlobStoreOptions): BlobStore {
   const maxBlobSize = options?.maxBlobSize ?? DEFAULT_MAX_BLOB_SIZE;
   const defaultKey = options?.encrypt?.key;
   const cache: BlobCache = options?.cache ?? new MemoryBlobCache();
@@ -101,9 +113,9 @@ export function createBlobStore(adapter: MeshWebRTCAdapter, options?: BlobStoreO
   };
 
   // Announce local blobs to new peers when they connect.
-  const peerCandidateHandler = (event: { peerId: unknown }) => {
+  const peerCandidateHandler = (event: { peerId: PeerId }) => {
     if (disposed) return;
-    const newPeerId = event.peerId as unknown as string;
+    const newPeerId = event.peerId;
     for (const hash of localHashes) {
       const msg = serialiseBlobMessage({ type: "blob-have", hash });
       adapter.sendBlobMessage(newPeerId, msg);

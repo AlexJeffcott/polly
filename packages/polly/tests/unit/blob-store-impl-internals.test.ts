@@ -16,6 +16,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { PeerId } from "@automerge/automerge-repo";
 import { computeBlobHash } from "@/shared/lib/blob-ref";
 import { createBlobStore } from "@/shared/lib/blob-store-impl";
 import type {
@@ -24,8 +25,8 @@ import type {
   BlobRequestHeader,
 } from "@/shared/lib/blob-transfer";
 import { parseBlobMessage } from "@/shared/lib/blob-transfer";
+import { toPeerId } from "@/shared/lib/branded";
 import { encrypt, generateDocumentKey } from "@/shared/lib/encryption";
-import type { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 
 // Captured-timer shim
 
@@ -80,14 +81,14 @@ class RecordingAdapter {
   /** When true, the next sendBlobMessage reports backpressure (returns
    *  false) and clears the flag, so the store takes the buffer-drain path. */
   failNextSend = false;
-  private readonly candidateHandlers = new Set<(e: { peerId: unknown }) => void>();
+  private readonly candidateHandlers = new Set<(e: { peerId: PeerId }) => void>();
 
   constructor(private readonly connected: string[] = []) {}
 
-  on(event: string, handler: (e: { peerId: unknown }) => void): void {
+  on(event: string, handler: (e: { peerId: PeerId }) => void): void {
     if (event === "peer-candidate") this.candidateHandlers.add(handler);
   }
-  off(event: string, handler: (e: { peerId: unknown }) => void): void {
+  off(event: string, handler: (e: { peerId: PeerId }) => void): void {
     if (event === "peer-candidate") this.candidateHandlers.delete(handler);
   }
 
@@ -112,7 +113,7 @@ class RecordingAdapter {
   }
 
   emitPeerCandidate(peerId: string): void {
-    for (const h of this.candidateHandlers) h({ peerId });
+    for (const h of this.candidateHandlers) h({ peerId: toPeerId(peerId) });
   }
 
   /** Outgoing blob-request messages, newest last. */
@@ -129,8 +130,6 @@ class RecordingAdapter {
     );
   }
 }
-
-const asAdapter = (a: RecordingAdapter): MeshWebRTCAdapter => a as unknown as MeshWebRTCAdapter;
 
 const HASH = "a".repeat(64);
 const have = (hash: string): BlobMessageHeader => ({ type: "blob-have", hash });
@@ -156,7 +155,7 @@ afterEach(() => {
 describe("createBlobStore re-request rotation", () => {
   test("rotates through peers that announced the blob on each re-request", async () => {
     const adapter = new RecordingAdapter(["B", "C"]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     // Both B and C announce availability, so the peer pool is [B, C].
@@ -191,7 +190,7 @@ describe("createBlobStore re-request rotation", () => {
 
   test("falls back to connected peers when no holder has announced", async () => {
     const adapter = new RecordingAdapter(["P"]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     // No blob-have was received, so peerBlobs is empty; the store must use
@@ -214,7 +213,7 @@ describe("createBlobStore re-request rotation", () => {
 describe("createBlobStore download lifecycle", () => {
   test("rejects with a timeout when no chunks complete the blob", async () => {
     const adapter = new RecordingAdapter(["B"]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     const got = store.get(HASH);
@@ -225,7 +224,7 @@ describe("createBlobStore download lifecycle", () => {
 
   test("rejects when the caller aborts mid-download", async () => {
     const adapter = new RecordingAdapter(["B"]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     const controller = new AbortController();
@@ -237,7 +236,7 @@ describe("createBlobStore download lifecycle", () => {
 
   test("reports cumulative download progress as chunks arrive", async () => {
     const adapter = new RecordingAdapter(["B"]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     const loaded: number[] = [];
@@ -265,7 +264,7 @@ describe("createBlobStore chunk decryption", () => {
     const hash = await computeBlobHash(plaintext);
 
     const adapter = new RecordingAdapter(["B"]);
-    const store = createBlobStore(asAdapter(adapter), { encrypt: { key } });
+    const store = createBlobStore(adapter, { encrypt: { key } });
     stores.push(store);
 
     const got = store.get(hash);
@@ -288,7 +287,7 @@ describe("createBlobStore chunk decryption", () => {
 
 describe("createBlobStore request handler (sender side)", () => {
   async function seed(adapter: RecordingAdapter, bytes: Uint8Array): Promise<string> {
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
     const hash = await computeBlobHash(bytes);
     await store.put(
@@ -362,7 +361,7 @@ describe("createBlobStore request handler (sender side)", () => {
 describe("createBlobStore have-announcement on peer connect", () => {
   test("announces every locally held blob to a peer that connects later", async () => {
     const adapter = new RecordingAdapter([]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     const bytes = new Uint8Array(8).fill(3);
@@ -386,7 +385,7 @@ describe("createBlobStore have-announcement on peer connect", () => {
 describe("createBlobStore download integrity", () => {
   test("rejects a completed download whose bytes do not match the requested hash", async () => {
     const adapter = new RecordingAdapter(["B"]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     // HASH is a fixed dummy; the delivered bytes hash to something else, so a
@@ -403,7 +402,7 @@ describe("createBlobStore download integrity", () => {
 describe("createBlobStore size guard boundary", () => {
   test("accepts a blob whose size is exactly the maximum", async () => {
     const adapter = new RecordingAdapter([]);
-    const store = createBlobStore(asAdapter(adapter), { maxBlobSize: 32 });
+    const store = createBlobStore(adapter, { maxBlobSize: 32 });
     stores.push(store);
 
     // The guard rejects only when bytes exceed the max; a blob exactly at the
@@ -421,7 +420,7 @@ describe("createBlobStore size guard boundary", () => {
 describe("createBlobStore pinning", () => {
   test("unpinning a blob makes it evictable again", async () => {
     const adapter = new RecordingAdapter([]);
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
 
     const bytes = new Uint8Array(40).fill(1);
@@ -450,7 +449,7 @@ describe("createBlobStore disposal cleanup", () => {
     };
     try {
       const adapter = new RecordingAdapter([]);
-      const store = createBlobStore(asAdapter(adapter));
+      const store = createBlobStore(adapter);
       const bytes = new Uint8Array(8).fill(2);
       const hash = await computeBlobHash(bytes);
       await store.put(
@@ -475,7 +474,7 @@ describe("createBlobStore key retention", () => {
     const hash = await computeBlobHash(plaintext);
 
     const adapter = new RecordingAdapter(["B"]);
-    const store = createBlobStore(asAdapter(adapter), { encrypt: { key } });
+    const store = createBlobStore(adapter, { encrypt: { key } });
     stores.push(store);
 
     // Fetch the blob: completing the download must record the key under its

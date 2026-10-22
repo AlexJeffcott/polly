@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { PeerId } from "@automerge/automerge-repo";
 import { MemoryBlobCache } from "@/shared/lib/blob-cache";
 import { computeBlobHash, createBlobRef } from "@/shared/lib/blob-ref";
 import type { BlobProgressEvent } from "@/shared/lib/blob-store";
@@ -8,6 +9,7 @@ import {
   type BlobRequestHeader,
   chunkBlob,
 } from "@/shared/lib/blob-transfer";
+import { toPeerId } from "@/shared/lib/branded";
 import { decrypt, encrypt, generateDocumentKey } from "@/shared/lib/encryption";
 
 // ---------------------------------------------------------------------------
@@ -15,7 +17,7 @@ import { decrypt, encrypt, generateDocumentKey } from "@/shared/lib/encryption";
 // ---------------------------------------------------------------------------
 
 type BlobHandler = (peerId: string, header: Record<string, unknown>, data: Uint8Array) => void;
-type PeerCandidateHandler = (event: { peerId: unknown }) => void;
+type PeerCandidateHandler = (event: { peerId: PeerId }) => void;
 
 function createMockAdapter(initialPeers: string[] = ["peer-a", "peer-b"]) {
   const sentMessages: Array<{ peerId: string; bytes: Uint8Array }> = [];
@@ -56,7 +58,7 @@ function createMockAdapter(initialPeers: string[] = ["peer-a", "peer-b"]) {
       connectedPeers.push(peerId);
       const handlers = eventHandlers.get("peer-candidate");
       if (handlers) {
-        for (const handler of handlers) handler({ peerId });
+        for (const handler of handlers) handler({ peerId: toPeerId(peerId) });
       }
     },
     setConnectedPeers(peers: string[]) {
@@ -169,7 +171,7 @@ describe("createBlobStore — core", () => {
   test("put stores blob and announces to peers", async () => {
     const cache = new MemoryBlobCache();
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never, { cache });
+    const store = createBlobStore(adapter, { cache });
 
     const bytes = new TextEncoder().encode("hello blob");
     const ref = await createBlobRef({ bytes, filename: "test.txt", mimeType: "text/plain" });
@@ -186,7 +188,7 @@ describe("createBlobStore — core", () => {
 
   test("put rejects when hash does not match", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const ref = { hash: "0".repeat(64), size: 5, filename: "bad", mimeType: "text/plain" };
     await expect(store.put(ref, new TextEncoder().encode("hello"))).rejects.toThrow(
       "Hash mismatch"
@@ -195,7 +197,7 @@ describe("createBlobStore — core", () => {
 
   test("put rejects blobs exceeding maxBlobSize", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never, { maxBlobSize: 10 });
+    const store = createBlobStore(adapter, { maxBlobSize: 10 });
     const bytes = new Uint8Array(11);
     const ref = await createBlobRef({
       bytes,
@@ -208,7 +210,7 @@ describe("createBlobStore — core", () => {
   test("get returns cached blob without network", async () => {
     const cache = new MemoryBlobCache();
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never, { cache });
+    const store = createBlobStore(adapter, { cache });
     const bytes = new TextEncoder().encode("cached data");
     const ref = await createBlobRef({ bytes, filename: "c", mimeType: "text/plain" });
     await store.put(ref, bytes);
@@ -222,7 +224,7 @@ describe("createBlobStore — core", () => {
 
   test("handles blob-request by sending chunks", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const bytes = new TextEncoder().encode("share me");
     const ref = await createBlobRef({ bytes, filename: "s", mimeType: "text/plain" });
     await store.put(ref, bytes);
@@ -241,7 +243,7 @@ describe("createBlobStore — core", () => {
 
   test("get downloads plaintext chunks and reassembles", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const bytes = new TextEncoder().encode("download me");
     const hash = await computeBlobHash(bytes);
 
@@ -260,7 +262,7 @@ describe("createBlobStore — core", () => {
 
   test("dispose rejects pending downloads", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const hash = "f".repeat(64);
     adapter.simulateIncoming("peer-a", { type: "blob-have", hash }, new Uint8Array(0));
     const getPromise = store.get(hash);
@@ -271,7 +273,7 @@ describe("createBlobStore — core", () => {
 
   test("put supports AbortSignal", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const controller = new AbortController();
     controller.abort();
     const bytes = new TextEncoder().encode("abort me");
@@ -289,7 +291,7 @@ describe("chunk-then-encrypt", () => {
     const adapter = createMockAdapter();
     const docKey = generateDocumentKey();
     const cache = new MemoryBlobCache();
-    const store = createBlobStore(adapter as unknown as never, {
+    const store = createBlobStore(adapter, {
       cache,
       encrypt: { key: docKey },
     });
@@ -325,7 +327,7 @@ describe("chunk-then-encrypt", () => {
   test("get decrypts chunks received from peer", async () => {
     const adapter = createMockAdapter();
     const docKey = generateDocumentKey();
-    const store = createBlobStore(adapter as unknown as never, { encrypt: { key: docKey } });
+    const store = createBlobStore(adapter, { encrypt: { key: docKey } });
 
     const bytes = new TextEncoder().encode("decrypt me");
     const hash = await computeBlobHash(bytes);
@@ -353,7 +355,7 @@ describe("chunk-then-encrypt", () => {
     const adapter = createMockAdapter();
     const correctKey = generateDocumentKey();
     const wrongKey = generateDocumentKey();
-    const store = createBlobStore(adapter as unknown as never, {
+    const store = createBlobStore(adapter, {
       encrypt: { key: wrongKey },
     });
 
@@ -395,7 +397,7 @@ describe("per-document keys", () => {
     const adapter = createMockAdapter();
     const defaultKey = generateDocumentKey();
     const docKey = generateDocumentKey();
-    const store = createBlobStore(adapter as unknown as never, { encrypt: { key: defaultKey } });
+    const store = createBlobStore(adapter, { encrypt: { key: defaultKey } });
 
     const bytes = new TextEncoder().encode("doc-scoped blob");
     const ref = await createBlobRef({ bytes, filename: "d", mimeType: "text/plain" });
@@ -423,7 +425,7 @@ describe("per-document keys", () => {
   test("get with per-op key decrypts under that key", async () => {
     const adapter = createMockAdapter();
     const docKey = generateDocumentKey();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
 
     const bytes = new TextEncoder().encode("per-op key test");
     const hash = await computeBlobHash(bytes);
@@ -455,7 +457,7 @@ describe("per-document keys", () => {
 describe("multi-source fetch", () => {
   test("re-request rotates to a different peer when chunks stall", async () => {
     const adapter = createMockAdapter(["peer-a", "peer-b", "peer-c"]);
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
 
     // Multiple peers announce availability.
     const hash = "a".repeat(64);
@@ -508,7 +510,7 @@ describe("store eviction", () => {
   test("pin/unpin/evict flow through the store API", async () => {
     const cache = new MemoryBlobCache();
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never, { cache });
+    const store = createBlobStore(adapter, { cache });
 
     const a = new Uint8Array(100);
     const b = new Uint8Array(100);
@@ -536,7 +538,7 @@ describe("store eviction", () => {
 describe("progress callbacks", () => {
   test("put fires uploading progress", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const bytes = new TextEncoder().encode("progress test");
     const ref = await createBlobRef({ bytes, filename: "p", mimeType: "text/plain" });
     const events: BlobProgressEvent[] = [];
@@ -546,7 +548,7 @@ describe("progress callbacks", () => {
 
   test("get fires downloading progress during chunk reception", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const bytes = crypto.getRandomValues(new Uint8Array(65_536 * 3 + 100));
     const hash = await computeBlobHash(bytes);
     const events: BlobProgressEvent[] = [];
@@ -566,7 +568,7 @@ describe("progress callbacks", () => {
 describe("peer-connect announcements", () => {
   test("announces local blobs to newly connected peers", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const bytes = new TextEncoder().encode("announce me");
     const ref = await createBlobRef({ bytes, filename: "a", mimeType: "text/plain" });
     await store.put(ref, bytes);
@@ -582,7 +584,7 @@ describe("peer-connect announcements", () => {
 
   test("dispose stops announcing to new peers", async () => {
     const adapter = createMockAdapter();
-    const store = createBlobStore(adapter as unknown as never);
+    const store = createBlobStore(adapter);
     const bytes = new TextEncoder().encode("disposed");
     const ref = await createBlobRef({ bytes, filename: "d", mimeType: "text/plain" });
     await store.put(ref, bytes);
