@@ -36,7 +36,7 @@ function makeFakeSyncAdapter(): FakeSyncAdapter {
   const broadcasts: Array<StateSyncMessage<unknown>> = [];
   return {
     broadcast<T>(message: StateSyncMessage<T>): void {
-      broadcasts.push(message as unknown as StateSyncMessage<unknown>);
+      broadcasts.push(message);
     },
     onMessage<T>(callback: (message: StateSyncMessage<T>) => void): () => void {
       listeners.push(callback as unknown as (message: StateSyncMessage<unknown>) => void);

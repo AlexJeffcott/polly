@@ -304,11 +304,7 @@ describe("chunk-then-encrypt", () => {
     // Trigger a request from a peer and check each emitted chunk is an
     // independently-sealed envelope (nonce + ciphertext + MAC).
     adapter.sentMessages.length = 0;
-    adapter.simulateIncoming(
-      "peer-a",
-      { type: "blob-request", hash: ref.hash } as unknown as Record<string, unknown>,
-      new Uint8Array(0)
-    );
+    adapter.simulateIncoming("peer-a", { type: "blob-request", hash: ref.hash }, new Uint8Array(0));
     await new Promise((r) => setTimeout(r, 20));
 
     const chunkMsgs = adapter.sentMessages.filter((m) =>
@@ -406,11 +402,7 @@ describe("per-document keys", () => {
     await store.put(ref, bytes, { key: docKey });
 
     adapter.sentMessages.length = 0;
-    adapter.simulateIncoming(
-      "peer-a",
-      { type: "blob-request", hash: ref.hash } as unknown as Record<string, unknown>,
-      new Uint8Array(0)
-    );
+    adapter.simulateIncoming("peer-a", { type: "blob-request", hash: ref.hash }, new Uint8Array(0));
     await new Promise((r) => setTimeout(r, 20));
 
     const chunkMsgs = adapter.sentMessages.filter((m) =>

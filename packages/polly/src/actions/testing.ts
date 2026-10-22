@@ -42,7 +42,7 @@ export function createMockSubmitEvent(form: HTMLFormElement | Record<string, str
   if (typeof HTMLFormElement !== "undefined" && form instanceof HTMLFormElement) {
     target = form;
   } else {
-    target = createMockFormElement(form as unknown as Record<string, string>);
+    target = createMockFormElement(form);
   }
   let defaultPrevented = false;
   return {

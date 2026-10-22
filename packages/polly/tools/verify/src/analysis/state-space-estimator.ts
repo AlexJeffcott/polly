@@ -7,11 +7,7 @@ import {
   type TabSetInput,
   targetSetCount,
 } from "../codegen/model-constants";
-import type {
-  AdapterVerificationConfig,
-  LegacyVerificationConfig,
-  UnifiedVerificationConfig,
-} from "../config/types";
+import type { LegacyVerificationConfig, UnifiedVerificationConfig } from "../config/types";
 import { isAdapterConfig, isLegacyConfig } from "../config/types";
 import type { CodebaseAnalysis } from "../core/model";
 
@@ -146,7 +142,7 @@ function getMaxInFlight(config: UnifiedVerificationConfig): number {
     return config.messages.maxInFlight ?? 1;
   }
   if (isAdapterConfig(config)) {
-    return (config as unknown as AdapterVerificationConfig).bounds?.maxInFlight ?? 1;
+    return config.bounds?.maxInFlight ?? 1;
   }
   return 1;
 }
@@ -157,7 +153,7 @@ function getMaxInFlight(config: UnifiedVerificationConfig): number {
  */
 function getTabSetInput(config: UnifiedVerificationConfig): TabSetInput {
   if (isLegacyConfig(config)) {
-    return config.messages as unknown as TabSetInput;
+    return config.messages;
   }
   return {};
 }
@@ -167,7 +163,7 @@ function getTabSetInput(config: UnifiedVerificationConfig): TabSetInput {
  * arms, so no narrowing is needed — an absent key resolves to the default.
  */
 function getContextSetInput(config: UnifiedVerificationConfig): ContextSetInput {
-  return config as unknown as ContextSetInput;
+  return config;
 }
 
 function getFeasibility(states: number): StateSpaceEstimate["feasibility"] {
@@ -241,7 +237,7 @@ function estimateForScope(
   config: UnifiedVerificationConfig,
   scope: EstimateScope
 ): StateSpaceEstimate {
-  const state = config.state as unknown as Record<string, unknown>;
+  const state = config.state;
   const fields: FieldEstimate[] = [];
   const warnings: string[] = [];
   const suggestions: string[] = [];

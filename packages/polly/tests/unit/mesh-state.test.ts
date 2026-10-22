@@ -193,7 +193,7 @@ describe("$meshState — DocumentId derivation", () => {
     primitiveRegistry.clear();
     const primB = $meshState<Notes>("same-key", { title: "", body: "" }, { repo: repoB });
     await Promise.all([primA.loaded, primB.loaded]);
-    expect(primA.handle?.documentId).toBe(primB.handle?.documentId as unknown as DocumentId);
+    expect(primA.handle?.documentId).toBe(primB.handle?.documentId);
   });
 });
 
@@ -441,7 +441,7 @@ describe("$meshState — concurrent first-time seed race (#113)", () => {
     // Both peers converged on the same docId via deriveDocumentId; that's
     // necessary for the seed collision to be observable, and is also the
     // shape the issue calls out.
-    expect(primA.handle?.documentId).toBe(primB.handle?.documentId as unknown as DocumentId);
+    expect(primA.handle?.documentId).toBe(primB.handle?.documentId);
 
     // Each peer writes its own entry via per-key `handle.change` — the same
     // workaround fairfox already uses for the post-seed WRITE race. This
@@ -535,7 +535,7 @@ describe("$meshState — concurrent first-time seed race (#113)", () => {
     const primB = $meshState<UserDirectory>("mesh:users", { users: {} }, { repo: repoB });
     await primB.loaded;
 
-    expect(primA.handle?.documentId).toBe(primB.handle?.documentId as unknown as DocumentId);
+    expect(primA.handle?.documentId).toBe(primB.handle?.documentId);
 
     try {
       await waitFor(() => Object.keys(primB.handle?.doc()?.users ?? {}).length === 1, 3000);

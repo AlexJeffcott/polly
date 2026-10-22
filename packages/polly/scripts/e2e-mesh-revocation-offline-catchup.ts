@@ -147,9 +147,7 @@ async function verifyCatchUpOnC(peerC: LaunchedPeer, expectedRevokedPeerId: stri
   if (!diags.some((d) => d.kind === "ctrl:revocation-received")) {
     throw new Error("peer C did not receive the catch-up revocation blob pushed by peer A");
   }
-  const applied = diags.find((d) => d.kind === "revoke:applied") as
-    | { kind: "revoke:applied"; revokedPeerId: string }
-    | undefined;
+  const applied = diags.find((d) => d.kind === "revoke:applied");
   if (!applied) throw new Error("peer C did not apply any catch-up revocation");
   if (applied.revokedPeerId !== expectedRevokedPeerId) {
     throw new Error(

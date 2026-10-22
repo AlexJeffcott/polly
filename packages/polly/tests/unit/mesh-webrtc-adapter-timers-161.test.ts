@@ -278,12 +278,12 @@ describe("MeshWebRTCAdapter connect peer-metadata", () => {
       isEphemeral: false,
     };
     adapter.connect(peerId("peer-m"), meta);
-    expect((adapter as unknown as { peerMetadata?: unknown }).peerMetadata).toEqual(meta);
+    expect(adapter.peerMetadata).toEqual(meta);
   });
 
   test("leaves peer metadata unset when omitted on connect", () => {
     const adapter = build("peer-m");
     adapter.connect(peerId("peer-m"));
-    expect((adapter as unknown as { peerMetadata?: unknown }).peerMetadata).toBeUndefined();
+    expect(adapter.peerMetadata).toBeUndefined();
   });
 });

@@ -234,7 +234,7 @@ describe("MeshWebRTCAdapter message wire codec", () => {
       adapter,
       serialise(adapter, makeMessage({ documentId: undefined }))
     );
-    expect((decoded as unknown as { documentId?: string }).documentId).toBeUndefined();
+    expect(decoded.documentId).toBeUndefined();
   });
 
   test("round-trips a message with no data as an empty payload", () => {

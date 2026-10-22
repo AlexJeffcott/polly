@@ -44,7 +44,7 @@ function mountSignalingApp(): { url: string } {
   const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
   pendingApps.push({
     stop: async () => {
-      (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+      app.server?.stop?.(true);
     },
   });
   return { url: `ws://127.0.0.1:${resolveListenPort(app)}/polly/signaling` };
@@ -111,10 +111,7 @@ async function waitForNonDiscoveryMessage(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const msg = await waitForMessage(client, deadline - Date.now());
-    const type =
-      typeof msg === "object" && msg !== null && "type" in msg
-        ? (msg as unknown as { type: unknown }).type
-        : undefined;
+    const type = typeof msg === "object" && msg !== null && "type" in msg ? msg.type : undefined;
     if (type !== "peers-present" && type !== "peer-joined" && type !== "peer-left") {
       return msg;
     }

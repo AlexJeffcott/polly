@@ -8,7 +8,7 @@
  */
 
 import { signal } from "@preact/signals";
-import { type CSSProperties, render } from "preact";
+import { render } from "preact";
 import {
   type ActionRegistry,
   clearError,
@@ -220,10 +220,7 @@ describe("Surface", () => {
   test("style prop merges through for per-instance polly token override", async () => {
     const host = mountHost();
     render(
-      <Surface
-        variant="raised"
-        style={{ "--polly-surface-raised": "#fef3c7" } as unknown as CSSProperties}
-      >
+      <Surface variant="raised" style={{ "--polly-surface-raised": "#fef3c7" }}>
         x
       </Surface>,
       host

@@ -374,9 +374,9 @@ describe("MeshNetworkAdapter lifecycle delegation", () => {
       revokedPeers: new Set(),
     };
     const adapter = new MeshNetworkAdapter({ base, keyringSource: () => keyring });
-    const meta = { isEphemeral: false } as unknown as Parameters<typeof adapter.connect>[1];
+    const meta = { isEphemeral: false };
     adapter.connect(peerId("me"), meta);
-    expect((adapter as unknown as { peerMetadata: unknown }).peerMetadata).toBe(meta);
+    expect(adapter.peerMetadata).toBe(meta);
   });
 });
 

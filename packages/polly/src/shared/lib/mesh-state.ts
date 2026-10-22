@@ -138,7 +138,7 @@ export function getLastConfiguredRepoPeerId(): string | undefined {
  */
 export function configureMeshState(repo: Repo): void {
   defaultRepo = repo;
-  lastConfiguredRepoPeerId = repo.peerId as unknown as string | undefined;
+  lastConfiguredRepoPeerId = repo.peerId;
 }
 
 /**
@@ -474,7 +474,7 @@ function recordLazyWrapper(record: MeshStateLazyWrapperRecord): void {
 
 function peekHandleState(repo: Repo, documentId: DocumentId): string | undefined {
   const handle = (repo.handles as unknown as Record<string, { state: unknown } | undefined>)[
-    documentId as unknown as string
+    documentId
   ];
   if (!handle) return undefined;
   return typeof handle.state === "string" ? handle.state : String(handle.state ?? "unknown");
@@ -635,7 +635,7 @@ function buildHandleFactory<D>(
       // the throw happens after this line we know the factory got
       // past the Repo-identity gate.
       lazyReachedRepo++;
-      const docIdString = documentId as unknown as string;
+      const docIdString = documentId;
       let handle: DocHandle<D>;
       if (cached) {
         // Polly#107 post-v0.60: bound the placeholder-handle wait so
@@ -687,7 +687,7 @@ function buildHandleFactory<D>(
       const handleState = peekHandleState(repo, documentId);
       recordLazyWrapper({
         key,
-        docId: documentId as unknown as string,
+        docId: documentId,
         at: Date.now(),
         exitReason,
         handleRegistered: handleState !== undefined,
@@ -722,7 +722,7 @@ const SEED_ACTOR_DOMAIN = "polly/meshState/seedActor/v1";
  * width; the WASM layer accepts any hex string but matching the convention
  * keeps debug output readable. */
 function deriveSeedActor(documentId: DocumentId): string {
-  const docIdString = documentId as unknown as string;
+  const docIdString = documentId;
   const digest = nacl.hash(keyEncoder.encode(`${SEED_ACTOR_DOMAIN}:${docIdString}`));
   let hex = "";
   for (let i = 0; i < 16; i++) {
@@ -800,7 +800,7 @@ async function loadOrSeed<D>(
  * wrapper to the new docId without a reload. */
 export async function followRedirects<D>(repo: Repo, initial: DocHandle<D>): Promise<DocHandle<D>> {
   let current = initial;
-  const seen = new Set<string>([current.documentId as unknown as string]);
+  const seen = new Set<string>([current.documentId]);
   for (let i = 0; i < MAX_REDIRECT_FOLLOWS; i++) {
     const detector = redirectDetector;
     if (!detector) {
@@ -820,8 +820,8 @@ export async function followRedirects<D>(repo: Repo, initial: DocHandle<D>): Pro
     if (!nextId) {
       return current;
     }
-    const nextIdString = nextId as unknown as string;
-    if (nextIdString === (current.documentId as unknown as string)) {
+    const nextIdString = nextId;
+    if (nextIdString === current.documentId) {
       return current;
     }
     if (seen.has(nextIdString)) {

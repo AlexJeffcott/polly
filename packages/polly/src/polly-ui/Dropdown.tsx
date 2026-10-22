@@ -185,7 +185,7 @@ export function Dropdown(props: DropdownProps): JSX.Element {
 
   const handleToggle = (e: Event): void => {
     if ("newState" in e) {
-      isOpen.value = (e as unknown as { newState: string }).newState === "open";
+      isOpen.value = e.newState === "open";
     }
   };
 

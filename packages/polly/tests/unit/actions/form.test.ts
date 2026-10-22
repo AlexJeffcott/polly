@@ -20,7 +20,7 @@ function makeStores(): TestStores {
     teams: signal<Array<{ id: string; name: string }>>([]),
     modalEntityId: signal<string | null>(null),
     createCalls: [],
-  } as unknown as TestStores;
+  };
 }
 
 beforeEach(() => {

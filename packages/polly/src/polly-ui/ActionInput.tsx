@@ -29,7 +29,6 @@ import type {
   JSX,
   TargetedEvent,
   TargetedKeyboardEvent,
-  TextareaHTMLAttributes,
 } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import classes from "./ActionInput.module.css";
@@ -208,7 +207,7 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
         ref={(el) => {
           inputRef.current = el;
         }}
-        {...(common as unknown as TextareaHTMLAttributes<HTMLTextAreaElement>)}
+        {...common}
       />
     );
   }

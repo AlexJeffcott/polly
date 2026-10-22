@@ -210,7 +210,7 @@ export function $serverState<T>(key: string, initialValue: T): Signal<T> {
   // caller's contract that the stored signal carries their T.
   if (existing) return existing as unknown as Signal<T>;
   const sig = signal(initialValue);
-  serverStateRegistry.set(key, sig as unknown as Signal<unknown>);
+  serverStateRegistry.set(key, sig);
   return sig;
 }
 
@@ -461,12 +461,12 @@ function createState<T>(key: string, initialValue: T, options: InternalStateOpti
       // Only accept value updates if received clock is strictly greater than old local clock
       // This ensures we only apply causally newer updates
       if (message.clock > oldClock && shouldAccept(message)) {
-        acceptIncoming(message.value as unknown as T, message.clock);
+        acceptIncoming(message.value, message.clock);
       }
     });
   }
 
-  stateRegistry.set(key, entry as unknown as StateEntry<unknown>);
+  stateRegistry.set(key, entry);
   return sig;
 }
 
@@ -486,7 +486,7 @@ function reconcileWithDefaults<T>(defaults: T, stored: unknown): T {
   // Persisted values are trusted to be the T this key was registered with;
   // schema drift is handled by the merge, not by runtime validation.
   if (isPlainObject(defaults) && isPlainObject(stored)) {
-    return { ...defaults, ...stored } as unknown as T;
+    return { ...defaults, ...stored };
   }
   return stored as unknown as T;
 }
@@ -517,7 +517,7 @@ async function loadFromStorage<T>(
           );
         }
       } else {
-        sig.value = storedValue as unknown as T;
+        sig.value = storedValue;
       }
     }
 

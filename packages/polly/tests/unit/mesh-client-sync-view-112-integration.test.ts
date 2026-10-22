@@ -125,7 +125,7 @@ describe("buildSyncView (#112 integration — real Repo)", () => {
   test("a freshly-imported handle gets a docSynchronizer entry", () => {
     const repo = trackRepo(new Repo());
     const handle = repo.create<{ value: number }>({ value: 1 });
-    const docId = handle.documentId as unknown as string;
+    const docId = handle.documentId;
 
     const sync = getCollectionSynchronizer(repo);
     const view = buildSyncView(sync, docId, "any-peer-not-connected");
@@ -173,7 +173,7 @@ describe("buildSyncView (#112 integration — real Repo)", () => {
 
     const handleA = repoA.create<{ value: number }>({ value: 42 });
     await handleA.whenReady();
-    const docIdA = handleA.documentId as unknown as string;
+    const docIdA = handleA.documentId;
 
     const handleB = await repoB.find<{ value: number }>(handleA.documentId, {
       signal: AbortSignal.timeout(SYNC_FIND_TIMEOUT_MS),
@@ -203,7 +203,7 @@ describe("buildSyncView (#112 integration — real Repo)", () => {
     // show in fairfox's failing e2e.
     const repo = trackRepo(new Repo({ peerId: "peer-solo" as unknown as PeerId }));
     const handle = repo.create<{ value: number }>({ value: 99 });
-    const docId = handle.documentId as unknown as string;
+    const docId = handle.documentId;
     await handle.whenReady();
 
     const sync = getCollectionSynchronizer(repo);
@@ -223,7 +223,7 @@ describe("enrichPeerSlot (#112 surface wiring)", () => {
     // and confirm the output entry carries the three new fields.
     const repo = trackRepo(new Repo());
     const handle = repo.create<{ value: number }>({ value: 7 });
-    const docId = handle.documentId as unknown as string;
+    const docId = handle.documentId;
 
     const syncForRead = getCollectionSynchronizer(repo);
 

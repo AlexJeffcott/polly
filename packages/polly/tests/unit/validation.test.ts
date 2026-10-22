@@ -246,9 +246,9 @@ describe("validateArray", () => {
         typeof v === "object" &&
         v !== null &&
         "name" in v &&
-        typeof (v as unknown as any).name === "string" &&
+        typeof v.name === "string" &&
         "age" in v &&
-        typeof (v as unknown as any).age === "number"
+        typeof v.age === "number"
       );
     };
 

@@ -369,7 +369,7 @@ function enrichPeerSlot(
   if (!peer.slot) {
     return { ...peer, slot: undefined };
   }
-  const peerIdString = peer.peerId as unknown as string;
+  const peerIdString = peer.peerId;
   const enriched: Record<string, MeshClientHandleSnapshot> = {};
   for (const docId of knownHandleIds) {
     enriched[docId] = buildHandleEntry(
@@ -396,11 +396,7 @@ function enrichPeerSlot(
  * polly#107 fix silently degrades to the pre-fix shape, which the
  * observability layer still surfaces clearly. */
 function getReevaluateDocumentShare(repo: Repo): (() => Promise<void>) | undefined {
-  const sync = (
-    repo as unknown as {
-      synchronizer?: { reevaluateDocumentShare?: () => Promise<void> };
-    }
-  ).synchronizer;
+  const sync = repo.synchronizer;
   const fn = sync?.reevaluateDocumentShare;
   if (typeof fn !== "function" || sync === undefined) return undefined;
   return () => fn.call(sync);

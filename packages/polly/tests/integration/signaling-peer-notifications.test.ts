@@ -45,7 +45,7 @@ function mountSignalingApp(): { url: string } {
   const app = new Elysia().use(signalingServer({ path: "/polly/signaling" })).listen(0);
   pendingApps.push({
     stop: async () => {
-      (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+      app.server?.stop?.(true);
     },
   });
   return { url: `ws://127.0.0.1:${resolveListenPort(app)}/polly/signaling` };
@@ -124,28 +124,19 @@ interface PeerLeftFrame {
 
 function isPeersPresent(value: unknown): value is PeersPresentFrame {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "type" in value &&
-    (value as unknown as { type: unknown }).type === "peers-present"
+    typeof value === "object" && value !== null && "type" in value && value.type === "peers-present"
   );
 }
 
 function isPeerJoined(value: unknown): value is PeerJoinedFrame {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "type" in value &&
-    (value as unknown as { type: unknown }).type === "peer-joined"
+    typeof value === "object" && value !== null && "type" in value && value.type === "peer-joined"
   );
 }
 
 function isPeerLeft(value: unknown): value is PeerLeftFrame {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "type" in value &&
-    (value as unknown as { type: unknown }).type === "peer-left"
+    typeof value === "object" && value !== null && "type" in value && value.type === "peer-left"
   );
 }
 

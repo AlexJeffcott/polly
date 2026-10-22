@@ -152,7 +152,7 @@ describe("MeshWebRTCAdapter polly#110 watchdog in a real browser", () => {
     // Observe A's teardown signal.
     const disconnects: string[] = [];
     webrtcA.on("peer-disconnected", (payload: { peerId: PeerId }) => {
-      disconnects.push(payload.peerId as unknown as string);
+      disconnects.push(payload.peerId);
     });
 
     console.log("[test] waiting for peer connection");

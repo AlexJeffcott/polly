@@ -165,7 +165,7 @@ describe("$crdtState — remote changes", () => {
 
     // Simulate a remote change by mutating through the handle directly.
     prim.handle?.change((doc) => {
-      (doc as unknown as Notes).title = "changed-by-remote";
+      doc.title = "changed-by-remote";
     });
     await Promise.resolve();
 
@@ -264,7 +264,7 @@ describe("$crdtState — schema migrations", () => {
           title: "existing",
           body: "",
           [SCHEMA_VERSION_FIELD]: 3,
-        } as unknown as Notes);
+        });
         return handle;
       },
     });

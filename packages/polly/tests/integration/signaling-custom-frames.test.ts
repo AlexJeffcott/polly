@@ -70,7 +70,7 @@ describe("custom signalling frames", () => {
       .listen(0);
     pendingApps.push({
       stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+        app.server?.stop?.(true);
         await new Promise((r) => setTimeout(r, 100));
       },
     });
@@ -132,7 +132,7 @@ describe("custom signalling frames", () => {
       .listen(0);
     pendingApps.push({
       stop: async () => {
-        (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+        app.server?.stop?.(true);
         await new Promise((r) => setTimeout(r, 100));
       },
     });

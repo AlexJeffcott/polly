@@ -88,11 +88,7 @@ export async function withRelay(options: WithRelayOptions = {}): Promise<WithRel
       // Elysia exposes the underlying Bun server here. The .stop(true)
       // force-closes any open connections so a hung peer cannot keep the
       // server alive past the script's intended lifetime.
-      (
-        app as unknown as {
-          server?: { stop?: (force?: boolean) => void };
-        }
-      ).server?.stop?.(true);
+      app.server?.stop?.(true);
     },
   };
 }

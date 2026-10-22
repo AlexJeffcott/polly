@@ -175,7 +175,7 @@ describe("ChromeRuntimeSyncAdapter", () => {
   let savedChrome: unknown;
   beforeEach(() => {
     hadChrome = "chrome" in globalThis;
-    savedChrome = (globalThis as unknown as { chrome?: unknown }).chrome;
+    savedChrome = globalThis.chrome;
   });
   afterEach(() => {
     if (hadChrome) {
@@ -263,9 +263,9 @@ describe("createSyncAdapter context detection", () => {
   let savedBC: unknown;
   beforeEach(() => {
     hadChrome = "chrome" in globalThis;
-    savedChrome = (globalThis as unknown as { chrome?: unknown }).chrome;
+    savedChrome = globalThis.chrome;
     hadBC = "BroadcastChannel" in globalThis;
-    savedBC = (globalThis as unknown as { BroadcastChannel?: unknown }).BroadcastChannel;
+    savedBC = globalThis.BroadcastChannel;
   });
   afterEach(() => {
     if (hadChrome) (globalThis as unknown as { chrome: unknown }).chrome = savedChrome;
@@ -352,7 +352,7 @@ describe("sync-adapter listener-cleanup and construction edge branches", () => {
   });
 
   test("BroadcastChannel: warns and stays disconnected when the API is unavailable", () => {
-    const saved = (globalThis as unknown as { BroadcastChannel?: unknown }).BroadcastChannel;
+    const saved = globalThis.BroadcastChannel;
     delete (globalThis as unknown as { BroadcastChannel?: unknown }).BroadcastChannel;
     try {
       const a = new BroadcastChannelSyncAdapter();

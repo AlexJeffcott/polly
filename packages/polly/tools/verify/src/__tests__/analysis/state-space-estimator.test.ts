@@ -38,7 +38,7 @@ function analysisWithHandlers(count: number): CodebaseAnalysis {
       postconditions: [],
       location: { file: "auth.ts", line: 1 },
     })),
-  } as unknown as CodebaseAnalysis;
+  };
 }
 
 function authConfig(maxInFlight: number): UnifiedVerificationConfig {
@@ -47,7 +47,7 @@ function authConfig(maxInFlight: number): UnifiedVerificationConfig {
     messages: { maxInFlight, maxTabs: null },
     onBuild: "warn",
     onRelease: "error",
-  } as unknown as UnifiedVerificationConfig;
+  };
 }
 
 describe("estimateStateSpace — the eal auth subsystem", () => {

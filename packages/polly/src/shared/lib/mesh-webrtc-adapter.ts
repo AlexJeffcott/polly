@@ -1462,7 +1462,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * queued until the data channel is open.
    */
   send(message: Message): void {
-    const targetId = message.targetId as unknown as string;
+    const targetId = message.targetId;
     const bytes = this.serialiseMessage(message);
     let slot = this.slots.get(targetId);
     if (!slot) {
@@ -1479,7 +1479,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     // every peer's handle map with a noise key. `wrap` in
     // {@link MeshNetworkAdapter} now preserves `documentId` in the
     // outer envelope so this stamp survives the crypto layer.
-    const documentId = (message as unknown as { documentId?: string }).documentId;
+    const documentId = message.documentId;
     if (typeof documentId === "string") {
       let handleEntry = slot.handles.get(documentId);
       if (!handleEntry) {
@@ -1612,7 +1612,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private shouldSendCandidate(candidate: RTCIceCandidate): boolean {
     if (!this.iceRelayEnforcement) return true;
     if (this.iceTransportPolicy !== "relay") return true;
-    const typed = (candidate as unknown as { type?: string }).type;
+    const typed = candidate.type;
     const match = candidate.candidate.match(/\btyp\s+(\S+)/i);
     const candidateType = (typed ?? match?.[1] ?? "").toLowerCase();
     return candidateType === "relay";
@@ -2070,7 +2070,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * per-handle observability layer polly#107 adds. Pure observability;
    * does not affect dispatch. */
   private stampHandleInbound(fromPeerId: string, message: Message): void {
-    const documentId = (message as unknown as { documentId?: string }).documentId;
+    const documentId = message.documentId;
     if (typeof documentId !== "string") return;
     const slot = this.slots.get(fromPeerId);
     if (!slot) return;
