@@ -21,6 +21,12 @@
  * alternative, so it passes with a `// cast:` comment. Put it in the brand's
  * constructor and call that, rather than marking every call site.
  *
+ * Hollow predicates. The compiler trusts a type predicate's body, so
+ * `(x): x is T => true` is a cast without an `as`. A predicate whose every
+ * `return` is the literal `true`, or whose body never mentions its parameter,
+ * is a violation unless marked `// cast: <reason>`. Found by syntax; no
+ * baseline, because the tree had none when the rule was added.
+ *
  * Casts are found by syntax (`AsExpression` / `TypeAssertion` nodes), so a
  * cast that spans lines, or sits in an index, an array or a `${}`, is seen,
  * and ` as ` in prose, strings and comments never is.
@@ -63,15 +69,32 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { Glob } from "bun";
-import type { AsExpression, Node, SourceFile, TypeAssertion } from "typescript-7/ast";
+import type {
+  ArrowFunction,
+  AsExpression,
+  FunctionDeclaration,
+  FunctionExpression,
+  MethodDeclaration,
+  Node,
+  SourceFile,
+  TypeAssertion,
+  TypePredicateNode,
+} from "typescript-7/ast";
 import { NodeFlags, SyntaxKind } from "typescript-7/ast";
 import {
+  isArrowFunction,
   isAsExpression,
   isBinaryExpression,
+  isBlock,
   isConditionalExpression,
+  isFunctionDeclaration,
+  isFunctionExpression,
   isIdentifier,
+  isMethodDeclaration,
   isParenthesizedExpression,
+  isReturnStatement,
   isTypeAssertion,
+  isTypePredicateNode,
   isTypeReferenceNode,
 } from "typescript-7/ast/is";
 import {
@@ -229,6 +252,94 @@ function collectSites(sf: SourceFile, config: string, out: Site[]): void {
       // The `x as unknown` half of a double cast is handled by its parent.
       if (!(isUnknownCast(node) && isCast(parent) && parent.expression === node)) {
         out.push({ cast: node, sf, config, kind: "single", operand: inner });
+      }
+    }
+    node.forEachChild(visit);
+  };
+  sf.forEachChild(visit);
+}
+
+type PredicateFunction =
+  | ArrowFunction
+  | FunctionDeclaration
+  | FunctionExpression
+  | MethodDeclaration;
+
+/**
+ * A type predicate (`x is T`, `asserts x is T`) whose body cannot be testing
+ * `x`. The compiler trusts a predicate's body, so such a predicate is a cast
+ * with no `as` in it.
+ */
+interface HollowPredicate {
+  file: string;
+  line: number;
+  text: string;
+  reason: "always-true" | "unread-parameter";
+  justified: boolean;
+}
+
+function isPredicateFunction(node: Node): node is PredicateFunction {
+  return (
+    isArrowFunction(node) ||
+    isFunctionDeclaration(node) ||
+    isFunctionExpression(node) ||
+    isMethodDeclaration(node)
+  );
+}
+
+/** Does `node` mention `name`, outside nested functions' own parameter lists? */
+function reads(node: Node, name: string): boolean {
+  if (isIdentifier(node)) return node.text === name;
+  let found = false;
+  node.forEachChild((child) => {
+    if (!found && reads(child, name)) found = true;
+  });
+  return found;
+}
+
+/** The `return` statements that belong to `body`, not to functions nested in it. */
+function ownReturns(body: Node): Node[] {
+  const out: Node[] = [];
+  const visit = (node: Node): void => {
+    if (isPredicateFunction(node)) return;
+    if (isReturnStatement(node)) out.push(node);
+    node.forEachChild(visit);
+  };
+  body.forEachChild(visit);
+  return out;
+}
+
+function hollowReason(
+  fn: PredicateFunction,
+  predicate: TypePredicateNode
+): HollowPredicate["reason"] | undefined {
+  const body = fn.body;
+  // An overload or `declare` signature has no body to judge; `this is T` names no parameter.
+  if (!body || !isIdentifier(predicate.parameterName)) return undefined;
+  if (!predicate.assertsModifier) {
+    const results = isBlock(body)
+      ? ownReturns(body).map((r) => (isReturnStatement(r) ? r.expression : undefined))
+      : [body];
+    if (results.length > 0 && results.every((e) => e?.kind === SyntaxKind.TrueKeyword)) {
+      return "always-true";
+    }
+  }
+  return reads(body, predicate.parameterName.text) ? undefined : "unread-parameter";
+}
+
+function collectHollowPredicates(sf: SourceFile, src: string, out: HollowPredicate[]): void {
+  const visit = (node: Node): void => {
+    if (isPredicateFunction(node) && node.type && isTypePredicateNode(node.type)) {
+      const reason = hollowReason(node, node.type);
+      if (reason) {
+        const start = node.getStart(sf);
+        out.push({
+          file: relative(ROOT, sf.fileName),
+          line: sf.getLineAndCharacterOfPosition(start).line + 1,
+          text: firstLine(node.getText(sf)),
+          reason,
+          justified: isJustified(src, sf, start),
+        });
       }
     }
     node.forEachChild(visit);
@@ -608,6 +719,7 @@ interface Run {
   fixed: { file: string; casts: number }[];
   fixRejected: { file: string; codes: number[]; exportsChanged: boolean }[];
   staleBaseline: number;
+  hollow: HollowPredicate[];
 }
 
 /** Which findings the baseline covers, consumed in source order, and how many entries matched nothing. */
@@ -750,11 +862,16 @@ async function run(): Promise<Run> {
     const programs = new Map([...projects].map(([c, p]) => [c, p.program]));
 
     const sites: Site[] = [];
+    const sourceFiles: SourceFile[] = [];
     await timed("walk", async () => {
       for (const [config, list] of groups) {
         const program = programs.get(config);
         const sources = await Promise.all(list.map((f) => program?.getSourceFile(f)));
-        for (const sf of sources) if (sf) collectSites(sf, config, sites);
+        for (const sf of sources) {
+          if (!sf) continue;
+          collectSites(sf, config, sites);
+          sourceFiles.push(sf);
+        }
       }
     });
 
@@ -767,6 +884,9 @@ async function run(): Promise<Run> {
       }
       return t;
     };
+
+    const hollow: HollowPredicate[] = [];
+    for (const sf of sourceFiles) collectHollowPredicates(sf, textOf(sf.fileName), hollow);
 
     const findings = await timed("checker", () =>
       Promise.all(sites.map((site) => describe(site, projects, textOf)))
@@ -788,7 +908,14 @@ async function run(): Promise<Run> {
     if (UPDATE) writeBaseline(findings);
 
     await snapshot.dispose();
-    return { files, findings, fixed, fixRejected, staleBaseline: UPDATE ? 0 : staleBaseline };
+    return {
+      files,
+      findings,
+      fixed,
+      fixRejected,
+      staleBaseline: UPDATE ? 0 : staleBaseline,
+      hollow,
+    };
   } finally {
     await api.close();
   }
@@ -809,6 +936,7 @@ const result = await run();
 timings["total"] = Math.round(performance.now() - totalStart);
 const { files, findings } = result;
 const violations = findings.filter((f) => f.status === "violation");
+const hollowViolations = result.hollow.filter((h) => !h.justified);
 
 let comparison: { regexOnly: string[]; apiOnly: string[]; both: number } | undefined;
 if (COMPARE) {
@@ -826,10 +954,19 @@ if (COMPARE) {
 const log = (s = ""): void => void process.stdout.write(`${s}\n`);
 
 if (JSON_OUT) {
-  const { fixed, fixRejected, staleBaseline } = result;
+  const { fixed, fixRejected, staleBaseline, hollow } = result;
   log(
     JSON.stringify(
-      { files: files.length, timings, findings, fixed, fixRejected, staleBaseline, comparison },
+      {
+        files: files.length,
+        timings,
+        findings,
+        hollow,
+        fixed,
+        fixRejected,
+        staleBaseline,
+        comparison,
+      },
       null,
       2
     )
@@ -844,6 +981,19 @@ if (JSON_OUT) {
     log(`  ${at(v)}  [${v.kind}${probe}]  ${v.text}`);
     log(`    ${v.from}  →  ${v.to}`);
     if (v.advice) log(`    ${v.advice}`);
+  }
+  for (const h of hollowViolations) {
+    log(`  ${at(h)}  [predicate ${h.reason}]  ${h.text}`);
+    log(
+      h.reason === "always-true"
+        ? "    the predicate returns `true` whatever it is given: a cast in a function; test the value, or mark it `// cast: <reason>`"
+        : "    the predicate never reads its parameter: a cast in a function; test the value, or mark it `// cast: <reason>`"
+    );
+  }
+  if (result.hollow.length > 0) {
+    log(
+      `  ${result.hollow.length} hollow predicate(s): ${hollowViolations.length} unmarked, ${result.hollow.length - hollowViolations.length} marked \`// cast:\``
+    );
   }
   if (result.staleBaseline > 0) {
     log(
@@ -904,4 +1054,4 @@ if (JSON_OUT) {
   );
 }
 
-process.exit(!UPDATE && !FIX && violations.length > 0 ? 1 : 0);
+process.exit(!UPDATE && !FIX && violations.length + hollowViolations.length > 0 ? 1 : 0);
