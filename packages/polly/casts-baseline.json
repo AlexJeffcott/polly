@@ -140,10 +140,6 @@
     "text": "v as TValues[keyof TValues]"
   },
   {
-    "file": "src/actions/store.tsx",
-    "text": "useContext(StoreContext) as unknown as TStores | null"
-  },
-  {
     "file": "src/actions/testing.ts",
     "text": "{ nodeType: 1, tagName: \"FORM\", elements: Object.entries(fields).map(([name, value]) => ({ name, value, })), } as unknown as HTMLFormElement"
   },
@@ -388,14 +384,6 @@
     "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as BlobMessageHeader"
   },
   {
-    "file": "src/shared/lib/context-specific-helpers.ts",
-    "text": "result as unknown as T"
-  },
-  {
-    "file": "src/shared/lib/crdt-state.ts",
-    "text": "JSON.parse(JSON.stringify(doc)) as unknown as T"
-  },
-  {
     "file": "src/shared/lib/derive-document-id.ts",
     "text": "bytes as unknown as BinaryDocumentId"
   },
@@ -497,10 +485,6 @@
   },
   {
     "file": "src/shared/lib/state.ts",
-    "text": "JSON.parse(JSON.stringify(initialValue)) as unknown as T"
-  },
-  {
-    "file": "src/shared/lib/state.ts",
     "text": "result[`${key}:clock`] as unknown as number"
   },
   {
@@ -532,14 +516,6 @@
     "text": "stateRegistry.get(key)?.signal as unknown as Signal<T>"
   },
   {
-    "file": "src/shared/lib/state.ts",
-    "text": "stored as unknown as T"
-  },
-  {
-    "file": "src/shared/lib/storage-adapter.ts",
-    "text": "value as unknown as T"
-  },
-  {
     "file": "src/shared/lib/sync-adapter.ts",
     "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
   },
@@ -562,10 +538,6 @@
   {
     "file": "src/shared/lib/sync-fragment.ts",
     "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as SyncFragmentHeader"
-  },
-  {
-    "file": "src/shared/lib/validation.ts",
-    "text": "value as unknown as T"
   },
   {
     "file": "src/shared/state/app-state.ts",
@@ -1288,10 +1260,6 @@
     "text": "undefined as unknown as string | undefined"
   },
   {
-    "file": "tests/unit/state-primitives.test.ts",
-    "text": "store.get(k) as unknown as T"
-  },
-  {
     "file": "tests/unit/state-sync.test.ts",
     "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
   },
@@ -1334,10 +1302,6 @@
   {
     "file": "tests/unit/sweep-sealed.test.ts",
     "text": "{ handles } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "\"v\" as unknown as T"
   },
   {
     "file": "tests/unit/sync-adapter.test.ts",
@@ -1460,10 +1424,6 @@
     "text": "db.query(sql).all() as unknown as T[]"
   },
   {
-    "file": "tools/mutate/src/ingest.ts",
-    "text": "db.query(sql).get() as unknown as T | null"
-  },
-  {
     "file": "tools/quality/src/attest.ts",
     "text": "JSON.parse(raw) as unknown as { digest?: string }"
   },
@@ -1482,22 +1442,6 @@
   {
     "file": "tools/test/src/adapters/fetch.mock.ts",
     "text": "mockResponse as unknown as Response"
-  },
-  {
-    "file": "tools/test/src/adapters/storage.mock.ts",
-    "text": "(data.has(keys) ? { [keys]: data.get(keys) } : {}) as unknown as T"
-  },
-  {
-    "file": "tools/test/src/adapters/storage.mock.ts",
-    "text": "Object.fromEntries(data) as unknown as T"
-  },
-  {
-    "file": "tools/test/src/adapters/storage.mock.ts",
-    "text": "result as unknown as T"
-  },
-  {
-    "file": "tools/test/src/adapters/storage.mock.ts",
-    "text": "result as unknown as T"
   },
   {
     "file": "tools/test/src/browser/harness.ts",

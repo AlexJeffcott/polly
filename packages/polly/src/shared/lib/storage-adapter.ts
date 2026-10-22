@@ -131,10 +131,10 @@ export class MemoryStorageAdapter implements StorageAdapter {
   async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {
     const result: Record<string, T> = {};
     for (const key of keys) {
-      const value = this.storage.get(key);
-      if (value !== undefined) {
-        result[key] = value as unknown as T;
-      }
+      // Read twice: a `!== undefined` test on a variable narrows it away from `unknown`.
+      if (this.storage.get(key) === undefined) continue;
+      // cast: the caller names the type it stored under this key
+      result[key] = this.storage.get(key) as T;
     }
     return result;
   }

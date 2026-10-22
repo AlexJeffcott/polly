@@ -187,7 +187,8 @@ export function queryAll<T>(db: Database, sql: string): T[] {
   return db.query(sql).all() as unknown as T[];
 }
 export function queryGet<T>(db: Database, sql: string): T | null {
-  return db.query(sql).get() as unknown as T | null;
+  // cast: the caller names the row shape its SQL selects
+  return db.query(sql).get() as T | null;
 }
 export async function loadMutationReport(path: string): Promise<MutationReport> {
   return (await Bun.file(path).json()) as unknown as MutationReport;

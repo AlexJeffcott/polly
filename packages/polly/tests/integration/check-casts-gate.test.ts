@@ -39,6 +39,7 @@ interface Finding {
   blocked?: string;
   status: string;
   brand?: boolean;
+  generic?: boolean;
 }
 
 interface Hollow {
@@ -179,6 +180,31 @@ export class C { isC(this: unknown): this is C { return true; } }
       [4, "unread-parameter", false],
       [13, "always-true", true],
     ]);
+  }, 30_000);
+
+  // At a generic boundary nothing can test a value against the caller's `T`.
+  test("admits a marked single cast from unknown to a type parameter", async () => {
+    writeFixture(`declare function load(): unknown;
+interface A { a: number }
+// cast: the caller chose T when it stored the value
+export function read<T>(): T { return load() as T; }
+// cast: absent values come back as null
+export function maybe<T>(): T | null { return load() as T | null; }
+export function unmarked<T>(): T { return load() as T; }
+declare const rec: Record<string, unknown>;
+// cast: the operand is not unknown, so this is not a boundary
+export function fromRecord<T>(): T { return rec as T; }
+// cast: A is not a type parameter
+export const concrete = load() as A;
+`);
+    const { findings } = await gate();
+    expect(byText(findings, "load() as T |")).toMatchObject({ generic: true, status: "allowed" });
+    expect(findings.filter((f) => f.text === "load() as T").map((f) => f.status)).toEqual([
+      "allowed",
+      "violation",
+    ]);
+    expect(byText(findings, "rec as T")).toMatchObject({ status: "violation" });
+    expect(byText(findings, "load() as A")).toMatchObject({ status: "violation" });
   }, 30_000);
 
   test("admits a marked single cast to a branded type", async () => {

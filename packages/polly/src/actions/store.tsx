@@ -37,7 +37,8 @@ export function StoreProvider<TStores>({ children, stores }: StoreProviderProps<
 }
 
 export function useStores<TStores>(): TStores {
-  const ctx = useContext(StoreContext) as unknown as TStores | null;
+  // cast: the context is untyped; StoreProvider<TStores> put the value there
+  const ctx = useContext(StoreContext) as TStores | null;
   if (ctx === null) {
     throw new Error("useStores must be used within a StoreProvider");
   }

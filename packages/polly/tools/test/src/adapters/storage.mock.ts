@@ -10,29 +10,28 @@ export function createMockStorageArea(): MockStorageArea {
   return {
     get: async <T = Record<string, unknown>>(
       keys?: string | string[] | Record<string, unknown> | null
-      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Mock storage needs to handle multiple key types
     ): Promise<T> => {
+      // The mock erases T like chrome.storage does; the caller names the shape it stored.
+      let result: unknown;
       if (!keys) {
-        return Object.fromEntries(data) as unknown as T;
+        result = Object.fromEntries(data);
+      } else if (typeof keys === "string") {
+        result = data.has(keys) ? { [keys]: data.get(keys) } : {};
+      } else if (Array.isArray(keys)) {
+        result = Object.fromEntries(
+          keys.filter((key) => data.has(key)).map((key) => [key, data.get(key)])
+        );
+      } else {
+        // Object with defaults
+        result = Object.fromEntries(
+          Object.entries(keys).map(([key, fallback]) => [
+            key,
+            data.has(key) ? data.get(key) : fallback,
+          ])
+        );
       }
-      if (typeof keys === "string") {
-        return (data.has(keys) ? { [keys]: data.get(keys) } : {}) as unknown as T;
-      }
-      if (Array.isArray(keys)) {
-        const result: Record<string, unknown> = {};
-        for (const key of keys) {
-          if (data.has(key)) {
-            result[key] = data.get(key);
-          }
-        }
-        return result as unknown as T;
-      }
-      // Object with defaults
-      const result: Record<string, unknown> = {};
-      for (const [key, defaultValue] of Object.entries(keys)) {
-        result[key] = data.has(key) ? data.get(key) : defaultValue;
-      }
-      return result as unknown as T;
+      // cast: chrome.storage returns what was stored; the caller's T names that shape
+      return result as T;
     },
     set: async (items) => {
       for (const [key, value] of Object.entries(items)) {

@@ -148,11 +148,12 @@ export function createDevToolsHelpers(): DevToolsHelpers {
           return;
         }
 
-        chrome.devtools.inspectedWindow.eval(code, (result, error) => {
+        chrome.devtools.inspectedWindow.eval(code, (result: unknown, error) => {
           if (error) {
             reject(new Error(error.isException ? error.value : "Execution error"));
           } else {
-            resolve(result as unknown as T);
+            // cast: the page evaluates code the caller wrote; the caller's T names its result
+            resolve(result as T);
           }
         });
       });

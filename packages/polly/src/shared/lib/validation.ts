@@ -107,7 +107,7 @@ export function validateEnum<T extends string | number>(
   allowed: readonly T[]
 ): (value: unknown) => value is T {
   return (value: unknown): value is T => {
-    return allowed.includes(value as unknown as T);
+    return allowed.some((candidate) => candidate === value);
   };
 }
 
