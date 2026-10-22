@@ -112,6 +112,7 @@ export {
 export type {
   HandleSyncSnapshot,
   InFlightSyncSnapshot,
+  MeshSignalingTransport,
   MeshWebRTCAdapterOptions,
   SlotInitiationDecision,
   SlotInitiationRejectionReason,
