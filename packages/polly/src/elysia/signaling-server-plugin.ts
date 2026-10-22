@@ -1,4 +1,3 @@
-// @ts-nocheck - Optional peer dependencies (elysia, @elysiajs/eden)
 /**
  * signalingServer — Phase 2 Elysia plugin that exposes a stateless
  * WebSocket route for SDP/ICE relay between $meshState peers.
@@ -51,6 +50,7 @@
  */
 
 import { Elysia } from "elysia";
+import { isRecord, readString } from "../shared/lib/guards";
 
 /** A signalling message. The `type` discriminates between client-to-server
  * requests (join, signal), the error envelope, and the server-to-client
@@ -132,6 +132,31 @@ export interface SignalingServerOptions {
   ) => void;
 }
 
+/** The part of an Elysia WebSocket the plugin uses. Elysia's `ws`
+ * satisfies it: its `data` bag is an object literal type, so it fits the
+ * index signature on {@link CustomFrameSocket}. */
+type SignalingSocket = CustomFrameSocket & { readonly readyState: number };
+
+const OPEN = 1;
+
+/** Decode an incoming frame. Elysia parses JSON text frames itself, so
+ * `raw` is usually already an object; a string is parsed here. */
+function decodeFrame(raw: unknown): Record<string, unknown> | undefined {
+  if (typeof raw !== "string") return isRecord(raw) ? raw : undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The peer id a socket joined with. Elysia keeps one `data` bag per
+ * connection across callbacks, so the id lives there. */
+function joinedPeerId(ws: SignalingSocket): string | undefined {
+  return readString(ws.data["peerId"]);
+}
+
 /**
  * Construct the signalling-server Elysia plugin. The plugin keeps a
  * per-instance map of peer id → WebSocket connection so that incoming
@@ -148,41 +173,30 @@ export function signalingServer(options: SignalingServerOptions = {}) {
   // directly on ws.data (a mutable property bag that Elysia preserves
   // across message callbacks for a given connection); the webrtc-p2p-chat
   // example in examples/ confirms this pattern is stable under Bun.
-  const peerSockets = new Map<string, { send: (msg: unknown) => void }>();
+  const peerSockets = new Map<string, SignalingSocket>();
 
-  // Intentionally unnamed — Elysia deduplicates plugins by name, and each
-  // signalingServer() call needs its own closure-captured peer map.
-  const parseMessage = (raw: unknown): SignalingMessage | undefined => {
-    try {
-      return typeof raw === "string" ? JSON.parse(raw) : (raw as unknown as SignalingMessage);
-    } catch {
-      return undefined;
-    }
+  const send = (ws: SignalingSocket, msg: SignalingMessage): void => {
+    ws.send(msg);
   };
 
-  const handleJoin = (ws: unknown, peerId: string): void => {
-    const newcomer = ws as unknown as { send: (m: unknown) => void };
+  const handleJoin = (ws: SignalingSocket, peerId: string): void => {
     // Collect the peers that were already joined so we can (a) tell the
     // newcomer who is present and (b) tell each of them about the
     // newcomer. A rejoin with the same peerId replaces the prior entry
     // but is otherwise treated as a fresh arrival.
-    const incumbents: Array<{ peerId: string; socket: { send: (m: unknown) => void } }> = [];
+    const incumbents: Array<{ peerId: string; socket: SignalingSocket }> = [];
     for (const [existingPeerId, existingSocket] of peerSockets) {
       if (existingPeerId === peerId) continue;
       incumbents.push({ peerId: existingPeerId, socket: existingSocket });
     }
-    peerSockets.set(peerId, newcomer);
-    const wsWithData = ws as unknown as { data: Record<string, unknown> };
-    wsWithData.data.peerId = peerId;
+    peerSockets.set(peerId, ws);
+    ws.data["peerId"] = peerId;
 
-    newcomer.send({
-      type: "peers-present",
-      peerIds: incumbents.map((i) => i.peerId),
-    } as unknown as SignalingMessage);
+    send(ws, { type: "peers-present", peerIds: incumbents.map((i) => i.peerId) });
 
     for (const incumbent of incumbents) {
       try {
-        incumbent.socket.send({ type: "peer-joined", peerId } as unknown as SignalingMessage);
+        send(incumbent.socket, { type: "peer-joined", peerId });
       } catch {
         // If a send fails we leave the stale socket to its own close
         // handler to evict. Dropping here would open a window where
@@ -191,69 +205,66 @@ export function signalingServer(options: SignalingServerOptions = {}) {
     }
   };
 
-  const sendUnknownTarget = (ws: unknown, targetPeerId: string): void => {
-    (ws as unknown as { send: (m: unknown) => void }).send({
-      type: "error",
-      reason: "unknown-target",
-      targetPeerId,
-    } as unknown as SignalingMessage);
+  const sendUnknownTarget = (ws: SignalingSocket, targetPeerId: string): void => {
+    send(ws, { type: "error", reason: "unknown-target", targetPeerId });
   };
 
   /** Look up a target socket and confirm it is still open. */
-  const findOpenTarget = (targetPeerId: string): { send: (msg: unknown) => void } | undefined => {
+  const findOpenTarget = (targetPeerId: string): SignalingSocket | undefined => {
     const target = peerSockets.get(targetPeerId);
     if (!target) return undefined;
-    const readyState = (target as unknown as { readyState?: number }).readyState;
-    const OPEN = 1;
-    if (readyState !== undefined && readyState !== OPEN) {
+    if (target.readyState !== OPEN) {
       peerSockets.delete(targetPeerId);
       return undefined;
     }
     return target;
   };
 
-  const handleSignal = (ws: unknown, msg: Extract<SignalingMessage, { type: "signal" }>): void => {
-    const wsWithData = ws as unknown as {
-      data: Record<string, unknown>;
-      send: (m: unknown) => void;
-    };
-    const senderId = wsWithData.data.peerId as unknown as string | undefined;
+  const handleSignal = (ws: SignalingSocket, frame: Record<string, unknown>): void => {
+    const senderId = joinedPeerId(ws);
     if (!senderId) {
-      wsWithData.send({ type: "error", reason: "not-joined" } as unknown as SignalingMessage);
+      send(ws, { type: "error", reason: "not-joined" });
       return;
     }
-    const target = findOpenTarget(msg.targetPeerId);
+    const targetPeerId = readString(frame["targetPeerId"]);
+    if (targetPeerId === undefined) {
+      send(ws, { type: "error", reason: "malformed" });
+      return;
+    }
+    const target = findOpenTarget(targetPeerId);
     if (!target) {
-      sendUnknownTarget(ws, msg.targetPeerId);
+      sendUnknownTarget(ws, targetPeerId);
       return;
     }
-    const relayed: SignalingMessage = {
-      type: "signal",
-      peerId: senderId,
-      targetPeerId: msg.targetPeerId,
-      payload: msg.payload,
-    };
     try {
-      target.send(relayed);
+      send(target, { type: "signal", peerId: senderId, targetPeerId, payload: frame["payload"] });
     } catch {
-      peerSockets.delete(msg.targetPeerId);
-      sendUnknownTarget(ws, msg.targetPeerId);
+      peerSockets.delete(targetPeerId);
+      sendUnknownTarget(ws, targetPeerId);
     }
   };
 
+  // Intentionally unnamed — Elysia deduplicates plugins by name, and each
+  // signalingServer() call needs its own closure-captured peer map.
   return new Elysia().ws(path, {
     message(ws, raw) {
-      const msg = parseMessage(raw);
-      if (!msg) {
-        ws.send({ type: "error", reason: "malformed" } as unknown as SignalingMessage);
+      const frame = decodeFrame(raw);
+      const type = readString(frame?.["type"]);
+      if (frame === undefined || type === undefined) {
+        send(ws, { type: "error", reason: "malformed" });
         return;
       }
-      if (msg.type === "join") {
-        handleJoin(ws, msg.peerId);
+      if (type === "join") {
+        const peerId = readString(frame["peerId"]);
+        if (peerId === undefined) {
+          send(ws, { type: "error", reason: "malformed" });
+          return;
+        }
+        handleJoin(ws, peerId);
         return;
       }
-      if (msg.type === "signal") {
-        handleSignal(ws, msg);
+      if (type === "signal") {
+        handleSignal(ws, frame);
         return;
       }
       // Unknown types route to the consumer's custom-frame hook when
@@ -261,19 +272,14 @@ export function signalingServer(options: SignalingServerOptions = {}) {
       // the `malformed` error — same behaviour as before this branch
       // existed.
       if (onCustomFrame !== undefined) {
-        const wsWithData = ws as unknown as CustomFrameSocket;
-        const senderId = wsWithData.data["peerId"];
-        const peerId = typeof senderId === "string" ? senderId : undefined;
-        onCustomFrame(wsWithData, msg as unknown as CustomSignalingFrame, peerId);
+        onCustomFrame(ws, { ...frame, type }, joinedPeerId(ws));
         return;
       }
-      ws.send({ type: "error", reason: "malformed" } as unknown as SignalingMessage);
+      send(ws, { type: "error", reason: "malformed" });
     },
 
     close(ws) {
-      const peerId = (ws.data as unknown as Record<string, unknown>).peerId as unknown as
-        | string
-        | undefined;
+      const peerId = joinedPeerId(ws);
       if (!peerId) {
         // Connection that never sent a join — nothing to broadcast and
         // nothing to evict. A bystander coming and going leaves no trace.
@@ -286,16 +292,13 @@ export function signalingServer(options: SignalingServerOptions = {}) {
       // message and close callbacks, unlike the `ws` wrapper object which
       // Elysia may or may not reuse.
       const mapped = peerSockets.get(peerId);
-      const wsData = (ws as unknown as { data: Record<string, unknown> }).data;
-      const mappedData = (mapped as unknown as { data?: Record<string, unknown> } | undefined)
-        ?.data;
-      if (mapped === undefined || mappedData !== wsData) {
+      if (mapped === undefined || mapped.data !== ws.data) {
         return;
       }
       peerSockets.delete(peerId);
-      for (const [_incumbentId, incumbentSocket] of peerSockets) {
+      for (const incumbentSocket of peerSockets.values()) {
         try {
-          incumbentSocket.send({ type: "peer-left", peerId } as unknown as SignalingMessage);
+          send(incumbentSocket, { type: "peer-left", peerId });
         } catch {
           // Incumbent socket is gone; its own close handler will tidy.
         }
