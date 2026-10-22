@@ -46,6 +46,12 @@ export type CheckContext<TConfig = unknown> = {
  * and `run(ctx)` once per execution. `filesRead(config)` is consulted by
  * the cache before `run` — return the absolute paths whose content must
  * invalidate a cached result.
+ *
+ * `filesRead`, `cacheKeyExtras` and `run` are methods, not function-typed
+ * properties, so their `config` parameter is checked bivariantly and a
+ * `Check<MyConfig>` fits in a `Check<unknown>[]`. That is sound only because
+ * the host runs `validate` first and never calls a check with config that
+ * failed it.
  */
 export type Check<TConfig = unknown> = {
   /** Namespaced id, e.g. `polly:no-as-casting`. */
@@ -63,16 +69,16 @@ export type Check<TConfig = unknown> = {
    * absolute paths (or paths relative to `rootDir`; the cache normalises).
    * The host hashes these and skips `run` on cache hit.
    */
-  filesRead?: (config: TConfig, rootDir: string) => Promise<string[]> | string[];
+  filesRead?(config: TConfig, rootDir: string): Promise<string[]> | string[];
   /**
    * Environment variables and tool versions that contribute to the
    * cache key alongside file content. Use this when the check's behaviour
    * depends on something not captured by `filesRead` (e.g. a binary's
    * version, an env var that flips a code path).
    */
-  cacheKeyExtras?: (config: TConfig) => Record<string, string>;
+  cacheKeyExtras?(config: TConfig): Record<string, string>;
   /** Run the check. Throws are caught by the host and reported as failures. */
-  run: (ctx: CheckContext<TConfig>) => Promise<CheckOutcome>;
+  run(ctx: CheckContext<TConfig>): Promise<CheckOutcome>;
 };
 
 /**

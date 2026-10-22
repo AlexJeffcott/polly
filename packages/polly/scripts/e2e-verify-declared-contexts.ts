@@ -64,7 +64,7 @@ function configFor(contexts?: string[]): VerificationConfig {
     ...(contexts ? { contexts } : {}),
     state: {
       "session.active": { type: "boolean" },
-    } as unknown as VerificationConfig["state"],
+    },
     messages: { maxInFlight: 1, maxTabs: 1 },
     onBuild: "warn",
     onRelease: "error",
