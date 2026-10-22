@@ -24,7 +24,9 @@ class FakeDataChannel {
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: ArrayBuffer | Uint8Array }) => void) | null = null;
   onclose: (() => void) | null = null;
+  onerror: ((ev: unknown) => void) | null = null;
   readyState: "connecting" | "open" | "closed" = "connecting";
+  bufferedAmount = 0;
   sent: Uint8Array[] = [];
 
   open(): void {
@@ -63,6 +65,10 @@ class FakePeerConnection {
   onconnectionstatechange: (() => void) | null = null;
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null;
   connectionState = "new";
+  signalingState = "stable";
+  iceConnectionState = "new";
+  localDescription: RTCSessionDescriptionInit | null = null;
+  remoteDescription: RTCSessionDescriptionInit | null = null;
   channel?: FakeDataChannel;
 
   createDataChannel(_label: string, _options: unknown): FakeDataChannel {
@@ -73,11 +79,16 @@ class FakePeerConnection {
     return { type: "offer", sdp: "v=0\r\nfake\r\n" };
   }
   async setLocalDescription(_d: RTCSessionDescriptionInit): Promise<void> {}
-  async setRemoteDescription(_d: RTCSessionDescriptionInit): Promise<void> {}
+  async setRemoteDescription(desc: RTCSessionDescriptionInit): Promise<void> {
+    this.remoteDescription = desc;
+  }
   async createAnswer(): Promise<RTCSessionDescriptionInit> {
     return { type: "answer", sdp: "v=0\r\nfake\r\n" };
   }
   async addIceCandidate(_c: unknown): Promise<void> {}
+  async getStats(): Promise<unknown> {
+    return new Map();
+  }
   close(): void {
     this.connectionState = "closed";
     this.onconnectionstatechange?.();
@@ -109,7 +120,7 @@ function buildAdapterWithOpenChannel(): {
     signaling: createSignalingStub(),
     peerId: localPeerId,
     knownPeerIds: [remotePeerId],
-    RTCPeerConnection: CapturingPC as unknown as typeof RTCPeerConnection,
+    RTCPeerConnection: CapturingPC,
   });
   adapter.handlePeerJoined(remotePeerId);
   const channel = peerConnections[0]?.channel;

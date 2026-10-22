@@ -105,6 +105,7 @@ class FakeDataChannel {
   onclose: (() => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readyState = "connecting";
+  bufferedAmount = 0;
   close(): void {
     this.readyState = "closed";
     this.onclose?.();
@@ -121,6 +122,10 @@ class FakePeerConnection {
   onconnectionstatechange: (() => void) | null = null;
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null;
   connectionState = "new";
+  signalingState = "stable";
+  iceConnectionState = "new";
+  localDescription: RTCSessionDescriptionInit | null = null;
+  remoteDescription: RTCSessionDescriptionInit | null = null;
   lastDataChannel: FakeDataChannel | undefined;
   constructor() {
     FakePeerConnection.instances.push(this);
@@ -134,17 +139,22 @@ class FakePeerConnection {
     return { type: "offer", sdp: "v=0\r\nfake\r\n" };
   }
   async setLocalDescription(_desc: RTCSessionDescriptionInit): Promise<void> {}
-  async setRemoteDescription(_desc: RTCSessionDescriptionInit): Promise<void> {}
+  async setRemoteDescription(desc: RTCSessionDescriptionInit): Promise<void> {
+    this.remoteDescription = desc;
+  }
   async createAnswer(): Promise<RTCSessionDescriptionInit> {
     return { type: "answer", sdp: "v=0\r\nfake\r\n" };
   }
   async addIceCandidate(_candidate: unknown): Promise<void> {}
+  async getStats(): Promise<unknown> {
+    return new Map();
+  }
   close(): void {
     this.connectionState = "closed";
     this.onconnectionstatechange?.();
   }
 }
-const FakePC = FakePeerConnection as unknown as typeof RTCPeerConnection;
+const FakePC = FakePeerConnection;
 
 const LOCAL = "local-peer";
 

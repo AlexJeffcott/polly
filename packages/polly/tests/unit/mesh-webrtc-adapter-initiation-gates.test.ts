@@ -33,6 +33,8 @@ class FakeDataChannel {
   onclose: (() => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readyState: "connecting" | "open" | "closed" = "connecting";
+  bufferedAmount = 0;
+  send(_: ArrayBuffer | Uint8Array): void {}
   close(): void {
     this.readyState = "closed";
     this.onclose?.();
@@ -44,6 +46,10 @@ class FakePeerConnection {
   onconnectionstatechange: (() => void) | null = null;
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null;
   connectionState = "new";
+  signalingState = "stable";
+  iceConnectionState = "new";
+  localDescription: RTCSessionDescriptionInit | null = null;
+  remoteDescription: RTCSessionDescriptionInit | null = null;
   channel?: FakeDataChannel;
 
   createDataChannel(_label: string, _options: unknown): FakeDataChannel {
@@ -54,11 +60,16 @@ class FakePeerConnection {
     return { type: "offer", sdp: "v=0\r\nfake\r\n" };
   }
   async setLocalDescription(_d: RTCSessionDescriptionInit): Promise<void> {}
-  async setRemoteDescription(_d: RTCSessionDescriptionInit): Promise<void> {}
+  async setRemoteDescription(desc: RTCSessionDescriptionInit): Promise<void> {
+    this.remoteDescription = desc;
+  }
   async createAnswer(): Promise<RTCSessionDescriptionInit> {
     return { type: "answer", sdp: "v=0\r\nfake\r\n" };
   }
   async addIceCandidate(_c: unknown): Promise<void> {}
+  async getStats(): Promise<unknown> {
+    return new Map();
+  }
   close(): void {
     this.connectionState = "closed";
     this.onconnectionstatechange?.();
@@ -70,7 +81,7 @@ function build(localPeerId: string, knownPeerIds: string[]): MeshWebRTCAdapter {
     signaling: createSignalingStub(),
     peerId: localPeerId,
     knownPeerIds,
-    RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
+    RTCPeerConnection: FakePeerConnection,
   });
 }
 
@@ -221,8 +232,9 @@ describe("refreshKnownPeers sweep", () => {
 
 describe("tryCreateInitiatingSlot resilience", () => {
   test("records a fatal-error decision when the RTCPeerConnection constructor throws", () => {
-    class ThrowingPC {
+    class ThrowingPC extends FakePeerConnection {
       constructor() {
+        super();
         throw new Error("connection cap exceeded");
       }
     }
@@ -230,7 +242,7 @@ describe("tryCreateInitiatingSlot resilience", () => {
       signaling: createSignalingStub(),
       peerId: "peer-z",
       knownPeerIds: ["peer-a"],
-      RTCPeerConnection: ThrowingPC as unknown as typeof RTCPeerConnection,
+      RTCPeerConnection: ThrowingPC,
     });
     // The dial throws inside `new RTCPeerConnection()`; the per-peer
     // try/catch must record it as fatal-error rather than let the throw

@@ -25,7 +25,11 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { type MeshSignalingTransport, MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshPeerConnectionConstructor,
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+} from "@/shared/lib/mesh-webrtc-adapter";
 
 // ─── Fake WebRTC implementation ──────────────────────────────────────────────
 // `remoteDescription` starts null and is set to the SDP passed in by
@@ -41,7 +45,9 @@ class FakeDataChannel {
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: ArrayBuffer | Uint8Array }) => void) | null = null;
   onclose: (() => void) | null = null;
+  onerror: ((ev: unknown) => void) | null = null;
   readyState = "connecting";
+  bufferedAmount = 0;
   close(): void {
     this.readyState = "closed";
     this.onclose?.();
@@ -54,6 +60,8 @@ class FakePeerConnection {
   onconnectionstatechange: (() => void) | null = null;
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null;
   connectionState = "new";
+  iceConnectionState = "new";
+  localDescription: RTCSessionDescriptionInit | null = null;
   signalingState: RTCSignalingState = "stable";
   remoteDescription: RTCSessionDescriptionInit | null = null;
   addIceCalls: AddIceCall[] = [];
@@ -87,6 +95,9 @@ class FakePeerConnection {
       throw new Error("The remote description was null");
     }
   }
+  async getStats(): Promise<unknown> {
+    return new Map();
+  }
   close(): void {
     this.connectionState = "closed";
     this.onconnectionstatechange?.();
@@ -97,7 +108,7 @@ class FakePeerConnection {
 // inspect their addIceCalls state. The adapter does not expose its
 // internal `slots` map, so we hook the constructor instead.
 function trackingPeerConnectionCtor(): {
-  Ctor: typeof RTCPeerConnection;
+  Ctor: MeshPeerConnectionConstructor;
   instances: FakePeerConnection[];
 } {
   const instances: FakePeerConnection[] = [];
@@ -107,7 +118,7 @@ function trackingPeerConnectionCtor(): {
       instances.push(this);
     }
   }
-  return { Ctor: TrackingPC as unknown as typeof RTCPeerConnection, instances };
+  return { Ctor: TrackingPC, instances };
 }
 
 // ─── Signalling client stub ──────────────────────────────────────────────────

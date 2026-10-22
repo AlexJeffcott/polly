@@ -753,10 +753,6 @@
   },
   {
     "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
     "text": "FakeWebSocket as unknown as typeof WebSocket"
   },
   {
@@ -830,74 +826,6 @@
   {
     "file": "tests/unit/mesh-signaling-client.test.ts",
     "text": "FakeWebSocket as unknown as typeof WebSocket"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
-    "text": "ThrowingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-pending-ice.test.ts",
-    "text": "TrackingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "{ candidate: opts.candidate, type: opts.type, toJSON(): RTCIceCandidateInit { return { candidate: opts.candidate }; }, } as unknown as RTCIceCandidate"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "CapturingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
-    "text": "new Map() as unknown as RTCStatsReport"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
-    "text": "{} as unknown as RTCStatsReport"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "new Map() as unknown as RTCStatsReport"
   },
   {
     "file": "tests/unit/messages.test.ts",
