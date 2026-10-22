@@ -301,9 +301,7 @@ describe("signalingServer peer-discovery frames", () => {
       payload: { ice: "candidate" },
     });
 
-    const reply = (await waitForMessage(eve)) as unknown as { type: string; reason: string };
-    expect(reply.type).toBe("error");
-    expect(reply.reason).toBe("unknown-target");
+    expect(await waitForMessage(eve)).toMatchObject({ type: "error", reason: "unknown-target" });
 
     eve.close();
   });

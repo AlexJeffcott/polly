@@ -165,8 +165,7 @@ describe("MeshWebRTCAdapter peer-discovery dispatch", () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(sent).toHaveLength(1);
       expect(sent[0]?.targetPeerId).toBe("peer-a");
-      const payload = sent[0]?.payload as unknown as { kind?: string };
-      expect(payload.kind).toBe("offer");
+      expect(sent[0]?.payload).toMatchObject({ kind: "offer" });
     });
 
     test("is a no-op when we are the lower id (remote will initiate toward us)", async () => {

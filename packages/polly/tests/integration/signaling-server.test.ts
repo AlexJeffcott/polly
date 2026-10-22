@@ -138,16 +138,12 @@ describe("signalingServer plugin", () => {
       payload: { sdp: "v=0\r\n…" },
     });
 
-    const received = (await waitForNonDiscoveryMessage(bob)) as unknown as {
-      type: string;
-      peerId: string;
-      targetPeerId: string;
-      payload: unknown;
-    };
-    expect(received.type).toBe("signal");
-    expect(received.peerId).toBe("peer-alice");
-    expect(received.targetPeerId).toBe("peer-bob");
-    expect(received.payload).toEqual({ sdp: "v=0\r\n…" });
+    expect(await waitForNonDiscoveryMessage(bob)).toMatchObject({
+      type: "signal",
+      peerId: "peer-alice",
+      targetPeerId: "peer-bob",
+      payload: { sdp: "v=0\r\n…" },
+    });
 
     alice.close();
     bob.close();
@@ -164,9 +160,7 @@ describe("signalingServer plugin", () => {
       payload: {},
     });
 
-    const reply = (await waitForMessage(carol)) as unknown as { type: string; reason: string };
-    expect(reply.type).toBe("error");
-    expect(reply.reason).toBe("not-joined");
+    expect(await waitForMessage(carol)).toMatchObject({ type: "error", reason: "not-joined" });
 
     carol.close();
   });
@@ -184,14 +178,11 @@ describe("signalingServer plugin", () => {
       payload: { ice: "candidate" },
     });
 
-    const reply = (await waitForNonDiscoveryMessage(dave)) as unknown as {
-      type: string;
-      reason: string;
-      targetPeerId: string;
-    };
-    expect(reply.type).toBe("error");
-    expect(reply.reason).toBe("unknown-target");
-    expect(reply.targetPeerId).toBe("peer-nobody");
+    expect(await waitForNonDiscoveryMessage(dave)).toMatchObject({
+      type: "error",
+      reason: "unknown-target",
+      targetPeerId: "peer-nobody",
+    });
 
     dave.close();
   });
@@ -213,9 +204,8 @@ describe("signalingServer plugin", () => {
       payload: { evil: true },
     });
 
-    const received = (await waitForNonDiscoveryMessage(frank)) as unknown as { peerId: string };
     // Server replaces with the authenticated peer id.
-    expect(received.peerId).toBe("peer-eve");
+    expect(await waitForNonDiscoveryMessage(frank)).toMatchObject({ peerId: "peer-eve" });
 
     eve.close();
     frank.close();
@@ -243,12 +233,10 @@ describe("signalingServer plugin", () => {
       payload: {},
     });
 
-    const reply = (await waitForNonDiscoveryMessage(grace)) as unknown as {
-      type: string;
-      reason: string;
-    };
-    expect(reply.type).toBe("error");
-    expect(reply.reason).toBe("unknown-target");
+    expect(await waitForNonDiscoveryMessage(grace)).toMatchObject({
+      type: "error",
+      reason: "unknown-target",
+    });
 
     grace.close();
   });
