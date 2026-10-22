@@ -17,6 +17,7 @@
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import {
+  type MeshIceCandidate,
   type MeshSignalingTransport,
   MeshWebRTCAdapter,
   meshWebRTCAdapterInternals,
@@ -48,6 +49,8 @@ class FakeDataChannel {
   onclose: (() => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readyState: "connecting" | "open" | "closed" = "connecting";
+  bufferedAmount = 0;
+  send(_: ArrayBuffer | Uint8Array): void {}
   close(): void {
     this.readyState = "closed";
     this.onclose?.();
@@ -70,6 +73,7 @@ class FakePeerConnection {
   onconnectionstatechange: (() => void) | null = null;
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null;
   connectionState = "new";
+  iceConnectionState = "new";
   signalingState: RTCSignalingState = "have-local-offer";
   remoteDescription: RTCSessionDescriptionInit | null = null;
   localDescription: RTCSessionDescriptionInit | null = null;
@@ -104,6 +108,9 @@ class FakePeerConnection {
   async addIceCandidate(c: RTCIceCandidateInit): Promise<void> {
     this.addedIce.push(c);
   }
+  async getStats(): Promise<unknown> {
+    return new Map();
+  }
   close(): void {
     this.connectionState = "closed";
     this.onconnectionstatechange?.();
@@ -128,7 +135,7 @@ function makeAdapter(
     iceTransportPolicy: overrides.iceTransportPolicy,
     iceRelayEnforcement: overrides.iceRelayEnforcement,
     iceServers: overrides.iceServers,
-    RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
+    RTCPeerConnection: FakePeerConnection,
   });
   return { adapter, sent };
 }
@@ -137,14 +144,14 @@ function makeAdapter(
  * fire-and-forget initiateOffer/handleOffer chains settle. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-function iceCandidate(opts: { candidate: string; type?: string }): RTCIceCandidate {
+function iceCandidate(opts: { candidate: string; type?: string }): MeshIceCandidate {
   return {
     candidate: opts.candidate,
-    type: opts.type,
+    type: opts.type ?? null,
     toJSON(): RTCIceCandidateInit {
       return { candidate: opts.candidate };
     },
-  } as unknown as RTCIceCandidate;
+  };
 }
 
 /** Pull the sdp string out of a captured signal payload, narrowing the
@@ -188,7 +195,7 @@ describe("MeshWebRTCAdapter buildRtcConfiguration", () => {
 });
 
 describe("MeshWebRTCAdapter trickle-ICE relay filter (shouldSendCandidate)", () => {
-  function fireCandidate(adapter: MeshWebRTCAdapter, candidate: RTCIceCandidate | null): void {
+  function fireCandidate(adapter: MeshWebRTCAdapter, candidate: MeshIceCandidate | null): void {
     adapter.handlePeerJoined("peer-a");
     const pc = FakePeerConnection.instances[0];
     if (!pc?.onicecandidate) throw new Error("onicecandidate not wired");

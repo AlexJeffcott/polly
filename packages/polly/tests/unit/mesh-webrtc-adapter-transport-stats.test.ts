@@ -30,6 +30,7 @@ class FakeDataChannel {
   onclose: (() => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readyState = "connecting";
+  bufferedAmount = 0;
   close(): void {
     this.readyState = "closed";
     this.onclose?.();
@@ -48,9 +49,11 @@ class FakePeerConnection {
   signalingState = "stable";
   iceConnectionState = "new";
   connectionState = "new";
+  localDescription: RTCSessionDescriptionInit | null = null;
+  remoteDescription: RTCSessionDescriptionInit | null = null;
   lastDataChannel: FakeDataChannel | undefined;
   /** Report handed back from getStats; settable per test. */
-  nextStats: RTCStatsReport = makeReport([]);
+  nextStats: unknown = makeReport([]);
   /** When true, getStats rejects (mirrors a connection mid-teardown). */
   statsThrows = false;
   constructor() {
@@ -65,12 +68,14 @@ class FakePeerConnection {
     return { type: "offer", sdp: "v=0\r\nfake\r\n" };
   }
   async setLocalDescription(_desc: RTCSessionDescriptionInit): Promise<void> {}
-  async setRemoteDescription(_desc: RTCSessionDescriptionInit): Promise<void> {}
+  async setRemoteDescription(desc: RTCSessionDescriptionInit): Promise<void> {
+    this.remoteDescription = desc;
+  }
   async createAnswer(): Promise<RTCSessionDescriptionInit> {
     return { type: "answer", sdp: "v=0\r\nfake\r\n" };
   }
   async addIceCandidate(_candidate: unknown): Promise<void> {}
-  async getStats(): Promise<RTCStatsReport> {
+  async getStats(): Promise<unknown> {
     if (this.statsThrows) throw new Error("connection closed");
     return this.nextStats;
   }
@@ -82,7 +87,7 @@ class FakePeerConnection {
 
 /** A Map satisfies the `report.values()` access partitionStats makes, and
  * matches the Map-like shape of a real RTCStatsReport. */
-function makeReport(stats: Stat[]): RTCStatsReport {
+function makeReport(stats: Stat[]): Map<string, Stat> {
   return new Map(stats.map((s) => [String(s["id"]), s]));
 }
 
@@ -99,7 +104,7 @@ function buildAdapter(localPeerId: string, knownPeerIds: string[]): MeshWebRTCAd
     signaling: createSignalingStub(),
     peerId: localPeerId,
     knownPeerIds,
-    RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
+    RTCPeerConnection: FakePeerConnection,
   });
 }
 
@@ -249,7 +254,7 @@ describe("MeshWebRTCAdapter transport-stats parsing (polly#124)", () => {
     const { adapter, conn } = await buildSlot("peer-a");
     // A bare object (no Map-like `values()`) must short-circuit to an empty
     // parse rather than throw — the `report.values?.() ?? []` fallback.
-    conn.nextStats = {} as unknown as RTCStatsReport;
+    conn.nextStats = {};
 
     const snap = await adapter.refreshTransportStats("peer-a");
 

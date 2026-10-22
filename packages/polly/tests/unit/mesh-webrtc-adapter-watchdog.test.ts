@@ -42,6 +42,7 @@ class FakeDataChannel {
   onclose: (() => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readyState = "connecting";
+  bufferedAmount = 0;
   close(): void {
     this.readyState = "closed";
     this.onclose?.();
@@ -97,8 +98,8 @@ class FakePeerConnection {
     return { type: "answer", sdp: "v=0\r\nfake\r\n" };
   }
   async addIceCandidate(_candidate: unknown): Promise<void> {}
-  async getStats(): Promise<RTCStatsReport> {
-    return new Map() as unknown as RTCStatsReport;
+  async getStats(): Promise<unknown> {
+    return new Map();
   }
   close(): void {
     this.connectionState = "closed";
@@ -166,7 +167,7 @@ function buildAdapter(
     signaling: client,
     peerId: localPeerId,
     knownPeerIds,
-    RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
+    RTCPeerConnection: FakePeerConnection,
     slotNeverConnectedTimeoutMs: opts.slotNeverConnectedTimeoutMs,
     slotIdleTimeoutMs: opts.slotIdleTimeoutMs,
     slotWatchdogIntervalMs: opts.slotWatchdogIntervalMs,
