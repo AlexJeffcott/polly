@@ -154,7 +154,7 @@ describe("Enhancement #5: Exposed .loaded Promise", () => {
 
   test("can use loaded promise to coordinate initialization", async () => {
     const settings = $sharedState("settings-init", { theme: "dark", count: 0 });
-    const bookmarks = $sharedState("bookmarks-init", [] as unknown as string[]);
+    const bookmarks = $sharedState("bookmarks-init", []);
 
     // Wait for both to load
     await Promise.all([settings.loaded, bookmarks.loaded]);

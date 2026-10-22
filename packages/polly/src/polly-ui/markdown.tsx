@@ -25,7 +25,7 @@ import { marked } from "marked";
 import type { JSX } from "preact";
 
 export function renderMarkdown(value: string): JSX.Element {
-  const html = marked.parse(value, { async: false }) as unknown as string;
+  const html = marked.parse(value, { async: false });
   const clean = DOMPurify.sanitize(html);
   return <div data-polly-ui data-polly-markdown dangerouslySetInnerHTML={{ __html: clean }} />;
 }

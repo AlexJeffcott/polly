@@ -170,9 +170,7 @@ export class TLAGenerator {
     this.meshSignalDocs.clear();
     if (this.hasMeshConfig(config)) {
       const declaredDocs = new Set(Object.keys(config.mesh ?? {}));
-      const sigs = (
-        analysis as { meshOrPeerSignals?: Array<{ variableName: string; key: string }> }
-      ).meshOrPeerSignals;
+      const sigs = analysis.meshOrPeerSignals;
       if (sigs) {
         for (const s of sigs) {
           if (declaredDocs.has(s.key)) {
@@ -806,11 +804,7 @@ export class TLAGenerator {
       if (!fields) continue;
       const fieldLines: string[] = [];
       for (const [fieldName, fieldConfig] of Object.entries(fields)) {
-        const tlaType = this.fieldConfigToTLAType(
-          `${docId}_${fieldName}`,
-          fieldConfig as FieldConfig,
-          config
-        );
+        const tlaType = this.fieldConfigToTLAType(`${docId}_${fieldName}`, fieldConfig, config);
         fieldLines.push(`${this.sanitizeFieldName(fieldName)}: ${tlaType}`);
       }
       this.line(`\\* Document type for ${docId}`);
@@ -836,11 +830,7 @@ export class TLAGenerator {
       if (!fields) continue;
       const inner: string[] = [];
       for (const [fieldName, fieldConfig] of Object.entries(fields)) {
-        const initVal = this.fieldConfigInitialValue(
-          `${docId}_${fieldName}`,
-          fieldConfig as FieldConfig,
-          config
-        );
+        const initVal = this.fieldConfigInitialValue(`${docId}_${fieldName}`, fieldConfig, config);
         inner.push(`${this.sanitizeFieldName(fieldName)} |-> ${initVal}`);
       }
       caseArms.push(`d = "${docId}" -> [${inner.join(", ")}]`);

@@ -530,16 +530,12 @@ describe("createMeshClient — repo storage", () => {
       removeRange: async () => {},
     };
     const client = await make({ repoStorage: fakeStorage });
-    expect(
-      Boolean((client.repo as unknown as { storageSubsystem?: unknown }).storageSubsystem)
-    ).toBe(true);
+    expect(Boolean(client.repo.storageSubsystem)).toBe(true);
   });
 
   test("leaves the Repo in-memory when no storage is supplied", async () => {
     const client = await make();
-    expect(
-      Boolean((client.repo as unknown as { storageSubsystem?: unknown }).storageSubsystem)
-    ).toBe(false);
+    expect(Boolean(client.repo.storageSubsystem)).toBe(false);
   });
 });
 
@@ -627,10 +623,7 @@ describe("createMeshClient — inbound revocation handling", () => {
     // its "message" event drives the MeshNetworkAdapter receive path, which
     // unwraps control frames to the factory's onControlMessage handler.
     const deliver = (msg: Message): void => {
-      (client.webrtcAdapter as unknown as { emit: (e: string, m: Message) => void }).emit(
-        "message",
-        msg
-      );
+      client.webrtcAdapter.emit("message", msg);
     };
     return { client, issuerIdentity, sign, deliver, diagnostics };
   }

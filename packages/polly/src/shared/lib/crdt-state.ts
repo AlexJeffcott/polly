@@ -191,13 +191,13 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
   async function followInitialRedirects(start: DocHandle<T>): Promise<DocHandle<T>> {
     if (!options.resolveRedirect) return start;
     let handle = start;
-    const seen = new Set<string>([handle.documentId as unknown as string]);
+    const seen = new Set<string>([handle.documentId]);
     for (;;) {
       const doc = handle.doc();
       if (!doc) break;
       const next = await options.resolveRedirect(handle, doc);
       if (!next || next === handle) break;
-      const nextIdString = next.documentId as unknown as string;
+      const nextIdString = next.documentId;
       if (seen.has(nextIdString)) break;
       seen.add(nextIdString);
       handle = next;
@@ -211,10 +211,10 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
     const targetVersion = options.schemaVersion;
     const migrations = options.migrations ?? {};
     handle.change((doc) => {
-      runMigrations(doc as unknown as Record<string, unknown>, targetVersion, migrations);
+      runMigrations(doc, targetVersion, migrations);
       // runMigrations stamps the version on every intermediate step; make
       // sure the final value is recorded even when no migrations ran.
-      setDocVersion(doc as unknown as Record<string, unknown>, targetVersion);
+      setDocVersion(doc, targetVersion);
     });
   }
 
@@ -226,7 +226,7 @@ export function $crdtState<T extends VersionedDoc>(options: CrdtStateOptions<T>)
       updating = true;
       try {
         currentHandle.change((doc) => {
-          applyTopLevel(doc as unknown as Record<string, unknown>, value);
+          applyTopLevel(doc, value);
         });
       } finally {
         updating = false;
@@ -328,7 +328,7 @@ function cloneDoc<T>(doc: T): T {
  * migration subsystem and must not be overwritten by application writes.
  */
 function applyTopLevel<T extends VersionedDoc>(doc: Record<string, unknown>, value: T): void {
-  const source = value as unknown as Record<string, unknown>;
+  const source = value;
   for (const key of Object.keys(value)) {
     if (key === SCHEMA_VERSION_FIELD) continue;
     const incoming = source[key];

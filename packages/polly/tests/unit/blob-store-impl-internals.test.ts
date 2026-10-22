@@ -42,7 +42,7 @@ function installFakeTimers(): void {
   globalThis.setTimeout = ((fn: () => void, delay?: number) => {
     const id = nextTimerId++;
     scheduled.push({ fn, delay: delay ?? 0, id });
-    return id as unknown as ReturnType<typeof setTimeout>;
+    return id;
   }) as unknown as typeof setTimeout;
   globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
     const i = scheduled.findIndex((s) => s.id === (id as unknown as number));

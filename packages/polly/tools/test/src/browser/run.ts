@@ -436,7 +436,7 @@ async function runFile(testFile: string): Promise<FileTally> {
     if (captureStacks) {
       debugSession = await newPage.createCDPSession();
       debugSession.on("Debugger.paused", (event) => {
-        pausedFrames = event as unknown as PausedFrames;
+        pausedFrames = event;
       });
       await debugSession.send("Debugger.enable");
     }
@@ -494,7 +494,7 @@ const { passed: totalPassed, failed: totalFailed } = await runSuite(testFiles, r
 });
 
 await browser.close();
-(signalingApp as unknown as { server?: { stop?: (f?: boolean) => void } }).server?.stop?.(true);
+signalingApp.server?.stop?.(true);
 
 console.log(`\n[browser-runner] ${totalPassed} passed, ${totalFailed} failed`);
 process.exit(totalFailed > 0 ? 1 : 0);

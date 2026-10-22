@@ -51,13 +51,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
     this.messageListeners.set(callback, wrappedCallback);
     // Chrome's listener signature uses void | boolean, ours uses undefined | boolean
     // These are compatible - undefined is assignable to void for return types
-    chrome.runtime.onMessage.addListener(
-      wrappedCallback as unknown as (
-        message: unknown,
-        sender: chrome.runtime.MessageSender,
-        sendResponse: (response?: unknown) => void
-      ) => undefined | boolean
-    );
+    chrome.runtime.onMessage.addListener(wrappedCallback);
 
     // Track listener count and warn if multiple listeners registered
     ChromeRuntimeAdapter.listenerCount++;
@@ -79,13 +73,7 @@ export class ChromeRuntimeAdapter implements RuntimeAdapter {
     const wrappedCallback = this.messageListeners.get(callback);
     if (wrappedCallback) {
       // Type-safe cast: wrappedCallback is stored with compatible signature
-      chrome.runtime.onMessage.removeListener(
-        wrappedCallback as unknown as (
-          message: unknown,
-          sender: chrome.runtime.MessageSender,
-          sendResponse: (response?: unknown) => void
-        ) => undefined | boolean
-      );
+      chrome.runtime.onMessage.removeListener(wrappedCallback);
       this.messageListeners.delete(callback);
 
       // Decrement listener count

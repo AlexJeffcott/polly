@@ -1,7 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createMockChrome, createMockPort, createMockStorageArea } from "@fairfox/polly/test";
 import type { TabsAdapter } from "@/shared/adapters";
-import type { MessageSender } from "@/shared/adapters/runtime.adapter";
 
 /**
  * Adapter interface tests - these test the mock implementations
@@ -44,7 +43,7 @@ test("RuntimeAdapter interface - onMessage listener", async () => {
 
   // Simulate incoming message
   for (const listener of mockChrome.runtime._messageListeners) {
-    listener({ type: "TEST" }, {} as unknown as MessageSender, () => {});
+    listener({ type: "TEST" }, {}, () => {});
   }
 
   expect(callback).toHaveBeenCalled();

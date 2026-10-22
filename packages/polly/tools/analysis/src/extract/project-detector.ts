@@ -121,9 +121,7 @@ export class ProjectDetector {
 
     const file =
       (background["service_worker"] as unknown as string | undefined) ||
-      ((background["scripts"] as unknown as string[] | undefined)?.[0] as unknown as
-        | string
-        | undefined) ||
+      (background["scripts"] as unknown as string[] | undefined)?.[0] ||
       (background["page"] as unknown as string | undefined);
     if (file) {
       entryPoints["background"] = this.findSourceFile(file);
@@ -145,9 +143,7 @@ export class ProjectDetector {
     const firstScriptObj = contentScripts[0];
     if (!firstScriptObj) return;
 
-    const firstScript = (firstScriptObj["js"] as unknown as string[] | undefined)?.[0] as unknown as
-      | string
-      | undefined;
+    const firstScript = (firstScriptObj["js"] as unknown as string[] | undefined)?.[0];
     if (firstScript) {
       entryPoints["content"] = this.findSourceFile(firstScript);
     }
@@ -257,7 +253,7 @@ export class ProjectDetector {
 
     // Main process
     const mainCandidates = [
-      packageJson["main"] as unknown as string | undefined,
+      packageJson["main"],
       "src/main/index.ts",
       "src/electron/main.ts",
       "electron/main.ts",

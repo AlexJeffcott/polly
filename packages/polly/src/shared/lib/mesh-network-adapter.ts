@@ -515,7 +515,7 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     }
 
     // An adapter that has not joined yet signs with an empty sender id.
-    const senderId = this.peerId ?? ("" as unknown as PeerId);
+    const senderId = this.peerId ?? "";
     const signed = signEnvelope(payloadToSign, senderId, keyring.identity.secretKey);
     const signedBytes = encodeSignedEnvelope(signed);
 

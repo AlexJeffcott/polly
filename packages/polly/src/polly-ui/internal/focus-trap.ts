@@ -30,9 +30,8 @@ function getFocusable(root: HTMLElement): HTMLElement[] {
 }
 
 export function installFocusTrap(root: HTMLElement): () => void {
-  const previousActive = (
-    document.activeElement instanceof HTMLElement ? document.activeElement : null
-  ) as HTMLElement | null;
+  const previousActive =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   // Move focus into the root if it's not already.
   const focusable = getFocusable(root);

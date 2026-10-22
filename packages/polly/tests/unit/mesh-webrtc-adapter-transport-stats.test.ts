@@ -87,7 +87,7 @@ class FakePeerConnection {
 /** A Map satisfies the `report.values()` access partitionStats makes, and
  * matches the Map-like shape of a real RTCStatsReport. */
 function makeReport(stats: Stat[]): RTCStatsReport {
-  return new Map(stats.map((s) => [String(s["id"]), s])) as unknown as RTCStatsReport;
+  return new Map(stats.map((s) => [String(s["id"]), s]));
 }
 
 function createSignalingStub(peerId: string): MeshSignalingClient {

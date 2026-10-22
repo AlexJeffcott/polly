@@ -420,7 +420,7 @@ describe("MeshSignalingClient — reconnect backoff", () => {
     // client uses, not the full overloaded global with __promisify__.
     globalThis.setTimeout = ((fn: () => void, delay?: number) => {
       scheduled.push({ fn, delay: delay ?? 0 });
-      return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+      return scheduled.length;
     }) as unknown as typeof setTimeout;
     globalThis.clearTimeout = () => {};
   }

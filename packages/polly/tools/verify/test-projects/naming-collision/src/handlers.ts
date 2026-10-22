@@ -16,8 +16,8 @@ const messageBus = {
 export const connectionState = $sharedState(
   "connection",
   {
-    status: "disconnected" as unknown as "disconnected" | "connecting" | "connected",
-    lastError: null as unknown as string | null,
+    status: "disconnected",
+    lastError: null,
   },
   { verify: true }
 );

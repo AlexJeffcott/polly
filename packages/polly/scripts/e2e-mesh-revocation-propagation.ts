@@ -207,9 +207,7 @@ async function verifyRevocationLanded(
   if (!peerBDiags.some((d) => d.kind === "ctrl:revocation-received")) {
     throw new Error("peer B did not emit ctrl:revocation-received");
   }
-  const peerBSelfDiag = peerBDiags.find((d) => d.kind === "revoke:self-targeted") as
-    | { kind: "revoke:self-targeted"; issuerId: string; reason?: string }
-    | undefined;
+  const peerBSelfDiag = peerBDiags.find((d) => d.kind === "revoke:self-targeted");
   if (!peerBSelfDiag) throw new Error("peer B did not emit revoke:self-targeted");
   if (peerBSelfDiag.issuerId !== peerA.peerId) {
     throw new Error(

@@ -90,7 +90,7 @@ export class ChromeStorageAdapter implements StorageAdapter {
     }
 
     try {
-      return (await chrome.storage.local.get(keys)) as unknown as Record<string, T>;
+      return await chrome.storage.local.get(keys);
     } catch (error) {
       console.warn("[Polly] Chrome storage get failed:", error);
       return {};

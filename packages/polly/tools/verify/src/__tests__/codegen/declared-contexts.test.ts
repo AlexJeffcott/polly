@@ -24,7 +24,7 @@ import type { VerificationConfig } from "../../types";
 
 const STATE = {
   session: { type: "enum", values: ["anonymous", "pending", "authenticated"] },
-} as unknown as VerificationConfig["state"];
+};
 
 function analysisWith(handlers: Array<{ messageType: string; node: string }>): CodebaseAnalysis {
   return {
@@ -40,7 +40,7 @@ function analysisWith(handlers: Array<{ messageType: string; node: string }>): C
       postconditions: [],
       location: { file: `${h.node}/handlers.ts`, line: 1 },
     })),
-  } as unknown as CodebaseAnalysis;
+  };
 }
 
 const ANALYSIS = analysisWith([
@@ -55,7 +55,7 @@ function configWith(extra: Record<string, unknown> = {}): VerificationConfig {
     onBuild: "warn",
     onRelease: "error",
     ...extra,
-  } as unknown as VerificationConfig;
+  };
 }
 
 /** Members of a `Name = {a, b, c}` assignment in a `.cfg`. */

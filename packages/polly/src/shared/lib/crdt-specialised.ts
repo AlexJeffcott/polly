@@ -111,8 +111,8 @@ function createSpecialisedPrimitive<V, D extends VersionedDoc>(
       const targetVersion = config.schemaVersion;
       const migrations = config.migrations ?? {};
       handle.change((doc) => {
-        runMigrations(doc as unknown as Record<string, unknown>, targetVersion, migrations);
-        setDocVersion(doc as unknown as Record<string, unknown>, targetVersion);
+        runMigrations(doc, targetVersion, migrations);
+        setDocVersion(doc, targetVersion);
       });
     }
 
@@ -159,7 +159,7 @@ function createSpecialisedPrimitive<V, D extends VersionedDoc>(
     },
     loaded,
     get handle() {
-      return currentHandle as unknown as DocHandle<unknown> | undefined;
+      return currentHandle;
     },
     get changeCount() {
       if (!currentHandle) return undefined;
@@ -208,7 +208,7 @@ export function $crdtText(
     applyWrite: (doc, value) => {
       if (doc.text === undefined) {
         // First write — seed the field. Subsequent writes will use updateText.
-        (doc as unknown as TextDoc).text = value;
+        doc.text = value;
       } else {
         updateText(doc, ["text"], value);
       }
@@ -265,7 +265,7 @@ export function $crdtCounter(
     applyWrite: (doc, value) => {
       const existing = doc.count;
       if (existing === undefined) {
-        (doc as unknown as CounterDoc).count = new Counter(value);
+        doc.count = new Counter(value);
       } else {
         const delta = value - existing.value;
         if (delta !== 0) {
@@ -321,7 +321,7 @@ export function $crdtList<T>(
     applyWrite: (doc, value) => {
       // Phase 0 naive replacement; see the function-level docstring for the
       // refinement plan.
-      (doc as unknown as ListDoc<T>).items = [...value];
+      doc.items = [...value];
     },
     schemaVersion: options.schemaVersion,
     migrations: options.migrations,

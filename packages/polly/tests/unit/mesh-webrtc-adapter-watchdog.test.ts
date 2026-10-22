@@ -212,7 +212,7 @@ describe("MeshWebRTCAdapter polly#109 silent-throw recovery", () => {
     const { adapter } = buildAdapter("peer-m", ["peer-a"]);
     const disconnects: string[] = [];
     adapter.on("peer-disconnected", (payload: { peerId: PeerId }) => {
-      disconnects.push(payload.peerId as unknown as string);
+      disconnects.push(payload.peerId);
     });
     adapter.handlePeerJoined("peer-a");
     await flushMicrotasks();

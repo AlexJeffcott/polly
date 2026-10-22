@@ -233,7 +233,7 @@ describe("ChromeStorageAdapter", () => {
 
   beforeEach(() => {
     hadChrome = "chrome" in globalThis;
-    savedChrome = (globalThis as unknown as GlobalWithChrome).chrome;
+    savedChrome = globalThis.chrome;
     warnings = [];
     console.warn = (...args: unknown[]) => warnings.push(args);
   });
@@ -394,7 +394,7 @@ describe("IndexedDBAdapter", () => {
 
   beforeEach(() => {
     hadIDB = "indexedDB" in globalThis;
-    savedIDB = (globalThis as unknown as GlobalWithIDB).indexedDB;
+    savedIDB = globalThis.indexedDB;
     warnings = [];
     console.warn = (...args: unknown[]) => warnings.push(args);
     setIndexedDB(makeFakeIndexedDB());
@@ -484,9 +484,9 @@ describe("createStorageAdapter", () => {
 
   beforeEach(() => {
     hadChrome = "chrome" in globalThis;
-    savedChrome = (globalThis as unknown as GlobalWithChrome).chrome;
+    savedChrome = globalThis.chrome;
     hadIDB = "indexedDB" in globalThis;
-    savedIDB = (globalThis as unknown as GlobalWithIDB).indexedDB;
+    savedIDB = globalThis.indexedDB;
   });
 
   afterEach(() => {

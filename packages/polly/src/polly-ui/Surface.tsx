@@ -297,7 +297,7 @@ export function Surface(props: SurfaceProps): JSX.Element {
   if (zIndex !== undefined) style["--s-z"] = String(zIndex);
 
   if (props.style) {
-    Object.assign(style, props.style as unknown as Record<string, string>);
+    Object.assign(style, props.style);
   }
 
   const parts: (string | undefined)[] = [classes["surface"]];

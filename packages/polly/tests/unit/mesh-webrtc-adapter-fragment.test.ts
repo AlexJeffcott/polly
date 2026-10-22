@@ -148,7 +148,7 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
       targetId: remotePeerId as unknown as Message["targetId"],
       documentId: "doc-small" as unknown as Message["documentId"],
       data: new Uint8Array([1, 2, 3, 4]),
-    } as unknown as Message;
+    };
     adapter.send(message);
     expect(channel.sent).toHaveLength(1);
     const onlyFrame = channel.sent[0];
@@ -165,7 +165,7 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
       targetId: remotePeerId as unknown as Message["targetId"],
       documentId: "doc-big" as unknown as Message["documentId"],
       data: payload,
-    } as unknown as Message;
+    };
     adapter.send(message);
     expect(channel.sent.length).toBeGreaterThan(1);
     let fragmentId: string | undefined;
@@ -204,7 +204,7 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
       targetId: remotePeerId as unknown as Message["targetId"],
       documentId: "doc-roundtrip" as unknown as Message["documentId"],
       data: original,
-    } as unknown as Message;
+    };
     adapter.send(outgoing);
     const wireFrames = [...channel.sent];
     channel.sent = [];
@@ -242,7 +242,7 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
       targetId: remotePeerId as unknown as Message["targetId"],
       documentId: "doc-reorder" as unknown as Message["documentId"],
       data: payload,
-    } as unknown as Message;
+    };
     adapter.send(outgoing);
     const wireFrames = [...channel.sent].reverse();
     channel.sent = [];

@@ -63,7 +63,7 @@ const CONFIG: VerificationConfig = {
     // reads a cardinality off this shape, so `fieldProduct` is a real number
     // rather than the unbounded fallback.
     "session.active": { type: "boolean" },
-  } as unknown as VerificationConfig["state"],
+  },
   messages: { maxInFlight: 1, maxTabs: 1 },
   onBuild: "warn",
   onRelease: "error",

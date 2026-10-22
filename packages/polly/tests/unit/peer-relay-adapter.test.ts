@@ -149,15 +149,11 @@ describe("createPeerStateClient — repo wiring", () => {
   // adapter selection and the storage spread are otherwise only observable
   // through real network/storage behaviour (the integration tests' job).
   function repoNetworkAdapterName(client: PeerStateClient): string {
-    const ns = (
-      client.repo as unknown as {
-        networkSubsystem?: { adapters?: Array<{ constructor: { name: string } }> };
-      }
-    ).networkSubsystem;
+    const ns = client.repo.networkSubsystem;
     return ns?.adapters?.[0]?.constructor.name ?? "(none)";
   }
   function repoHasStorage(client: PeerStateClient): boolean {
-    return Boolean((client.repo as unknown as { storageSubsystem?: unknown }).storageSubsystem);
+    return Boolean(client.repo.storageSubsystem);
   }
   const fakeStorage: StorageAdapterInterface = {
     load: async () => undefined,

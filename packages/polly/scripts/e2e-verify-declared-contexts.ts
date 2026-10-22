@@ -68,7 +68,7 @@ function configFor(contexts?: string[]): VerificationConfig {
     messages: { maxInFlight: 1, maxTabs: 1 },
     onBuild: "warn",
     onRelease: "error",
-  } as unknown as VerificationConfig;
+  };
 }
 
 /** Lay a generated spec out where `runTLC` expects it. */

@@ -48,7 +48,7 @@ function startSignaling(port: number): RunningApp {
   const handle: RunningApp = {
     port: resolveListenPort(app),
     stop: async () => {
-      (app as unknown as { server?: { stop?: (force?: boolean) => void } }).server?.stop?.(true);
+      app.server?.stop?.(true);
       // Give the OS a tick to release the port before the next listen().
       await new Promise((r) => setTimeout(r, 100));
     },
