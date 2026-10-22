@@ -41,13 +41,21 @@ interface Finding {
   brand?: boolean;
 }
 
+interface Hollow {
+  line: number;
+  reason: string;
+  justified: boolean;
+}
+
 let dir = "";
 
 function writeFixture(source: string): void {
   writeFileSync(join(dir, "fixture.ts"), source);
 }
 
-async function gate(...flags: string[]): Promise<{ code: number; findings: Finding[] }> {
+async function gate(
+  ...flags: string[]
+): Promise<{ code: number; findings: Finding[]; hollow: Hollow[] }> {
   const proc = Bun.spawn(["bun", SCRIPT, "--root", dir, "--json", ...flags], {
     stdout: "pipe",
     stderr: "pipe",
@@ -64,7 +72,17 @@ async function gate(...flags: string[]): Promise<{ code: number; findings: Findi
             typeof f === "object" && f !== null && "text" in f && "status" in f
         )
       : [];
-  return { code, findings };
+  const hollow =
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "hollow" in parsed &&
+    Array.isArray(parsed.hollow)
+      ? parsed.hollow.filter(
+          (h: unknown): h is Hollow =>
+            typeof h === "object" && h !== null && "line" in h && "reason" in h && "justified" in h
+        )
+      : [];
+  return { code, findings, hollow };
 }
 
 function byText(findings: Finding[], start: string): Finding | undefined {
@@ -136,6 +154,33 @@ describe("check-casts gate", () => {
   }, 30_000);
 
   // Only a cast produces a branded value, so its constructor may keep one, marked.
+  // The compiler trusts a predicate's body, so one that cannot be testing its value is a cast.
+  test("flags a type predicate that cannot be testing its value", async () => {
+    writeFixture(`interface A { a: number }
+export function alwaysTrue(x: unknown): x is A { return true; }
+export const unread = (x: unknown): x is A => typeof globalThis === "object";
+export function assertsUnread(x: unknown): asserts x is A {}
+export function real(x: unknown): x is A {
+  return typeof x === "object" && x !== null && "a" in x;
+}
+export function nestedTrue(x: unknown): x is A {
+  const f = () => true;
+  return f() && typeof x === "object";
+}
+// cast: a fixture predicate with no runtime test
+export function marked(x: unknown): x is A { return true; }
+export class C { isC(this: unknown): this is C { return true; } }
+`);
+    const { code, hollow } = await gate();
+    expect(code).toBe(1);
+    expect(hollow.map((h) => [h.line, h.reason, h.justified])).toEqual([
+      [2, "always-true", false],
+      [3, "unread-parameter", false],
+      [4, "unread-parameter", false],
+      [13, "always-true", true],
+    ]);
+  }, 30_000);
+
   test("admits a marked single cast to a branded type", async () => {
     writeFixture(`type Id = string & { readonly __id: true };
 // cast: the brand's constructor
