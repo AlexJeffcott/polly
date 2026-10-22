@@ -31,6 +31,7 @@ import type {
   MeshSignalingClientOptions,
 } from "@/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import { toPeerId } from "../../src/shared/lib/branded";
 
 // ─── Fake WebRTC implementation with controllable knobs ──────────────────────
 
@@ -244,7 +245,7 @@ describe("MeshWebRTCAdapter polly#109/#110 slot watchdog", () => {
       slotIdleTimeoutMs: 0,
       slotWatchdogIntervalMs: 5,
     });
-    adapter.connect("peer-m" as unknown as PeerId);
+    adapter.connect(toPeerId("peer-m"));
     adapter.handlePeerJoined("peer-a");
     await flushMicrotasks();
     expect(adapter.peerSlotCount()).toBe(1);
@@ -267,7 +268,7 @@ describe("MeshWebRTCAdapter polly#109/#110 slot watchdog", () => {
       slotIdleTimeoutMs: 20,
       slotWatchdogIntervalMs: 5,
     });
-    adapter.connect("peer-m" as unknown as PeerId);
+    adapter.connect(toPeerId("peer-m"));
     adapter.handlePeerJoined("peer-a");
     await flushMicrotasks();
     const slotEntries = [...((adapter as unknown as { slots: Map<string, unknown> }).slots ?? [])];
@@ -295,7 +296,7 @@ describe("MeshWebRTCAdapter polly#109/#110 slot watchdog", () => {
       slotIdleTimeoutMs: 50,
       slotWatchdogIntervalMs: 5,
     });
-    adapter.connect("peer-m" as unknown as PeerId);
+    adapter.connect(toPeerId("peer-m"));
     adapter.handlePeerJoined("peer-a");
     await flushMicrotasks();
     const slot = (
@@ -342,7 +343,7 @@ describe("MeshWebRTCAdapter polly#109/#110 slot watchdog", () => {
       slotNeverConnectedTimeoutMs: 5,
       slotWatchdogIntervalMs: 2,
     });
-    adapter.connect("peer-m" as unknown as PeerId);
+    adapter.connect(toPeerId("peer-m"));
     adapter.disconnect();
     // If the watchdog were still running, this delay would let it
     // fire and any throw would surface as an unhandled rejection.

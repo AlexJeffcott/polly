@@ -44,6 +44,7 @@ import type {
   StorageAdapterInterface,
 } from "@automerge/automerge-repo/slim";
 import { Automerge } from "@automerge/automerge-repo/slim";
+import { toDocumentId } from "./branded";
 
 export interface SweepSealedOptions {
   /** The Repo whose storage is swept. Its open handles gate removal. */
@@ -205,7 +206,7 @@ function classifyDocument(
   if (sealedAt === undefined) return { action: "ignore" }; // not sealed — never swept
 
   // Storage keys carry raw document-id strings; brand for Repo lookups.
-  const id = documentId as unknown as DocumentId;
+  const id = toDocumentId(documentId);
 
   // Open-handle gate: a document with a live handle on this Repo is
   // never swept, regardless of age.

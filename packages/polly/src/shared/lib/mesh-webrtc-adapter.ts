@@ -63,6 +63,7 @@ import {
   SYNC_FRAGMENT_CHUNK_SIZE,
   SYNC_FRAGMENT_THRESHOLD,
 } from "./sync-fragment";
+import { toPeerId } from "./branded";
 
 /** Distil an {@link RTCStatsReport} into a {@link TransportSnapshot}.
  * Resolves the selected candidate pair via the transport stat's
@@ -1365,7 +1366,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     } catch {
       // Same rationale as above.
     }
-    this.emit("peer-disconnected", { peerId: peerId as unknown as PeerId });
+    this.emit("peer-disconnected", { peerId: toPeerId(peerId) });
   }
 
   /** Start the slot watchdog (polly#109 + polly#110). Walks every
@@ -1850,7 +1851,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
         // would emit `peer-disconnected` twice.
         if (!this.slots.has(peerId)) return;
         this.slots.delete(peerId);
-        this.emit("peer-disconnected", { peerId: peerId as unknown as PeerId });
+        this.emit("peer-disconnected", { peerId: toPeerId(peerId) });
       }
     };
   }
@@ -1873,7 +1874,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     if (slot.lastSyncHandshakeAttempt.peerCandidateEmittedAt !== undefined) return;
     slot.lastSyncHandshakeAttempt.peerCandidateEmittedAt = performance.now();
     this.emit("peer-candidate", {
-      peerId: peerId as unknown as PeerId,
+      peerId: toPeerId(peerId),
       peerMetadata: {},
     });
   }

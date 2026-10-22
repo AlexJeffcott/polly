@@ -17,6 +17,7 @@ import type {
   MeshSignalingClientOptions,
 } from "@/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import { toPeerId } from "../../src/shared/lib/branded";
 
 function createSignalingStub(peerId: string): MeshSignalingClient {
   const options: MeshSignalingClientOptions = {
@@ -222,8 +223,8 @@ describe("MeshWebRTCAdapter message wire codec", () => {
     });
     const decoded = deserialise(adapter, serialise(adapter, original));
     expect(decoded.type).toBe("request");
-    expect(decoded.senderId).toBe("peer-a" as unknown as Message["senderId"]);
-    expect(decoded.targetId).toBe("peer-z" as unknown as Message["targetId"]);
+    expect(decoded.senderId).toBe(toPeerId("peer-a"));
+    expect(decoded.targetId).toBe(toPeerId("peer-z"));
     expect((decoded as unknown as { documentId?: string }).documentId).toBe("doc-xyz");
     expect(Array.from(decoded.data ?? [])).toEqual([5, 6, 7, 8, 9]);
   });

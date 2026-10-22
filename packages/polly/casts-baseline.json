@@ -425,19 +425,11 @@
   },
   {
     "file": "src/shared/lib/mesh-client.ts",
-    "text": "options.signaling.peerId as unknown as PeerId"
-  },
-  {
-    "file": "src/shared/lib/mesh-client.ts",
     "text": "repo as unknown as { synchronizer?: SynchronizerStructural }"
   },
   {
     "file": "src/shared/lib/mesh-client.ts",
     "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
-  },
-  {
-    "file": "src/shared/lib/mesh-client.ts",
-    "text": "senderId as unknown as PeerId"
   },
   {
     "file": "src/shared/lib/mesh-client.ts",
@@ -498,18 +490,6 @@
   {
     "file": "src/shared/lib/mesh-webrtc-adapter.ts",
     "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "peerId as unknown as PeerId"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "peerId as unknown as PeerId"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "peerId as unknown as PeerId"
   },
   {
     "file": "src/shared/lib/mesh-webrtc-adapter.ts",
@@ -600,10 +580,6 @@
     "text": "value as unknown as T"
   },
   {
-    "file": "src/shared/lib/sweep-sealed.ts",
-    "text": "documentId as unknown as DocumentId"
-  },
-  {
     "file": "src/shared/lib/sync-adapter.ts",
     "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
   },
@@ -641,14 +617,6 @@
   },
   {
     "file": "tests/browser/blob-store.browser.ts",
-    "text": "\"blob-peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/browser/blob-store.browser.ts",
-    "text": "\"blob-peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/browser/blob-store.browser.ts",
     "text": "null as unknown as MeshSignalingClient"
   },
   {
@@ -660,24 +628,8 @@
     "text": "null as unknown as MeshSignalingClient"
   },
   {
-    "file": "tests/browser/mesh-webrtc-late-join.browser.ts",
-    "text": "peerId as unknown as PeerId"
-  },
-  {
     "file": "tests/browser/mesh-webrtc-multi-peer.browser.ts",
     "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-multi-peer.browser.ts",
-    "text": "peerId as unknown as PeerId"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
   },
   {
     "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
@@ -694,14 +646,6 @@
   {
     "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
     "text": "webrtcA as unknown as { slots: Map<string, { connection: RTCPeerConnection }>; }"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc.browser.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc.browser.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
   },
   {
     "file": "tests/browser/mesh-webrtc.browser.ts",
@@ -988,14 +932,6 @@
     "text": "globalThis as unknown as { setTimeout: unknown }"
   },
   {
-    "file": "tests/unit/helpers/branded.ts",
-    "text": "id as unknown as DocumentId"
-  },
-  {
-    "file": "tests/unit/helpers/branded.ts",
-    "text": "id as unknown as PeerId"
-  },
-  {
     "file": "tests/unit/helpers/css-module-keys.ts",
     "text": "globalThis as unknown as Record<string, boolean>"
   },
@@ -1101,18 +1037,6 @@
   },
   {
     "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "\"peer-solo\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
     "text": "{ peerId: \"peer-fake\", slot: { handles: { \"unknown-doc-id\": { lastSyncMessageOutAt: undefined, lastSyncMessageInAt: 999, lastSyncMessageOutSize: undefined, lastSyncMessageOutType: undefined, }, }, }, } as unknown as Parameters<typeof enrichPeerSlot>[0]"
   },
   {
@@ -1162,74 +1086,6 @@
   {
     "file": "tests/unit/mesh-signaling-client.test.ts",
     "text": "FakeWebSocket as unknown as typeof WebSocket"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"2XzGLTRxBs5q9GZpwY5jwGSMNKBi\" as unknown as DocumentId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"2XzGLTRxBs5q9GZpwY5jwGSMNKBi\" as unknown as DocumentId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"4Nkp2vQwYbR8sT1uX6yZ9aBcDeFg\" as unknown as DocumentId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-state.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "\"peer-a\" as unknown as Message[\"senderId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "\"peer-z\" as unknown as Message[\"targetId\"]"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
@@ -1297,38 +1153,6 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"doc-big\" as unknown as Message[\"documentId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"doc-reorder\" as unknown as Message[\"documentId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"doc-roundtrip\" as unknown as Message[\"documentId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"doc-small\" as unknown as Message[\"documentId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "\"peer-z\" as unknown as Message[\"senderId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
     "text": "{ url: options.url, peerId, isConnected: true, sendSignal(_target: string, _payload: unknown): boolean { return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
   },
   {
@@ -1346,22 +1170,6 @@
   {
     "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
     "text": "received[0] as unknown as { data: Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "remotePeerId as unknown as Message[\"targetId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "remotePeerId as unknown as Message[\"targetId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "remotePeerId as unknown as Message[\"targetId\"]"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "remotePeerId as unknown as Message[\"targetId\"]"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
@@ -1529,10 +1337,6 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
-    "text": "\"store-1\" as unknown as StorageId"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
     "text": "{ url: \"ws://stub\", peerId, isConnected: true, sendSignal: () => true, connect: async () => {}, close: () => {}, } as unknown as MeshSignalingClient"
   },
   {
@@ -1558,22 +1362,6 @@
   {
     "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
     "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "\"peer-m\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "\"peer-m\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "\"peer-m\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "\"peer-m\" as unknown as PeerId"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
@@ -1694,30 +1482,6 @@
   {
     "file": "tests/unit/primitive-registry.test.ts",
     "text": "err as unknown as PrimitiveCollisionError"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "\"peer-a\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "\"peer-b\" as unknown as PeerId"
   },
   {
     "file": "tests/unit/revocation.test.ts",

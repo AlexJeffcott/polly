@@ -19,6 +19,7 @@ import type { MeshSignalingClient } from "@/shared/lib/mesh-signaling-client";
 import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
 import { peerId } from "./helpers/branded";
+import { toStorageId } from "../../src/shared/lib/branded";
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;
@@ -274,7 +275,7 @@ describe("MeshWebRTCAdapter connect peer-metadata", () => {
     const adapter = build("peer-m");
     // StorageId is a branded string with no runtime constructor.
     const meta: PeerMetadata = {
-      storageId: "store-1" as unknown as StorageId,
+      storageId: toStorageId("store-1"),
       isEphemeral: false,
     };
     adapter.connect(peerId("peer-m"), meta);

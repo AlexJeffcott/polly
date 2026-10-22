@@ -38,6 +38,7 @@ interface Finding {
   probe?: string;
   blocked?: string;
   status: string;
+  brand?: boolean;
 }
 
 let dir = "";
@@ -132,6 +133,29 @@ describe("check-casts gate", () => {
     );
     const suppressed = await gate();
     expect(byText(suppressed.findings, "v as A")).toMatchObject({ blocked: "unchecked" });
+  }, 30_000);
+
+  // Only a cast produces a branded value, so its constructor may keep one, marked.
+  test("admits a marked single cast to a branded type", async () => {
+    writeFixture(`type Id = string & { readonly __id: true };
+// cast: the brand's constructor
+export const id = (s: string) => s as Id;
+export const unmarked = (s: string) => s as Id;
+// cast: a literal is still a primitive
+export const literal = "a" as Id;
+interface A { a: number }
+declare const n: { a: number; b: string };
+// cast: not a brand, the marker does not help
+export const shape = n as A & { c: 1 };
+`);
+    const { findings } = await gate();
+    expect(byText(findings, "s as Id")).toMatchObject({ brand: true, status: "allowed" });
+    expect(findings.filter((f) => f.text === "s as Id").map((f) => f.status)).toEqual([
+      "allowed",
+      "violation",
+    ]);
+    expect(byText(findings, '"a" as Id')).toMatchObject({ status: "allowed" });
+    expect(byText(findings, "n as A & { c: 1 }")).toMatchObject({ status: "violation" });
   }, 30_000);
 
   test("the baseline admits recorded casts and flags only new ones", async () => {
