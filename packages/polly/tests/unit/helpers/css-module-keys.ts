@@ -22,12 +22,11 @@
  */
 
 import { plugin } from "bun";
+import { setGlobal } from "./globals";
 
 const FLAG = "__pollyCssModuleKeyShim__";
-const g = globalThis as unknown as Record<string, boolean>;
-
-if (!g[FLAG]) {
-  g[FLAG] = true;
+if (!Reflect.get(globalThis, FLAG)) {
+  setGlobal(FLAG, true);
   plugin({
     name: "polly-css-module-keys",
     setup(build) {

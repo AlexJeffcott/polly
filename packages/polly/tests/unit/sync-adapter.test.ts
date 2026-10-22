@@ -16,6 +16,7 @@ import {
   NoOpSyncAdapter,
   type StateSyncMessage,
 } from "@/shared/lib/sync-adapter";
+import { clearGlobals, setGlobal } from "./helpers/globals";
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 15));
 
@@ -168,7 +169,7 @@ function installFakeChrome(): FakeChrome {
       shouldThrow = true;
     },
   };
-  (globalThis as unknown as { chrome: unknown }).chrome = fake.chrome;
+  setGlobal("chrome", fake.chrome);
   return fake;
 }
 
@@ -181,9 +182,9 @@ describe("ChromeRuntimeSyncAdapter", () => {
   });
   afterEach(() => {
     if (hadChrome) {
-      (globalThis as unknown as { chrome: unknown }).chrome = savedChrome;
+      setGlobal("chrome", savedChrome);
     } else {
-      delete (globalThis as unknown as { chrome?: unknown }).chrome;
+      clearGlobals("chrome");
     }
   });
 
@@ -227,7 +228,7 @@ describe("ChromeRuntimeSyncAdapter", () => {
     installFakeChrome();
     const a = new ChromeRuntimeSyncAdapter();
     expect(a.isConnected()).toBe(true);
-    delete (globalThis as unknown as { chrome?: unknown }).chrome;
+    clearGlobals("chrome");
     expect(a.isConnected()).toBe(false);
   });
 
@@ -251,7 +252,7 @@ describe("ChromeRuntimeSyncAdapter", () => {
   });
 
   test("broadcast warns when chrome.runtime is unavailable", () => {
-    delete (globalThis as unknown as { chrome?: unknown }).chrome;
+    clearGlobals("chrome");
     const a = new ChromeRuntimeSyncAdapter();
     a.broadcast(msg());
     expect(warnings.some((w) => String(w[0]).includes("chrome.runtime not available"))).toBe(true);
@@ -270,10 +271,10 @@ describe("createSyncAdapter context detection", () => {
     savedBC = globalThis.BroadcastChannel;
   });
   afterEach(() => {
-    if (hadChrome) (globalThis as unknown as { chrome: unknown }).chrome = savedChrome;
-    else delete (globalThis as unknown as { chrome?: unknown }).chrome;
-    if (hadBC) (globalThis as unknown as { BroadcastChannel: unknown }).BroadcastChannel = savedBC;
-    else delete (globalThis as unknown as { BroadcastChannel?: unknown }).BroadcastChannel;
+    if (hadChrome) setGlobal("chrome", savedChrome);
+    else clearGlobals("chrome");
+    if (hadBC) setGlobal("BroadcastChannel", savedBC);
+    else clearGlobals("BroadcastChannel");
   });
 
   test("prefers ChromeRuntimeSyncAdapter when chrome.runtime is present", () => {
@@ -282,15 +283,14 @@ describe("createSyncAdapter context detection", () => {
   });
 
   test("uses BroadcastChannelSyncAdapter in a web context with no chrome", () => {
-    delete (globalThis as unknown as { chrome?: unknown }).chrome;
+    clearGlobals("chrome");
     const adapter = createSyncAdapter();
     expect(adapter).toBeInstanceOf(BroadcastChannelSyncAdapter);
     if (adapter instanceof BroadcastChannelSyncAdapter) adapter.disconnect();
   });
 
   test("falls back to NoOpSyncAdapter when neither chrome nor BroadcastChannel exists", () => {
-    delete (globalThis as unknown as { chrome?: unknown }).chrome;
-    delete (globalThis as unknown as { BroadcastChannel?: unknown }).BroadcastChannel;
+    clearGlobals("chrome", "BroadcastChannel");
     expect(createSyncAdapter()).toBeInstanceOf(NoOpSyncAdapter);
   });
 });
@@ -312,7 +312,7 @@ describe("sync-adapter listener-cleanup and construction edge branches", () => {
       fake.fire({ type: "STATE_SYNC", key: "k", value: "v", clock: 1 });
       expect(second).toHaveLength(1);
     } finally {
-      if (!hadChrome) delete (globalThis as unknown as { chrome?: unknown }).chrome;
+      if (!hadChrome) clearGlobals("chrome");
     }
   });
 
@@ -355,7 +355,7 @@ describe("sync-adapter listener-cleanup and construction edge branches", () => {
 
   test("BroadcastChannel: warns and stays disconnected when the API is unavailable", () => {
     const saved = globalThis.BroadcastChannel;
-    delete (globalThis as unknown as { BroadcastChannel?: unknown }).BroadcastChannel;
+    clearGlobals("BroadcastChannel");
     try {
       const a = new BroadcastChannelSyncAdapter();
       expect(warnings.some((w) => String(w[0]).includes("BroadcastChannel not available"))).toBe(
@@ -370,19 +370,23 @@ describe("sync-adapter listener-cleanup and construction edge branches", () => {
   });
 
   test("BroadcastChannel: a throwing postMessage is swallowed with a warning", () => {
+    // Install a channel whose postMessage throws to drive the catch.
+    class ThrowingChannel {
+      onmessage: unknown = null;
+      postMessage(): void {
+        throw new Error("postMessage blew up");
+      }
+      close(): void {}
+    }
+    const saved = globalThis.BroadcastChannel;
+    setGlobal("BroadcastChannel", ThrowingChannel);
     const a = new BroadcastChannelSyncAdapter(`polly-throw-${Math.floor(performance.now())}`);
     try {
-      // Swap in a channel whose postMessage throws to drive the catch.
-      (a as unknown as { channel: { postMessage: () => void; close: () => void } }).channel = {
-        postMessage: () => {
-          throw new Error("postMessage blew up");
-        },
-        close: () => {},
-      };
       expect(() => a.broadcast(msg())).not.toThrow();
       expect(warnings.some((w) => String(w[0]).includes("Failed to broadcast"))).toBe(true);
     } finally {
       a.disconnect();
+      globalThis.BroadcastChannel = saved;
     }
   });
 });

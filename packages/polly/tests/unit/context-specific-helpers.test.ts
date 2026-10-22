@@ -21,14 +21,9 @@ import {
   createPopupHelpers,
   createSidePanelHelpers,
 } from "@/shared/lib/context-specific-helpers";
+import { clearGlobals, setGlobal } from "./helpers/globals";
 
 type AnyGlobal = Record<string, unknown>;
-function setGlobal(name: string, value: unknown): void {
-  Reflect.set(globalThis, name, value);
-}
-function clearGlobals(...names: string[]): void {
-  for (const name of names) Reflect.deleteProperty(globalThis, name);
-}
 
 /** Adapters stub — the helpers only ever reach for tabs and runtime. */
 function makeAdapters() {

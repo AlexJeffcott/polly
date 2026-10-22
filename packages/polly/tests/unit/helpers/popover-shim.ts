@@ -16,12 +16,14 @@
  * DOM globals must exist first). Idempotent.
  */
 
+import { isRecord } from "@/shared/lib/guards";
+
 const openEls = new WeakSet<Element>();
 
 export function installPopoverShim(): void {
-  const proto = (globalThis as unknown as { HTMLElement?: { prototype: Record<string, unknown> } })
-    .HTMLElement?.prototype;
-  if (!proto || proto["__pollyPopoverShim"]) return;
+  const ctor: unknown = Reflect.get(globalThis, "HTMLElement");
+  const proto: unknown = typeof ctor === "function" ? ctor.prototype : undefined;
+  if (!isRecord(proto) || proto["__pollyPopoverShim"]) return;
   proto["__pollyPopoverShim"] = true;
 
   proto["showPopover"] = function showPopover(this: Element): void {

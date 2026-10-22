@@ -19,6 +19,7 @@ import {
   IndexedDBAdapter,
   MemoryStorageAdapter,
 } from "@/shared/lib/storage-adapter";
+import { clearGlobals, setGlobal } from "./helpers/globals";
 
 // ---------------------------------------------------------------------------
 // In-memory IndexedDB fake — only the surface idb-helpers touches.
@@ -157,10 +158,8 @@ function makeFakeIndexedDB(): FakeIndexedDB {
   };
 }
 
-type GlobalWithIDB = { indexedDB?: unknown };
-
 function setIndexedDB(value: unknown): void {
-  (globalThis as unknown as GlobalWithIDB).indexedDB = value;
+  setGlobal("indexedDB", value);
 }
 
 // ---------------------------------------------------------------------------
@@ -215,14 +214,12 @@ interface ChromeMock {
   };
 }
 
-type GlobalWithChrome = { chrome?: unknown };
-
 function setChrome(value: unknown): void {
-  (globalThis as unknown as GlobalWithChrome).chrome = value;
+  setGlobal("chrome", value);
 }
 
 function deleteChrome(): void {
-  delete (globalThis as unknown as GlobalWithChrome).chrome;
+  clearGlobals("chrome");
 }
 
 describe("ChromeStorageAdapter", () => {
@@ -403,7 +400,7 @@ describe("IndexedDBAdapter", () => {
   afterEach(() => {
     console.warn = realWarn;
     if (hadIDB) setIndexedDB(savedIDB);
-    else delete (globalThis as unknown as GlobalWithIDB).indexedDB;
+    else clearGlobals("indexedDB");
   });
 
   test("set then get round-trips values", async () => {
@@ -493,7 +490,7 @@ describe("createStorageAdapter", () => {
     if (hadChrome) setChrome(savedChrome);
     else deleteChrome();
     if (hadIDB) setIndexedDB(savedIDB);
-    else delete (globalThis as unknown as GlobalWithIDB).indexedDB;
+    else clearGlobals("indexedDB");
   });
 
   test("returns a ChromeStorageAdapter when chrome.storage and chrome.runtime exist", () => {
@@ -522,7 +519,7 @@ describe("createStorageAdapter", () => {
 
   test("falls back to MemoryStorageAdapter when neither chrome nor indexedDB exists", () => {
     deleteChrome();
-    delete (globalThis as unknown as GlobalWithIDB).indexedDB;
+    clearGlobals("indexedDB");
     expect(createStorageAdapter()).toBeInstanceOf(MemoryStorageAdapter);
   });
 });

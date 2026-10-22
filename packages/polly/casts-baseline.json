@@ -608,26 +608,6 @@
     "text": "{ kind: \"c\" } as unknown as never"
   },
   {
-    "file": "tests/unit/handler-execution-tracker.test.ts",
-    "text": "((fn: () => void, ms: number) => { timers.push({ fn, ms }); return 0; }) as unknown as typeof setTimeout"
-  },
-  {
-    "file": "tests/unit/handler-execution-tracker.test.ts",
-    "text": "globalThis as unknown as { setTimeout: typeof setTimeout }"
-  },
-  {
-    "file": "tests/unit/handler-execution-tracker.test.ts",
-    "text": "globalThis as unknown as { setTimeout: unknown }"
-  },
-  {
-    "file": "tests/unit/helpers/css-module-keys.ts",
-    "text": "globalThis as unknown as Record<string, boolean>"
-  },
-  {
-    "file": "tests/unit/helpers/popover-shim.ts",
-    "text": "globalThis as unknown as { HTMLElement?: { prototype: Record<string, unknown> } }"
-  },
-  {
     "file": "tests/unit/idb-helpers.test.ts",
     "text": "{ close: () => {} } as unknown as IDBDatabase"
   },
@@ -824,92 +804,8 @@
     "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
   },
   {
-    "file": "tests/unit/storage-adapter.test.ts",
-    "text": "globalThis as unknown as GlobalWithChrome"
-  },
-  {
-    "file": "tests/unit/storage-adapter.test.ts",
-    "text": "globalThis as unknown as GlobalWithChrome"
-  },
-  {
-    "file": "tests/unit/storage-adapter.test.ts",
-    "text": "globalThis as unknown as GlobalWithIDB"
-  },
-  {
-    "file": "tests/unit/storage-adapter.test.ts",
-    "text": "globalThis as unknown as GlobalWithIDB"
-  },
-  {
-    "file": "tests/unit/storage-adapter.test.ts",
-    "text": "globalThis as unknown as GlobalWithIDB"
-  },
-  {
-    "file": "tests/unit/storage-adapter.test.ts",
-    "text": "globalThis as unknown as GlobalWithIDB"
-  },
-  {
     "file": "tests/unit/sweep-sealed.test.ts",
     "text": "{ handles } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "a as unknown as { channel: { postMessage: () => void; close: () => void } }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { BroadcastChannel: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { BroadcastChannel?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
-  },
-  {
-    "file": "tests/unit/sync-adapter.test.ts",
-    "text": "globalThis as unknown as { chrome?: unknown }"
   },
   {
     "file": "tools/analysis/src/extract/adr.ts",
