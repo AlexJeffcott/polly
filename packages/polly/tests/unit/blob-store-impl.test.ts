@@ -12,10 +12,12 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import type { PeerId } from "@automerge/automerge-repo";
 import type { BlobRef } from "@/shared/lib/blob-ref";
 import { computeBlobHash } from "@/shared/lib/blob-ref";
-import { createBlobStore } from "@/shared/lib/blob-store-impl";
+import { type BlobTransport, createBlobStore } from "@/shared/lib/blob-store-impl";
 import { parseBlobMessage } from "@/shared/lib/blob-transfer";
+import { toPeerId } from "@/shared/lib/branded";
 import { generateDocumentKey } from "@/shared/lib/encryption";
 import type { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 
@@ -26,7 +28,7 @@ type BlobMsgHandler = (peerId: string, header: Record<string, unknown>, data: Ui
 class FakeMeshAdapter {
   onBlobMessage?: BlobMsgHandler;
   private readonly peers = new Map<string, FakeMeshAdapter>();
-  private readonly candidateHandlers = new Set<(e: { peerId: unknown }) => void>();
+  private readonly candidateHandlers = new Set<(e: { peerId: PeerId }) => void>();
 
   constructor(readonly id: string) {}
 
@@ -34,10 +36,10 @@ class FakeMeshAdapter {
     this.peers.set(other.id, other);
   }
 
-  on(event: string, handler: (e: { peerId: unknown }) => void): void {
+  on(event: string, handler: (e: { peerId: PeerId }) => void): void {
     if (event === "peer-candidate") this.candidateHandlers.add(handler);
   }
-  off(event: string, handler: (e: { peerId: unknown }) => void): void {
+  off(event: string, handler: (e: { peerId: PeerId }) => void): void {
     if (event === "peer-candidate") this.candidateHandlers.delete(handler);
   }
 
@@ -56,11 +58,9 @@ class FakeMeshAdapter {
   }
 
   emitPeerCandidate(peerId: string): void {
-    for (const h of this.candidateHandlers) h({ peerId });
+    for (const h of this.candidateHandlers) h({ peerId: toPeerId(peerId) });
   }
 }
-
-const asAdapter = (a: FakeMeshAdapter): MeshWebRTCAdapter => a as unknown as MeshWebRTCAdapter;
 
 async function refFor(bytes: Uint8Array): Promise<BlobRef> {
   return {
@@ -90,8 +90,8 @@ function buildPair(opts: { key?: Uint8Array } = {}): {
   adapterA.wire(adapterB);
   adapterB.wire(adapterA);
   const options = opts.key ? { encrypt: { key: opts.key } } : undefined;
-  const a = createBlobStore(asAdapter(adapterA), options);
-  const b = createBlobStore(asAdapter(adapterB), options);
+  const a = createBlobStore(adapterA, options);
+  const b = createBlobStore(adapterB, options);
   stores.push(a, b);
   return { a, b, adapterA, adapterB };
 }
@@ -153,7 +153,7 @@ describe("createBlobStore get short-circuits", () => {
 
   test("returns undefined when no peer is known to have the blob", async () => {
     const adapter = new FakeMeshAdapter("solo");
-    const store = createBlobStore(asAdapter(adapter));
+    const store = createBlobStore(adapter);
     stores.push(store);
     expect(await store.get("deadbeef")).toBeUndefined();
   });
@@ -170,7 +170,7 @@ describe("createBlobStore validation guards", () => {
 
   test("rejects a put that exceeds the configured maximum size", async () => {
     const adapter = new FakeMeshAdapter("solo");
-    const store = createBlobStore(asAdapter(adapter), { maxBlobSize: 16 });
+    const store = createBlobStore(adapter, { maxBlobSize: 16 });
     stores.push(store);
     const bytes = data(32, 1);
     const ref = await refFor(bytes);
@@ -268,4 +268,11 @@ describe("createBlobStore url content", () => {
     const got = new Uint8Array(await (await fetch(url)).arrayBuffer());
     expect(Array.from(got)).toEqual(Array.from(bytes));
   });
+});
+
+// Type-level: fails `bun run typecheck` if the real adapter stops fitting the
+// interface the store accepts, which the fakes above cannot show.
+test("a MeshWebRTCAdapter is a BlobTransport", () => {
+  const fits = (adapter: MeshWebRTCAdapter): BlobTransport => adapter;
+  expect(fits).toBeInstanceOf(Function);
 });
