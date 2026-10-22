@@ -187,6 +187,48 @@ describe("signalingServer plugin", () => {
     dave.close();
   });
 
+  test("a join without a string peerId is malformed and registers nothing", async () => {
+    const { url } = mountSignalingApp();
+    const erin = await openSignalingClient(url);
+
+    erin.send({ type: "join", peerId: 42 });
+    expect(await waitForMessage(erin)).toMatchObject({ type: "error", reason: "malformed" });
+
+    // The rejected join must not have registered the socket.
+    erin.send({ type: "signal", targetPeerId: "peer-other", payload: {} });
+    expect(await waitForMessage(erin)).toMatchObject({ type: "error", reason: "not-joined" });
+
+    erin.close();
+  });
+
+  test("a signal without a string targetPeerId is malformed", async () => {
+    const { url } = mountSignalingApp();
+    const frank = await openSignalingClient(url);
+    frank.send({ type: "join", peerId: "peer-frank" });
+    await new Promise((r) => setTimeout(r, 50));
+
+    frank.send({ type: "signal", payload: {} });
+
+    expect(await waitForNonDiscoveryMessage(frank)).toMatchObject({
+      type: "error",
+      reason: "malformed",
+    });
+
+    frank.close();
+  });
+
+  test("a frame that is not a JSON object is malformed", async () => {
+    const { url } = mountSignalingApp();
+    const gina = await openSignalingClient(url);
+
+    gina.send("not json");
+    expect(await waitForMessage(gina)).toMatchObject({ type: "error", reason: "malformed" });
+    gina.send("[1, 2]");
+    expect(await waitForMessage(gina)).toMatchObject({ type: "error", reason: "malformed" });
+
+    gina.close();
+  });
+
   test("the server replaces the sender id with the authenticated join id", async () => {
     const { url } = mountSignalingApp();
     const eve = await openSignalingClient(url);
