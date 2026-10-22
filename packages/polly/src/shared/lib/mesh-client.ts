@@ -539,7 +539,10 @@ function classifyIncomingRevocation(
 /** Install the polly#107 peer-candidate hook on a freshly-constructed
  * mesh stack. Hides the falsification-gate branch behind a single call
  * so the outer factory's complexity score stays under the ceiling. */
-function installPolly107SyncReevaluation(networkAdapter: MeshNetworkAdapter, repo: Repo): void {
+function installPolly107SyncReevaluation(
+  networkAdapter: { on(event: "peer-candidate", listener: () => void): unknown },
+  repo: Repo
+): void {
   const disable = typeof process !== "undefined" && process.env?.["POLLY_107_DISABLE_FIX"] === "1";
   if (disable) return;
   const reevaluate = getReevaluateDocumentShare(repo);

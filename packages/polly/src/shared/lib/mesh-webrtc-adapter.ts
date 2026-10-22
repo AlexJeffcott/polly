@@ -55,7 +55,6 @@ import { isBlobMessageType } from "./blob-transfer";
 import { toPeerId } from "./branded";
 import { isRecord } from "./guards";
 import type { MeshKeyring } from "./mesh-network-adapter";
-import type { MeshSignalingClient } from "./mesh-signaling-client";
 import {
   chunkSyncMessage,
   isSyncFragmentType,
@@ -319,11 +318,19 @@ export const SLOT_IDLE_TIMEOUT_MS = 120_000;
 export const SLOT_WATCHDOG_INTERVAL_MS = 5_000;
 
 /** Options for constructing a {@link MeshWebRTCAdapter}. */
+/** The part of a signalling client the adapter calls.
+ * {@link MeshSignalingClient} satisfies it; a test stub needs only these
+ * two methods. */
+export interface MeshSignalingTransport {
+  sendSignal(targetPeerId: string, payload: unknown): boolean;
+  close(): void;
+}
+
 export interface MeshWebRTCAdapterOptions {
   /** The signalling client the adapter uses to exchange SDP and ICE
    * candidates with other peers. Typically constructed once per
    * application and shared across any adapters that need it. */
-  signaling: MeshSignalingClient;
+  signaling: MeshSignalingTransport;
   /** The local peer id. Must match the peer id the signalling client
    * registered with. */
   peerId: string;
@@ -725,7 +732,7 @@ function emptyHandleSyncSnapshot(): HandleSyncSnapshot {
 }
 
 /** State tracked for each remote peer. */
-interface PeerSlot {
+export interface PeerSlot {
   connection: RTCPeerConnection;
   channel: RTCDataChannel | undefined;
   /** Outgoing messages queued while the channel is still connecting.
@@ -783,12 +790,80 @@ interface PeerSlot {
 }
 
 /**
+ * Typed access to {@link MeshWebRTCAdapter} internals for unit tests.
+ * `@fairfox/polly/mesh` does not export it, and production code never
+ * calls it.
+ */
+export interface MeshWebRTCAdapterInternals {
+  readonly slots: Map<string, PeerSlot>;
+  readonly presentPeers: Set<string>;
+  readonly lastSlotInitiationDecisions: Map<string, SlotInitiationDecision>;
+  ready: boolean;
+  readonly iceRelayEnforcement: boolean;
+  readonly syncYieldEnabled: boolean;
+  readonly syncFragmentChunkSize: number;
+  serialiseMessage(message: Message): Uint8Array<ArrayBuffer>;
+  deserialiseMessage(bytes: Uint8Array): Message;
+  handleSyncFragment(fromPeerId: string, bytes: Uint8Array): void;
+  finishInFlightSyncApply(fromPeerId: string): void;
+  stampFirstInboundMessage(fromPeerId: string): void;
+  stampHandleInbound(fromPeerId: string, message: Message): void;
+  evictStaleSlotForRejoin(remotePeerId: string): void;
+  createInitiatingSlot(targetId: string): PeerSlot;
+  handleOffer(fromPeerId: string, sdp: RTCSessionDescriptionInit): Promise<void>;
+  handleAnswer(fromPeerId: string, sdp: RTCSessionDescriptionInit): Promise<void>;
+}
+
+/** Assigned by the static block in {@link MeshWebRTCAdapter}, which is the
+ * only place outside the class that can read its private members. */
+export let meshWebRTCAdapterInternals: (adapter: MeshWebRTCAdapter) => MeshWebRTCAdapterInternals;
+
+/**
  * Automerge-Repo NetworkAdapter backed by real WebRTC data channels.
  * Manages one RTCPeerConnection per remote peer and uses a supplied
  * {@link MeshSignalingClient} for SDP/ICE exchange.
  */
 export class MeshWebRTCAdapter extends NetworkAdapter {
-  readonly signaling: MeshSignalingClient;
+  static {
+    meshWebRTCAdapterInternals = (adapter) => ({
+      get slots() {
+        return adapter.slots;
+      },
+      get presentPeers() {
+        return adapter.presentPeers;
+      },
+      get lastSlotInitiationDecisions() {
+        return adapter.lastSlotInitiationDecisions;
+      },
+      get ready() {
+        return adapter.ready;
+      },
+      set ready(value) {
+        adapter.ready = value;
+      },
+      get iceRelayEnforcement() {
+        return adapter.iceRelayEnforcement;
+      },
+      get syncYieldEnabled() {
+        return adapter.syncYieldEnabled;
+      },
+      get syncFragmentChunkSize() {
+        return adapter.syncFragmentChunkSize;
+      },
+      serialiseMessage: (message) => adapter.serialiseMessage(message),
+      deserialiseMessage: (bytes) => adapter.deserialiseMessage(bytes),
+      handleSyncFragment: (fromPeerId, bytes) => adapter.handleSyncFragment(fromPeerId, bytes),
+      finishInFlightSyncApply: (fromPeerId) => adapter.finishInFlightSyncApply(fromPeerId),
+      stampFirstInboundMessage: (fromPeerId) => adapter.stampFirstInboundMessage(fromPeerId),
+      stampHandleInbound: (fromPeerId, message) => adapter.stampHandleInbound(fromPeerId, message),
+      evictStaleSlotForRejoin: (remotePeerId) => adapter.evictStaleSlotForRejoin(remotePeerId),
+      createInitiatingSlot: (targetId) => adapter.createInitiatingSlot(targetId),
+      handleOffer: (fromPeerId, sdp) => adapter.handleOffer(fromPeerId, sdp),
+      handleAnswer: (fromPeerId, sdp) => adapter.handleAnswer(fromPeerId, sdp),
+    });
+  }
+
+  readonly signaling: MeshSignalingTransport;
   readonly iceServers: RTCIceServer[];
   readonly iceTransportPolicy: RTCIceTransportPolicy | undefined;
   private readonly iceRelayEnforcement: boolean;
@@ -830,6 +905,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * {@link handlePeerLeft}. Read by {@link addKnownPeer} to decide
    * whether the new peer is already online and an offer can fire now. */
   private readonly presentPeers = new Set<string>();
+  private readonly syncProgressListeners = new Set<(event: SyncProgressEvent) => void>();
   /** Local peer id captured at construction time. The base
    * `NetworkAdapter.peerId` is only populated when `connect()` fires,
    * which means glare-resolution and peer-discovery dispatch would
@@ -1255,6 +1331,16 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       reason,
       error: undefined,
       at: performance.now(),
+    };
+  }
+
+  /** Subscribe to {@link SyncProgressEvent}s. Returns the unsubscribe
+   * function. The same events also go out as `"sync-progress"` on
+   * `.on()`, which Automerge's event map does not type. */
+  onSyncProgress(listener: (event: SyncProgressEvent) => void): () => void {
+    this.syncProgressListeners.add(listener);
+    return () => {
+      this.syncProgressListeners.delete(listener);
     };
   }
 
@@ -2100,6 +2186,16 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   ): void {
     const slot = this.slots.get(fromPeerId);
     const inFlightSync = slot?.inFlightSync;
+    const event: SyncProgressEvent = {
+      peerId: fromPeerId,
+      kind,
+      bytesDelta,
+      chunksReceived: inFlightSync?.chunksReceived ?? 0,
+      bytesReceived: inFlightSync?.bytesReceived ?? 0,
+      applyBacklog: inFlightSync?.applyBacklog ?? 0,
+      at: performance.now(),
+    };
+    for (const listener of this.syncProgressListeners) listener(event);
     // The `sync-progress` event is polly-specific; Automerge's
     // NetworkAdapter event-type union doesn't include it. Cast around
     // the typed emit so consumers can subscribe via the same `.on(...)`
@@ -2108,15 +2204,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       this as unknown as {
         emit: (event: string, payload: SyncProgressEvent) => void;
       }
-    ).emit("sync-progress", {
-      peerId: fromPeerId,
-      kind,
-      bytesDelta,
-      chunksReceived: inFlightSync?.chunksReceived ?? 0,
-      bytesReceived: inFlightSync?.bytesReceived ?? 0,
-      applyBacklog: inFlightSync?.applyBacklog ?? 0,
-      at: performance.now(),
-    });
+    ).emit("sync-progress", event);
   }
 
   private handleSyncFragment(fromPeerId: string, bytes: Uint8Array): void {
