@@ -14,7 +14,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Repo } from "@automerge/automerge-repo/slim";
 import { __test__ } from "@/shared/lib/mesh-client";
-import type { MeshNetworkAdapter } from "@/shared/lib/mesh-network-adapter";
 import type { MeshStateLazyWrapperRecord } from "@/shared/lib/mesh-state";
 
 const {
@@ -108,15 +107,17 @@ describe("installPolly107SyncReevaluation — env gate + wiring (#124)", () => {
     else process.env["POLLY_107_DISABLE_FIX"] = saved;
   });
 
-  function fakeAdapter(): { adapter: MeshNetworkAdapter; emit: () => void; onCalls: number } {
+  type PeerCandidateSource = Parameters<typeof installPolly107SyncReevaluation>[0];
+
+  function fakeAdapter(): { adapter: PeerCandidateSource; emit: () => void; onCalls: number } {
     let handler: (() => void) | undefined;
     const state = { onCalls: 0 };
-    const adapter = {
+    const adapter: PeerCandidateSource = {
       on(event: string, cb: () => void): void {
         state.onCalls += 1;
         if (event === "peer-candidate") handler = cb;
       },
-    } as unknown as MeshNetworkAdapter;
+    };
     return {
       adapter,
       emit: () => handler?.(),

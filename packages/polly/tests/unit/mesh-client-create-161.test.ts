@@ -38,6 +38,7 @@ import {
   type MeshKeyring,
   MeshNetworkAdapter,
 } from "@/shared/lib/mesh-network-adapter";
+import { meshWebRTCAdapterInternals } from "@/shared/lib/mesh-webrtc-adapter";
 import { createRevocation, encodeRevocation } from "@/shared/lib/revocation";
 import { encodeRevocationSummary } from "@/shared/lib/revocation-summary";
 import { generateSigningKeyPair, type SigningKeyPair } from "@/shared/lib/signing";
@@ -299,14 +300,9 @@ describe("createMeshClient — rtc option forwarding", () => {
     expect(adapter.iceTransportPolicy).toBe("relay");
     expect(adapter.dataChannelLabel).toBe("custom-label");
     expect(client.getPeerStateSnapshot().sweep.intervalMs).toBe(1234);
-    // The remaining forwarded options are private; reach in deliberately so
-    // the spread that carries them is pinned (same approach the peer-relay
-    // test uses for Repo internals).
-    const internals = adapter as unknown as {
-      iceRelayEnforcement: boolean;
-      syncYieldEnabled: boolean;
-      syncFragmentChunkSize: number;
-    };
+    // The remaining forwarded options are private; read them through the
+    // adapter's test seam so the spread that carries them is pinned.
+    const internals = meshWebRTCAdapterInternals(adapter);
     expect(internals.iceRelayEnforcement).toBe(false);
     expect(internals.syncYieldEnabled).toBe(false);
     expect(internals.syncFragmentChunkSize).toBe(65536);

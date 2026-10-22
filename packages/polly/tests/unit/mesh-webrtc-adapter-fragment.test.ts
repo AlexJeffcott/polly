@@ -12,11 +12,7 @@
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { Message } from "@automerge/automerge-repo/slim";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import { type MeshSignalingTransport, MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 import {
   isSyncFragmentType,
   parseSyncFragment,
@@ -88,22 +84,11 @@ class FakePeerConnection {
   }
 }
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
-    sendSignal(_target: string, _payload: unknown): boolean {
-      return true;
-    },
-    connect: async (): Promise<void> => {},
+    sendSignal: (): boolean => true,
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 function buildAdapterWithOpenChannel(): {
@@ -121,7 +106,7 @@ function buildAdapterWithOpenChannel(): {
     }
   }
   const adapter = new MeshWebRTCAdapter({
-    signaling: createSignalingStub(localPeerId),
+    signaling: createSignalingStub(),
     peerId: localPeerId,
     knownPeerIds: [remotePeerId],
     RTCPeerConnection: CapturingPC as unknown as typeof RTCPeerConnection,
@@ -224,10 +209,9 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     const reassembled = received[0];
     if (!reassembled) throw new Error("expected emitted message");
     expect(reassembled.type).toBe("sync");
-    expect((reassembled as unknown as { documentId: string }).documentId).toBe("doc-roundtrip");
-    const data = (reassembled as unknown as { data: Uint8Array }).data;
-    expect(data.length).toBe(original.length);
-    expect(data).toEqual(original);
+    expect(reassembled.documentId).toBe(toDocumentId("doc-roundtrip"));
+    expect(reassembled.data?.length).toBe(original.length);
+    expect(reassembled.data).toEqual(original);
   });
 
   test("out-of-order fragment delivery still reassembles correctly", async () => {
@@ -254,7 +238,6 @@ describe("MeshWebRTCAdapter SCTP-cap fragmentation", () => {
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
     expect(received).toHaveLength(1);
-    const data = (received[0] as unknown as { data: Uint8Array }).data;
-    expect(data).toEqual(payload);
+    expect(received[0]?.data).toEqual(payload);
   });
 });

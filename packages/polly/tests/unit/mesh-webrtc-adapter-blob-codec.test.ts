@@ -12,27 +12,18 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Message } from "@automerge/automerge-repo/slim";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
-import { toPeerId } from "../../src/shared/lib/branded";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+} from "@/shared/lib/mesh-webrtc-adapter";
+import { toDocumentId, toPeerId } from "../../src/shared/lib/branded";
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
     sendSignal: (): boolean => true,
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 class FakeDataChannel {
@@ -101,7 +92,7 @@ function build(knownPeerIds: string[]): {
     }
   }
   const adapter = new MeshWebRTCAdapter({
-    signaling: createSignalingStub(LOCAL),
+    signaling: createSignalingStub(),
     peerId: LOCAL,
     knownPeerIds,
     RTCPeerConnection: CapturingPC as unknown as typeof RTCPeerConnection,
@@ -120,26 +111,34 @@ function build(knownPeerIds: string[]): {
 }
 
 function serialise(adapter: MeshWebRTCAdapter, m: Message): Uint8Array<ArrayBuffer> {
-  return (
-    adapter as unknown as { serialiseMessage(m: Message): Uint8Array<ArrayBuffer> }
-  ).serialiseMessage(m);
+  return meshWebRTCAdapterInternals(adapter).serialiseMessage(m);
 }
 
 function deserialise(adapter: MeshWebRTCAdapter, bytes: Uint8Array): Message {
-  return (adapter as unknown as { deserialiseMessage(b: Uint8Array): Message }).deserialiseMessage(
-    bytes
-  );
+  return meshWebRTCAdapterInternals(adapter).deserialiseMessage(bytes);
 }
 
-function makeMessage(over: Partial<Record<string, unknown>> = {}): Message {
-  return {
-    type: "sync",
-    senderId: "peer-a",
-    targetId: LOCAL,
-    documentId: "doc-1",
-    data: new Uint8Array([1, 2, 3, 4]),
-    ...over,
-  } as unknown as Message;
+/** A sync message from peer-a to LOCAL. `documentId: undefined` or
+ * `data: undefined` leaves that field off. */
+function makeMessage(
+  over: {
+    type?: string;
+    senderId?: string;
+    targetId?: string;
+    documentId?: string | undefined;
+    data?: Uint8Array | undefined;
+  } = {}
+): Message {
+  const message: Message = {
+    type: over.type ?? "sync",
+    senderId: toPeerId(over.senderId ?? "peer-a"),
+    targetId: toPeerId(over.targetId ?? LOCAL),
+  };
+  const docId = "documentId" in over ? over.documentId : "doc-1";
+  if (docId !== undefined) message.documentId = toDocumentId(docId);
+  const data = "data" in over ? over.data : new Uint8Array([1, 2, 3, 4]);
+  if (data !== undefined) message.data = data;
+  return message;
 }
 
 const HIGH_WATER = 256 * 1024;
@@ -225,7 +224,7 @@ describe("MeshWebRTCAdapter message wire codec", () => {
     expect(decoded.type).toBe("request");
     expect(decoded.senderId).toBe(toPeerId("peer-a"));
     expect(decoded.targetId).toBe(toPeerId("peer-z"));
-    expect((decoded as unknown as { documentId?: string }).documentId).toBe("doc-xyz");
+    expect(decoded.documentId).toBe(toDocumentId("doc-xyz"));
     expect(Array.from(decoded.data ?? [])).toEqual([5, 6, 7, 8, 9]);
   });
 

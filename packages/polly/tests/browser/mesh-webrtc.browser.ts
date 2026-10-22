@@ -58,40 +58,37 @@ describe("MeshWebRTCAdapter end-to-end in a real browser", () => {
     // each registers under a different peer id.
     console.log("[test] connecting signalling clients");
 
-    // Peer A's adapter — we construct it first, wire handleSignal later
-    const webrtcA = new MeshWebRTCAdapter({
-      signaling: null as unknown as MeshSignalingClient, // wired below
+    // Each signalling client reaches its adapter through a closure, which
+    // is assigned as soon as the client exists.
+    let webrtcA: MeshWebRTCAdapter | undefined;
+    const signalingA = new MeshSignalingClient({
+      url: SIGNALING_URL,
+      peerId: "peer-a",
+      onSignal: (from, payload) => webrtcA?.handleSignal(from, payload),
+      onPeersPresent: (ids) => webrtcA?.handlePeersPresent(ids),
+      onPeerJoined: (id) => webrtcA?.handlePeerJoined(id),
+      onPeerLeft: (id) => webrtcA?.handlePeerLeft(id),
+    });
+    webrtcA = new MeshWebRTCAdapter({
+      signaling: signalingA,
       peerId: "peer-a",
       knownPeerIds: ["peer-b"],
     });
 
-    const signalingA = new MeshSignalingClient({
-      url: SIGNALING_URL,
-      peerId: "peer-a",
-      onSignal: (from, payload) => webrtcA.handleSignal(from, payload),
-      onPeersPresent: (ids) => webrtcA.handlePeersPresent(ids),
-      onPeerJoined: (id) => webrtcA.handlePeerJoined(id),
-      onPeerLeft: (id) => webrtcA.handlePeerLeft(id),
-    });
-
-    // Replace the signaling reference via Object.assign since the field is readonly
-    Object.assign(webrtcA, { signaling: signalingA });
-
-    const webrtcB = new MeshWebRTCAdapter({
-      signaling: null as unknown as MeshSignalingClient,
-      peerId: "peer-b",
-      knownPeerIds: ["peer-a"],
-    });
-
+    let webrtcB: MeshWebRTCAdapter | undefined;
     const signalingB = new MeshSignalingClient({
       url: SIGNALING_URL,
       peerId: "peer-b",
-      onSignal: (from, payload) => webrtcB.handleSignal(from, payload),
-      onPeersPresent: (ids) => webrtcB.handlePeersPresent(ids),
-      onPeerJoined: (id) => webrtcB.handlePeerJoined(id),
-      onPeerLeft: (id) => webrtcB.handlePeerLeft(id),
+      onSignal: (from, payload) => webrtcB?.handleSignal(from, payload),
+      onPeersPresent: (ids) => webrtcB?.handlePeersPresent(ids),
+      onPeerJoined: (id) => webrtcB?.handlePeerJoined(id),
+      onPeerLeft: (id) => webrtcB?.handlePeerLeft(id),
     });
-    Object.assign(webrtcB, { signaling: signalingB });
+    webrtcB = new MeshWebRTCAdapter({
+      signaling: signalingB,
+      peerId: "peer-b",
+      knownPeerIds: ["peer-a"],
+    });
 
     // Connect both signalling clients.
     await signalingA.connect();

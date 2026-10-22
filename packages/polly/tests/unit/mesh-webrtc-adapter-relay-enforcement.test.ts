@@ -16,37 +16,29 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+} from "@/shared/lib/mesh-webrtc-adapter";
+import { peerId } from "./helpers/branded";
 
 type SentSignal = { target: string; payload: { kind: string; [k: string]: unknown } };
 
 /** A signalling stub that records every sendSignal call so a test can
  * assert what (if anything) the adapter forwarded to the relay. */
-function createCapturingSignaling(peerId: string): {
-  signaling: MeshSignalingClient;
+function createCapturingSignaling(): {
+  signaling: MeshSignalingTransport;
   sent: SentSignal[];
 } {
   const sent: SentSignal[] = [];
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
-  const signaling = {
-    url: options.url,
-    peerId,
-    isConnected: true,
+  const signaling: MeshSignalingTransport = {
     sendSignal(target: string, payload: SentSignal["payload"]): boolean {
       sent.push({ target, payload });
       return true;
     },
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
   return { signaling, sent };
 }
 
@@ -128,7 +120,7 @@ function makeAdapter(
   }> = {}
 ): { adapter: MeshWebRTCAdapter; sent: SentSignal[] } {
   const localPeerId = overrides.localPeerId ?? "peer-z";
-  const { signaling, sent } = createCapturingSignaling(localPeerId);
+  const { signaling, sent } = createCapturingSignaling();
   const adapter = new MeshWebRTCAdapter({
     signaling,
     peerId: localPeerId,
@@ -391,11 +383,10 @@ describe("MeshWebRTCAdapter handleSignal dispatch", () => {
     // No slot exists for this peer; handleAnswer must bail before touching
     // slot.connection rather than throwing on the undefined slot.
     await expect(
-      (
-        adapter as unknown as {
-          handleAnswer(id: string, sdp: RTCSessionDescriptionInit): Promise<void>;
-        }
-      ).handleAnswer("ghost-peer", { type: "answer", sdp: "v=0\r\n" })
+      meshWebRTCAdapterInternals(adapter).handleAnswer("ghost-peer", {
+        type: "answer",
+        sdp: "v=0\r\n",
+      })
     ).resolves.toBeUndefined();
   });
 
@@ -480,7 +471,7 @@ describe("MeshWebRTCAdapter glare resolution", () => {
   // timers `connect()` would otherwise leak into the test.
   test("the higher local id ignores an incoming offer for an existing slot", async () => {
     const { adapter, sent } = makeAdapter({ localPeerId: "peer-z" });
-    (adapter as unknown as { peerId: string }).peerId = "peer-z";
+    adapter.peerId = peerId("peer-z");
     adapter.handlePeerJoined("peer-a");
     await flush();
     const before = FakePeerConnection.instances.length;
@@ -496,13 +487,11 @@ describe("MeshWebRTCAdapter glare resolution", () => {
 
   test("the lower local id tears down its slot and answers the incoming offer", async () => {
     const { adapter, sent } = makeAdapter({ localPeerId: "peer-a" });
-    (adapter as unknown as { peerId: string }).peerId = "peer-a";
+    adapter.peerId = peerId("peer-a");
     // The lower id never initiates on its own (the tie-break gate yields to
     // the higher peer), so seed the pre-existing slot the glare branch
     // resolves against via the real initiating path.
-    (adapter as unknown as { createInitiatingSlot(id: string): unknown }).createInitiatingSlot(
-      "peer-b"
-    );
+    meshWebRTCAdapterInternals(adapter).createInitiatingSlot("peer-b");
     await flush();
     const first = FakePeerConnection.instances[0];
     if (!first) throw new Error("no initiating slot");
@@ -521,12 +510,8 @@ describe("MeshWebRTCAdapter glare resolution", () => {
     // fires. A second offer must tear it down without dereferencing the
     // absent channel — guarding the optional-chaining on existing.channel.
     const { adapter } = makeAdapter({ localPeerId: "peer-a" });
-    (adapter as unknown as { peerId: string }).peerId = "peer-a";
-    const handleOffer = (
-      adapter as unknown as {
-        handleOffer(id: string, sdp: RTCSessionDescriptionInit): Promise<void>;
-      }
-    ).handleOffer.bind(adapter);
+    adapter.peerId = peerId("peer-a");
+    const { handleOffer } = meshWebRTCAdapterInternals(adapter);
     await handleOffer("peer-b", { type: "offer", sdp: "v=0\r\nfirst\r\n" });
     const firstAnswerer = FakePeerConnection.instances[0];
     if (!firstAnswerer) throw new Error("no answerer slot");

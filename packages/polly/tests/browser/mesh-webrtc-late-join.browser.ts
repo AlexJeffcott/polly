@@ -79,20 +79,19 @@ function buildPeer(
     documentKeys: new Map([[DEFAULT_MESH_KEY_ID, docKey]]),
     revokedPeers: new Set(),
   };
-  const webrtc = new MeshWebRTCAdapter({
-    signaling: null as unknown as MeshSignalingClient,
-    peerId,
-    knownPeerIds,
-  });
+  // The signalling callbacks reach the adapter through this closure,
+  // which is assigned as soon as the client exists.
+  let adapter: MeshWebRTCAdapter | undefined;
   const signaling = new MeshSignalingClient({
     url: SIGNALING_URL,
     peerId,
-    onSignal: (from, payload) => webrtc.handleSignal(from, payload),
-    onPeersPresent: (ids) => webrtc.handlePeersPresent(ids),
-    onPeerJoined: (id) => webrtc.handlePeerJoined(id),
-    onPeerLeft: (id) => webrtc.handlePeerLeft(id),
+    onSignal: (from, payload) => adapter?.handleSignal(from, payload),
+    onPeersPresent: (ids) => adapter?.handlePeersPresent(ids),
+    onPeerJoined: (id) => adapter?.handlePeerJoined(id),
+    onPeerLeft: (id) => adapter?.handlePeerLeft(id),
   });
-  Object.assign(webrtc, { signaling });
+  const webrtc = new MeshWebRTCAdapter({ signaling, peerId, knownPeerIds });
+  adapter = webrtc;
   const mesh = new MeshNetworkAdapter({ base: webrtc, keyringSource: () => keyring });
   const repo = new Repo({ network: [mesh], peerId: toPeerId(peerId) });
   return { identity, keyring, signaling, webrtc, mesh, repo, peerId };

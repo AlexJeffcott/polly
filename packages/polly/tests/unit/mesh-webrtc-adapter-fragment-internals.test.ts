@@ -14,27 +14,21 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Message } from "@automerge/automerge-repo/slim";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+  type PeerSlot,
+  type SyncProgressEvent,
+} from "@/shared/lib/mesh-webrtc-adapter";
 import { chunkSyncMessage } from "@/shared/lib/sync-fragment";
+import { documentId, peerId } from "./helpers/branded";
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
     sendSignal: (): boolean => true,
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 class FakeDataChannel {
@@ -92,16 +86,10 @@ class FakePeerConnection {
 const LOCAL = "peer-z";
 const REMOTE = "peer-a";
 
-interface SyncProgress {
-  kind: string;
-  chunksReceived: number;
-  bytesReceived: number;
-}
-
 function build(opts: { syncYieldEnabled?: boolean } = {}): {
   adapter: MeshWebRTCAdapter;
   channel: FakeDataChannel;
-  slot: () => { inFlightSync?: unknown };
+  slot: () => PeerSlot;
 } {
   const pcs: FakePeerConnection[] = [];
   class CapturingPC extends FakePeerConnection {
@@ -111,7 +99,7 @@ function build(opts: { syncYieldEnabled?: boolean } = {}): {
     }
   }
   const adapter = new MeshWebRTCAdapter({
-    signaling: createSignalingStub(LOCAL),
+    signaling: createSignalingStub(),
     peerId: LOCAL,
     knownPeerIds: [REMOTE],
     syncYieldEnabled: opts.syncYieldEnabled,
@@ -121,28 +109,26 @@ function build(opts: { syncYieldEnabled?: boolean } = {}): {
   const channel = pcs[0]?.channel;
   if (!channel) throw new Error("test setup: no data channel created");
   channel.open();
-  const slot = () =>
-    (adapter as unknown as { slots: Map<string, { inFlightSync?: unknown }> }).slots.get(
-      REMOTE
-    ) as { inFlightSync?: unknown };
+  const slot = (): PeerSlot => {
+    const s = meshWebRTCAdapterInternals(adapter).slots.get(REMOTE);
+    if (!s) throw new Error("test setup: no slot for REMOTE");
+    return s;
+  };
   return { adapter, channel, slot };
 }
 
 function serialise(adapter: MeshWebRTCAdapter, m: Message): Uint8Array<ArrayBuffer> {
-  return (
-    adapter as unknown as { serialiseMessage(m: Message): Uint8Array<ArrayBuffer> }
-  ).serialiseMessage(m);
+  return meshWebRTCAdapterInternals(adapter).serialiseMessage(m);
 }
 
-function makeMessage(over: Partial<Record<string, unknown>> = {}): Message {
+function makeMessage(over: { data?: Uint8Array } = {}): Message {
   return {
     type: "sync",
-    senderId: LOCAL,
-    targetId: REMOTE,
-    documentId: "doc-1",
-    data: new Uint8Array([1, 2, 3, 4]),
-    ...over,
-  } as unknown as Message;
+    senderId: peerId(LOCAL),
+    targetId: peerId(REMOTE),
+    documentId: documentId("doc-1"),
+    data: over.data ?? new Uint8Array([1, 2, 3, 4]),
+  };
 }
 
 /** Build a length-prefixed wire frame: [uint32 headerLen][header][data]. */
@@ -178,13 +164,8 @@ const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 
 describe("handleSyncFragment per-chunk accounting", () => {
   test("emits a fragment-received beat with a running chunk/byte count", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
-    const progress: SyncProgress[] = [];
-    // `sync-progress` is polly-specific, outside Automerge's typed event map
-    // (production emits it via the same cast); subscribe through the cast.
-    (adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }).on(
-      "sync-progress",
-      (e) => progress.push(e)
-    );
+    const progress: SyncProgressEvent[] = [];
+    adapter.onSyncProgress((e) => progress.push(e));
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(60) }));
     const frags = fragment(wire, "msg-A", 3);
     channel.deliver(fragAt(frags, 0));
@@ -197,13 +178,8 @@ describe("handleSyncFragment per-chunk accounting", () => {
 
   test("accumulates the chunk count across chunks rather than resetting inFlightSync", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
-    const progress: SyncProgress[] = [];
-    // `sync-progress` is polly-specific, outside Automerge's typed event map
-    // (production emits it via the same cast); subscribe through the cast.
-    (adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }).on(
-      "sync-progress",
-      (e) => progress.push(e)
-    );
+    const progress: SyncProgressEvent[] = [];
+    adapter.onSyncProgress((e) => progress.push(e));
     const wire = serialise(adapter, makeMessage({ data: new Uint8Array(60) }));
     const frags = fragment(wire, "msg-A", 3);
     channel.deliver(fragAt(frags, 0));
@@ -295,9 +271,7 @@ describe("handleSyncFragment defensive guards", () => {
     const wire = serialise(adapter, makeMessage());
     const frag = fragAt(fragment(wire, "ghost", 1), 0);
     expect(() =>
-      (
-        adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }
-      ).handleSyncFragment("ghost-peer", frag)
+      meshWebRTCAdapterInternals(adapter).handleSyncFragment("ghost-peer", frag)
     ).not.toThrow();
   });
 
@@ -311,9 +285,7 @@ describe("handleSyncFragment defensive guards", () => {
     new DataView(frame.buffer).setUint32(0, headerBytes.length, false);
     frame.set(headerBytes, 4);
     expect(() =>
-      (
-        adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }
-      ).handleSyncFragment(REMOTE, frame)
+      meshWebRTCAdapterInternals(adapter).handleSyncFragment(REMOTE, frame)
     ).not.toThrow();
   });
 });

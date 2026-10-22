@@ -15,11 +15,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { PeerMetadata } from "@automerge/automerge-repo/slim";
 import type { MeshKeyring } from "@/shared/lib/mesh-network-adapter";
-import type { MeshSignalingClient } from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+} from "@/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
 import { toStorageId } from "../../src/shared/lib/branded";
 import { peerId } from "./helpers/branded";
+import { instanceOf } from "./helpers/instance";
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;
@@ -70,15 +74,11 @@ class FakePeerConnection {
   }
 }
 
-function signalingStub(peerId: string): MeshSignalingClient {
+function signalingStub(): MeshSignalingTransport {
   return {
-    url: "ws://stub",
-    peerId,
-    isConnected: true,
     sendSignal: () => true,
-    connect: async () => {},
     close: () => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 function keyring(peers: string[] = []): MeshKeyring {
@@ -103,7 +103,7 @@ const adapters: MeshWebRTCAdapter[] = [];
 
 function build(localPeerId: string, opts: BuildOpts = {}): MeshWebRTCAdapter {
   const adapter = new MeshWebRTCAdapter({
-    signaling: signalingStub(localPeerId),
+    signaling: signalingStub(),
     peerId: localPeerId,
     knownPeerIds: opts.knownPeerIds ?? [],
     RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
@@ -216,18 +216,10 @@ describe("MeshWebRTCAdapter watchdog disable boundaries", () => {
     adapter.connect(peerId("peer-z"));
     adapter.handlePeerJoined("peer-a");
     await flush();
-    const slot = (
-      adapter as unknown as {
-        slots: Map<
-          string,
-          { connection: FakePeerConnection; channel: FakeDataChannel | undefined }
-        >;
-      }
-    ).slots.get("peer-a");
-    expect(slot).toBeDefined();
-    if (!slot) return;
-    slot.connection.transition("connected");
-    slot.channel?.flipOpen();
+    const slot = meshWebRTCAdapterInternals(adapter).slots.get("peer-a");
+    if (!slot) throw new Error("no slot for peer-a");
+    instanceOf(FakePeerConnection, slot.connection).transition("connected");
+    if (slot.channel) instanceOf(FakeDataChannel, slot.channel).flipOpen();
     // No inbound bytes, but the idle timeout is disabled, so the slot
     // survives indefinitely.
     await sleep(40);

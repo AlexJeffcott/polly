@@ -26,12 +26,13 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { PeerId } from "@automerge/automerge-repo/slim";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+} from "@/shared/lib/mesh-webrtc-adapter";
 import { toPeerId } from "../../src/shared/lib/branded";
+import { instanceOf } from "./helpers/instance";
 
 // ─── Fake WebRTC implementation with controllable knobs ──────────────────────
 
@@ -118,29 +119,33 @@ interface SentSignal {
   payload: unknown;
 }
 
-function createSignalingStub(peerId: string): {
-  client: MeshSignalingClient;
+function createSignalingStub(): {
+  client: MeshSignalingTransport;
   sent: SentSignal[];
-  options: MeshSignalingClientOptions;
 } {
   const sent: SentSignal[] = [];
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
-  const client = {
-    url: options.url,
-    peerId,
-    isConnected: true,
+  const client: MeshSignalingTransport = {
     sendSignal(targetPeerId: string, payload: unknown): boolean {
       sent.push({ targetPeerId, payload });
       return true;
     },
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
-  return { client, sent, options };
+  };
+  return { client, sent };
+}
+
+/** The slot for one peer, with its connection and channel narrowed to the
+ * fakes this file installs. */
+function fakeSlot(
+  adapter: MeshWebRTCAdapter,
+  remotePeerId: string
+): { connection: FakePeerConnection; channel: FakeDataChannel | undefined } {
+  const slot = meshWebRTCAdapterInternals(adapter).slots.get(remotePeerId);
+  if (!slot) throw new Error(`no slot for ${remotePeerId}`);
+  return {
+    connection: instanceOf(FakePeerConnection, slot.connection),
+    channel: slot.channel === undefined ? undefined : instanceOf(FakeDataChannel, slot.channel),
+  };
 }
 
 // ─── Adapter factory ─────────────────────────────────────────────────────────
@@ -156,7 +161,7 @@ function buildAdapter(
   knownPeerIds: string[],
   opts: BuildAdapterOptions = {}
 ): { adapter: MeshWebRTCAdapter; sent: SentSignal[] } {
-  const { client, sent } = createSignalingStub(localPeerId);
+  const { client, sent } = createSignalingStub();
   const adapter = new MeshWebRTCAdapter({
     signaling: client,
     peerId: localPeerId,
@@ -271,12 +276,7 @@ describe("MeshWebRTCAdapter polly#109/#110 slot watchdog", () => {
     adapter.connect(toPeerId("peer-m"));
     adapter.handlePeerJoined("peer-a");
     await flushMicrotasks();
-    const slotEntries = [...((adapter as unknown as { slots: Map<string, unknown> }).slots ?? [])];
-    const slot = slotEntries[0]?.[1] as unknown as {
-      connection: FakePeerConnection;
-      channel: FakeDataChannel | undefined;
-    };
-    expect(slot).toBeDefined();
+    const slot = fakeSlot(adapter, "peer-a");
     slot.connection.transition("connected");
     slot.channel?.flipOpen();
 
@@ -299,16 +299,7 @@ describe("MeshWebRTCAdapter polly#109/#110 slot watchdog", () => {
     adapter.connect(toPeerId("peer-m"));
     adapter.handlePeerJoined("peer-a");
     await flushMicrotasks();
-    const slot = (
-      adapter as unknown as {
-        slots: Map<
-          string,
-          { connection: FakePeerConnection; channel: FakeDataChannel | undefined }
-        >;
-      }
-    ).slots.get("peer-a");
-    expect(slot).toBeDefined();
-    if (!slot) return;
+    const slot = fakeSlot(adapter, "peer-a");
     slot.connection.transition("connected");
     slot.channel?.flipOpen();
 
