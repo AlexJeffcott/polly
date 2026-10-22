@@ -25,6 +25,7 @@
  */
 
 import { type PeerId, Repo } from "@automerge/automerge-repo";
+import { toPeerId } from "../../src/shared/lib/branded";
 import { generateDocumentKey } from "../../src/shared/lib/encryption";
 import {
   DEFAULT_MESH_KEY_ID,
@@ -35,7 +36,6 @@ import { MeshSignalingClient } from "../../src/shared/lib/mesh-signaling-client"
 import { MeshWebRTCAdapter } from "../../src/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "../../src/shared/lib/signing";
 import { describe, done, expect, test, waitFor } from "../../tools/test/src/browser/harness";
-import { toPeerId } from "../../src/shared/lib/branded";
 
 // The signalling URL is injected by the runner via Bun.build define.
 const SIGNALING_URL = process.env.SIGNALING_URL ?? "ws://127.0.0.1:39000/polly/signaling";

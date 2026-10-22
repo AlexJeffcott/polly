@@ -21,6 +21,7 @@
  */
 
 import { type PeerId, Repo, type StorageAdapterInterface } from "@automerge/automerge-repo/slim";
+import { toPeerId } from "./branded";
 import type { KeyringStorage } from "./keyring-storage";
 import { emitMeshDiagnostic } from "./mesh-diagnostics";
 import {
@@ -59,7 +60,6 @@ import {
   encodeRevocationSummary,
   type RevocationSummaryEntry,
 } from "./revocation-summary";
-import { toPeerId } from "./branded";
 
 /** Options for {@link createMeshClient}. */
 export interface CreateMeshClientOptions {

@@ -52,6 +52,7 @@ import {
   type PeerMetadata,
 } from "@automerge/automerge-repo/slim";
 import { isBlobMessageType } from "./blob-transfer";
+import { toPeerId } from "./branded";
 import { isRecord } from "./guards";
 import type { MeshKeyring } from "./mesh-network-adapter";
 import type { MeshSignalingClient } from "./mesh-signaling-client";
@@ -63,7 +64,6 @@ import {
   SYNC_FRAGMENT_CHUNK_SIZE,
   SYNC_FRAGMENT_THRESHOLD,
 } from "./sync-fragment";
-import { toPeerId } from "./branded";
 
 /** Distil an {@link RTCStatsReport} into a {@link TransportSnapshot}.
  * Resolves the selected candidate pair via the transport stat's
