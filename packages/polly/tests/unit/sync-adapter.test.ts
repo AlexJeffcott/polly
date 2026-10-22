@@ -8,6 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
   BroadcastChannelSyncAdapter,
   ChromeRuntimeSyncAdapter,
@@ -382,4 +383,48 @@ describe("sync-adapter listener-cleanup and construction edge branches", () => {
       a.disconnect();
     }
   });
+});
+
+// An open BroadcastChannel keeps Bun and Node running. Importing the package
+// entry creates polly's own module-level `settings` and `currentTab` state, so
+// before the adapter unref'd its channel every script that imported polly
+// never exited. Run in a subprocess: only a fresh process shows whether the
+// event loop empties.
+describe("BroadcastChannelSyncAdapter does not hold the process open", () => {
+  const exitsWithin = async (script: string, limitMs: number) => {
+    const proc = Bun.spawn(["bun", "-e", script], {
+      cwd: join(import.meta.dir, "../.."),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const timer = setTimeout(() => proc.kill(), limitMs);
+    const code = await proc.exited;
+    clearTimeout(timer);
+    return {
+      code,
+      killed: proc.signalCode !== null,
+      stdout: await new Response(proc.stdout).text(),
+    };
+  };
+
+  test("a script that imports the package entry exits on its own", async () => {
+    const run = await exitsWithin('await import("./src/index.ts"); console.log("loaded");', 10_000);
+    expect(run.killed).toBe(false);
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain("loaded");
+  }, 15_000);
+
+  test("an adapter with a listener still receives after unref", async () => {
+    const script = [
+      'const { BroadcastChannelSyncAdapter } = await import("./src/shared/lib/sync-adapter.ts");',
+      'const a = new BroadcastChannelSyncAdapter("unref-probe");',
+      "const got = new Promise((resolve) => a.onMessage((m) => resolve(m.value)));",
+      'new BroadcastChannel("unref-probe").postMessage({ type: "STATE_SYNC", key: "k", value: 7, clock: 1 });',
+      "console.log(await got);",
+      "process.exit(0);",
+    ].join("\n");
+    const run = await exitsWithin(script, 10_000);
+    expect(run.killed).toBe(false);
+    expect(run.stdout.trim()).toBe("7");
+  }, 15_000);
 });

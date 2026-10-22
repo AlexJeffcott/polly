@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Importing `@fairfox/polly` kept a Bun or Node process alive for ever.**
+  The main entry exports `settings`, and `app-state.ts` creates `settings`
+  and `currentTab` at module load. Each one opened a
+  `BroadcastChannel("polly-sync")`, and an open channel keeps the event loop
+  running, so any script, CLI or server that imported the entry never exited
+  on its own. This was present in 0.92.1 and 0.93.0. `BroadcastChannelSyncAdapter`
+  now calls `unref()` on its channel where the runtime has it. Messages still
+  arrive while the process runs. Browsers have no `unref` and do not change.
+  A module-level `$sharedState` in consumer code no longer holds the process
+  open either. Verified from a cold install of the packed tarball: Bun and
+  Node both exit at once, where 0.93.0 was still running at 15 s.
+
 ## [0.93.0] - 2026-10-21
 
 ### Changed

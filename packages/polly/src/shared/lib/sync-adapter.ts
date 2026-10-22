@@ -166,6 +166,13 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
       console.warn("[SyncAdapter] BroadcastChannel not available");
     } else {
       this.channel = new BroadcastChannel(channelName);
+      // Bun and Node keep the process alive while a channel is open, so a
+      // module-level `$sharedState` (polly's own `settings` among them) made
+      // every script that imported polly hang at exit. Browsers have no
+      // `unref`; a page never waits on a channel.
+      if ("unref" in this.channel && typeof this.channel.unref === "function") {
+        this.channel.unref();
+      }
 
       this.channel.onmessage = (event) => {
         if (event.data.type === "STATE_SYNC") {
