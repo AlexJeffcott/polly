@@ -624,30 +624,6 @@
     "text": "adapters.runtime as unknown as MockRuntime"
   },
   {
-    "file": "tests/integration/signaling-peer-notifications.test.ts",
-    "text": "(await waitForMessage(eve)) as unknown as { type: string; reason: string }"
-  },
-  {
-    "file": "tests/integration/signaling-server.test.ts",
-    "text": "(await waitForMessage(carol)) as unknown as { type: string; reason: string }"
-  },
-  {
-    "file": "tests/integration/signaling-server.test.ts",
-    "text": "(await waitForNonDiscoveryMessage(bob)) as unknown as { type: string; peerId: string; targetPeerId: string; payload: unknown; }"
-  },
-  {
-    "file": "tests/integration/signaling-server.test.ts",
-    "text": "(await waitForNonDiscoveryMessage(dave)) as unknown as { type: string; reason: string; targetPeerId: string; }"
-  },
-  {
-    "file": "tests/integration/signaling-server.test.ts",
-    "text": "(await waitForNonDiscoveryMessage(frank)) as unknown as { peerId: string }"
-  },
-  {
-    "file": "tests/integration/signaling-server.test.ts",
-    "text": "(await waitForNonDiscoveryMessage(grace)) as unknown as { type: string; reason: string; }"
-  },
-  {
     "file": "tests/unit/adapter-factory.test.ts",
     "text": "storage as unknown as { dbName: string }"
   },
@@ -658,10 +634,6 @@
   {
     "file": "tests/unit/adapter-factory.test.ts",
     "text": "sync as unknown as { channel: BroadcastChannel }"
-  },
-  {
-    "file": "tests/unit/adapters.test.ts",
-    "text": "message as unknown as { type: string }"
   },
   {
     "file": "tests/unit/blob-cache.test.ts",
@@ -1066,10 +1038,6 @@
   {
     "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
     "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
-    "text": "sent[0]?.payload as unknown as { kind?: string }"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-pending-ice.test.ts",

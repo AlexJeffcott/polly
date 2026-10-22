@@ -253,7 +253,7 @@ test("TabsAdapter interface - sendMessage to tab", async () => {
 test("Port - message passing", () => {
   const port = createMockPort("test-port");
   const callback = mock((message: unknown) => {
-    expect((message as unknown as { type: string }).type).toBe("TEST");
+    expect(message).toMatchObject({ type: "TEST" });
   });
 
   port.onMessage(callback);
