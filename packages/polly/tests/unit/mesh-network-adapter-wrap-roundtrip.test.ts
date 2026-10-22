@@ -27,7 +27,7 @@ import {
   prependControlTag,
 } from "../../src/shared/lib/mesh-network-adapter";
 import { generateSigningKeyPair } from "../../src/shared/lib/signing";
-import { peerId } from "./helpers/branded";
+import { documentId, peerId } from "./helpers/branded";
 
 class TestBaseAdapter extends NetworkAdapter {
   #ready = true;
@@ -119,14 +119,14 @@ function buildPair(
 }
 
 function makeMessage(over: Partial<Record<string, unknown>> = {}): Message {
-  return {
+  const message: Message = {
     type: "sync",
     senderId: SENDER_ID,
-    targetId: "receiver-peer",
-    documentId: "doc-1",
+    targetId: peerId("receiver-peer"),
+    documentId: documentId("doc-1"),
     data: new Uint8Array([1, 2, 3, 4]),
-    ...over,
-  } as unknown as Message;
+  };
+  return Object.assign(message, over);
 }
 
 afterEach(() => {
@@ -143,7 +143,7 @@ describe("MeshNetworkAdapter wrap → unwrap round trip", () => {
     const out = firstMessage(received);
     expect(out.type).toBe("sync");
     expect(out.senderId).toBe(SENDER_ID);
-    expect((out as unknown as { documentId?: string }).documentId).toBe("doc-1");
+    expect(out.documentId).toBe(documentId("doc-1"));
     if (!out.data) throw new Error("expected binary data on the unwrapped message");
     expect(Array.from(out.data)).toEqual([9, 8, 7, 6]);
   });
@@ -151,15 +151,15 @@ describe("MeshNetworkAdapter wrap → unwrap round trip", () => {
   test("the wrapped outer envelope preserves documentId for the base adapter", () => {
     const { sender, senderBase } = buildPair();
     sender.send(makeMessage({ documentId: "doc-outer" }));
-    const outer = senderBase.sent[0] as unknown as { documentId?: string; data?: unknown };
-    expect(outer.documentId).toBe("doc-outer");
+    const outer = firstMessage(senderBase.sent);
+    expect(outer.documentId).toBe(documentId("doc-outer"));
     expect(outer.data).toBeInstanceOf(Uint8Array);
   });
 
   test("a message with no documentId produces an outer envelope without one", () => {
     const { sender, senderBase } = buildPair();
     sender.send(makeMessage({ documentId: undefined }));
-    const outer = senderBase.sent[0] as unknown as Record<string, unknown>;
+    const outer = firstMessage(senderBase.sent);
     expect("documentId" in outer).toBe(false);
   });
 
@@ -186,16 +186,14 @@ describe("MeshNetworkAdapter serialise/deserialise header fields", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     sender.send(makeMessage({ count: 7, sessionId: "sess-9", data: new Uint8Array(0) }));
     receiverBase.emitIncoming(firstMessage(senderBase.sent));
-    const out = received[0] as unknown as { count?: number; sessionId?: string };
-    expect(out.count).toBe(7);
-    expect(out.sessionId).toBe("sess-9");
+    expect(firstMessage(received)).toMatchObject({ count: 7, sessionId: "sess-9" });
   });
 
   test("omits count and sessionId when the source message lacks them", () => {
     const { sender, senderBase, receiverBase, received } = buildPair();
     sender.send(makeMessage({ count: undefined, sessionId: undefined }));
     receiverBase.emitIncoming(firstMessage(senderBase.sent));
-    const out = received[0] as unknown as Record<string, unknown>;
+    const out = firstMessage(received);
     expect("count" in out).toBe(false);
     expect("sessionId" in out).toBe(false);
   });

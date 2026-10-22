@@ -552,38 +552,6 @@
     "text": "null as unknown as MeshSignalingClient"
   },
   {
-    "file": "tests/browser/mesh-webrtc-late-join.browser.ts",
-    "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-multi-peer.browser.ts",
-    "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
-    "text": "adapter as unknown as { slots: Map<string, { channel?: { send?: unknown } }>; }"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
-    "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
-    "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc-watchdog.browser.ts",
-    "text": "webrtcA as unknown as { slots: Map<string, { connection: RTCPeerConnection }>; }"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc.browser.ts",
-    "text": "null as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/browser/mesh-webrtc.browser.ts",
-    "text": "null as unknown as MeshSignalingClient"
-  },
-  {
     "file": "tests/integration/peer-state-relay.test.ts",
     "text": "\"\" as unknown as never"
   },
@@ -769,10 +737,6 @@
   },
   {
     "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "adapter as unknown as { iceRelayEnforcement: boolean; syncYieldEnabled: boolean; syncFragmentChunkSize: number; }"
-  },
-  {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
     "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
   },
   {
@@ -794,10 +758,6 @@
   {
     "file": "tests/unit/mesh-client-create-161.test.ts",
     "text": "FakeWebSocket as unknown as typeof WebSocket"
-  },
-  {
-    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
-    "text": "{ on(event: string, cb: () => void): void { state.onCalls += 1; if (event === \"peer-candidate\") handler = cb; }, } as unknown as MeshNetworkAdapter"
   },
   {
     "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
@@ -861,31 +821,7 @@
   },
   {
     "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
-    "text": "{ type: \"sync\", senderId: SENDER_ID, targetId: \"receiver-peer\", documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
-  },
-  {
-    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
     "text": "0x7f as unknown as MeshControlType"
-  },
-  {
-    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
-    "text": "out as unknown as { documentId?: string }"
-  },
-  {
-    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
-    "text": "received[0] as unknown as { count?: number; sessionId?: string }"
-  },
-  {
-    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
-    "text": "received[0] as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
-    "text": "senderBase.sent[0] as unknown as { documentId?: string; data?: unknown }"
-  },
-  {
-    "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
-    "text": "senderBase.sent[0] as unknown as Record<string, unknown>"
   },
   {
     "file": "tests/unit/mesh-signaling-client.test.ts",
@@ -897,63 +833,7 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "{ type: \"sync\", senderId: \"peer-a\", targetId: LOCAL, documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "adapter as unknown as { deserialiseMessage(b: Uint8Array): Message }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array<ArrayBuffer> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
     "text": "CapturingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-blob-codec.test.ts",
-    "text": "decoded as unknown as { documentId?: string }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "(adapter as unknown as { slots: Map<string, { inFlightSync?: unknown }> }).slots.get( REMOTE ) as { inFlightSync?: unknown }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "{ type: \"sync\", senderId: LOCAL, targetId: REMOTE, documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "adapter as unknown as { handleSyncFragment(id: string, b: Uint8Array): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "adapter as unknown as { on(ev: string, cb: (e: SyncProgress) => void): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array<ArrayBuffer> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
-    "text": "adapter as unknown as { slots: Map<string, { inFlightSync?: unknown }> }"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-fragment-internals.test.ts",
@@ -961,39 +841,7 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(_target: string, _payload: unknown): boolean { return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
     "text": "CapturingPC as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "reassembled as unknown as { data: Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "reassembled as unknown as { documentId: string }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-fragment.test.ts",
-    "text": "received[0] as unknown as { data: Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
-    "text": "adapter as unknown as { lastSlotInitiationDecisions: Map<string, Decision> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
-    "text": "adapter as unknown as { presentPeers: Set<string> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
-    "text": "adapter as unknown as { ready: boolean }"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-initiation-gates.test.ts",
@@ -1005,15 +853,7 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(targetPeerId: string, payload: unknown): boolean { sent.push({ targetPeerId, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-peer-joined.test.ts",
     "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-pending-ice.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(targetPeerId: string, payload: unknown): boolean { sent.push({ targetPeerId, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-pending-ice.test.ts",
@@ -1025,99 +865,7 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(target: string, payload: SentSignal[\"payload\"]): boolean { sent.push({ target, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "adapter as unknown as { createInitiatingSlot(id: string): unknown }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "adapter as unknown as { handleAnswer(id: string, sdp: RTCSessionDescriptionInit): Promise<void>; }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "adapter as unknown as { handleOffer(id: string, sdp: RTCSessionDescriptionInit): Promise<void>; }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "adapter as unknown as { peerId: string }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "adapter as unknown as { peerId: string }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
-    "text": "adapter as unknown as { peerId: string }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-relay-enforcement.test.ts",
     "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "\"a string frame\" as unknown as ArrayBuffer"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "{ type: \"sync\", senderId: LOCAL, targetId: REMOTE, documentId: \"doc-1\", data: new Uint8Array([1, 2, 3, 4]), ...over, } as unknown as Message"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { finishInFlightSyncApply(id: string): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { on(ev: string, cb: (e: { kind: string }) => void): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { serialiseMessage(m: Message): Uint8Array }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { slots: Map<string, SlotView> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { slots: Map<string, unknown> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { stampFirstInboundMessage(id: string): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
-    "text": "adapter as unknown as { stampHandleInbound(id: string, m: Message): void }"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-send-dispatch.test.ts",
@@ -1125,27 +873,7 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
-    "text": "adapter as unknown as { evictStaleSlotForRejoin(id: string): void }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
-    "text": "adapter as unknown as { slots: Map<string, SlotInternals> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-stale-eviction.test.ts",
     "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
-    "text": "{ url: \"ws://stub\", peerId, isConnected: true, sendSignal: () => true, connect: async () => {}, close: () => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
-    "text": "adapter as unknown as { slots: Map< string, { connection: FakePeerConnection; channel: FakeDataChannel | undefined } >; }"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
@@ -1154,10 +882,6 @@
   {
     "file": "tests/unit/mesh-webrtc-adapter-timers-161.test.ts",
     "text": "new Map() as unknown as RTCStatsReport"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal: (): boolean => true, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-transport-stats.test.ts",
@@ -1169,27 +893,11 @@
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "{ url: options.url, peerId, isConnected: true, sendSignal(targetPeerId: string, payload: unknown): boolean { sent.push({ targetPeerId, payload }); return true; }, connect: async (): Promise<void> => {}, close: (): void => {}, } as unknown as MeshSignalingClient"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "adapter as unknown as { slots: Map< string, { connection: FakePeerConnection; channel: FakeDataChannel | undefined } >; }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "adapter as unknown as { slots: Map<string, unknown> }"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
     "text": "FakePeerConnection as unknown as typeof RTCPeerConnection"
   },
   {
     "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
     "text": "new Map() as unknown as RTCStatsReport"
-  },
-  {
-    "file": "tests/unit/mesh-webrtc-adapter-watchdog.test.ts",
-    "text": "slotEntries[0]?.[1] as unknown as { connection: FakePeerConnection; channel: FakeDataChannel | undefined; }"
   },
   {
     "file": "tests/unit/messages.test.ts",

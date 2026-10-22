@@ -33,7 +33,10 @@ import {
   MeshNetworkAdapter,
 } from "../../src/shared/lib/mesh-network-adapter";
 import { MeshSignalingClient } from "../../src/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "../../src/shared/lib/mesh-webrtc-adapter";
+import {
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+} from "../../src/shared/lib/mesh-webrtc-adapter";
 import { generateSigningKeyPair } from "../../src/shared/lib/signing";
 import { describe, done, expect, test, waitFor } from "../../tools/test/src/browser/harness";
 
@@ -57,11 +60,7 @@ type Doc = { count: number };
  * process-without-FIN shape polly#110 describes.
  */
 function silenceAdapterWire(adapter: MeshWebRTCAdapter): number {
-  const slots = (
-    adapter as unknown as {
-      slots: Map<string, { channel?: { send?: unknown } }>;
-    }
-  ).slots;
+  const slots = meshWebRTCAdapterInternals(adapter).slots;
   let silenced = 0;
   for (const slot of slots.values()) {
     if (slot.channel) {
@@ -101,44 +100,46 @@ describe("MeshWebRTCAdapter polly#110 watchdog in a real browser", () => {
     // Peer A — the survivor. Its watchdog is the unit under test:
     // a short idle timeout, the never-connected gate disabled so
     // only the polly#110 idle path can fire.
+    // Each signalling client reaches its adapter through a closure,
+    // which is assigned as soon as the client exists.
+    let adapterA: MeshWebRTCAdapter | undefined;
+    const signalingA = new MeshSignalingClient({
+      url: SIGNALING_URL,
+      peerId: "peer-a",
+      onSignal: (from, payload) => adapterA?.handleSignal(from, payload),
+      onPeersPresent: (ids) => adapterA?.handlePeersPresent(ids),
+      onPeerJoined: (id) => adapterA?.handlePeerJoined(id),
+      onPeerLeft: (id) => adapterA?.handlePeerLeft(id),
+    });
     const webrtcA = new MeshWebRTCAdapter({
-      signaling: null as unknown as MeshSignalingClient,
+      signaling: signalingA,
       peerId: "peer-a",
       knownPeerIds: ["peer-b"],
       slotIdleTimeoutMs: IDLE_TIMEOUT_MS,
       slotWatchdogIntervalMs: WATCHDOG_INTERVAL_MS,
       slotNeverConnectedTimeoutMs: 0,
     });
-
-    const signalingA = new MeshSignalingClient({
-      url: SIGNALING_URL,
-      peerId: "peer-a",
-      onSignal: (from, payload) => webrtcA.handleSignal(from, payload),
-      onPeersPresent: (ids) => webrtcA.handlePeersPresent(ids),
-      onPeerJoined: (id) => webrtcA.handlePeerJoined(id),
-      onPeerLeft: (id) => webrtcA.handlePeerLeft(id),
-    });
-    Object.assign(webrtcA, { signaling: signalingA });
+    adapterA = webrtcA;
 
     // Peer B — the soon-to-be-killed peer. Its own watchdog is
     // disabled so the test isolates A's behaviour; B keeps receiving
     // A's traffic, it simply stops sending.
+    let adapterB: MeshWebRTCAdapter | undefined;
+    const signalingB = new MeshSignalingClient({
+      url: SIGNALING_URL,
+      peerId: "peer-b",
+      onSignal: (from, payload) => adapterB?.handleSignal(from, payload),
+      onPeersPresent: (ids) => adapterB?.handlePeersPresent(ids),
+      onPeerJoined: (id) => adapterB?.handlePeerJoined(id),
+      onPeerLeft: (id) => adapterB?.handlePeerLeft(id),
+    });
     const webrtcB = new MeshWebRTCAdapter({
-      signaling: null as unknown as MeshSignalingClient,
+      signaling: signalingB,
       peerId: "peer-b",
       knownPeerIds: ["peer-a"],
       slotWatchdogIntervalMs: 0,
     });
-
-    const signalingB = new MeshSignalingClient({
-      url: SIGNALING_URL,
-      peerId: "peer-b",
-      onSignal: (from, payload) => webrtcB.handleSignal(from, payload),
-      onPeersPresent: (ids) => webrtcB.handlePeersPresent(ids),
-      onPeerJoined: (id) => webrtcB.handlePeerJoined(id),
-      onPeerLeft: (id) => webrtcB.handlePeerLeft(id),
-    });
-    Object.assign(webrtcB, { signaling: signalingB });
+    adapterB = webrtcB;
 
     await signalingA.connect();
     await signalingB.connect();
@@ -186,11 +187,7 @@ describe("MeshWebRTCAdapter polly#110 watchdog in a real browser", () => {
     console.log("[test] bidirectional sync confirmed — slot is healthy");
 
     // The slot is connected and the data channel is open right now.
-    const slotsA = (
-      webrtcA as unknown as {
-        slots: Map<string, { connection: RTCPeerConnection }>;
-      }
-    ).slots;
+    const slotsA = meshWebRTCAdapterInternals(webrtcA).slots;
     const connBefore = slotsA.get("peer-b")?.connection.connectionState;
     console.log(`[test] A's slot connectionState before kill: ${connBefore}`);
     expect(connBefore).toBe("connected");

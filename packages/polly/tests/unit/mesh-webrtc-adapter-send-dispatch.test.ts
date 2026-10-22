@@ -16,32 +16,27 @@
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { Message } from "@automerge/automerge-repo/slim";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+  type PeerSlot,
+  type SyncProgressEvent,
+} from "@/shared/lib/mesh-webrtc-adapter";
 import { chunkSyncMessage } from "@/shared/lib/sync-fragment";
+import { documentId, peerId } from "./helpers/branded";
+import { instanceOf } from "./helpers/instance";
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
     sendSignal: (): boolean => true,
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;
-  onmessage: ((ev: { data: ArrayBuffer | Uint8Array }) => void) | null = null;
+  onmessage: ((ev: { data: unknown }) => void) | null = null;
   onclose: (() => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readyState: "connecting" | "open" | "closed" = "connecting";
@@ -97,30 +92,11 @@ class FakePeerConnection {
 const LOCAL = "peer-z";
 const REMOTE = "peer-a";
 
-interface SlotView {
-  channel?: FakeDataChannel;
-  pendingSends: Uint8Array[];
-  pendingFragments: Map<string, unknown>;
-  inFlightSync?: unknown;
-  handles: Map<
-    string,
-    {
-      lastSyncMessageOutAt?: number;
-      lastSyncMessageOutSize?: number;
-      lastSyncMessageOutType?: string;
-      lastSyncMessageInAt?: number;
-    }
-  >;
-  lastSyncHandshakeAttempt: {
-    firstOutboundSendAt?: number;
-    firstInboundMessageAt?: number;
-  };
-}
-
 function build(opts: { syncYieldEnabled?: boolean; open?: boolean } = {}): {
   adapter: MeshWebRTCAdapter;
   channel: FakeDataChannel;
-  slot: () => SlotView;
+  slot: () => PeerSlot;
+  pcs: FakePeerConnection[];
 } {
   const pcs: FakePeerConnection[] = [];
   class CapturingPC extends FakePeerConnection {
@@ -130,7 +106,7 @@ function build(opts: { syncYieldEnabled?: boolean; open?: boolean } = {}): {
     }
   }
   const adapter = new MeshWebRTCAdapter({
-    signaling: createSignalingStub(LOCAL),
+    signaling: createSignalingStub(),
     peerId: LOCAL,
     knownPeerIds: [REMOTE],
     syncYieldEnabled: opts.syncYieldEnabled,
@@ -140,23 +116,28 @@ function build(opts: { syncYieldEnabled?: boolean; open?: boolean } = {}): {
   const channel = pcs[0]?.channel;
   if (!channel) throw new Error("test setup: no data channel created");
   if (opts.open !== false) channel.open();
-  const slot = (): SlotView => {
-    const s = (adapter as unknown as { slots: Map<string, SlotView> }).slots.get(REMOTE);
+  const slot = (): PeerSlot => {
+    const s = meshWebRTCAdapterInternals(adapter).slots.get(REMOTE);
     if (!s) throw new Error("test setup: no slot for REMOTE");
     return s;
   };
-  return { adapter, channel, slot };
+  return { adapter, channel, slot, pcs };
 }
 
-function makeMessage(over: Partial<Record<string, unknown>> = {}): Message {
-  return {
-    type: "sync",
-    senderId: LOCAL,
-    targetId: REMOTE,
-    documentId: "doc-1",
-    data: new Uint8Array([1, 2, 3, 4]),
-    ...over,
-  } as unknown as Message;
+/** A sync message from LOCAL to REMOTE. `documentId: undefined` leaves the
+ * field off. */
+function makeMessage(
+  over: { type?: string; documentId?: string | undefined; data?: Uint8Array } = {}
+): Message {
+  const message: Message = {
+    type: over.type ?? "sync",
+    senderId: peerId(LOCAL),
+    targetId: peerId(REMOTE),
+    data: over.data ?? new Uint8Array([1, 2, 3, 4]),
+  };
+  const docId = "documentId" in over ? over.documentId : "doc-1";
+  if (docId !== undefined) message.documentId = documentId(docId);
+  return message;
 }
 
 /** Index into a fragment list, throwing on a hole instead of yielding
@@ -224,7 +205,7 @@ describe("MeshWebRTCAdapter.send outbound path", () => {
 
   test("creates an initiating slot when send targets a peer with no slot yet", () => {
     const { adapter } = build({ open: true });
-    const slots = (adapter as unknown as { slots: Map<string, unknown> }).slots;
+    const slots = meshWebRTCAdapterInternals(adapter).slots;
     slots.delete(REMOTE);
     expect(slots.has(REMOTE)).toBe(false);
     adapter.send(makeMessage());
@@ -237,9 +218,9 @@ describe("MeshWebRTCAdapter.dispatchMessage routing", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
     const received: Message[] = [];
     adapter.on("message", (m: Message) => received.push(m));
-    const wire = (
-      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
-    ).serialiseMessage(makeMessage({ data: new Uint8Array([9, 8, 7]) }));
+    const wire = meshWebRTCAdapterInternals(adapter).serialiseMessage(
+      makeMessage({ data: new Uint8Array([9, 8, 7]) })
+    );
     channel.deliver(wire);
     expect(received).toHaveLength(1);
     expect(Array.from(received[0]?.data ?? [])).toEqual([9, 8, 7]);
@@ -278,7 +259,7 @@ describe("MeshWebRTCAdapter.dispatchMessage routing", () => {
     const messages: Message[] = [];
     adapter.on("message", (m: Message) => messages.push(m));
     // The live path only forwards ArrayBuffer/Uint8Array; a string is dropped.
-    channel.onmessage?.({ data: "a string frame" as unknown as ArrayBuffer });
+    channel.onmessage?.({ data: "a string frame" });
     expect(messages).toHaveLength(0);
   });
 
@@ -291,9 +272,7 @@ describe("MeshWebRTCAdapter.dispatchMessage routing", () => {
     // A registered onBlobMessage must NOT capture non-blob traffic — the
     // blob fork is gated on the message type, not merely on a handler
     // being present.
-    const wire = (
-      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
-    ).serialiseMessage(makeMessage());
+    const wire = meshWebRTCAdapterInternals(adapter).serialiseMessage(makeMessage());
     channel.deliver(wire);
     expect(messages).toHaveLength(1);
     expect(blobCalls).toHaveLength(0);
@@ -307,26 +286,23 @@ describe("MeshWebRTCAdapter defensive guards on missing state", () => {
   test("stampFirstInboundMessage is a no-op for an unknown peer", () => {
     const { adapter } = build({ open: true });
     expect(() =>
-      (
-        adapter as unknown as { stampFirstInboundMessage(id: string): void }
-      ).stampFirstInboundMessage("ghost-peer")
+      meshWebRTCAdapterInternals(adapter).stampFirstInboundMessage("ghost-peer")
     ).not.toThrow();
   });
 
   test("stampHandleInbound is a no-op for an unknown peer", () => {
     const { adapter } = build({ open: true });
     expect(() =>
-      (
-        adapter as unknown as { stampHandleInbound(id: string, m: Message): void }
-      ).stampHandleInbound("ghost-peer", makeMessage({ documentId: "doc-ghost" }))
+      meshWebRTCAdapterInternals(adapter).stampHandleInbound(
+        "ghost-peer",
+        makeMessage({ documentId: "doc-ghost" })
+      )
     ).not.toThrow();
   });
 
   test("finishInFlightSyncApply is a no-op for an unknown peer and for a slot with no in-flight sync", () => {
     const { adapter } = build({ open: true });
-    const finish = (
-      adapter as unknown as { finishInFlightSyncApply(id: string): void }
-    ).finishInFlightSyncApply.bind(adapter);
+    const { finishInFlightSyncApply: finish } = meshWebRTCAdapterInternals(adapter);
     expect(() => finish("ghost-peer")).not.toThrow();
     // The live REMOTE slot exists but has never started a fragment reassembly.
     expect(() => finish(REMOTE)).not.toThrow();
@@ -340,9 +316,7 @@ describe("MeshWebRTCAdapter emit scheduling (polly#104)", () => {
     adapter.on("message", () => {
       emitted = true;
     });
-    const wire = (
-      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
-    ).serialiseMessage(makeMessage());
+    const wire = meshWebRTCAdapterInternals(adapter).serialiseMessage(makeMessage());
     channel.deliver(wire);
     // No macrotask awaited — the emit already ran.
     expect(emitted).toBe(true);
@@ -354,9 +328,7 @@ describe("MeshWebRTCAdapter emit scheduling (polly#104)", () => {
     adapter.on("message", () => {
       emitted = true;
     });
-    const wire = (
-      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
-    ).serialiseMessage(makeMessage());
+    const wire = meshWebRTCAdapterInternals(adapter).serialiseMessage(makeMessage());
     channel.deliver(wire);
     // The onmessage callback returned before the emit fired.
     expect(emitted).toBe(false);
@@ -367,7 +339,7 @@ describe("MeshWebRTCAdapter emit scheduling (polly#104)", () => {
 
 describe("MeshWebRTCAdapter inbound transcript stamping", () => {
   function serialise(adapter: MeshWebRTCAdapter, m: Message): Uint8Array {
-    return (adapter as unknown as { serialiseMessage(m: Message): Uint8Array }).serialiseMessage(m);
+    return meshWebRTCAdapterInternals(adapter).serialiseMessage(m);
   }
 
   test("stamps first-inbound and per-handle inbound timestamps on receive", () => {
@@ -416,9 +388,9 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
     id: string,
     count: number
   ): Uint8Array<ArrayBuffer>[] {
-    const wire = (
-      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
-    ).serialiseMessage(makeMessage({ documentId: id, data: new Uint8Array(count * 20) }));
+    const wire = meshWebRTCAdapterInternals(adapter).serialiseMessage(
+      makeMessage({ documentId: id, data: new Uint8Array(count * 20) })
+    );
     const chunkSize = Math.ceil(wire.length / count);
     const frags = chunkSyncMessage(wire, id, chunkSize);
     if (frags.length !== count) {
@@ -429,13 +401,8 @@ describe("MeshWebRTCAdapter inFlightSync reassembly bookkeeping", () => {
 
   test("clears inFlightSync once a fragmented message fully reassembles", () => {
     const { adapter, channel, slot } = build({ syncYieldEnabled: false });
-    const progress: Array<{ kind: string }> = [];
-    // `sync-progress` is polly-specific, outside Automerge's typed event map
-    // (production emits it via the same cast); subscribe through the cast.
-    (adapter as unknown as { on(ev: string, cb: (e: { kind: string }) => void): void }).on(
-      "sync-progress",
-      (e) => progress.push(e)
-    );
+    const progress: SyncProgressEvent[] = [];
+    adapter.onSyncProgress((e) => progress.push(e));
     const frags = fragmentsFor(adapter, "msg-A", 2);
     channel.deliver(fragAt(frags, 0));
     // Mid-reassembly: the in-flight state exists.
@@ -491,9 +458,9 @@ describe("MeshWebRTCAdapter inbound frame type handling (polly#161)", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
     const received: Message[] = [];
     adapter.on("message", (m: Message) => received.push(m));
-    const wire = (
-      adapter as unknown as { serialiseMessage(m: Message): Uint8Array }
-    ).serialiseMessage(makeMessage({ data: new Uint8Array([5, 6, 7]) }));
+    const wire = meshWebRTCAdapterInternals(adapter).serialiseMessage(
+      makeMessage({ data: new Uint8Array([5, 6, 7]) })
+    );
     channel.onmessage?.({ data: wire });
     expect(received).toHaveLength(1);
     expect(Array.from(received[0]?.data ?? [])).toEqual([5, 6, 7]);
@@ -503,19 +470,28 @@ describe("MeshWebRTCAdapter inbound frame type handling (polly#161)", () => {
 describe("MeshWebRTCAdapter data-channel onclose (polly#161)", () => {
   test("the current channel's onclose clears the slot's channel reference", () => {
     const { channel, slot } = build({ open: true });
-    expect(slot().channel).toBe(channel);
+    expect(instanceOf(FakeDataChannel, slot().channel)).toBe(channel);
     channel.close();
     expect(slot().channel).toBeUndefined();
   });
 
-  test("a stale channel's onclose does not clear a newer channel", () => {
+  test("a stale channel's onclose does not clear a newer channel", async () => {
     // A signalling reconnect can swap in a fresh data channel while the old
     // one's close fires late. The guard must only null the slot's channel
     // when the closing channel is still the current one (polly#133 family).
-    const { channel, slot } = build({ open: true });
+    // An answerer slot takes its channel from `ondatachannel`, so firing it
+    // twice swaps the channel through the production path.
+    const { adapter, pcs } = build({ open: true });
+    adapter.handleSignal("peer-b", { kind: "offer", sdp: { type: "offer", sdp: "v=0\r\n" } });
+    await flush();
+    const answerer = pcs[1];
+    if (!answerer) throw new Error("test setup: no answerer connection");
+    const stale = new FakeDataChannel();
     const fresh = new FakeDataChannel();
-    slot().channel = fresh;
-    channel.close();
-    expect(slot().channel).toBe(fresh);
+    answerer.ondatachannel?.({ channel: stale });
+    answerer.ondatachannel?.({ channel: fresh });
+    stale.close();
+    const current = meshWebRTCAdapterInternals(adapter).slots.get("peer-b")?.channel;
+    expect(instanceOf(FakeDataChannel, current)).toBe(fresh);
   });
 });

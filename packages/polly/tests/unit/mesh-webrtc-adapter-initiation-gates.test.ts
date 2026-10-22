@@ -13,26 +13,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+  type SlotInitiationDecision,
+} from "@/shared/lib/mesh-webrtc-adapter";
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
     sendSignal: (): boolean => true,
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 class FakeDataChannel {
@@ -75,7 +67,7 @@ class FakePeerConnection {
 
 function build(localPeerId: string, knownPeerIds: string[]): MeshWebRTCAdapter {
   return new MeshWebRTCAdapter({
-    signaling: createSignalingStub(localPeerId),
+    signaling: createSignalingStub(),
     peerId: localPeerId,
     knownPeerIds,
     RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
@@ -96,7 +88,7 @@ function hasSlot(adapter: MeshWebRTCAdapter, peerId: string): boolean {
 }
 
 function presentPeers(adapter: MeshWebRTCAdapter): Set<string> {
-  return (adapter as unknown as { presentPeers: Set<string> }).presentPeers;
+  return meshWebRTCAdapterInternals(adapter).presentPeers;
 }
 
 describe("evaluateInitiation named gate reasons", () => {
@@ -235,7 +227,7 @@ describe("tryCreateInitiatingSlot resilience", () => {
       }
     }
     const adapter = new MeshWebRTCAdapter({
-      signaling: createSignalingStub("peer-z"),
+      signaling: createSignalingStub(),
       peerId: "peer-z",
       knownPeerIds: ["peer-a"],
       RTCPeerConnection: ThrowingPC as unknown as typeof RTCPeerConnection,
@@ -256,7 +248,7 @@ describe("tryCreateInitiatingSlot resilience", () => {
 describe("whenReady", () => {
   test("resolves immediately once the adapter is ready", async () => {
     const adapter = build("peer-z", ["peer-a"]);
-    (adapter as unknown as { ready: boolean }).ready = true;
+    meshWebRTCAdapterInternals(adapter).ready = true;
     // A ready adapter must hand back an already-resolved promise rather
     // than parking the caller behind the readyResolver.
     let resolved = false;
@@ -279,15 +271,8 @@ describe("whenReady", () => {
 });
 
 describe("snapshotInitiationDecision sticky fatal-error", () => {
-  type Decision = {
-    decision: string;
-    reason: string | undefined;
-    error: string | undefined;
-    at: number;
-  };
-  function decisionMap(adapter: MeshWebRTCAdapter): Map<string, Decision> {
-    return (adapter as unknown as { lastSlotInitiationDecisions: Map<string, Decision> })
-      .lastSlotInitiationDecisions;
+  function decisionMap(adapter: MeshWebRTCAdapter): Map<string, SlotInitiationDecision> {
+    return meshWebRTCAdapterInternals(adapter).lastSlotInitiationDecisions;
   }
 
   test("prefers a cached fatal-error over re-evaluating the gates", () => {

@@ -25,11 +25,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import { type MeshSignalingTransport, MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 
 // ─── Fake WebRTC implementation ──────────────────────────────────────────────
 // `remoteDescription` starts null and is set to the SDP passed in by
@@ -121,29 +117,19 @@ interface SentSignal {
   payload: unknown;
 }
 
-function createSignalingStub(peerId: string): {
-  client: MeshSignalingClient;
+function createSignalingStub(): {
+  client: MeshSignalingTransport;
   sent: SentSignal[];
-  options: MeshSignalingClientOptions;
 } {
   const sent: SentSignal[] = [];
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
-  const client = {
-    url: options.url,
-    peerId,
-    isConnected: true,
+  const client: MeshSignalingTransport = {
     sendSignal(targetPeerId: string, payload: unknown): boolean {
       sent.push({ targetPeerId, payload });
       return true;
     },
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
-  return { client, sent, options };
+  };
+  return { client, sent };
 }
 
 // ─── Adapter factory ─────────────────────────────────────────────────────────
@@ -156,7 +142,7 @@ function buildAdapter(
   sent: SentSignal[];
   instances: FakePeerConnection[];
 } {
-  const { client, sent } = createSignalingStub(localPeerId);
+  const { client, sent } = createSignalingStub();
   const { Ctor, instances } = trackingPeerConnectionCtor();
   const adapter = new MeshWebRTCAdapter({
     signaling: client,

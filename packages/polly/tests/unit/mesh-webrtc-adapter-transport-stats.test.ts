@@ -16,11 +16,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import { type MeshSignalingTransport, MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
 
 // ─── Fakes ───────────────────────────────────────────────────────────────────
 // Enough surface for createInitiatingSlot to build a slot, plus a settable
@@ -90,22 +86,17 @@ function makeReport(stats: Stat[]): RTCStatsReport {
   return new Map(stats.map((s) => [String(s["id"]), s]));
 }
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = { url: "ws://stub", peerId, onSignal: () => {} };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
     sendSignal: (): boolean => true,
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 function buildAdapter(localPeerId: string, knownPeerIds: string[]): MeshWebRTCAdapter {
   FakePeerConnection.reset();
   return new MeshWebRTCAdapter({
-    signaling: createSignalingStub(localPeerId),
+    signaling: createSignalingStub(),
     peerId: localPeerId,
     knownPeerIds,
     RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,

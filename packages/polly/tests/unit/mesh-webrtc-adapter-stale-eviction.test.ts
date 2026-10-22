@@ -14,26 +14,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type {
-  MeshSignalingClient,
-  MeshSignalingClientOptions,
-} from "@/shared/lib/mesh-signaling-client";
-import { MeshWebRTCAdapter } from "@/shared/lib/mesh-webrtc-adapter";
+import {
+  type MeshSignalingTransport,
+  MeshWebRTCAdapter,
+  meshWebRTCAdapterInternals,
+} from "@/shared/lib/mesh-webrtc-adapter";
+import { instanceOf } from "./helpers/instance";
 
-function createSignalingStub(peerId: string): MeshSignalingClient {
-  const options: MeshSignalingClientOptions = {
-    url: "ws://stub",
-    peerId,
-    onSignal: () => {},
-  };
+function createSignalingStub(): MeshSignalingTransport {
   return {
-    url: options.url,
-    peerId,
-    isConnected: true,
     sendSignal: (): boolean => true,
-    connect: async (): Promise<void> => {},
     close: (): void => {},
-  } as unknown as MeshSignalingClient;
+  };
 }
 
 class FakeDataChannel {
@@ -77,9 +69,12 @@ class FakePeerConnection {
 const LOCAL = "peer-z";
 const REMOTE = "peer-a";
 
+/** The live slot, with its connection and channel narrowed to the fakes.
+ * The channel can only be cleared, never replaced. */
 interface SlotInternals {
-  connection: { connectionState: string };
-  channel?: { readyState: string };
+  readonly connection: FakePeerConnection;
+  get channel(): FakeDataChannel | undefined;
+  set channel(value: undefined);
   createdAt: number;
 }
 
@@ -93,23 +88,36 @@ function buildWithSlot(slotNeverConnectedTimeoutMs?: number): {
   hasSlot: () => boolean;
 } {
   const adapter = new MeshWebRTCAdapter({
-    signaling: createSignalingStub(LOCAL),
+    signaling: createSignalingStub(),
     peerId: LOCAL,
     knownPeerIds: [REMOTE],
     slotNeverConnectedTimeoutMs,
     RTCPeerConnection: FakePeerConnection as unknown as typeof RTCPeerConnection,
   });
   adapter.handlePeerJoined(REMOTE);
-  const slots = (adapter as unknown as { slots: Map<string, SlotInternals> }).slots;
-  const slot = slots.get(REMOTE);
-  if (!slot) throw new Error("test setup: no slot created");
+  const internals = meshWebRTCAdapterInternals(adapter);
+  const { slots } = internals;
+  const live = slots.get(REMOTE);
+  if (!live) throw new Error("test setup: no slot created");
+  const slot: SlotInternals = {
+    connection: instanceOf(FakePeerConnection, live.connection),
+    get channel(): FakeDataChannel | undefined {
+      return live.channel === undefined ? undefined : instanceOf(FakeDataChannel, live.channel);
+    },
+    set channel(value: undefined) {
+      live.channel = value;
+    },
+    get createdAt() {
+      return live.createdAt;
+    },
+    set createdAt(value) {
+      live.createdAt = value;
+    },
+  };
   return {
     adapter,
     slot,
-    evict: () =>
-      (adapter as unknown as { evictStaleSlotForRejoin(id: string): void }).evictStaleSlotForRejoin(
-        REMOTE
-      ),
+    evict: () => internals.evictStaleSlotForRejoin(REMOTE),
     hasSlot: () => slots.has(REMOTE),
   };
 }
