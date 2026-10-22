@@ -11,6 +11,7 @@
     "stryker-mutator-bun-runner@0.4.0": "patches/stryker-mutator-bun-runner@0.4.0.patch"
   },
   "overrides": {
-    "@babel/core": "7.29.7"
+    "@babel/core": "7.29.7",
+    "qs": "6.16.1"
   }
 }

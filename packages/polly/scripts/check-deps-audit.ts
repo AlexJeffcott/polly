@@ -85,6 +85,11 @@ function listInputFiles(): string[] {
   ];
   // Workspace package.json files (just `tests/` for polly).
   pushIfExists(files, join(ROOT, "tests/package.json"));
+  // The Stryker reference sandbox sits outside the workspace with its own
+  // lockfile. `osv-scanner -r` reads that lockfile, so it must key the cache too,
+  // or a fix to it reports the stale cached CVEs as "inputs unchanged".
+  pushIfExists(files, join(ROOT, "scripts/mutate-parity/stryker/package.json"));
+  pushIfExists(files, join(ROOT, "scripts/mutate-parity/stryker/bun.lock"));
   // Examples aren't in the published surface but their deps still inform the
   // supply-chain picture, so include them in the cache key.
   collectExamplePackageJsons(files);
