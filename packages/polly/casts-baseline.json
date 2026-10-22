@@ -101,43 +101,11 @@
   },
   {
     "file": "src/actions/form.ts",
-    "text": "{} as unknown as { [K in keyof TValues]: Signal<TValues[K]> }"
+    "text": "{} as { [K in keyof TValues]: Signal<TValues[K]> }"
   },
   {
     "file": "src/actions/form.ts",
-    "text": "{} as unknown as TValues"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "k as keyof TValues"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "k as keyof TValues"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "key as unknown as string"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "Object.keys(config.initialValues) as unknown as (keyof TValues)[]"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "String(raw) as unknown as TValues[typeof key]"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "target as unknown as { tagName?: unknown }"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "v as TValues[keyof TValues]"
-  },
-  {
-    "file": "src/actions/form.ts",
-    "text": "v as TValues[keyof TValues]"
+    "text": "String(raw) as TValues[typeof key]"
   },
   {
     "file": "src/actions/testing.ts",
