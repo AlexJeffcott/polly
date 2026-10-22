@@ -409,10 +409,6 @@
   },
   {
     "file": "src/shared/lib/keyring-storage.ts",
-    "text": "err as Error"
-  },
-  {
-    "file": "src/shared/lib/keyring-storage.ts",
     "text": "raw as unknown as Partial<SerialisedKeyring>"
   },
   {
@@ -678,10 +674,6 @@
   {
     "file": "tests/integration/signaling-server.test.ts",
     "text": "(await waitForNonDiscoveryMessage(grace)) as unknown as { type: string; reason: string; }"
-  },
-  {
-    "file": "tests/unit/_client-only.test.ts",
-    "text": "caught as unknown as Error"
   },
   {
     "file": "tests/unit/adapter-factory.test.ts",
@@ -1296,30 +1288,6 @@
     "text": "[] as unknown as number[]"
   },
   {
-    "file": "tests/unit/migrate-primitive.test.ts",
-    "text": "caught as unknown as MigrationError"
-  },
-  {
-    "file": "tests/unit/migrate-primitive.test.ts",
-    "text": "caught as unknown as MigrationError"
-  },
-  {
-    "file": "tests/unit/pairing.test.ts",
-    "text": "caught as unknown as PairingError"
-  },
-  {
-    "file": "tests/unit/pairing.test.ts",
-    "text": "caught as unknown as PairingError"
-  },
-  {
-    "file": "tests/unit/pairing.test.ts",
-    "text": "caught as unknown as PairingError"
-  },
-  {
-    "file": "tests/unit/pairing.test.ts",
-    "text": "caught as unknown as PairingError"
-  },
-  {
     "file": "tests/unit/peer-relay-adapter.test.ts",
     "text": "adapter as unknown as { emit: (e: string, p?: unknown) => void }"
   },
@@ -1366,58 +1334,6 @@
   {
     "file": "tests/unit/polly-ui-coverage-fill.test.ts",
     "text": "{ 0: file, length: 1, item: () => file } as unknown as FileList"
-  },
-  {
-    "file": "tests/unit/primitive-registry.test.ts",
-    "text": "err as unknown as Error"
-  },
-  {
-    "file": "tests/unit/primitive-registry.test.ts",
-    "text": "err as unknown as PrimitiveCollisionError"
-  },
-  {
-    "file": "tests/unit/primitive-registry.test.ts",
-    "text": "err as unknown as PrimitiveCollisionError"
-  },
-  {
-    "file": "tests/unit/primitive-registry.test.ts",
-    "text": "err as unknown as PrimitiveCollisionError"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "caught as unknown as RevocationError"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "caught as unknown as RevocationError"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "caught as unknown as RevocationError"
-  },
-  {
-    "file": "tests/unit/revocation.test.ts",
-    "text": "caught as unknown as RevocationError"
-  },
-  {
-    "file": "tests/unit/schema-version.test.ts",
-    "text": "err as unknown as SchemaVersionError"
-  },
-  {
-    "file": "tests/unit/schema-version.test.ts",
-    "text": "err as unknown as SchemaVersionError"
-  },
-  {
-    "file": "tests/unit/schema-version.test.ts",
-    "text": "err as unknown as SchemaVersionError"
-  },
-  {
-    "file": "tests/unit/schema-version.test.ts",
-    "text": "err as unknown as SchemaVersionError"
-  },
-  {
-    "file": "tests/unit/schema-version.test.ts",
-    "text": "err as unknown as SchemaVersionError"
   },
   {
     "file": "tests/unit/state-debounce-clock.test.ts",
@@ -1890,10 +1806,6 @@
   {
     "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
     "text": "configWith({ contexts: [\"server\"] }) as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/validation/error-messages.test.ts",
-    "text": "error as unknown as Error"
   },
   {
     "file": "tools/verify/src/adapters/detection.ts",

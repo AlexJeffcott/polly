@@ -99,7 +99,9 @@ export function deserialiseKeyring(text: string): MeshKeyring {
   try {
     raw = JSON.parse(text);
   } catch (err) {
-    throw new Error(`KeyringStorage: keyring payload is not valid JSON: ${(err as Error).message}`);
+    throw new Error(
+      `KeyringStorage: keyring payload is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
   if (!raw || typeof raw !== "object") {
     throw new Error("KeyringStorage: keyring payload is not an object");

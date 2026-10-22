@@ -35,6 +35,7 @@ import {
 } from "@/shared/lib/revocation";
 import { encodeSignedEnvelope, generateSigningKeyPair, signEnvelope } from "@/shared/lib/signing";
 import { toPeerId } from "../../src/shared/lib/branded";
+import { caughtAs } from "./helpers/caught";
 
 type Doc = { title: string };
 
@@ -215,7 +216,7 @@ describe("encodeRevocation and decodeRevocation", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(RevocationError);
-    expect((caught as unknown as RevocationError).code).toBe("unknown-issuer");
+    expect(caughtAs(RevocationError, caught).code).toBe("unknown-issuer");
   });
 
   test("accepts any known peer's revocation when revocationAuthority is undefined", () => {
@@ -286,7 +287,7 @@ describe("encodeRevocation and decodeRevocation", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(RevocationError);
-    expect((caught as unknown as RevocationError).code).toBe("unauthorised-issuer");
+    expect(caughtAs(RevocationError, caught).code).toBe("unauthorised-issuer");
   });
 
   test("rejects when the payload's claimed issuer differs from the envelope's signer", () => {
@@ -322,7 +323,7 @@ describe("encodeRevocation and decodeRevocation", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(RevocationError);
-    expect((caught as unknown as RevocationError).code).toBe("not-signed-by-issuer");
+    expect(caughtAs(RevocationError, caught).code).toBe("not-signed-by-issuer");
   });
 
   test("decodeRevocation throws on a tampered payload", () => {
@@ -353,7 +354,7 @@ describe("encodeRevocation and decodeRevocation", () => {
     expect(caught).toBeInstanceOf(RevocationError);
     // Tampering anywhere in the signed payload produces either a signature
     // failure or a structural parse error; both are acceptable outcomes.
-    const code = (caught as unknown as RevocationError).code;
+    const code = caughtAs(RevocationError, caught).code;
     expect([
       "signature-invalid",
       "truncated",
