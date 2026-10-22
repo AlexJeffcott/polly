@@ -14,6 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { HandlerExecutionTracker } from "@/shared/lib/handler-execution-tracker";
+import { setGlobal } from "./helpers/globals";
 
 // ---------------------------------------------------------------------------
 // NODE_ENV control — isDevelopment is read once, at construction time.
@@ -51,14 +52,14 @@ const realSetTimeout = globalThis.setTimeout;
 
 function stubSetTimeout(): void {
   timers = [];
-  (globalThis as unknown as { setTimeout: unknown }).setTimeout = ((fn: () => void, ms: number) => {
+  setGlobal("setTimeout", (fn: () => void, ms: number) => {
     timers.push({ fn, ms });
     return 0;
-  }) as unknown as typeof setTimeout;
+  });
 }
 
 function restoreSetTimeout(): void {
-  (globalThis as unknown as { setTimeout: typeof setTimeout }).setTimeout = realSetTimeout;
+  globalThis.setTimeout = realSetTimeout;
 }
 
 // ---------------------------------------------------------------------------
