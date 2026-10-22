@@ -184,14 +184,6 @@
     "text": "e.target as unknown as HTMLInputElement"
   },
   {
-    "file": "src/elysia/peer-repo-plugin.ts",
-    "text": "null as unknown as PeerRepoServer | null"
-  },
-  {
-    "file": "src/elysia/peer-repo-plugin.ts",
-    "text": "null as unknown as PeerRepoServer[\"repo\"] | null"
-  },
-  {
     "file": "src/options/index.tsx",
     "text": "(e.target as unknown as HTMLSelectElement).value as unknown as | \"light\" | \"dark\" | \"auto\""
   },

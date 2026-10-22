@@ -1,6 +1,6 @@
-// @ts-nocheck - Optional peer dependencies (elysia, @elysiajs/eden)
 import { treaty } from "@elysiajs/eden";
 import { type Signal, signal } from "@preact/signals-core";
+import type { AnyElysia } from "elysia";
 import { createLamportClock, type LamportClock } from "../core/clock";
 import { extractRouteParams, findMatchingConfig, findMatchingEntry } from "../elysia/route-match";
 import type {
@@ -139,7 +139,10 @@ function applyStateSync(state: PollyClientOptions["state"], incoming: unknown): 
  * });
  * ```
  */
-export function createPollyClient<T>(url: string, options: PollyClientOptions = {}) {
+export function createPollyClient<T extends AnyElysia>(
+  url: string,
+  options: PollyClientOptions = {}
+) {
   const isDev = process.env.NODE_ENV !== "production";
   const baseClient = treaty<T>(url);
   const clock = createLamportClock("client");
@@ -301,11 +304,11 @@ export function createPollyClient<T>(url: string, options: PollyClientOptions = 
    */
   function applyOnlineResult(method: string, path: string, body: unknown, edenResult: unknown) {
     const result = isRecord(edenResult) ? edenResult : undefined;
-    const response = result?.response instanceof Response ? result.response : undefined;
+    const response = result?.["response"] instanceof Response ? result["response"] : undefined;
     const header = response?.headers?.get?.("X-Polly-Metadata");
     const metadata: PollyResponseMetadata | undefined = header ? JSON.parse(header) : undefined;
     if (metadata?.clock) clock.update(metadata.clock);
-    runClientEffect(method, path, body, result?.data, metadata?.clock ?? clock.now());
+    runClientEffect(method, path, body, result?.["data"], metadata?.clock ?? clock.now());
   }
 
   /**

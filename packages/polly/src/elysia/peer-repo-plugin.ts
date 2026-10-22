@@ -1,4 +1,3 @@
-// @ts-nocheck - Optional peer dependencies (elysia, @automerge/automerge-repo*)
 /**
  * peerRepo — Elysia plugin that runs a Polly peer-relay server alongside an
  * Elysia application and exposes the server's Repo on the Elysia context.
@@ -63,8 +62,8 @@ export function peerRepo(options: PeerRepoPluginOptions) {
     options.healthPath === false ? null : (options.healthPath ?? "/polly/peer/health");
 
   let app = new Elysia({ name: "polly-peer-repo" })
-    .decorate("pollyPeerRepo", null as unknown as PeerRepoServer["repo"] | null)
-    .decorate("pollyPeerServer", null as unknown as PeerRepoServer | null)
+    .decorate<"pollyPeerRepo", PeerRepoServer["repo"] | null>("pollyPeerRepo", null)
+    .decorate<"pollyPeerServer", PeerRepoServer | null>("pollyPeerServer", null)
     .onStart(async () => {
       server = await createPeerRepoServer(options);
       // Decorate after construction so handlers see the live Repo. Elysia's
