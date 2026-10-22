@@ -101,7 +101,7 @@ its output unchanged.
 
 | Step | How |
 |---|---|
-| Generate | `oxc-parser` spans; Stryker-named operators (`engine/operators.ts`); type-only syntax is never mutated; mutants inside verify primitives are reported `Ignored` (polly#143) |
+| Generate | `oxc-parser` spans; Stryker-named operators (`engine/operators.ts`); type-only syntax is never mutated; mutants inside verify primitives are reported `Ignored` (polly#143), and so are mutants a disable comment covers (see "Disable comments" below) |
 | Coverage | One pass before any mutant runs: every test file once, split over `concurrency` processes, with each target served probed (`engine/probes.ts`: a hit call before the statement, inside the block, or around the expression that holds each mutant; no line moves). Hits are bucketed per test by global `beforeEach`/`afterEach` hooks and matched to junit order. A mutant no test ran is `NoCoverage`, decided without a run. Each mutant's `coveredBy` lists the tests that ran it |
 | Select | Per mutant: the tests that ran it (`bun test -t`), or whole files for code that runs between tests or at module load. `--coverage static` (or a target the pass could not probe) selects the test files whose import closure reaches the target, through Bun's own resolver |
 | Baseline | The selected files run once unmutated; they must pass (3 tries), and their time sets each mutant's timeout (2× + 3 s) |
@@ -189,6 +189,62 @@ injection preload reaches every Bun process the command starts through
 no tests, runs no coverage pass, runs fast mode only, is never cached (no import graph bounds what the
 command reads), and a timeout kills the command's whole process group.
 
+The contract between the engine and a command is two environment variables,
+set for each mutant run and unset for the baseline:
+
+| Variable | Value |
+|---|---|
+| `POLLY_MUTATE_FILE` | Absolute, symlink-resolved path of the target |
+| `POLLY_MUTATE_SPAN` | JSON `{ "start", "end", "replacement" }`: replace characters `[start, end)` of the file's text with `replacement` |
+
+A command that loads the target some other way than a Bun import must apply
+the span itself. For a bundle there is a plugin:
+
+```ts
+import { pollyMutatePlugin } from "@fairfox/polly/mutate";
+
+await Bun.build({ entrypoints: ["src/page.ts"], outdir: "dist", plugins: [pollyMutatePlugin()] });
+```
+
+With either variable unset it does nothing, so the build can keep it on.
+`scripts/e2e-mutate.ts` (`checkBundle`) runs a command that bundles a page
+and runs it under Node: 5 of 5 mutants survive without the plugin, 5 of 5
+are killed with it.
+
+### Disable comments
+
+Stryker's comment syntax is read as it is, so a migrated project keeps its
+comments. `polly-mutate` is accepted in place of `Stryker`.
+
+```ts
+// Stryker disable next-line ObjectLiteral: a data table
+export const IMAGES = { … };
+
+// Stryker disable ArrowFunction,BlockStatement: no route reads it yet
+…
+// Stryker restore ArrowFunction,BlockStatement
+
+/* polly-mutate disable next-line all */
+```
+
+| Rule | Behaviour |
+|---|---|
+| `next-line` | Covers the line after the comment |
+| No `next-line` | Covers every later line until a `restore` names the mutator |
+| Mutator list | Comma-separated, any case; `all` names every mutator |
+| Covered | The mutant's span starts on a covered line (Stryker's node-start rule) |
+| Result | `Ignored`; `statusReason` is the text after the colon, else `Disabled by the comment on line N` |
+| Verify callsite | Keeps its polly#143 reason; the comment is not counted as covering it |
+
+`run` prints a warning for each comment that does nothing:
+
+- `covers no mutant` — nothing on the covered lines mutates, or only verify callsites do;
+- `covers only CompileError mutants` — the parse check or the type filter drops them anyway;
+- `names no mutator: <name>` — a misspelt mutator matches nothing.
+
+The type filter checks disabled mutants too, so that it can tell the last
+case: a disabled mutant the tsconfig rejects is `CompileError`, not `Ignored`.
+
 Operators are Stryker's 16 mutators, with Stryker's names and the rules of
 `@stryker-mutator/instrumenter` 9.6.1, so a report reads the same from either
 engine: ArithmeticOperator, ArrayDeclaration, ArrowFunction,
@@ -206,6 +262,7 @@ Intended differences from Stryker:
 | `a ?? b` → `&&` | Babel regenerates the code | The result is parenthesised in the source span | `a ?? b ?? c` does not parse otherwise |
 | Verify primitives | Mutated unless the polly ignorer is configured | `Ignored` by default (`ignoreVerifyCallsites`) | polly#143 |
 | Mutant text | Babel's generated code | The original source with one span swapped | Comments and formatting stay byte-identical |
+| Disabled mutant the tsconfig rejects | `Ignored` | `CompileError`, and the comment is reported unused | The comment is not needed; the warning says so |
 
 The last row means a parity check must compare replacements after
 normalising quotes and whitespace.
@@ -217,8 +274,10 @@ Current limits:
 - **A Timeout has no killers.** The process is killed before Bun writes its
   junit report. Without `--bail` more mutants time out (179 vs 41 on polly's 44
   targets), so a test whose only kills are Timeouts can look subsumed.
-- **The command runner reaches Bun processes only.** A command that runs the
-  target under Node never loads the preload, so every mutant survives.
+- **The command runner's preload reaches Bun processes only.** A command that
+  runs the target under Node, or bundles it, never loads the preload, so every
+  mutant survives. A `Bun.build` takes `pollyMutatePlugin()`; anything else
+  must apply `POLLY_MUTATE_FILE` / `POLLY_MUTATE_SPAN` itself.
 - **Per-test selection drops kills that need another test's state.** A mutant
   runs only the tests that ran its code. A test that fails only through state an
   earlier test left behind (a lazy cache filled once) is not selected. On polly's

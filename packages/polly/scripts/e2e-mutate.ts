@@ -37,6 +37,15 @@
  * section. This proves the dist primitives throw and that the preload's
  * afterEach drain fails the test when the handler swallowed the throw.
  *
+ * Then the command runner against a bundle, through the BUILT package: a
+ * command that `Bun.build`s a page and runs it under Node, where the test
+ * preload cannot reach. With `pollyMutatePlugin()` from
+ * "@fairfox/polly/mutate" in the build every mutant is Killed; without it
+ * every mutant Survives — the plugin is what carries the mutant. The same
+ * target's `// Stryker disable next-line` comment reports its mutant Ignored
+ * with the comment's reason, and a comment that covers nothing prints a
+ * warning.
+ *
  * Then `--since HEAD` in a git checkout: no change → nothing runs; one target
  * edited → only that target runs.
  *
@@ -180,6 +189,41 @@ const CONTRACT_SOURCES: Record<string, string> = {
     "});",
   ].join("\n"),
 };
+/** A page bundled by a command and run under Node; a Stryker comment on a data table. */
+const BUNDLE_SOURCES: Record<string, string> = {
+  "package.json": SOURCES["package.json"] ?? "",
+  "tsconfig.json": SOURCES["tsconfig.json"] ?? "",
+  "src/flag.ts": [
+    "// Stryker disable next-line ObjectLiteral: a data table",
+    "export const TABLE = { a: 1 };",
+    "export const positive = (a: number) => a > 0;",
+    "// Stryker disable next-line all: nothing here",
+    "export const ONE = 1;",
+  ].join("\n"),
+  "src/page.ts": [
+    'import { positive } from "./flag.ts";',
+    'if (positive(1) !== true || positive(0) !== false) throw new Error("wrong");',
+  ].join("\n"),
+  "check-bundle.ts": [
+    'import { pollyMutatePlugin } from "@fairfox/polly/mutate";',
+    'const plugins = process.env["E2E_NO_PLUGIN"] ? [] : [pollyMutatePlugin()];',
+    'const out = await Bun.build({ entrypoints: ["src/page.ts"], outdir: "out", target: "node", plugins });',
+    "if (!out.success) process.exit(2);",
+    'const node = Bun.spawnSync(["node", "out/page.js"], { stdout: "inherit", stderr: "inherit" });',
+    "process.exit(node.exitCode ?? 1);",
+  ].join("\n"),
+  "polly.mutate.ts": [
+    'import { defineMutation } from "@fairfox/polly/mutate";',
+    "export default defineMutation({",
+    '  targets: ["src/flag.ts"],',
+    '  runner: { kind: "command", argv: ["bun", "check-bundle.ts"] },',
+    "  concurrency: 2,",
+    "});",
+  ].join("\n"),
+};
+const TABLE_LINE = 2;
+const POSITIVE_LINE = 3;
+
 const ROLE_LINE = 7;
 const ENSURES_LINE = 8;
 
@@ -465,6 +509,49 @@ async function checkContracts(ctx: TierContext): Promise<void> {
   }
 }
 
+async function checkBundle(ctx: TierContext): Promise<void> {
+  const temp = withTempDir("polly-e2e-mutate-bundle-");
+  try {
+    await writeProject(temp.dir, BUNDLE_SOURCES);
+    const args = [BUILT_CLI, "mutate", "run", "--no-report"];
+
+    ctx.log("[e2e] built: command runner, Bun.build without the plugin");
+    await runBun(args, { cwd: temp.dir, env: { E2E_NO_PLUGIN: "1" } });
+    const off = (await readMutants(temp.dir, "src/flag.ts")).filter(
+      (m) => m.line === POSITIVE_LINE
+    );
+    assert(
+      off.length > 0 && off.every((m) => m.status === "Survived"),
+      `without the plugin every bundled mutant should survive: ${JSON.stringify(off)}`
+    );
+
+    ctx.log("[e2e] built: command runner, Bun.build with pollyMutatePlugin()");
+    const out = await mutate(BUILT_CLI, temp.dir, ["run", "--no-report"]);
+    const mutants = await readMutants(temp.dir, "src/flag.ts");
+    const on = mutants.filter((m) => m.line === POSITIVE_LINE);
+    assert(
+      on.length === off.length && on.every((m) => m.status === "Killed"),
+      `with the plugin every bundled mutant should be Killed: ${JSON.stringify(on)}\n${out}`
+    );
+    const table = mutants.filter((m) => m.line === TABLE_LINE);
+    assert(
+      table.length === 1 &&
+        table[0]?.status === "Ignored" &&
+        table[0]?.statusReason === "a data table",
+      `the disabled data table should be Ignored with its reason: ${JSON.stringify(table)}`
+    );
+    assert(
+      out.includes("warning: disable comment at src/flag.ts:4 covers no mutant"),
+      `no warning for the comment that covers nothing:\n${out}`
+    );
+    ctx.log(
+      `  ✓ bundle: ${on.length} mutants Survived without the plugin, Killed with it; the Stryker comment → Ignored ("a data table"); the empty comment warned`
+    );
+  } finally {
+    temp.cleanup();
+  }
+}
+
 export async function run(ctx: TierContext): Promise<TierResult> {
   try {
     if (!existsSync(BUILT_CLI))
@@ -473,6 +560,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     await checkCli(ctx, "built", BUILT_CLI);
     await checkTypecheckOff(ctx);
     await checkContracts(ctx);
+    await checkBundle(ctx);
     await checkSince(ctx);
     await checkInit(ctx);
     await checkMigrate(ctx);

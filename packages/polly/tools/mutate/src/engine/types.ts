@@ -25,6 +25,25 @@ export type MutatorName =
   | "UnaryOperator"
   | "UpdateOperator";
 
+export const MUTATOR_NAMES: ReadonlySet<string> = new Set<MutatorName>([
+  "ArithmeticOperator",
+  "ArrayDeclaration",
+  "ArrowFunction",
+  "AssignmentOperator",
+  "BlockStatement",
+  "BooleanLiteral",
+  "ConditionalExpression",
+  "EqualityOperator",
+  "LogicalOperator",
+  "MethodExpression",
+  "ObjectLiteral",
+  "OptionalChaining",
+  "Regex",
+  "StringLiteral",
+  "UnaryOperator",
+  "UpdateOperator",
+]);
+
 /** One source edit: replace `[start, end)` of the target file's text with `replacement`. */
 export interface Mutant {
   id: string;
@@ -36,8 +55,13 @@ export interface Mutant {
   replacement: string;
   /** 1-based, as mutation-testing-report-schema expects. */
   location: { start: Position; end: Position };
-  /** Set when the mutant sits inside a polly verify primitive (polly#143). */
+  /**
+   * Set when the mutant sits inside a polly verify primitive (polly#143) or
+   * on a line a disable comment covers (disable-comments.ts).
+   */
   ignoredReason?: string;
+  /** 1-based line of the disable comment that covers it. */
+  disabledBy?: number;
 }
 
 export interface Position {
@@ -206,4 +230,14 @@ export interface EngineResult {
    * Those targets' mutants are RuntimeError; `run` exits 1 and names them.
    */
   contractViolations: ContractViolationRecord[];
+  /** Disable comments that cover no runnable mutant (disable-comments.ts). */
+  unusedDisableComments: DisableCommentWarning[];
+}
+
+export interface DisableCommentWarning {
+  /** Relative to cwd. */
+  file: string;
+  /** 1-based line of the comment. */
+  line: number;
+  problem: string;
 }

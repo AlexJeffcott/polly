@@ -5,13 +5,15 @@
  * Type-only syntax is never mutated — a mutant there changes nothing Bun
  * executes — and neither are decorators or `declare` statements (Stryker's
  * skip rules). Mutants inside polly verify primitives are kept but marked
- * ignored, the way Stryker's polly-verify ignorer reports them.
+ * ignored, the way Stryker's polly-verify ignorer reports them, and so are
+ * mutants a `// Stryker disable` comment covers (disable-comments.ts).
  *
  * Parentheses are not nodes (`preserveParens: false`), as in the Babel AST
  * Stryker walks, so operators that look at a parent see the real one.
  */
 import { parseSync } from "oxc-parser";
 import { type AstNode, calleeName, children, isAstNode } from "./ast.ts";
+import { type DisableComment, disabledBy, parseDisableComments } from "./disable-comments.ts";
 import { OPERATORS, type OperatorContext } from "./operators.ts";
 import type { ContractSite, Mutant, MutatorName, Position } from "./types.ts";
 import { VERIFY_PRIMITIVES, verifyCallsiteReason } from "./verify-callsites.ts";
@@ -55,6 +57,8 @@ export interface GenerateResult {
   compileErrors: Mutant[];
   /** Every requires/ensures call, whole file, whatever `lines` and the ignore flag say. */
   contracts: ContractSite[];
+  /** Disable and restore comments whose first covered line is inside `lines`. */
+  disableComments: DisableComment[];
 }
 
 export function lineIndex(src: string): (offset: number) => Position {
@@ -81,6 +85,19 @@ function verifyReason(node: AstNode): string | undefined {
   if (node.type !== "CallExpression") return undefined;
   const name = calleeName(node);
   return name && VERIFY_PRIMITIVES.has(name) ? verifyCallsiteReason(name) : undefined;
+}
+
+/** A verify callsite wins; otherwise the disable comment covering the mutant, if any. */
+function ignoreFields(
+  verify: string | undefined,
+  comments: readonly DisableComment[],
+  start: number,
+  line: number,
+  mutatorName: MutatorName
+): Pick<Mutant, "ignoredReason" | "disabledBy"> {
+  if (verify) return { ignoredReason: verify };
+  const comment = disabledBy(comments, start, line, mutatorName);
+  return comment ? { ignoredReason: comment.reason, disabledBy: comment.line } : {};
 }
 
 const FUNCTION_NODES = new Set([
@@ -142,6 +159,7 @@ export function generateMutants(
   if (first) throw new Error(`${file}: cannot parse target: ${first.message}`);
 
   const position = lineIndex(src);
+  const comments = parseDisableComments(parsed.comments, (offset) => position(offset).line);
   const ignoreVerify = opts.ignoreVerifyCallsites ?? true;
   const prefix = opts.idPrefix ?? "";
   const seen = new Set<string>();
@@ -168,6 +186,7 @@ export function generateMutants(
         const dedupe = `${start}:${end}:${replacement}`;
         if (seen.has(dedupe)) return;
         seen.add(dedupe);
+        const location = { start: position(start), end: position(end) };
         all.push({
           id: "",
           file,
@@ -175,8 +194,8 @@ export function generateMutants(
           start,
           end,
           replacement,
-          location: { start: position(start), end: position(end) },
-          ...(ignoredHere ? { ignoredReason: ignoredHere } : {}),
+          location,
+          ...ignoreFields(ignoredHere, comments, start, location.start.line, mutatorName),
         });
       },
     };
@@ -191,13 +210,9 @@ export function generateMutants(
     if (isAstNode(statement)) visit(statement, "body", undefined);
   }
 
-  const inRange = opts.lines
-    ? all.filter(
-        (m) =>
-          m.location.start.line >= (opts.lines?.from ?? 0) &&
-          m.location.start.line <= (opts.lines?.to ?? 0)
-      )
-    : all;
+  const within = (line: number) =>
+    !opts.lines || (line >= opts.lines.from && line <= opts.lines.to);
+  const inRange = all.filter((m) => within(m.location.start.line));
   inRange.sort((a, b) => a.start - b.start || a.end - b.end);
   inRange.forEach((m, i) => {
     m.id = `${prefix}${i}`;
@@ -210,5 +225,10 @@ export function generateMutants(
       compileErrors.push(m);
     else mutants.push(m);
   }
-  return { mutants, compileErrors, contracts };
+  return {
+    mutants,
+    compileErrors,
+    contracts,
+    disableComments: comments.filter((c) => within(c.from)),
+  };
 }

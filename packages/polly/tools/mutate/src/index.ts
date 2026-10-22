@@ -25,6 +25,7 @@ export {
   type ContractsMode,
   type ContractViolationRecord,
   coveringTests,
+  type DisableCommentWarning,
   type EngineConfig,
   type EngineHooks,
   type EngineResult,
@@ -36,6 +37,7 @@ export {
   type MutateTarget,
   type MutatorName,
   mutationScore,
+  pollyMutatePlugin,
   runEngine,
   VERIFY_PRIMITIVES,
 } from "./engine/index.ts";

@@ -20,7 +20,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { runEngine } from "../engine/index.ts";
-import { mutatedText } from "../engine/preload.ts";
+import { mutatedText } from "../engine/mutant-text.ts";
 import { preloadPath } from "../engine/runner.ts";
 import type { ContractsMode, EngineConfig, EngineResult, MutantResult } from "../engine/types.ts";
 import { buildDb, loadMutationReport } from "../ingest.ts";

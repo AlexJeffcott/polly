@@ -15,7 +15,8 @@
  *             matrix mode runs every test and records each killer (junit.ts).
  *             A mutant the project's tsconfig rejects is CompileError and
  *             never runs (typecheck.ts); the check overlaps the baselines
- *   report    mutation-testing-report-schema JSON (report-writer.ts)
+ *   report    mutation-testing-report-schema JSON (report-writer.ts); a
+ *             disable comment that covers no runnable mutant is a warning
  */
 import { realpathSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -38,6 +39,7 @@ import {
   type Selection,
   selectionFor,
 } from "./coverage.ts";
+import type { DisableComment } from "./disable-comments.ts";
 import { generateMutants } from "./generate.ts";
 import {
   buildImportGraph,
@@ -61,6 +63,7 @@ import { typecheckMutants } from "./typecheck.ts";
 import type {
   ContractSite,
   ContractViolationRecord,
+  DisableCommentWarning,
   EngineConfig,
   EngineResult,
   Mutant,
@@ -70,6 +73,7 @@ import type {
 } from "./types.ts";
 import { createWorkdirs, inCwd, type Workdirs } from "./workdir.ts";
 
+export { pollyMutatePlugin } from "./bundler-plugin.ts";
 export { collectCoverage, selectionFor } from "./coverage.ts";
 export { applyMutant, generateMutants } from "./generate.ts";
 export { buildImportGraph, coveringTests, findTestFiles } from "./graph.ts";
@@ -99,6 +103,7 @@ interface PreparedTarget {
   cacheKey: string | null;
   cached: CacheEntry | null;
   contracts: ContractSite[];
+  disableComments: DisableComment[];
 }
 
 /** Files outside the import graph that still change every result. */
@@ -128,13 +133,14 @@ interface Generated {
   /** Static selection. */
   covering: string[];
   contracts: ContractSite[];
+  disableComments: DisableComment[];
 }
 
 async function generateAll(cfg: EngineConfig, graph: ImportGraph | null): Promise<Generated[]> {
   const out: Generated[] = [];
   for (const [index, target] of cfg.targets.entries()) {
     const file = realpathSync(target.file);
-    const { mutants, compileErrors, contracts } = generateMutants(
+    const { mutants, compileErrors, contracts, disableComments } = generateMutants(
       file,
       await Bun.file(file).text(),
       {
@@ -150,6 +156,7 @@ async function generateAll(cfg: EngineConfig, graph: ImportGraph | null): Promis
       compileErrors,
       covering: graph ? coveringTests(graph, file) : [],
       contracts,
+      disableComments,
     });
   }
   return out;
@@ -283,6 +290,7 @@ async function withCache(
     cacheKey: key,
     cached: cfg.cacheDir && key ? await readCache(cfg.cacheDir, key) : null,
     contracts: g.contracts,
+    disableComments: g.disableComments,
   };
 }
 
@@ -509,10 +517,11 @@ function summarise(
   workdirs: Workdirs | null
 ): TargetSummary {
   const results: MutantResult[] = p.mutants.map((mutant) => {
-    if (mutant.ignoredReason)
-      return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
+    // Before Ignored: a disabled mutant the type filter rejects needed no comment.
     const typeError = invalid.get(mutant.id);
     if (typeError) return { mutant, status: "CompileError", statusReason: typeError };
+    if (mutant.ignoredReason)
+      return { mutant, status: "Ignored", statusReason: mutant.ignoredReason };
     return (
       notRun(p, baseline, mutant) ?? byId.get(mutant.id) ?? unrun(mutant, "mutant was not run")
     );
@@ -564,7 +573,7 @@ async function run(
       ? typecheckMutants(
           prepared
             .filter((p) => !p.cached)
-            .map((p) => ({ file: p.file, mutants: p.mutants.filter((m) => !m.ignoredReason) })),
+            .map((p) => ({ file: p.file, mutants: p.mutants.filter(typechecked) })),
           { cwd: cfg.cwd, log }
         )
       : null,
@@ -614,6 +623,10 @@ async function run(
       }
     : null;
   for (const path of strayWrites?.mutants ?? []) log(`warning: a mutant run wrote ${path}`);
+  const unusedDisableComments = disableCommentWarnings(cfg.cwd, prepared, targets);
+  for (const w of unusedDisableComments) {
+    log(`warning: disable comment at ${w.file}:${w.line} ${w.problem}`);
+  }
 
   // After the last snapshot, so cache writes are never reported as stray.
   if (cfg.cacheDir) {
@@ -634,12 +647,46 @@ async function run(
     wallMs: Math.round(performance.now() - started),
     strayWrites,
     contractViolations,
+    unusedDisableComments,
   };
   await writeReport(
     await toMutationReport(result, cfg.cwd, { contracts: cfg.contracts, runner: cfg.runner.kind }),
     cfg.reportPath
   );
   return result;
+}
+
+/** Verify-callsite mutants never run, so they skip the filter; disabled ones are checked for the warning. */
+function typechecked(m: Mutant): boolean {
+  return !m.ignoredReason || m.disabledBy !== undefined;
+}
+
+/**
+ * Disable comments that do nothing: a name that is no mutator, or a
+ * `disable` whose mutants are none, or all CompileError (the parse check or
+ * the type filter would drop them anyway).
+ */
+export function disableCommentWarnings(
+  cwd: string,
+  prepared: readonly Pick<PreparedTarget, "file" | "disableComments">[],
+  targets: readonly TargetSummary[]
+): DisableCommentWarning[] {
+  const out: DisableCommentWarning[] = [];
+  prepared.forEach((p, i) => {
+    const results = targets[i]?.results ?? [];
+    const file = relative(cwd, p.file);
+    for (const c of p.disableComments) {
+      for (const name of c.unknown) {
+        out.push({ file, line: c.line, problem: `names no mutator: ${name}` });
+      }
+      if (c.action !== "disable") continue;
+      const covered = results.filter((r) => r.mutant.disabledBy === c.line);
+      if (covered.length === 0) out.push({ file, line: c.line, problem: "covers no mutant" });
+      else if (covered.every((r) => r.status === "CompileError"))
+        out.push({ file, line: c.line, problem: "covers only CompileError mutants" });
+    }
+  });
+  return out;
 }
 
 /** Stryker's score: detected / (detected + undetected); ignored and invalid mutants do not count. */

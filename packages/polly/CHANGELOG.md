@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`polly mutate` reads disable comments.** `// Stryker disable next-line
+  <Mutator|all>: <reason>`, `// Stryker disable …` / `// Stryker restore …`
+  ranges, and the same directives spelled `// polly-mutate …`. A covered
+  mutant is reported `Ignored` with the reason as `statusReason`, as
+  verify callsites are. A Stryker project that relied on these comments
+  under `thresholds.break` can now move without the covered mutants
+  surviving. A comment that covers no mutant, covers only `CompileError`
+  mutants, or names no mutator prints a warning
+  (`EngineResult.unusedDisableComments`).
+- **`pollyMutatePlugin()` from `@fairfox/polly/mutate`.** A `Bun.build`
+  plugin that serves the mutated target. The command runner's preload
+  reaches Bun processes only, so a command that bundles a page and tests it
+  in a browser saw no mutant and every mutant survived. With the variables
+  unset the plugin does nothing. `POLLY_MUTATE_FILE` and `POLLY_MUTATE_SPAN`
+  are now the documented contract for the command runner.
+
 ### Fixed
 
 - **Importing `@fairfox/polly` kept a Bun or Node process alive for ever.**

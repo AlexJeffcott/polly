@@ -14,7 +14,13 @@
  * typo fails with a message, not a crash deep in the engine.
  */
 import { isRecord } from "../../../src/shared/lib/guards";
-import type { ContractsMode, CoverageMode, EngineMode, MutatorName } from "./engine/types.ts";
+import {
+  type ContractsMode,
+  type CoverageMode,
+  type EngineMode,
+  MUTATOR_NAMES,
+  type MutatorName,
+} from "./engine/types.ts";
 
 export const MUTATION_CONFIG_FILE = "polly.mutate.ts";
 
@@ -81,25 +87,6 @@ export type MutationConfig = MutationCommon &
 export function defineMutation(config: MutationConfig): MutationConfig {
   return config;
 }
-
-const MUTATOR_NAMES: ReadonlySet<string> = new Set<MutatorName>([
-  "ArithmeticOperator",
-  "ArrayDeclaration",
-  "ArrowFunction",
-  "AssignmentOperator",
-  "BlockStatement",
-  "BooleanLiteral",
-  "ConditionalExpression",
-  "EqualityOperator",
-  "LogicalOperator",
-  "MethodExpression",
-  "ObjectLiteral",
-  "OptionalChaining",
-  "Regex",
-  "StringLiteral",
-  "UnaryOperator",
-  "UpdateOperator",
-]);
 
 function isMutatorName(value: unknown): value is MutatorName {
   return typeof value === "string" && MUTATOR_NAMES.has(value);
