@@ -1,4 +1,4 @@
-import { beforeEach, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import {
   clearError,
   createForm,
@@ -6,7 +6,9 @@ import {
   errorState,
   runAction,
 } from "@fairfox/polly/actions";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { signal } from "@preact/signals";
+import { setGlobal } from "../helpers/globals";
 
 type TeamValues = { name: string; description: string };
 type TestStores = {
@@ -23,9 +25,33 @@ function makeStores(): TestStores {
   };
 }
 
+beforeAll(() => {
+  GlobalRegistrator.register();
+});
+
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
+});
+
 beforeEach(() => {
   clearError();
 });
+
+/** A <form> holding one named input per entry, and a submit event whose
+ * target is that form. */
+function submittedForm(fields: Record<string, string>): Event {
+  const formEl = document.createElement("form");
+  for (const [name, value] of Object.entries(fields)) {
+    const input = document.createElement("input");
+    input.name = name;
+    input.value = value;
+    formEl.appendChild(input);
+  }
+  document.body.appendChild(formEl);
+  const event = new Event("submit", { cancelable: true });
+  formEl.dispatchEvent(event);
+  return event;
+}
 
 test("form exposes initial field signals and values signal", () => {
   const form = createForm<TeamValues, TestStores>({
@@ -209,4 +235,52 @@ test("createFormSet merges actions and exposes openForm signal", () => {
   expect(set.openForm.value).toBe("b");
   set.closeAll();
   expect(set.openForm.value).toBeNull();
+});
+
+test("open skips override keys whose value is undefined", () => {
+  const form = createForm<TeamValues, TestStores>({
+    name: "team",
+    initialValues: { name: "Initial", description: "" },
+    onSubmit: async () => {},
+  });
+  form.open({ name: undefined, description: "set" });
+  expect(form.fields.name.value).toBe("Initial");
+  expect(form.fields.description.value).toBe("set");
+});
+
+test("submit reads field values from the submitted form element", async () => {
+  const stores = makeStores();
+  const form = createForm<TeamValues, TestStores>({
+    name: "team",
+    initialValues: { name: "", description: "" },
+    onSubmit: async ({ values, stores }) => {
+      stores.createCalls.push(values);
+    },
+  });
+  form.bindStores(() => stores);
+  form.open();
+  await form.submit(submittedForm({ name: "From DOM", description: "d" }));
+  expect(stores.createCalls).toEqual([{ name: "From DOM", description: "d" }]);
+});
+
+test("submit recognises a form by tagName where HTMLFormElement is absent", async () => {
+  const stores = makeStores();
+  const form = createForm<TeamValues, TestStores>({
+    name: "team",
+    initialValues: { name: "", description: "" },
+    onSubmit: async ({ values, stores }) => {
+      stores.createCalls.push(values);
+    },
+  });
+  form.bindStores(() => stores);
+  form.open();
+  const event = submittedForm({ name: "By tag", description: "" });
+  const saved = globalThis.HTMLFormElement;
+  setGlobal("HTMLFormElement", undefined);
+  try {
+    await form.submit(event);
+  } finally {
+    globalThis.HTMLFormElement = saved;
+  }
+  expect(stores.createCalls).toEqual([{ name: "By tag", description: "" }]);
 });

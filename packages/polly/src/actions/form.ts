@@ -27,8 +27,7 @@ function isFormElement(target: EventTarget | null): target is HTMLFormElement {
   if (typeof HTMLFormElement !== "undefined") {
     return target instanceof HTMLFormElement;
   }
-  const t = target as unknown as { tagName?: unknown };
-  return typeof t.tagName === "string" && t.tagName === "FORM";
+  return "tagName" in target && target.tagName === "FORM";
 }
 
 export type FormOpenContext<TStores> = {
@@ -74,15 +73,21 @@ export type FormStore<TValues extends Record<string, string>, TStores> = {
 export function createForm<TValues extends Record<string, string>, TStores>(
   config: FormConfig<TValues, TStores>
 ): FormStore<TValues, TStores> {
-  const fieldKeys = Object.keys(config.initialValues) as unknown as (keyof TValues)[];
+  // `for...in` over a generic object types the key as `keyof TValues`.
+  const fieldKeys: Extract<keyof TValues, string>[] = [];
+  for (const key in config.initialValues) {
+    if (Object.hasOwn(config.initialValues, key)) fieldKeys.push(key);
+  }
 
-  const fields = {} as unknown as { [K in keyof TValues]: Signal<TValues[K]> };
+  // cast: a generic mapped type cannot be built key by key; the loop below
+  // fills every key of TValues.
+  const fields = {} as { [K in keyof TValues]: Signal<TValues[K]> };
   for (const key of fieldKeys) {
     fields[key] = signal(config.initialValues[key]);
   }
 
   const values = computed<TValues>(() => {
-    const v = {} as unknown as TValues;
+    const v = { ...config.initialValues };
     for (const key of fieldKeys) {
       v[key] = fields[key].value;
     }
@@ -106,6 +111,16 @@ export function createForm<TValues extends Record<string, string>, TStores>(
     return getStoresRef();
   }
 
+  /** Copy each defined value of a partial override onto its field. Keys
+   * outside `initialValues` are ignored. */
+  function applyOverride(override: Partial<TValues> | undefined): void {
+    if (!override) return;
+    for (const key of fieldKeys) {
+      const value = override[key];
+      if (value !== undefined) fields[key].value = value;
+    }
+  }
+
   function resetToInitial(): void {
     for (const key of fieldKeys) {
       fields[key].value = config.initialValues[key];
@@ -113,25 +128,13 @@ export function createForm<TValues extends Record<string, string>, TStores>(
     errors.value = {};
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: open applies two layers of overrides plus optional onOpen — branchy by design.
   function open(override?: Partial<TValues>, params: Record<string, string> = {}): void {
     resetToInitial();
     openParams.value = params;
     if (config.onOpen && getStoresRef) {
-      const onOpenOverride = config.onOpen({ data: params, stores: getStoresOrThrow() }) ?? {};
-      for (const [k, v] of Object.entries(onOpenOverride)) {
-        if (k in fields) {
-          fields[k as keyof TValues].value = v as TValues[keyof TValues];
-        }
-      }
+      applyOverride(config.onOpen({ data: params, stores: getStoresOrThrow() }));
     }
-    if (override) {
-      for (const [k, v] of Object.entries(override)) {
-        if (k in fields) {
-          fields[k as keyof TValues].value = v as TValues[keyof TValues];
-        }
-      }
-    }
+    if (override) applyOverride(override);
     isOpen.value = true;
   }
 
@@ -147,9 +150,11 @@ export function createForm<TValues extends Record<string, string>, TStores>(
     if (event && isFormElement(event.target)) {
       const fd = new FormData(event.target);
       for (const key of fieldKeys) {
-        const raw = fd.get(key as unknown as string);
+        const raw = fd.get(key);
         if (raw !== null) {
-          fields[key].value = String(raw) as unknown as TValues[typeof key];
+          // cast: FormData yields a plain string; TValues may narrow it to
+          // literals the DOM cannot be held to.
+          fields[key].value = String(raw) as TValues[typeof key];
         }
       }
     }
