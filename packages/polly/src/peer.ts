@@ -37,6 +37,7 @@ export { MigrationError, migratePrimitive } from "./shared/lib/migrate-primitive
 export type {
   CreatePeerStateClientOptions,
   PeerRelayConnectionState,
+  PeerRelayNetworkAdapter,
   PeerStateClient,
 } from "./shared/lib/peer-relay-adapter";
 export { createPeerStateClient } from "./shared/lib/peer-relay-adapter";

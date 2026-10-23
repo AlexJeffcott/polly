@@ -26,14 +26,34 @@
  * ```
  */
 
-import { type NetworkAdapterInterface, Repo } from "@automerge/automerge-repo/slim";
+import {
+  type NetworkAdapter,
+  type NetworkAdapterInterface,
+  Repo,
+} from "@automerge/automerge-repo/slim";
 import { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { type Signal, signal } from "@preact/signals";
 import { type MeshKeyring, MeshNetworkAdapter } from "./mesh-network-adapter";
 
 export type PeerRelayConnectionState = "connecting" | "connected" | "disconnected";
 
-export interface CreatePeerStateClientOptions {
+/**
+ * What {@link createPeerStateClient} reads from its network adapter: an
+ * automerge `NetworkAdapter` (the Repo transport and the lifecycle events) and
+ * an optional socket-error listener, which the client wraps so a rethrown
+ * socket error cannot escape as an uncaught exception.
+ * `WebSocketClientAdapter` satisfies it, and so does any `NetworkAdapter`
+ * subclass. The listener slot is method-typed so its parameter is bivariant:
+ * the real listener takes `Event | WebSocket.ErrorEvent`, a fake takes
+ * `unknown`.
+ */
+export interface PeerRelayNetworkAdapter extends NetworkAdapter {
+  onError?: { handle(event: unknown): void }["handle"];
+}
+
+export interface CreatePeerStateClientOptions<
+  A extends PeerRelayNetworkAdapter = WebSocketClientAdapter,
+> {
   /** WebSocket URL of the Polly peer-relay server. Use the unencrypted scheme
    * (`ws:` + `//`) for local development; `wss://` is required for any
    * deployment that terminates TLS. */
@@ -62,7 +82,7 @@ export interface CreatePeerStateClientOptions {
    * `WebSocketClientAdapter` against `url`. Injecting a factory lets tests (or
    * instrumentation) substitute a fake adapter so they stay off the network —
    * the production path leaves this unset. */
-  adapterFactory?: (url: string, retryInterval?: number) => WebSocketClientAdapter;
+  adapterFactory?: (url: string, retryInterval?: number) => A;
   /** Called once per failed socket connection or transport error, on every
    * host. The client keeps retrying either way — this is a report, not a
    * recovery hook. With no callback the error is logged with
@@ -71,15 +91,16 @@ export interface CreatePeerStateClientOptions {
   onSocketError?: (error: Error) => void;
 }
 
-export interface PeerStateClient {
+export interface PeerStateClient<A extends PeerRelayNetworkAdapter = WebSocketClientAdapter> {
   /** A configured Repo backed by the WebSocket relay. Pass to
    * {@link configurePeerState}. */
   repo: Repo;
   /** Reactive connection state. Updates as the underlying WebSocket opens,
    * closes, and reconnects. */
   connectionState: Signal<PeerRelayConnectionState>;
-  /** The underlying network adapter, exposed for advanced use. */
-  adapter: WebSocketClientAdapter;
+  /** The underlying network adapter, exposed for advanced use. A
+   * `WebSocketClientAdapter` unless `adapterFactory` returned another type. */
+  adapter: A;
   /** True if the client was constructed with `sign: true`. Used by
    * $peerState primitives to validate per-primitive sign options. */
   signEnabled: boolean;
@@ -124,7 +145,7 @@ function toSocketError(event: unknown, url: string): Error {
  * left alone.
  */
 function containSocketErrors(
-  adapter: WebSocketClientAdapter,
+  adapter: PeerRelayNetworkAdapter,
   url: string,
   report: (error: Error) => void
 ): void {
@@ -150,14 +171,22 @@ function containSocketErrors(
  * passes the Repo to {@link configurePeerState} and renders the connection
  * state somewhere visible.
  */
-export function createPeerStateClient(options: CreatePeerStateClientOptions): PeerStateClient {
+export function createPeerStateClient(options: CreatePeerStateClientOptions): PeerStateClient;
+export function createPeerStateClient<A extends PeerRelayNetworkAdapter>(
+  options: CreatePeerStateClientOptions<A> & {
+    adapterFactory: (url: string, retryInterval?: number) => A;
+  }
+): PeerStateClient<A>;
+export function createPeerStateClient(
+  options: CreatePeerStateClientOptions<PeerRelayNetworkAdapter>
+): PeerStateClient<PeerRelayNetworkAdapter> {
   if (options.sign && !options.keyring) {
     throw new Error(
       "Polly createPeerStateClient: { sign: true } requires a keyring. Pass { keyring: { identity, knownPeers, documentKeys: new Map(), revokedPeers: new Set() } } to enable signing."
     );
   }
 
-  const adapter = options.adapterFactory
+  const adapter: PeerRelayNetworkAdapter = options.adapterFactory
     ? options.adapterFactory(options.url, options.retryInterval)
     : new WebSocketClientAdapter(options.url, options.retryInterval);
   const connectionState = signal<PeerRelayConnectionState>("connecting");

@@ -16,8 +16,12 @@ import {
   type PeerId,
   type StorageAdapterInterface,
 } from "@automerge/automerge-repo/slim";
-import type { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
-import { createPeerStateClient, type PeerStateClient } from "@/shared/lib/peer-relay-adapter";
+import {
+  type CreatePeerStateClientOptions,
+  createPeerStateClient,
+  type PeerRelayNetworkAdapter,
+  type PeerStateClient,
+} from "@/shared/lib/peer-relay-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
 import { peerId } from "./helpers/branded";
 
@@ -40,16 +44,19 @@ class FakeAdapter extends NetworkAdapter {
   }
 }
 
-const clients: PeerStateClient[] = [];
+/** Every option except the factory, which each helper supplies itself. */
+type ClientOpts = Partial<Omit<CreatePeerStateClientOptions, "adapterFactory">>;
 
-function make(opts: Partial<Parameters<typeof createPeerStateClient>[0]> = {}): {
-  client: PeerStateClient;
+const clients: PeerStateClient<PeerRelayNetworkAdapter>[] = [];
+
+function make(opts: ClientOpts = {}): {
+  client: PeerStateClient<FakeAdapter>;
   adapter: FakeAdapter;
 } {
   const adapter = new FakeAdapter();
   const client = createPeerStateClient({
     url: URL,
-    adapterFactory: () => adapter as unknown as WebSocketClientAdapter,
+    adapterFactory: () => adapter,
     ...opts,
   });
   clients.push(client);
@@ -81,7 +88,7 @@ describe("createPeerStateClient — construction", () => {
     const { client, adapter } = make();
     expect(client.repo).toBeDefined();
     expect(client.connectionState.value).toBe("connecting");
-    expect<unknown>(client.adapter).toBe(adapter);
+    expect(client.adapter).toBe(adapter);
     expect(typeof client.close).toBe("function");
   });
 
@@ -91,7 +98,7 @@ describe("createPeerStateClient — construction", () => {
 
   test("uses the injected adapter factory instead of a real socket", () => {
     const { client, adapter } = make();
-    expect<unknown>(client.adapter).toBe(adapter);
+    expect(client.adapter).toBe(adapter);
   });
 });
 
@@ -101,7 +108,7 @@ describe("createPeerStateClient — signing guard", () => {
       createPeerStateClient({
         url: URL,
         sign: true,
-        adapterFactory: () => new FakeAdapter() as unknown as WebSocketClientAdapter,
+        adapterFactory: () => new FakeAdapter(),
       })
     ).toThrow(/requires a keyring/);
   });
@@ -142,11 +149,11 @@ describe("createPeerStateClient — repo wiring", () => {
   // These assertions reach into Repo internals deliberately: the sign/keyring
   // adapter selection and the storage spread are otherwise only observable
   // through real network/storage behaviour (the integration tests' job).
-  function repoNetworkAdapterName(client: PeerStateClient): string {
+  function repoNetworkAdapterName(client: PeerStateClient<PeerRelayNetworkAdapter>): string {
     const ns = client.repo.networkSubsystem;
     return ns?.adapters?.[0]?.constructor.name ?? "(none)";
   }
-  function repoHasStorage(client: PeerStateClient): boolean {
+  function repoHasStorage(client: PeerStateClient<PeerRelayNetworkAdapter>): boolean {
     return Boolean(client.repo.storageSubsystem);
   }
   const fakeStorage: StorageAdapterInterface = {
@@ -200,14 +207,14 @@ describe("createPeerStateClient — socket-error containment", () => {
     };
   }
 
-  function makeThrowing(opts: Partial<Parameters<typeof createPeerStateClient>[0]> = {}): {
-    client: PeerStateClient;
+  function makeThrowing(opts: ClientOpts = {}): {
+    client: PeerStateClient<ThrowingAdapter>;
     adapter: ThrowingAdapter;
   } {
     const adapter = new ThrowingAdapter();
     const client = createPeerStateClient({
       url: URL,
-      adapterFactory: () => adapter as unknown as WebSocketClientAdapter,
+      adapterFactory: () => adapter,
       ...opts,
     });
     clients.push(client);
