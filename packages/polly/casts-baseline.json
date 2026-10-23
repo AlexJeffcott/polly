@@ -428,10 +428,6 @@
     "text": "{ tabs: { query: async (filter: unknown) => { calls.query.push(filter); return [{ id: 1, active: true }]; }, create: (options: unknown) => { calls.create.push(options); }, }, runtime: { openOptionsPage: () => { calls.openOptionsPage += 1; }, }, } as unknown as ExtensionAdapters"
   },
   {
-    "file": "tests/unit/derive-document-id.test.ts",
-    "text": "digest.slice(0, 16) as unknown as BinaryDocumentId"
-  },
-  {
     "file": "tests/unit/guards.test.ts",
     "text": "{ kind: \"c\" } as unknown as never"
   },
@@ -520,14 +516,6 @@
     "text": "FakeWebSocket as unknown as typeof WebSocket"
   },
   {
-    "file": "tests/unit/messages.test.ts",
-    "text": "{ menuItemId: \"test-menu\", pageUrl: \"https://example.com\", selectionText: \"selected text\", } as unknown as chrome.contextMenus.OnClickData"
-  },
-  {
-    "file": "tests/unit/migrate-primitive.test.ts",
-    "text": "[] as unknown as number[]"
-  },
-  {
     "file": "tests/unit/peer-relay-adapter.test.ts",
     "text": "adapter as unknown as WebSocketClientAdapter"
   },
@@ -554,10 +542,6 @@
   {
     "file": "tests/unit/state-debounce-clock.test.ts",
     "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "tests/unit/state-enhancements.test.ts",
-    "text": "undefined as unknown as string | undefined"
   },
   {
     "file": "tests/unit/state-sync.test.ts",
