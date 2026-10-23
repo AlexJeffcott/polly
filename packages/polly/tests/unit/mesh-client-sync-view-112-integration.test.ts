@@ -242,7 +242,7 @@ describe("enrichPeerSlot (#112 surface wiring)", () => {
       },
     } as unknown as Parameters<typeof enrichPeerSlot>[0];
 
-    const repoHandles = repo.handles as unknown as Record<string, { state: unknown } | undefined>;
+    const repoHandles: Record<string, { state: unknown } | undefined> = repo.handles;
     const enriched = enrichPeerSlot(fakePeer, [docId], repoHandles, syncForRead);
     const entry = enriched.slot?.handles[docId];
 
@@ -277,7 +277,7 @@ describe("enrichPeerSlot (#112 surface wiring)", () => {
       },
     } as unknown as Parameters<typeof enrichPeerSlot>[0];
 
-    const repoHandles = repo.handles as unknown as Record<string, { state: unknown } | undefined>;
+    const repoHandles: Record<string, { state: unknown } | undefined> = repo.handles;
     const enriched = enrichPeerSlot(fakePeer, [], repoHandles, syncForRead);
     const entry = enriched.slot?.handles["unknown-doc-id"];
 
