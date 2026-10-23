@@ -273,10 +273,6 @@
   },
   {
     "file": "src/shared/lib/mesh-client.ts",
-    "text": "repo as unknown as { synchronizer?: SynchronizerStructural }"
-  },
-  {
-    "file": "src/shared/lib/mesh-client.ts",
     "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
   },
   {
@@ -425,23 +421,7 @@
   },
   {
     "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
-    "text": "{ synchronizer } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
     "text": "{ synchronizer: { reevaluateDocumentShare: 123 } } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
-    "text": "{ synchronizer: { reevaluateDocumentShare: spy } } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
-    "text": "{} as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
-    "text": "{} as unknown as Repo"
   },
   {
     "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
@@ -453,15 +433,7 @@
   },
   {
     "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
-    "text": "{ synchronizer } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
     "text": "{ synchronizer: () => {} } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
-    "text": "{} as unknown as Repo"
   },
   {
     "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
@@ -474,10 +446,6 @@
   {
     "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
     "text": "0x7f as unknown as MeshControlType"
-  },
-  {
-    "file": "tests/unit/sweep-sealed.test.ts",
-    "text": "{ handles } as unknown as Repo"
   },
   {
     "file": "tools/analysis/src/extract/adr.ts",

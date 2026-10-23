@@ -80,7 +80,7 @@ describe("findLazyWrapperDocIdDuplicates — count > 1 threshold (#124)", () => 
 
 describe("getReevaluateDocumentShare — typeof-function guard (#124)", () => {
   test("returns undefined when the synchronizer is absent", () => {
-    expect(getReevaluateDocumentShare({} as unknown as Repo)).toBeUndefined();
+    expect(getReevaluateDocumentShare({})).toBeUndefined();
   });
 
   test("returns undefined when reevaluateDocumentShare is not a function", () => {
@@ -96,7 +96,7 @@ describe("getReevaluateDocumentShare — typeof-function guard (#124)", () => {
         return Promise.resolve();
       },
     };
-    const fn = getReevaluateDocumentShare({ synchronizer } as unknown as Repo);
+    const fn = getReevaluateDocumentShare({ synchronizer });
     expect(fn).toBeDefined();
     await fn?.();
     expect(boundThis).toBe(synchronizer);
@@ -134,8 +134,8 @@ describe("installPolly107SyncReevaluation — env gate + wiring (#124)", () => {
     };
   }
 
-  function repoWithReevaluate(spy: () => Promise<void>): Repo {
-    return { synchronizer: { reevaluateDocumentShare: spy } } as unknown as Repo;
+  function repoWithReevaluate(spy: () => Promise<void>) {
+    return { synchronizer: { reevaluateDocumentShare: spy } };
   }
 
   test("wires peer-candidate so emitting invokes reevaluate", async () => {
@@ -173,7 +173,7 @@ describe("installPolly107SyncReevaluation — env gate + wiring (#124)", () => {
 
   test("a missing reevaluate method short-circuits without wiring", () => {
     const fake = fakeAdapter();
-    installPolly107SyncReevaluation(fake.adapter, {} as unknown as Repo);
+    installPolly107SyncReevaluation(fake.adapter, {});
     expect(fake.onCalls).toBe(0);
   });
 
