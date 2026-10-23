@@ -128,30 +128,6 @@
     "text": "makePathProxy([]) as unknown as typeof baseClient & { $polly: typeof pollyApi }"
   },
   {
-    "file": "src/polly-ui/ActionInput.tsx",
-    "text": "{ type: props.inputType ?? \"text\", ...common, } as unknown as AccessibleInputHTMLAttributes"
-  },
-  {
-    "file": "src/polly-ui/Button.tsx",
-    "text": "props as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/polly-ui/Surface.tsx",
-    "text": "props as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/polly-ui/TextInput.tsx",
-    "text": "{ ...a11y, type: props.inputType ?? \"text\", } as unknown as AccessibleInputHTMLAttributes"
-  },
-  {
-    "file": "src/polly-ui/TextInput.tsx",
-    "text": "props.value as unknown as Signal<string>"
-  },
-  {
-    "file": "src/polly-ui/TextInput.tsx",
-    "text": "props.value as unknown as Signal<string>"
-  },
-  {
     "file": "src/shared/lib/blob-store-impl.ts",
     "text": "header as unknown as BlobChunkHeader"
   },

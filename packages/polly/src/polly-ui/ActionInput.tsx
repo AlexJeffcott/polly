@@ -24,15 +24,11 @@
  * font, and line-height so the toggle causes no reflow.
  */
 
-import type {
-  AccessibleInputHTMLAttributes,
-  JSX,
-  TargetedEvent,
-  TargetedKeyboardEvent,
-} from "preact";
+import type { JSX, TargetedEvent, TargetedKeyboardEvent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import classes from "./ActionInput.module.css";
 import { dispatchAction } from "./internal/dispatch-action.ts";
+import { inputTypeAttrs } from "./internal/input-base.ts";
 import { collectPassthrough, type PassthroughAttrs } from "./internal/passthrough.ts";
 
 export type ActionInputSaveOn = "blur" | "enter" | "cmd-enter" | "explicit" | "input";
@@ -216,10 +212,8 @@ export function ActionInput(props: ActionInputProps): JSX.Element {
       ref={(el) => {
         inputRef.current = el;
       }}
-      {...({
-        type: props.inputType ?? "text",
-        ...common,
-      } as unknown as AccessibleInputHTMLAttributes)}
+      {...inputTypeAttrs(props.inputType ?? "text")}
+      {...common}
     />
   );
 }
