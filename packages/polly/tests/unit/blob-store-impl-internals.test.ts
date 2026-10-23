@@ -27,6 +27,7 @@ import type {
 import { parseBlobMessage } from "@/shared/lib/blob-transfer";
 import { toPeerId } from "@/shared/lib/branded";
 import { encrypt, generateDocumentKey } from "@/shared/lib/encryption";
+import { setGlobal } from "./helpers/globals";
 
 // Captured-timer shim
 
@@ -40,15 +41,15 @@ function installFakeTimers(): void {
   nextTimerId = 1;
   // Deliberately partial shims: the store only ever calls setTimeout(fn, ms)
   // and clearTimeout(id), so the fakes skip the full overload surface.
-  globalThis.setTimeout = ((fn: () => void, delay?: number) => {
+  setGlobal("setTimeout", (fn: () => void, delay?: number) => {
     const id = nextTimerId++;
     scheduled.push({ fn, delay: delay ?? 0, id });
     return id;
-  }) as unknown as typeof setTimeout;
-  globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
-    const i = scheduled.findIndex((s) => s.id === (id as unknown as number));
+  });
+  setGlobal("clearTimeout", (id?: unknown) => {
+    const i = scheduled.findIndex((s) => s.id === id);
     if (i >= 0) scheduled.splice(i, 1);
-  }) as unknown as typeof clearTimeout;
+  });
 }
 
 /** Fire (and remove) the earliest pending timer scheduled at `delay` ms. */
@@ -109,7 +110,7 @@ class RecordingAdapter {
 
   /** Inject an incoming blob message as if it arrived from `fromPeer`. */
   deliver(fromPeer: string, header: BlobMessageHeader, data: Uint8Array = new Uint8Array(0)): void {
-    this.onBlobMessage?.(fromPeer, header as unknown as Record<string, unknown>, data);
+    this.onBlobMessage?.(fromPeer, { ...header }, data);
   }
 
   emitPeerCandidate(peerId: string): void {

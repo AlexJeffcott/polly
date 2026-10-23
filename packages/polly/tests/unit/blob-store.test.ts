@@ -6,6 +6,7 @@ import type { BlobProgressEvent } from "@/shared/lib/blob-store";
 import { createBlobStore } from "@/shared/lib/blob-store-impl";
 import {
   type BlobChunkHeader,
+  type BlobMessageHeader,
   type BlobRequestHeader,
   chunkBlob,
 } from "@/shared/lib/blob-transfer";
@@ -51,8 +52,9 @@ function createMockAdapter(initialPeers: string[] = ["peer-a", "peer-b"]) {
       eventHandlers.get(event)?.delete(handler);
     },
     sentMessages,
-    simulateIncoming(peerId: string, header: Record<string, unknown>, data: Uint8Array) {
-      blobHandler?.(peerId, header, data);
+    simulateIncoming(peerId: string, header: BlobMessageHeader, data: Uint8Array) {
+      // The spread is an anonymous object type, which fits Record<string, unknown>.
+      blobHandler?.(peerId, { ...header }, data);
     },
     simulatePeerConnect(peerId: string) {
       connectedPeers.push(peerId);
@@ -231,11 +233,7 @@ describe("createBlobStore — core", () => {
     adapter.sentMessages.length = 0;
 
     const requestHeader: BlobRequestHeader = { type: "blob-request", hash: ref.hash };
-    adapter.simulateIncoming(
-      "peer-a",
-      requestHeader as unknown as Record<string, unknown>,
-      new Uint8Array(0)
-    );
+    adapter.simulateIncoming("peer-a", requestHeader, new Uint8Array(0));
     await new Promise((r) => setTimeout(r, 10));
     expect(adapter.sentMessages.length).toBeGreaterThan(0);
     expect(adapter.sentMessages[0]!.peerId).toBe("peer-a");
@@ -253,7 +251,7 @@ describe("createBlobStore — core", () => {
     const chunks = chunkBlob(bytes);
     for (let i = 0; i < chunks.length; i++) {
       const header: BlobChunkHeader = { type: "blob-chunk", hash, index: i, total: chunks.length };
-      adapter.simulateIncoming("peer-a", header as unknown as Record<string, unknown>, chunks[i]!);
+      adapter.simulateIncoming("peer-a", header, chunks[i]!);
     }
 
     const result = await getPromise;
@@ -344,7 +342,7 @@ describe("chunk-then-encrypt", () => {
         index: i,
         total: plainChunks.length,
       };
-      adapter.simulateIncoming("peer-a", header as unknown as Record<string, unknown>, sealed);
+      adapter.simulateIncoming("peer-a", header, sealed);
     }
 
     const result = await getPromise;
@@ -376,7 +374,7 @@ describe("chunk-then-encrypt", () => {
         index: i,
         total: plainChunks.length,
       };
-      adapter.simulateIncoming("peer-a", header as unknown as Record<string, unknown>, sealed);
+      adapter.simulateIncoming("peer-a", header, sealed);
     }
 
     // Wait long enough for chunks to be dropped, then abort to avoid waiting 60s.
@@ -442,7 +440,7 @@ describe("per-document keys", () => {
         index: i,
         total: plainChunks.length,
       };
-      adapter.simulateIncoming("peer-a", header as unknown as Record<string, unknown>, sealed);
+      adapter.simulateIncoming("peer-a", header, sealed);
     }
 
     const result = await getPromise;
@@ -478,11 +476,7 @@ describe("multi-source fetch", () => {
       index: 0,
       total: plainChunks.length,
     };
-    adapter.simulateIncoming(
-      "peer-a",
-      header0 as unknown as Record<string, unknown>,
-      plainChunks[0]!
-    );
+    adapter.simulateIncoming("peer-a", header0, plainChunks[0]!);
 
     adapter.sentMessages.length = 0;
     // Wait for re-request timer (5s).
@@ -557,7 +551,7 @@ describe("progress callbacks", () => {
     const chunks = chunkBlob(bytes);
     for (let i = 0; i < chunks.length; i++) {
       const header: BlobChunkHeader = { type: "blob-chunk", hash, index: i, total: chunks.length };
-      adapter.simulateIncoming("peer-a", header as unknown as Record<string, unknown>, chunks[i]!);
+      adapter.simulateIncoming("peer-a", header, chunks[i]!);
     }
     await getPromise;
     const downloadEvents = events.filter((e) => e.phase === "downloading");
