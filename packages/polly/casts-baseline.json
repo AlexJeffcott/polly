@@ -1,81 +1,5 @@
 [
   {
-    "file": "cli/polly.ts",
-    "text": "[ args.config, `${cwd}/polly.config.ts`, `${cwd}/polly.config.js`, `${cwd}/polly.config.mjs`, ].filter(Boolean) as unknown as string[]"
-  },
-  {
-    "file": "scripts/check-deps-audit.ts",
-    "text": "JSON.parse(proc.stdout || \"{}\") as unknown as Record<string, BunAuditAdvisory[]>"
-  },
-  {
-    "file": "scripts/check-deps-audit.ts",
-    "text": "JSON.parse(readFileSync(CACHE_FILE, \"utf8\")) as unknown as CachedResult"
-  },
-  {
-    "file": "scripts/check-deps-audit.ts",
-    "text": "JSON.parse(readFileSync(NOTES_FILE, \"utf8\")) as unknown as Notes"
-  },
-  {
-    "file": "scripts/check-deps-audit.ts",
-    "text": "JSON.parse(readFileSync(NOTES_FILE, \"utf8\")) as unknown as NotesFile"
-  },
-  {
-    "file": "scripts/check-deps-audit.ts",
-    "text": "JSON.parse(readFileSync(path, \"utf8\")) as unknown as PkgJson"
-  },
-  {
-    "file": "scripts/check-deps-audit.ts",
-    "text": "JSON.parse(stdout) as unknown as OsvOutput"
-  },
-  {
-    "file": "scripts/check.ts",
-    "text": "subcommand as unknown as CheckName"
-  },
-  {
-    "file": "scripts/check.ts",
-    "text": "subcommand as unknown as CheckName"
-  },
-  {
-    "file": "scripts/e2e-mesh-blob-transfer.ts",
-    "text": "window as unknown as { __pollyE2eBlobGet?: (h: string) => Promise<string | null> }"
-  },
-  {
-    "file": "scripts/e2e-mesh-blob-transfer.ts",
-    "text": "window as unknown as { __pollyE2eBlobPut?: (b: string, name: string, mime: string) => Promise<string>; }"
-  },
-  {
-    "file": "scripts/e2e-mesh-blob-transfer.ts",
-    "text": "window as unknown as { __pollyE2eBlobPut?: (b: string, name: string, mime: string) => Promise<string>; }"
-  },
-  {
-    "file": "scripts/e2e-mesh-pairing-ceremony.ts",
-    "text": "window as unknown as { __pollyE2eApplyPairingToken?: (e: string) => boolean }"
-  },
-  {
-    "file": "scripts/e2e-mesh-pairing-ceremony.ts",
-    "text": "window as unknown as { __pollyE2eCreatePairingToken?: () => string }"
-  },
-  {
-    "file": "scripts/e2e-mesh-pairing-ceremony.ts",
-    "text": "window as unknown as { __pollyE2eJoinMesh?: () => Promise<boolean> }"
-  },
-  {
-    "file": "scripts/e2e-mesh-revocation-offline-catchup.ts",
-    "text": "window as unknown as { __pollyE2eRevokeViaProtocol?: (id: string, reason?: string) => Promise<boolean>; }"
-  },
-  {
-    "file": "scripts/e2e-mesh-revocation-propagation.ts",
-    "text": "window as unknown as { __pollyE2eRevokeViaProtocol?: (id: string, reason?: string) => Promise<boolean>; }"
-  },
-  {
-    "file": "scripts/e2e-mesh-revocation-propagation.ts",
-    "text": "window as unknown as { __pollyE2eSelfRevocation?: () => unknown }"
-  },
-  {
-    "file": "scripts/e2e-mesh-revocation-runtime.ts",
-    "text": "window as unknown as { __pollyE2eRevoke?: (id: string) => boolean }"
-  },
-  {
     "file": "scripts/e2e-verify-declared-contexts.ts",
     "text": "config as unknown as UnifiedVerificationConfig"
   },
@@ -90,14 +14,6 @@
   {
     "file": "scripts/e2e-verify-run-accounting.ts",
     "text": "CONFIG as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "scripts/verify-issue-128.ts",
-    "text": "window as unknown as { __mountDropdown: (m: unknown) => void }"
-  },
-  {
-    "file": "scripts/verify-issue-128.ts",
-    "text": "window as unknown as { __open: () => void }"
   },
   {
     "file": "src/actions/form.ts",

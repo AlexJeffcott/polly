@@ -41,6 +41,13 @@ import {
 } from "../tools/test/src/e2e-mesh";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
+// Hooks the e2e consumer page installs (examples/e2e-consumer/main.ts).
+declare global {
+  interface Window {
+    __pollyE2eRevoke?: (peerId: string) => boolean;
+  }
+}
+
 const SETTLE_MS = 2_000;
 const POST_REVOKE_SETTLE_MS = 4_000;
 
@@ -102,8 +109,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
 
     ctx.log(`[e2e] ${peerA.peerId} revokes ${peerB.peerId} at runtime`);
     const revoked = await peerA.page.evaluate((targetPeerId: string) => {
-      const fn = (window as unknown as { __pollyE2eRevoke?: (id: string) => boolean })
-        .__pollyE2eRevoke;
+      const fn = window.__pollyE2eRevoke;
       return fn ? fn(targetPeerId) : false;
     }, peerB.peerId);
     if (!revoked) throw new Error("peer A revocation hook missing");

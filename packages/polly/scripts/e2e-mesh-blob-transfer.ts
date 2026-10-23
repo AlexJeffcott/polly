@@ -37,6 +37,14 @@ import {
 } from "../tools/test/src/e2e-mesh";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
+// Hooks the e2e consumer page installs (examples/e2e-consumer/main.ts).
+declare global {
+  interface Window {
+    __pollyE2eBlobPut?: (bytesB64: string, filename: string, mimeType: string) => Promise<string>;
+    __pollyE2eBlobGet?: (hash: string) => Promise<string | null>;
+  }
+}
+
 const SETTLE_MS = 2_000;
 const BLOB_SIZE = 48 * 1024;
 const GET_TIMEOUT_MS = 20_000;
@@ -71,11 +79,7 @@ function fromBase64(b64: string): Uint8Array {
 /** Put a blob on the sender and return its content hash. */
 async function putBlob(peer: LaunchedPeer, bytesB64: string): Promise<string> {
   const hash = await peer.page.evaluate(async (b64) => {
-    const fn = (
-      window as unknown as {
-        __pollyE2eBlobPut?: (b: string, name: string, mime: string) => Promise<string>;
-      }
-    ).__pollyE2eBlobPut;
+    const fn = window.__pollyE2eBlobPut;
     if (!fn) throw new Error("__pollyE2eBlobPut hook missing");
     return fn(b64, "payload.bin", "application/octet-stream");
   }, bytesB64);
@@ -88,9 +92,7 @@ async function getBlob(peer: LaunchedPeer, hash: string, timeoutMs: number): Pro
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const result = await peer.page.evaluate(async (h) => {
-      const fn = (
-        window as unknown as { __pollyE2eBlobGet?: (h: string) => Promise<string | null> }
-      ).__pollyE2eBlobGet;
+      const fn = window.__pollyE2eBlobGet;
       if (!fn) throw new Error("__pollyE2eBlobGet hook missing");
       return fn(h);
     }, hash);
@@ -170,11 +172,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     // receipt; an equal round-trip plus a matching hash confirms the
     // encrypt/chunk/verify pipeline end to end.
     const receivedHash = await peerB.page.evaluate(async (b64) => {
-      const fn = (
-        window as unknown as {
-          __pollyE2eBlobPut?: (b: string, name: string, mime: string) => Promise<string>;
-        }
-      ).__pollyE2eBlobPut;
+      const fn = window.__pollyE2eBlobPut;
       if (!fn) throw new Error("__pollyE2eBlobPut hook missing");
       return fn(b64, "payload.bin", "application/octet-stream");
     }, receivedB64);

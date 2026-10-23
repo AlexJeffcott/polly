@@ -41,6 +41,14 @@ import {
 } from "../tools/test/src/e2e-mesh";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
+// Hooks the e2e consumer page installs (examples/e2e-consumer/main.ts).
+declare global {
+  interface Window {
+    __pollyE2eRevokeViaProtocol?: (peerId: string, reason?: string) => Promise<boolean>;
+    __pollyE2eSelfRevocation?: () => unknown;
+  }
+}
+
 const SETTLE_MS = 2_000;
 const POST_REVOKE_SETTLE_MS = 4_000;
 
@@ -103,11 +111,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     const reason = "test scenario: revocation-propagation";
     const ok = await peerA.page.evaluate(
       async (args: { peerId: string; reason: string }) => {
-        const fn = (
-          window as unknown as {
-            __pollyE2eRevokeViaProtocol?: (id: string, reason?: string) => Promise<boolean>;
-          }
-        ).__pollyE2eRevokeViaProtocol;
+        const fn = window.__pollyE2eRevokeViaProtocol;
         if (!fn) return false;
         return fn(args.peerId, args.reason);
       },
@@ -161,8 +165,7 @@ function isSelfRevocation(value: unknown): value is SelfRevocation {
 
 async function readSelfRevocation(peer: LaunchedPeer): Promise<SelfRevocation | undefined> {
   const result: unknown = await peer.page.evaluate(() => {
-    const fn = (window as unknown as { __pollyE2eSelfRevocation?: () => unknown })
-      .__pollyE2eSelfRevocation;
+    const fn = window.__pollyE2eSelfRevocation;
     return fn ? fn() : undefined;
   });
   if (result === undefined || result === null) return undefined;

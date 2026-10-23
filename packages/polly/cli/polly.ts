@@ -61,7 +61,7 @@ async function loadConfig() {
     `${cwd}/polly.config.ts`,
     `${cwd}/polly.config.js`,
     `${cwd}/polly.config.mjs`,
-  ].filter(Boolean) as unknown as string[];
+  ].filter((path): path is string => typeof path === "string" && path !== "");
 
   for (const configPath of configPaths) {
     // Use Bun.file().exists() instead of existsSync
