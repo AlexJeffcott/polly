@@ -133,12 +133,5 @@ export const config: CoverageConfig = {
         "cache internals unit-tested; the request → transfer → cache round-trip is a mesh e2e",
       claimedBy: "scripts/e2e-mesh-blob-transfer.ts",
     },
-
-    // ── Client/server guard: a single throw-if-server module. ──
-    "src/shared/lib/_client-only.ts": {
-      reason: "client-only guard; the server branch throws and is asserted once",
-      claimedBy:
-        "n/a — single-branch guard; the throw path is asserted in unit tests, the no-op path is every browser test",
-    },
   },
 };
