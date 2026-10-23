@@ -140,17 +140,17 @@ describe("createWebAdapters", () => {
 
   test("threads channelName into the BroadcastChannel", () => {
     const { sync } = record(createWebAdapters({ channelName: "custom-channel" }));
-    expect((sync as unknown as { channel: BroadcastChannel }).channel.name).toBe("custom-channel");
+    expect(sync).toMatchObject({ channel: { name: "custom-channel" } });
   });
 
   test("defaults the BroadcastChannel name when none is given", () => {
     const { sync } = record(createWebAdapters());
-    expect((sync as unknown as { channel: BroadcastChannel }).channel.name).toBe("polly-sync");
+    expect(sync).toMatchObject({ channel: { name: "polly-sync" } });
   });
 
   test("threads dbName into the IndexedDB adapter", () => {
     const { storage } = record(createWebAdapters({ dbName: "custom-db" }));
-    expect((storage as unknown as { dbName: string }).dbName).toBe("custom-db");
+    expect(storage).toMatchObject({ dbName: "custom-db" });
   });
 });
 
