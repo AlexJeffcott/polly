@@ -3,11 +3,15 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { MeshClientPeerStateSnapshot } from "../../../src/shared/lib/mesh-client";
 import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
 import type { ArchitectureAnalysis } from "../../analysis/src/types/architecture";
 import { generateStructurizrDSL } from "./codegen/structurizr";
-import { collectSnapshotPeerIds, loadMeshSnapshot, MeshSnapshotError } from "./mesh-snapshot";
+import {
+  collectSnapshotPeerIds,
+  loadMeshSnapshot,
+  MeshSnapshotError,
+  type OverlaySnapshot,
+} from "./mesh-snapshot";
 import { exportDiagrams } from "./runner/export";
 
 const COLORS = {
@@ -99,8 +103,8 @@ function parseGenerateArgs(args: string[]): { snapshotPath?: string } {
  * empty snapshot (no peers beyond the local node) falls back to the
  * static diagram with a warning.
  */
-function loadAndReportSnapshot(snapshotPath: string): MeshClientPeerStateSnapshot | undefined {
-  let snapshot: MeshClientPeerStateSnapshot;
+function loadAndReportSnapshot(snapshotPath: string): OverlaySnapshot | undefined {
+  let snapshot: OverlaySnapshot;
   try {
     snapshot = loadMeshSnapshot(snapshotPath);
   } catch (error) {
@@ -185,10 +189,7 @@ function displayArchitectureSummary(analysis: ArchitectureAnalysis): void {
   }
 }
 
-function generateAndWriteDSL(
-  analysis: ArchitectureAnalysis,
-  snapshot?: MeshClientPeerStateSnapshot
-): string {
+function generateAndWriteDSL(analysis: ArchitectureAnalysis, snapshot?: OverlaySnapshot): string {
   console.log(color("\n📝 Generating Structurizr DSL...\n", COLORS.blue));
 
   const contextTypes = Object.keys(analysis.contexts);

@@ -1,6 +1,6 @@
 // Strict types for Structurizr DSL generation
 
-import type { MeshClientPeerStateSnapshot } from "../../../../src/shared/lib/mesh-client";
+import type { OverlaySnapshot } from "../mesh-snapshot";
 
 /**
  * Shape options for elements in Structurizr diagrams
@@ -255,7 +255,7 @@ export interface StructurizrDSLOptions {
    * replication edges onto the static `mesh_doc_*` nodes. Absent, the
    * static diagram is emitted unchanged.
    */
-  snapshot?: MeshClientPeerStateSnapshot;
+  snapshot?: OverlaySnapshot;
 }
 
 /**

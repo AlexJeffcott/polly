@@ -290,21 +290,5 @@
   {
     "file": "tools/visualize/src/__tests__/fixtures/simple-websocket/src/server.ts",
     "text": "JSON.parse(data.toString()) as unknown as RequestMessage"
-  },
-  {
-    "file": "tools/visualize/src/__tests__/viewer-charset.test.ts",
-    "text": "server as unknown as { serveMainPage(dsl: string): Response; serveDslFile(dsl: string): Response; }"
-  },
-  {
-    "file": "tools/visualize/src/mesh-snapshot.ts",
-    "text": "data as unknown as MeshClientPeerStateSnapshot"
-  },
-  {
-    "file": "tools/visualize/src/mesh-snapshot.ts",
-    "text": "value as unknown as MeshClientHandleSnapshot"
-  },
-  {
-    "file": "tools/visualize/src/mesh-snapshot.ts",
-    "text": "value as unknown as MeshClientPeerStateSnapshot[\"peers\"][number]"
   }
 ]
