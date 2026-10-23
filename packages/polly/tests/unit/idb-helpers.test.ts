@@ -4,6 +4,7 @@ import {
   IDB_OPEN_TIMEOUT_MS,
   IDBOpenError,
   type IDBOpenFn,
+  indexedDBOpen,
   iterateCursor,
   type OpenIDBOptions,
   openIDB,
@@ -12,15 +13,15 @@ import {
 import { clearGlobals, setGlobal } from "./helpers/globals";
 
 /** Minimal stand-in for `IDBOpenDBRequest`. Only carries the event
- *  handler slots and `result`/`error` fields that `openIDB` touches.
- *  Cast through `unknown` so the helper accepts it via the `openFn`
- *  seam without dragging the full DOM lib type into the fake. */
+ *  handler slots and `result`/`error` fields that `openIDB` touches,
+ *  which is all `IDBOpenRequestLike` asks for. `result` is `unknown`: the
+ *  tests only check that `openIDB` resolves with the same object. */
 interface FakeOpenRequest {
   onerror: ((event: unknown) => void) | null;
   onsuccess: ((event: unknown) => void) | null;
   onupgradeneeded: ((event: unknown) => void) | null;
   onblocked: ((event: unknown) => void) | null;
-  result: IDBDatabase | null;
+  result: unknown;
   error: DOMException | null;
 }
 
@@ -35,7 +36,7 @@ function makeRequest(): FakeOpenRequest {
   };
 }
 
-const defaultOptions: OpenIDBOptions = {
+const defaultOptions: OpenIDBOptions<unknown> = {
   name: "polly-test",
   version: 1,
   upgrade: () => {},
@@ -43,14 +44,14 @@ const defaultOptions: OpenIDBOptions = {
 
 /** Fake openFn that captures the returned request so the test can
  *  drive its event handlers manually. */
-function captureOpenFn(): { fn: IDBOpenFn; request: FakeOpenRequest } {
+function captureOpenFn(): { fn: IDBOpenFn<unknown>; request: FakeOpenRequest } {
   const request = makeRequest();
-  const fn: IDBOpenFn = () => request as unknown as IDBOpenDBRequest;
+  const fn: IDBOpenFn<unknown> = () => request;
   return { fn, request };
 }
 
 /** Drop-in fake DB returned by the success path. */
-const fakeDB = { close: () => {} } as unknown as IDBDatabase;
+const fakeDB = { close: () => {} };
 
 /** Narrow a rejection value to IDBOpenError, failing the test otherwise. */
 function expectIDBOpenError(err: unknown): IDBOpenError {
@@ -128,12 +129,12 @@ describe("cachedOpen", () => {
     let opens = 0;
     const request = makeRequest();
     request.result = fakeDB;
-    const fn: IDBOpenFn = () => {
+    const fn: IDBOpenFn<unknown> = () => {
       opens++;
       queueMicrotask(() => request.onsuccess?.({}));
-      return request as unknown as IDBOpenDBRequest;
+      return request;
     };
-    const ref: { promise: Promise<IDBDatabase> | null } = { promise: null };
+    const ref: { promise: Promise<unknown> | null } = { promise: null };
 
     const first = cachedOpen(ref, defaultOptions, fn);
     const second = cachedOpen(ref, defaultOptions, fn);
@@ -144,12 +145,12 @@ describe("cachedOpen", () => {
   });
 
   test("clears the cache on rejection so the next call retries", async () => {
-    const ref: { promise: Promise<IDBDatabase> | null } = { promise: null };
+    const ref: { promise: Promise<unknown> | null } = { promise: null };
 
     const blocked = makeRequest();
-    const blockedFn: IDBOpenFn = () => {
+    const blockedFn: IDBOpenFn<unknown> = () => {
       queueMicrotask(() => blocked.onblocked?.({}));
-      return blocked as unknown as IDBOpenDBRequest;
+      return blocked;
     };
     const first = cachedOpen(ref, defaultOptions, blockedFn);
     expect(ref.promise).toBe(first);
@@ -160,9 +161,9 @@ describe("cachedOpen", () => {
 
     const ok = makeRequest();
     ok.result = fakeDB;
-    const okFn: IDBOpenFn = () => {
+    const okFn: IDBOpenFn<unknown> = () => {
       queueMicrotask(() => ok.onsuccess?.({}));
-      return ok as unknown as IDBOpenDBRequest;
+      return ok;
     };
     const second = cachedOpen(ref, defaultOptions, okFn);
     expect(second).not.toBe(first);
@@ -322,7 +323,8 @@ interface ScriptedOpenRequest {
 const STORE = "records";
 
 /** Open a typed `IDBDatabase` over a fresh `ScriptedDB` via the real
- *  `openIDB` default `indexedDB.open` path. */
+ *  production `indexedDBOpen` factory, which reads `indexedDB` at call
+ *  time. */
 async function openScripted(): Promise<{ db: IDBDatabase; fake: ScriptedDB }> {
   const fake = new ScriptedDB();
   setGlobal("indexedDB", {
@@ -342,13 +344,16 @@ async function openScripted(): Promise<{ db: IDBDatabase; fake: ScriptedDB }> {
       return request;
     },
   });
-  const db = await openIDB({
-    name: "polly-tx-test",
-    version: 1,
-    upgrade: (upgraded) => {
-      upgraded.createObjectStore(STORE);
+  const db = await openIDB(
+    {
+      name: "polly-tx-test",
+      version: 1,
+      upgrade: (upgraded) => {
+        upgraded.createObjectStore(STORE);
+      },
     },
-  });
+    indexedDBOpen
+  );
   return { db, fake };
 }
 

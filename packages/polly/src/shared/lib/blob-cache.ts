@@ -16,7 +16,7 @@
  */
 
 import type { BlobCache } from "./blob-store";
-import { cachedOpen, iterateCursor, runRequest, runTx } from "./idb-helpers";
+import { cachedOpen, indexedDBOpen, iterateCursor, runRequest, runTx } from "./idb-helpers";
 
 // MemoryBlobCache
 
@@ -138,15 +138,19 @@ export class IndexedDBBlobCache implements BlobCache {
   private readonly urls = new Map<string, string>();
 
   private openDB(): Promise<IDBDatabase> {
-    return cachedOpen(this.dbRef, {
-      name: IndexedDBBlobCache.DB_NAME,
-      version: IndexedDBBlobCache.DB_VERSION,
-      upgrade: (db) => {
-        if (!db.objectStoreNames.contains(IndexedDBBlobCache.STORE_NAME)) {
-          db.createObjectStore(IndexedDBBlobCache.STORE_NAME);
-        }
+    return cachedOpen(
+      this.dbRef,
+      {
+        name: IndexedDBBlobCache.DB_NAME,
+        version: IndexedDBBlobCache.DB_VERSION,
+        upgrade: (db) => {
+          if (!db.objectStoreNames.contains(IndexedDBBlobCache.STORE_NAME)) {
+            db.createObjectStore(IndexedDBBlobCache.STORE_NAME);
+          }
+        },
       },
-    });
+      indexedDBOpen
+    );
   }
 
   private async getRecord(hash: string): Promise<IDBRecord | undefined> {

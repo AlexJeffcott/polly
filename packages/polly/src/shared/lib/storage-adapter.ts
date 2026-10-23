@@ -1,7 +1,7 @@
 // Storage adapters for different execution contexts
 // Automatically chooses the right storage mechanism based on environment
 
-import { cachedOpen, runRequest, runTx } from "./idb-helpers";
+import { cachedOpen, indexedDBOpen, runRequest, runTx } from "./idb-helpers";
 
 /**
  * Universal storage adapter interface
@@ -25,15 +25,19 @@ export class IndexedDBAdapter implements StorageAdapter {
   }
 
   private getDB(): Promise<IDBDatabase> {
-    return cachedOpen(this.dbRef, {
-      name: this.dbName,
-      version: 1,
-      upgrade: (db) => {
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName);
-        }
+    return cachedOpen(
+      this.dbRef,
+      {
+        name: this.dbName,
+        version: 1,
+        upgrade: (db) => {
+          if (!db.objectStoreNames.contains(this.storeName)) {
+            db.createObjectStore(this.storeName);
+          }
+        },
       },
-    });
+      indexedDBOpen
+    );
   }
 
   async get<T = unknown>(keys: string[]): Promise<Record<string, T>> {
