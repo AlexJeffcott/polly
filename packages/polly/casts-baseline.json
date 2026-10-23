@@ -148,38 +148,6 @@
     "text": "el as unknown as HTMLElement"
   },
   {
-    "file": "src/devtools/panel.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "(e.target as unknown as HTMLSelectElement).value as unknown as | \"light\" | \"dark\" | \"auto\""
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/options/index.tsx",
-    "text": "e.target as unknown as HTMLSelectElement"
-  },
-  {
     "file": "src/page/index.ts",
     "text": "window as unknown as Record<string, unknown>"
   },
@@ -214,22 +182,6 @@
   {
     "file": "src/polly-ui/TextInput.tsx",
     "text": "props.value as unknown as Signal<string>"
-  },
-  {
-    "file": "src/popup/index.tsx",
-    "text": "(e.target as unknown as HTMLSelectElement).value as unknown as | \"light\" | \"dark\" | \"auto\""
-  },
-  {
-    "file": "src/popup/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/popup/index.tsx",
-    "text": "e.target as unknown as HTMLInputElement"
-  },
-  {
-    "file": "src/popup/index.tsx",
-    "text": "e.target as unknown as HTMLSelectElement"
   },
   {
     "file": "src/shared/adapters/chrome/storage.chrome.ts",
@@ -382,10 +334,6 @@
   {
     "file": "src/shared/lib/sync-fragment.ts",
     "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as SyncFragmentHeader"
-  },
-  {
-    "file": "src/shared/state/app-state.ts",
-    "text": "\"main\" as unknown as \"main\" | \"settings\" | \"debug\""
   },
   {
     "file": "tests/browser/blob-store.browser.ts",
