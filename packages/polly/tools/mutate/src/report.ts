@@ -13,7 +13,7 @@
  * file level (stable identity); case level is the drill-down.
  */
 import type { Database } from "bun:sqlite";
-import { buildDb, loadMutationReport, queryAll, queryGet } from "./ingest.ts";
+import { buildDb, loadMutationReport, queryAll, queryGet, type SqlRow } from "./ingest.ts";
 
 type SubsumedCase = { file: string; name: string; total: number };
 type LineCount = { file: string; line: number; mutator: string; n: number };
@@ -25,11 +25,35 @@ type SiteKills = {
   exercised: number;
 };
 
+const subsumedCase = (r: SqlRow): SubsumedCase => ({
+  file: r.string("file"),
+  name: r.string("name"),
+  total: r.number("total"),
+});
+const lineCount = (r: SqlRow): LineCount => ({
+  file: r.string("file"),
+  line: r.number("line"),
+  mutator: r.string("mutator"),
+  n: r.number("n"),
+});
+const siteKills = (r: SqlRow): SiteKills => ({
+  id: r.string("id"),
+  primitive: r.string("primitive"),
+  message: r.stringOrNull("message"),
+  n: r.number("n"),
+  exercised: r.number("exercised"),
+});
+
 /** Tests under which the unmutated code already fails a contract. */
 function violationLines(db: Database, p: (s?: string) => void): void {
-  const violations = queryAll<{ target: string; test: string; contract_id: string | null }>(
+  const violations = queryAll(
     db,
-    "SELECT target, test, contract_id FROM contract_violations ORDER BY target, test, contract_id"
+    "SELECT target, test, contract_id FROM contract_violations ORDER BY target, test, contract_id",
+    (r) => ({
+      target: r.string("target"),
+      test: r.string("test"),
+      contract_id: r.stringOrNull("contract_id"),
+    })
   );
   if (violations.length === 0) return;
   p(
@@ -42,9 +66,10 @@ function violationLines(db: Database, p: (s?: string) => void): void {
 
 /** Mutants only a contract killed, grouped by line and mutator. */
 function contractOnlyLines(db: Database, p: (s?: string) => void): void {
-  const only = queryAll<LineCount>(
+  const only = queryAll(
     db,
-    "SELECT file, line, mutator, count(*) n FROM mutants WHERE contract_only=1 GROUP BY file, line, mutator ORDER BY file, line"
+    "SELECT file, line, mutator, count(*) n FROM mutants WHERE contract_only=1 GROUP BY file, line, mutator ORDER BY file, line",
+    lineCount
   );
   const onlyTotal = only.reduce((a, r) => a + r.n, 0);
   p(`  CONTRACT-ONLY KILLS  (no test assertion caught these; a contract did: ${onlyTotal})`);
@@ -53,7 +78,7 @@ function contractOnlyLines(db: Database, p: (s?: string) => void): void {
 
 /** Kills per contract site, then the sites that never fired and why. */
 function perContractLines(db: Database, p: (s?: string) => void): void {
-  const sites = queryAll<SiteKills>(
+  const sites = queryAll(
     db,
     `SELECT s.id, s.primitive, s.message,
             (SELECT count(*) FROM contract_kills k WHERE k.contract_id = s.id) n,
@@ -61,7 +86,8 @@ function perContractLines(db: Database, p: (s?: string) => void): void {
               WHERE m.file = s.file AND s.handler_from IS NOT NULL
                 AND m.line BETWEEN s.handler_from AND s.handler_to
                 AND m.status IN ('Killed', 'Survived', 'Timeout')) exercised
-     FROM contract_sites s ORDER BY n DESC, s.id`
+     FROM contract_sites s ORDER BY n DESC, s.id`,
+    siteKills
   );
   p(`  KILLS PER CONTRACT`);
   for (const s of sites) {
@@ -83,14 +109,11 @@ function perContractLines(db: Database, p: (s?: string) => void): void {
 /** The CONTRACTS section; nothing when the report has no contracts block (Stryker-era). */
 function contractsSection(db: Database, p: (s?: string) => void): void {
   const meta = new Map(
-    queryAll<{ key: string; value: string }>(db, "SELECT key, value FROM report_meta").map((r) => [
-      r.key,
-      r.value,
-    ])
+    queryAll(db, "SELECT key, value FROM report_meta", (r) => [r.string("key"), r.string("value")])
   );
   const mode = meta.get("contracts_mode");
   if (mode === undefined) return;
-  const nSites = queryGet<{ n: number }>(db, "SELECT count(*) n FROM contract_sites")?.n ?? 0;
+  const nSites = queryGet(db, "SELECT count(*) n FROM contract_sites", (r) => r.number("n")) ?? 0;
   p(`\nCONTRACTS  (requires/ensures as kill oracles — mode ${mode}, ${nSites} site(s))`);
   if (mode === "off") {
     p(
@@ -147,19 +170,21 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
   const p = (s = "") => out.push(s);
 
   // --- summary ---
-  const tot = queryGet<{
-    n: number;
-    killed: number;
-    survived: number;
-    timeout: number;
-    nocov: number;
-    invalid: number;
-    ignored: number;
-  }>(
+  // total() is sum() that gives 0, not NULL, over an empty table.
+  const tot = queryGet(
     db,
-    "SELECT count(*) n, sum(status='Killed') killed, sum(status='Survived') survived, sum(status='Timeout') timeout, sum(status='NoCoverage') nocov, sum(status='CompileError') invalid, sum(status='Ignored') ignored FROM mutants"
+    "SELECT count(*) n, total(status='Killed') killed, total(status='Survived') survived, total(status='Timeout') timeout, total(status='NoCoverage') nocov, total(status='CompileError') invalid, total(status='Ignored') ignored FROM mutants",
+    (r) => ({
+      n: r.number("n"),
+      killed: r.number("killed"),
+      survived: r.number("survived"),
+      timeout: r.number("timeout"),
+      nocov: r.number("nocov"),
+      invalid: r.number("invalid"),
+      ignored: r.number("ignored"),
+    })
   ) ?? { n: 0, killed: 0, survived: 0, timeout: 0, nocov: 0, invalid: 0, ignored: 0 };
-  const nTests = queryGet<{ n: number }>(db, "SELECT count(*) n FROM tests")?.n ?? 0;
+  const nTests = queryGet(db, "SELECT count(*) n FROM tests", (r) => r.number("n")) ?? 0;
   // Stryker's score, the same one `run` prints: detected / (detected +
   // undetected). CompileError, Ignored and RuntimeError mutants are not in it.
   const detected = tot.killed + tot.timeout;
@@ -178,35 +203,35 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
 
   if (matrixComplete) {
     // --- kill-multiplicity: how much slack is in the matrix ---
-    const mult = queryAll<{ bucket: string; n: number }>(
+    const mult = queryAll(
       db,
       `
 			SELECT CASE WHEN c=1 THEN '1' WHEN c=2 THEN '2' WHEN c BETWEEN 3 AND 5 THEN '3-5' ELSE '6+' END bucket, count(*) n
 			FROM (SELECT mutant_id, count(*) c FROM kills GROUP BY mutant_id)
-			GROUP BY bucket ORDER BY min(c)`
+			GROUP BY bucket ORDER BY min(c)`,
+      (r) => ({ bucket: r.string("bucket"), n: r.number("n") })
     );
     p(`\nKILL MULTIPLICITY  (killers per killed mutant — higher = more redundancy slack)`);
     for (const r of mult) p(`  killed by ${String(r.bucket).padStart(3)} test(s): ${r.n}`);
 
     // --- redundancy ratio via greedy cover (case + file) ---
     const universe = new Set(
-      queryAll<{ mutant_id: string }>(db, "SELECT DISTINCT mutant_id FROM kills").map(
-        (r) => r.mutant_id
-      )
+      queryAll(db, "SELECT DISTINCT mutant_id FROM kills", (r) => r.string("mutant_id"))
     );
     const byTest = new Map<string, Set<string>>();
-    for (const r of queryAll<{ test_id: string; mutant_id: string }>(
-      db,
-      "SELECT test_id, mutant_id FROM kills"
-    )) {
+    for (const r of queryAll(db, "SELECT test_id, mutant_id FROM kills", (row) => ({
+      test_id: row.string("test_id"),
+      mutant_id: row.string("mutant_id"),
+    }))) {
       const set = byTest.get(r.test_id) ?? new Set<string>();
       byTest.set(r.test_id, set);
       set.add(r.mutant_id);
     }
     const byFile = new Map<string, Set<string>>();
-    for (const r of queryAll<{ file: string; mid: string }>(
+    for (const r of queryAll(
       db,
-      "SELECT t.file file, k.mutant_id mid FROM kills k JOIN tests t ON t.id=k.test_id"
+      "SELECT t.file file, k.mutant_id mid FROM kills k JOIN tests t ON t.id=k.test_id",
+      (row) => ({ file: row.string("file"), mid: row.string("mid") })
     )) {
       const set = byFile.get(r.file) ?? new Set<string>();
       byFile.set(r.file, set);
@@ -223,7 +248,7 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
     );
 
     // --- fully subsumed FILES (every mutant they kill is killed elsewhere too) ---
-    const subsumedFiles = queryAll<{ file: string; kills: number }>(
+    const subsumedFiles = queryAll(
       db,
       `
 			WITH file_kill AS (SELECT DISTINCT t.file file, k.mutant_id mid FROM kills k JOIN tests t ON t.id=k.test_id),
@@ -231,7 +256,8 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
 			SELECT fk.file, count(DISTINCT fk.mid) kills,
 			       sum(CASE WHEN o.nf=1 THEN 1 ELSE 0 END) unique_kills
 			FROM file_kill fk JOIN owner o ON o.mid=fk.mid
-			GROUP BY fk.file HAVING unique_kills=0 ORDER BY kills DESC`
+			GROUP BY fk.file HAVING unique_kills=0 ORDER BY kills DESC`,
+      (r) => ({ file: r.string("file"), kills: r.number("kills") })
     );
     p(`\nSUBSUMED FILES  (file-level identity — safe-to-review deletion candidates)`);
     if (subsumedFiles.length === 0)
@@ -239,14 +265,15 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
     for (const r of subsumedFiles) p(`  ${r.file}  (${r.kills} kills, 0 unique)`);
 
     // --- fully subsumed CASES (drill-down) ---
-    const subsumedCases = queryAll<SubsumedCase>(
+    const subsumedCases = queryAll(
       db,
       `
 			WITH mk AS (SELECT mutant_id, count(*) c FROM kills GROUP BY mutant_id),
 			     tk AS (SELECT test_id, count(*) total, sum(CASE WHEN mk.c=1 THEN 1 ELSE 0 END) uniq
 			            FROM kills JOIN mk USING(mutant_id) GROUP BY test_id)
 			SELECT t.file, t.name, tk.total FROM tk JOIN tests t ON t.id=tk.test_id
-			WHERE tk.total>0 AND tk.uniq=0 ORDER BY t.file, tk.total DESC`
+			WHERE tk.total>0 AND tk.uniq=0 ORDER BY t.file, tk.total DESC`,
+      subsumedCase
     );
     const byFileCases = new Map<string, SubsumedCase[]>();
     for (const r of subsumedCases) {
@@ -275,9 +302,10 @@ export function report(db: Database, opts: { matrixComplete?: boolean } = {}): s
   // That status split IS the gap/theatre distinction (see README).
   // Each line names its own file: a run holds many targets.
   const byLine = (status: string) =>
-    queryAll<LineCount>(
+    queryAll(
       db,
-      `SELECT file, line, mutator, count(*) n FROM mutants WHERE status='${status}' GROUP BY file, line, mutator ORDER BY file, line`
+      `SELECT file, line, mutator, count(*) n FROM mutants WHERE status='${status}' GROUP BY file, line, mutator ORDER BY file, line`,
+      lineCount
     );
   const lineOf = (r: LineCount) =>
     `  ${r.file}:${r.line}  ${r.mutator}${r.n > 1 ? ` ×${r.n}` : ""}`;

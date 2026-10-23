@@ -65,14 +65,19 @@ async function fileHash(file: string): Promise<string | null> {
 }
 
 export function fileSignals(db: Database): Map<string, FileSignal> {
-  const rows = queryAll<{ file: string; kills: number; unique_kills: number }>(
+  const rows = queryAll(
     db,
     `
 			WITH file_kill AS (SELECT DISTINCT t.file file, k.mutant_id mid FROM kills k JOIN tests t ON t.id=k.test_id),
 			     owner AS (SELECT mid, count(DISTINCT file) nf FROM file_kill GROUP BY mid)
 			SELECT fk.file file, count(DISTINCT fk.mid) kills,
 			       sum(CASE WHEN o.nf=1 THEN 1 ELSE 0 END) unique_kills
-			FROM file_kill fk JOIN owner o ON o.mid=fk.mid GROUP BY fk.file`
+			FROM file_kill fk JOIN owner o ON o.mid=fk.mid GROUP BY fk.file`,
+    (r) => ({
+      file: r.string("file"),
+      kills: r.number("kills"),
+      unique_kills: r.number("unique_kills"),
+    })
   );
   const m = new Map<string, FileSignal>();
   for (const r of rows)
