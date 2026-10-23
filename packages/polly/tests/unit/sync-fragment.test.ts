@@ -120,6 +120,24 @@ describe("parseSyncFragment", () => {
     expect(parseSyncFragment(out)).toBeUndefined();
   });
 
+  test("returns undefined for a sync-fragment header with an ill-typed field", () => {
+    const frame = (json: string): Uint8Array => {
+      const header = new TextEncoder().encode(json);
+      const buf = new ArrayBuffer(4 + header.length);
+      new DataView(buf).setUint32(0, header.length, false);
+      new Uint8Array(buf).set(header, 4);
+      return new Uint8Array(buf);
+    };
+    expect(
+      parseSyncFragment(frame('{"type":"sync-fragment","id":1,"index":0,"total":1}'))
+    ).toBeUndefined();
+    expect(parseSyncFragment(frame('{"type":"sync-fragment","id":"x","total":1}'))).toBeUndefined();
+    expect(
+      parseSyncFragment(frame('{"type":"sync-fragment","id":"x","index":0,"total":"1"}'))
+    ).toBeUndefined();
+    expect(parseSyncFragment(frame("null"))).toBeUndefined();
+  });
+
   test("returns undefined for malformed JSON header", () => {
     const bogus = new TextEncoder().encode("{not json");
     const buf = new ArrayBuffer(4 + bogus.length);

@@ -14,6 +14,8 @@
  * - blob-have:    announce local availability of a blob
  */
 
+import { isRecord, readNumber, readString } from "./guards";
+
 // Constants
 
 /** Default chunk size in bytes: 64 KiB. Stays well within WebRTC SCTP
@@ -47,6 +49,45 @@ export interface BlobHaveHeader {
 
 export type BlobMessageHeader = BlobChunkHeader | BlobRequestHeader | BlobHaveHeader;
 
+/** The array when every element is a number; `undefined` for anything else. */
+function readNumberArray(input: unknown): number[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const out: number[] = [];
+  for (const item of input) {
+    const n = readNumber(item);
+    if (n === undefined) return undefined;
+    out.push(n);
+  }
+  return out;
+}
+
+/** The header when `input` is a well-formed blob message header, otherwise
+ *  undefined. A `blob-request` whose `missing` is absent or null asks for
+ *  every chunk; any other non-number-array `missing` rejects the header. */
+export function readBlobMessageHeader(input: unknown): BlobMessageHeader | undefined {
+  if (!isRecord(input)) return undefined;
+  const hash = readString(input["hash"]);
+  if (hash === undefined) return undefined;
+  switch (input["type"]) {
+    case "blob-chunk": {
+      const index = readNumber(input["index"]);
+      const total = readNumber(input["total"]);
+      if (index === undefined || total === undefined) return undefined;
+      return { type: "blob-chunk", hash, index, total };
+    }
+    case "blob-request": {
+      const raw = input["missing"];
+      if (raw === undefined || raw === null) return { type: "blob-request", hash };
+      const missing = readNumberArray(raw);
+      return missing ? { type: "blob-request", hash, missing } : undefined;
+    }
+    case "blob-have":
+      return { type: "blob-have", hash };
+    default:
+      return undefined;
+  }
+}
+
 // Chunking
 
 /** Split bytes into fixed-size chunks. The last chunk may be smaller. */
@@ -66,18 +107,19 @@ export function chunkBlob(bytes: Uint8Array, chunkSize: number = BLOB_CHUNK_SIZE
 /** Reassemble chunks into a single Uint8Array. Throws if any chunk index
  *  in [0, total) is missing from the map. */
 export function reassembleChunks(chunks: Map<number, Uint8Array>, total: number): Uint8Array {
+  const ordered: Uint8Array[] = [];
   let totalBytes = 0;
   for (let i = 0; i < total; i++) {
     const chunk = chunks.get(i);
     if (!chunk) {
       throw new Error(`reassembleChunks: missing chunk ${i} of ${total}`);
     }
+    ordered.push(chunk);
     totalBytes += chunk.length;
   }
   const out = new Uint8Array(totalBytes);
   let offset = 0;
-  for (let i = 0; i < total; i++) {
-    const chunk = chunks.get(i) as unknown as Uint8Array;
+  for (const chunk of ordered) {
     out.set(chunk, offset);
     offset += chunk.length;
   }
@@ -117,7 +159,8 @@ export function serialiseBlobMessage(
 
 /** Peek at the header of a wire-format message without full
  *  deserialisation. Returns the parsed header and the data slice,
- *  or undefined if the bytes are too short or malformed. */
+ *  or undefined if the bytes are too short, the JSON is unparseable,
+ *  or the header is not a well-formed blob message header. */
 export function parseBlobMessage(
   bytes: Uint8Array
 ): { header: BlobMessageHeader; data: Uint8Array } | undefined {
@@ -126,9 +169,9 @@ export function parseBlobMessage(
   const headerLen = view.getUint32(0, false);
   if (bytes.length < 4 + headerLen) return undefined;
   try {
-    const header = JSON.parse(
-      new TextDecoder().decode(bytes.subarray(4, 4 + headerLen))
-    ) as BlobMessageHeader;
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
+    const header = readBlobMessageHeader(parsed);
+    if (!header) return undefined;
     const data = bytes.subarray(4 + headerLen);
     return { header, data };
   } catch {
