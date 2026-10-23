@@ -14,8 +14,15 @@
  * without chasing macrotasks.
  */
 
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Message } from "@automerge/automerge-repo/slim";
+import { generateDocumentKey } from "@/shared/lib/encryption";
+import { clearMeshDiagnosticListeners, recordMeshDiagnostics } from "@/shared/lib/mesh-diagnostics";
+import {
+  DEFAULT_MESH_KEY_ID,
+  MESH_CONTROL_TYPE,
+  MeshNetworkAdapter,
+} from "@/shared/lib/mesh-network-adapter";
 import {
   type MeshSignalingTransport,
   MeshWebRTCAdapter,
@@ -23,6 +30,7 @@ import {
   type PeerSlot,
   type SyncProgressEvent,
 } from "@/shared/lib/mesh-webrtc-adapter";
+import { generateSigningKeyPair } from "@/shared/lib/signing";
 import { chunkSyncMessage } from "@/shared/lib/sync-fragment";
 import { documentId, peerId } from "./helpers/branded";
 import { instanceOf } from "./helpers/instance";
@@ -540,5 +548,128 @@ describe("MeshWebRTCAdapter data-channel onclose (polly#161)", () => {
     stale.close();
     const current = meshWebRTCAdapterInternals(adapter).slots.get("peer-b")?.channel;
     expect(instanceOf(FakeDataChannel, current)).toBe(fresh);
+  });
+});
+
+describe("MeshNetworkAdapter over MeshWebRTCAdapter with sync-yield on", () => {
+  afterEach(() => {
+    clearMeshDiagnosticListeners();
+  });
+
+  /** REMOTE signs; LOCAL's MeshNetworkAdapter wraps the yielding base.
+   * A second MeshNetworkAdapter with REMOTE's keyring and a capturing
+   * base produces the signed wire frames, so the frames are what a
+   * real REMOTE would put on the channel. */
+  function buildStack(): {
+    channel: FakeDataChannel;
+    delivered: Message[];
+    frameFor: (syncBody: Uint8Array) => Uint8Array;
+  } {
+    const { adapter: base, channel } = build({ syncYieldEnabled: true });
+    const remoteIdentity = generateSigningKeyPair();
+    const docKey = generateDocumentKey();
+    const receiver = new MeshNetworkAdapter({
+      base,
+      keyringSource: () => ({
+        identity: generateSigningKeyPair(),
+        knownPeers: new Map([[REMOTE, remoteIdentity.publicKey]]),
+        documentKeys: new Map([[DEFAULT_MESH_KEY_ID, docKey]]),
+        revokedPeers: new Set(),
+      }),
+    });
+    const delivered: Message[] = [];
+    receiver.on("message", (m) => {
+      delivered.push(m);
+    });
+
+    // The sender's base is a second fake-PC adapter; its channel's
+    // `sent` list is the wire.
+    const { adapter: senderBase, channel: senderChannel } = build();
+    const sender = new MeshNetworkAdapter({
+      base: senderBase,
+      keyringSource: () => ({
+        identity: remoteIdentity,
+        knownPeers: new Map(),
+        documentKeys: new Map([[DEFAULT_MESH_KEY_ID, docKey]]),
+        revokedPeers: new Set(),
+      }),
+    });
+    sender.connect(peerId(REMOTE));
+    // A Sync-tagged control message is exactly a sync frame whose body
+    // the test chooses, signed and encrypted as `send` would.
+    const frameFor = (body: Uint8Array): Uint8Array => {
+      senderChannel.sent.length = 0;
+      sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, body, [peerId(REMOTE)]);
+      const frame = senderChannel.sent[0];
+      if (!frame) throw new Error("test setup: sender put no frame on the wire");
+      return frame;
+    };
+    return { channel, delivered, frameFor };
+  }
+
+  function syncBody(header: string, data: Uint8Array = new Uint8Array(0)): Uint8Array {
+    const headerBytes = new TextEncoder().encode(header);
+    const body = new Uint8Array(4 + headerBytes.length + data.length);
+    new DataView(body.buffer).setUint32(0, headerBytes.length, false);
+    body.set(headerBytes, 4);
+    body.set(data, 4 + headerBytes.length);
+    return body;
+  }
+
+  async function deliverAndCatch(channel: FakeDataChannel, frame: Uint8Array): Promise<unknown[]> {
+    const uncaught: unknown[] = [];
+    const onUncaught = (err: unknown): void => {
+      uncaught.push(err);
+    };
+    process.on("uncaughtException", onUncaught);
+    try {
+      channel.deliver(frame);
+      await flush();
+      await flush();
+    } finally {
+      process.off("uncaughtException", onUncaught);
+    }
+    return uncaught;
+  }
+
+  for (const [name, header] of [
+    ["a header that is not JSON", "{not json"],
+    ["a header that is not a message header", JSON.stringify({ type: 5 })],
+  ] as const) {
+    test(`${name} is dropped with a diagnostic, not thrown into the timer`, async () => {
+      const { channel, delivered, frameFor } = buildStack();
+      const frame = frameFor(syncBody(header));
+      const { events } = recordMeshDiagnostics();
+
+      const uncaught = await deliverAndCatch(channel, frame);
+
+      expect(uncaught).toEqual([]);
+      expect(delivered).toHaveLength(0);
+      expect(events.filter((e) => e.kind.startsWith("drop:"))).toHaveLength(1);
+      expect(events[0]).toMatchObject({ kind: "drop:malformed-sync-message", senderId: REMOTE });
+    });
+  }
+
+  test("a well-formed Sync message is still delivered after the yield", async () => {
+    const { channel, delivered, frameFor } = buildStack();
+    const frame = frameFor(
+      syncBody(
+        JSON.stringify({ type: "sync", senderId: REMOTE, targetId: LOCAL }),
+        new Uint8Array([5])
+      )
+    );
+    const { events } = recordMeshDiagnostics();
+
+    const uncaught = await deliverAndCatch(channel, frame);
+
+    expect(uncaught).toEqual([]);
+    expect(events).toHaveLength(0);
+    expect(delivered).toHaveLength(1);
+    expect(delivered[0]).toMatchObject({
+      type: "sync",
+      senderId: REMOTE,
+      targetId: LOCAL,
+      data: new Uint8Array([5]),
+    });
   });
 });

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`drop:malformed-sync-message` mesh diagnostic.** `MeshNetworkAdapter`
+  now validates the inner message of a verified, decrypted Sync payload.
+  A body shorter than its length prefix, a header that is not JSON, or a
+  header without string `type`, `senderId` and `targetId` (or with a
+  non-string `documentId`) is dropped and emits
+  `{ kind: "drop:malformed-sync-message", senderId, reason }`, where
+  `senderId` is the signer. Before, a header that parsed was cast to a
+  `Message` unchecked and handed to the Repo.
+
+### Fixed
+
+- **A malformed Sync payload threw out of a timer.** The same bodies made
+  `MeshNetworkAdapter` throw from its incoming-message listener. With
+  sync-yield on (the default) `MeshWebRTCAdapter` emits from a
+  `setTimeout`, so the throw was an uncaught exception; with it off the
+  base adapter swallowed it silently. Both now take the drop above.
+
 ## [0.94.0] - 2026-10-22
 
 ### Added

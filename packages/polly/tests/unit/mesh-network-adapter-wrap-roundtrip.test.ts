@@ -439,25 +439,38 @@ describe("MeshNetworkAdapter edge branches", () => {
     ).toThrow("missing document encryption key");
   });
 
-  test("a Sync payload with a truncated inner frame surfaces the deserialise guard", () => {
-    // A Sync-tagged body shorter than the 4-byte length prefix makes
-    // deserialiseMessage throw; the throw propagates out of the unwrap.
-    const { sender, senderBase, receiverBase } = buildPair({ encryptionEnabled: false });
+  test("a Sync payload with a truncated inner frame is dropped with drop:malformed-sync-message", () => {
+    // A Sync-tagged body shorter than the 4-byte length prefix fails to
+    // deserialise. The unwrap drops it rather than throwing, because with
+    // sync-yield on the base adapter emits from a setTimeout.
+    const { sender, senderBase, receiverBase, received } = buildPair({ encryptionEnabled: false });
     // Reach into the sign-only send to craft a Sync frame with a 2-byte body.
     sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, new Uint8Array([1, 2]), [SENDER_ID]);
-    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).toThrow(
-      "too short to deserialise"
-    );
+    const { events } = recordMeshDiagnostics();
+    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).not.toThrow();
+    expect(received).toHaveLength(0);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "drop:malformed-sync-message",
+      senderId: SENDER_ID,
+      reason: "MeshNetworkAdapter: message too short to deserialise.",
+    });
   });
 
-  test("a Sync payload whose header length overruns surfaces the truncated guard", () => {
-    const { sender, senderBase, receiverBase } = buildPair({ encryptionEnabled: false });
+  test("a Sync payload whose header length overruns is dropped with drop:malformed-sync-message", () => {
+    const { sender, senderBase, receiverBase, received } = buildPair({ encryptionEnabled: false });
     // 4-byte length prefix declaring a 100-byte header in a 4-byte body.
     const body = new Uint8Array(4);
     new DataView(body.buffer).setUint32(0, 100, false);
     sender.sendControlMessage(MESH_CONTROL_TYPE.Sync, body, [SENDER_ID]);
-    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).toThrow(
-      "header truncated"
-    );
+    const { events } = recordMeshDiagnostics();
+    expect(() => receiverBase.emitIncoming(firstMessage(senderBase.sent))).not.toThrow();
+    expect(received).toHaveLength(0);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "drop:malformed-sync-message",
+      senderId: SENDER_ID,
+      reason: "MeshNetworkAdapter: message header truncated.",
+    });
   });
 });

@@ -85,6 +85,53 @@ function makeValidSignedBytes(
   return encodeSignedEnvelope(signed);
 }
 
+/** A Sync-tagged (RFC-043 tag 0x00) plaintext whose body is a 4-byte
+ * big-endian header length, the header bytes, then `data`. The length
+ * prefix is taken from `headerLen` when given, so a test can lie about it. */
+function syncTaggedPayload(
+  headerBytes: Uint8Array,
+  data: Uint8Array = new Uint8Array(0),
+  headerLen: number = headerBytes.length
+): Uint8Array {
+  const out = new Uint8Array(1 + 4 + headerBytes.length + data.length);
+  out[0] = 0x00; // MESH_CONTROL_TYPE.Sync
+  new DataView(out.buffer).setUint32(1, headerLen, false);
+  out.set(headerBytes, 5);
+  out.set(data, 5 + headerBytes.length);
+  return out;
+}
+
+function jsonBytes(value: unknown): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(value));
+}
+
+/** A receiver that knows one sender, plus the delivered-message capture. */
+function malformedSyncHarness(senderId: string): {
+  base: TestBaseAdapter;
+  delivered: Message[];
+  send: (inner: Uint8Array) => void;
+} {
+  const base = new TestBaseAdapter();
+  const sender = generateSigningKeyPair();
+  const keyring = buildKeyring({ knownPeers: new Map([[senderId, sender.publicKey]]) });
+  const docKey = keyring.documentKeys.get(DEFAULT_MESH_KEY_ID);
+  if (!docKey) throw new Error("test setup missing doc key");
+  const adapter = new MeshNetworkAdapter({ base, keyringSource: () => keyring });
+  const delivered: Message[] = [];
+  adapter.on("message", (m) => {
+    delivered.push(m);
+  });
+  const send = (inner: Uint8Array): void => {
+    base.emitIncoming({
+      type: "sync",
+      senderId: peerId(senderId),
+      targetId: peerId("us"),
+      data: makeValidSignedBytes(senderId, sender.secretKey, DEFAULT_MESH_KEY_ID, docKey, inner),
+    });
+  };
+  return { base, delivered, send };
+}
+
 describe("MeshNetworkAdapter diagnostic emissions", () => {
   afterEach(() => {
     clearMeshDiagnosticListeners();
@@ -372,5 +419,86 @@ describe("MeshNetworkAdapter diagnostic emissions", () => {
 
     expect(events).toEqual(seen);
     expect(events).toHaveLength(0);
+  });
+
+  describe("drop:malformed-sync-message", () => {
+    const cases: Array<{ name: string; inner: Uint8Array; reason: string }> = [
+      {
+        name: "a header without string type, senderId and targetId",
+        inner: syncTaggedPayload(jsonBytes({ type: 5, senderId: "peer-ms" })),
+        reason: "MeshNetworkAdapter: message header lacks a string type, senderId or targetId.",
+      },
+      {
+        name: "a header that is a JSON array",
+        inner: syncTaggedPayload(jsonBytes(["sync", "peer-ms", "us"])),
+        reason: "MeshNetworkAdapter: message header is not an object.",
+      },
+      {
+        name: "a non-string documentId",
+        inner: syncTaggedPayload(
+          jsonBytes({ type: "sync", senderId: "peer-ms", targetId: "us", documentId: 7 })
+        ),
+        reason: "MeshNetworkAdapter: message header documentId is not a string.",
+      },
+      {
+        name: "a header that is not JSON",
+        inner: syncTaggedPayload(new TextEncoder().encode("{not json")),
+        reason: "JSON",
+      },
+      {
+        name: "a length prefix longer than the body",
+        inner: syncTaggedPayload(jsonBytes({ type: "sync" }), new Uint8Array(0), 999),
+        reason: "MeshNetworkAdapter: message header truncated.",
+      },
+      {
+        name: "a body shorter than the length prefix itself",
+        inner: new Uint8Array([0x00, 0x00, 0x01]),
+        reason: "MeshNetworkAdapter: message too short to deserialise.",
+      },
+    ];
+
+    for (const c of cases) {
+      test(`${c.name} is dropped with one drop:malformed-sync-message`, () => {
+        const senderId = "peer-ms";
+        const { delivered, send } = malformedSyncHarness(senderId);
+        const { events } = recordMeshDiagnostics();
+
+        expect(() => send(c.inner)).not.toThrow();
+
+        expect(delivered).toHaveLength(0);
+        expect(events).toHaveLength(1);
+        const ev = events[0];
+        expect(ev?.kind).toBe("drop:malformed-sync-message");
+        if (ev?.kind !== "drop:malformed-sync-message") {
+          throw new Error("unreachable: asserted above");
+        }
+        expect(ev.senderId).toBe(senderId);
+        expect(ev.reason).toContain(c.reason);
+      });
+    }
+
+    test("a well-formed Sync message on the same adapter still delivers", () => {
+      const senderId = "peer-ms";
+      const { delivered, send } = malformedSyncHarness(senderId);
+      const { events } = recordMeshDiagnostics();
+
+      send(syncTaggedPayload(jsonBytes({ type: 5, senderId, targetId: "us" })));
+      send(
+        syncTaggedPayload(
+          jsonBytes({ type: "sync", senderId, targetId: "us", documentId: "doc-ok" }),
+          new Uint8Array([9, 8, 7])
+        )
+      );
+
+      expect(events.map((e) => e.kind)).toEqual(["drop:malformed-sync-message"]);
+      expect(delivered).toHaveLength(1);
+      expect(delivered[0]).toMatchObject({
+        type: "sync",
+        senderId,
+        targetId: "us",
+        documentId: "doc-ok",
+        data: new Uint8Array([9, 8, 7]),
+      });
+    });
   });
 });
