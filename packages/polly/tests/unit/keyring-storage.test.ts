@@ -49,6 +49,41 @@ describe("serialiseKeyring / deserialiseKeyring", () => {
     expect(() => deserialiseKeyring("{not json")).toThrow(/not valid JSON/);
   });
 
+  test("throws when a field has the wrong type instead of coercing it", () => {
+    const base = JSON.parse(serialiseKeyring(makeKeyring()));
+    const variant = (patch: Record<string, unknown>): string =>
+      JSON.stringify({ ...base, ...patch });
+    expect(() => deserialiseKeyring(variant({ revokedPeers: "abc" }))).toThrow(/revokedPeers/);
+    expect(() => deserialiseKeyring(variant({ revocationAuthority: ["a", 1] }))).toThrow(
+      /revocationAuthority/
+    );
+    expect(() => deserialiseKeyring(variant({ knownPeers: { p: 1 } }))).toThrow(/knownPeers/);
+    expect(() => deserialiseKeyring(variant({ documentKeys: "k" }))).toThrow(/documentKeys/);
+    expect(() =>
+      deserialiseKeyring(variant({ identity: { publicKey: 1, secretKey: "AA==" } }))
+    ).toThrow(/identity keys/);
+  });
+
+  test("reads absent or null collections as empty", () => {
+    const base = JSON.parse(serialiseKeyring(makeKeyring()));
+    const text = JSON.stringify({
+      version: 1,
+      identity: base.identity,
+      knownPeers: null,
+      revokedPeers: null,
+    });
+    const keyring = deserialiseKeyring(text);
+    expect(keyring.knownPeers.size).toBe(0);
+    expect(keyring.documentKeys.size).toBe(0);
+    expect(keyring.revokedPeers.size).toBe(0);
+    expect(keyring.revocationAuthority).toBeUndefined();
+  });
+
+  test("throws on a non-object payload", () => {
+    expect(() => deserialiseKeyring("[]")).toThrow(/not an object/);
+    expect(() => deserialiseKeyring("null")).toThrow(/not an object/);
+  });
+
   test("throws on wrong version", () => {
     const text = serialiseKeyring(makeKeyring()).replace('"version": 1', '"version": 2');
     expect(() => deserialiseKeyring(text)).toThrow(/unsupported keyring version/);

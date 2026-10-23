@@ -220,6 +220,12 @@ describe("MeshSignalingClient — incoming frame routing", () => {
     expect(cap.peersPresent).toEqual([]);
   });
 
+  test("drops peers-present whose peerIds holds a non-string", async () => {
+    const { cap, ws } = await connectClient();
+    ws.fireMessage(JSON.stringify({ type: "peers-present", peerIds: ["a", 7] }));
+    expect(cap.peersPresent).toEqual([]);
+  });
+
   test("routes peer-joined and peer-left to their callbacks", async () => {
     const { cap, ws } = await connectClient();
     ws.fireMessage(JSON.stringify({ type: "peer-joined", peerId: "newbie" }));

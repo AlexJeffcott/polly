@@ -17,6 +17,7 @@
  * can serialise differently if they prefer.
  */
 
+import { isRecord, readRecord, readString, readStringArray } from "./guards";
 import type { MeshKeyring } from "./mesh-network-adapter";
 import type { SigningKeyPair } from "./signing";
 
@@ -103,30 +104,67 @@ export function deserialiseKeyring(text: string): MeshKeyring {
       `KeyringStorage: keyring payload is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-  if (!raw || typeof raw !== "object") {
+  if (!isRecord(raw)) {
     throw new Error("KeyringStorage: keyring payload is not an object");
   }
-  const r = raw as unknown as Partial<SerialisedKeyring>;
-  if (r.version !== 1) {
-    throw new Error(`KeyringStorage: unsupported keyring version: ${String(r.version)}`);
+  if (raw["version"] !== 1) {
+    throw new Error(`KeyringStorage: unsupported keyring version: ${String(raw["version"])}`);
   }
-  if (!r.identity || typeof r.identity !== "object") {
+  const rawIdentity = readRecord(raw["identity"]);
+  if (!rawIdentity) {
     throw new Error("KeyringStorage: keyring payload is missing identity");
   }
+  const publicKey = readString(rawIdentity["publicKey"]);
+  const secretKey = readString(rawIdentity["secretKey"]);
+  if (publicKey === undefined || secretKey === undefined) {
+    throw new Error("KeyringStorage: keyring identity keys are not base64 strings");
+  }
   const identity: SigningKeyPair = {
-    publicKey: base64ToBytes(r.identity.publicKey),
-    secretKey: base64ToBytes(r.identity.secretKey),
+    publicKey: base64ToBytes(publicKey),
+    secretKey: base64ToBytes(secretKey),
   };
   const keyring: MeshKeyring = {
     identity,
-    knownPeers: base64RecordToMap(r.knownPeers ?? {}),
-    documentKeys: base64RecordToMap(r.documentKeys ?? {}),
-    revokedPeers: new Set(r.revokedPeers ?? []),
+    knownPeers: base64RecordToMap(readStringRecord(raw["knownPeers"], "knownPeers")),
+    documentKeys: base64RecordToMap(readStringRecord(raw["documentKeys"], "documentKeys")),
+    revokedPeers: new Set(readOptionalStringArray(raw["revokedPeers"], "revokedPeers")),
   };
-  if (r.revocationAuthority && r.revocationAuthority.length > 0) {
-    keyring.revocationAuthority = new Set(r.revocationAuthority);
+  const revocationAuthority = readOptionalStringArray(
+    raw["revocationAuthority"],
+    "revocationAuthority"
+  );
+  if (revocationAuthority.length > 0) {
+    keyring.revocationAuthority = new Set(revocationAuthority);
   }
   return keyring;
+}
+
+/** A string-valued record field; absent or null reads as empty. */
+function readStringRecord(input: unknown, field: string): Record<string, string> {
+  if (input === undefined || input === null) return {};
+  const record = readRecord(input);
+  if (!record) {
+    throw new Error(`KeyringStorage: keyring ${field} is not an object`);
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    const text = readString(value);
+    if (text === undefined) {
+      throw new Error(`KeyringStorage: keyring ${field}["${key}"] is not a base64 string`);
+    }
+    out[key] = text;
+  }
+  return out;
+}
+
+/** A string-array field; absent or null reads as empty. */
+function readOptionalStringArray(input: unknown, field: string): string[] {
+  if (input === undefined || input === null) return [];
+  const items = readStringArray(input);
+  if (!items) {
+    throw new Error(`KeyringStorage: keyring ${field} is not an array of strings`);
+  }
+  return items;
 }
 
 function mapToBase64Record(map: Map<string, Uint8Array>): Record<string, string> {
