@@ -25,6 +25,7 @@
  */
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
+import { isRecord } from "../../../src/shared/lib/guards";
 import { buildDb, loadMutationReport, queryAll } from "./ingest.ts";
 
 const DEFAULT_LOG = ".polly/test-debt/decisions.jsonl";
@@ -36,7 +37,7 @@ export interface FileSignal {
   uniqueKills: number;
   subsumed: boolean;
 }
-interface Decision {
+export interface Decision {
   file: string;
   verdict: string;
   rationale: string;
@@ -83,14 +84,33 @@ export function fileSignals(db: Database): Map<string, FileSignal> {
   return m;
 }
 
-async function loadDecisions(logPath: string): Promise<Map<string, Decision>> {
+function isDecision(v: unknown): v is Decision {
+  if (!isRecord(v)) return false;
+  const signal = v["signal"];
+  return (
+    typeof v["file"] === "string" &&
+    typeof v["verdict"] === "string" &&
+    typeof v["rationale"] === "string" &&
+    (typeof v["hash"] === "string" || v["hash"] === null) &&
+    typeof v["decided"] === "string" &&
+    isRecord(signal) &&
+    typeof signal["kills"] === "number" &&
+    typeof signal["uniqueKills"] === "number" &&
+    typeof signal["subsumed"] === "boolean"
+  );
+}
+
+/** Read the JSONL log; a line that is not a decision record throws, naming the line. */
+export async function loadDecisions(logPath: string): Promise<Map<string, Decision>> {
   const m = new Map<string, Decision>();
   const f = Bun.file(logPath);
   if (!(await f.exists())) return m;
-  for (const line of (await f.text()).split("\n")) {
+  const lines = (await f.text()).split("\n");
+  for (const [i, line] of lines.entries()) {
     const t = line.trim();
     if (!t) continue;
-    const d = JSON.parse(t) as unknown as Decision;
+    const d: unknown = JSON.parse(t);
+    if (!isDecision(d)) throw new Error(`${logPath}:${i + 1} is not a decision record`);
     m.set(d.file, d); // last write wins
   }
   return m;
