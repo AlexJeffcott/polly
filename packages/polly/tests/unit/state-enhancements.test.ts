@@ -167,9 +167,9 @@ describe("Enhancement #5: Exposed .loaded Promise", () => {
 
 describe("Integration: verify + loaded", () => {
   test("should work together for verification patterns", async () => {
-    const loginState = $sharedState(
+    const loginState = $sharedState<{ loggedIn: boolean; username: string | undefined }>(
       "login-integration",
-      { loggedIn: false, username: undefined as unknown as string | undefined },
+      { loggedIn: false, username: undefined },
       { verify: true }
     );
 

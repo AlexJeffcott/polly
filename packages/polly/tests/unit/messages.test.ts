@@ -156,9 +156,10 @@ test("ExtensionMessage - CONTEXT_MENU_CLICKED", () => {
     menuId: "test-menu",
     info: {
       menuItemId: "test-menu",
+      editable: false,
       pageUrl: "https://example.com",
       selectionText: "selected text",
-    } as unknown as chrome.contextMenus.OnClickData,
+    },
     tabId: 1,
   };
 

@@ -10,23 +10,25 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type BinaryDocumentId, interpretAsDocumentId } from "@automerge/automerge-repo/slim";
+import { documentIdToBinary } from "@automerge/automerge-repo/slim";
 import nacl from "tweetnacl";
 import { deriveDocumentId } from "@/shared/lib/derive-document-id";
 
-/** Recompute the expected id straight from the documented recipe, so a
+/** Recompute the expected bytes straight from the documented recipe, so a
  * mutated domain prefix, separator, or slice length in the implementation
- * diverges from this and fails the assertion. */
-// Return type inferred as DocumentId (interpretAsDocumentId's brand) so it
-// compares directly against deriveDocumentId's DocumentId result.
-function expectedId(key: string) {
+ * diverges from this and fails the assertion. The derived id is decoded back
+ * to bytes for the comparison; `documentIdToBinary` returns undefined for a
+ * string that is not a valid DocumentId. */
+function expectedBytes(key: string): Uint8Array {
   const digest = nacl.hash(new TextEncoder().encode(`polly/meshState/v1:${key}`));
-  return interpretAsDocumentId(digest.slice(0, 16) as unknown as BinaryDocumentId);
+  return digest.slice(0, 16);
 }
 
 describe("deriveDocumentId", () => {
   test("matches the domain-separated SHA-512 first-16-bytes recipe", () => {
-    expect(deriveDocumentId("inbox")).toBe(expectedId("inbox"));
+    expect<Uint8Array | undefined>(documentIdToBinary(deriveDocumentId("inbox"))).toEqual(
+      expectedBytes("inbox")
+    );
   });
 
   test("is deterministic for the same key", () => {
@@ -45,7 +47,9 @@ describe("deriveDocumentId", () => {
   });
 
   test("handles an empty key via the same recipe", () => {
-    expect(deriveDocumentId("")).toBe(expectedId(""));
+    expect<Uint8Array | undefined>(documentIdToBinary(deriveDocumentId(""))).toEqual(
+      expectedBytes("")
+    );
   });
 
   test("derives a non-empty DocumentId string", () => {
