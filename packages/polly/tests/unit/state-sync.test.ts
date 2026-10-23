@@ -14,23 +14,24 @@ interface FakeSyncAdapter extends SyncAdapter {
 }
 
 function makeFakeSyncAdapter(): FakeSyncAdapter {
-  const listeners: Array<(message: StateSyncMessage<unknown>) => void> = [];
+  // A method-syntax member has a bivariant parameter, so a callback typed for
+  // any StateSyncMessage<T> fits; the fake delivers whatever it is handed.
+  const listeners: Array<{ receive(message: StateSyncMessage<unknown>): void }> = [];
   const broadcasts: Array<StateSyncMessage<unknown>> = [];
   return {
     broadcast<T>(message: StateSyncMessage<T>): void {
       broadcasts.push(message);
     },
     onMessage<T>(callback: (message: StateSyncMessage<T>) => void): () => void {
-      listeners.push(callback as unknown as (message: StateSyncMessage<unknown>) => void);
+      const listener = { receive: callback };
+      listeners.push(listener);
       return () => {
-        const idx = listeners.indexOf(
-          callback as unknown as (message: StateSyncMessage<unknown>) => void
-        );
+        const idx = listeners.indexOf(listener);
         if (idx > -1) listeners.splice(idx, 1);
       };
     },
     deliver(message: StateSyncMessage<unknown>): void {
-      for (const listener of listeners) listener(message);
+      for (const listener of listeners) listener.receive(message);
     },
     broadcasts,
   };
