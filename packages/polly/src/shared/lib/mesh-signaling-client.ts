@@ -84,7 +84,31 @@ export interface MeshSignalingClientOptions {
    * different implementation (e.g. `ws` package's `WebSocket`) when running
    * in an environment without a native WebSocket global, or to use a custom
    * subclass for tests or instrumentation. */
-  WebSocket?: typeof WebSocket;
+  WebSocket?: MeshSignalingSocketConstructor;
+}
+
+/**
+ * The part of a WebSocket that {@link MeshSignalingClient} uses: four
+ * listeners, `send` of a string, `close`, and `readyState`. The browser,
+ * Bun and Node `WebSocket` satisfy it, and so does the `ws` package's.
+ * Listeners take `unknown`: a socket that accepts a listener of any event
+ * fits, and the client reads `data` from a `message` event by narrowing.
+ */
+export interface MeshSignalingSocket {
+  readonly readyState: number;
+  send(data: string): void;
+  close(): void;
+  addEventListener(
+    type: "open" | "message" | "error" | "close",
+    listener: (event: unknown) => void
+  ): void;
+}
+
+/** A constructor for {@link MeshSignalingSocket}: `new (url)` plus the
+ * `OPEN` ready-state constant. `typeof WebSocket` satisfies it. */
+export interface MeshSignalingSocketConstructor {
+  new (url: string): MeshSignalingSocket;
+  readonly OPEN: number;
 }
 
 /**
@@ -136,11 +160,11 @@ export class MeshSignalingClient {
   private readonly onPeerJoined?: (peerId: string) => void;
   private readonly onPeerLeft?: (peerId: string) => void;
   private readonly onCustomFrame?: (frame: CustomSignalingFrame) => void;
-  private socket: WebSocket | undefined;
+  private socket: MeshSignalingSocket | undefined;
   private joined = false;
   private stopping = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-  private readonly WebSocketCtor: typeof WebSocket;
+  private readonly WebSocketCtor: MeshSignalingSocketConstructor;
 
   constructor(options: MeshSignalingClientOptions) {
     this.url = options.url;
@@ -192,7 +216,9 @@ export class MeshSignalingClient {
       });
 
       ws.addEventListener("message", (event) => {
-        this.dispatchFrame(event.data);
+        this.dispatchFrame(
+          typeof event === "object" && event !== null && "data" in event ? event.data : undefined
+        );
       });
 
       ws.addEventListener("error", (err) => {

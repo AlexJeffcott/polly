@@ -448,10 +448,6 @@
     "text": "request as unknown as IDBOpenDBRequest"
   },
   {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "FakeWebSocket as unknown as typeof WebSocket"
-  },
-  {
     "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
     "text": "{ synchronizer } as unknown as Repo"
   },
@@ -502,10 +498,6 @@
   {
     "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
     "text": "0x7f as unknown as MeshControlType"
-  },
-  {
-    "file": "tests/unit/mesh-signaling-client.test.ts",
-    "text": "FakeWebSocket as unknown as typeof WebSocket"
   },
   {
     "file": "tests/unit/sweep-sealed.test.ts",

@@ -72,6 +72,8 @@ export {
 // Mesh signaling client
 export type {
   MeshSignalingClientOptions,
+  MeshSignalingSocket,
+  MeshSignalingSocketConstructor,
   SignalingMessage as MeshSignalingMessage,
 } from "./shared/lib/mesh-signaling-client";
 export { MeshSignalingClient } from "./shared/lib/mesh-signaling-client";
