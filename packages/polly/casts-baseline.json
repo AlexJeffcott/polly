@@ -488,58 +488,6 @@
     "text": "{ tabs: { query: async (filter: unknown) => { calls.query.push(filter); return [{ id: 1, active: true }]; }, create: (options: unknown) => { calls.create.push(options); }, }, runtime: { openOptionsPage: () => { calls.openOptionsPage += 1; }, }, } as unknown as ExtensionAdapters"
   },
   {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "counter.handle as unknown as DocHandle<CounterDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "text.handle as unknown as DocHandle<TextDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "text.handle as unknown as DocHandle<TextDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "text.handle as unknown as DocHandle<TextDoc>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "todos.handle as unknown as DocHandle<ListDoc<number>>"
-  },
-  {
-    "file": "tests/unit/crdt-specialised.test.ts",
-    "text": "todos.handle as unknown as DocHandle<ListDoc<number>>"
-  },
-  {
-    "file": "tests/unit/crdt-state.test.ts",
-    "text": "{} as unknown as V2"
-  },
-  {
-    "file": "tests/unit/crdt-state.test.ts",
-    "text": "prim.handle?.doc() as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/crdt-state.test.ts",
-    "text": "prim.handle?.doc() as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/crdt-state.test.ts",
-    "text": "prim.handle?.doc() as unknown as Record<string, unknown>"
-  },
-  {
     "file": "tests/unit/derive-document-id.test.ts",
     "text": "digest.slice(0, 16) as unknown as BinaryDocumentId"
   },
