@@ -26,6 +26,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import {
+  isRecord,
+  readNumber,
+  readRecord,
+  readRecordArray,
+  readString,
+} from "../src/shared/lib/guards";
 
 const ROOT = process.cwd();
 // The audited package (@fairfox/polly) is a member of the monorepo workspace,
@@ -134,12 +141,37 @@ interface CachedResult {
   outdatedCount: number;
 }
 
+/** The cache entry when every field has its type; `null` (a cache miss) otherwise. */
+export function parseCachedResult(value: unknown): CachedResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const hash = readString(value["hash"]);
+  const timestamp = readString(value["timestamp"]);
+  const cveCount = readNumber(value["cveCount"]);
+  const cveDetails = readString(value["cveDetails"]);
+  const outdated = readString(value["outdated"]);
+  const outdatedCount = readNumber(value["outdatedCount"]);
+  if (
+    hash === undefined ||
+    timestamp === undefined ||
+    cveCount === undefined ||
+    cveDetails === undefined ||
+    outdated === undefined ||
+    outdatedCount === undefined
+  ) {
+    return null;
+  }
+  return { hash, timestamp, cveCount, cveDetails, outdated, outdatedCount };
+}
+
 function loadCache(): CachedResult | null {
   if (NO_CACHE || !existsSync(CACHE_FILE)) {
     return null;
   }
   try {
-    return JSON.parse(readFileSync(CACHE_FILE, "utf8")) as unknown as CachedResult;
+    const parsed: unknown = JSON.parse(readFileSync(CACHE_FILE, "utf8"));
+    return parseCachedResult(parsed);
   } catch {
     return null;
   }
@@ -174,6 +206,29 @@ type OsvPkg = {
   vulnerabilities?: OsvVuln[];
 };
 type OsvOutput = { results?: Array<{ packages?: OsvPkg[] }> };
+
+/**
+ * Read osv-scanner's JSON. A vulnerability without a string id is kept under
+ * `<unknown>`, so a malformed entry still counts as a CVE and the gate stays hard.
+ */
+export function parseOsvOutput(value: unknown): OsvOutput {
+  const results = readRecordArray(readRecord(value)?.["results"]) ?? [];
+  return {
+    results: results.map((result) => ({
+      packages: (readRecordArray(result["packages"]) ?? []).map((pkg): OsvPkg => {
+        const info = readRecord(pkg["package"]);
+        const vulns = readRecordArray(pkg["vulnerabilities"]) ?? [];
+        return {
+          package: { name: readString(info?.["name"]), version: readString(info?.["version"]) },
+          vulnerabilities: vulns.map((v) => ({
+            id: readString(v["id"]) ?? "<unknown>",
+            summary: readString(v["summary"]),
+          })),
+        };
+      }),
+    })),
+  };
+}
 
 /** Live (non-allowlisted) advisory lines for one osv package entry. */
 function liveOsvLines(pkg: OsvPkg, allow: Map<string, string>): string[] {
@@ -236,7 +291,8 @@ function runOsvScanner(): { cveCount: number; output: string } {
 
   const stdout = proc.stdout || "{}";
   try {
-    return summariseOsvPackages(JSON.parse(stdout) as unknown as OsvOutput);
+    const parsed: unknown = JSON.parse(stdout);
+    return summariseOsvPackages(parseOsvOutput(parsed));
   } catch {
     return { cveCount: 0, output: stdout };
   }
@@ -249,6 +305,47 @@ type BunAuditAdvisory = {
   vulnerable_versions?: string;
 };
 
+/**
+ * Read `bun audit --json` (package → advisories). `null` when the value is not
+ * that shape, which the caller reports as a failure rather than as no CVEs.
+ */
+export function parseBunAudit(value: unknown): Record<string, BunAuditAdvisory[]> | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const out: Record<string, BunAuditAdvisory[]> = {};
+  for (const [pkg, raw] of Object.entries(value)) {
+    if (!Array.isArray(raw)) {
+      return null;
+    }
+    out[pkg] = raw.map((adv) => {
+      const record = readRecord(adv);
+      return {
+        url: readString(record?.["url"]),
+        title: readString(record?.["title"]),
+        severity: readString(record?.["severity"]),
+        vulnerable_versions: readString(record?.["vulnerable_versions"]),
+      };
+    });
+  }
+  return out;
+}
+
+/** String-valued entries of a JSON object; other values are dropped. */
+function readStringRecord(value: unknown): Record<string, string> | undefined {
+  const record = readRecord(value);
+  if (record === undefined) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(record)) {
+    if (typeof raw === "string") {
+      out[key] = raw;
+    }
+  }
+  return out;
+}
+
 /** GHSA id → reason, from the `advisoryAllowlist` section of deps-notes.json. */
 function loadAdvisoryAllowlist(): Map<string, string> {
   const allow = new Map<string, string>();
@@ -256,11 +353,11 @@ function loadAdvisoryAllowlist(): Map<string, string> {
     return allow;
   }
   try {
-    type Notes = { advisoryAllowlist?: Array<{ ghsa?: string; reason?: string }> };
-    const parsed = JSON.parse(readFileSync(NOTES_FILE, "utf8")) as unknown as Notes;
-    for (const entry of parsed.advisoryAllowlist ?? []) {
-      if (entry.ghsa) {
-        allow.set(entry.ghsa, entry.reason ?? "(no reason recorded)");
+    const parsed: unknown = JSON.parse(readFileSync(NOTES_FILE, "utf8"));
+    for (const entry of readRecordArray(readRecord(parsed)?.["advisoryAllowlist"]) ?? []) {
+      const ghsa = readString(entry["ghsa"]);
+      if (ghsa) {
+        allow.set(ghsa, readString(entry["reason"]) ?? "(no reason recorded)");
       }
     }
   } catch {
@@ -300,15 +397,22 @@ function runBunAudit(): { cveCount: number; output: string } {
     maxBuffer: 16 * 1024 * 1024,
   });
 
-  let parsed: Record<string, BunAuditAdvisory[]>;
+  let parsed: Record<string, BunAuditAdvisory[]> | null = null;
   try {
-    parsed = JSON.parse(proc.stdout || "{}") as unknown as Record<string, BunAuditAdvisory[]>;
+    const json: unknown = JSON.parse(proc.stdout || "{}");
+    parsed = parseBunAudit(json);
   } catch {
     // Unparseable output — fail loud rather than silently passing the gate.
     const out = `${proc.stdout ?? ""}${proc.stderr ?? ""}`.trim();
     return proc.status === 0
       ? { cveCount: 0, output: "" }
       : { cveCount: 1, output: `bun audit output was not JSON:\n${out}` };
+  }
+  if (parsed === null) {
+    return {
+      cveCount: 1,
+      output: `bun audit output was not package → advisories:\n${proc.stdout}`,
+    };
   }
 
   const { live, accepted } = classifyAdvisories(parsed);
@@ -351,17 +455,11 @@ function listDirectDeps(): DepEntry[] {
     if (!existsSync(path)) {
       continue;
     }
-    type PkgJson = {
-      name?: string;
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      peerDependencies?: Record<string, string>;
-    };
-    const json = JSON.parse(readFileSync(path, "utf8")) as unknown as PkgJson;
-    const ws = json.name ?? file;
-    pushExternal(out, ws, "dep", json.dependencies);
-    pushExternal(out, ws, "dev", json.devDependencies);
-    pushExternal(out, ws, "peer", json.peerDependencies);
+    const json = readRecord(JSON.parse(readFileSync(path, "utf8"))) ?? {};
+    const ws = readString(json["name"]) ?? file;
+    pushExternal(out, ws, "dep", readStringRecord(json["dependencies"]));
+    pushExternal(out, ws, "dev", readStringRecord(json["devDependencies"]));
+    pushExternal(out, ws, "peer", readStringRecord(json["peerDependencies"]));
   }
   return out;
 }
@@ -409,9 +507,8 @@ function readNotes(): Record<string, string> {
   if (!existsSync(NOTES_FILE)) {
     return {};
   }
-  type NotesFile = { notes?: Record<string, string> };
-  const json = JSON.parse(readFileSync(NOTES_FILE, "utf8")) as unknown as NotesFile;
-  return json.notes ?? {};
+  const json: unknown = JSON.parse(readFileSync(NOTES_FILE, "utf8"));
+  return readStringRecord(readRecord(json)?.["notes"]) ?? {};
 }
 
 function countUsages(name: string): number {
@@ -562,4 +659,6 @@ function main(): void {
   }
 }
 
-main();
+if (import.meta.main) {
+  main();
+}

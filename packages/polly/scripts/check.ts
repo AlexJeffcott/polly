@@ -310,6 +310,10 @@ const KNOWN_CHECKS = [
 
 type CheckName = (typeof KNOWN_CHECKS)[number];
 
+function isCheckName(name: string): name is CheckName {
+  return KNOWN_CHECKS.some((known) => known === name);
+}
+
 function showHelp(): void {
   process.stdout.write(`
 Usage: bun run check <subcommand>
@@ -489,11 +493,11 @@ if (!subcommand || subcommand === "help" || subcommand === "--help") {
   process.exit(0);
 }
 
-if (!KNOWN_CHECKS.includes(subcommand as unknown as CheckName)) {
+if (!isCheckName(subcommand)) {
   process.stderr.write(`❌ Unknown subcommand: ${subcommand}\n`);
   showHelp();
   process.exit(1);
 }
 
-const ok = await runOne(subcommand as unknown as CheckName, verbose);
+const ok = await runOne(subcommand, verbose);
 process.exit(ok ? 0 : 1);

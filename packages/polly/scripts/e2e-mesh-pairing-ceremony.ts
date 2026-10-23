@@ -56,13 +56,21 @@ import {
 } from "../tools/test/src/e2e-mesh";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
+// Hooks the e2e consumer page installs (examples/e2e-consumer/main.ts).
+declare global {
+  interface Window {
+    __pollyE2eCreatePairingToken?: () => string;
+    __pollyE2eApplyPairingToken?: (encoded: string) => boolean;
+    __pollyE2eJoinMesh?: () => Promise<boolean>;
+  }
+}
+
 const SETTLE_MS = 2_000;
 
 /** Read the issuer's freshly-minted pairing token out of the page. */
 async function createToken(peer: LaunchedPeer): Promise<string> {
   const token = await peer.page.evaluate(() => {
-    const fn = (window as unknown as { __pollyE2eCreatePairingToken?: () => string })
-      .__pollyE2eCreatePairingToken;
+    const fn = window.__pollyE2eCreatePairingToken;
     if (!fn) throw new Error("__pollyE2eCreatePairingToken hook missing");
     return fn();
   });
@@ -73,8 +81,7 @@ async function createToken(peer: LaunchedPeer): Promise<string> {
 /** Apply a token to the receiving peer's keyring. */
 async function applyToken(peer: LaunchedPeer, token: string): Promise<void> {
   const ok = await peer.page.evaluate((encoded) => {
-    const fn = (window as unknown as { __pollyE2eApplyPairingToken?: (e: string) => boolean })
-      .__pollyE2eApplyPairingToken;
+    const fn = window.__pollyE2eApplyPairingToken;
     if (!fn) throw new Error("__pollyE2eApplyPairingToken hook missing");
     return fn(encoded);
   }, token);
@@ -84,8 +91,7 @@ async function applyToken(peer: LaunchedPeer, token: string): Promise<void> {
 /** Construct the deferred mesh client now the keyring is complete. */
 async function joinMesh(peer: LaunchedPeer): Promise<void> {
   const ok = await peer.page.evaluate(async () => {
-    const fn = (window as unknown as { __pollyE2eJoinMesh?: () => Promise<boolean> })
-      .__pollyE2eJoinMesh;
+    const fn = window.__pollyE2eJoinMesh;
     if (!fn) throw new Error("__pollyE2eJoinMesh hook missing");
     return fn();
   });

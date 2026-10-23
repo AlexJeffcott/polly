@@ -31,6 +31,14 @@ import { rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import puppeteer, { type Browser, type Page } from "puppeteer";
 
+// Hooks the generated entry below installs on the page.
+declare global {
+  interface Window {
+    __mountDropdown?: (mount: unknown) => void;
+    __open?: () => void;
+  }
+}
+
 const scriptsDir = import.meta.dir;
 const dropdownPath = resolve(scriptsDir, "../src/polly-ui/Dropdown.tsx");
 const cssPath = resolve(scriptsDir, "../src/polly-ui/Dropdown.module.css");
@@ -237,10 +245,12 @@ function flushFrames(page: Page): Promise<void> {
 // `beforetoggle`, before the popover's first paint.
 async function mountAndOpen(page: Page, s: Scenario): Promise<void> {
   await page.evaluate((mount) => {
-    (window as unknown as { __mountDropdown: (m: unknown) => void }).__mountDropdown(mount);
+    if (!window.__mountDropdown) throw new Error("__mountDropdown hook missing");
+    window.__mountDropdown(mount);
   }, s.mount);
   await page.evaluate(() => {
-    (window as unknown as { __open: () => void }).__open();
+    if (!window.__open) throw new Error("__open hook missing");
+    window.__open();
   });
   await page.waitForFunction(
     () =>
