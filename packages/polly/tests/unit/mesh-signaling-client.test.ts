@@ -9,6 +9,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { type CustomSignalingFrame, MeshSignalingClient } from "@/shared/lib/mesh-signaling-client";
+import { setGlobal } from "./helpers/globals";
 
 /** A controllable WebSocket double. Records what the client sends and lets
  * the test fire the lifecycle/message events the client listens for. */
@@ -418,10 +419,10 @@ describe("MeshSignalingClient — reconnect backoff", () => {
     scheduled = [];
     // Deliberately partial double: only the (fn, delay) call shape the
     // client uses, not the full overloaded global with __promisify__.
-    globalThis.setTimeout = ((fn: () => void, delay?: number) => {
+    setGlobal("setTimeout", (fn: () => void, delay?: number) => {
       scheduled.push({ fn, delay: delay ?? 0 });
       return scheduled.length;
-    }) as unknown as typeof setTimeout;
+    });
     globalThis.clearTimeout = () => {};
   }
 
