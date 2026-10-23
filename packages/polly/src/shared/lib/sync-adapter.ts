@@ -30,6 +30,15 @@ export interface StateSyncMessage<T = unknown> {
 }
 
 /**
+ * A listener stored against the transport's untyped stream. Method syntax
+ * makes the parameter bivariant, so an `onMessage<T>` callback for
+ * `StateSyncMessage<T>` fits; the transport cannot check `T` either way.
+ */
+type StoredSyncListener = {
+  receive(message: StateSyncMessage<unknown>): void;
+}["receive"];
+
+/**
  * Sync adapter interface - abstracts the transport mechanism for state sync
  *
  * Different contexts use different transports:
@@ -87,7 +96,7 @@ export class NoOpSyncAdapter implements SyncAdapter {
  * Uses chrome.runtime.sendMessage for cross-context messaging
  */
 export class ChromeRuntimeSyncAdapter implements SyncAdapter {
-  private listeners: Array<(message: StateSyncMessage<unknown>) => void> = [];
+  private listeners: StoredSyncListener[] = [];
   private port: chrome.runtime.Port | null = null;
 
   constructor() {
@@ -122,13 +131,11 @@ export class ChromeRuntimeSyncAdapter implements SyncAdapter {
   }
 
   onMessage<T>(callback: (message: StateSyncMessage<T>) => void): () => void {
-    this.listeners.push(callback as unknown as (message: StateSyncMessage<unknown>) => void);
+    this.listeners.push(callback);
 
     // Return cleanup function
     return () => {
-      const index = this.listeners.indexOf(
-        callback as unknown as (message: StateSyncMessage<unknown>) => void
-      );
+      const index = this.listeners.indexOf(callback);
       if (index > -1) {
         this.listeners.splice(index, 1);
       }
@@ -159,7 +166,7 @@ export class ChromeRuntimeSyncAdapter implements SyncAdapter {
  */
 export class BroadcastChannelSyncAdapter implements SyncAdapter {
   private channel: BroadcastChannel | null = null;
-  private listeners: Array<(message: StateSyncMessage<unknown>) => void> = [];
+  private listeners: StoredSyncListener[] = [];
 
   constructor(channelName = "polly-sync") {
     if (typeof BroadcastChannel === "undefined") {
@@ -203,13 +210,11 @@ export class BroadcastChannelSyncAdapter implements SyncAdapter {
   }
 
   onMessage<T>(callback: (message: StateSyncMessage<T>) => void): () => void {
-    this.listeners.push(callback as unknown as (message: StateSyncMessage<unknown>) => void);
+    this.listeners.push(callback);
 
     // Return cleanup function
     return () => {
-      const index = this.listeners.indexOf(
-        callback as unknown as (message: StateSyncMessage<unknown>) => void
-      );
+      const index = this.listeners.indexOf(callback);
       if (index > -1) {
         this.listeners.splice(index, 1);
       }

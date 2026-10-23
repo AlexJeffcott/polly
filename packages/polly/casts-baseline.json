@@ -156,22 +156,6 @@
     "text": "existing as unknown as StateEntry<T>"
   },
   {
-    "file": "src/shared/lib/sync-adapter.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "src/shared/lib/sync-adapter.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "src/shared/lib/sync-adapter.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "src/shared/lib/sync-adapter.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
     "file": "tests/browser/blob-store.browser.ts",
     "text": "null as unknown as MeshSignalingClient"
   },
