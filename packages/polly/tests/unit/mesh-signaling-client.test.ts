@@ -72,8 +72,6 @@ class FakeWebSocket {
   }
 }
 
-const WS = FakeWebSocket as unknown as typeof WebSocket;
-
 interface Captured {
   signals: Array<{ from: string; payload: unknown }>;
   errors: Array<{ reason: string; target?: string }>;
@@ -114,7 +112,7 @@ function makeClient(extra: Record<string, unknown> = {}): {
     onPeerJoined: (id) => cap.joined.push(id),
     onPeerLeft: (id) => cap.left.push(id),
     onCustomFrame: (frame) => cap.custom.push(frame),
-    WebSocket: WS,
+    WebSocket: FakeWebSocket,
     ...extra,
   });
   return { client, cap };
@@ -293,6 +291,14 @@ describe("MeshSignalingClient — malformed frames are dropped", () => {
     expect(cap.signals).toEqual([]);
     expect(cap.custom).toEqual([]);
   });
+
+  test("drops a message event that carries no data", async () => {
+    const { cap, ws } = await connectClient();
+    ws.emit("message", {});
+    ws.emit("message", null);
+    expect(cap.signals).toEqual([]);
+    expect(cap.custom).toEqual([]);
+  });
 });
 
 describe("MeshSignalingClient — sendSignal", () => {
@@ -362,7 +368,7 @@ describe("MeshSignalingClient — optional callbacks may be omitted", () => {
       url: "ws://localhost:9/sig",
       peerId: "local-peer",
       onSignal: () => {},
-      WebSocket: WS,
+      WebSocket: FakeWebSocket,
     });
   }
 

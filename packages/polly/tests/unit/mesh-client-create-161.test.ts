@@ -97,7 +97,6 @@ class FakeWebSocket {
     this.emit("message", { data: JSON.stringify(frame) });
   }
 }
-const FakeWS = FakeWebSocket as unknown as typeof WebSocket;
 
 class FakeDataChannel {
   onopen: (() => void) | null = null;
@@ -180,7 +179,12 @@ interface MakeOverrides {
 
 async function make(over: MakeOverrides = {}): Promise<MeshClient> {
   const options: CreateMeshClientOptions = {
-    signaling: { url: "ws://localhost:9/sig", peerId: LOCAL, WebSocket: FakeWS, ...over.signaling },
+    signaling: {
+      url: "ws://localhost:9/sig",
+      peerId: LOCAL,
+      WebSocket: FakeWebSocket,
+      ...over.signaling,
+    },
     rtc: { RTCPeerConnection: FakePC, ...over.rtc },
     keyring: over.keyring ?? makeKeyring(),
     ...(over.encryptionEnabled !== undefined && { encryptionEnabled: over.encryptionEnabled }),
@@ -355,7 +359,7 @@ describe("createMeshClient — rtc option forwarding", () => {
       signaling: {
         url: "ws://localhost:9/sig",
         peerId: LOCAL,
-        WebSocket: FakeWS,
+        WebSocket: FakeWebSocket,
         onError: (reason) => errors.push(reason),
         onCustomFrame: (frame) => custom.push(frame),
       },
