@@ -16,6 +16,7 @@
  * paper over a factory gap; here the factory built the bus and registered the
  * handlers, and we drive its own dispatch entry point.)
  */
+import { readRecord } from "../../../src/shared/lib/guards";
 import type { BusLike } from "./types.ts";
 
 /**
@@ -51,11 +52,10 @@ export function driveBus(bus: DispatchBus, driveOpts: DriveOptions = {}): BusLik
         payload,
         ...(options?.tabId === undefined ? {} : { tabId: options.tabId }),
       };
-      const response = (await bus.handleMessage(message)) as
-        | { success?: boolean; data?: unknown; error?: string }
-        | undefined;
-      // Return the handler's own return value (response.data); steps assert on it.
-      return response?.data;
+      // The response is `{ success, data?, error? }`. Return the handler's own
+      // return value (response.data); steps assert on it.
+      const response: unknown = await bus.handleMessage(message);
+      return readRecord(response)?.["data"];
     },
   };
 }
