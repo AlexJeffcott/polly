@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { type DocHandle, Repo } from "@automerge/automerge-repo";
+import { Repo } from "@automerge/automerge-repo";
 import {
   $crdtCounter,
   $crdtList,
@@ -42,37 +42,43 @@ describe("$crdtText", () => {
 
   test("writing to value updates the underlying document text", async () => {
     const repo = makeRepo();
+    const handle = repo.create<TextDoc>({});
     const text = $crdtText("text-3", "", {
-      getHandle: async () => repo.create<TextDoc>({}),
+      getHandle: async () => handle,
     });
     await text.loaded;
+    expect(text.handle).toBe(handle);
     text.value = "first write";
     await Promise.resolve();
-    expect((text.handle as unknown as DocHandle<TextDoc>).doc().text).toBe("first write");
+    expect(handle.doc().text).toBe("first write");
   });
 
   test("subsequent writes preserve text via updateText splices", async () => {
     const repo = makeRepo();
+    const handle = repo.create<TextDoc>({});
     const text = $crdtText("text-4", "", {
-      getHandle: async () => repo.create<TextDoc>({}),
+      getHandle: async () => handle,
     });
     await text.loaded;
+    expect(text.handle).toBe(handle);
     text.value = "abc";
     await Promise.resolve();
     text.value = "abcdef";
     await Promise.resolve();
     text.value = "axdef";
     await Promise.resolve();
-    expect((text.handle as unknown as DocHandle<TextDoc>).doc().text).toBe("axdef");
+    expect(handle.doc().text).toBe("axdef");
   });
 
   test("remote changes propagate back to the signal", async () => {
     const repo = makeRepo();
+    const handle = repo.create<TextDoc>({ text: "initial" });
     const text = $crdtText("text-5", "", {
-      getHandle: async () => repo.create<TextDoc>({ text: "initial" }),
+      getHandle: async () => handle,
     });
     await text.loaded;
-    (text.handle as unknown as DocHandle<TextDoc>).change((doc) => {
+    expect(text.handle).toBe(handle);
+    handle.change((doc) => {
       doc.text = "from-remote";
     });
     await Promise.resolve();
@@ -91,38 +97,44 @@ describe("$crdtCounter", () => {
 
   test("writing to value initialises the underlying Counter", async () => {
     const repo = makeRepo();
+    const handle = repo.create<CounterDoc>({});
     const counter = $crdtCounter("counter-2", 0, {
-      getHandle: async () => repo.create<CounterDoc>({}),
+      getHandle: async () => handle,
     });
     await counter.loaded;
+    expect(counter.handle).toBe(handle);
     counter.value = 5;
     await Promise.resolve();
-    const doc = (counter.handle as unknown as DocHandle<CounterDoc>).doc();
+    const doc = handle.doc();
     expect(doc.count?.value).toBe(5);
   });
 
   test("subsequent writes record increments not replacements", async () => {
     const repo = makeRepo();
+    const handle = repo.create<CounterDoc>({});
     const counter = $crdtCounter("counter-3", 0, {
-      getHandle: async () => repo.create<CounterDoc>({}),
+      getHandle: async () => handle,
     });
     await counter.loaded;
+    expect(counter.handle).toBe(handle);
     counter.value = 5;
     await Promise.resolve();
     counter.value = 7;
     await Promise.resolve();
     counter.value = 3;
     await Promise.resolve();
-    const doc = (counter.handle as unknown as DocHandle<CounterDoc>).doc();
+    const doc = handle.doc();
     expect(doc.count?.value).toBe(3);
   });
 
   test("the read-then-write idiom captures increments correctly", async () => {
     const repo = makeRepo();
+    const handle = repo.create<CounterDoc>({});
     const counter = $crdtCounter("counter-4", 0, {
-      getHandle: async () => repo.create<CounterDoc>({}),
+      getHandle: async () => handle,
     });
     await counter.loaded;
+    expect(counter.handle).toBe(handle);
     counter.value += 1;
     await Promise.resolve();
     counter.value += 1;
@@ -130,20 +142,22 @@ describe("$crdtCounter", () => {
     counter.value += 1;
     await Promise.resolve();
     expect(counter.value).toBe(3);
-    const doc = (counter.handle as unknown as DocHandle<CounterDoc>).doc();
+    const doc = handle.doc();
     expect(doc.count?.value).toBe(3);
   });
 
   test("remote increments propagate back to the signal", async () => {
     const repo = makeRepo();
+    const handle = repo.create<CounterDoc>({});
     const counter = $crdtCounter("counter-5", 0, {
-      getHandle: async () => repo.create<CounterDoc>({}),
+      getHandle: async () => handle,
     });
     await counter.loaded;
+    expect(counter.handle).toBe(handle);
     counter.value = 10;
     await Promise.resolve();
 
-    (counter.handle as unknown as DocHandle<CounterDoc>).change((doc) => {
+    handle.change((doc) => {
       doc.count?.increment(5);
     });
     await Promise.resolve();
@@ -162,13 +176,15 @@ describe("$crdtList", () => {
 
   test("writing to value updates the underlying items field", async () => {
     const repo = makeRepo();
+    const handle = repo.create<ListDoc<number>>({});
     const todos = $crdtList<number>("list-2", [], {
-      getHandle: async () => repo.create<ListDoc<number>>({}),
+      getHandle: async () => handle,
     });
     await todos.loaded;
+    expect(todos.handle).toBe(handle);
     todos.value = [1, 2, 3];
     await Promise.resolve();
-    const doc = (todos.handle as unknown as DocHandle<ListDoc<number>>).doc();
+    const doc = handle.doc();
     expect([...(doc.items ?? [])]).toEqual([1, 2, 3]);
   });
 
@@ -202,12 +218,14 @@ describe("$crdtList", () => {
 
   test("remote changes propagate back to the signal", async () => {
     const repo = makeRepo();
+    const handle = repo.create<ListDoc<number>>({ items: [1, 2] });
     const todos = $crdtList<number>("list-5", [], {
-      getHandle: async () => repo.create<ListDoc<number>>({ items: [1, 2] }),
+      getHandle: async () => handle,
     });
     await todos.loaded;
+    expect(todos.handle).toBe(handle);
     expect(todos.value).toEqual([1, 2]);
-    (todos.handle as unknown as DocHandle<ListDoc<number>>).change((doc) => {
+    handle.change((doc) => {
       doc.items = [...(doc.items ?? []), 3];
     });
     await Promise.resolve();
