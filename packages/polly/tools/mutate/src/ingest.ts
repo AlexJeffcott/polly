@@ -8,6 +8,7 @@
  * (gitignored); decisions are kept elsewhere in version control.
  */
 import { Database } from "bun:sqlite";
+import { isRecord, readStringArray } from "../../../src/shared/lib/guards";
 
 export interface MutationReport {
   schemaVersion: string;
@@ -180,18 +181,114 @@ export function buildDb(report: MutationReport, dbPath = ":memory:"): Database {
   return db;
 }
 
-// SQL rows and the on-disk report arrive untyped; these three helpers are the
-// single sanctioned cast boundary (the `as unknown as` escape hatch) so call
-// sites stay assertion-free and the column/shape types live next to the query.
+// SQL rows arrive untyped. bun:sqlite types a statement's rows by its first
+// type argument, and nothing at runtime checks them against it: the caller
+// names the row shape its SQL selects, and these two helpers are where it does.
 export function queryAll<T>(db: Database, sql: string): T[] {
-  return db.query(sql).all() as unknown as T[];
+  return db.query<T, []>(sql).all();
 }
 export function queryGet<T>(db: Database, sql: string): T | null {
-  // cast: the caller names the row shape its SQL selects
-  return db.query(sql).get() as T | null;
+  return db.query<T, []>(sql).get();
 }
+
+function isPosition(v: unknown): boolean {
+  return isRecord(v) && typeof v["line"] === "number" && typeof v["column"] === "number";
+}
+
+function isOptionalStringArray(v: unknown): boolean {
+  return v === undefined || readStringArray(v) !== undefined;
+}
+
+function isMutant(v: unknown): v is Mutant {
+  return (
+    isRecord(v) &&
+    typeof v["id"] === "string" &&
+    typeof v["mutatorName"] === "string" &&
+    typeof v["status"] === "string" &&
+    isRecord(v["location"]) &&
+    isPosition(v["location"]["start"]) &&
+    isOptionalStringArray(v["killedBy"]) &&
+    isOptionalStringArray(v["coveredBy"]) &&
+    isOptionalStringArray(v["killedByContract"]) &&
+    (v["contractOnly"] === undefined || typeof v["contractOnly"] === "boolean")
+  );
+}
+
+function isTestDef(v: unknown): v is TestDef {
+  return (
+    isRecord(v) &&
+    typeof v["id"] === "string" &&
+    typeof v["name"] === "string" &&
+    (v["location"] === undefined || (isRecord(v["location"]) && isPosition(v["location"]["start"])))
+  );
+}
+
+function isContractSite(v: unknown): v is ContractSiteDef {
+  if (!isRecord(v)) return false;
+  const handler = v["handler"];
+  return (
+    typeof v["id"] === "string" &&
+    typeof v["file"] === "string" &&
+    typeof v["line"] === "number" &&
+    (v["primitive"] === "requires" || v["primitive"] === "ensures") &&
+    (v["message"] === undefined || typeof v["message"] === "string") &&
+    (handler === undefined ||
+      (isRecord(handler) &&
+        typeof handler["from"] === "number" &&
+        typeof handler["to"] === "number"))
+  );
+}
+
+function isViolation(v: unknown): v is ReportContracts["violations"][number] {
+  return (
+    isRecord(v) &&
+    typeof v["target"] === "string" &&
+    typeof v["test"] === "string" &&
+    readStringArray(v["contracts"]) !== undefined
+  );
+}
+
+function isContracts(v: unknown): v is ReportContracts {
+  return (
+    isRecord(v) &&
+    (v["mode"] === "off" || v["mode"] === "ensures" || v["mode"] === "all") &&
+    (v["runner"] === "bun-test" || v["runner"] === "command") &&
+    Array.isArray(v["sites"]) &&
+    v["sites"].every(isContractSite) &&
+    Array.isArray(v["violations"]) &&
+    v["violations"].every(isViolation)
+  );
+}
+
+function everyEntry(v: unknown, key: string, item: (x: unknown) => boolean): boolean {
+  if (!isRecord(v)) return false;
+  return Object.values(v).every((entry) => {
+    if (!isRecord(entry)) return false;
+    const list = entry[key];
+    return Array.isArray(list) && list.every(item);
+  });
+}
+
+/**
+ * The shape `buildDb` reads, checked in full. Fields outside it (Stryker's
+ * `replacement`, `location.end`, `thresholds`, …) are allowed and kept.
+ */
+export function isMutationReport(v: unknown): v is MutationReport {
+  return (
+    isRecord(v) &&
+    typeof v["schemaVersion"] === "string" &&
+    everyEntry(v["files"], "mutants", isMutant) &&
+    (v["testFiles"] === undefined || everyEntry(v["testFiles"], "tests", isTestDef)) &&
+    (v["contracts"] === undefined || isContracts(v["contracts"]))
+  );
+}
+
 export async function loadMutationReport(path: string): Promise<MutationReport> {
-  return (await Bun.file(path).json()) as unknown as MutationReport;
+  const parsed: unknown = await Bun.file(path).json();
+  if (!isMutationReport(parsed)) {
+    throw new Error(`${path} is not a mutation report (mutation-testing-report-schema)`);
+  }
+  return parsed;
 }
 
 if (import.meta.main) {

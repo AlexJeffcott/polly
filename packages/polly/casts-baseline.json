@@ -156,18 +156,6 @@
     "text": "(await bus.handleMessage(message)) as | { success?: boolean; data?: unknown; error?: string } | undefined"
   },
   {
-    "file": "tools/mutate/src/decisions.ts",
-    "text": "JSON.parse(t) as unknown as Decision"
-  },
-  {
-    "file": "tools/mutate/src/ingest.ts",
-    "text": "(await Bun.file(path).json()) as unknown as MutationReport"
-  },
-  {
-    "file": "tools/mutate/src/ingest.ts",
-    "text": "db.query(sql).all() as unknown as T[]"
-  },
-  {
     "file": "tools/quality/src/attest.ts",
     "text": "JSON.parse(raw) as unknown as { digest?: string }"
   },
