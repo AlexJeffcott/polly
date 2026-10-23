@@ -8,7 +8,7 @@
  * (gitignored); decisions are kept elsewhere in version control.
  */
 import { Database } from "bun:sqlite";
-import { isRecord, readStringArray } from "../../../src/shared/lib/guards";
+import { isRecord, readNumber, readString, readStringArray } from "../../../src/shared/lib/guards";
 
 export interface MutationReport {
   schemaVersion: string;
@@ -181,14 +181,44 @@ export function buildDb(report: MutationReport, dbPath = ":memory:"): Database {
   return db;
 }
 
-// SQL rows arrive untyped. bun:sqlite types a statement's rows by its first
-// type argument, and nothing at runtime checks them against it: the caller
-// names the row shape its SQL selects, and these two helpers are where it does.
-export function queryAll<T>(db: Database, sql: string): T[] {
-  return db.query<T, []>(sql).all();
+/**
+ * One SQL result row, read field by field. Each reader returns the field when
+ * it has the named type and throws otherwise, naming the query and the field,
+ * so a schema drift between `buildDb` and a reader fails where it is read.
+ */
+export interface SqlRow {
+  string(field: string): string;
+  number(field: string): number;
+  stringOrNull(field: string): string | null;
 }
-export function queryGet<T>(db: Database, sql: string): T | null {
-  return db.query<T, []>(sql).get();
+
+/** Builds a row's value from its fields; the row type is what this returns. */
+export type RowParser<T> = (row: SqlRow) => T;
+
+function sqlRow(sql: string, index: number, row: unknown): SqlRow {
+  const where = `query "${sql.replace(/\s+/g, " ").trim()}" row ${index}`;
+  if (!isRecord(row)) throw new Error(`${where} is not a record`);
+  const fail = (field: string, kind: string): never => {
+    const got = field in row ? JSON.stringify(row[field]) : "missing";
+    throw new Error(`${where}: field "${field}" is not ${kind} (got ${got})`);
+  };
+  return {
+    string: (field) => readString(row[field]) ?? fail(field, "a string"),
+    number: (field) => readNumber(row[field]) ?? fail(field, "a number"),
+    stringOrNull: (field) =>
+      row[field] === null ? null : (readString(row[field]) ?? fail(field, "a string or null")),
+  };
+}
+
+// SQL rows arrive untyped: bun:sqlite returns `unknown` rows when the
+// statement is given no type argument, and each caller's parser checks them.
+export function queryAll<T>(db: Database, sql: string, parse: RowParser<T>): T[] {
+  const rows: unknown[] = db.query(sql).all();
+  return rows.map((row, i) => parse(sqlRow(sql, i, row)));
+}
+export function queryGet<T>(db: Database, sql: string, parse: RowParser<T>): T | null {
+  const row: unknown = db.query(sql).get();
+  return row === null ? null : parse(sqlRow(sql, 0, row));
 }
 
 function isPosition(v: unknown): boolean {
@@ -295,9 +325,10 @@ if (import.meta.main) {
   const reportPath = process.argv[2] ?? "reports/mutation/mutation.json";
   const dbPath = process.argv[3] ?? "reports/test-debt.sqlite";
   const db = buildDb(await loadMutationReport(reportPath), dbPath);
-  const n = queryGet<{ t: number; m: number; k: number }>(
+  const n = queryGet(
     db,
-    "SELECT (SELECT count(*) FROM tests) t, (SELECT count(*) FROM mutants) m, (SELECT count(*) FROM kills) k"
+    "SELECT (SELECT count(*) FROM tests) t, (SELECT count(*) FROM mutants) m, (SELECT count(*) FROM kills) k",
+    (r) => ({ t: r.number("t"), m: r.number("m"), k: r.number("k") })
   ) ?? { t: 0, m: 0, k: 0 };
   console.log(`Ingested ${reportPath} -> ${dbPath}`);
   console.log(`  ${n.t} tests, ${n.m} mutants, ${n.k} kill-edges`);
