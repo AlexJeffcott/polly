@@ -160,32 +160,12 @@
     "text": "mockResponse as unknown as Response"
   },
   {
-    "file": "tools/test/src/browser/harness.ts",
-    "text": "window as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tools/test/src/browser/harness.ts",
-    "text": "window as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tools/test/src/coverage-policy/mutate-targets.ts",
-    "text": "JSON.parse(readFileSync(path, \"utf8\")) as unknown as StrykerConfig"
-  },
-  {
     "file": "tools/test/src/e2e-mesh/launch-peer.ts",
     "text": "window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] }"
   },
   {
     "file": "tools/test/src/e2e-mesh/launch-peer.ts",
     "text": "window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] }"
-  },
-  {
-    "file": "tools/test/src/e2e-shared/ephemeral-port.ts",
-    "text": "app as unknown as BunServerHost"
-  },
-  {
-    "file": "tools/test/src/e2e-shared/ephemeral-port.ts",
-    "text": "wss as unknown as AddressHost"
   },
   {
     "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",

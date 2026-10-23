@@ -42,7 +42,7 @@ interface TestResult {
  * suite just runs silently, as it always did.
  */
 function reportProgress(event: ProgressEvent): void {
-  const fn = (window as unknown as Record<string, unknown>)["__pollyProgress"];
+  const fn: unknown = Reflect.get(window, "__pollyProgress");
   if (isProgressFunction(fn)) fn(event);
 }
 
@@ -273,7 +273,7 @@ export async function done(): Promise<void> {
     }
   }
 
-  const report = (window as unknown as Record<string, unknown>)["__pollyReport"];
+  const report: unknown = Reflect.get(window, "__pollyReport");
   if (!isReportFunction(report)) {
     throw new Error(
       "harness.done(): window.__pollyReport is not defined. " +
