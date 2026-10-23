@@ -6,8 +6,7 @@ const bus = getMessageBus("page");
 
 // Register handlers for page JS environment access
 bus.on("PAGE_GET_VAR", async (payload) => {
-  const windowRecord = window as unknown as Record<string, unknown>;
-  const value = windowRecord[payload.varName];
+  const value: unknown = Reflect.get(window, payload.varName);
   return {
     value,
     exists: payload.varName in window,
@@ -16,8 +15,7 @@ bus.on("PAGE_GET_VAR", async (payload) => {
 
 bus.on("PAGE_CALL_FN", async (payload) => {
   try {
-    const windowRecord = window as unknown as Record<string, unknown>;
-    const fn = windowRecord[payload.fnName];
+    const fn: unknown = Reflect.get(window, payload.fnName);
     if (typeof fn !== "function") {
       return { result: null, error: "Not a function" };
     }
@@ -33,9 +31,9 @@ bus.on("PAGE_CALL_FN", async (payload) => {
 
 bus.on("PAGE_SET_VAR", async (payload) => {
   try {
-    const windowRecord = window as unknown as Record<string, unknown>;
-    windowRecord[payload.varName] = payload.value;
-    return { success: true };
+    // Reflect.set reports a refused write (non-writable or setter-less
+    // property) as false where strict-mode assignment would throw.
+    return { success: Reflect.set(window, payload.varName, payload.value) };
   } catch (_error) {
     return { success: false };
   }

@@ -124,40 +124,8 @@
     "text": "partial as unknown as TStores"
   },
   {
-    "file": "src/background/context-menu.ts",
-    "text": "info.menuItemId as unknown as string"
-  },
-  {
-    "file": "src/background/context-menu.ts",
-    "text": "payload.contexts as unknown as [ chrome.contextMenus.ContextType, ...chrome.contextMenus.ContextType[], ]"
-  },
-  {
     "file": "src/client/wrapper.ts",
     "text": "makePathProxy([]) as unknown as typeof baseClient & { $polly: typeof pollyApi }"
-  },
-  {
-    "file": "src/content/index.ts",
-    "text": "el as unknown as HTMLElement"
-  },
-  {
-    "file": "src/content/index.ts",
-    "text": "el as unknown as HTMLElement"
-  },
-  {
-    "file": "src/content/index.ts",
-    "text": "el as unknown as HTMLElement"
-  },
-  {
-    "file": "src/page/index.ts",
-    "text": "window as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/page/index.ts",
-    "text": "window as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "src/page/index.ts",
-    "text": "window as unknown as Record<string, unknown>"
   },
   {
     "file": "src/polly-ui/ActionInput.tsx",
@@ -182,18 +150,6 @@
   {
     "file": "src/polly-ui/TextInput.tsx",
     "text": "props.value as unknown as Signal<string>"
-  },
-  {
-    "file": "src/shared/adapters/chrome/storage.chrome.ts",
-    "text": "keys as unknown as never"
-  },
-  {
-    "file": "src/shared/adapters/chrome/window.chrome.ts",
-    "text": "listener as unknown as EventListener"
-  },
-  {
-    "file": "src/shared/adapters/chrome/window.chrome.ts",
-    "text": "listener as unknown as EventListener"
   },
   {
     "file": "src/shared/lib/blob-store-impl.ts",
