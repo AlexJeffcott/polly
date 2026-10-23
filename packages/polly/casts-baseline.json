@@ -508,10 +508,6 @@
     "text": "{} as unknown as Repo"
   },
   {
-    "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
-    "text": "pairs.map(([key, docId]) => ({ key, docId })) as unknown as MeshStateLazyWrapperRecord[]"
-  },
-  {
     "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
     "text": "{ peerId: \"peer-1\", slot: { handles } } as unknown as AdapterPeer"
   },
@@ -538,14 +534,6 @@
   {
     "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
     "text": "{ peerId: \"peer-fake\", slot: { handles: { [docId]: { lastSyncMessageOutAt: 123, lastSyncMessageInAt: undefined, lastSyncMessageOutSize: 256, lastSyncMessageOutType: \"sync\", }, }, }, } as unknown as Parameters<typeof enrichPeerSlot>[0]"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
   },
   {
     "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",

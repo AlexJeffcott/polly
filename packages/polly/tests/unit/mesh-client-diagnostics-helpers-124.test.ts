@@ -22,10 +22,17 @@ const {
   installPolly107SyncReevaluation,
 } = __test__;
 
-// Deliberately partial records: the duplicate detector reads only key/docId,
-// so the other MeshStateLazyWrapperRecord fields are omitted.
+// The duplicate detector reads only key/docId; the other fields are fixed.
 const records = (pairs: Array<[key: string, docId: string]>): MeshStateLazyWrapperRecord[] =>
-  pairs.map(([key, docId]) => ({ key, docId })) as unknown as MeshStateLazyWrapperRecord[];
+  pairs.map(([key, docId]) => ({
+    key,
+    docId,
+    at: 0,
+    exitReason: "returned-cached",
+    handleRegistered: true,
+    handleState: undefined,
+    errorMessage: undefined,
+  }));
 
 describe("findLazyWrapperDocIdDuplicates — count > 1 threshold (#124)", () => {
   test("a docId appearing once is NOT a duplicate (kills > → >=)", () => {
