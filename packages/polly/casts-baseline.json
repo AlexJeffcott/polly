@@ -425,23 +425,7 @@
   },
   {
     "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
-    "text": "{ peerId: \"peer-1\", slot: { handles } } as unknown as AdapterPeer"
-  },
-  {
-    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
-    "text": "{ peerId: \"peer-1\", slot: undefined } as unknown as AdapterPeer"
-  },
-  {
-    "file": "tests/unit/mesh-client-snapshot-enrichment.test.ts",
     "text": "{ synchronizer: () => {} } as unknown as Repo"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "{ peerId: \"peer-fake\", slot: { handles: { \"unknown-doc-id\": { lastSyncMessageOutAt: undefined, lastSyncMessageInAt: 999, lastSyncMessageOutSize: undefined, lastSyncMessageOutType: undefined, }, }, }, } as unknown as Parameters<typeof enrichPeerSlot>[0]"
-  },
-  {
-    "file": "tests/unit/mesh-client-sync-view-112-integration.test.ts",
-    "text": "{ peerId: \"peer-fake\", slot: { handles: { [docId]: { lastSyncMessageOutAt: 123, lastSyncMessageInAt: undefined, lastSyncMessageOutSize: 256, lastSyncMessageOutType: \"sync\", }, }, }, } as unknown as Parameters<typeof enrichPeerSlot>[0]"
   },
   {
     "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",

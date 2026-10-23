@@ -12,11 +12,10 @@
 import { describe, expect, test } from "bun:test";
 import type { Repo } from "@automerge/automerge-repo/slim";
 import { __test__ } from "@/shared/lib/mesh-client";
+import type { HandleSyncSnapshot } from "@/shared/lib/mesh-webrtc-adapter";
+import { type AdapterPeerSnapshot, adapterPeer, adapterSlot } from "./helpers/adapter-peer";
 
 const { enrichPeerSlot, getCollectionSynchronizer } = __test__;
-
-/** The adapter-side peer shape enrichPeerSlot consumes. */
-type AdapterPeer = Parameters<typeof enrichPeerSlot>[0];
 
 /** Pull one enriched handle entry out of the result, failing loudly when
  * the slot or the entry is missing. */
@@ -39,10 +38,8 @@ const emptyWire = {
   lastSyncMessageOutType: undefined,
 };
 
-function peerWith(handles: Record<string, unknown>): AdapterPeer {
-  // Deliberately partial adapter-peer double: enrichPeerSlot reads only
-  // peerId and slot.handles, so the other snapshot fields are omitted.
-  return { peerId: "peer-1", slot: { handles } } as unknown as AdapterPeer;
+function peerWith(handles: Record<string, HandleSyncSnapshot>): AdapterPeerSnapshot {
+  return adapterPeer("peer-1", adapterSlot(handles));
 }
 
 describe("enrichPeerSlot — wire + state merge", () => {
@@ -109,14 +106,16 @@ describe("enrichPeerSlot — wire + state merge", () => {
     expect(h.peerDocumentStatus).toBe("has");
   });
 
+  test("carries the adapter's other peer and slot fields through unchanged", () => {
+    const peer = peerWith({ "doc-A": fullWire });
+    const out = enrichPeerSlot(peer, ["doc-A"], {}, undefined);
+    const { slot, ...rest } = peer;
+    expect(out).toMatchObject(rest);
+    expect(out.slot).toMatchObject({ ...slot, handles: {} });
+  });
+
   test("a peer with no slot is returned with slot undefined", () => {
-    const out = enrichPeerSlot(
-      // Deliberately partial adapter-peer double: only peerId/slot are read.
-      { peerId: "peer-1", slot: undefined } as unknown as AdapterPeer,
-      ["doc-A"],
-      {},
-      undefined
-    );
+    const out = enrichPeerSlot(adapterPeer("peer-1", undefined), ["doc-A"], {}, undefined);
     expect(out.slot).toBeUndefined();
   });
 });
