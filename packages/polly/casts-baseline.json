@@ -156,20 +156,8 @@
     "text": "(await bus.handleMessage(message)) as | { success?: boolean; data?: unknown; error?: string } | undefined"
   },
   {
-    "file": "tools/quality/src/attest.ts",
-    "text": "JSON.parse(raw) as unknown as { digest?: string }"
-  },
-  {
-    "file": "tools/quality/src/cache.ts",
-    "text": "JSON.parse(raw) as unknown as CacheEntry"
-  },
-  {
     "file": "tools/quality/src/config.ts",
     "text": "(await import(path)) as unknown as { default?: { quality?: QualityRunConfig } }"
-  },
-  {
-    "file": "tools/quality/src/plugins/import-checks.ts",
-    "text": "JSON.parse(stripped) as unknown as { compilerOptions?: { paths?: Record<string, unknown> }; }"
   },
   {
     "file": "tools/test/src/adapters/fetch.mock.ts",

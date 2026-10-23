@@ -17,6 +17,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isRecord, readBoolean, readRecord, readStringArray } from "../../../src/shared/lib/guards";
 import type { CheckOutcome } from "./types";
 
 export type CacheInputs = {
@@ -88,20 +89,22 @@ export async function getCachedOutcome(
   } catch {
     return null;
   }
-  let parsed: CacheEntry;
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw) as unknown as CacheEntry;
+    parsed = JSON.parse(raw);
   } catch {
     // Treat corrupt entries as misses; the check will re-run and the next
     // write replaces the bad file. We deliberately don't throw — a busted
     // cache should not block a CI run.
     return null;
   }
-  if (parsed.hash !== hash) return null;
-  if (typeof parsed.outcome?.ok !== "boolean" || !Array.isArray(parsed.outcome?.messages)) {
-    return null;
-  }
-  return parsed.outcome;
+  // A well-formed JSON value of the wrong shape is a miss too.
+  if (!isRecord(parsed) || parsed["hash"] !== hash) return null;
+  const outcome = readRecord(parsed["outcome"]);
+  const ok = readBoolean(outcome?.["ok"]);
+  const messages = readStringArray(outcome?.["messages"]);
+  if (ok === undefined || messages === undefined) return null;
+  return { ok, messages };
 }
 
 export async function setCachedOutcome(

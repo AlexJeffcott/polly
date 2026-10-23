@@ -24,6 +24,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { readRecord, readString } from "../../../src/shared/lib/guards";
 import { type RegisteredCheck, runChecks } from "./host";
 import type { CheckRunResult, QualityRunConfig, RunReport } from "./types";
 
@@ -124,8 +125,8 @@ function attestCachePath(rootDir: string, sha: string): string {
 async function readPriorAttestation(rootDir: string, sha: string): Promise<string | null> {
   try {
     const raw = await readFile(attestCachePath(rootDir, sha), "utf8");
-    const parsed = JSON.parse(raw) as unknown as { digest?: string };
-    return parsed.digest ?? null;
+    const parsed: unknown = JSON.parse(raw);
+    return readString(readRecord(parsed)?.["digest"]) ?? null;
   } catch {
     return null;
   }
