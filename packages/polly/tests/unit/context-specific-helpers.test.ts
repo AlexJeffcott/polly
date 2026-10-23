@@ -12,7 +12,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { ExtensionAdapters } from "@/shared/adapters";
 import {
   createBackgroundHelpers,
   createContentScriptHelpers,
@@ -25,7 +24,26 @@ import { clearGlobals, setGlobal } from "./helpers/globals";
 
 type AnyGlobal = Record<string, unknown>;
 
-/** Adapters stub — the helpers only ever reach for tabs and runtime. */
+/** A complete `chrome.tabs.Tab` for the stubbed `tabs.query` and
+ *  `tabs.create` to return. */
+const TAB: chrome.tabs.Tab = {
+  id: 1,
+  active: true,
+  index: 0,
+  pinned: false,
+  highlighted: false,
+  windowId: 1,
+  frozen: false,
+  incognito: false,
+  selected: false,
+  discarded: false,
+  autoDiscardable: true,
+  groupId: -1,
+  lastAccessed: 0,
+};
+
+/** Adapters stub — the helpers only ever reach for tabs.query, tabs.create
+ *  and runtime.openOptionsPage, which is all their parameter types ask for. */
 function makeAdapters() {
   const calls: { query: unknown[]; create: unknown[]; openOptionsPage: number } = {
     query: [],
@@ -34,12 +52,13 @@ function makeAdapters() {
   };
   const adapters = {
     tabs: {
-      query: async (filter: unknown) => {
+      query: async (filter: chrome.tabs.QueryInfo) => {
         calls.query.push(filter);
-        return [{ id: 1, active: true }];
+        return [TAB];
       },
-      create: (options: unknown) => {
+      create: async (options: chrome.tabs.CreateProperties) => {
         calls.create.push(options);
+        return TAB;
       },
     },
     runtime: {
@@ -47,7 +66,7 @@ function makeAdapters() {
         calls.openOptionsPage += 1;
       },
     },
-  } as unknown as ExtensionAdapters;
+  };
   return { adapters, calls };
 }
 
@@ -313,8 +332,8 @@ describe("createPopupHelpers", () => {
 
   test("getCurrentTab queries the active tab in the current window", async () => {
     const { adapters, calls } = makeAdapters();
-    const tab: unknown = await createPopupHelpers(adapters).getCurrentTab();
-    expect(tab).toEqual({ id: 1, active: true });
+    const tab = await createPopupHelpers(adapters).getCurrentTab();
+    expect(tab).toBe(TAB);
     expect(calls.query).toEqual([{ active: true, currentWindow: true }]);
   });
 
@@ -452,8 +471,8 @@ describe("createSidePanelHelpers", () => {
 
   test("getCurrentTab queries the active tab in the current window", async () => {
     const { adapters, calls } = makeAdapters();
-    const tab: unknown = await createSidePanelHelpers(adapters).getCurrentTab();
-    expect(tab).toEqual({ id: 1, active: true });
+    const tab = await createSidePanelHelpers(adapters).getCurrentTab();
+    expect(tab).toBe(TAB);
     expect(calls.query).toEqual([{ active: true, currentWindow: true }]);
   });
 
@@ -481,8 +500,8 @@ describe("createBackgroundHelpers", () => {
 
   test("getAllTabs queries with an empty filter", async () => {
     const { adapters, calls } = makeAdapters();
-    const tabs: unknown = await createBackgroundHelpers(adapters).getAllTabs();
-    expect(tabs).toEqual([{ id: 1, active: true }]);
+    const tabs = await createBackgroundHelpers(adapters).getAllTabs();
+    expect(tabs).toEqual([TAB]);
     expect(calls.query).toEqual([{}]);
   });
 
