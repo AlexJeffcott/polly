@@ -16,6 +16,7 @@
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { Glob } from "bun";
+import { readRecord } from "../../../../src/shared/lib/guards";
 import type { Check } from "../types";
 
 const SKIP_DIRS_DEFAULT = ["node_modules", ".git", "dist", ".bun", ".cache"];
@@ -207,16 +208,15 @@ const tsconfigPaths: Check<TsconfigPathsConfig | undefined> = {
     for (const tsconfigPath of await findTsconfigs(rootDir, files)) {
       const raw = await Bun.file(tsconfigPath).text();
       const stripped = raw.replace(/\/\/[^\n]*\n/g, "\n").replace(/\/\*[\s\S]*?\*\//g, "");
-      let parsed: { compilerOptions?: { paths?: Record<string, unknown> } };
+      let parsed: unknown;
       try {
-        parsed = JSON.parse(stripped) as unknown as {
-          compilerOptions?: { paths?: Record<string, unknown> };
-        };
+        parsed = JSON.parse(stripped);
       } catch {
         violations.push(`${relative(rootDir, tsconfigPath)}: failed to parse as JSON`);
         continue;
       }
-      const paths = parsed.compilerOptions?.paths ?? {};
+      const paths =
+        readRecord(readRecord(readRecord(parsed)?.["compilerOptions"])?.["paths"]) ?? {};
       for (const alias of Object.keys(paths)) {
         if (allowed.has(alias)) continue;
         violations.push(`${relative(rootDir, tsconfigPath)}: paths["${alias}"] is set`);

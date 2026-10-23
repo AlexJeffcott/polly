@@ -95,6 +95,20 @@ describe("get/setCachedOutcome", () => {
     await rm(root, { recursive: true });
   });
 
+  test("well-formed JSON of the wrong shape is a miss, not a throw", async () => {
+    const root = await tmp();
+    await setCachedOutcome(root, "polly:test", "abc123", outcome);
+    const cachePath = join(root, ".cache", "polly-quality", "polly__test.json");
+    for (const body of [
+      "null",
+      JSON.stringify({ hash: "abc123", outcome: { ok: true, messages: [1] } }),
+    ]) {
+      await writeFile(cachePath, body);
+      expect(await getCachedOutcome(root, "polly:test", "abc123")).toBeNull();
+    }
+    await rm(root, { recursive: true });
+  });
+
   test("namespaced ids are written to a filename without colons", async () => {
     const root = await tmp();
     await setCachedOutcome(root, "polly:no-as-casting", "h", outcome);
