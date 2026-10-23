@@ -56,6 +56,12 @@ export type MeshDiagnostic =
   | { kind: "drop:unknown-control-type"; senderId: string; tag: number }
   | { kind: "drop:empty-control-payload"; senderId: string }
   | { kind: "drop:control-handler-threw"; senderId: string; tag: number; reason: string }
+  // A Sync-tagged payload that verified and decrypted but whose body is
+  // not a serialised Automerge message: shorter than its length prefix,
+  // a header that is not JSON, or a header without string `type`,
+  // `senderId` and `targetId` or with a non-string `documentId`.
+  // `senderId` is the signer.
+  | { kind: "drop:malformed-sync-message"; senderId: string; reason?: string }
   | { kind: "ctrl:revocation-received"; senderId: string }
   | { kind: "ctrl:revocation-summary-received"; senderId: string }
   // Revocation lifecycle (RFC-043). `revoke:applied` fires when a

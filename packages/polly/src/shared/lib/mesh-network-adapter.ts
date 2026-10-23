@@ -61,6 +61,7 @@ import {
   type SigningKeyPair,
   signEnvelope,
 } from "./signing";
+import { messageFromWireHeader } from "./wire-message";
 
 /** The well-known document id used for the Phase 2 first-cut single-key
  * encryption mode. See the file-level comment for the per-document key
@@ -428,7 +429,8 @@ export class MeshNetworkAdapter extends NetworkAdapter {
    * to the caller. For revocation tags the dispatch emits a
    * `ctrl:*-received` diagnostic and drops the payload at this layer
    * pending the next RFC-043 PR. Unknown tags emit
-   * `drop:unknown-control-type` and drop.
+   * `drop:unknown-control-type` and drop. A Sync body that does not
+   * deserialise emits `drop:malformed-sync-message` and drops.
    */
   private dispatchTaggedPayload(payload: Uint8Array, senderId: string): Message | undefined {
     if (payload.byteLength < 1) {
@@ -445,7 +447,19 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     const body = payload.subarray(1);
     switch (tag) {
       case MESH_CONTROL_TYPE.Sync:
-        return deserialiseMessage(body);
+        // Throws on a malformed body. Catch here rather than let it
+        // escape: with sync-yield on, the base adapter emits from a
+        // setTimeout, where a throw is an uncaught exception.
+        try {
+          return deserialiseMessage(body);
+        } catch (err) {
+          emitMeshDiagnostic({
+            kind: "drop:malformed-sync-message",
+            senderId,
+            reason: err instanceof Error ? err.message : String(err),
+          });
+          return undefined;
+        }
       case MESH_CONTROL_TYPE.Revocation:
         emitMeshDiagnostic({ kind: "ctrl:revocation-received", senderId });
         this.invokeControlHandler(tag, body, senderId);
@@ -584,7 +598,9 @@ function serialiseMessage(message: Message): Uint8Array {
 }
 
 /**
- * Inverse of {@link serialiseMessage}.
+ * Inverse of {@link serialiseMessage}. Throws when the bytes are shorter
+ * than their length prefix, the header is not JSON, or the header is not
+ * a message header (see {@link messageFromWireHeader}).
  */
 function deserialiseMessage(bytes: Uint8Array): Message {
   if (bytes.length < 4) {
@@ -595,7 +611,6 @@ function deserialiseMessage(bytes: Uint8Array): Message {
   if (bytes.length < 4 + headerLen) {
     throw new Error("MeshNetworkAdapter: message header truncated.");
   }
-  const header = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
-  const data = bytes.slice(4 + headerLen);
-  return { ...header, data } as unknown as Message;
+  const header: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
+  return messageFromWireHeader(header, bytes.slice(4 + headerLen), "MeshNetworkAdapter");
 }
