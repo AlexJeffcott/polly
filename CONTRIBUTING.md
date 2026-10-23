@@ -8,7 +8,7 @@ Polly (πολύς - "many") is a multi-execution-context framework for building 
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) 1.4.3 or later (`bun check` is the type checker)
+- [Bun](https://bun.sh/) 1.4.4 or later (`bun check` is the type checker)
 - Chrome or Edge browser for testing Chrome extensions
 - Git
 
