@@ -1,19 +1,7 @@
 [
   {
-    "file": "scripts/e2e-verify-declared-contexts.ts",
-    "text": "config as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "scripts/e2e-verify-declared-contexts.ts",
-    "text": "configFor() as unknown as UnifiedVerificationConfig"
-  },
-  {
     "file": "scripts/e2e-verify-liveness.ts",
     "text": "{ queue: { draining: { type: \"boolean\" }, done: { type: \"boolean\" } }, } as unknown as VerificationConfig[\"state\"]"
-  },
-  {
-    "file": "scripts/e2e-verify-run-accounting.ts",
-    "text": "CONFIG as unknown as UnifiedVerificationConfig"
   },
   {
     "file": "src/actions/form.ts",
@@ -124,104 +112,12 @@
     "text": "window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] }"
   },
   {
-    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
-    "text": "{ state: { ...AUTH_STATE, paired: { type: \"boolean\" }, }, messages: { maxInFlight: 2, maxTabs: null }, onBuild: \"warn\", onRelease: \"error\", subsystems: { auth: { state: [\"session\", \"token\"], handlers: [\"AUTH_0\", \"AUTH_1\"] }, pairing: { state: [\"paired\"], handlers: [\"PAIR_0\"], bounds: { maxInFlight: 1 } }, }, } as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
-    "text": "{ state: AUTH_STATE, ...(contexts ? { contexts } : {}), messages, onBuild: \"warn\", onRelease: \"error\", } as unknown as VerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
-    "text": "{ state: AUTH_STATE, ...(contexts ? { contexts } : {}), messages: { maxInFlight: 1, maxTabs: null }, onBuild: \"warn\", onRelease: \"error\", } as unknown as VerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
-    "text": "config as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/analysis/state-space-estimator.test.ts",
-    "text": "config as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
-    "text": "config as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
-    "text": "configWith() as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
-    "text": "configWith() as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/__tests__/codegen/declared-contexts.test.ts",
-    "text": "configWith({ contexts: [\"server\"] }) as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/adapters/detection.ts",
-    "text": "this.project.getCompilerOptions()[\"configFilePath\"] as unknown as string"
-  },
-  {
-    "file": "tools/verify/src/adapters/detection.ts",
-    "text": "this.project.getCompilerOptions()[\"configFilePath\"] as unknown as string"
-  },
-  {
-    "file": "tools/verify/src/analysis/state-space-estimator.ts",
-    "text": "config as unknown as { subsystems?: Record< string, { state: string[]; handlers: string[]; bounds?: { maxInFlight?: number } } >; }"
-  },
-  {
-    "file": "tools/verify/src/analysis/state-space-estimator.ts",
-    "text": "config.messages as unknown as LegacyVerificationConfig[\"messages\"] & { include?: string[]; exclude?: string[]; }"
-  },
-  {
-    "file": "tools/verify/src/analysis/state-space-estimator.ts",
-    "text": "f.cardinality as unknown as number"
-  },
-  {
-    "file": "tools/verify/src/analysis/state-space-estimator.ts",
-    "text": "f.cardinality as unknown as number"
-  },
-  {
-    "file": "tools/verify/src/cli.ts",
-    "text": "analysis as unknown as import(\"./core/model\").CodebaseAnalysis"
-  },
-  {
-    "file": "tools/verify/src/cli.ts",
-    "text": "analysis as unknown as import(\"./core/model\").CodebaseAnalysis"
-  },
-  {
     "file": "tools/verify/src/cli.ts",
     "text": "config as unknown as import(\"./config/types\").UnifiedVerificationConfig"
   },
   {
     "file": "tools/verify/src/cli.ts",
     "text": "config as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/cli.ts",
-    "text": "config as unknown as UnifiedVerificationConfig"
-  },
-  {
-    "file": "tools/verify/src/cli.ts",
-    "text": "config.subsystems as unknown as Record< string, { state: string[]; handlers: string[] } >"
-  },
-  {
-    "file": "tools/verify/src/cli.ts",
-    "text": "config.subsystems as unknown as Record<string, { state: string[] }>"
-  },
-  {
-    "file": "tools/verify/src/codegen/__tests__/tla-codegen-validation.test.ts",
-    "text": "generator as unknown as any"
-  },
-  {
-    "file": "tools/verify/src/codegen/tla.ts",
-    "text": "filteredState as unknown as VerificationConfig[\"state\"]"
-  },
-  {
-    "file": "tools/verify/src/codegen/tla.ts",
-    "text": "firstType as unknown as FieldAnalysis[\"type\"]"
   },
   {
     "file": "tools/verify/src/codegen/tla.ts",

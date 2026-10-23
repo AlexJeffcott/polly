@@ -4,6 +4,7 @@
 // dependencies, and code patterns.
 
 import { Project, type SourceFile } from "ts-morph";
+import { readString } from "../../../../src/shared/lib/guards";
 import type { RoutingAdapter } from "./base";
 import { EventBusAdapter } from "./event-bus";
 import { WebExtensionAdapter } from "./web-extension";
@@ -72,16 +73,14 @@ export class AdapterDetector {
       if (best.type === "web-extension") {
         suggestedAdapter = new WebExtensionAdapter({
           tsConfigPath:
-            (this.project.getCompilerOptions()["configFilePath"] as unknown as string) ||
-            "tsconfig.json",
+            readString(this.project.getCompilerOptions()["configFilePath"]) || "tsconfig.json",
           maxInFlight: 6,
           maxTabs: 2,
         });
       } else if (best.type === "event-bus") {
         suggestedAdapter = new EventBusAdapter({
           tsConfigPath:
-            (this.project.getCompilerOptions()["configFilePath"] as unknown as string) ||
-            "tsconfig.json",
+            readString(this.project.getCompilerOptions()["configFilePath"]) || "tsconfig.json",
           maxInFlight: 5,
         });
       }

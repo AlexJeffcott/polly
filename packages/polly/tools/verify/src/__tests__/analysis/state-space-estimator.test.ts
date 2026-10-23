@@ -3,7 +3,7 @@ import type { CodebaseAnalysis } from "../../../../analysis/src/types";
 import { estimateStateSpace, estimateSubsystems } from "../../analysis/state-space-estimator";
 import { TLAGenerator } from "../../codegen/tla";
 import type { UnifiedVerificationConfig } from "../../config/types";
-import type { VerificationConfig } from "../../types";
+import type { StateConfig, VerificationConfig } from "../../types";
 
 /**
  * polly#183: what `--estimate` predicts against what the generator emits.
@@ -21,7 +21,7 @@ import type { VerificationConfig } from "../../types";
 const AUTH_STATE = {
   session: { type: "enum", values: ["anonymous", "pending", "authenticated"] },
   token: { type: "enum", values: ["none", "fresh", "expired"] },
-};
+} satisfies StateConfig;
 
 function analysisWithHandlers(count: number): CodebaseAnalysis {
   const messageTypes = Array.from({ length: count }, (_, i) => `AUTH_${i}`);
@@ -108,7 +108,7 @@ describe("estimateStateSpace — the eal auth subsystem", () => {
 });
 
 describe("estimateSubsystems", () => {
-  const config = {
+  const config: UnifiedVerificationConfig = {
     state: {
       ...AUTH_STATE,
       paired: { type: "boolean" },
@@ -120,7 +120,7 @@ describe("estimateSubsystems", () => {
       auth: { state: ["session", "token"], handlers: ["AUTH_0", "AUTH_1"] },
       pairing: { state: ["paired"], handlers: ["PAIR_0"], bounds: { maxInFlight: 1 } },
     },
-  } as unknown as UnifiedVerificationConfig;
+  };
 
   test("estimates the models that will actually run, one per subsystem", () => {
     const estimates = estimateSubsystems(config);
@@ -179,17 +179,17 @@ describe("estimator against the generated spec", () => {
   ])(
     "%s: contexts and tabs match the .cfg the generator writes",
     async (_label, messages, contexts) => {
-      const config = {
+      const config: VerificationConfig = {
         state: AUTH_STATE,
         ...(contexts ? { contexts } : {}),
         messages,
         onBuild: "warn",
         onRelease: "error",
-      } as unknown as VerificationConfig;
+      };
       const analysis = analysisWithHandlers(4);
 
       const { cfg } = await generateFor(config, analysis);
-      const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
+      const estimate = estimateStateSpace(config, analysis);
 
       expect(cfgSetMembers(cfg, "Contexts")).toEqual(estimate.contexts);
       expect(cfgSetMembers(cfg, "Contexts")).toHaveLength(estimate.contextCount);
@@ -202,17 +202,17 @@ describe("estimator against the generated spec", () => {
     ["a declared set", ["server", "client"]],
     ["a single declared context", ["server"]],
   ])("%s: the branching factor matches the quantifiers UserNext emits", async (_l, contexts) => {
-    const config = {
+    const config: VerificationConfig = {
       state: AUTH_STATE,
       ...(contexts ? { contexts } : {}),
       messages: { maxInFlight: 1, maxTabs: null },
       onBuild: "warn",
       onRelease: "error",
-    } as unknown as VerificationConfig;
+    };
     const analysis = analysisWithHandlers(4);
 
     const { spec, cfg } = await generateFor(config, analysis);
-    const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
+    const estimate = estimateStateSpace(config, analysis);
 
     // The send step the estimator is modelling.
     expect(spec).toContain(

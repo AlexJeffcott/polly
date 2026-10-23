@@ -36,7 +36,6 @@ import { assert, selfRun, type TierContext, type TierResult } from "../tools/tes
 import { estimateStateSpace } from "../tools/verify/src/analysis/state-space-estimator";
 import { DEFAULT_CONTEXTS } from "../tools/verify/src/codegen/model-constants";
 import { generateTLA } from "../tools/verify/src/codegen/tla";
-import type { UnifiedVerificationConfig } from "../tools/verify/src/config/types";
 import { DockerRunner } from "../tools/verify/src/runner/docker";
 import type { VerificationConfig } from "../tools/verify/src/types";
 
@@ -136,7 +135,7 @@ async function measure(
     .map((s) => s.trim())
     .filter(Boolean).length;
 
-  const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, analysis);
+  const estimate = estimateStateSpace(config, analysis);
   assert(
     estimate.contextCount === contexts.length,
     `--estimate models ${estimate.contextCount} contexts; the .cfg declares ${contexts.length}`
@@ -205,10 +204,7 @@ async function checkDefaultUnmoved(ctx: TierContext, analysis: CodebaseAnalysis)
     "declaring the default explicitly produces a different spec than omitting the key"
   );
 
-  const estimate = estimateStateSpace(
-    configFor() as unknown as UnifiedVerificationConfig,
-    analysis
-  );
+  const estimate = estimateStateSpace(configFor(), analysis);
   assert(!estimate.contextsDeclared, "the default set was reported as declared");
   assert(
     estimate.suggestions.some((s) => s.includes("no `contexts` key is declared")),

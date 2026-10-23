@@ -3907,16 +3907,13 @@ export class TLAGenerator {
    * Get initial value for union type
    */
   private getInitialUnionValue(
-    typeInfo: { unionTypes?: Array<{ kind: string }> },
+    typeInfo: Pick<FieldAnalysis["type"], "unionTypes">,
     fieldAnalysis: FieldAnalysis
   ): string {
-    if (typeInfo.unionTypes && typeInfo.unionTypes.length > 0) {
-      const firstType =
-        typeInfo.unionTypes.find((t) => t.kind !== "null") || typeInfo.unionTypes[0];
-      return this.getInitialValueFromAnalysis({
-        ...fieldAnalysis,
-        type: firstType as unknown as FieldAnalysis["type"],
-      });
+    const firstType =
+      typeInfo.unionTypes?.find((t) => t.kind !== "null") ?? typeInfo.unionTypes?.[0];
+    if (firstType) {
+      return this.getInitialValueFromAnalysis({ ...fieldAnalysis, type: firstType });
     }
     return "NULL";
   }
@@ -4135,7 +4132,7 @@ export async function generateSubsystemTLA(
   const handlerNames = new Set(subsystem.handlers);
 
   // Filter state config to only subsystem fields
-  const filteredState: Record<string, unknown> = {};
+  const filteredState: VerificationConfig["state"] = {};
   for (const [field, fieldConfig] of Object.entries(config.state)) {
     if (stateFields.has(field)) {
       filteredState[field] = fieldConfig;
@@ -4160,7 +4157,7 @@ export async function generateSubsystemTLA(
   // Build filtered config
   const filteredConfig: VerificationConfig = {
     ...config,
-    state: filteredState as unknown as VerificationConfig["state"],
+    state: filteredState,
     messages: filteredMessages,
     // polly#171: a subsystem's own `liveness` wins over the top-level default,
     // so the expensive check can be paid only where progress matters.

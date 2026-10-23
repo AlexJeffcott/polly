@@ -8,7 +8,7 @@ import {
   type TabSetInput,
   targetSetCount,
 } from "../codegen/model-constants";
-import type { LegacyVerificationConfig, UnifiedVerificationConfig } from "../config/types";
+import type { UnifiedVerificationConfig } from "../config/types";
 import { isAdapterConfig, isLegacyConfig } from "../config/types";
 import type { CodebaseAnalysis } from "../core/model";
 
@@ -124,10 +124,7 @@ function fieldCardinality(name: string, value: unknown): FieldEstimate {
 
 function getHandlerCount(config: UnifiedVerificationConfig, analysis: CodebaseAnalysis): number {
   if (isLegacyConfig(config)) {
-    const msgs = config.messages as unknown as LegacyVerificationConfig["messages"] & {
-      include?: string[];
-      exclude?: string[];
-    };
+    const msgs = config.messages;
     if (msgs.include) {
       return msgs.include.length;
     }
@@ -251,12 +248,12 @@ function estimateForScope(
 
   // Compute field product (only bounded fields)
   const unboundedFields = fields.filter((f) => f.cardinality === "unbounded");
-  const boundedFields = fields.filter((f) => f.cardinality !== "unbounded");
+  const boundedFields = fields.flatMap((f) =>
+    typeof f.cardinality === "number" ? [{ name: f.name, cardinality: f.cardinality }] : []
+  );
 
   const fieldProduct =
-    boundedFields.length > 0
-      ? boundedFields.reduce((acc, f) => acc * (f.cardinality as unknown as number), 1)
-      : 1;
+    boundedFields.length > 0 ? boundedFields.reduce((acc, f) => acc * f.cardinality, 1) : 1;
 
   if (unboundedFields.length > 0) {
     warnings.push(
@@ -333,7 +330,7 @@ function estimateForScope(
   }
 
   for (const f of boundedFields) {
-    if ((f.cardinality as unknown as number) > 50) {
+    if (f.cardinality > 50) {
       suggestions.push(
         `Field "${f.name}" (${f.cardinality} values) is raised to the power of ${contextCount} contexts — reducing its bounds compounds`
       );
@@ -377,14 +374,7 @@ export function estimateStateSpace(
  * answers a question nobody asked (polly#183). Empty when none are declared.
  */
 export function estimateSubsystems(config: UnifiedVerificationConfig): StateSpaceEstimate[] {
-  const subsystems = (
-    config as unknown as {
-      subsystems?: Record<
-        string,
-        { state: string[]; handlers: string[]; bounds?: { maxInFlight?: number } }
-      >;
-    }
-  ).subsystems;
+  const subsystems = config.subsystems;
   if (!subsystems) return [];
 
   const topLevelMaxInFlight = getMaxInFlight(config);

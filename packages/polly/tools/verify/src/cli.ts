@@ -21,6 +21,7 @@ import {
 import type { WitnessSpecLocation } from "./codegen/witness";
 import { validateConfig } from "./config/parser";
 import type { CustomTLAPath, UnifiedVerificationConfig } from "./config/types";
+import type { CodebaseAnalysis } from "./core/model";
 import { analyzeCodebase } from "./extract/types";
 import type { DockerRunner, TLCResult, TLCStats } from "./runner/docker";
 import { DEFAULT_TLC_MEMORY } from "./runner/memory";
@@ -222,15 +223,8 @@ async function estimateCommand() {
 
   // Validate expressions
   const typedConfig = config as unknown as import("./config/types").UnifiedVerificationConfig;
-  const typedAnalysis = analysis as unknown as import("./core/model").CodebaseAnalysis;
-  const meshSignalNames = new Set(
-    (typedAnalysis.meshOrPeerSignals ?? []).map((s) => s.variableName)
-  );
-  const exprValidation = validateExpressions(
-    typedAnalysis.handlers,
-    typedConfig.state,
-    meshSignalNames
-  );
+  const meshSignalNames = new Set((analysis.meshOrPeerSignals ?? []).map((s) => s.variableName));
+  const exprValidation = validateExpressions(analysis.handlers, typedConfig.state, meshSignalNames);
   if (exprValidation.warnings.length > 0) {
     displayExpressionWarnings(exprValidation);
   }
@@ -246,7 +240,7 @@ async function estimateCommand() {
     return;
   }
 
-  displayEstimate(estimateStateSpace(typedConfig, typedAnalysis));
+  displayEstimate(estimateStateSpace(typedConfig, analysis));
 }
 
 function displaySubsystemEstimateSummary(estimates: StateSpaceEstimate[]): void {
@@ -936,18 +930,11 @@ async function runFullVerification(configPath: string) {
 
   // Validate expressions
   const typedConfig = config as unknown as UnifiedVerificationConfig;
-  const typedAnalysis = analysis as unknown as import("./core/model").CodebaseAnalysis;
   // polly#117: mesh/peer signal variable names — references into these
   // are not "unmodeled fields"; they are handled by the dedicated
   // mesh/peer signal warning below.
-  const meshSignalNames = new Set(
-    (typedAnalysis.meshOrPeerSignals ?? []).map((s) => s.variableName)
-  );
-  const exprValidation = validateExpressions(
-    typedAnalysis.handlers,
-    typedConfig.state,
-    meshSignalNames
-  );
+  const meshSignalNames = new Set((analysis.meshOrPeerSignals ?? []).map((s) => s.variableName));
+  const exprValidation = validateExpressions(analysis.handlers, typedConfig.state, meshSignalNames);
   if (exprValidation.warnings.length > 0) {
     displayExpressionWarnings(exprValidation);
   }
@@ -956,22 +943,22 @@ async function runFullVerification(configPath: string) {
   // cross-peer semantics the codegen does not check. A $meshState doc
   // declared under `mesh:` is verified cross-peer and excluded.
   const declaredMeshDocs = new Set(getMeshDocIds(typedConfig));
-  const meshFindingCount = displayMeshOrPeerSignalWarnings(typedAnalysis, declaredMeshDocs);
+  const meshFindingCount = displayMeshOrPeerSignalWarnings(analysis, declaredMeshDocs);
 
   // polly#160: coupled-field write-coupling lint (warn-only). One call here
   // covers both the subsystem and monolithic paths below.
-  await runCoupledFieldsLint(typedConfig, typedAnalysis);
+  await runCoupledFieldsLint(typedConfig, analysis);
 
   // polly#160 (Ask #1): model-coverage report + optional fail-closed gate.
-  await runModelCoverage(typedConfig, typedAnalysis, meshFindingCount);
+  await runModelCoverage(typedConfig, analysis, meshFindingCount);
 
   // polly#185: the declared context set against the contexts the handlers are
   // actually in. One call here covers the subsystem and monolithic paths below.
-  displayContextDiagnostics(typedConfig, typedAnalysis);
+  displayContextDiagnostics(typedConfig, analysis);
 
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {
-    await runSubsystemVerification(typedConfig, typedAnalysis);
+    await runSubsystemVerification(typedConfig, analysis);
     if (isWitnessMode()) {
       await runWitnessVerification(typedConfig);
     }
@@ -979,7 +966,7 @@ async function runFullVerification(configPath: string) {
   }
 
   // Monolithic verification (fallback)
-  await runMonolithicVerification(config, analysis);
+  await runMonolithicVerification(typedConfig, analysis);
   if (isWitnessMode()) {
     console.log(
       color(
@@ -993,7 +980,10 @@ async function runFullVerification(configPath: string) {
   }
 }
 
-async function runMonolithicVerification(config: unknown, analysis: unknown) {
+async function runMonolithicVerification(
+  config: UnifiedVerificationConfig,
+  analysis: CodebaseAnalysis
+) {
   // Generate TLA+ specs
   const { specPath, specDir } = await generateAndWriteTLASpecs(config, analysis);
 
@@ -1008,11 +998,10 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
   const docker = await setupDocker();
 
   // Determine timeout, workers, and maxDepth from config
-  const typedConfig = config as unknown as UnifiedVerificationConfig;
-  const timeoutSeconds = getTimeout(typedConfig);
-  const workers = getWorkers(typedConfig);
-  const maxDepth = getMaxDepth(typedConfig);
-  const memory = getMemory(typedConfig);
+  const timeoutSeconds = getTimeout(config);
+  const workers = getWorkers(config);
+  const maxDepth = getMaxDepth(config);
+  const memory = getMemory(config);
 
   // Run TLC
   console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
@@ -1030,7 +1019,7 @@ async function runMonolithicVerification(config: unknown, analysis: unknown) {
     console.log(color(`   Max depth: ${maxDepth}`, COLORS.gray));
   }
   console.log(color(`   Memory: ${memory ?? DEFAULT_TLC_MEMORY}`, COLORS.gray));
-  console.log(color(`   Contexts: ${describeContextSet(typedConfig)}`, COLORS.gray));
+  console.log(color(`   Contexts: ${describeContextSet(config)}`, COLORS.gray));
   console.log();
 
   const result = await docker.runTLC(specPath, {
@@ -1062,10 +1051,7 @@ async function runSubsystemVerification(
   config: UnifiedVerificationConfig,
   analysis: import("./core/model").CodebaseAnalysis
 ) {
-  const subsystems = config.subsystems as unknown as Record<
-    string,
-    { state: string[]; handlers: string[] }
-  >;
+  const subsystems = config.subsystems ?? {};
   const subsystemNames = Object.keys(subsystems);
 
   console.log(
@@ -1188,8 +1174,7 @@ async function runSubsystemVerification(
 
   const customTLAPaths = getCustomTLAPaths(config);
 
-  for (const name of subsystemNames) {
-    const sub = subsystems[name];
+  for (const [name, sub] of Object.entries(subsystems)) {
     const startTime = Date.now();
 
     // A custom subsystem is defined by a hand-written spec, not handlers — there
@@ -1357,7 +1342,7 @@ async function runWitnessVerification(config: UnifiedVerificationConfig): Promis
     WITNESS_INVARIANT,
   } = await import("./codegen/witness");
 
-  const subsystems = config.subsystems as unknown as Record<string, { state: string[] }>;
+  const subsystems = config.subsystems ?? {};
   const customTLAPaths = getCustomTLAPaths(config);
   const witnesses = await extractWitnesses(featureFiles, stepFiles);
 
@@ -1757,7 +1742,7 @@ async function loadVerificationConfig(configPath: string): Promise<unknown> {
   return configModule.verificationConfig || configModule.default;
 }
 
-async function runCodebaseAnalysis(): Promise<{ fields: unknown[]; messageTypes: unknown[] }> {
+async function runCodebaseAnalysis(): Promise<CodebaseAnalysis> {
   console.log(color("📊 Analyzing codebase...", COLORS.blue));
   const tsConfigPath = findTsConfig();
   if (!tsConfigPath) {
