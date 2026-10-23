@@ -62,6 +62,7 @@ import {
   type FunctionExpression,
   type Identifier,
   type IfStatement,
+  type MethodDeclaration,
   Node,
   type ObjectLiteralExpression,
   Project,
@@ -86,6 +87,9 @@ import type {
   VerifiedStateInfo,
 } from "../types";
 import { RelationshipExtractor } from "./relationships";
+
+/** A function whose parameters and body a handler is extracted from. */
+type HandlerFunction = ArrowFunction | FunctionExpression | FunctionDeclaration | MethodDeclaration;
 
 export interface ExtractionWarning {
   type: "unsupported_pattern";
@@ -151,9 +155,7 @@ export class HandlerExtractor {
   /**
    * Extract parameter names from a function
    */
-  private extractParameterNames(
-    func: ArrowFunction | FunctionExpression | FunctionDeclaration
-  ): string[] {
+  private extractParameterNames(func: HandlerFunction): string[] {
     return func.getParameters().map((p) => p.getName());
   }
 
@@ -812,12 +814,12 @@ export class HandlerExtractor {
       const prop = configArg.getProperty(cbName);
       if (!prop) continue;
 
-      let funcBody: ArrowFunction | FunctionExpression | FunctionDeclaration | null = null;
+      let funcBody: HandlerFunction | null = null;
 
       if (Node.isMethodDeclaration(prop)) {
         // Method shorthand: message(ws, data) { ... }
         // Use the method body directly for analysis
-        funcBody = prop as unknown as FunctionDeclaration;
+        funcBody = prop;
       } else if (Node.isPropertyAssignment(prop)) {
         const init = prop.getInitializer();
         if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
@@ -897,7 +899,7 @@ export class HandlerExtractor {
     _routePath: string,
     context: string,
     filePath: string,
-    funcBody: ArrowFunction | FunctionExpression | FunctionDeclaration,
+    funcBody: HandlerFunction,
     line: number
   ): MessageHandler {
     const assignments: StateAssignment[] = [];
@@ -1006,10 +1008,7 @@ export class HandlerExtractor {
    * - Array mutations: state.items.push(item)
    * - Array indexing: state.items[0] = value
    */
-  private extractAssignments(
-    funcNode: ArrowFunction | FunctionExpression | FunctionDeclaration,
-    assignments: StateAssignment[]
-  ): void {
+  private extractAssignments(funcNode: HandlerFunction, assignments: StateAssignment[]): void {
     // polly#163: this body is part of the modelled handler surface. Any
     // verified-state write inside its span is "on-surface" and must not be
     // re-reported as an escaped mutator.
@@ -2054,9 +2053,8 @@ export class HandlerExtractor {
       if (operator === SyntaxKind.MinusMinusToken) return "--";
       return null;
     }
-    if (operator && typeof operator === "object" && "getText" in operator) {
-      // It's a Node with getText method
-      return (operator as unknown as { getText(): string }).getText();
+    if (Node.isNode(operator)) {
+      return operator.getText();
     }
     return null;
   }
@@ -2219,7 +2217,7 @@ export class HandlerExtractor {
    * Extract verification conditions (requires/ensures) from a handler function
    */
   private extractVerificationConditions(
-    funcNode: ArrowFunction | FunctionExpression | FunctionDeclaration,
+    funcNode: HandlerFunction,
     preconditions: VerificationCondition[],
     postconditions: VerificationCondition[]
   ): void {
@@ -2580,7 +2578,7 @@ export class HandlerExtractor {
    * Detects: if (isQueryMessage(msg)) { handleQuery(msg); }
    */
   private extractTypeGuardHandlers(
-    ifNode: Node,
+    ifNode: IfStatement,
     context: string,
     filePath: string
   ): MessageHandler[] {
@@ -2591,13 +2589,7 @@ export class HandlerExtractor {
       const typeGuards = this.getOrComputeTypeGuards(sourceFile);
 
       this.debugLogTypeGuards(sourceFile, typeGuards);
-      this.processIfElseChain(
-        ifNode as unknown as IfStatement,
-        typeGuards,
-        context,
-        filePath,
-        handlers
-      );
+      this.processIfElseChain(ifNode, typeGuards, context, filePath, handlers);
     } catch (error) {
       this.debugLogError(error);
     }
@@ -2684,13 +2676,12 @@ export class HandlerExtractor {
    * Extract handler from a single if clause
    */
   private extractHandlerFromIfClause(
-    ifNode: Node,
+    ifStmt: IfStatement,
     typeGuards: Map<string, string>,
     context: string,
     filePath: string
   ): MessageHandler | null {
     try {
-      const ifStmt = ifNode as unknown as IfStatement;
       const condition = ifStmt.getExpression();
 
       // Pattern 1: Type guard function call — if (isSubscribe(msg))

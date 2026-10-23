@@ -4,6 +4,12 @@ import { Project, type SourceFile, type Type } from "ts-morph";
 import type { CodebaseAnalysis, FieldAnalysis, MessageHandler, TypeInfo } from "../types";
 import { HandlerExtractor } from "./handlers";
 
+/** A string-literal type's value, as a one-element list; empty for any other type. */
+function stringLiteralValues(type: Type): string[] {
+  const value = type.getLiteralValue();
+  return typeof value === "string" ? [value] : [];
+}
+
 export class TypeExtractor {
   private project: Project;
 
@@ -268,12 +274,11 @@ export class TypeExtractor {
       return this.extractFromTypeAlias(type, typeName, sourceFile, warnings);
     }
 
-    // Check if type has conditional type method before calling
+    // Check if type has conditional type method before calling (ts-morph 28's Type has none)
+    const isConditionalType: unknown = Reflect.get(type, "isConditionalType");
     if (
-      // biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability
-      typeof (type as unknown as any).isConditionalType === "function" &&
-      // biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability
-      (type as unknown as any).isConditionalType()
+      typeof isConditionalType === "function" &&
+      Reflect.apply(isConditionalType, type, []) === true
     ) {
       return this.extractFromConditionalType(type, warnings);
     }
@@ -324,7 +329,7 @@ export class TypeExtractor {
     }
 
     if (unionType.isStringLiteral()) {
-      return [unionType.getLiteralValue() as string];
+      return stringLiteralValues(unionType);
     }
 
     if (unionType.getAliasSymbol()) {
@@ -353,7 +358,7 @@ export class TypeExtractor {
     const typeType = typeProperty.getTypeAtLocation(sourceFile);
 
     if (typeType.isStringLiteral()) {
-      return [typeType.getLiteralValue() as string];
+      return stringLiteralValues(typeType);
     }
 
     if (typeType.getText().includes("`")) {
@@ -501,7 +506,7 @@ export class TypeExtractor {
     // Check for string literal union (enum)
     const allStringLiterals = unionTypes.every((t) => t.isStringLiteral());
     if (allStringLiterals) {
-      const enumValues = unionTypes.map((t) => t.getLiteralValue() as unknown as string);
+      const enumValues = unionTypes.flatMap(stringLiteralValues);
       return { name, kind: "enum", nullable, enumValues };
     }
 

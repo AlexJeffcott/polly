@@ -376,43 +376,31 @@ export class FlowAnalyzer {
     const sourceFile = this.project.getSourceFile(filePath);
     if (!sourceFile) return {};
 
-    // Find the node at this line
-    let targetNode: Node | null = null;
-
+    // Find the node at this line (the last one in traversal order)
+    const atLine: Node[] = [];
     sourceFile.forEachDescendant((node) => {
       if (node.getStartLineNumber() === lineNumber) {
-        targetNode = node;
+        atLine.push(node);
       }
     });
+    const targetNode = atLine.at(-1);
 
-    if (!targetNode) return {};
+    // Only a JSDoc-able node carries the annotations
+    if (!Node.isJSDocable(targetNode)) return {};
 
-    // Look for JSDoc comments - use type guard to check if node supports JSDoc
-    // biome-ignore lint/suspicious/noExplicitAny: Type guard for dynamic JSDoc support
-    const nodeAny = targetNode as unknown as any;
-    if (!("getJsDocs" in nodeAny) || typeof nodeAny.getJsDocs !== "function") {
-      return {};
-    }
-
-    const jsDocs = nodeAny.getJsDocs();
-    if (jsDocs.length === 0) return {};
-
-    const firstDoc = jsDocs[0];
+    const firstDoc = targetNode.getJsDocs()[0];
     if (!firstDoc) return {};
 
     const comment = firstDoc.getText();
 
     // Extract @flow annotation
-    const flowMatch = comment.match(/@flow\s+([^\s]+)/);
-    const flowName = flowMatch ? flowMatch[1] : undefined;
+    const flowName = comment.match(/@flow\s+([^\s]+)/)?.[1];
 
     // Extract @trigger annotation
-    const triggerMatch = comment.match(/@trigger\s+(.+?)(?:\n|$)/);
-    const trigger = triggerMatch ? triggerMatch[1].trim() : undefined;
+    const trigger = comment.match(/@trigger\s+(.+?)(?:\n|$)/)?.[1]?.trim();
 
     // Extract @description
-    const descMatch = comment.match(/@description\s+(.+?)(?:\n|$)/s);
-    const description = descMatch ? descMatch[1].trim() : undefined;
+    const description = comment.match(/@description\s+(.+?)(?:\n|$)/s)?.[1]?.trim();
 
     return { trigger, flowName, description };
   }
