@@ -7,7 +7,9 @@ export class ChromeStorageAdapter implements StorageAdapter {
     if (keys === null) {
       return await chrome.storage.local.get();
     }
-    return await chrome.storage.local.get(keys as unknown as never);
+    const items: unknown = await chrome.storage.local.get<Record<string, unknown>>(keys);
+    // cast: StorageAdapter.get<T> is a caller-asserted read; chrome returns untyped items
+    return items as T;
   }
 
   async set(items: Record<string, unknown>): Promise<void> {
