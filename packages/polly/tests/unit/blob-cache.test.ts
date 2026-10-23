@@ -8,16 +8,21 @@
  * on dispose).
  */
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setSystemTime, test } from "bun:test";
 import { MemoryBlobCache } from "@/shared/lib/blob-cache";
 
 const bytes = (n: number, fill = 1): Uint8Array => new Uint8Array(n).fill(fill);
 
-/** Force a deterministic access time so eviction order is not at the mercy
- * of Date.now() resolution across rapid puts. */
-function setAccessedAt(cache: MemoryBlobCache, hash: string, at: number): void {
-  (cache as unknown as { store: Map<string, { accessedAt: number }> }).store.get(hash)!.accessedAt =
-    at;
+/** Read `hash` with the clock pinned to `at`, so its access time is
+ * deterministic and eviction order does not depend on Date.now()
+ * resolution across rapid puts. get() is the cache's own LRU touch. */
+async function touchAt(cache: MemoryBlobCache, hash: string, at: number): Promise<void> {
+  setSystemTime(at);
+  try {
+    await cache.get(hash);
+  } finally {
+    setSystemTime();
+  }
 }
 
 describe("MemoryBlobCache get/put/has/delete", () => {
@@ -71,9 +76,9 @@ describe("MemoryBlobCache evict", () => {
     await cache.put("old", bytes(50));
     await cache.put("mid", bytes(50));
     await cache.put("new", bytes(50));
-    setAccessedAt(cache, "old", 1);
-    setAccessedAt(cache, "mid", 2);
-    setAccessedAt(cache, "new", 3);
+    await touchAt(cache, "old", 1);
+    await touchAt(cache, "mid", 2);
+    await touchAt(cache, "new", 3);
     // 150 total, target 60: dropping old (→100) then mid (→50) fits.
     const freed = await cache.evict(60);
     expect(freed).toBe(100);
@@ -88,9 +93,9 @@ describe("MemoryBlobCache evict", () => {
     await cache.put("old", bytes(50));
     await cache.put("mid", bytes(50));
     await cache.put("new", bytes(50));
-    setAccessedAt(cache, "old", 1);
-    setAccessedAt(cache, "mid", 2);
-    setAccessedAt(cache, "new", 3);
+    await touchAt(cache, "old", 1);
+    await touchAt(cache, "mid", 2);
+    await touchAt(cache, "new", 3);
     await cache.pin("old");
     // Target 60: the oldest (old) is pinned, so mid and new are dropped and
     // old survives despite being the least-recently-used.
@@ -106,9 +111,9 @@ describe("MemoryBlobCache evict", () => {
     await cache.put("old", bytes(50));
     await cache.put("mid", bytes(50));
     await cache.put("new", bytes(50));
-    setAccessedAt(cache, "old", 1);
-    setAccessedAt(cache, "mid", 2);
-    setAccessedAt(cache, "new", 3);
+    await touchAt(cache, "old", 1);
+    await touchAt(cache, "mid", 2);
+    await touchAt(cache, "new", 3);
     // Target 50 == the size of the surviving entry: dropping old then mid
     // lands exactly on the target, so the loop stops and keeps `new`. A
     // strict `<` boundary would overshoot and evict it too.
@@ -121,8 +126,8 @@ describe("MemoryBlobCache evict", () => {
     const cache = new MemoryBlobCache();
     await cache.put("a", bytes(50));
     await cache.put("b", bytes(50));
-    setAccessedAt(cache, "a", 1);
-    setAccessedAt(cache, "b", 2);
+    await touchAt(cache, "a", 1);
+    await touchAt(cache, "b", 2);
     await cache.pin("a");
     await cache.unpin("a");
     // With the pin lifted, the oldest (a) is evictable again.

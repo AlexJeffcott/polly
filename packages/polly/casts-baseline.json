@@ -416,10 +416,6 @@
     "text": "adapters.runtime as unknown as MockRuntime"
   },
   {
-    "file": "tests/unit/blob-cache.test.ts",
-    "text": "cache as unknown as { store: Map<string, { accessedAt: number }> }"
-  },
-  {
     "file": "tests/unit/context-helpers.test.ts",
     "text": "\"option\" as unknown as Context"
   },
@@ -506,10 +502,6 @@
   {
     "file": "tests/unit/mesh-network-adapter-wrap-roundtrip.test.ts",
     "text": "0x7f as unknown as MeshControlType"
-  },
-  {
-    "file": "tests/unit/mesh-signaling-client.test.ts",
-    "text": "((fn: () => void, delay?: number) => { scheduled.push({ fn, delay: delay ?? 0 }); return scheduled.length; }) as unknown as typeof setTimeout"
   },
   {
     "file": "tests/unit/mesh-signaling-client.test.ts",
