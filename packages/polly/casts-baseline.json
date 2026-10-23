@@ -412,10 +412,6 @@
     "text": "\"option\" as unknown as Context"
   },
   {
-    "file": "tests/unit/context-specific-helpers.test.ts",
-    "text": "{ tabs: { query: async (filter: unknown) => { calls.query.push(filter); return [{ id: 1, active: true }]; }, create: (options: unknown) => { calls.create.push(options); }, }, runtime: { openOptionsPage: () => { calls.openOptionsPage += 1; }, }, } as unknown as ExtensionAdapters"
-  },
-  {
     "file": "tests/unit/guards.test.ts",
     "text": "{ kind: \"c\" } as unknown as never"
   },

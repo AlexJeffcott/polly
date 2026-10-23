@@ -6,6 +6,18 @@
 
 import type { ExtensionAdapters } from "../adapters";
 
+/** The adapter members the popup and side-panel helpers read. A full
+ * `ExtensionAdapters` satisfies it. */
+type TabQueryAdapters = { readonly tabs: Pick<ExtensionAdapters["tabs"], "query"> };
+
+/** The adapter member the options-page helpers read. */
+type TabCreateAdapters = { readonly tabs: Pick<ExtensionAdapters["tabs"], "create"> };
+
+/** The adapter members the background helpers read. */
+type BackgroundAdapters = TabQueryAdapters & {
+  readonly runtime: Pick<ExtensionAdapters["runtime"], "openOptionsPage">;
+};
+
 /**
  * View types for extension views.
  * This is a local type definition since chrome.extension.ViewType is deprecated.
@@ -216,7 +228,7 @@ export interface PopupHelpers {
   setDimensions(width: number, height: number): void;
 }
 
-export function createPopupHelpers(adapters: ExtensionAdapters): PopupHelpers {
+export function createPopupHelpers(adapters: TabQueryAdapters): PopupHelpers {
   return {
     async getCurrentTab() {
       const tabs = await adapters.tabs.query({ active: true, currentWindow: true });
@@ -255,7 +267,7 @@ export interface OptionsHelpers {
   showError(message: string, duration?: number): void;
 }
 
-export function createOptionsHelpers(adapters: ExtensionAdapters): OptionsHelpers {
+export function createOptionsHelpers(adapters: TabCreateAdapters): OptionsHelpers {
   return {
     openInNewTab(path: string) {
       adapters.tabs.create({ url: path });
@@ -332,7 +344,7 @@ export interface SidePanelHelpers {
   setWidth(width: number): void;
 }
 
-export function createSidePanelHelpers(adapters: ExtensionAdapters): SidePanelHelpers {
+export function createSidePanelHelpers(adapters: TabQueryAdapters): SidePanelHelpers {
   return {
     async getCurrentTab() {
       const tabs = await adapters.tabs.query({ active: true, currentWindow: true });
@@ -380,7 +392,7 @@ export interface BackgroundHelpers {
   clearBadge(): void;
 }
 
-export function createBackgroundHelpers(adapters: ExtensionAdapters): BackgroundHelpers {
+export function createBackgroundHelpers(adapters: BackgroundAdapters): BackgroundHelpers {
   return {
     async getAllTabs() {
       return adapters.tabs.query({});
