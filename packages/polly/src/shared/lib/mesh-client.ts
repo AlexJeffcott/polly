@@ -897,8 +897,8 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
   // NAT user reported "can't connect".
   const resolvedIceServers = await resolveIceServers(options.rtc);
 
-  const webrtcAdapterOptions: MeshWebRTCAdapterOptions = {
-    signaling: undefined as unknown as MeshSignalingClient, // wired after signaling construction
+  // `signaling` is added once the signalling client exists, below.
+  const webrtcAdapterOptions: Omit<MeshWebRTCAdapterOptions, "signaling"> = {
     peerId: options.signaling.peerId,
     knownPeerIds,
     keyringSource,
@@ -957,8 +957,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
     },
   });
 
-  webrtcAdapterOptions.signaling = signaling;
-  webrtcAdapter = new MeshWebRTCAdapter(webrtcAdapterOptions);
+  webrtcAdapter = new MeshWebRTCAdapter({ ...webrtcAdapterOptions, signaling });
 
   // RFC-043 state: the set of peer ids with an active mesh connection
   // (the broadcast target for revocations), the local peer's
@@ -1166,7 +1165,7 @@ export async function createMeshClient(options: CreateMeshClientOptions): Promis
       // every entry in `repo.handles` is `ready` and every
       // corresponding `slot.handles[docId].lastSyncMessageOutAt` is
       // `undefined`.
-      const repoHandles = repo.handles as unknown as Record<string, { state: unknown } | undefined>;
+      const repoHandles: Record<string, { readonly state: unknown } | undefined> = repo.handles;
       const knownHandleIds = Object.keys(repoHandles);
       const synchronizer = getCollectionSynchronizer(repo);
       const enrichedPeers: MeshClientPeerStateSnapshot["peers"] = base.peers.map((peer) =>

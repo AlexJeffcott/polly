@@ -473,9 +473,7 @@ function recordLazyWrapper(record: MeshStateLazyWrapperRecord): void {
 }
 
 function peekHandleState(repo: Repo, documentId: DocumentId): string | undefined {
-  const handle = (repo.handles as unknown as Record<string, { state: unknown } | undefined>)[
-    documentId
-  ];
+  const handle: { readonly state: unknown } | undefined = repo.handles[documentId];
   if (!handle) return undefined;
   return typeof handle.state === "string" ? handle.state : String(handle.state ?? "unknown");
 }
@@ -613,7 +611,7 @@ const MAX_REDIRECT_FOLLOWS = 8;
  * and otherwise seeds a fresh document at the deterministic id. Subsequent
  * calls in the same process return the cached handle.
  */
-function buildHandleFactory<D>(
+function buildHandleFactory<D extends object>(
   repo: Repo,
   key: string,
   initialDoc: D
@@ -751,15 +749,22 @@ function deriveSeedActor(documentId: DocumentId): string {
  * The test pins the two determinism properties the loopback race test
  * cannot reach: byte-identity across peers and independence from wall-clock
  * time (the `time: 0` lever, which a same-millisecond loopback seed hides). */
-export function seedDocumentBytes<D>(documentId: DocumentId, initialDoc: D): Uint8Array {
+export function seedDocumentBytes<D extends object>(
+  documentId: DocumentId,
+  initialDoc: D
+): Uint8Array {
+  // Own enumerable string keys, the same set Object.keys and Automerge.from read.
+  const source: Record<string, unknown> = {};
+  for (const key of Object.keys(initialDoc)) {
+    source[key] = Reflect.get(initialDoc, key);
+  }
   const disable = typeof process !== "undefined" && process.env?.["POLLY_113_DISABLE_FIX"] === "1";
   if (disable) {
-    return Automerge.save(Automerge.from(initialDoc as unknown as Record<string, unknown>));
+    return Automerge.save(Automerge.from(source));
   }
   const actor = deriveSeedActor(documentId);
   const empty = Automerge.init<Record<string, unknown>>({ actor });
   const seeded = Automerge.change(empty, { time: 0 }, (d: Record<string, unknown>) => {
-    const source = initialDoc as unknown as Record<string, unknown>;
     for (const key of Object.keys(source)) {
       d[key] = source[key];
     }
@@ -769,7 +774,7 @@ export function seedDocumentBytes<D>(documentId: DocumentId, initialDoc: D): Uin
 
 /** Helper for the load-or-seed arm of {@link buildHandleFactory}.
  * Extracted so the cached/non-cached arms share one body. */
-async function loadOrSeed<D>(
+async function loadOrSeed<D extends object>(
   repo: Repo,
   documentId: DocumentId,
   initialDoc: D,
