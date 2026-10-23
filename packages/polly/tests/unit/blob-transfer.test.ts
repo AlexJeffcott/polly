@@ -155,4 +155,37 @@ describe("serialiseBlobMessage / parseBlobMessage", () => {
     new Uint8Array(buffer).set([0xff, 0xff, 0xff, 0xff], 4);
     expect(parseBlobMessage(new Uint8Array(buffer))).toBeUndefined();
   });
+
+  test("returns undefined for a header whose fields have the wrong type", () => {
+    const frame = (json: string): Uint8Array => {
+      const header = new TextEncoder().encode(json);
+      const buf = new ArrayBuffer(4 + header.length);
+      new DataView(buf).setUint32(0, header.length, false);
+      new Uint8Array(buf).set(header, 4);
+      return new Uint8Array(buf);
+    };
+    const hash = "d".repeat(64);
+    expect(
+      parseBlobMessage(frame(`{"type":"blob-chunk","hash":"${hash}","total":2}`))
+    ).toBeUndefined();
+    expect(
+      parseBlobMessage(frame(`{"type":"blob-request","hash":"${hash}","missing":"0"}`))
+    ).toBeUndefined();
+    expect(
+      parseBlobMessage(frame(`{"type":"blob-request","hash":"${hash}","missing":[0,"1"]}`))
+    ).toBeUndefined();
+    expect(parseBlobMessage(frame('{"type":"blob-have","hash":7}'))).toBeUndefined();
+    expect(parseBlobMessage(frame(`{"type":"blob-other","hash":"${hash}"}`))).toBeUndefined();
+  });
+
+  test("treats a null 'missing' as a request for every chunk", () => {
+    const header = new TextEncoder().encode('{"type":"blob-request","hash":"e","missing":null}');
+    const buf = new ArrayBuffer(4 + header.length);
+    new DataView(buf).setUint32(0, header.length, false);
+    new Uint8Array(buf).set(header, 4);
+    expect(parseBlobMessage(new Uint8Array(buf))?.header).toEqual({
+      type: "blob-request",
+      hash: "e",
+    });
+  });
 });

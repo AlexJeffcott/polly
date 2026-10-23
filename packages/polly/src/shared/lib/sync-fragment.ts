@@ -17,6 +17,8 @@
  * does not mistake a sync fragment for a blob chunk.
  */
 
+import { isRecord, readNumber, readString } from "./guards";
+
 /** Maximum bytes a single channel.send may carry without fragmentation.
  *  Werift (the node-side WebRTC implementation polly recommends for
  *  CLI/daemon use) enforces a hard 64 KiB (65536 bytes) maxMessageSize
@@ -66,9 +68,20 @@ export function serialiseSyncFragment(
   return out;
 }
 
+/** The header when `input` is a well-formed `sync-fragment` header,
+ *  otherwise undefined. */
+export function readSyncFragmentHeader(input: unknown): SyncFragmentHeader | undefined {
+  if (!isRecord(input) || input["type"] !== "sync-fragment") return undefined;
+  const id = readString(input["id"]);
+  const index = readNumber(input["index"]);
+  const total = readNumber(input["total"]);
+  if (id === undefined || index === undefined || total === undefined) return undefined;
+  return { type: "sync-fragment", id, index, total };
+}
+
 /** Parse a wire frame produced by {@link serialiseSyncFragment}. Returns
  *  undefined if the bytes are too short, the header is unparseable, or the
- *  header `type` is not `sync-fragment`. */
+ *  header is not a well-formed `sync-fragment` header. */
 export function parseSyncFragment(
   bytes: Uint8Array
 ): { header: SyncFragmentHeader; data: Uint8Array } | undefined {
@@ -77,10 +90,9 @@ export function parseSyncFragment(
   const headerLen = view.getUint32(0, false);
   if (bytes.length < 4 + headerLen) return undefined;
   try {
-    const header = JSON.parse(
-      new TextDecoder().decode(bytes.subarray(4, 4 + headerLen))
-    ) as SyncFragmentHeader;
-    if (header.type !== "sync-fragment") return undefined;
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
+    const header = readSyncFragmentHeader(parsed);
+    if (!header) return undefined;
     const data = bytes.subarray(4 + headerLen);
     return { header, data };
   } catch {
@@ -130,18 +142,19 @@ export function reassembleSyncFragments(
   chunks: Map<number, Uint8Array>,
   total: number
 ): Uint8Array {
+  const ordered: Uint8Array[] = [];
   let totalBytes = 0;
   for (let i = 0; i < total; i++) {
     const chunk = chunks.get(i);
     if (!chunk) {
       throw new Error(`reassembleSyncFragments: missing fragment ${i} of ${total}`);
     }
+    ordered.push(chunk);
     totalBytes += chunk.length;
   }
   const out = new Uint8Array(totalBytes);
   let offset = 0;
-  for (let i = 0; i < total; i++) {
-    const chunk = chunks.get(i) as unknown as Uint8Array;
+  for (const chunk of ordered) {
     out.set(chunk, offset);
     offset += chunk.length;
   }

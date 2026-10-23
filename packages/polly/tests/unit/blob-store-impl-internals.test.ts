@@ -113,6 +113,11 @@ class RecordingAdapter {
     this.onBlobMessage?.(fromPeer, { ...header }, data);
   }
 
+  /** Inject an incoming header exactly as received, without the typed shape. */
+  deliverRaw(fromPeer: string, header: Record<string, unknown>): void {
+    this.onBlobMessage?.(fromPeer, header, new Uint8Array(0));
+  }
+
   emitPeerCandidate(peerId: string): void {
     for (const h of this.candidateHandlers) h({ peerId: toPeerId(peerId) });
   }
@@ -337,6 +342,17 @@ describe("createBlobStore request handler (sender side)", () => {
 
     const indices = adapter.chunks().map((c) => c.header.index);
     expect(indices).toEqual([0, 1]);
+  });
+
+  test("drops a request whose 'missing' is not a number array", async () => {
+    const adapter = new RecordingAdapter(["B"]);
+    const bytes = new Uint8Array(32).fill(1);
+    const hash = await seed(adapter, bytes);
+
+    adapter.deliverRaw("B", { type: "blob-request", hash, missing: "0" });
+    await flush();
+
+    expect(adapter.chunks()).toHaveLength(0);
   });
 
   test("retries a chunk send after backpressure drains", async () => {

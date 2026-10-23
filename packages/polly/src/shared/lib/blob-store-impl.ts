@@ -37,6 +37,7 @@ import {
   type BlobRequestHeader,
   chunkBlob,
   missingChunkIndices,
+  readBlobMessageHeader,
   reassembleChunks,
   serialiseBlobMessage,
 } from "./blob-transfer";
@@ -98,16 +99,17 @@ export function createBlobStore(adapter: BlobTransport, options?: BlobStoreOptio
   // Wire up the adapter's blob message callback.
   adapter.onBlobMessage = (peerId, header, data) => {
     if (disposed) return;
-    const type = header["type"];
-    switch (type) {
+    const parsed = readBlobMessageHeader(header);
+    if (!parsed) return;
+    switch (parsed.type) {
       case "blob-chunk":
-        void handleChunk(peerId, header as unknown as BlobChunkHeader, data);
+        void handleChunk(peerId, parsed, data);
         break;
       case "blob-request":
-        void handleRequest(peerId, header as unknown as BlobRequestHeader);
+        void handleRequest(peerId, parsed);
         break;
       case "blob-have":
-        handleHave(peerId, header as unknown as BlobHaveHeader);
+        handleHave(peerId, parsed);
         break;
     }
   };
