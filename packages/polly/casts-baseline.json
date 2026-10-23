@@ -520,30 +520,6 @@
     "text": "new FakeAdapter() as unknown as WebSocketClientAdapter"
   },
   {
-    "file": "tests/unit/state-debounce-clock.test.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "tests/unit/state-debounce-clock.test.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "tests/unit/state-sync.test.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "tests/unit/state-sync.test.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "tests/unit/state.test.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
-    "file": "tests/unit/state.test.ts",
-    "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
-  },
-  {
     "file": "tests/unit/sweep-sealed.test.ts",
     "text": "{ handles } as unknown as Repo"
   },
