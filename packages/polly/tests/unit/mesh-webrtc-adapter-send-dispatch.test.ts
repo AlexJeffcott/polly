@@ -263,6 +263,44 @@ describe("MeshWebRTCAdapter.dispatchMessage routing", () => {
     expect(messages).toHaveLength(0);
   });
 
+  test("drops a frame whose header lacks a string senderId", () => {
+    const { adapter, channel } = build({ syncYieldEnabled: false });
+    const messages: Message[] = [];
+    adapter.on("message", (m: Message) => messages.push(m));
+    const header = new TextEncoder().encode(JSON.stringify({ type: "sync", targetId: REMOTE }));
+    const wire = new Uint8Array(4 + header.length);
+    new DataView(wire.buffer).setUint32(0, header.length, false);
+    wire.set(header, 4);
+    expect(() => channel.deliver(wire)).not.toThrow();
+    expect(messages).toHaveLength(0);
+  });
+
+  test("drops a frame whose header carries a non-string documentId", () => {
+    const { adapter, channel } = build({ syncYieldEnabled: false });
+    const messages: Message[] = [];
+    adapter.on("message", (m: Message) => messages.push(m));
+    const header = new TextEncoder().encode(
+      JSON.stringify({ type: "sync", senderId: REMOTE, targetId: LOCAL, documentId: 7 })
+    );
+    const wire = new Uint8Array(4 + header.length);
+    new DataView(wire.buffer).setUint32(0, header.length, false);
+    wire.set(header, 4);
+    channel.deliver(wire);
+    expect(messages).toHaveLength(0);
+  });
+
+  test("does not hand a non-object blob header to onBlobMessage", () => {
+    const { adapter, channel } = build({ syncYieldEnabled: false });
+    const blobCalls: unknown[] = [];
+    adapter.onBlobMessage = (...args) => blobCalls.push(args);
+    const header = new TextEncoder().encode(JSON.stringify([{ type: "blob-chunk" }]));
+    const wire = new Uint8Array(4 + header.length);
+    new DataView(wire.buffer).setUint32(0, header.length, false);
+    wire.set(header, 4);
+    expect(() => channel.deliver(wire)).not.toThrow();
+    expect(blobCalls).toHaveLength(0);
+  });
+
   test("ignores a non-binary data payload", () => {
     const { adapter, channel } = build({ syncYieldEnabled: false });
     const messages: Message[] = [];
