@@ -108,50 +108,6 @@
     "text": "0x7f as unknown as MeshControlType"
   },
   {
-    "file": "tools/analysis/src/extract/adr.ts",
-    "text": "status as unknown as ADRStatus"
-  },
-  {
-    "file": "tools/analysis/src/extract/flows.ts",
-    "text": "targetNode as unknown as any"
-  },
-  {
-    "file": "tools/analysis/src/extract/handlers.ts",
-    "text": "ifNode as unknown as IfStatement"
-  },
-  {
-    "file": "tools/analysis/src/extract/handlers.ts",
-    "text": "ifNode as unknown as IfStatement"
-  },
-  {
-    "file": "tools/analysis/src/extract/handlers.ts",
-    "text": "operator as unknown as { getText(): string }"
-  },
-  {
-    "file": "tools/analysis/src/extract/handlers.ts",
-    "text": "prop as unknown as FunctionDeclaration"
-  },
-  {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "t.getLiteralValue() as unknown as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "type as unknown as any"
-  },
-  {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "type as unknown as any"
-  },
-  {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "typeType.getLiteralValue() as string"
-  },
-  {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "unionType.getLiteralValue() as string"
-  },
-  {
     "file": "tools/quality/src/config.ts",
     "text": "(await import(path)) as unknown as { default?: { quality?: QualityRunConfig } }"
   },

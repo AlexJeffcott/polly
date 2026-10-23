@@ -5,6 +5,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ADR, ADRCollection, ADRLink, ADRStatus } from "../types/adr";
 
+const ADR_STATUSES: readonly ADRStatus[] = ["proposed", "accepted", "deprecated", "superseded"];
+
 export class ADRExtractor {
   private projectRoot: string;
 
@@ -140,11 +142,7 @@ export class ADRExtractor {
     if (!statusMatch) return "accepted";
 
     const status = statusMatch[1]?.toLowerCase();
-    if (status && ["proposed", "accepted", "deprecated", "superseded"].includes(status)) {
-      return status as unknown as ADRStatus;
-    }
-
-    return "accepted";
+    return ADR_STATUSES.find((known) => known === status) ?? "accepted";
   }
 
   /**
