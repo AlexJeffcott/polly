@@ -95,7 +95,7 @@ export class ContextMenuManager {
       // Broadcast the click event to all contexts
       this.bus.broadcast({
         type: "CONTEXT_MENU_CLICKED",
-        menuId: info.menuItemId as unknown as string,
+        menuId: String(info.menuItemId),
         info,
         tabId: tab.id,
       });
@@ -103,14 +103,21 @@ export class ContextMenuManager {
 
     // Handle CONTEXT_MENU_CREATE messages
     this.bus.on("CONTEXT_MENU_CREATE", async (payload) => {
+      const [first, ...rest] = payload.contexts;
+      if (first === undefined) {
+        // chrome.contextMenus.create rejects an empty contexts list.
+        this.bus.adapters.logger.error(
+          "Failed to create context menu",
+          new Error("contexts must name at least one context"),
+          { menuId: payload.id }
+        );
+        return { success: false };
+      }
       try {
         await this.bus.adapters.contextMenus.create({
           id: payload.id,
           title: payload.title,
-          contexts: payload.contexts as unknown as [
-            chrome.contextMenus.ContextType,
-            ...chrome.contextMenus.ContextType[],
-          ],
+          contexts: [first, ...rest],
         });
         return { success: true };
       } catch (error) {

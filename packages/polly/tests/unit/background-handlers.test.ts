@@ -17,6 +17,7 @@ import { OffscreenManager } from "@/background/offscreen-manager";
 import type { ExtensionAdapters } from "@/shared/adapters";
 import type { OffscreenAdapter } from "@/shared/adapters/offscreen.adapter";
 import { MessageBus } from "@/shared/lib/message-bus";
+import { clearGlobals, setGlobal } from "./helpers/globals";
 
 let mockFetch: MockFetch;
 let adapters: ExtensionAdapters;
@@ -188,6 +189,98 @@ test("ContextMenuManager - handles context menu clicks", async () => {
   expect(manager).toBeDefined();
 
   bus.broadcast = originalBroadcast;
+});
+
+test("ContextMenuManager - broadcasts a numeric menu item id as a string", () => {
+  let clicked: ((info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) => void) | undefined;
+  const testBus = new MessageBus("background", {
+    ...adapters,
+    contextMenus: {
+      ...adapters.contextMenus,
+      onClicked: (callback) => {
+        clicked = callback;
+      },
+    },
+  });
+  const broadcasts: unknown[] = [];
+  testBus.broadcast = (payload) => {
+    broadcasts.push(payload);
+  };
+  new ContextMenuManager(testBus);
+
+  const tab: chrome.tabs.Tab = {
+    id: 7,
+    active: true,
+    index: 0,
+    pinned: false,
+    highlighted: false,
+    windowId: 1,
+    frozen: false,
+    incognito: false,
+    selected: false,
+    discarded: false,
+    autoDiscardable: true,
+    groupId: -1,
+    lastAccessed: 0,
+  };
+  clicked?.({ menuItemId: 42, editable: false, pageUrl: "https://example.com" }, tab);
+
+  expect(broadcasts).toHaveLength(1);
+  expect(broadcasts[0]).toMatchObject({ type: "CONTEXT_MENU_CLICKED", menuId: "42", tabId: 7 });
+});
+
+test("ContextMenuManager - CONTEXT_MENU_CREATE passes contexts through", async () => {
+  // chrome.contextMenus.ContextType is a runtime enum on the real `chrome` global.
+  const priorChrome: unknown = Reflect.get(globalThis, "chrome");
+  setGlobal("chrome", { contextMenus: { ContextType: { PAGE: "page", SELECTION: "selection" } } });
+  const { PAGE, SELECTION } = chrome.contextMenus.ContextType;
+  if (priorChrome === undefined) clearGlobals("chrome");
+  else setGlobal("chrome", priorChrome);
+  const created: chrome.contextMenus.CreateProperties[] = [];
+  const testBus = new MessageBus("background", {
+    ...adapters,
+    contextMenus: {
+      ...adapters.contextMenus,
+      create: async (props) => {
+        created.push(props);
+      },
+    },
+  });
+  new ContextMenuManager(testBus);
+
+  const response = await testBus.send({
+    type: "CONTEXT_MENU_CREATE",
+    id: "m1",
+    title: "Menu",
+    contexts: [PAGE, SELECTION],
+  });
+
+  expect(response).toEqual({ success: true });
+  expect(created).toEqual([{ id: "m1", title: "Menu", contexts: ["page", "selection"] }]);
+});
+
+test("ContextMenuManager - CONTEXT_MENU_CREATE refuses an empty contexts list", async () => {
+  const created: chrome.contextMenus.CreateProperties[] = [];
+  const testBus = new MessageBus("background", {
+    ...adapters,
+    contextMenus: {
+      ...adapters.contextMenus,
+      create: async (props) => {
+        created.push(props);
+      },
+    },
+  });
+  new ContextMenuManager(testBus);
+
+  const response = await testBus.send({
+    type: "CONTEXT_MENU_CREATE",
+    id: "m2",
+    title: "Menu",
+    contexts: [],
+  });
+
+  expect(response).toEqual({ success: false });
+  expect(created).toEqual([]);
 });
 
 test("OffscreenManager - creates offscreen document", async () => {
