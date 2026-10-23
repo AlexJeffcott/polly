@@ -469,22 +469,6 @@
   },
   {
     "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
-  },
-  {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
-  },
-  {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }"
-  },
-  {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
-    "text": "client.repo.peerId as unknown as string"
-  },
-  {
-    "file": "tests/unit/mesh-client-create-161.test.ts",
     "text": "FakeWebSocket as unknown as typeof WebSocket"
   },
   {
