@@ -10,7 +10,7 @@
 import "./helpers/css-module-keys.ts";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { VNode } from "preact";
+import type { FunctionComponent, VNode } from "preact";
 
 beforeAll(() => {
   GlobalRegistrator.register();
@@ -148,7 +148,10 @@ describe("Button — content", () => {
   // would be a layout decision hidden in CSS, which is what the css-layout
   // check forbids and what this test pins.
   test("with an icon, icon and label are arranged by a Layout", () => {
-    const icon = h("svg", { "data-icon": "true" }) as unknown as VNode;
+    // A component element has the plain VNode<{}> the icon prop takes; a raw
+    // h("svg", props) is typed by its props and does not fit.
+    const Icon: FunctionComponent = () => h("svg", { "data-icon": "true" });
+    const icon = h(Icon, null);
     const el = rendered(mount(h(Button, { icon, label: "Save" })));
     const layout = el.querySelector<HTMLElement>("[data-polly-layout]");
     expect(layout).not.toBeNull();

@@ -361,8 +361,12 @@ describe("FileInput — fires on a non-empty selection; class tokens", () => {
     );
     const input = asElement(el.querySelector("input"), HTMLInputElement);
     const file = new File(["x"], "a.txt", { type: "text/plain" });
-    // Deliberately partial FileList fake — FileInput only reads length/0.
-    const list = { 0: file, length: 1, item: () => file } as unknown as FileList;
+    // DataTransfer is how a browser builds a FileList. happy-dom returns a
+    // plain array from .files; FileInput only reads length and [0].
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const list = transfer.files;
+    expect(list[0]).toBe(file);
     Object.defineProperty(input, "files", { value: list, configurable: true });
     input.dispatchEvent(new Event("change", { bubbles: true }));
     expect(calls[0]).toBe(list);
