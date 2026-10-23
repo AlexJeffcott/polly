@@ -508,18 +508,6 @@
     "text": "FakeWebSocket as unknown as typeof WebSocket"
   },
   {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "adapter as unknown as WebSocketClientAdapter"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "adapter as unknown as WebSocketClientAdapter"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "new FakeAdapter() as unknown as WebSocketClientAdapter"
-  },
-  {
     "file": "tests/unit/sweep-sealed.test.ts",
     "text": "{ handles } as unknown as Repo"
   },
