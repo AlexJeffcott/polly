@@ -19,17 +19,16 @@ import {
 import type { WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { createPeerStateClient, type PeerStateClient } from "@/shared/lib/peer-relay-adapter";
 import { generateSigningKeyPair } from "@/shared/lib/signing";
+import { peerId } from "./helpers/branded";
 
 const URL = "ws://localhost:9/polly/peer";
 
 /** A network adapter that opens no socket. Repo accepts it as a real adapter;
- * connect() reports ready immediately and send/disconnect are no-ops. */
+ * isReady()/whenReady() report ready immediately and send/disconnect are
+ * no-ops. NetworkAdapterEvents has no "ready" event, so connect() emits none. */
 class FakeAdapter extends NetworkAdapter {
   connect(peerId: PeerId): void {
     this.peerId = peerId;
-    (this as unknown as { emit: (e: string, p?: unknown) => void }).emit("ready", {
-      network: this,
-    });
   }
   disconnect(): void {}
   send(): void {}
@@ -57,11 +56,6 @@ function make(opts: Partial<Parameters<typeof createPeerStateClient>[0]> = {}): 
   return { client, adapter };
 }
 
-/** Emit a lifecycle event on the adapter, as the real one would at runtime. */
-function fire(adapter: FakeAdapter, event: string, payload?: unknown): void {
-  (adapter as unknown as { emit: (e: string, p?: unknown) => void }).emit(event, payload);
-}
-
 function makeKeyring() {
   return {
     identity: generateSigningKeyPair(),
@@ -87,7 +81,7 @@ describe("createPeerStateClient — construction", () => {
     const { client, adapter } = make();
     expect(client.repo).toBeDefined();
     expect(client.connectionState.value).toBe("connecting");
-    expect(client.adapter).toBe(adapter as unknown as WebSocketClientAdapter);
+    expect<unknown>(client.adapter).toBe(adapter);
     expect(typeof client.close).toBe("function");
   });
 
@@ -97,7 +91,7 @@ describe("createPeerStateClient — construction", () => {
 
   test("uses the injected adapter factory instead of a real socket", () => {
     const { client, adapter } = make();
-    expect(client.adapter).toBe(adapter as unknown as WebSocketClientAdapter);
+    expect<unknown>(client.adapter).toBe(adapter);
   });
 });
 
@@ -124,22 +118,22 @@ describe("createPeerStateClient — signing guard", () => {
 describe("createPeerStateClient — connection state transitions", () => {
   test("peer-candidate moves the signal to connected", () => {
     const { client, adapter } = make();
-    fire(adapter, "peer-candidate", { peerId: "relay", peerMetadata: {} });
+    adapter.emit("peer-candidate", { peerId: peerId("relay"), peerMetadata: {} });
     expect(client.connectionState.value).toBe("connected");
   });
 
   test("peer-disconnected moves the signal to disconnected", () => {
     const { client, adapter } = make();
-    fire(adapter, "peer-candidate", { peerId: "relay", peerMetadata: {} });
+    adapter.emit("peer-candidate", { peerId: peerId("relay"), peerMetadata: {} });
     expect(client.connectionState.value).toBe("connected");
-    fire(adapter, "peer-disconnected", { peerId: "relay" });
+    adapter.emit("peer-disconnected", { peerId: peerId("relay") });
     expect(client.connectionState.value).toBe("disconnected");
   });
 
   test("a socket close moves the signal to disconnected", () => {
     const { client, adapter } = make();
-    fire(adapter, "peer-candidate", { peerId: "relay", peerMetadata: {} });
-    fire(adapter, "close");
+    adapter.emit("peer-candidate", { peerId: peerId("relay"), peerMetadata: {} });
+    adapter.emit("close");
     expect(client.connectionState.value).toBe("disconnected");
   });
 });
@@ -242,7 +236,7 @@ describe("createPeerStateClient — socket-error containment", () => {
 
   test("moves the connection signal to disconnected", () => {
     const { client, adapter } = makeThrowing({ onSocketError: () => {} });
-    fire(adapter, "peer-candidate", { peerId: "relay", peerMetadata: {} });
+    adapter.emit("peer-candidate", { peerId: peerId("relay"), peerMetadata: {} });
     expect(client.connectionState.value).toBe("connected");
     adapter.onError(bunErrorEvent);
     expect(client.connectionState.value).toBe("disconnected");
@@ -280,6 +274,6 @@ describe("createPeerStateClient — socket-error containment", () => {
 
   test("an adapter with no onError is left alone", () => {
     const { adapter } = make();
-    expect((adapter as unknown as { onError?: unknown }).onError).toBeUndefined();
+    expect(Reflect.get(adapter, "onError")).toBeUndefined();
   });
 });

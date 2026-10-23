@@ -617,22 +617,6 @@
   },
   {
     "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "adapter as unknown as { emit: (e: string, p?: unknown) => void }"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "adapter as unknown as { onError?: unknown }"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "adapter as unknown as WebSocketClientAdapter"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "adapter as unknown as WebSocketClientAdapter"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
     "text": "adapter as unknown as WebSocketClientAdapter"
   },
   {
@@ -642,10 +626,6 @@
   {
     "file": "tests/unit/peer-relay-adapter.test.ts",
     "text": "new FakeAdapter() as unknown as WebSocketClientAdapter"
-  },
-  {
-    "file": "tests/unit/peer-relay-adapter.test.ts",
-    "text": "this as unknown as { emit: (e: string, p?: unknown) => void }"
   },
   {
     "file": "tests/unit/peer-repo-server.test.ts",
