@@ -4,7 +4,6 @@ import { estimateStateSpace } from "../../analysis/state-space-estimator";
 import { DEFAULT_CONTEXTS } from "../../codegen/model-constants";
 import { generateSubsystemTLA, TLAGenerator } from "../../codegen/tla";
 import { buildWitnessCfg } from "../../codegen/witness";
-import type { UnifiedVerificationConfig } from "../../config/types";
 import type { VerificationConfig } from "../../types";
 
 /**
@@ -120,7 +119,7 @@ describe("the declared set against the rest of the model", () => {
   test("the estimator's count and branching read off the same set", async () => {
     const config = configWith({ contexts: ["server"] });
     const { cfg } = await new TLAGenerator().generate(config, ANALYSIS);
-    const estimate = estimateStateSpace(config as unknown as UnifiedVerificationConfig, ANALYSIS);
+    const estimate = estimateStateSpace(config, ANALYSIS);
 
     expect(estimate.contextCount).toBe(1);
     expect(estimate.contexts).toEqual(cfgSetMembers(cfg, "Contexts"));
@@ -132,10 +131,7 @@ describe("the declared set against the rest of the model", () => {
   });
 
   test("the default set is reported as the default, and says so in a suggestion", () => {
-    const estimate = estimateStateSpace(
-      configWith() as unknown as UnifiedVerificationConfig,
-      ANALYSIS
-    );
+    const estimate = estimateStateSpace(configWith(), ANALYSIS);
 
     expect(estimate.contextsDeclared).toBe(false);
     expect(estimate.contexts).toEqual([...DEFAULT_CONTEXTS]);
@@ -145,14 +141,8 @@ describe("the declared set against the rest of the model", () => {
   });
 
   test("one context against three is the reduction the ticket measured", () => {
-    const one = estimateStateSpace(
-      configWith({ contexts: ["server"] }) as unknown as UnifiedVerificationConfig,
-      ANALYSIS
-    );
-    const three = estimateStateSpace(
-      configWith() as unknown as UnifiedVerificationConfig,
-      ANALYSIS
-    );
+    const one = estimateStateSpace(configWith({ contexts: ["server"] }), ANALYSIS);
+    const three = estimateStateSpace(configWith(), ANALYSIS);
 
     // 3^3 * (3*7*2*2)^1 = 27 * 84 against 3^1 * (1*1*2*2)^1 = 3 * 4.
     expect(three.estimatedStates / one.estimatedStates).toBe(189);

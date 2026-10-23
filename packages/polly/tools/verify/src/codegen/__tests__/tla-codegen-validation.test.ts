@@ -159,10 +159,11 @@ describe("TLA+ Code Generation Validation", () => {
   test("should validate TLA+ identifier in messageTypeToActionName", async () => {
     const generator = new TLAGenerator();
 
-    // Access the private method via type assertion for testing
-    const messageTypeToActionName = (generator as unknown as any).messageTypeToActionName.bind(
-      generator
-    );
+    // The method is private; read it off the instance into `unknown` and call it there.
+    const method: unknown = Reflect.get(generator, "messageTypeToActionName");
+    if (typeof method !== "function") throw new Error("messageTypeToActionName is gone");
+    const messageTypeToActionName = (messageType: string): unknown =>
+      Reflect.apply(method, generator, [messageType]);
 
     // Valid identifiers should work (converted to PascalCase)
     expect(messageTypeToActionName("query")).toBe("HandleQuery");

@@ -2,6 +2,7 @@
 
 import type { RoutingAdapter } from "../adapters/base";
 import type { StateSchema } from "../core/model";
+import type { MeshConfig, MessageConfig, SubsystemConfig, VerificationConfig } from "../types";
 
 // New Adapter-Based Configuration
 
@@ -112,6 +113,12 @@ export interface AdapterVerificationConfig {
 
   /** TLC engine options (timeout, workers, memory). */
   verification?: VerificationEngineOptions;
+
+  /**
+   * Subsystem-scoped verification. The CLI reads this off either arm, so it is
+   * declared on both.
+   */
+  subsystems?: Record<string, SubsystemConfig>;
 }
 
 // Legacy Configuration (Backward Compatibility)
@@ -175,11 +182,20 @@ export interface LegacyVerificationConfig {
    */
   contexts?: string[];
 
-  /** Message configuration (old format) */
-  messages: {
-    maxInFlight: number | null;
-    maxTabs: number | null;
-  };
+  /** Message configuration (old format): bounds plus the Tier 1 include/exclude/symmetry knobs. */
+  messages: MessageConfig;
+
+  /** polly#117: `$meshState` document declarations, docId → field schema. */
+  mesh?: MeshConfig;
+
+  /** Subsystem-scoped (compositional) verification, keyed by subsystem name. */
+  subsystems?: Record<string, SubsystemConfig>;
+
+  /** polly#171: check message-resolution liveness. */
+  liveness?: boolean;
+
+  /** Tier 2 controlled approximations (temporal constraints, bounded exploration). */
+  tier2?: VerificationConfig["tier2"];
 
   /** Verification behavior on build */
   onBuild: "warn" | "error" | "off";

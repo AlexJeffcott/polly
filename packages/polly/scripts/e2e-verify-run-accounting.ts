@@ -33,7 +33,6 @@ import type { CodebaseAnalysis } from "../tools/analysis/src/types";
 import { assert, selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 import { estimateStateSpace } from "../tools/verify/src/analysis/state-space-estimator";
 import { generateTLA } from "../tools/verify/src/codegen/tla";
-import type { UnifiedVerificationConfig } from "../tools/verify/src/config/types";
 import { DockerRunner, type TLCResult } from "../tools/verify/src/runner/docker";
 import { jvmHeapArg, parseMemoryBytes } from "../tools/verify/src/runner/memory";
 import type { VerificationConfig } from "../tools/verify/src/types";
@@ -216,7 +215,7 @@ function checkEstimate(
   const contexts = cfgSetMembers(cfg, "Contexts").length;
   const tabs = cfgSetMembers(cfg, "Tabs").length;
 
-  const estimate = estimateStateSpace(CONFIG as unknown as UnifiedVerificationConfig, analysis);
+  const estimate = estimateStateSpace(CONFIG, analysis);
 
   assert(
     estimate.contextCount === contexts,
