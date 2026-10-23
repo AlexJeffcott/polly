@@ -41,28 +41,44 @@ export class IDBOpenError extends Error {
   }
 }
 
-export interface OpenIDBOptions {
+export interface OpenIDBOptions<D = IDBDatabase> {
   name: string;
   version: number;
   /** Invoked inside `onupgradeneeded`. Create object stores here. */
-  upgrade: (db: IDBDatabase, event: IDBVersionChangeEvent) => void;
+  upgrade: (db: D, event: IDBVersionChangeEvent) => void;
 }
 
-/** Open-request factory. Defaults to `indexedDB.open`; tests override
- *  it to force the timeout, blocked, or error path without needing a
- *  real zombie tab — `fake-indexeddb` cannot reproduce the v0.60.0
- *  no-events fingerprint, so the regression that motivated this whole
- *  module is otherwise uncoverable. */
-export type IDBOpenFn = (name: string, version: number) => IDBOpenDBRequest;
+/** A handler slot on an open request. Method-typed so the parameter is
+ *  bivariant: the DOM slot is `(this: IDBOpenDBRequest, ev: Event) => any`,
+ *  a test fake's takes `unknown`. */
+type IDBOpenHandler<E> = { handle(event: E): void }["handle"] | null;
 
-const defaultOpenFn: IDBOpenFn = (name, version) => indexedDB.open(name, version);
+/** The part of an `IDBOpenDBRequest` that `openIDB` uses: four handler
+ *  slots it writes, and the `result` and `error` it reads. `D` is the
+ *  database type the request yields; `IDBOpenDBRequest` satisfies
+ *  `IDBOpenRequestLike<IDBDatabase>`. */
+export interface IDBOpenRequestLike<D> {
+  readonly result: D;
+  readonly error: DOMException | null;
+  onsuccess: IDBOpenHandler<unknown>;
+  onerror: IDBOpenHandler<unknown>;
+  onblocked: IDBOpenHandler<unknown>;
+  onupgradeneeded: IDBOpenHandler<IDBVersionChangeEvent>;
+}
+
+/** Open-request factory. Production passes {@link indexedDBOpen}; tests
+ *  pass a fake to force the timeout, blocked, or error path without
+ *  needing a real zombie tab — `fake-indexeddb` cannot reproduce the
+ *  v0.60.0 no-events fingerprint, so the regression that motivated this
+ *  whole module is otherwise uncoverable. */
+export type IDBOpenFn<D = IDBDatabase> = (name: string, version: number) => IDBOpenRequestLike<D>;
+
+/** The production factory: `indexedDB.open`, read at call time. */
+export const indexedDBOpen: IDBOpenFn = (name, version) => indexedDB.open(name, version);
 
 /** Open an IndexedDB database with the Polly#107 timeout guard. */
-export function openIDB(
-  options: OpenIDBOptions,
-  openFn: IDBOpenFn = defaultOpenFn
-): Promise<IDBDatabase> {
-  return new Promise<IDBDatabase>((resolve, reject) => {
+export function openIDB<D>(options: OpenIDBOptions<D>, openFn: IDBOpenFn<D>): Promise<D> {
+  return new Promise<D>((resolve, reject) => {
     const start = Date.now();
     const request = openFn(options.name, options.version);
     let settled = false;
@@ -83,9 +99,10 @@ export function openIDB(
       clearTimeout(timer);
       resolve(request.result);
     };
+    // During `upgradeneeded` the request's `result` is already the
+    // connection (it is the event's target), so read it from the request.
     request.onupgradeneeded = (event) => {
-      const db = (event.target as unknown as IDBOpenDBRequest).result;
-      options.upgrade(db, event);
+      options.upgrade(request.result, event);
     };
   });
 }
@@ -94,11 +111,11 @@ export function openIDB(
  *  cell; first call opens, subsequent calls return the cached promise, and
  *  a rejected open clears the cache so the next call can retry instead of
  *  being poisoned by one transient failure. */
-export function cachedOpen(
-  ref: { promise: Promise<IDBDatabase> | null },
-  options: OpenIDBOptions,
-  openFn?: IDBOpenFn
-): Promise<IDBDatabase> {
+export function cachedOpen<D>(
+  ref: { promise: Promise<D> | null },
+  options: OpenIDBOptions<D>,
+  openFn: IDBOpenFn<D>
+): Promise<D> {
   if (ref.promise) return ref.promise;
   const pending = openIDB(options, openFn);
   pending.catch(() => {

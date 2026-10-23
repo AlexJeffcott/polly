@@ -268,10 +268,6 @@
     "text": "bytes as unknown as BinaryDocumentId"
   },
   {
-    "file": "src/shared/lib/idb-helpers.ts",
-    "text": "event.target as unknown as IDBOpenDBRequest"
-  },
-  {
     "file": "src/shared/lib/keyring-storage.ts",
     "text": "raw as unknown as Partial<SerialisedKeyring>"
   },
@@ -426,26 +422,6 @@
   {
     "file": "tests/unit/guards.test.ts",
     "text": "{ kind: \"c\" } as unknown as never"
-  },
-  {
-    "file": "tests/unit/idb-helpers.test.ts",
-    "text": "{ close: () => {} } as unknown as IDBDatabase"
-  },
-  {
-    "file": "tests/unit/idb-helpers.test.ts",
-    "text": "blocked as unknown as IDBOpenDBRequest"
-  },
-  {
-    "file": "tests/unit/idb-helpers.test.ts",
-    "text": "ok as unknown as IDBOpenDBRequest"
-  },
-  {
-    "file": "tests/unit/idb-helpers.test.ts",
-    "text": "request as unknown as IDBOpenDBRequest"
-  },
-  {
-    "file": "tests/unit/idb-helpers.test.ts",
-    "text": "request as unknown as IDBOpenDBRequest"
   },
   {
     "file": "tests/unit/mesh-client-diagnostics-helpers-124.test.ts",
