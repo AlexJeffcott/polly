@@ -187,7 +187,7 @@ export function Button(props: ButtonProps): JSX.Element {
   const actionDataAttrs: Record<string, string> = {};
   for (const key of Object.keys(props)) {
     if (key.startsWith("data-action-")) {
-      const value = (props as unknown as Record<string, unknown>)[key];
+      const value: unknown = Reflect.get(props, key);
       if (typeof value === "string") {
         actionDataAttrs[key] = value;
       }

@@ -22,9 +22,9 @@
  */
 
 import type { Signal } from "@preact/signals";
-import type { AccessibleInputHTMLAttributes, JSX, TargetedEvent } from "preact";
+import type { JSX, TargetedEvent } from "preact";
 import { useId } from "preact/hooks";
-import { buildInputA11y } from "./internal/input-base.ts";
+import { buildInputA11y, inputTypeAttrs } from "./internal/input-base.ts";
 import { Layout } from "./Layout.tsx";
 import classes from "./TextInput.module.css";
 
@@ -103,15 +103,15 @@ export function TextInput(props: TextInputProps): JSX.Element {
     readOnly: props.readOnly,
   });
 
-  const controlled = isSignal(props.value);
-  const stringValue = controlled ? (props.value as unknown as Signal<string>).value : undefined;
-  const defaultValue = controlled ? undefined : (props.value ?? "");
+  const signalValue = isSignal(props.value) ? props.value : undefined;
+  const stringValue = signalValue?.value;
+  const defaultValue = isSignal(props.value) ? undefined : (props.value ?? "");
 
   const className = props.className ? `${classes["input"]} ${props.className}` : classes["input"];
 
   const onInput = (e: TargetedEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    if (controlled) {
-      (props.value as unknown as Signal<string>).value = e.currentTarget.value;
+    if (signalValue) {
+      signalValue.value = e.currentTarget.value;
     }
   };
 
@@ -131,10 +131,8 @@ export function TextInput(props: TextInputProps): JSX.Element {
       />
     ) : (
       <input
-        {...({
-          ...a11y,
-          type: props.inputType ?? "text",
-        } as unknown as AccessibleInputHTMLAttributes)}
+        {...a11y}
+        {...inputTypeAttrs(props.inputType ?? "text")}
         class={className}
         title={props.title}
         data-polly-input-variant="single"
