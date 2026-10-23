@@ -148,14 +148,6 @@
     "text": "{ ...header, data } as unknown as Message"
   },
   {
-    "file": "src/shared/lib/mesh-network-adapter.ts",
-    "text": "outer as unknown as Message"
-  },
-  {
-    "file": "src/shared/lib/mesh-network-adapter.ts",
-    "text": "outer as unknown as Message"
-  },
-  {
     "file": "src/shared/lib/mesh-signaling-client.ts",
     "text": "record as unknown as CustomSignalingFrame"
   },
@@ -178,34 +170,6 @@
   {
     "file": "src/shared/lib/mesh-state.ts",
     "text": "repo.handles as unknown as Record<string, { state: unknown } | undefined>"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "{ ...header, data } as unknown as Message"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "event as unknown as { error?: { message?: unknown }; message?: unknown }"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "JSON.parse( new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)) ) as Record<string, unknown>"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "rawPayload as unknown as SignalingPayload"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "this as unknown as { emit: (event: string, payload: SyncProgressEvent) => void; }"
-  },
-  {
-    "file": "src/shared/lib/mesh-webrtc-adapter.ts",
-    "text": "this.peerId as unknown as string"
   },
   {
     "file": "src/shared/lib/peer-repo-server.ts",

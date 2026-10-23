@@ -63,6 +63,7 @@ import {
   SYNC_FRAGMENT_CHUNK_SIZE,
   SYNC_FRAGMENT_THRESHOLD,
 } from "./sync-fragment";
+import { messageFromWireHeader } from "./wire-message";
 
 /** Distil an {@link RTCStatsReport} into a {@link TransportSnapshot}.
  * Resolves the selected candidate pair via the transport stat's
@@ -506,6 +507,74 @@ type SignalingPayload =
   | { kind: "offer"; sdp: RTCSessionDescriptionInit }
   | { kind: "answer"; sdp: RTCSessionDescriptionInit }
   | { kind: "ice"; candidate: RTCIceCandidateInit };
+
+const SDP_TYPES: readonly RTCSdpType[] = ["answer", "offer", "pranswer", "rollback"];
+
+/** The description when `input` has an RTCSdpType `type` and, if present, a string `sdp`. */
+function readSessionDescription(input: unknown): RTCSessionDescriptionInit | undefined {
+  if (!isRecord(input)) return undefined;
+  const type = SDP_TYPES.find((t) => t === input["type"]);
+  if (type === undefined) return undefined;
+  const sdp = input["sdp"];
+  if (sdp === undefined) return { type };
+  return typeof sdp === "string" ? { type, sdp } : undefined;
+}
+
+/** A string, null or absent field; `false` marks a value of any other type. */
+function readOptionalNullableString(input: unknown): string | null | undefined | false {
+  return input === undefined || input === null || typeof input === "string" ? input : false;
+}
+
+/** The candidate when every RTCIceCandidateInit field present has its declared type. */
+function readIceCandidateInit(input: unknown): RTCIceCandidateInit | undefined {
+  if (!isRecord(input)) return undefined;
+  const out: RTCIceCandidateInit = {};
+  const candidate = input["candidate"];
+  if (candidate !== undefined) {
+    if (typeof candidate !== "string") return undefined;
+    out.candidate = candidate;
+  }
+  const sdpMLineIndex = input["sdpMLineIndex"];
+  if (sdpMLineIndex !== undefined) {
+    if (sdpMLineIndex !== null && typeof sdpMLineIndex !== "number") return undefined;
+    out.sdpMLineIndex = sdpMLineIndex;
+  }
+  const sdpMid = readOptionalNullableString(input["sdpMid"]);
+  if (sdpMid === false) return undefined;
+  if (sdpMid !== undefined) out.sdpMid = sdpMid;
+  const usernameFragment = readOptionalNullableString(input["usernameFragment"]);
+  if (usernameFragment === false) return undefined;
+  if (usernameFragment !== undefined) out.usernameFragment = usernameFragment;
+  return out;
+}
+
+/** The signal when `input` is a well-formed offer, answer or ICE payload. */
+function readSignalingPayload(input: unknown): SignalingPayload | undefined {
+  if (!isRecord(input)) return undefined;
+  const kind = input["kind"];
+  if (kind === "offer" || kind === "answer") {
+    const sdp = readSessionDescription(input["sdp"]);
+    return sdp ? { kind, sdp } : undefined;
+  }
+  if (kind === "ice") {
+    const candidate = readIceCandidateInit(input["candidate"]);
+    return candidate ? { kind, candidate } : undefined;
+  }
+  return undefined;
+}
+
+/** Split a blob wire frame into its JSON header record and payload. Throws
+ *  when the header JSON is unparseable or not an object; the receive path
+ *  drops a frame its handler throws on. */
+function splitBlobFrame(bytes: Uint8Array): { header: Record<string, unknown>; data: Uint8Array } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const headerLen = view.getUint32(0, false);
+  const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
+  if (!isRecord(parsed)) {
+    throw new Error("MeshWebRTCAdapter: blob header is not an object.");
+  }
+  return { header: parsed, data: bytes.subarray(4 + headerLen) };
+}
 
 /** Payload of the polly-specific `"sync-progress"` event emitted by
  * {@link MeshWebRTCAdapter}. Consumers can subscribe via the adapter's
@@ -1701,10 +1770,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
    * method.
    */
   handleSignal(fromPeerId: string, rawPayload: unknown): void {
-    const payload = rawPayload as unknown as SignalingPayload;
-    if (!payload || typeof payload !== "object" || !("kind" in payload)) {
-      return;
-    }
+    const payload = readSignalingPayload(rawPayload);
+    if (!payload) return;
     switch (payload.kind) {
       case "offer":
         void this.handleOffer(fromPeerId, payload.sdp);
@@ -1859,8 +1926,8 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       // peer-id ordering: the lexicographically lower id yields its own
       // offer and accepts the incoming one. The higher id ignores the
       // incoming offer and waits for the answer to its own.
-      const localId = this.peerId as unknown as string;
-      if (localId > fromPeerId) {
+      const localId = this.peerId;
+      if (localId !== undefined && localId > fromPeerId) {
         return;
       }
       existing.channel?.close();
@@ -2074,12 +2141,14 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     channel.onerror = (event) => {
       const slot = this.slots.get(peerId);
       if (!slot) return;
-      const ev = event as unknown as { error?: { message?: unknown }; message?: unknown };
+      const error: unknown = "error" in event ? event.error : undefined;
+      const errorMessage = isRecord(error) ? error["message"] : undefined;
+      const eventMessage: unknown = "message" in event ? event.message : undefined;
       const message =
-        typeof ev.error?.message === "string"
-          ? ev.error.message
-          : typeof ev.message === "string"
-            ? ev.message
+        typeof errorMessage === "string"
+          ? errorMessage
+          : typeof eventMessage === "string"
+            ? eventMessage
             : "unknown data channel error";
       slot.lastDataChannelError = message;
     };
@@ -2133,12 +2202,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
       // Blob headers have type fields starting with "blob-" and would fail
       // MeshNetworkAdapter's signed-envelope unwrap if passed through.
       if (this.onBlobMessage && isBlobMessageType(bytes)) {
-        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        const headerLen = view.getUint32(0, false);
-        const header = JSON.parse(
-          new TextDecoder().decode(bytes.subarray(4, 4 + headerLen))
-        ) as Record<string, unknown>;
-        const data = bytes.subarray(4 + headerLen);
+        const { header, data } = splitBlobFrame(bytes);
         this.onBlobMessage(fromPeerId, header, data);
         return;
       }
@@ -2251,14 +2315,11 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     };
     for (const listener of this.syncProgressListeners) listener(event);
     // The `sync-progress` event is polly-specific; Automerge's
-    // NetworkAdapter event-type union doesn't include it. Cast around
-    // the typed emit so consumers can subscribe via the same `.on(...)`
-    // surface that carries `peer-candidate` and `peer-disconnected`.
-    (
-      this as unknown as {
-        emit: (event: string, payload: SyncProgressEvent) => void;
-      }
-    ).emit("sync-progress", event);
+    // NetworkAdapter event-type union doesn't include it. Reflect.apply
+    // calls the untyped emit so consumers can subscribe via the same
+    // `.on(...)` surface that carries `peer-candidate` and
+    // `peer-disconnected`.
+    Reflect.apply(this.emit, this, ["sync-progress", event]);
   }
 
   private handleSyncFragment(fromPeerId: string, bytes: Uint8Array): void {
@@ -2309,12 +2370,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
   private dispatchReassembled(fromPeerId: string, bytes: Uint8Array): void {
     try {
       if (this.onBlobMessage && isBlobMessageType(bytes)) {
-        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        const headerLen = view.getUint32(0, false);
-        const header = JSON.parse(
-          new TextDecoder().decode(bytes.subarray(4, 4 + headerLen))
-        ) as Record<string, unknown>;
-        const data = bytes.subarray(4 + headerLen);
+        const { header, data } = splitBlobFrame(bytes);
         this.onBlobMessage(fromPeerId, header, data);
         this.finishInFlightSyncApply(fromPeerId);
         return;
@@ -2395,8 +2451,7 @@ export class MeshWebRTCAdapter extends NetworkAdapter {
     if (bytes.length < 4 + headerLen) {
       throw new Error("MeshWebRTCAdapter: message header truncated.");
     }
-    const header = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
-    const data = bytes.slice(4 + headerLen);
-    return { ...header, data } as unknown as Message;
+    const header: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + headerLen)));
+    return messageFromWireHeader(header, bytes.slice(4 + headerLen), "MeshWebRTCAdapter");
   }
 }

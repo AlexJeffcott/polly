@@ -46,6 +46,7 @@ import {
   type PeerId,
   type PeerMetadata,
 } from "@automerge/automerge-repo/slim";
+import { toPeerId } from "./branded";
 import {
   decodeEncryptedEnvelope,
   encodeEncryptedEnvelope,
@@ -304,16 +305,16 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     // envelope still binds the inner copy, so the outer copy cannot
     // forge routing — a peer that mismatches the two is observable as
     // a divergent receive shape, not a routing exploit.
-    const outer: Record<string, unknown> = {
+    const outer: Message = {
       type: message.type,
       senderId: message.senderId,
       targetId: message.targetId,
       data: signedBytes,
     };
     if ("documentId" in message && message.documentId !== undefined) {
-      outer["documentId"] = message.documentId;
+      outer.documentId = message.documentId;
     }
-    return outer as unknown as Message;
+    return outer;
   }
 
   // Try to unwrap an incoming crypto-wrapped message. Returns the original
@@ -515,18 +516,18 @@ export class MeshNetworkAdapter extends NetworkAdapter {
     }
 
     // An adapter that has not joined yet signs with an empty sender id.
-    const senderId = this.peerId ?? "";
+    const senderId = this.peerId ?? toPeerId("");
     const signed = signEnvelope(payloadToSign, senderId, keyring.identity.secretKey);
     const signedBytes = encodeSignedEnvelope(signed);
 
     for (const targetId of targetPeerIds) {
-      const outer: Record<string, unknown> = {
+      const outer: Message = {
         type: "sync",
         senderId,
         targetId,
         data: signedBytes,
       };
-      this.base.send(outer as unknown as Message);
+      this.base.send(outer);
     }
   }
 }

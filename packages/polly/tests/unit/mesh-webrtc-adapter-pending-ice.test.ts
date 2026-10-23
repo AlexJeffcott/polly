@@ -25,6 +25,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
+import { isRecord } from "@/shared/lib/guards";
 import {
   type MeshPeerConnectionConstructor,
   type MeshSignalingTransport,
@@ -275,5 +276,41 @@ describe("MeshWebRTCAdapter pre-remoteDescription ICE buffering", () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(instances).toHaveLength(0);
     });
+  });
+});
+
+describe("MeshWebRTCAdapter.handleSignal payload validation", () => {
+  // "peer-a" < "peer-z", so peer-a answers an offer from peer-z.
+  test("answers a well-formed offer", async () => {
+    const { adapter, instances, sent } = buildAdapter("peer-a", ["peer-z"]);
+    adapter.handleSignal("peer-z", { kind: "offer", sdp: { type: "offer", sdp: "v=0\r\n" } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(instances).toHaveLength(1);
+    expect(sent.some((s) => isRecord(s.payload) && s.payload["kind"] === "answer")).toBe(true);
+  });
+
+  test("drops an offer whose sdp is not an RTCSessionDescriptionInit", async () => {
+    const { adapter, instances, sent } = buildAdapter("peer-a", ["peer-z"]);
+    adapter.handleSignal("peer-z", { kind: "offer", sdp: "v=0\r\n" });
+    adapter.handleSignal("peer-z", { kind: "offer", sdp: { type: "bogus", sdp: "v=0\r\n" } });
+    adapter.handleSignal("peer-z", { kind: "offer", sdp: { type: "offer", sdp: 0 } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(instances).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  test("drops an ICE candidate with an ill-typed field", async () => {
+    const built = buildAdapter("peer-z", ["peer-a"]);
+    built.adapter.handlePeerJoined("peer-a");
+    await new Promise((r) => setTimeout(r, 0));
+    built.adapter.handleSignal("peer-a", { kind: "answer", sdp: fakeAnswer() });
+    await new Promise((r) => setTimeout(r, 0));
+    built.adapter.handleSignal("peer-a", {
+      kind: "ice",
+      candidate: { ...fakeCandidate(1), sdpMLineIndex: "0" },
+    });
+    built.adapter.handleSignal("peer-a", { kind: "ice", candidate: fakeCandidate(2) });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(built.instances[0]?.addIceCalls.map((c) => c.candidate)).toEqual([fakeCandidate(2)]);
   });
 });
