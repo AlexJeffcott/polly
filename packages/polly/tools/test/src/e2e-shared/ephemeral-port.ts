@@ -20,16 +20,6 @@
  * known before the server starts, such as a restart on the same port.
  */
 
-/** Elysia hangs the underlying Bun server off `.server`. */
-interface BunServerHost {
-  server?: { port?: number | null } | null;
-}
-
-/** `ws`'s WebSocketServer reports its bound address as an AddressInfo. */
-interface AddressHost {
-  address?: () => string | { port?: number | null } | null;
-}
-
 /**
  * Read the port a Bun/Elysia app was actually assigned.
  *
@@ -44,7 +34,10 @@ interface AddressHost {
  * ```
  */
 export function resolveListenPort(app: unknown): number {
-  const port = (app as unknown as BunServerHost).server?.port;
+  // Elysia hangs the underlying Bun server off `.server`; `in` sees getters too.
+  const server = typeof app === "object" && app !== null && "server" in app ? app.server : null;
+  const port =
+    typeof server === "object" && server !== null && "port" in server ? server.port : undefined;
   if (typeof port !== "number" || port <= 0) {
     throw new Error(
       `resolveListenPort: app is not listening (server.port = ${String(port)}). ` +
@@ -68,8 +61,13 @@ export function resolveListenPort(app: unknown): number {
  * ```
  */
 export function resolveWebSocketPort(wss: unknown): number {
-  const address = (wss as unknown as AddressHost).address?.();
-  const port = typeof address === "object" && address !== null ? address.port : undefined;
+  // `ws`'s WebSocketServer reports its bound address as an AddressInfo (or a pipe name).
+  const address: unknown =
+    typeof wss === "object" && wss !== null && "address" in wss && typeof wss.address === "function"
+      ? wss.address()
+      : undefined;
+  const port =
+    typeof address === "object" && address !== null && "port" in address ? address.port : undefined;
   if (typeof port !== "number" || port <= 0) {
     throw new Error(
       `resolveWebSocketPort: server is not listening on a TCP port (address = ${JSON.stringify(address)}).`

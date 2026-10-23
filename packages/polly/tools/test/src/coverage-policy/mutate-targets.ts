@@ -15,12 +15,20 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Glob } from "bun";
+import { readRecord, readStringArray } from "../../../../src/shared/lib/guards";
 import { loadMutationConfig, MUTATION_CONFIG_FILE } from "../../../mutate/src/define.ts";
 
-interface StrykerConfig {
-  mutate?: string[];
-  testFiles?: string[];
-  bun?: { testFiles?: string[] };
+/** A path list from a Stryker config: absent is `undefined`; any other non-string-array throws. */
+function readPatterns(
+  config: Record<string, unknown> | undefined,
+  key: string,
+  path: string
+): string[] | undefined {
+  const value = config?.[key];
+  if (value === undefined) return undefined;
+  const patterns = readStringArray(value);
+  if (patterns === undefined) throw new Error(`${path}: \`${key}\` is not an array of strings`);
+  return patterns;
 }
 
 export interface MutateTargetIssue {
@@ -70,12 +78,18 @@ export async function findMutateConfigs(root: string): Promise<MutateConfigEntry
     });
   }
   for (const path of await findStrykerConfigs(root)) {
-    const config = JSON.parse(readFileSync(path, "utf8")) as unknown as StrykerConfig;
+    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+    const config = readRecord(parsed);
+    if (config === undefined) throw new Error(`${path}: not a JSON object`);
+    const testFiles =
+      readPatterns(config, "testFiles", path) ??
+      readPatterns(readRecord(config["bun"]), "testFiles", path) ??
+      [];
     out.push({
       path,
       format: "stryker",
-      targets: { field: "mutate", patterns: config.mutate ?? [] },
-      tests: { field: "testFiles", patterns: config.testFiles ?? config.bun?.testFiles ?? [] },
+      targets: { field: "mutate", patterns: readPatterns(config, "mutate", path) ?? [] },
+      tests: { field: "testFiles", patterns: testFiles },
     });
   }
   return out;
