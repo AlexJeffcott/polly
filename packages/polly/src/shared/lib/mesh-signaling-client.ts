@@ -18,7 +18,7 @@
  * in-process. A Playwright harness still covers the real-browser socket.
  */
 
-import { isRecord } from "./guards";
+import { isRecord, readStringArray } from "./guards";
 
 /** A signal message either sent to or received from the signalling server.
  * Matches the wire format produced by the Elysia signalingServer plugin. */
@@ -132,21 +132,21 @@ const RECONNECT_MAX_DELAY_MS = 30_000;
  * or `undefined` if the frame is unparseable or malformed. Extracted so
  * {@link MeshSignalingClient.dispatchFrame} stays below the linter's
  * cognitive-complexity ceiling. */
-function parseFrame(raw: unknown): Record<string, unknown> | undefined {
+function hasStringType(record: Record<string, unknown>): record is CustomSignalingFrame {
+  return typeof record["type"] === "string";
+}
+
+function parseFrame(raw: unknown): CustomSignalingFrame | undefined {
   let parsed: unknown;
   try {
     parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
   } catch {
     return undefined;
   }
-  if (!isRecord(parsed)) {
+  if (!isRecord(parsed) || !hasStringType(parsed)) {
     return undefined;
   }
-  const record = parsed;
-  if (typeof record["type"] !== "string") {
-    return undefined;
-  }
-  return record;
+  return parsed;
 }
 
 export class MeshSignalingClient {
@@ -276,7 +276,7 @@ export class MeshSignalingClient {
     // use to layer application protocols on the shared socket. Without
     // a handler the frame is silently dropped, preserving the old
     // behaviour byte-for-byte.
-    this.onCustomFrame?.(record as unknown as CustomSignalingFrame);
+    this.onCustomFrame?.(record);
   }
 
   private builtInHandler(type: unknown): ((record: Record<string, unknown>) => void) | undefined {
@@ -289,8 +289,9 @@ export class MeshSignalingClient {
     }
     if (type === "peers-present") {
       return (record) => {
-        if (Array.isArray(record["peerIds"])) {
-          this.onPeersPresent?.(record["peerIds"] as unknown as string[]);
+        const peerIds = readStringArray(record["peerIds"]);
+        if (peerIds !== undefined) {
+          this.onPeersPresent?.(peerIds);
         }
       };
     }
