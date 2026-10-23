@@ -20,6 +20,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { type Message, NetworkAdapter, type PeerId, Repo } from "@automerge/automerge-repo";
 import { __test__ } from "@/shared/lib/mesh-client";
 import { toPeerId } from "../../src/shared/lib/branded";
+import { adapterPeer, adapterSlot } from "./helpers/adapter-peer";
 
 const { buildSyncView, getCollectionSynchronizer, enrichPeerSlot, EMPTY_SYNC_VIEW } = __test__;
 
@@ -228,19 +229,17 @@ describe("enrichPeerSlot (#112 surface wiring)", () => {
 
     const syncForRead = getCollectionSynchronizer(repo);
 
-    const fakePeer = {
-      peerId: "peer-fake",
-      slot: {
-        handles: {
-          [docId]: {
-            lastSyncMessageOutAt: 123,
-            lastSyncMessageInAt: undefined,
-            lastSyncMessageOutSize: 256,
-            lastSyncMessageOutType: "sync",
-          },
+    const fakePeer = adapterPeer(
+      "peer-fake",
+      adapterSlot({
+        [docId]: {
+          lastSyncMessageOutAt: 123,
+          lastSyncMessageInAt: undefined,
+          lastSyncMessageOutSize: 256,
+          lastSyncMessageOutType: "sync",
         },
-      },
-    } as unknown as Parameters<typeof enrichPeerSlot>[0];
+      })
+    );
 
     const repoHandles: Record<string, { state: unknown } | undefined> = repo.handles;
     const enriched = enrichPeerSlot(fakePeer, [docId], repoHandles, syncForRead);
@@ -263,19 +262,17 @@ describe("enrichPeerSlot (#112 surface wiring)", () => {
     const repo = trackRepo(new Repo());
     const syncForRead = getCollectionSynchronizer(repo);
 
-    const fakePeer = {
-      peerId: "peer-fake",
-      slot: {
-        handles: {
-          "unknown-doc-id": {
-            lastSyncMessageOutAt: undefined,
-            lastSyncMessageInAt: 999,
-            lastSyncMessageOutSize: undefined,
-            lastSyncMessageOutType: undefined,
-          },
+    const fakePeer = adapterPeer(
+      "peer-fake",
+      adapterSlot({
+        "unknown-doc-id": {
+          lastSyncMessageOutAt: undefined,
+          lastSyncMessageInAt: 999,
+          lastSyncMessageOutSize: undefined,
+          lastSyncMessageOutType: undefined,
         },
-      },
-    } as unknown as Parameters<typeof enrichPeerSlot>[0];
+      })
+    );
 
     const repoHandles: Record<string, { state: unknown } | undefined> = repo.handles;
     const enriched = enrichPeerSlot(fakePeer, [], repoHandles, syncForRead);
