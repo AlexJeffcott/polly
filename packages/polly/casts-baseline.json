@@ -416,18 +416,6 @@
     "text": "adapters.runtime as unknown as MockRuntime"
   },
   {
-    "file": "tests/unit/adapter-factory.test.ts",
-    "text": "storage as unknown as { dbName: string }"
-  },
-  {
-    "file": "tests/unit/adapter-factory.test.ts",
-    "text": "sync as unknown as { channel: BroadcastChannel }"
-  },
-  {
-    "file": "tests/unit/adapter-factory.test.ts",
-    "text": "sync as unknown as { channel: BroadcastChannel }"
-  },
-  {
     "file": "tests/unit/blob-cache.test.ts",
     "text": "cache as unknown as { store: Map<string, { accessedAt: number }> }"
   },
@@ -550,14 +538,6 @@
   {
     "file": "tests/unit/peer-relay-adapter.test.ts",
     "text": "new FakeAdapter() as unknown as WebSocketClientAdapter"
-  },
-  {
-    "file": "tests/unit/peer-repo-server.test.ts",
-    "text": "server.storage as unknown as { baseDirectory: string }"
-  },
-  {
-    "file": "tests/unit/peer-repo-server.test.ts",
-    "text": "server.storage as unknown as { baseDirectory: string }"
   },
   {
     "file": "tests/unit/polly-ui-class-mapping.test.ts",

@@ -148,16 +148,12 @@ describe("createPeerRepoServer", () => {
     const address = boundAddress(server.webSocketServer).address;
     expect(address).toBe("127.0.0.1");
     // The storagePath is handed to the NodeFS adapter verbatim.
-    expect((server.storage as unknown as { baseDirectory: string }).baseDirectory).toBe(
-      storagePath
-    );
+    expect(server.storage).toMatchObject({ baseDirectory: storagePath });
   });
 
   test("defaults the storage path to automerge-repo-data when none is given", async () => {
     server = await createPeerRepoServer({ port: 0, host: "127.0.0.1" });
-    expect((server.storage as unknown as { baseDirectory: string }).baseDirectory).toBe(
-      "automerge-repo-data"
-    );
+    expect(server.storage).toMatchObject({ baseDirectory: "automerge-repo-data" });
     // storageId() created the directory relative to cwd; remove it on teardown.
     extraCleanup.push(() => rmSync("automerge-repo-data", { recursive: true, force: true }));
   });
