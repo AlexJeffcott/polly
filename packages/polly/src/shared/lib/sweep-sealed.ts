@@ -37,18 +37,14 @@
  * the only protection there. Choose it conservatively.
  */
 
-import type {
-  Chunk,
-  DocumentId,
-  Repo,
-  StorageAdapterInterface,
-} from "@automerge/automerge-repo/slim";
+import type { Chunk, DocumentId, StorageAdapterInterface } from "@automerge/automerge-repo/slim";
 import { Automerge } from "@automerge/automerge-repo/slim";
 import { toDocumentId } from "./branded";
 
 export interface SweepSealedOptions {
-  /** The Repo whose storage is swept. Its open handles gate removal. */
-  repo: Repo;
+  /** The Repo whose storage is swept. Its open handles gate removal; the
+   * sweep reads nothing else from it, so any `{ handles }` record fits. */
+  repo: { readonly handles: Record<DocumentId, unknown> };
   /** The storage adapter backing {@link repo}. */
   storage: StorageAdapterInterface;
   /**
@@ -193,7 +189,7 @@ function classifyDocument(
   documentId: string,
   chunks: Chunk[],
   context: {
-    repo: Repo;
+    repo: SweepSealedOptions["repo"];
     isSealed: (doc: unknown) => number | undefined;
     olderThan: number;
     at: number;

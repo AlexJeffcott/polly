@@ -273,10 +273,25 @@ interface SynchronizerStructural {
   docSynchronizers?: Record<
     string,
     {
-      hasPeer?: (peerId: string) => boolean;
+      // Method syntax: the real `DocSynchronizer.hasPeer` takes a branded
+      // `PeerId`, which a `string` parameter only matches bivariantly.
+      hasPeer?(peerId: string): boolean;
       peerStates?: Record<string, string>;
     }
   >;
+}
+
+/** The one Repo field {@link getCollectionSynchronizer} reads. A `Repo`
+ * satisfies it; `synchronizer` is optional because the reader tolerates
+ * an Automerge build that no longer carries it. */
+interface SynchronizerSource {
+  readonly synchronizer?: SynchronizerStructural;
+}
+
+/** The one Repo field {@link getReevaluateDocumentShare} reads, with the
+ * same tolerance. */
+interface ReevaluateSource {
+  readonly synchronizer?: Partial<Pick<Repo["synchronizer"], "reevaluateDocumentShare">>;
 }
 
 const EMPTY_SYNC_VIEW: PerPeerDocSyncView = {
@@ -294,7 +309,7 @@ export const __test__ = {
     peerId: string
   ): PerPeerDocSyncView => buildSyncView(synchronizer, docId, peerId),
   EMPTY_SYNC_VIEW,
-  getCollectionSynchronizer: (repo: Repo): SynchronizerStructural | undefined =>
+  getCollectionSynchronizer: (repo: SynchronizerSource): SynchronizerStructural | undefined =>
     getCollectionSynchronizer(repo),
   enrichPeerSlot: (
     peer: ReturnType<MeshWebRTCAdapter["getPeerStateSnapshot"]>["peers"][number],
@@ -314,8 +329,8 @@ export const __test__ = {
   installPolly107SyncReevaluation,
 };
 
-function getCollectionSynchronizer(repo: Repo): SynchronizerStructural | undefined {
-  const sync = (repo as unknown as { synchronizer?: SynchronizerStructural }).synchronizer;
+function getCollectionSynchronizer(repo: SynchronizerSource): SynchronizerStructural | undefined {
+  const sync = repo.synchronizer;
   return sync && typeof sync === "object" ? sync : undefined;
 }
 
@@ -396,7 +411,7 @@ function enrichPeerSlot(
  * type, so we reach for it tolerantly — the worst case is the
  * polly#107 fix silently degrades to the pre-fix shape, which the
  * observability layer still surfaces clearly. */
-function getReevaluateDocumentShare(repo: Repo): (() => Promise<void>) | undefined {
+function getReevaluateDocumentShare(repo: ReevaluateSource): (() => Promise<void>) | undefined {
   const sync = repo.synchronizer;
   const fn = sync?.reevaluateDocumentShare;
   if (typeof fn !== "function" || sync === undefined) return undefined;
@@ -541,7 +556,7 @@ function classifyIncomingRevocation(
  * so the outer factory's complexity score stays under the ceiling. */
 function installPolly107SyncReevaluation(
   networkAdapter: { on(event: "peer-candidate", listener: () => void): unknown },
-  repo: Repo
+  repo: ReevaluateSource
 ): void {
   const disable = typeof process !== "undefined" && process.env?.["POLLY_107_DISABLE_FIX"] === "1";
   if (disable) return;

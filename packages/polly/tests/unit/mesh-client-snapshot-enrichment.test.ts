@@ -150,11 +150,11 @@ describe("getCollectionSynchronizer", () => {
   // touches the (hidden) `synchronizer` property.
   test("returns the synchronizer object off the repo", () => {
     const synchronizer = { docSynchronizers: {} };
-    expect(getCollectionSynchronizer({ synchronizer } as unknown as Repo)).toBe(synchronizer);
+    expect(getCollectionSynchronizer({ synchronizer })).toBe(synchronizer);
   });
 
   test("returns undefined when the repo exposes no synchronizer", () => {
-    expect(getCollectionSynchronizer({} as unknown as Repo)).toBeUndefined();
+    expect(getCollectionSynchronizer({})).toBeUndefined();
   });
 
   test("returns undefined when the synchronizer is truthy but not an object", () => {

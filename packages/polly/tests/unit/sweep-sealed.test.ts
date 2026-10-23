@@ -17,7 +17,7 @@ import { join } from "node:path";
 // Imported first: @automerge/automerge self-initialises its WASM runtime
 // at module-eval, so every Automerge call below is ready to run.
 import * as Automerge from "@automerge/automerge";
-import type { Chunk, Repo, StorageAdapterInterface, StorageKey } from "@automerge/automerge-repo";
+import type { Chunk, StorageAdapterInterface, StorageKey } from "@automerge/automerge-repo";
 import { createPeerRepoServer, type PeerRepoServer } from "@/shared/lib/peer-repo-server";
 import { sweepSealed } from "@/shared/lib/sweep-sealed";
 import { documentId } from "./helpers/branded";
@@ -115,10 +115,10 @@ const unsealed = (doc: Record<string, unknown>) => {
 };
 
 /** A Repo whose only relevant surface — its open handles — is the given set. */
-function repoWithHandles(...openDocIds: string[]): Repo {
+function repoWithHandles(...openDocIds: string[]): { handles: Record<string, unknown> } {
   const handles: Record<string, unknown> = {};
   for (const id of openDocIds) handles[id] = {};
-  return { handles } as unknown as Repo;
+  return { handles };
 }
 
 // ─── Standalone sweepSealed ─────────────────────────────────────────────────
