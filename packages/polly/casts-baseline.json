@@ -520,14 +520,6 @@
     "text": "new FakeAdapter() as unknown as WebSocketClientAdapter"
   },
   {
-    "file": "tests/unit/polly-ui-class-mapping.test.ts",
-    "text": "h(\"svg\", { \"data-icon\": \"true\" }) as unknown as VNode"
-  },
-  {
-    "file": "tests/unit/polly-ui-coverage-fill.test.ts",
-    "text": "{ 0: file, length: 1, item: () => file } as unknown as FileList"
-  },
-  {
     "file": "tests/unit/state-debounce-clock.test.ts",
     "text": "callback as unknown as (message: StateSyncMessage<unknown>) => void"
   },
