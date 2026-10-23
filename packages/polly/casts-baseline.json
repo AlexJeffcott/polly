@@ -432,54 +432,6 @@
     "text": "cache as unknown as { store: Map<string, { accessedAt: number }> }"
   },
   {
-    "file": "tests/unit/blob-store-impl-internals.test.ts",
-    "text": "((fn: () => void, delay?: number) => { const id = nextTimerId++; scheduled.push({ fn, delay: delay ?? 0, id }); return id; }) as unknown as typeof setTimeout"
-  },
-  {
-    "file": "tests/unit/blob-store-impl-internals.test.ts",
-    "text": "((id?: ReturnType<typeof setTimeout>) => { const i = scheduled.findIndex((s) => s.id === (id as unknown as number)); if (i >= 0) scheduled.splice(i, 1); }) as unknown as typeof clearTimeout"
-  },
-  {
-    "file": "tests/unit/blob-store-impl-internals.test.ts",
-    "text": "header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store-impl-internals.test.ts",
-    "text": "id as unknown as number"
-  },
-  {
-    "file": "tests/unit/blob-store-impl.test.ts",
-    "text": "parsed.header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "header as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "header0 as unknown as Record<string, unknown>"
-  },
-  {
-    "file": "tests/unit/blob-store.test.ts",
-    "text": "requestHeader as unknown as Record<string, unknown>"
-  },
-  {
     "file": "tests/unit/context-helpers.test.ts",
     "text": "\"option\" as unknown as Context"
   },
