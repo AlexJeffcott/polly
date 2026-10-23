@@ -56,11 +56,11 @@ export class ViewerServer {
       throw new Error(`Failed to start server. Is port ${port} in use?`);
     }
 
-    console.log(`Viewer running at http://localhost:${port}`);
+    const url = `http://localhost:${this.port}`;
+    console.log(`Viewer running at ${url}`);
 
     // Auto-open browser
     if (this.options.open) {
-      const url = `http://localhost:${port}`;
       if (process.platform === "darwin") {
         await BunGlobal.spawn(["open", url]);
       } else if (process.platform === "linux") {
@@ -69,6 +69,11 @@ export class ViewerServer {
         await BunGlobal.spawn(["cmd", "/c", "start", url]);
       }
     }
+  }
+
+  /** The port the server is bound to — the assigned one when started with port 0. */
+  get port(): number | undefined {
+    return this.server?.port ?? this.options.port;
   }
 
   /**

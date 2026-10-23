@@ -2,16 +2,16 @@
 
 import { deriveDocumentId } from "../../../../src/shared/lib/derive-document-id";
 import type {
-  MeshClientHandleSnapshot,
-  MeshClientPeerStateSnapshot,
-} from "../../../../src/shared/lib/mesh-client";
-import type {
   ArchitectureAnalysis,
   ContextInfo,
   MessageFlow,
   MessageHandler,
 } from "../../../analysis/src";
-import { collectSnapshotPeerIds } from "../mesh-snapshot";
+import {
+  collectSnapshotPeerIds,
+  type OverlayHandleSnapshot,
+  type OverlaySnapshot,
+} from "../mesh-snapshot";
 import type {
   ComponentGroup,
   ComponentProperties,
@@ -69,7 +69,7 @@ const MESH_TRANSPORT_NODES = [
 type SyncStatus = "has" | "wants" | "unavailable" | "unknown";
 
 /** Reduce a handle snapshot to its overlay status bucket. */
-function syncStatusOf(handle: MeshClientHandleSnapshot): SyncStatus {
+function syncStatusOf(handle: OverlayHandleSnapshot): SyncStatus {
   const status = handle.peerDocumentStatus;
   if (status === "has" || status === "wants" || status === "unavailable") {
     return status;
@@ -1060,7 +1060,7 @@ export class StructurizrDSLGenerator {
   }
 
   /** Build the overlay plan from a validated snapshot. */
-  private buildOverlayPlan(snapshot: MeshClientPeerStateSnapshot): OverlayPlan {
+  private buildOverlayPlan(snapshot: OverlaySnapshot): OverlayPlan {
     const docIdToNode = this.buildDocIdNodeMap();
     const { peers, peerDslById } = this.buildOverlayPeers(snapshot);
     const { edges, snapshotOnlyDocs } = this.buildOverlayEdges(snapshot, docIdToNode, peerDslById);
@@ -1085,7 +1085,7 @@ export class StructurizrDSLGenerator {
 
   /** Synthesise one peer node per distinct peer id, with collision-safe
    * DSL identifiers. */
-  private buildOverlayPeers(snapshot: MeshClientPeerStateSnapshot): {
+  private buildOverlayPeers(snapshot: OverlaySnapshot): {
     peers: OverlayPeer[];
     peerDslById: Map<string, string>;
   } {
@@ -1107,7 +1107,7 @@ export class StructurizrDSLGenerator {
   /** Walk every peer's handles into status edges, collecting any
    * document the snapshot mentions that static analysis never found. */
   private buildOverlayEdges(
-    snapshot: MeshClientPeerStateSnapshot,
+    snapshot: OverlaySnapshot,
     docIdToNode: Map<string, string>,
     peerDslById: Map<string, string>
   ): { edges: OverlayEdge[]; snapshotOnlyDocs: SnapshotOnlyDoc[] } {
@@ -1162,7 +1162,7 @@ export class StructurizrDSLGenerator {
    * a missing docSynchronizer or a synchronizer that never learned the
    * peer.
    */
-  private overlayEdgeLabel(status: SyncStatus, handle: MeshClientHandleSnapshot): string {
+  private overlayEdgeLabel(status: SyncStatus, handle: OverlayHandleSnapshot): string {
     if (!handle.docSynchronizerExists) return `${status} · no synchronizer`;
     if (handle.docSynchronizerKnowsPeer === false) return `${status} · peer not added`;
     return status;

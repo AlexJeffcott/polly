@@ -144,6 +144,47 @@ describe("mesh snapshot loader (polly#127)", () => {
     ).toThrow(/docSynchronizerExists/);
   });
 
+  test("returns only the fields the overlay reads; a null slot is absent", () => {
+    const read = validateMeshSnapshot({
+      localPeerId: "p0",
+      knownPeerIds: ["p1"],
+      presentPeerIds: ["p2"],
+      repoHandleCount: 3,
+      peers: [
+        { peerId: "p1", slot: null, connectedAt: 1 },
+        {
+          peerId: "p2",
+          slot: {
+            channelOpen: true,
+            handles: {
+              d1: { state: "ready", docSynchronizerExists: true, peerDocumentStatus: "has" },
+            },
+          },
+        },
+      ],
+    });
+    expect(read).toEqual({
+      localPeerId: "p0",
+      knownPeerIds: ["p1"],
+      presentPeerIds: ["p2"],
+      peers: [
+        { peerId: "p1" },
+        {
+          peerId: "p2",
+          slot: {
+            handles: {
+              d1: {
+                docSynchronizerExists: true,
+                docSynchronizerKnowsPeer: undefined,
+                peerDocumentStatus: "has",
+              },
+            },
+          },
+        },
+      ],
+    });
+  });
+
   test("accepts a peer whose slot is absent", () => {
     const ok = validateMeshSnapshot({
       localPeerId: "p0",

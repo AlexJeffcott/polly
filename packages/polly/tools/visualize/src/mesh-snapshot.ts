@@ -7,6 +7,26 @@ import type {
   MeshClientPeerStateSnapshot,
 } from "../../../src/shared/lib/mesh-client";
 
+/** The fields of a {@link MeshClientHandleSnapshot} the overlay reads. */
+export type OverlayHandleSnapshot = Pick<MeshClientHandleSnapshot, "docSynchronizerExists"> &
+  Partial<Pick<MeshClientHandleSnapshot, "docSynchronizerKnowsPeer" | "peerDocumentStatus">>;
+
+/** The fields of one snapshot peer the overlay reads; `slot` absent means no negotiated slot. */
+export interface OverlayPeerSnapshot {
+  peerId: string;
+  slot?: { handles: Record<string, OverlayHandleSnapshot> };
+}
+
+/**
+ * The part of a {@link MeshClientPeerStateSnapshot} the overlay reads. A full
+ * captured snapshot is assignable to it; a hand-authored one need only carry
+ * these fields.
+ */
+export interface OverlaySnapshot
+  extends Pick<MeshClientPeerStateSnapshot, "localPeerId" | "knownPeerIds" | "presentPeerIds"> {
+  peers: OverlayPeerSnapshot[];
+}
+
 /** Thrown when a `--snapshot` file is missing, unreadable, or does not
  * match the {@link MeshClientPeerStateSnapshot} shape. The CLI turns it
  * into a clear message and a non-zero exit with no partial DSL. */
@@ -32,13 +52,14 @@ function requireStringArray(value: unknown, path: string): string[] {
   return value;
 }
 
-/** Validate one per-document handle entry. Only the fields the overlay
- * reads are checked; everything else is passed through untouched. */
-function validateHandle(value: unknown, path: string): MeshClientHandleSnapshot {
+/** Validate one per-document handle entry and keep the fields the overlay
+ * reads; everything else is dropped. */
+function validateHandle(value: unknown, path: string): OverlayHandleSnapshot {
   if (!isObject(value)) {
     throw new MeshSnapshotError(`${path} must be an object`);
   }
-  if (typeof value["docSynchronizerExists"] !== "boolean") {
+  const exists = value["docSynchronizerExists"];
+  if (typeof exists !== "boolean") {
     throw new MeshSnapshotError(`${path}.docSynchronizerExists must be a boolean`);
   }
   const knowsPeer = value["docSynchronizerKnowsPeer"];
@@ -49,57 +70,68 @@ function validateHandle(value: unknown, path: string): MeshClientHandleSnapshot 
   if (status !== undefined && typeof status !== "string") {
     throw new MeshSnapshotError(`${path}.peerDocumentStatus must be a string or absent`);
   }
-  return value as unknown as MeshClientHandleSnapshot;
+  return {
+    docSynchronizerExists: exists,
+    docSynchronizerKnowsPeer: knowsPeer,
+    peerDocumentStatus: status,
+  };
 }
 
-function validatePeer(value: unknown, path: string): MeshClientPeerStateSnapshot["peers"][number] {
+function validatePeer(value: unknown, path: string): OverlayPeerSnapshot {
   if (!isObject(value)) {
     throw new MeshSnapshotError(`${path} must be an object`);
   }
-  if (typeof value["peerId"] !== "string") {
+  const peerId = value["peerId"];
+  if (typeof peerId !== "string") {
     throw new MeshSnapshotError(`${path}.peerId must be a string`);
   }
   // A peer with no negotiated slot serialises as an omitted key; a
   // hand-authored snapshot may use an explicit null. Both mean "absent".
   const slot = value["slot"];
-  if (slot !== undefined && slot !== null) {
-    if (!isObject(slot)) {
-      throw new MeshSnapshotError(`${path}.slot must be an object or absent`);
-    }
-    const handles = slot["handles"];
-    if (!isObject(handles)) {
-      throw new MeshSnapshotError(`${path}.slot.handles must be an object`);
-    }
-    for (const [docId, handle] of Object.entries(handles)) {
-      validateHandle(handle, `${path}.slot.handles[${docId}]`);
-    }
+  if (slot === undefined || slot === null) {
+    return { peerId };
   }
-  return value as unknown as MeshClientPeerStateSnapshot["peers"][number];
+  if (!isObject(slot)) {
+    throw new MeshSnapshotError(`${path}.slot must be an object or absent`);
+  }
+  const handles = slot["handles"];
+  if (!isObject(handles)) {
+    throw new MeshSnapshotError(`${path}.slot.handles must be an object`);
+  }
+  const validated: Record<string, OverlayHandleSnapshot> = {};
+  for (const [docId, handle] of Object.entries(handles)) {
+    validated[docId] = validateHandle(handle, `${path}.slot.handles[${docId}]`);
+  }
+  return { peerId, slot: { handles: validated } };
 }
 
-/** Validate a parsed JSON value against the snapshot contract. */
-export function validateMeshSnapshot(data: unknown): MeshClientPeerStateSnapshot {
+/** Validate a parsed JSON value against the snapshot contract and keep the
+ * fields the overlay reads. */
+export function validateMeshSnapshot(data: unknown): OverlaySnapshot {
   if (!isObject(data)) {
     throw new MeshSnapshotError("snapshot must be a JSON object");
   }
-  if (typeof data["localPeerId"] !== "string") {
+  const localPeerId = data["localPeerId"];
+  if (typeof localPeerId !== "string") {
     throw new MeshSnapshotError("snapshot.localPeerId must be a string");
   }
-  requireStringArray(data["knownPeerIds"], "snapshot.knownPeerIds");
-  requireStringArray(data["presentPeerIds"], "snapshot.presentPeerIds");
-  const peers = data["peers"];
+  const knownPeerIds = requireStringArray(data["knownPeerIds"], "snapshot.knownPeerIds");
+  const presentPeerIds = requireStringArray(data["presentPeerIds"], "snapshot.presentPeerIds");
+  const peers: unknown = data["peers"];
   if (!Array.isArray(peers)) {
     throw new MeshSnapshotError("snapshot.peers must be an array");
   }
-  peers.forEach((peer, i) => {
-    validatePeer(peer, `snapshot.peers[${i}]`);
-  });
-  return data as unknown as MeshClientPeerStateSnapshot;
+  return {
+    localPeerId,
+    knownPeerIds,
+    presentPeerIds,
+    peers: peers.map((peer: unknown, i) => validatePeer(peer, `snapshot.peers[${i}]`)),
+  };
 }
 
 /** Read, parse, and validate a `MeshClientPeerStateSnapshot` JSON file.
  * Throws {@link MeshSnapshotError} with a clear message on any failure. */
-export function loadMeshSnapshot(filePath: string): MeshClientPeerStateSnapshot {
+export function loadMeshSnapshot(filePath: string): OverlaySnapshot {
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, "utf-8");
@@ -122,7 +154,7 @@ export function loadMeshSnapshot(filePath: string): MeshClientPeerStateSnapshot 
 /** Every distinct peer id the snapshot mentions: the local peer, the
  * keyring/signalling rosters, and every entry in `peers[]`. The overlay
  * synthesises one diagram node per id. */
-export function collectSnapshotPeerIds(snapshot: MeshClientPeerStateSnapshot): string[] {
+export function collectSnapshotPeerIds(snapshot: OverlaySnapshot): string[] {
   const ids = new Set<string>([snapshot.localPeerId]);
   for (const id of snapshot.knownPeerIds) ids.add(id);
   for (const id of snapshot.presentPeerIds) ids.add(id);
