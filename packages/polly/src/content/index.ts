@@ -1,6 +1,7 @@
 // Content script entry point
 
 import { getMessageBus } from "@/shared/lib/message-bus";
+import { inlineStyleOf } from "./inline-style";
 import { injectPageScript } from "./page-bridge";
 
 const bus = getMessageBus("content");
@@ -54,11 +55,14 @@ bus.on("DEVTOOLS_INSPECT_ELEMENT", async (payload) => {
   if (el) {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     // Add visual highlight
-    const originalOutline = (el as unknown as HTMLElement).style.outline;
-    (el as unknown as HTMLElement).style.outline = "2px solid red";
-    setTimeout(() => {
-      (el as unknown as HTMLElement).style.outline = originalOutline;
-    }, 2000);
+    const style = inlineStyleOf(el);
+    if (style) {
+      const originalOutline = style.outline;
+      style.outline = "2px solid red";
+      setTimeout(() => {
+        style.outline = originalOutline;
+      }, 2000);
+    }
     return { success: true };
   }
   return { success: false };
