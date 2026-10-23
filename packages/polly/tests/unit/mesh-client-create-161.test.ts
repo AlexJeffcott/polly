@@ -219,7 +219,7 @@ describe("createMeshClient — construction", () => {
 
   test("the Repo's peerId matches the signalling peer id (signature lookups)", async () => {
     const client = await make();
-    expect(client.repo.peerId as unknown as string).toBe(LOCAL);
+    expect<string>(client.repo.peerId).toBe(LOCAL);
   });
 
   test("the keyring getter reads through the live source", async () => {
@@ -446,10 +446,7 @@ describe("createMeshClient — revocation lifecycle", () => {
     const peerId = asPeerId("remote-peer");
     // The network adapter is the connected-peer source; emit the lifecycle
     // event the WebRTC data channel would raise on open.
-    (client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }).emit(
-      "peer-candidate",
-      { peerId }
-    );
+    client.networkAdapter.emit("peer-candidate", { peerId, peerMetadata: {} });
     // peer-candidate kicks off the summary gossip to the new peer.
     expect(sends).toContainEqual({ tag: MESH_CONTROL_TYPE.RevocationSummary, targets: [peerId] });
   });
@@ -457,10 +454,7 @@ describe("createMeshClient — revocation lifecycle", () => {
   test("revokePeer broadcasts a revocation to every connected peer", async () => {
     const client = await make();
     const peerId = asPeerId("remote-peer");
-    (client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void }).emit(
-      "peer-candidate",
-      { peerId }
-    );
+    client.networkAdapter.emit("peer-candidate", { peerId, peerMetadata: {} });
     const sends = spyControlSends(client);
     await client.revokePeer(peerId, "compromised");
     expect(client.keyring.revokedPeers.has(peerId)).toBe(true);
@@ -470,9 +464,8 @@ describe("createMeshClient — revocation lifecycle", () => {
   test("a peer-disconnected event drops the peer so revokePeer skips the broadcast", async () => {
     const client = await make();
     const peerId = asPeerId("remote-peer");
-    const na = client.networkAdapter as unknown as { emit: (e: string, p: unknown) => void };
-    na.emit("peer-candidate", { peerId });
-    na.emit("peer-disconnected", { peerId });
+    client.networkAdapter.emit("peer-candidate", { peerId, peerMetadata: {} });
+    client.networkAdapter.emit("peer-disconnected", { peerId });
     const sends = spyControlSends(client);
     await client.revokePeer(peerId);
     expect(client.keyring.revokedPeers.has(peerId)).toBe(true);
