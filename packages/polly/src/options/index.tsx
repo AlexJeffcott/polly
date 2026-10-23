@@ -2,7 +2,7 @@
 
 import { signal } from "@preact/signals";
 import { render } from "preact";
-import { defaultSettings, settings } from "@/shared/state/app-state";
+import { defaultSettings, readTheme, settings } from "@/shared/state/app-state";
 import { Layout } from "../polly-ui/Layout.tsx";
 
 // Local state
@@ -64,10 +64,7 @@ function Options() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  theme: (e.target as unknown as HTMLSelectElement).value as unknown as
-                    | "light"
-                    | "dark"
-                    | "auto",
+                  theme: readTheme(e.currentTarget.value) ?? settings.value.theme,
                 };
               }}
             >
@@ -90,7 +87,7 @@ function Options() {
                 onChange={(e) => {
                   settings.value = {
                     ...settings.value,
-                    autoSync: (e.target as unknown as HTMLInputElement).checked,
+                    autoSync: e.currentTarget.checked,
                   };
                 }}
               />
@@ -109,7 +106,7 @@ function Options() {
                 onChange={(e) => {
                   settings.value = {
                     ...settings.value,
-                    notifications: (e.target as unknown as HTMLInputElement).checked,
+                    notifications: e.currentTarget.checked,
                   };
                 }}
               />
@@ -130,7 +127,7 @@ function Options() {
                 onChange={(e) => {
                   settings.value = {
                     ...settings.value,
-                    debugMode: (e.target as unknown as HTMLInputElement).checked,
+                    debugMode: e.currentTarget.checked,
                   };
                 }}
               />
@@ -148,7 +145,7 @@ function Options() {
               onInput={(e) => {
                 settings.value = {
                   ...settings.value,
-                  apiEndpoint: (e.target as unknown as HTMLInputElement).value,
+                  apiEndpoint: e.currentTarget.value,
                 };
               }}
               placeholder="https://api.example.com"
@@ -165,8 +162,7 @@ function Options() {
               onInput={(e) => {
                 settings.value = {
                   ...settings.value,
-                  refreshInterval:
-                    Number.parseInt((e.target as unknown as HTMLInputElement).value, 10) || 60000,
+                  refreshInterval: Number.parseInt(e.currentTarget.value, 10) || 60000,
                 };
               }}
               min="1000"

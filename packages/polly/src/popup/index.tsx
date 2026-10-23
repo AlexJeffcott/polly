@@ -3,7 +3,7 @@
 import { computed, signal } from "@preact/signals";
 import { render } from "preact";
 import { getMessageBus } from "@/shared/lib/message-bus";
-import { settings } from "@/shared/state/app-state";
+import { readTheme, settings } from "@/shared/state/app-state";
 import { Layout } from "../polly-ui/Layout.tsx";
 
 const bus = getMessageBus("popup");
@@ -85,7 +85,7 @@ function Popup() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  debugMode: (e.target as unknown as HTMLInputElement).checked,
+                  debugMode: e.currentTarget.checked,
                 };
               }}
             />
@@ -99,7 +99,7 @@ function Popup() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  notifications: (e.target as unknown as HTMLInputElement).checked,
+                  notifications: e.currentTarget.checked,
                 };
               }}
             />
@@ -114,10 +114,7 @@ function Popup() {
               onChange={(e) => {
                 settings.value = {
                   ...settings.value,
-                  theme: (e.target as unknown as HTMLSelectElement).value as unknown as
-                    | "light"
-                    | "dark"
-                    | "auto",
+                  theme: readTheme(e.currentTarget.value) ?? settings.value.theme,
                 };
               }}
             >
