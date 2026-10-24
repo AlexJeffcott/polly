@@ -1,18 +1,9 @@
 // AnalysisProgram's files, glob, checker helpers, definitions and import
-// targets, each checked against ts-morph's answer on the same project.
+// targets, each checked against the answer ts-morph 28 gave on the same
+// project (recorded in oracle/program.json, on the frozen corpora of ./corpus).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import * as fs from "node:fs";
-import { createRequire } from "node:module";
 import * as path from "node:path";
-import {
-  Node as M,
-  type FunctionDeclaration as MorphFunction,
-  type Node as MorphNode,
-  type SourceFile as MorphSourceFile,
-  type Type as MorphType,
-  Project,
-} from "ts-morph";
 import type { Node, SourceFile } from "typescript-7/ast";
 import { isCallExpression, isIdentifier } from "typescript-7/ast/is";
 import type { Type } from "typescript-7/async";
@@ -28,80 +19,123 @@ import {
 } from "../ast";
 import { createSourceGlob } from "../glob";
 import { typeIs, typeLiteralValue } from "../type-flags";
-import { FULL_FEATURED, Mismatches, TODO_LIST, TYPES_CORPUS, writeEdgeProject } from "./corpus";
+import { type Corpora, type CorpusName, Mismatches, readOracle, writeCorpora } from "./corpus";
 
-/** ts-morph's `project.getSourceFiles()`, sorted by absolute path (code-unit order). */
-function sourceFilesInPathOrder(project: Project): MorphSourceFile[] {
-  return [...project.getSourceFiles()].sort((a, b) => {
-    const left = a.getFilePath();
-    const right = b.getFilePath();
-    return left < right ? -1 : left > right ? 1 : 0;
-  });
-}
-
-/** Default-library files: ts-morph serves its own bundled TS 6 copies, so answers there cannot agree. */
+/** Default-library files: ts-morph served its own bundled TS 6 copies, so answers there cannot agree. */
 const DEFAULT_LIB = /\/lib\.[^/]*\.d\.ts$/;
 
-const session = new AnalysisSession();
-let edge = { tsconfig: "", root: "" };
-const loaded = new Map<string, { morph: Project; program: AnalysisProgram }>();
-
-async function load(tsconfig: string): Promise<{ morph: Project; program: AnalysisProgram }> {
-  const hit = loaded.get(tsconfig);
-  if (hit) return hit;
-  const entry = {
-    morph: new Project({ tsConfigFilePath: tsconfig }),
-    program: await session.open(tsconfig),
-  };
-  loaded.set(tsconfig, entry);
-  return entry;
+interface TypeShape {
+  text: string[];
+  unionMembers: string[];
+  predicates: boolean[];
+  literal: string | number | null;
+  nullable: boolean;
+  symbol: string | null;
 }
 
-const corpora = (): [string, string][] => [
-  ["edge", edge.tsconfig],
-  ["types-corpus", TYPES_CORPUS],
-  ["full-featured", FULL_FEATURED],
-];
+interface TypeStructure {
+  arrayElement: string | null;
+  typeArguments: string[];
+  aliasDeclaredType: string | null;
+}
 
-/** Each ts-morph source file with its TS 7 counterpart. */
-async function filePairs(tsconfig: string): Promise<{ morph: MorphSourceFile; ts7: SourceFile }[]> {
-  const { morph, program } = await load(tsconfig);
-  return morph.getSourceFiles().flatMap((file) => {
-    const ts7 = program.sourceFile(file.getFilePath());
-    return ts7 ? [{ morph: file, ts7 }] : [];
+interface TypeProps {
+  names: string[];
+  first: { name: string; predicates: boolean[]; isUnion: boolean } | null;
+}
+
+interface ExpectedTypeRow {
+  where: string;
+  object: boolean;
+  shape: TypeShape;
+  structure: TypeStructure;
+  /** Absent for a non-object, an array, or a default-library type (not compared, as before). */
+  props: TypeProps | null;
+}
+
+interface ProgramOracle {
+  /** sourceFiles in path order, per corpus. */
+  files: Record<string, string[]>;
+  configFilePath: string;
+  /** corpus -> cwd ("." or "src", relative to the tsconfig) -> glob -> files, sorted. */
+  matching: Record<string, Record<string, Record<string, string[]>>>;
+  minimatch: { cwd: string; paths: string[]; results: Record<string, string[]> };
+  typeRows: Record<string, ExpectedTypeRow[]>;
+  unionOrder: Record<"statusFirst" | "laterFirst", Record<string, string[]>>;
+  exports: Record<
+    string,
+    {
+      path: string;
+      functions: [string | null, string, boolean][];
+      variables: [number, boolean][];
+    }[]
+  >;
+  definitions: Record<string, { path: string; sites: Record<string, string[]> }[]>;
+  imports: Record<string, { path: string; targets: [string, string | null][] }[]>;
+}
+
+const oracle = readOracle<ProgramOracle>("program.json");
+const session = new AnalysisSession();
+let corpora: Corpora;
+const loaded = new Map<string, AnalysisProgram>();
+
+async function load(name: CorpusName): Promise<AnalysisProgram> {
+  const tsconfig = corpora.tsconfig(name);
+  const hit = loaded.get(tsconfig);
+  if (hit) return hit;
+  const program = await session.open(tsconfig);
+  loaded.set(tsconfig, program);
+  return program;
+}
+
+/** A recorded path back to the file it names in this run's temp dirs. */
+function absolute(rel: string): string {
+  return rel.startsWith("<edge>/")
+    ? path.join(corpora.edge.root, rel.slice("<edge>/".length))
+    : path.join(corpora.tree, rel);
+}
+
+const THREE: CorpusName[] = ["edge", "types-corpus", "full-featured"];
+
+/** Each recorded file of a corpus with its TS 7 counterpart. */
+async function filePairs<T extends { path: string }>(
+  name: CorpusName,
+  recorded: readonly T[]
+): Promise<{ expected: T; ts7: SourceFile }[]> {
+  const program = await load(name);
+  return recorded.flatMap((expected) => {
+    const ts7 = program.sourceFile(absolute(expected.path));
+    return ts7 ? [{ expected, ts7 }] : [];
   });
 }
 
 const fileNames = (files: readonly { fileName: string }[]): string[] =>
-  files.map((f) => String(f.fileName));
+  files.map((f) => corpora.rel(String(f.fileName)));
 
 beforeAll(() => {
-  edge = writeEdgeProject();
+  corpora = writeCorpora();
 });
 
 afterAll(async () => {
   await session.close();
-  if (edge.root) fs.rmSync(edge.root, { recursive: true, force: true });
+  corpora.remove();
 });
 
 describe("files", () => {
   test("sourceFiles is ts-morph's file set, in path order", async () => {
-    for (const [, tsconfig] of corpora()) {
-      const { morph, program } = await load(tsconfig);
-      expect(fileNames(program.sourceFiles)).toEqual(
-        sourceFilesInPathOrder(morph).map((f) => String(f.getFilePath()))
-      );
+    for (const name of THREE) {
+      expect(fileNames((await load(name)).sourceFiles)).toEqual(oracle.files[name] ?? ["missing"]);
     }
   }, 60_000);
 
   test("sourceFile(path), sourceFile(relative path) and sourceFile(bare name)", async () => {
-    const { morph, program } = await load(FULL_FEATURED);
-    for (const file of morph.getSourceFiles()) {
-      expect(String(program.sourceFile(file.getFilePath())?.fileName)).toBe(
-        String(file.getFilePath())
-      );
+    const program = await load("full-featured");
+    const recorded = oracle.files["full-featured"] ?? [];
+    expect(recorded.length).toBeGreaterThan(50);
+    for (const rel of recorded) {
+      expect(String(program.sourceFile(absolute(rel))?.fileName)).toBe(absolute(rel));
     }
-    const first = String(sourceFilesInPathOrder(morph)[0]?.getFilePath());
+    const first = absolute(recorded[0] ?? "");
     const relative = path.relative(process.cwd(), first);
     expect(String(program.sourceFile(relative)?.fileName)).toBe(first);
     expect(
@@ -113,27 +147,27 @@ describe("files", () => {
   }, 60_000);
 
   test("compilerOptions.configFilePath matches ts-morph", async () => {
-    const { morph, program } = await load(TYPES_CORPUS);
-    expect(String(program.compilerOptions.configFilePath)).toBe(
-      String(morph.getCompilerOptions()["configFilePath"])
-    );
+    const program = await load("types-corpus");
+    expect(corpora.rel(String(program.compilerOptions.configFilePath))).toBe(oracle.configFilePath);
   }, 60_000);
 
   test("sourceFilesMatching(glob, cwd) is ts-morph's getSourceFiles(glob) run from cwd", async () => {
-    const globs = ["**/state*.ts", "**/message*.ts", "src/**/*.ts", "**/*.tsx", "./src/*.ts", "**"];
     const out = new Mismatches();
     const previous = process.cwd();
+    let compared = 0;
     try {
-      for (const [, tsconfig] of corpora()) {
-        const { morph, program } = await load(tsconfig);
-        for (const cwd of [path.dirname(tsconfig), path.join(path.dirname(tsconfig), "src")]) {
+      for (const name of THREE) {
+        const program = await load(name);
+        const dir = path.dirname(corpora.tsconfig(name));
+        for (const [key, byGlob] of Object.entries(oracle.matching[name] ?? {})) {
+          const cwd = key === "." ? dir : path.join(dir, key);
           process.chdir(cwd);
-          for (const glob of globs) {
-            const expected = morph.getSourceFiles(glob).map((f) => String(f.getFilePath()));
+          for (const [glob, expected] of Object.entries(byGlob)) {
+            compared++;
             out.check(
-              `${cwd} ${glob}`,
+              `${name} ${key} ${glob}`,
               "files",
-              expected.sort(),
+              expected,
               fileNames(program.sourceFilesMatching(glob, cwd))
             );
           }
@@ -143,55 +177,29 @@ describe("files", () => {
       process.chdir(previous);
     }
     expect(out.head()).toEqual([]);
+    expect(compared).toBe(36);
     // The edge project's src/.hidden/state-shadow.ts is in the program but never matched.
-    const { program } = await load(edge.tsconfig);
+    const program = await load("edge");
     expect(program.sourceFiles.some((f) => f.fileName.includes("/.hidden/"))).toBe(true);
     expect(
-      program.sourceFilesMatching("**/state*.ts", edge.root).map((f) => path.basename(f.fileName))
+      program
+        .sourceFilesMatching("**/state*.ts", corpora.edge.root)
+        .map((f) => path.basename(f.fileName))
     ).toEqual(["state.ts"]);
   }, 60_000);
 });
 
-describe("createSourceGlob matches minimatch the way ts-morph calls it", () => {
-  const requireFromMorph = createRequire(require.resolve("ts-morph"));
-  const { minimatch } = requireFromMorph("minimatch");
-  const cwd = "/work/proj";
-  const paths = [
-    "/work/proj/state.ts",
-    "/work/proj/src/state.ts",
-    "/work/proj/src/app-state.ts",
-    "/work/proj/src/stateful.ts",
-    "/work/proj/src/state.tsx",
-    "/work/proj/.x/state.ts",
-    "/work/proj/src/.x/state.ts",
-    "/work/proj/src/.state.ts",
-    "/work/proj/src/STATE.ts",
-    "/work/proj/a/b/c/message-types.ts",
-    "/work/other/state.ts",
-    "/work/state.ts",
-    "/work/proj",
-  ];
-  const globs = [
-    "**/state*.ts",
-    "**/message*.ts",
-    "src/*.ts",
-    "./src/**/*.ts",
-    "?rc/*.ts",
-    "**",
-    "/work/*/state.ts",
-    "**/*state*.ts",
-    "**/m*s*-*.ts",
-    "src/*a*e.t?",
-    ".",
-  ];
-  for (const glob of globs) {
+describe("createSourceGlob matches minimatch the way ts-morph called it", () => {
+  const { cwd, paths, results } = oracle.minimatch;
+  for (const [glob, expected] of Object.entries(results)) {
     test(glob, () => {
-      const relative = glob.startsWith("./") ? glob.slice(2) : glob === "." ? "" : glob;
-      const pattern = relative.startsWith("/") ? relative : relative ? `${cwd}/${relative}` : cwd;
       const matches = createSourceGlob(glob, cwd);
-      expect(paths.filter((p) => matches(p))).toEqual(paths.filter((p) => minimatch(p, pattern)));
+      expect(paths.filter((p) => matches(p))).toEqual(expected);
     });
   }
+  test("every recorded glob is checked", () => {
+    expect(Object.keys(results).length).toBe(11);
+  });
   test("unsupported syntax throws", () => {
     for (const glob of ["src/{a,b}.ts", "src/[ab].ts", "!src/*.ts", "src/@(a|b).ts"]) {
       expect(() => createSourceGlob(glob, cwd)).toThrow(/unsupported glob/);
@@ -202,69 +210,43 @@ describe("createSourceGlob matches minimatch the way ts-morph calls it", () => {
 // ---------------------------------------------------------------- checker
 
 interface TypeRow {
-  where: string;
-  morph: MorphType;
+  expected: ExpectedTypeRow;
   ts7: Type;
 }
 
 /**
  * Every type alias of a corpus and, one level down, each property of an
- * object alias. Both sides start from a fresh checker (a new ts-morph
- * Project, an isolated program) and are asked in the same order, as union
- * member order follows type-creation order.
+ * object alias, asked of a fresh checker (an isolated program) in the order
+ * ts-morph was asked when the answers were recorded, as union member order
+ * follows type-creation order.
  */
-async function typeRows(tsconfig: string): Promise<{
+async function typeRows(name: CorpusName): Promise<{
   rows: TypeRow[];
   program: AnalysisProgram;
   anchor: SourceFile;
-  morphAnchor: MorphSourceFile;
 }> {
-  const morph = new Project({ tsConfigFilePath: tsconfig });
-  const program = await session.openIsolated(tsconfig);
+  const program = await session.openIsolated(corpora.tsconfig(name));
   const anchor = program.sourceFiles[0];
-  const morphAnchor = sourceFilesInPathOrder(morph)[0];
-  if (!anchor || !morphAnchor) throw new Error("empty project");
+  if (!anchor) throw new Error("empty project");
+  const expected = oracle.typeRows[name] ?? [];
   const rows: TypeRow[] = [];
-  for (const file of sourceFilesInPathOrder(morph)) {
-    const ts7 = program.sourceFile(file.getFilePath());
-    if (!ts7) continue;
-    const aliases = typeAliases(ts7);
-    for (const [i, alias] of file.getTypeAliases().entries()) {
-      const decl = aliases[i];
-      if (!decl) continue;
-      const where = `${path.basename(file.getFilePath())}:${alias.getName()}`;
-      const row: TypeRow = {
-        where,
-        morph: alias.getType(),
-        ts7: await program.typeOf(decl),
-      };
+  const next = (): ExpectedTypeRow => {
+    const row = expected[rows.length];
+    if (!row) throw new Error(`${name}: more type rows than recorded (${expected.length})`);
+    return row;
+  };
+  for (const file of program.sourceFiles) {
+    for (const decl of typeAliases(file)) {
+      const row: TypeRow = { expected: next(), ts7: await program.typeOf(decl) };
       rows.push(row);
-      if (row.morph.isObject())
-        rows.push(...(await propertyRows(row, program, anchor, morphAnchor)));
+      if (!row.expected.object) continue;
+      for (const p of await program.properties(row.ts7, anchor)) {
+        rows.push({ expected: next(), ts7: p.type });
+      }
     }
   }
-  return { rows, program, anchor, morphAnchor };
-}
-
-async function propertyRows(
-  row: TypeRow,
-  program: AnalysisProgram,
-  anchor: SourceFile,
-  morphAnchor: MorphSourceFile
-): Promise<TypeRow[]> {
-  const props = await program.properties(row.ts7, anchor);
-  return row.morph.getProperties().flatMap((prop, j) => {
-    const p = props[j];
-    return p
-      ? [
-          {
-            where: `${row.where}.${prop.getName()}`,
-            morph: prop.getTypeAtLocation(morphAnchor),
-            ts7: p.type,
-          },
-        ]
-      : [];
-  });
+  expect(rows.length).toBe(expected.length);
+  return { rows, program, anchor };
 }
 
 /**
@@ -288,27 +270,6 @@ function textTokens(text: string): string[] {
     .sort();
 }
 
-function declaredInDefaultLib(type: MorphType): boolean {
-  return (type.getSymbol()?.getDeclarations() ?? []).some((d) =>
-    DEFAULT_LIB.test(d.getSourceFile().getFilePath())
-  );
-}
-
-function morphPredicates(t: MorphType): boolean[] {
-  return [
-    t.isUnion(),
-    t.isBoolean(),
-    t.isBooleanLiteral(),
-    t.isString(),
-    t.isStringLiteral(),
-    t.isNumber(),
-    t.isNumberLiteral(),
-    t.isObject(),
-    t.isNull(),
-    t.isUndefined(),
-  ];
-}
-
 function ts7Predicates(t: Type): boolean[] {
   return [
     typeIs.union(t),
@@ -324,34 +285,36 @@ function ts7Predicates(t: Type): boolean[] {
   ];
 }
 
-function morphLiteral(t: MorphType): string | number | undefined {
-  const value = t.getLiteralValue();
-  return typeof value === "string" || typeof value === "number" ? value : undefined;
-}
+const orUndefined = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
+
+/** `program.typeText`, with the paths in it normalised as the oracle stores them. */
+const typeText = async (program: AnalysisProgram, t: Type): Promise<string> =>
+  corpora.relText(await program.typeText(t));
 
 const texts = (program: AnalysisProgram, types: readonly Type[]) =>
-  Promise.all(types.map((t) => program.typeText(t)));
+  Promise.all(types.map((t) => typeText(program, t)));
 
 async function compareTypeShape(
   row: TypeRow,
   program: AnalysisProgram,
   out: Mismatches
 ): Promise<void> {
-  const { where, morph: m, ts7: t } = row;
+  const { expected, ts7: t } = row;
+  const e = expected.shape;
+  const where = expected.where;
   const members = await program.unionMembers(t);
   const memberTexts = await texts(program, members);
-  const morphMembers = m.getUnionTypes().map((u) => u.getText());
   out.check(
     where,
     "text",
-    textTokens(canonicalUnionText(m.getText(), morphMembers)),
-    textTokens(canonicalUnionText(await program.typeText(t), memberTexts))
+    e.text,
+    textTokens(canonicalUnionText(await typeText(program, t), memberTexts))
   );
-  out.check(where, "unionMembers", morphMembers, memberTexts);
-  out.check(where, "predicates", morphPredicates(m), ts7Predicates(t));
-  out.check(where, "literal", morphLiteral(m), typeLiteralValue(t));
-  out.check(where, "nullable", m.isNullable(), await program.isNullable(t));
-  out.check(where, "symbol", m.getSymbol()?.getName(), (await t.getSymbol())?.name);
+  out.check(where, "unionMembers", e.unionMembers, memberTexts);
+  out.check(where, "predicates", e.predicates, ts7Predicates(t));
+  out.check(where, "literal", orUndefined(e.literal), typeLiteralValue(t));
+  out.check(where, "nullable", e.nullable, await program.isNullable(t));
+  out.check(where, "symbol", orUndefined(e.symbol), (await t.getSymbol())?.name);
 }
 
 async function compareTypeStructure(
@@ -359,32 +322,29 @@ async function compareTypeStructure(
   program: AnalysisProgram,
   out: Mismatches
 ): Promise<void> {
-  const { where, morph: m, ts7: t } = row;
+  const { expected, ts7: t } = row;
+  const e = expected.structure;
+  const where = expected.where;
   const element = await program.arrayElement(t);
   out.check(
     where,
     "arrayElement",
-    m.getArrayElementType()?.getText(),
-    element && (await program.typeText(element))
+    orUndefined(e.arrayElement),
+    element && (await typeText(program, element))
   );
   out.check(
     where,
     "typeArguments",
-    (m.isObject() ? m.getTypeArguments() : []).map((a) => a.getText()),
+    e.typeArguments,
     await texts(program, await program.typeArguments(t))
   );
   const declared = await program.aliasDeclaredType(t);
-  const morphDeclared = m.getAliasSymbol()?.getDeclaredType();
   out.check(
     where,
     "aliasDeclaredType",
-    morphDeclared &&
-      canonicalUnionText(
-        morphDeclared.getText(),
-        morphDeclared.getUnionTypes().map((u) => u.getText())
-      ),
+    orUndefined(e.aliasDeclaredType),
     declared &&
-      canonicalUnionText(await program.typeText(declared), [
+      canonicalUnionText(await typeText(program, declared), [
         ...(await texts(program, await program.unionMembers(declared))),
       ])
   );
@@ -394,46 +354,40 @@ async function compareProperties(
   row: TypeRow,
   program: AnalysisProgram,
   anchor: SourceFile,
-  morphAnchor: MorphSourceFile,
   out: Mismatches
 ): Promise<void> {
-  const { where, morph: m, ts7: t } = row;
-  if (!m.isObject() || m.isArray() || declaredInDefaultLib(m)) return;
+  const { expected, ts7: t } = row;
+  const e = expected.props;
+  const where = expected.where;
+  if (!e) return;
   const props = await program.properties(t, anchor);
   out.check(
     where,
     "properties",
-    m.getProperties().map((p) => p.getName()),
+    e.names,
     props.map((p) => p.name)
   );
-  const morphNames = m.getProperties().map((p) => p.getName());
-  out.check(where, "propertyNames", morphNames, await program.propertyNames(t));
+  out.check(where, "propertyNames", e.names, await program.propertyNames(t));
   const symbols = await program.propertySymbols(t);
   out.check(
     where,
     "propertySymbols",
-    morphNames,
+    e.names,
     symbols.map((s) => s.name)
   );
-  const first = m.getProperties()[0];
   const firstSymbol = symbols[0];
-  if (first && firstSymbol) {
+  if (e.first && firstSymbol) {
     out.check(
       where,
       "symbolTypeAt",
-      morphPredicates(first.getTypeAtLocation(morphAnchor)),
+      e.first.predicates,
       ts7Predicates(await program.symbolTypeAt(firstSymbol, anchor))
     );
   }
-  if (first) {
-    const one = await program.property(t, first.getName(), anchor);
-    out.check(where, "property", first.getName(), one?.name);
-    out.check(
-      where,
-      "property type",
-      first.getTypeAtLocation(morphAnchor).isUnion(),
-      one && typeIs.union(one.type)
-    );
+  if (e.first) {
+    const one = await program.property(t, e.first.name, anchor);
+    out.check(where, "property", e.first.name, one?.name);
+    out.check(where, "property type", e.first.isUnion, one && typeIs.union(one.type));
   }
   out.check(
     where,
@@ -444,16 +398,14 @@ async function compareProperties(
 }
 
 describe("checker helpers match ts-morph", () => {
-  for (const name of ["types-corpus", "edge"]) {
+  for (const name of ["types-corpus", "edge"] as const) {
     test(`${name}: typeText, unionMembers, predicates, properties, arrays, type arguments, aliases`, async () => {
-      const { rows, program, anchor, morphAnchor } = await typeRows(
-        name === "edge" ? edge.tsconfig : TYPES_CORPUS
-      );
+      const { rows, program, anchor } = await typeRows(name);
       const out = new Mismatches();
       for (const row of rows) {
         await compareTypeShape(row, program, out);
         await compareTypeStructure(row, program, out);
-        await compareProperties(row, program, anchor, morphAnchor, out);
+        await compareProperties(row, program, anchor, out);
       }
       expect(out.head()).toEqual([]);
       expect(rows.length).toBeGreaterThan(10);
@@ -461,26 +413,18 @@ describe("checker helpers match ts-morph", () => {
   }
 
   test("unionMembers follows creation order, as TS 6 did, and openIsolated resets it", async () => {
-    const stateFile = path.join(edge.root, "src/state.ts");
-    /** Union member texts of each alias, asked in the given order, on a fresh ts-morph Project and a fresh program. */
+    const stateFile = path.join(corpora.edge.root, "src/state.ts");
+    /** Union member texts of each alias, asked in the given order, on a fresh program. */
     const ask = async (names: string[]) => {
-      const morph = new Project({ tsConfigFilePath: edge.tsconfig }).getSourceFileOrThrow(
-        stateFile
-      );
-      const program = await session.openIsolated(edge.tsconfig);
+      const program = await session.openIsolated(corpora.edge.tsconfig);
       const sf = program.sourceFile(stateFile);
       if (!sf) throw new Error("state.ts missing");
-      const result: Record<string, { tsMorph: string[]; ts7: string[]; ts7Raw: string[] }> = {};
+      const result: Record<string, { ts7: string[]; ts7Raw: string[] }> = {};
       for (const name of names) {
         const alias = typeAliases(sf).find((a) => a.name.text === name);
         if (!alias) throw new Error(name);
         const type = await program.typeOf(alias);
         result[name] = {
-          tsMorph: morph
-            .getTypeAliasOrThrow(name)
-            .getType()
-            .getUnionTypes()
-            .map((u) => u.getText()),
           ts7: await texts(program, await program.unionMembers(type)),
           ts7Raw: await texts(program, type.isUnionType() ? await type.getTypes() : []),
         };
@@ -494,64 +438,63 @@ describe("checker helpers match ts-morph", () => {
     // `Later` creates "mid" and "zeta" first; both checkers then list Status by that history.
     const laterFirst = await ask(["Later", "Status"]);
     expect(laterFirst["Status"]?.ts7).toEqual(['"mid"', '"zeta"', '"alpha"']);
-    for (const run of [statusFirst, laterFirst]) {
-      for (const row of Object.values(run)) expect(row.ts7).toEqual(row.tsMorph);
+    for (const [run, recorded] of [
+      [statusFirst, oracle.unionOrder.statusFirst],
+      [laterFirst, oracle.unionOrder.laterFirst],
+    ] as const) {
+      expect(Object.keys(run)).toEqual(Object.keys(recorded));
+      for (const [name, row] of Object.entries(run)) expect(row.ts7).toEqual(recorded[name] ?? []);
     }
   }, 60_000);
 });
 
-async function compareFunction(
-  where: string,
-  fn: MorphFunction,
-  ts7: Parameters<AnalysisProgram["isExported"]>[0] & Node,
-  program: AnalysisProgram,
-  out: Mismatches
-): Promise<void> {
-  const returnType = await program.returnType(ts7);
-  const members = await texts(program, await program.unionMembers(returnType));
-  const morphReturn = fn.getReturnType();
-  out.check(
-    where,
-    "returnType",
-    canonicalUnionText(
-      morphReturn.getText(),
-      morphReturn.getUnionTypes().map((u) => u.getText())
-    ),
-    canonicalUnionText(await program.typeText(returnType), members)
-  );
-  out.check(where, "isExported", fn.isExported(), await program.isExported(ts7));
-}
+type ExportsFile = ProgramOracle["exports"][string][number];
 
+/** Compare one file's recorded returnType / isExported answers; returns the functions compared. */
 async function compareFileExports(
   where: string,
-  file: MorphSourceFile,
+  expected: ExportsFile,
   ts7: SourceFile,
   program: AnalysisProgram,
   out: Mismatches
-): Promise<void> {
+): Promise<number> {
+  let functions = 0;
   const fns = functionDeclarations(ts7);
-  for (const [i, fn] of file.getFunctions().entries()) {
+  out.check(where, "function count", expected.functions.length, fns.length);
+  for (const [i, [fnName, returnText, exported]] of expected.functions.entries()) {
     const decl = fns[i];
-    if (decl) await compareFunction(`${where}:${fn.getName()}`, fn, decl, program, out);
+    if (!decl) continue;
+    functions++;
+    const returnType = await program.returnType(decl);
+    const members = await texts(program, await program.unionMembers(returnType));
+    out.check(
+      `${where}:${fnName}`,
+      "returnType",
+      returnText,
+      canonicalUnionText(await typeText(program, returnType), members)
+    );
+    out.check(`${where}:${fnName}`, "isExported", exported, await program.isExported(decl));
   }
   const statements = variableStatements(ts7);
-  for (const [i, statement] of file.getVariableStatements().entries()) {
+  out.check(where, "statement count", expected.variables.length, statements.length);
+  for (const [i, [start, exported]] of expected.variables.entries()) {
     const decl = statements[i];
     if (!decl) continue;
-    const at = `${where}@${statement.getStart()}`;
-    out.check(at, "isExported", statement.isExported(), await program.isExported(decl));
+    out.check(`${where}@${start}`, "isExported", exported, await program.isExported(decl));
   }
+  return functions;
 }
 
 describe("returnType and isExported", () => {
   test("every function and variable statement of every corpus", async () => {
     const out = new Mismatches();
-    for (const [name, tsconfig] of corpora()) {
-      const { program } = await load(tsconfig);
-      for (const { morph: file, ts7 } of await filePairs(tsconfig)) {
-        await compareFileExports(
-          `${name}:${path.basename(file.getFilePath())}`,
-          file,
+    let functions = 0;
+    for (const name of THREE) {
+      const program = await load(name);
+      for (const { expected, ts7 } of await filePairs(name, oracle.exports[name] ?? [])) {
+        functions += await compareFileExports(
+          `${name}:${expected.path}`,
+          expected,
           ts7,
           program,
           out
@@ -559,11 +502,12 @@ describe("returnType and isExported", () => {
       }
     }
     expect(out.head()).toEqual([]);
+    expect(functions).toBeGreaterThan(100);
   }, 60_000);
 
   test("each export form in the edge project", async () => {
-    const { program } = await load(edge.tsconfig);
-    const sf = program.sourceFile(path.join(edge.root, "src/edge.ts"));
+    const program = await load("edge");
+    const sf = program.sourceFile(path.join(corpora.edge.root, "src/edge.ts"));
     if (!sf) throw new Error("edge.ts missing");
     const exported: string[] = [];
     for (const fn of functionDeclarations(sf)) {
@@ -590,65 +534,41 @@ const READ_KINDS = new Set([
   "ArrowFunction",
 ]);
 
-function isMorphDefinitionSite(node: MorphNode): boolean {
-  if (!M.isIdentifier(node)) return false;
-  const parent = node.getParent();
-  if (M.isCallExpression(parent) || M.isNewExpression(parent)) {
-    return parent.getExpression() === node || parent.getArguments().includes(node);
-  }
-  return M.isPropertyAssignment(parent) && parent.getInitializer() === node;
-}
-
-/** ts-morph's definitions per definition-site start offset, in the kinds the extractors read. */
-function morphDefinitions(file: MorphSourceFile): Map<number, string[]> {
-  const out = new Map<number, string[]>();
-  file.forEachDescendant((node) => {
-    if (!isMorphDefinitionSite(node) || !M.isIdentifier(node)) return;
-    const keys = node
-      .getDefinitionNodes()
-      .filter(
-        (d) => READ_KINDS.has(d.getKindName()) && !DEFAULT_LIB.test(d.getSourceFile().getFilePath())
-      )
-      .map((d) => `${d.getKindName()}@${d.getSourceFile().getFilePath()}:${d.getStart()}`);
-    out.set(node.getStart(), keys.sort());
-  });
-  return out;
-}
-
-function ts7Definitions(program: AnalysisProgram, sf: SourceFile): Map<number, string[]> {
-  const out = new Map<number, string[]>();
+function ts7Definitions(program: AnalysisProgram, sf: SourceFile): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
   forEachDescendant(sf, (node) => {
     if (!isDefinitionSite(node)) return;
-    const keys = program
+    out[String(startOf(node, sf))] = program
       .definitionNodes(node)
       .filter((d) => READ_KINDS.has(kindName(d)) && !DEFAULT_LIB.test(d.getSourceFile().fileName))
-      .map((d) => `${kindName(d)}@${d.getSourceFile().fileName}:${startOf(d)}`);
-    out.set(startOf(node, sf), keys.sort());
+      .map((d) => `${kindName(d)}@${corpora.rel(d.getSourceFile().fileName)}:${startOf(d)}`)
+      .sort();
   });
   return out;
 }
 
 async function compareImports(
-  tsconfig: string,
+  name: CorpusName,
   out: Mismatches
 ): Promise<{ imports: number; external: number }> {
-  const { program } = await load(tsconfig);
+  const program = await load(name);
   await program.prefetchImports();
   let imports = 0;
   let external = 0;
-  for (const { morph: file, ts7 } of await filePairs(tsconfig)) {
+  for (const { expected, ts7 } of await filePairs(name, oracle.imports[name] ?? [])) {
     const decls = importDeclarations(ts7);
-    for (const [i, decl] of file.getImportDeclarations().entries()) {
+    out.check(expected.path, "import count", expected.targets.length, decls.length);
+    for (const [i, [specifier, target]] of expected.targets.entries()) {
       const ours = decls[i];
       if (!ours) continue;
       imports++;
       const actual = program.moduleSpecifierSourceFile(ours)?.fileName;
       if (actual?.includes("/node_modules/")) external++;
       out.check(
-        `${path.basename(file.getFilePath())} ${decl.getModuleSpecifierValue()}`,
+        `${expected.path} ${specifier}`,
         "target",
-        decl.getModuleSpecifierSourceFile()?.getFilePath(),
-        actual
+        orUndefined(target),
+        actual && corpora.rel(actual)
       );
     }
   }
@@ -656,23 +576,16 @@ async function compareImports(
 }
 
 describe("prefetched lookups match ts-morph", () => {
-  for (const name of ["edge", "full-featured"]) {
+  for (const name of ["edge", "full-featured"] as const) {
     test(`${name}: definitionNodes vs getDefinitionNodes on every definition site`, async () => {
-      const tsconfig = name === "edge" ? edge.tsconfig : FULL_FEATURED;
-      const { program } = await load(tsconfig);
+      const program = await load(name);
       await program.prefetchDefinitions();
       const out = new Mismatches();
       let sites = 0;
-      for (const { morph: file, ts7 } of await filePairs(tsconfig)) {
-        const expected = morphDefinitions(file);
+      for (const { expected, ts7 } of await filePairs(name, oracle.definitions[name] ?? [])) {
         const actual = ts7Definitions(program, ts7);
-        sites += actual.size;
-        out.check(
-          path.basename(file.getFilePath()),
-          "definitions",
-          Object.fromEntries(expected),
-          Object.fromEntries(actual)
-        );
+        sites += Object.keys(actual).length;
+        out.check(expected.path, "definitions", expected.sites, actual);
       }
       expect(out.head()).toEqual([]);
       expect(sites).toBeGreaterThan(name === "edge" ? 10 : 300);
@@ -680,8 +593,8 @@ describe("prefetched lookups match ts-morph", () => {
   }
 
   test("definitionNodes throws for an identifier that was not prefetched", async () => {
-    const { program } = await load(edge.tsconfig);
-    const sf = program.sourceFile(path.join(edge.root, "src/edge.ts"));
+    const program = await load("edge");
+    const sf = program.sourceFile(path.join(corpora.edge.root, "src/edge.ts"));
     const name = sf ? functionDeclarations(sf)[0]?.name : undefined;
     if (!name) throw new Error("no function");
     expect(() => program.definitionNodes(name)).toThrow(/not prefetched/);
@@ -690,12 +603,12 @@ describe("prefetched lookups match ts-morph", () => {
   }, 60_000);
 
   test("callee identifiers resolve across an import", async () => {
-    const { program } = await load(edge.tsconfig);
+    const program = await load("edge");
     await program.prefetchDefinitions();
-    const sf = program.sourceFile(path.join(edge.root, "src/edge.ts"));
+    const sf = program.sourceFile(path.join(corpora.edge.root, "src/edge.ts"));
     if (!sf) throw new Error("edge.ts missing");
     const resolved: string[] = [];
-    forEachDescendant(sf, (node) => {
+    forEachDescendant(sf, (node: Node) => {
       if (
         isCallExpression(node) &&
         isIdentifier(node.expression) &&
@@ -711,14 +624,10 @@ describe("prefetched lookups match ts-morph", () => {
     expect(resolved).toEqual(["FunctionDeclaration:other.ts"]);
   }, 60_000);
 
-  for (const [name, tsconfig] of [
-    ["full-featured", FULL_FEATURED],
-    ["todo-list", TODO_LIST],
-    ["edge", ""],
-  ]) {
+  for (const name of ["full-featured", "todo-list", "edge"] as const) {
     test(`${name}: moduleSpecifierSourceFile vs getModuleSpecifierSourceFile`, async () => {
       const out = new Mismatches();
-      const { imports, external } = await compareImports(tsconfig || edge.tsconfig, out);
+      const { imports, external } = await compareImports(name, out);
       expect(out.head()).toEqual([]);
       expect(imports).toBeGreaterThan(name === "edge" ? 2 : 20);
       if (name !== "edge") expect(external).toBeGreaterThan(0);

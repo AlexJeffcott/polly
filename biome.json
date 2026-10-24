@@ -20,6 +20,7 @@
       "!**/.polly",
       "!**/scripts/analysis-parity/golden",
       "!**/scripts/analysis-parity/fixtures/handlers-corpus",
+      "!**/tools/analysis/src/program/__tests__/oracle/*.json",
       "!**/vendor",
       "!**/build*.ts",
       "!**/examples/**/docs",

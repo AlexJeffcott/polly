@@ -1,16 +1,10 @@
-// Every synchronous AST helper, checked node by node against the ts-morph
-// method it replaces, on real projects (full-featured, the types corpus) and
-// on an edge-case project written to a temp dir.
+// Every synchronous AST helper, checked node by node against the answers
+// ts-morph 28 gave for the method it replaces (recorded in oracle/ast.json),
+// on frozen copies of real projects (full-featured, the types corpus) and on
+// an edge-case project written to a temp dir.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-  Node as M,
-  type Node as MorphNode,
-  type SourceFile as MorphSourceFile,
-  Project,
-} from "ts-morph";
 import type { Node, SourceFile } from "typescript-7/ast";
 import {
   isArrowFunction,
@@ -57,7 +51,14 @@ import {
   variableDeclaration,
   variableStatements,
 } from "../ast";
-import { FULL_FEATURED, Mismatches, TYPES_CORPUS, writeEdgeProject } from "./corpus";
+import {
+  type Corpora,
+  type CorpusName,
+  Mismatches,
+  readOracle,
+  sha256,
+  writeCorpora,
+} from "./corpus";
 
 /** Node kinds TS 7 reshaped (MAPPING.md §5.7); the extractors never read either side of a pair. */
 const KNOWN_KIND_PAIRS = new Set([
@@ -65,48 +66,82 @@ const KNOWN_KIND_PAIRS = new Set([
   "OmittedExpression>BindingElement",
 ]);
 
+/** ts-morph's answers for one node, beyond the fixed row; absent means undefined (or [] for `d`). */
+interface NodeExtra {
+  /** getLiteralValue() */
+  l?: string | number;
+  /** getName() */
+  n?: string;
+  /** getJsDocs() as [getDescription(), getText()] */
+  d?: [string, string][];
+  /** getDeclarationKind() on a VariableDeclarationList */
+  k?: string;
+  /** ObjectLiteralExpression: getProperty(name)?.getStart() for each property name and "missing" */
+  o?: [string, number | null][];
+  /** CallExpression: getStart() of the first enclosing function-like */
+  a?: number | null;
+  /** FunctionDeclaration / ArrowFunction: getStart() of the first CallExpression inside */
+  f?: number | null;
+}
+
+interface Statements {
+  typeAliases: [string, number][];
+  functions: [string | undefined, number, boolean][];
+  functionLookups: [string, number | null][];
+  variableStatements: [number, boolean][];
+  variableLookups: [string, number | null][];
+  imports: [string, string[]][];
+  leadingComments: string[][];
+}
+
+interface OracleFile {
+  corpus: CorpusName;
+  path: string;
+  sha: string;
+  /** Per node in forEachDescendant order: [kind, getStart, getText length, getStartLineNumber, getStartLinePos, line, column]. */
+  nodes: [number, number, number, number, number, number, number][];
+  extra: Record<string, NodeExtra>;
+  statements: Statements;
+}
+
+interface AstOracle {
+  kinds: string[];
+  files: OracleFile[];
+  forEachStop: { hit: string; visited: number };
+  documented: string[];
+}
+
 interface FilePair {
   where: string;
-  morph: MorphSourceFile;
+  expected: OracleFile;
   ts7: SourceFile;
 }
 
+const oracle = readOracle<AstOracle>("ast.json");
 const session = new AnalysisSession();
 const pairs: FilePair[] = [];
-let edgeRoot = "";
+let corpora: Corpora | undefined;
 
 beforeAll(async () => {
-  const edge = writeEdgeProject();
-  edgeRoot = edge.root;
-  const corpora = [
-    ["edge", edge.tsconfig],
-    ["types-corpus", TYPES_CORPUS],
-    ["full-featured", FULL_FEATURED],
-  ];
-  for (const [name, tsconfig] of corpora) {
-    if (!name || !tsconfig) continue;
-    const morph = new Project({ tsConfigFilePath: tsconfig });
-    const program = await session.open(tsconfig);
-    for (const file of morph.getSourceFiles()) {
-      const ts7 = program.sourceFile(file.getFilePath());
-      if (!ts7) throw new Error(`${name}: TS 7 program has no ${file.getFilePath()}`);
-      pairs.push({ where: `${name}:${path.basename(file.getFilePath())}`, morph: file, ts7 });
+  const written = writeCorpora();
+  corpora = written;
+  for (const name of ["edge", "types-corpus", "full-featured"] as const) {
+    const program = await session.open(written.tsconfig(name));
+    for (const expected of oracle.files.filter((f) => f.corpus === name)) {
+      const file = expected.path.startsWith("<edge>/")
+        ? path.join(written.edge.root, expected.path.slice("<edge>/".length))
+        : path.join(written.tree, expected.path);
+      const ts7 = program.sourceFile(file);
+      if (!ts7) throw new Error(`${name}: TS 7 program has no ${file}`);
+      pairs.push({ where: `${name}:${expected.path}`, expected, ts7 });
     }
   }
 }, 60_000);
 
 afterAll(async () => {
   await session.close();
-  if (edgeRoot) fs.rmSync(edgeRoot, { recursive: true, force: true });
+  corpora?.remove();
 });
-
-function morphDescendants(root: MorphNode): MorphNode[] {
-  const out: MorphNode[] = [];
-  root.forEachDescendant((node) => {
-    out.push(node);
-  });
-  return out;
-}
 
 function ts7Descendants(root: Node): Node[] {
   const out: Node[] = [];
@@ -116,30 +151,39 @@ function ts7Descendants(root: Node): Node[] {
   return out;
 }
 
-/** The two walks of one file, zipped; an error row when their lengths differ. */
-function zipped(pair: FilePair, out: Mismatches): [MorphNode, Node][] {
-  const a = morphDescendants(pair.morph);
-  const b = ts7Descendants(pair.ts7);
-  out.check(pair.where, "node count", a.length, b.length);
-  return a.flatMap((m, i): [MorphNode, Node][] => {
-    const n = b[i];
-    return n ? [[m, n]] : [];
-  });
+/** One recorded node: its row, kind name and extras. */
+interface Expected {
+  index: number;
+  kind: string;
+  start: number;
+  textLength: number;
+  startLine: number;
+  startLinePos: number;
+  line: number;
+  column: number;
+  extra: NodeExtra;
 }
 
-function morphName(node: MorphNode): string | undefined {
-  if (
-    M.isFunctionDeclaration(node) ||
-    M.isVariableDeclaration(node) ||
-    M.isPropertyAssignment(node) ||
-    M.isShorthandPropertyAssignment(node) ||
-    M.isMethodDeclaration(node) ||
-    M.isTypeAliasDeclaration(node) ||
-    M.isImportSpecifier(node)
-  ) {
-    return node.getName();
-  }
-  return undefined;
+/** The recorded walk and the TS 7 walk of one file, zipped; an error row when their lengths differ. */
+function zipped(pair: FilePair, out: Mismatches): [Expected, Node][] {
+  const b = ts7Descendants(pair.ts7);
+  out.check(pair.where, "node count", pair.expected.nodes.length, b.length);
+  return pair.expected.nodes.flatMap((row, index): [Expected, Node][] => {
+    const n = b[index];
+    const [kind, start, textLength, line0, linePos, line, column] = row;
+    const e: Expected = {
+      index,
+      kind: oracle.kinds[kind] ?? `?${kind}`,
+      start,
+      textLength,
+      startLine: line0,
+      startLinePos: linePos,
+      line,
+      column,
+      extra: pair.expected.extra[String(index)] ?? {},
+    };
+    return n ? [[e, n]] : [];
+  });
 }
 
 function ts7Name(node: Node): string | undefined {
@@ -157,172 +201,155 @@ function ts7Name(node: Node): string | undefined {
   return undefined;
 }
 
-function morphLiteral(node: MorphNode): string | number | undefined {
-  if (
-    M.isStringLiteral(node) ||
-    M.isNoSubstitutionTemplateLiteral(node) ||
-    M.isNumericLiteral(node)
-  ) {
-    return node.getLiteralValue();
-  }
-  return undefined;
-}
+const orUndefined = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
 
 /** Returns true when the kinds differ in a known, harmless way. */
-function compareKind(m: MorphNode, n: Node, at: string, out: Mismatches): boolean {
-  if (m.getKindName() === kindName(n)) return false;
-  if (KNOWN_KIND_PAIRS.has(`${m.getKindName()}>${kindName(n)}`)) return true;
-  out.check(at, "kind", m.getKindName(), kindName(n));
+function compareKind(e: Expected, n: Node, at: string, out: Mismatches): boolean {
+  if (e.kind === kindName(n)) return false;
+  if (KNOWN_KIND_PAIRS.has(`${e.kind}>${kindName(n)}`)) return true;
+  out.check(at, "kind", e.kind, kindName(n));
   return false;
 }
 
-function comparePositions(
-  m: MorphNode,
-  n: Node,
-  sf: SourceFile,
-  at: string,
-  out: Mismatches
-): void {
-  out.check(at, "text", m.getText(), textOf(n, sf));
-  out.check(at, "start", m.getStart(), startOf(n, sf));
-  out.check(at, "startLine", m.getStartLineNumber(), startLine(n, sf));
-  out.check(at, "startLinePos", m.getStartLinePos(), startLinePos(n, sf));
+function comparePositions(e: Expected, n: Node, sf: SourceFile, at: string, out: Mismatches): void {
+  // The recorded text is a slice of the file the hash pins (record.ts checks it).
+  out.check(at, "text", sf.text.slice(e.start, e.start + e.textLength), textOf(n, sf));
+  out.check(at, "start", e.start, startOf(n, sf));
+  out.check(at, "startLine", e.startLine, startLine(n, sf));
+  out.check(at, "startLinePos", e.startLinePos, startLinePos(n, sf));
   out.check(
     at,
     "lineAndColumn",
-    m.getSourceFile().getLineAndColumnAtPos(m.getStart()),
+    { line: e.line, column: e.column },
     lineAndColumn(sf, n.getStart(sf))
   );
 }
 
-function compareContent(m: MorphNode, n: Node, sf: SourceFile, at: string, out: Mismatches): void {
-  out.check(at, "literal", morphLiteral(m), literalValue(n));
-  out.check(at, "name", morphName(m), ts7Name(n));
-  const morphDocs = M.isJSDocable(m) ? m.getJsDocs() : [];
+function compareContent(e: Expected, n: Node, sf: SourceFile, at: string, out: Mismatches): void {
+  out.check(at, "literal", e.extra.l, literalValue(n));
+  out.check(at, "name", e.extra.n, ts7Name(n));
   out.check(
     at,
     "jsDocs",
-    morphDocs.map((d) => [d.getDescription(), d.getText()]),
+    e.extra.d ?? [],
     jsDocs(n).map((d) => [jsDocDescription(d, sf), jsDocText(d, sf)])
   );
-  if (M.isVariableDeclarationList(m) && isVariableDeclarationList(n)) {
-    out.check(at, "declarationKind", m.getDeclarationKind(), declarationKind(n));
+  if (e.extra.k !== undefined || isVariableDeclarationList(n)) {
+    out.check(
+      at,
+      "declarationKind",
+      e.extra.k,
+      isVariableDeclarationList(n) ? declarationKind(n) : undefined
+    );
   }
 }
 
 const isFunctionLike = (node: Node): node is Node =>
   isFunctionDeclaration(node) || isArrowFunction(node) || isFunctionExpression(node);
 
-function compareLookups(m: MorphNode, n: Node, sf: SourceFile, at: string, out: Mismatches): void {
-  if (M.isObjectLiteralExpression(m) && isObjectLiteralExpression(n)) {
-    const names = m.getProperties().flatMap((p) => (M.isSpreadAssignment(p) ? [] : [p.getName()]));
-    for (const name of [...names, "missing"]) {
+function compareLookups(e: Expected, n: Node, sf: SourceFile, at: string, out: Mismatches): void {
+  const { o, a, f } = e.extra;
+  if (o) {
+    for (const [name, start] of o) {
       out.check(
         at,
         `objectProperty(${name})`,
-        m.getProperty(name)?.getStart(),
-        objectProperty(n, name)?.getStart(sf)
+        orUndefined(start),
+        isObjectLiteralExpression(n) ? objectProperty(n, name)?.getStart(sf) : "not an object"
       );
     }
   }
-  if (M.isCallExpression(m) && isCallExpression(n)) {
-    const expected = m
-      .getFirstAncestor(
-        (x) => M.isFunctionDeclaration(x) || M.isArrowFunction(x) || M.isFunctionExpression(x)
-      )
-      ?.getStart();
-    out.check(at, "firstAncestor", expected, firstAncestor(n, isFunctionLike)?.getStart(sf));
+  if (a !== undefined) {
+    out.check(
+      at,
+      "firstAncestor",
+      orUndefined(a),
+      isCallExpression(n) ? firstAncestor(n, isFunctionLike)?.getStart(sf) : "not a call"
+    );
   }
-  if (M.isFunctionDeclaration(m) || M.isArrowFunction(m)) {
-    const expected = m.getFirstDescendant((x) => M.isCallExpression(x))?.getStart();
-    out.check(at, "firstDescendant", expected, firstDescendant(n, isCallExpression)?.getStart(sf));
+  if (f !== undefined) {
+    out.check(
+      at,
+      "firstDescendant",
+      orUndefined(f),
+      firstDescendant(n, isCallExpression)?.getStart(sf)
+    );
   }
 }
 
 function compareStatements(pair: FilePair, out: Mismatches): void {
-  const { where, morph, ts7 } = pair;
+  const { where, ts7 } = pair;
+  const e = pair.expected.statements;
+  out.check(where, "sha", pair.expected.sha, sha256(ts7.text));
   out.check(
     where,
     "typeAliases",
-    morph.getTypeAliases().map((t) => t.getName()),
+    e.typeAliases.map(([name]) => name),
     typeAliases(ts7).map(nameOf)
   );
-  for (const alias of morph.getTypeAliases()) {
-    out.check(
-      where,
-      `typeAlias(${alias.getName()})`,
-      alias.getStart(),
-      typeAlias(ts7, alias.getName())?.getStart(ts7)
-    );
+  for (const [name, start] of e.typeAliases) {
+    out.check(where, `typeAlias(${name})`, start, typeAlias(ts7, name)?.getStart(ts7));
   }
   out.check(
     where,
     "functions",
-    morph.getFunctions().map((f) => [f.getName(), f.getStart(), f.hasExportKeyword()]),
+    e.functions,
     functionDeclarations(ts7).map((f) => [nameOf(f), f.getStart(ts7), hasExportKeyword(f)])
   );
-  for (const name of morph.getFunctions().map((f) => f.getName() ?? "")) {
+  for (const [name, start] of e.functionLookups) {
     out.check(
       where,
       `function(${name})`,
-      morph.getFunction(name)?.getStart(),
+      orUndefined(start),
       functionDeclaration(ts7, name)?.getStart(ts7)
     );
   }
   out.check(
     where,
     "variableStatements",
-    morph.getVariableStatements().map((s) => [s.getStart(), s.hasExportKeyword()]),
+    e.variableStatements,
     variableStatements(ts7).map((s) => [s.getStart(ts7), hasExportKeyword(s)])
   );
-  const names = [
-    ...morph.getVariableDeclarations().map((d) => d.getName()),
-    "picked",
-    "renamedPick",
-    "missing",
-  ];
-  for (const name of names) {
+  for (const [name, start] of e.variableLookups) {
     out.check(
       where,
       `variableDeclaration(${name})`,
-      morph.getVariableDeclaration(name)?.getStart(),
+      orUndefined(start),
       variableDeclaration(ts7, name)?.getStart(ts7)
     );
   }
   out.check(
     where,
     "imports",
-    morph
-      .getImportDeclarations()
-      .map((d) => [d.getModuleSpecifierValue(), d.getNamedImports().map((s) => s.getName())]),
+    e.imports,
     importDeclarations(ts7).map((d) => [moduleSpecifierValue(d), namedImports(d).map(importedName)])
   );
   out.check(
     where,
     "leadingComments",
-    morph.getStatements().map((s) => s.getLeadingCommentRanges().map((r) => r.getText())),
+    e.leadingComments,
     ts7.statements.map((s) => leadingComments(s, ts7).map((r) => r.text))
   );
 }
 
 function edgePair(): FilePair {
-  const pair = pairs.find((p) => p.where === "edge:edge.ts");
+  const pair = pairs.find((p) => p.where === "edge:<edge>/src/edge.ts");
   if (!pair) throw new Error("edge.ts missing");
   return pair;
 }
 
-describe("ast helpers match ts-morph node by node", () => {
+describe("ast helpers match the recorded ts-morph answers node by node", () => {
   test("walk order, kind, text, positions, lines, literals, names, JSDoc, declaration kind", () => {
     const out = new Mismatches();
     let compared = 0;
     let knownKindDiffs = 0;
     for (const pair of pairs) {
-      for (const [m, n] of zipped(pair, out)) {
+      for (const [e, n] of zipped(pair, out)) {
         compared++;
-        const at = `${pair.where}@${m.getStart()} ${m.getKindName()}`;
-        if (compareKind(m, n, at, out)) knownKindDiffs++;
-        comparePositions(m, n, pair.ts7, at, out);
-        compareContent(m, n, pair.ts7, at, out);
+        const at = `${pair.where}@${e.start} ${e.kind}`;
+        if (compareKind(e, n, at, out)) knownKindDiffs++;
+        comparePositions(e, n, pair.ts7, at, out);
+        compareContent(e, n, pair.ts7, at, out);
       }
     }
     expect(out.head()).toEqual([]);
@@ -341,9 +368,9 @@ describe("ast helpers match ts-morph node by node", () => {
     const out = new Mismatches();
     let objects = 0;
     for (const pair of pairs) {
-      for (const [m, n] of zipped(pair, out)) {
-        if (M.isObjectLiteralExpression(m)) objects++;
-        compareLookups(m, n, pair.ts7, `${pair.where}@${m.getStart()}`, out);
+      for (const [e, n] of zipped(pair, out)) {
+        if (e.kind === "ObjectLiteralExpression") objects++;
+        compareLookups(e, n, pair.ts7, `${pair.where}@${e.start}`, out);
       }
     }
     expect(out.head()).toEqual([]);
@@ -352,25 +379,20 @@ describe("ast helpers match ts-morph node by node", () => {
 
   test("forEachDescendant stops on a truthy callback value, as ts-morph does", () => {
     const pair = edgePair();
-    let morphVisited = 0;
-    const morphHit = pair.morph.forEachDescendant((node) => {
-      morphVisited++;
-      return M.isCallExpression(node) ? node.getText() : undefined;
-    });
     let visited = 0;
     const hit = forEachDescendant(pair.ts7, (node) => {
       visited++;
       return isCallExpression(node) ? textOf(node, pair.ts7) : undefined;
     });
-    expect(hit).toBe(morphHit);
-    expect(visited).toBe(morphVisited);
+    expect(hit).toBe(oracle.forEachStop.hit);
+    expect(visited).toBe(oracle.forEachStop.visited);
     expect(visited).toBeLessThan(ts7Descendants(pair.ts7).length);
   });
 
   test("the edge project exercises what it claims to", () => {
-    const { ts7, morph } = edgePair();
+    const { ts7 } = edgePair();
     expect(ts7.text.includes("\r/")).toBe(true);
-    expect(ts7.text.includes(" ")).toBe(true);
+    expect(ts7.text.includes("\u2028")).toBe(true);
     // TS 7's own line map breaks on the CR and the U+2028; ts-morph (and startLine) do not.
     const last = ts7.statements.at(-1);
     if (!last) throw new Error("no statements");
@@ -379,12 +401,7 @@ describe("ast helpers match ts-morph node by node", () => {
     const description = jsDocs(functionDeclaration(ts7, "documented")).map((d) =>
       jsDocDescription(d, ts7)
     );
-    expect(description).toEqual(
-      morph
-        .getFunctionOrThrow("documented")
-        .getJsDocs()
-        .map((d) => d.getDescription())
-    );
+    expect(description).toEqual(oracle.documented);
     expect(description[0]).toContain("description\nsecond line");
   });
 });
