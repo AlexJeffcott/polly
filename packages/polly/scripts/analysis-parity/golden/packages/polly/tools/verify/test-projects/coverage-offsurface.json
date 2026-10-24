@@ -1,0 +1,687 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "AUTHENTICATE"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "AUTHENTICATE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "session_authenticated",
+              "value": true
+            },
+            {
+              "field": "session_canSend",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 32
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "session_canSend",
+          "signalVariable": "session",
+          "functionName": "RecoveryFlow.register",
+          "filePath": "<project>/src/background/index.ts",
+          "line": 42
+        }
+      ]
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "AUTHENTICATE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "session_authenticated",
+              "value": true
+            },
+            {
+              "field": "session_canSend",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 32
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "AUTHENTICATE"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "session_canSend",
+          "signalVariable": "session",
+          "functionName": "RecoveryFlow.register",
+          "filePath": "<project>/src/background/index.ts",
+          "line": 42
+        }
+      ],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "test-coverage-offsurface",
+        "version": "1.0.0",
+        "description": "Verify fixture (polly#163): a capability granted by a non-dispatched method that escapes the handler surface, which the off-surface mutator scan must surface."
+      },
+      "projectConfig": {
+        "type": "generic",
+        "entryPoints": {},
+        "metadata": {
+          "name": "test-coverage-offsurface",
+          "version": "1.0.0",
+          "description": "Verify fixture (polly#163): a capability granted by a non-dispatched method that escapes the handler surface, which the off-surface mutator scan must surface."
+        }
+      },
+      "contexts": {},
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/background/index.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 15,
+      "evidence": [
+        "Found 1 extension context directories"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "generic",
+      "adapter": {
+        "class": "EventBusAdapter",
+        "name": "event-bus",
+        "config": {
+          "emitterLibrary": "events",
+          "emitterPattern": {
+            "$type": "RegExp",
+            "source": "emitter|bus|events|dispatch|publish",
+            "flags": "i"
+          },
+          "maxInFlight": 5,
+          "maxEmitters": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "central-bus",
+            "type": "event-bus",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isMediator": true
+            }
+          },
+          {
+            "id": "bus",
+            "type": "emitter",
+            "canSendTo": [
+              "central-bus",
+              "*"
+            ],
+            "canReceiveFrom": [
+              "central-bus",
+              "*"
+            ],
+            "metadata": {
+              "isEmitter": true
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "AUTHENTICATE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "broadcast",
+            "messageTypes": [
+              "AUTHENTICATE"
+            ],
+            "description": "Event bus broadcast pattern - one-to-many messaging"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "AUTHENTICATE",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/index.ts",
+              "line": 32
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 2
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "AUTHENTICATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "AUTHENTICATE"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "AUTHENTICATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 32
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "AUTHENTICATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "AUTHENTICATE"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "AUTHENTICATE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 32
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "AUTHENTICATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "AUTHENTICATE"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "AUTHENTICATE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 32
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}

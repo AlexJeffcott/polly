@@ -1,0 +1,1075 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "connected",
+        "disconnected",
+        "Connected",
+        "Disconnected"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "connected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 28
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "disconnected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 33
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "Connected",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "connectionState_status",
+              "value": "connected"
+            },
+            {
+              "field": "connectionState_lastError",
+              "value": null
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "connectionState.value.status === \"connecting\"",
+              "message": "Must be in connecting state",
+              "location": {
+                "line": 41,
+                "column": 1200
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "connectionState.value.status === \"connected\"",
+              "message": "Must be connected after success",
+              "location": {
+                "line": 49,
+                "column": 1401
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Disconnected",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "connectionState_status",
+              "value": "disconnected"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "connectionState.value.status === \"connected\"",
+              "message": "Must be connected to disconnect",
+              "location": {
+                "line": 54,
+                "column": 1626
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "connectionState.value.status === \"disconnected\"",
+              "message": "Must be disconnected after",
+              "location": {
+                "line": 61,
+                "column": 1812
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 53
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "connection",
+          "variableName": "connectionState",
+          "filePath": "<project>/src/handlers.ts",
+          "line": 16,
+          "fields": [
+            "status",
+            "lastError"
+          ]
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "connected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 28
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "disconnected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 33
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "Connected",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "connectionState_status",
+              "value": "connected"
+            },
+            {
+              "field": "connectionState_lastError",
+              "value": null
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "connectionState.value.status === \"connecting\"",
+              "message": "Must be in connecting state",
+              "location": {
+                "line": 41,
+                "column": 1200
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "connectionState.value.status === \"connected\"",
+              "message": "Must be connected after success",
+              "location": {
+                "line": 49,
+                "column": 1401
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "Disconnected",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "connectionState_status",
+              "value": "disconnected"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "connectionState.value.status === \"connected\"",
+              "message": "Must be connected to disconnect",
+              "location": {
+                "line": 54,
+                "column": 1626
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "connectionState.value.status === \"disconnected\"",
+              "message": "Must be disconnected after",
+              "location": {
+                "line": 61,
+                "column": 1812
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 53
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "connected",
+          "disconnected",
+          "Connected",
+          "Disconnected"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "connection",
+          "variableName": "connectionState",
+          "filePath": "<project>/src/handlers.ts",
+          "line": 16,
+          "fields": [
+            "status",
+            "lastError"
+          ]
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Unknown Project",
+        "version": "0.0.0"
+      },
+      "projectConfig": {
+        "type": "generic",
+        "entryPoints": {},
+        "metadata": {
+          "name": "Unknown Project"
+        }
+      },
+      "contexts": {},
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@anthropic/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/handlers.ts"
+          ],
+          "description": "External dependency: @anthropic/polly"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 10,
+      "evidence": [
+        "Found 2 .on() call(s)"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "generic",
+      "adapter": {
+        "class": "EventBusAdapter",
+        "name": "event-bus",
+        "config": {
+          "emitterLibrary": "events",
+          "emitterPattern": {
+            "$type": "RegExp",
+            "source": "emitter|bus|events|dispatch|publish",
+            "flags": "i"
+          },
+          "maxInFlight": 5,
+          "maxEmitters": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "central-bus",
+            "type": "event-bus",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isMediator": true
+            }
+          },
+          {
+            "id": "messageBus",
+            "type": "emitter",
+            "canSendTo": [
+              "central-bus",
+              "*"
+            ],
+            "canReceiveFrom": [
+              "central-bus",
+              "*"
+            ],
+            "metadata": {
+              "isEmitter": true
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "connected",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "disconnected",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "broadcast",
+            "messageTypes": [
+              "connected",
+              "disconnected"
+            ],
+            "description": "Event bus broadcast pattern - one-to-many messaging"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "connected",
+            "node": "messageBus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 28
+            }
+          },
+          {
+            "messageType": "disconnected",
+            "node": "messageBus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 33
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 2
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "connected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "disconnected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "connected",
+            "disconnected"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "connected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 28
+          }
+        },
+        {
+          "messageType": "disconnected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 33
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "connected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "disconnected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "CONNECTED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "DISCONNECTED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "connected",
+            "disconnected",
+            "CONNECTED",
+            "DISCONNECTED"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "connected",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 28
+          }
+        },
+        {
+          "messageType": "disconnected",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 33
+          }
+        },
+        {
+          "messageType": "CONNECTED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "connectionState.value.status === \"connecting\"",
+              "message": "Must be in connecting state",
+              "location": {
+                "line": 41,
+                "column": 1202
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "connectionState.value.status === \"connected\"",
+              "message": "Must be connected after success",
+              "location": {
+                "line": 49,
+                "column": 1403
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          }
+        },
+        {
+          "messageType": "DISCONNECTED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "connectionState.value.status === \"connected\"",
+              "message": "Must be connected to disconnect",
+              "location": {
+                "line": 54,
+                "column": 1628
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "connectionState.value.status === \"disconnected\"",
+              "message": "Must be disconnected after",
+              "location": {
+                "line": 61,
+                "column": 1814
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 53
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "messageBus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "connected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "disconnected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "connected",
+            "disconnected"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "connected",
+          "node": "messageBus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 28
+          }
+        },
+        {
+          "messageType": "disconnected",
+          "node": "messageBus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 33
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}

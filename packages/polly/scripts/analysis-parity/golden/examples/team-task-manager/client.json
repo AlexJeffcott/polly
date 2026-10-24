@@ -1,0 +1,1424 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "sync_request",
+        "joined",
+        "task_created",
+        "task_updated",
+        "task_deleted",
+        "comment_added",
+        "member_joined",
+        "sync_response",
+        "updatefound",
+        "statechange",
+        "beforeinstallprompt",
+        "appinstalled",
+        "online",
+        "offline",
+        "close",
+        "click"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "sync_request",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/api.ts",
+            "line": 191
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 53
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "task_created",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 57
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "task_updated",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 58
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "task_deleted",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 64
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "comment_added",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 70
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "member_joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 76
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "sync_response",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 80
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "updatefound",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 32
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "statechange",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 36
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "beforeinstallprompt",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 94
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "appinstalled",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 108
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "online",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 211
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offline",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 212
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "online",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "isOnline",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/network.ts",
+            "line": 58
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offline",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "isOnline",
+              "value": false
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/network.ts",
+            "line": 59
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "close",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/components/Modal.tsx",
+            "line": 38
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "click",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/components/Modal.tsx",
+            "line": 60
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "workspace",
+          "variableName": "workspace",
+          "filePath": "<project>/src/state.ts",
+          "line": 14,
+          "fields": []
+        },
+        {
+          "key": "tasks",
+          "variableName": "tasks",
+          "filePath": "<project>/src/state.ts",
+          "line": 17,
+          "fields": []
+        },
+        {
+          "key": "urgentTaskCount",
+          "variableName": "urgentTaskCount",
+          "filePath": "<project>/src/state.ts",
+          "line": 26,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "activities",
+          "signalVariable": "activities",
+          "functionName": "addActivity",
+          "filePath": "<project>/src/tasks.ts",
+          "line": 298
+        },
+        {
+          "field": "activities",
+          "signalVariable": "activities",
+          "functionName": "addActivity",
+          "filePath": "<project>/src/tasks.ts",
+          "line": 312
+        }
+      ]
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "sync_request",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/api.ts",
+            "line": 191
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 53
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "task_created",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 57
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "task_updated",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 58
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "task_deleted",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 64
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "comment_added",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 70
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "member_joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 76
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "sync_response",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 80
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "updatefound",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 32
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "statechange",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 36
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "beforeinstallprompt",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 94
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "e"
+          ]
+        },
+        {
+          "messageType": "appinstalled",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 108
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "online",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 211
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "offline",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/pwa.ts",
+            "line": 212
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "online",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "isOnline",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/network.ts",
+            "line": 58
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "offline",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "isOnline",
+              "value": false
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/network.ts",
+            "line": 59
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "close",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/components/Modal.tsx",
+            "line": 38
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "click",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/components/Modal.tsx",
+            "line": 60
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "e"
+          ]
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "sync_request",
+          "joined",
+          "task_created",
+          "task_updated",
+          "task_deleted",
+          "comment_added",
+          "member_joined",
+          "sync_response",
+          "updatefound",
+          "statechange",
+          "beforeinstallprompt",
+          "appinstalled",
+          "online",
+          "offline",
+          "close",
+          "click"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "workspace",
+          "variableName": "workspace",
+          "filePath": "<project>/src/state.ts",
+          "line": 14,
+          "fields": []
+        },
+        {
+          "key": "tasks",
+          "variableName": "tasks",
+          "filePath": "<project>/src/state.ts",
+          "line": 17,
+          "fields": []
+        },
+        {
+          "key": "urgentTaskCount",
+          "variableName": "urgentTaskCount",
+          "filePath": "<project>/src/state.ts",
+          "line": 26,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "activities",
+          "signalVariable": "activities",
+          "functionName": "addActivity",
+          "filePath": "<project>/src/tasks.ts",
+          "line": 298
+        },
+        {
+          "field": "activities",
+          "signalVariable": "activities",
+          "functionName": "addActivity",
+          "filePath": "<project>/src/tasks.ts",
+          "line": 312
+        }
+      ],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Team Task Manager - E2EE",
+        "version": "0.0.0",
+        "description": "End-to-end encrypted team task collaboration with local-first architecture"
+      },
+      "manifest": {
+        "name": "Team Task Manager - E2EE",
+        "version": "0.0.0",
+        "description": "End-to-end encrypted team task collaboration with local-first architecture",
+        "manifestVersion": 2,
+        "background": {
+          "$type": "undefined"
+        },
+        "contentScripts": {
+          "$type": "undefined"
+        },
+        "popup": {
+          "$type": "undefined"
+        },
+        "options": {
+          "$type": "undefined"
+        },
+        "devtools": {
+          "$type": "undefined"
+        },
+        "permissions": [],
+        "hostPermissions": []
+      },
+      "contexts": {},
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@elysiajs/eden",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/api.ts"
+          ],
+          "description": "External dependency: @elysiajs/eden"
+        },
+        {
+          "type": "external-script",
+          "name": "preact",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/App.tsx"
+          ],
+          "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/handlers.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals-core",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/network.ts"
+          ],
+          "description": "External dependency: @preact/signals-core"
+        },
+        {
+          "type": "external-script",
+          "name": "@elysiajs/cors",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/examples/team-task-manager/server/src/app.ts"
+          ],
+          "description": "External dependency: @elysiajs/cors"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/examples/team-task-manager/server/src/app.ts"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/polly-ui/Checkbox.d.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-network-websocket",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-network-websocket"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-storage-nodefs",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-storage-nodefs"
+        },
+        {
+          "type": "external-script",
+          "name": "ws",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: ws"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 45,
+      "evidence": [
+        "Found 5 file(s) using chrome.* APIs",
+        "Found 3 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "chrome-extension",
+      "adapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 1,
+          "maxInFlight": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "background",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": true,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "content",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": true
+            }
+          },
+          {
+            "id": "popup",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "devtools",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "options",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "offscreen",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "sidepanel",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          }
+        ],
+        "messageTypes": [],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [],
+            "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+          }
+        ],
+        "state": {},
+        "handlers": [],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 3,
+          "maxNodes": 7,
+          "custom": {
+            "maxTabs": 1
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "INCOMING_TASK",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "INCOMING_COMMENT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "TASK_DELETED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "INCOMING_TASK",
+            "INCOMING_COMMENT",
+            "TASK_DELETED"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "INCOMING_TASK",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/tasks.ts",
+            "line": 219
+          }
+        },
+        {
+          "messageType": "INCOMING_COMMENT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/tasks.ts",
+            "line": 260
+          }
+        },
+        {
+          "messageType": "TASK_DELETED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/tasks.ts",
+            "line": 280
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

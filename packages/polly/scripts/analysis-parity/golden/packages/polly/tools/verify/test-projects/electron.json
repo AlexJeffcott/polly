@@ -1,0 +1,755 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "ready",
+        "message"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "ready",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 6
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "message",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 19
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "ready",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 6
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 19
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "event",
+            "data"
+          ]
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "ready",
+          "message"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "test-electron-app",
+        "version": "1.0.0",
+        "description": "Test Electron app fixture"
+      },
+      "projectConfig": {
+        "type": "electron",
+        "entryPoints": {
+          "main": "<project>/src/main.ts"
+        },
+        "contextMapping": {
+          "main": "Main Process",
+          "renderer": "Renderer Process"
+        },
+        "metadata": {
+          "name": "test-electron-app",
+          "version": "1.0.0",
+          "description": "Test Electron app fixture"
+        }
+      },
+      "contexts": {
+        "main": {
+          "type": "main",
+          "entryPoint": "<project>/src/main.ts",
+          "handlers": [
+            {
+              "messageType": "ready",
+              "node": "main",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/main.ts",
+                "line": 6
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "message",
+              "node": "main",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/main.ts",
+                "line": 19
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "event",
+                "data"
+              ]
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "electron"
+          ],
+          "description": "// Test fixture: Electron main process"
+        }
+      },
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "electron",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/main.ts"
+          ],
+          "description": "External dependency: electron"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 10,
+      "evidence": [
+        "Found 2 .on() call(s)"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "electron",
+      "adapter": {
+        "class": "EventBusAdapter",
+        "name": "event-bus",
+        "config": {
+          "emitterLibrary": "custom",
+          "emitterPattern": {
+            "$type": "RegExp",
+            "source": "ipc|electron",
+            "flags": "i"
+          },
+          "maxInFlight": 5,
+          "maxEmitters": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "central-bus",
+            "type": "event-bus",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isMediator": true
+            }
+          },
+          {
+            "id": "Main Process",
+            "type": "emitter",
+            "canSendTo": [
+              "central-bus",
+              "*"
+            ],
+            "canReceiveFrom": [
+              "central-bus",
+              "*"
+            ],
+            "metadata": {
+              "isEmitter": true
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "message",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "broadcast",
+            "messageTypes": [
+              "message"
+            ],
+            "description": "Event bus broadcast pattern - one-to-many messaging"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "message",
+            "node": "Main Process",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/main.ts",
+              "line": 19
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 2
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "ready",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "ready",
+            "message"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "ready",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 6
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 19
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "ready",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "ready",
+            "message"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "ready",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 6
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/main.ts",
+            "line": 19
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

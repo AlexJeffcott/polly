@@ -1,0 +1,1352 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "DELETE /todos/:id",
+        "PATCH /todos/:id",
+        "POST /todos",
+        "GET /todos",
+        "POST /auth/logout",
+        "POST /auth/login",
+        "Login",
+        "Logout"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "DELETE /todos/:id",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "PATCH /todos/:id",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "POST /todos",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "store.todos",
+              "value": "Append(@, payload)"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /todos",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "POST /auth/logout",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "server.session",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "POST /auth/login",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "Login",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "authState_loggedIn",
+              "value": true
+            },
+            {
+              "field": "authState_userId",
+              "value": "param:userId"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "authState.value.loggedIn === false",
+              "message": "Must not be logged in",
+              "location": {
+                "line": 7,
+                "column": 257
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "authState.value.loggedIn === true",
+              "message": "Must be logged in after login",
+              "location": {
+                "line": 11,
+                "column": 380
+              }
+            },
+            {
+              "expression": "authState.value.userId === userId",
+              "message": "User ID must match",
+              "location": {
+                "line": 12,
+                "column": 459
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 6
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Logout",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "authState_loggedIn",
+              "value": false
+            },
+            {
+              "field": "authState_userId",
+              "value": null
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "authState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 16,
+                "column": 557
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "authState.value.loggedIn === false",
+              "message": "Must be logged out after logout",
+              "location": {
+                "line": 20,
+                "column": 692
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 15
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "auth",
+          "variableName": "authState",
+          "filePath": "<project>/src/state.ts",
+          "line": 5,
+          "fields": [
+            "loggedIn",
+            "userId"
+          ]
+        },
+        {
+          "key": "todoCount",
+          "variableName": "todoCount",
+          "filePath": "<project>/src/state.ts",
+          "line": 12,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "DELETE /todos/:id",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "origin": "event",
+          "parameters": [
+            "{ params, pollyState }"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "DELETE",
+          "routePath": "/todos/:id"
+        },
+        {
+          "messageType": "PATCH /todos/:id",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "origin": "event",
+          "parameters": [
+            "{ params, body, pollyState }"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "PATCH",
+          "routePath": "/todos/:id"
+        },
+        {
+          "messageType": "POST /todos",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "store.todos",
+              "value": "Append(@, payload)"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "origin": "event",
+          "parameters": [
+            "{ body, pollyState }"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "POST",
+          "routePath": "/todos"
+        },
+        {
+          "messageType": "GET /todos",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "origin": "event",
+          "parameters": [
+            "{ pollyState }"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/todos"
+        },
+        {
+          "messageType": "POST /auth/logout",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "server.session",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "origin": "event",
+          "parameters": [
+            "{ pollyState }"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "POST",
+          "routePath": "/auth/logout"
+        },
+        {
+          "messageType": "POST /auth/login",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/app.ts",
+            "line": 52
+          },
+          "origin": "event",
+          "parameters": [
+            "{ body, pollyState }"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "POST",
+          "routePath": "/auth/login"
+        },
+        {
+          "messageType": "Login",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "authState_loggedIn",
+              "value": true
+            },
+            {
+              "field": "authState_userId",
+              "value": "param:userId"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "authState.value.loggedIn === false",
+              "message": "Must not be logged in",
+              "location": {
+                "line": 7,
+                "column": 257
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "authState.value.loggedIn === true",
+              "message": "Must be logged in after login",
+              "location": {
+                "line": 11,
+                "column": 380
+              }
+            },
+            {
+              "expression": "authState.value.userId === userId",
+              "message": "User ID must match",
+              "location": {
+                "line": 12,
+                "column": 459
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 6
+          },
+          "origin": "stateHandler",
+          "parameters": [
+            "userId"
+          ]
+        },
+        {
+          "messageType": "Logout",
+          "node": "server",
+          "assignments": [
+            {
+              "field": "authState_loggedIn",
+              "value": false
+            },
+            {
+              "field": "authState_userId",
+              "value": null
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "authState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 16,
+                "column": 557
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "authState.value.loggedIn === false",
+              "message": "Must be logged out after logout",
+              "location": {
+                "line": 20,
+                "column": 692
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 15
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "DELETE /todos/:id",
+          "PATCH /todos/:id",
+          "POST /todos",
+          "GET /todos",
+          "POST /auth/logout",
+          "POST /auth/login",
+          "Login",
+          "Logout"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "auth",
+          "variableName": "authState",
+          "filePath": "<project>/src/state.ts",
+          "line": 5,
+          "fields": [
+            "loggedIn",
+            "userId"
+          ]
+        },
+        {
+          "key": "todoCount",
+          "variableName": "todoCount",
+          "filePath": "<project>/src/state.ts",
+          "line": 12,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "elysia-todo-app-server",
+        "version": "0.1.0"
+      },
+      "projectConfig": {
+        "type": "websocket-app",
+        "entryPoints": {
+          "server": "<project>/src/index.ts"
+        },
+        "contextMapping": {
+          "server": "HTTP Server"
+        },
+        "metadata": {
+          "name": "elysia-todo-app-server",
+          "version": "0.1.0",
+          "description": {
+            "$type": "undefined"
+          }
+        }
+      },
+      "contexts": {
+        "server": {
+          "type": "server",
+          "entryPoint": "<project>/src/index.ts",
+          "handlers": [
+            {
+              "messageType": "DELETE /todos/:id",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/app.ts",
+                "line": 52
+              },
+              "origin": "event",
+              "parameters": [
+                "{ params, pollyState }"
+              ],
+              "handlerKind": "rest",
+              "httpMethod": "DELETE",
+              "routePath": "/todos/:id"
+            },
+            {
+              "messageType": "PATCH /todos/:id",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/app.ts",
+                "line": 52
+              },
+              "origin": "event",
+              "parameters": [
+                "{ params, body, pollyState }"
+              ],
+              "handlerKind": "rest",
+              "httpMethod": "PATCH",
+              "routePath": "/todos/:id"
+            },
+            {
+              "messageType": "POST /todos",
+              "node": "server",
+              "assignments": [
+                {
+                  "field": "store.todos",
+                  "value": "Append(@, payload)"
+                }
+              ],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/app.ts",
+                "line": 52
+              },
+              "origin": "event",
+              "parameters": [
+                "{ body, pollyState }"
+              ],
+              "handlerKind": "rest",
+              "httpMethod": "POST",
+              "routePath": "/todos"
+            },
+            {
+              "messageType": "GET /todos",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/app.ts",
+                "line": 52
+              },
+              "origin": "event",
+              "parameters": [
+                "{ pollyState }"
+              ],
+              "handlerKind": "rest",
+              "httpMethod": "GET",
+              "routePath": "/todos"
+            },
+            {
+              "messageType": "POST /auth/logout",
+              "node": "server",
+              "assignments": [
+                {
+                  "field": "server.session",
+                  "value": null
+                }
+              ],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/app.ts",
+                "line": 52
+              },
+              "origin": "event",
+              "parameters": [
+                "{ pollyState }"
+              ],
+              "handlerKind": "rest",
+              "httpMethod": "POST",
+              "routePath": "/auth/logout"
+            },
+            {
+              "messageType": "POST /auth/login",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/app.ts",
+                "line": 52
+              },
+              "origin": "event",
+              "parameters": [
+                "{ body, pollyState }"
+              ],
+              "handlerKind": "rest",
+              "httpMethod": "POST",
+              "routePath": "/auth/login"
+            },
+            {
+              "messageType": "Login",
+              "node": "server",
+              "assignments": [
+                {
+                  "field": "authState_loggedIn",
+                  "value": true
+                },
+                {
+                  "field": "authState_userId",
+                  "value": "param:userId"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "authState.value.loggedIn === false",
+                  "message": "Must not be logged in",
+                  "location": {
+                    "line": 7,
+                    "column": 257
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "authState.value.loggedIn === true",
+                  "message": "Must be logged in after login",
+                  "location": {
+                    "line": 11,
+                    "column": 380
+                  }
+                },
+                {
+                  "expression": "authState.value.userId === userId",
+                  "message": "User ID must match",
+                  "location": {
+                    "line": 12,
+                    "column": 459
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/handlers.ts",
+                "line": 6
+              },
+              "origin": "stateHandler",
+              "parameters": [
+                "userId"
+              ]
+            },
+            {
+              "messageType": "Logout",
+              "node": "server",
+              "assignments": [
+                {
+                  "field": "authState_loggedIn",
+                  "value": false
+                },
+                {
+                  "field": "authState_userId",
+                  "value": null
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "authState.value.loggedIn === true",
+                  "message": "Must be logged in to logout",
+                  "location": {
+                    "line": 16,
+                    "column": 557
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "authState.value.loggedIn === false",
+                  "message": "Must be logged out after logout",
+                  "location": {
+                    "line": 20,
+                    "column": 692
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/handlers.ts",
+                "line": 15
+              },
+              "origin": "stateHandler",
+              "parameters": {
+                "$type": "undefined"
+              }
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "./app"
+          ]
+        }
+      },
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@elysiajs/cors",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/app.ts"
+          ],
+          "description": "External dependency: @elysiajs/cors"
+        },
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/app.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals-core",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/app.ts"
+          ],
+          "description": "External dependency: @preact/signals-core"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/app.ts"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-network-websocket",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-network-websocket"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-storage-nodefs",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-storage-nodefs"
+        },
+        {
+          "type": "external-script",
+          "name": "ws",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: ws"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/resource.d.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 50,
+      "evidence": [
+        "Found 5 file(s) using chrome.* APIs",
+        "Found 6 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "websocket-app",
+      "adapter": {
+        "class": "WebSocketAdapter",
+        "name": "websocket",
+        "config": {
+          "useEdenTypes": true,
+          "handlerPattern": {
+            "$type": "RegExp",
+            "source": "^handle[A-Z]",
+            "flags": ""
+          },
+          "maxConnections": 10,
+          "maxInFlight": 5,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "server",
+            "type": "websocket-server",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isHub": true
+            }
+          },
+          {
+            "id": "client-1",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 1
+            }
+          },
+          {
+            "id": "client-2",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 2
+            }
+          },
+          {
+            "id": "client-3",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 3
+            }
+          },
+          {
+            "id": "client-4",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 4
+            }
+          },
+          {
+            "id": "client-5",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 5
+            }
+          },
+          {
+            "id": "client-6",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 6
+            }
+          },
+          {
+            "id": "client-7",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 7
+            }
+          },
+          {
+            "id": "client-8",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 8
+            }
+          },
+          {
+            "id": "client-9",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 9
+            }
+          },
+          {
+            "id": "client-10",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 10
+            }
+          }
+        ],
+        "messageTypes": [],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [],
+            "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+          }
+        ],
+        "state": {},
+        "handlers": [],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 11,
+          "custom": {
+            "maxConnections": 10
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

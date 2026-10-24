@@ -1,0 +1,4505 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "USER_LOGOUT",
+        "TODO_CLEAR_COMPLETED",
+        "GET_STATE",
+        "USER_LOGIN",
+        "TODO_ADD",
+        "TODO_TOGGLE",
+        "TODO_REMOVE",
+        "TODO_SET_LIMIT",
+        "SET_THEME",
+        "GET_TODOS"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_loggedIn",
+              "value": true
+            },
+            {
+              "field": "user_id",
+              "value": "param:userId"
+            },
+            {
+              "field": "user_name",
+              "value": "param:name"
+            },
+            {
+              "field": "user_role",
+              "value": "param:role"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must not be logged in",
+              "location": {
+                "line": 34,
+                "column": 1627
+              }
+            },
+            {
+              "expression": "payload.userId !== null",
+              "message": "User ID must be provided",
+              "location": {
+                "line": 35,
+                "column": 1704
+              }
+            },
+            {
+              "expression": "payload.role !== \"guest\"",
+              "message": "Login role must not be guest",
+              "location": {
+                "line": 36,
+                "column": 1773
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 50,
+                "column": 2355
+              }
+            },
+            {
+              "expression": "user.value.role !== \"guest\"",
+              "message": "User must have non-guest role",
+              "location": {
+                "line": 51,
+                "column": 2438
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 29
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_loggedIn",
+              "value": false
+            },
+            {
+              "field": "user_id",
+              "value": null
+            },
+            {
+              "field": "user_name",
+              "value": "Guest"
+            },
+            {
+              "field": "user_role",
+              "value": "guest"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in to logout",
+              "location": {
+                "line": 59,
+                "column": 2665
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 70,
+                "column": 2967
+              }
+            },
+            {
+              "expression": "user.value.role === \"guest\"",
+              "message": "User must have guest role after logout",
+              "location": {
+                "line": 71,
+                "column": 3051
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 57
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TODO_ADD",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "Append(@, payload)"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "hasLength(todos.value, { max: 99 })",
+              "message": "Cannot exceed 100 todos",
+              "location": {
+                "line": 80,
+                "column": 3341
+              }
+            },
+            {
+              "expression": "payload.text !== \"\"",
+              "message": "Todo text must not be empty",
+              "location": {
+                "line": 81,
+                "column": 3419
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty after add",
+              "location": {
+                "line": 96,
+                "column": 3982
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 78
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "NDET:MAP"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to toggle",
+              "location": {
+                "line": 104,
+                "column": 4287
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 101
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TODO_REMOVE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "NDET:FILTER"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to remove",
+              "location": {
+                "line": 127,
+                "column": 5237
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 124
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "NDET:FILTER"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 139
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TODO_SET_LIMIT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "maxTodos",
+              "value": "param:limit"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "payload.limit > 0",
+              "message": "Limit must be positive",
+              "location": {
+                "line": 156,
+                "column": 6345
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 154
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "SET_THEME",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "theme",
+              "value": "param:theme"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET_STATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 174
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET_TODOS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 187
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [
+        {
+          "name": "LoggedOutIsGuest",
+          "expression": "user.value.loggedIn === true || user.value.role === \"guest\"",
+          "message": {
+            "$type": "undefined"
+          },
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 12
+          }
+        }
+      ],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_loggedIn",
+              "value": true
+            },
+            {
+              "field": "user_id",
+              "value": "param:userId"
+            },
+            {
+              "field": "user_name",
+              "value": "param:name"
+            },
+            {
+              "field": "user_role",
+              "value": "param:role"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must not be logged in",
+              "location": {
+                "line": 34,
+                "column": 1627
+              }
+            },
+            {
+              "expression": "payload.userId !== null",
+              "message": "User ID must be provided",
+              "location": {
+                "line": 35,
+                "column": 1704
+              }
+            },
+            {
+              "expression": "payload.role !== \"guest\"",
+              "message": "Login role must not be guest",
+              "location": {
+                "line": 36,
+                "column": 1773
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 50,
+                "column": 2355
+              }
+            },
+            {
+              "expression": "user.value.role !== \"guest\"",
+              "message": "User must have non-guest role",
+              "location": {
+                "line": 51,
+                "column": 2438
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 29
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_loggedIn",
+              "value": false
+            },
+            {
+              "field": "user_id",
+              "value": null
+            },
+            {
+              "field": "user_name",
+              "value": "Guest"
+            },
+            {
+              "field": "user_role",
+              "value": "guest"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in to logout",
+              "location": {
+                "line": 59,
+                "column": 2665
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 70,
+                "column": 2967
+              }
+            },
+            {
+              "expression": "user.value.role === \"guest\"",
+              "message": "User must have guest role after logout",
+              "location": {
+                "line": 71,
+                "column": 3051
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 57
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "TODO_ADD",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "Append(@, payload)"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "hasLength(todos.value, { max: 99 })",
+              "message": "Cannot exceed 100 todos",
+              "location": {
+                "line": 80,
+                "column": 3341
+              }
+            },
+            {
+              "expression": "payload.text !== \"\"",
+              "message": "Todo text must not be empty",
+              "location": {
+                "line": 81,
+                "column": 3419
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty after add",
+              "location": {
+                "line": 96,
+                "column": 3982
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 78
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "NDET:MAP"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to toggle",
+              "location": {
+                "line": 104,
+                "column": 4287
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 101
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "TODO_REMOVE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "NDET:FILTER"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to remove",
+              "location": {
+                "line": 127,
+                "column": 5237
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 124
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "todos",
+              "value": "NDET:FILTER"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 139
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "TODO_SET_LIMIT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "maxTodos",
+              "value": "param:limit"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "payload.limit > 0",
+              "message": "Limit must be positive",
+              "location": {
+                "line": 156,
+                "column": 6345
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 154
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "SET_THEME",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "theme",
+              "value": "param:theme"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "GET_STATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 174
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "GET_TODOS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 187
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "USER_LOGIN",
+          "USER_LOGOUT",
+          "TODO_ADD",
+          "TODO_TOGGLE",
+          "TODO_REMOVE",
+          "TODO_CLEAR_COMPLETED",
+          "TODO_SET_LIMIT",
+          "SET_THEME",
+          "GET_STATE",
+          "GET_TODOS"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [
+        {
+          "name": "LoggedOutIsGuest",
+          "expression": "user.value.loggedIn === true || user.value.role === \"guest\"",
+          "message": {
+            "$type": "undefined"
+          },
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 12
+          }
+        }
+      ],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Todo List Example",
+        "version": "1.0.0",
+        "description": "A todo list extension demonstrating verification primitives"
+      },
+      "manifest": {
+        "name": "Todo List Example",
+        "version": "1.0.0",
+        "description": "A todo list extension demonstrating verification primitives",
+        "manifestVersion": 3,
+        "background": {
+          "type": "service_worker",
+          "files": [
+            "background/index.js"
+          ]
+        },
+        "contentScripts": {
+          "$type": "undefined"
+        },
+        "popup": {
+          "html": "popup/popup.html",
+          "default": true
+        },
+        "options": {
+          "$type": "undefined"
+        },
+        "devtools": {
+          "$type": "undefined"
+        },
+        "permissions": [
+          "storage"
+        ],
+        "hostPermissions": []
+      },
+      "contexts": {
+        "background": {
+          "type": "background",
+          "entryPoint": "<project>/src/background/index.ts",
+          "handlers": [
+            {
+              "messageType": "USER_LOGIN",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "user_loggedIn",
+                  "value": true
+                },
+                {
+                  "field": "user_id",
+                  "value": "param:userId"
+                },
+                {
+                  "field": "user_name",
+                  "value": "param:name"
+                },
+                {
+                  "field": "user_role",
+                  "value": "param:role"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "user.value.loggedIn === false",
+                  "message": "User must not be logged in",
+                  "location": {
+                    "line": 34,
+                    "column": 1627
+                  }
+                },
+                {
+                  "expression": "payload.userId !== null",
+                  "message": "User ID must be provided",
+                  "location": {
+                    "line": 35,
+                    "column": 1704
+                  }
+                },
+                {
+                  "expression": "payload.role !== \"guest\"",
+                  "message": "Login role must not be guest",
+                  "location": {
+                    "line": 36,
+                    "column": 1773
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "user.value.loggedIn === true",
+                  "message": "User must be logged in after login",
+                  "location": {
+                    "line": 50,
+                    "column": 2355
+                  }
+                },
+                {
+                  "expression": "user.value.role !== \"guest\"",
+                  "message": "User must have non-guest role",
+                  "location": {
+                    "line": 51,
+                    "column": 2438
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 29
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "USER_LOGOUT",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "user_loggedIn",
+                  "value": false
+                },
+                {
+                  "field": "user_id",
+                  "value": null
+                },
+                {
+                  "field": "user_name",
+                  "value": "Guest"
+                },
+                {
+                  "field": "user_role",
+                  "value": "guest"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "user.value.loggedIn === true",
+                  "message": "User must be logged in to logout",
+                  "location": {
+                    "line": 59,
+                    "column": 2665
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "user.value.loggedIn === false",
+                  "message": "User must be logged out after logout",
+                  "location": {
+                    "line": 70,
+                    "column": 2967
+                  }
+                },
+                {
+                  "expression": "user.value.role === \"guest\"",
+                  "message": "User must have guest role after logout",
+                  "location": {
+                    "line": 71,
+                    "column": 3051
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 57
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "TODO_ADD",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "todos",
+                  "value": "Append(@, payload)"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "hasLength(todos.value, { max: 99 })",
+                  "message": "Cannot exceed 100 todos",
+                  "location": {
+                    "line": 80,
+                    "column": 3341
+                  }
+                },
+                {
+                  "expression": "payload.text !== \"\"",
+                  "message": "Todo text must not be empty",
+                  "location": {
+                    "line": 81,
+                    "column": 3419
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "todos.value.length > 0",
+                  "message": "Todos must not be empty after add",
+                  "location": {
+                    "line": 96,
+                    "column": 3982
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 78
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "TODO_TOGGLE",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "todos",
+                  "value": "NDET:MAP"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "todos.value.length > 0",
+                  "message": "Todos must not be empty to toggle",
+                  "location": {
+                    "line": 104,
+                    "column": 4287
+                  }
+                }
+              ],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 101
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "TODO_REMOVE",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "todos",
+                  "value": "NDET:FILTER"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "todos.value.length > 0",
+                  "message": "Todos must not be empty to remove",
+                  "location": {
+                    "line": 127,
+                    "column": 5237
+                  }
+                }
+              ],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 124
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "TODO_CLEAR_COMPLETED",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "todos",
+                  "value": "NDET:FILTER"
+                }
+              ],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 139
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "TODO_SET_LIMIT",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "maxTodos",
+                  "value": "param:limit"
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "payload.limit > 0",
+                  "message": "Limit must be positive",
+                  "location": {
+                    "line": 156,
+                    "column": 6345
+                  }
+                }
+              ],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 154
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "SET_THEME",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "theme",
+                  "value": "param:theme"
+                }
+              ],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 167
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "GET_STATE",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 174
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "GET_TODOS",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 187
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@fairfox/polly/background",
+            "../shared/messages",
+            "./handlers"
+          ],
+          "description": "// Background script entry point"
+        }
+      },
+      "messageFlows": [
+        {
+          "messageType": "USER_LOGIN",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(USER_LOGIN)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 90
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGIN)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 29
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_LOGIN",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(USER_LOGIN)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 102
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGIN)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 29
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_LOGIN",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(USER_LOGIN)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 18
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGIN)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 29
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(USER_LOGOUT)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 96
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGOUT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 57
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(USER_LOGOUT)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 31
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGOUT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 57
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_ADD",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(TODO_ADD)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 108
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_ADD)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 78
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_ADD",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(TODO_ADD)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 45
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_ADD)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 78
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(TODO_TOGGLE)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 114
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_TOGGLE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 101
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(TODO_TOGGLE)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 120
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_TOGGLE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 101
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(TODO_TOGGLE)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 57
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_TOGGLE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 101
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_REMOVE",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(TODO_REMOVE)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 62
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_REMOVE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 124
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "from": "unknown",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "unknown.send(TODO_CLEAR_COMPLETED)",
+              "context": "unknown",
+              "location": {
+                "file": "<project>/features/steps.ts",
+                "line": 126
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_CLEAR_COMPLETED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 139
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(TODO_CLEAR_COMPLETED)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 67
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TODO_CLEAR_COMPLETED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 139
+              }
+            }
+          ]
+        }
+      ],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/specs/verification.config.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "@/shared",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/background/log-store.ts"
+          ],
+          "description": "External dependency: @/shared"
+        },
+        {
+          "type": "external-script",
+          "name": "preact",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/popup/index.tsx"
+          ],
+          "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/shared/lib/state.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        },
+        {
+          "type": "external-script",
+          "name": "node:path",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/tools/bdd/src/check-verify.ts"
+          ],
+          "description": "External dependency: node:path"
+        },
+        {
+          "type": "external-script",
+          "name": "@cucumber/gherkin",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/tools/bdd/src/parse.ts"
+          ],
+          "description": "External dependency: @cucumber/gherkin"
+        },
+        {
+          "type": "external-script",
+          "name": "@cucumber/messages",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/tools/bdd/src/parse.ts"
+          ],
+          "description": "External dependency: @cucumber/messages"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 80,
+      "evidence": [
+        "Found 16 file(s) using chrome.* APIs",
+        "Found 2 extension context directories",
+        "Found 15 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 2,
+          "maxInFlight": 6,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "alternatives": [
+        {
+          "adapterType": "worker",
+          "confidence": 30,
+          "evidence": [
+            "Found 17 .postMessage() call(s)"
+          ]
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "chrome-extension",
+      "adapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 1,
+          "maxInFlight": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "background",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": true,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "content",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": true
+            }
+          },
+          {
+            "id": "popup",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "devtools",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "options",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "offscreen",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "sidepanel",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "LOG",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_GET",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_CLEAR",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_EXPORT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "USER_LOGIN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "USER_LOGOUT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TODO_ADD",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TODO_TOGGLE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TODO_REMOVE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TODO_CLEAR_COMPLETED",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TODO_SET_LIMIT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "SET_THEME",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "GET_STATE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "GET_TODOS",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "message",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "connect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "disconnect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "changed",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "LOG",
+              "LOGS_GET",
+              "LOGS_CLEAR",
+              "LOGS_EXPORT",
+              "USER_LOGIN",
+              "USER_LOGOUT",
+              "TODO_ADD",
+              "TODO_TOGGLE",
+              "TODO_REMOVE",
+              "TODO_CLEAR_COMPLETED",
+              "TODO_SET_LIMIT",
+              "SET_THEME",
+              "GET_STATE",
+              "GET_TODOS",
+              "message",
+              "connect",
+              "disconnect",
+              "changed"
+            ],
+            "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "LOG",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 25
+            }
+          },
+          {
+            "messageType": "LOGS_GET",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 49
+            }
+          },
+          {
+            "messageType": "LOGS_CLEAR",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 77
+            }
+          },
+          {
+            "messageType": "LOGS_EXPORT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 84
+            }
+          },
+          {
+            "messageType": "USER_LOGIN",
+            "node": "background",
+            "assignments": [
+              {
+                "field": "user_loggedIn",
+                "value": true
+              }
+            ],
+            "preconditions": [
+              {
+                "expression": "user.value.loggedIn === false",
+                "message": "User must not be logged in",
+                "location": {
+                  "line": 34,
+                  "column": 1633
+                }
+              },
+              {
+                "expression": "payload.userId !== null",
+                "message": "User ID must be provided",
+                "location": {
+                  "line": 35,
+                  "column": 1710
+                }
+              },
+              {
+                "expression": "payload.role !== \"guest\"",
+                "message": "Login role must not be guest",
+                "location": {
+                  "line": 36,
+                  "column": 1779
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "user.value.loggedIn === true",
+                "message": "User must be logged in after login",
+                "location": {
+                  "line": 50,
+                  "column": 2361
+                }
+              },
+              {
+                "expression": "user.value.role !== \"guest\"",
+                "message": "User must have non-guest role",
+                "location": {
+                  "line": 51,
+                  "column": 2444
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 29
+            }
+          },
+          {
+            "messageType": "USER_LOGOUT",
+            "node": "background",
+            "assignments": [
+              {
+                "field": "user_loggedIn",
+                "value": false
+              }
+            ],
+            "preconditions": [
+              {
+                "expression": "user.value.loggedIn === true",
+                "message": "User must be logged in to logout",
+                "location": {
+                  "line": 59,
+                  "column": 2669
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "user.value.loggedIn === false",
+                "message": "User must be logged out after logout",
+                "location": {
+                  "line": 70,
+                  "column": 2971
+                }
+              },
+              {
+                "expression": "user.value.role === \"guest\"",
+                "message": "User must have guest role after logout",
+                "location": {
+                  "line": 71,
+                  "column": 3055
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 57
+            }
+          },
+          {
+            "messageType": "TODO_ADD",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "hasLength(todos.value, { max: 99 })",
+                "message": "Cannot exceed 100 todos",
+                "location": {
+                  "line": 80,
+                  "column": 3345
+                }
+              },
+              {
+                "expression": "payload.text !== \"\"",
+                "message": "Todo text must not be empty",
+                "location": {
+                  "line": 81,
+                  "column": 3423
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "todos.value.length > 0",
+                "message": "Todos must not be empty after add",
+                "location": {
+                  "line": 96,
+                  "column": 3986
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 78
+            }
+          },
+          {
+            "messageType": "TODO_TOGGLE",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "todos.value.length > 0",
+                "message": "Todos must not be empty to toggle",
+                "location": {
+                  "line": 104,
+                  "column": 4291
+                }
+              }
+            ],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 101
+            }
+          },
+          {
+            "messageType": "TODO_REMOVE",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "todos.value.length > 0",
+                "message": "Todos must not be empty to remove",
+                "location": {
+                  "line": 127,
+                  "column": 5241
+                }
+              }
+            ],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 124
+            }
+          },
+          {
+            "messageType": "TODO_CLEAR_COMPLETED",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 139
+            }
+          },
+          {
+            "messageType": "TODO_SET_LIMIT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "payload.limit > 0",
+                "message": "Limit must be positive",
+                "location": {
+                  "line": 156,
+                  "column": 6349
+                }
+              }
+            ],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 154
+            }
+          },
+          {
+            "messageType": "SET_THEME",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 167
+            }
+          },
+          {
+            "messageType": "GET_STATE",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 174
+            }
+          },
+          {
+            "messageType": "GET_TODOS",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 187
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+              "line": 105
+            }
+          },
+          {
+            "messageType": "connect",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 90
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 116
+            }
+          },
+          {
+            "messageType": "disconnect",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 122
+            }
+          },
+          {
+            "messageType": "changed",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
+              "line": 28
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 3,
+          "maxNodes": 7,
+          "custom": {
+            "maxTabs": 1
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_TOGGLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_CLEAR_COMPLETED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_SET_LIMIT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "SET_THEME",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_STATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_TODOS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "connect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "disconnect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "changed",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "TODO_ADD",
+            "TODO_TOGGLE",
+            "TODO_REMOVE",
+            "TODO_CLEAR_COMPLETED",
+            "TODO_SET_LIMIT",
+            "SET_THEME",
+            "GET_STATE",
+            "GET_TODOS",
+            "message",
+            "connect",
+            "disconnect",
+            "changed"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOG",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "USER_LOGIN",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_loggedIn",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must not be logged in",
+              "location": {
+                "line": 34,
+                "column": 1633
+              }
+            },
+            {
+              "expression": "payload.userId !== null",
+              "message": "User ID must be provided",
+              "location": {
+                "line": 35,
+                "column": 1710
+              }
+            },
+            {
+              "expression": "payload.role !== \"guest\"",
+              "message": "Login role must not be guest",
+              "location": {
+                "line": 36,
+                "column": 1779
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 50,
+                "column": 2361
+              }
+            },
+            {
+              "expression": "user.value.role !== \"guest\"",
+              "message": "User must have non-guest role",
+              "location": {
+                "line": 51,
+                "column": 2444
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 29
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_loggedIn",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in to logout",
+              "location": {
+                "line": 59,
+                "column": 2669
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 70,
+                "column": 2971
+              }
+            },
+            {
+              "expression": "user.value.role === \"guest\"",
+              "message": "User must have guest role after logout",
+              "location": {
+                "line": 71,
+                "column": 3055
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 57
+          }
+        },
+        {
+          "messageType": "TODO_ADD",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "hasLength(todos.value, { max: 99 })",
+              "message": "Cannot exceed 100 todos",
+              "location": {
+                "line": 80,
+                "column": 3345
+              }
+            },
+            {
+              "expression": "payload.text !== \"\"",
+              "message": "Todo text must not be empty",
+              "location": {
+                "line": 81,
+                "column": 3423
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty after add",
+              "location": {
+                "line": 96,
+                "column": 3986
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 78
+          }
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to toggle",
+              "location": {
+                "line": 104,
+                "column": 4291
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 101
+          }
+        },
+        {
+          "messageType": "TODO_REMOVE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to remove",
+              "location": {
+                "line": 127,
+                "column": 5241
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 124
+          }
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 139
+          }
+        },
+        {
+          "messageType": "TODO_SET_LIMIT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "payload.limit > 0",
+              "message": "Limit must be positive",
+              "location": {
+                "line": 156,
+                "column": 6349
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 154
+          }
+        },
+        {
+          "messageType": "SET_THEME",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          }
+        },
+        {
+          "messageType": "GET_STATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 174
+          }
+        },
+        {
+          "messageType": "GET_TODOS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 187
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+            "line": 105
+          }
+        },
+        {
+          "messageType": "connect",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 90
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 116
+          }
+        },
+        {
+          "messageType": "disconnect",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 122
+          }
+        },
+        {
+          "messageType": "changed",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
+            "line": 28
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "TODO_ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "TODO_TOGGLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "TODO_REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "TODO_CLEAR_COMPLETED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "TODO_SET_LIMIT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "SET_THEME",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "GET_STATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "GET_TODOS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "TODO_ADD",
+            "TODO_TOGGLE",
+            "TODO_REMOVE",
+            "TODO_CLEAR_COMPLETED",
+            "TODO_SET_LIMIT",
+            "SET_THEME",
+            "GET_STATE",
+            "GET_TODOS"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOG",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "USER_LOGIN",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must not be logged in",
+              "location": {
+                "line": 34,
+                "column": 1633
+              }
+            },
+            {
+              "expression": "payload.userId !== null",
+              "message": "User ID must be provided",
+              "location": {
+                "line": 35,
+                "column": 1710
+              }
+            },
+            {
+              "expression": "payload.role !== \"guest\"",
+              "message": "Login role must not be guest",
+              "location": {
+                "line": 36,
+                "column": 1779
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 50,
+                "column": 2361
+              }
+            },
+            {
+              "expression": "user.value.role !== \"guest\"",
+              "message": "User must have non-guest role",
+              "location": {
+                "line": 51,
+                "column": 2444
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 29
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in to logout",
+              "location": {
+                "line": 59,
+                "column": 2669
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 70,
+                "column": 2971
+              }
+            },
+            {
+              "expression": "user.value.role === \"guest\"",
+              "message": "User must have guest role after logout",
+              "location": {
+                "line": 71,
+                "column": 3055
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 57
+          }
+        },
+        {
+          "messageType": "TODO_ADD",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "hasLength(todos.value, { max: 99 })",
+              "message": "Cannot exceed 100 todos",
+              "location": {
+                "line": 80,
+                "column": 3345
+              }
+            },
+            {
+              "expression": "payload.text !== \"\"",
+              "message": "Todo text must not be empty",
+              "location": {
+                "line": 81,
+                "column": 3423
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty after add",
+              "location": {
+                "line": 96,
+                "column": 3986
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 78
+          }
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to toggle",
+              "location": {
+                "line": 104,
+                "column": 4291
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 101
+          }
+        },
+        {
+          "messageType": "TODO_REMOVE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to remove",
+              "location": {
+                "line": 127,
+                "column": 5241
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 124
+          }
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 139
+          }
+        },
+        {
+          "messageType": "TODO_SET_LIMIT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "payload.limit > 0",
+              "message": "Limit must be positive",
+              "location": {
+                "line": 156,
+                "column": 6349
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 154
+          }
+        },
+        {
+          "messageType": "SET_THEME",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          }
+        },
+        {
+          "messageType": "GET_STATE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 174
+          }
+        },
+        {
+          "messageType": "GET_TODOS",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 187
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_TOGGLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_CLEAR_COMPLETED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TODO_SET_LIMIT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "SET_THEME",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_STATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_TODOS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "TODO_ADD",
+            "TODO_TOGGLE",
+            "TODO_REMOVE",
+            "TODO_CLEAR_COMPLETED",
+            "TODO_SET_LIMIT",
+            "SET_THEME",
+            "GET_STATE",
+            "GET_TODOS",
+            "message"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOG",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "USER_LOGIN",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must not be logged in",
+              "location": {
+                "line": 34,
+                "column": 1633
+              }
+            },
+            {
+              "expression": "payload.userId !== null",
+              "message": "User ID must be provided",
+              "location": {
+                "line": 35,
+                "column": 1710
+              }
+            },
+            {
+              "expression": "payload.role !== \"guest\"",
+              "message": "Login role must not be guest",
+              "location": {
+                "line": 36,
+                "column": 1779
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 50,
+                "column": 2361
+              }
+            },
+            {
+              "expression": "user.value.role !== \"guest\"",
+              "message": "User must have non-guest role",
+              "location": {
+                "line": 51,
+                "column": 2444
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 29
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.loggedIn === true",
+              "message": "User must be logged in to logout",
+              "location": {
+                "line": 59,
+                "column": 2669
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 70,
+                "column": 2971
+              }
+            },
+            {
+              "expression": "user.value.role === \"guest\"",
+              "message": "User must have guest role after logout",
+              "location": {
+                "line": 71,
+                "column": 3055
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 57
+          }
+        },
+        {
+          "messageType": "TODO_ADD",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "hasLength(todos.value, { max: 99 })",
+              "message": "Cannot exceed 100 todos",
+              "location": {
+                "line": 80,
+                "column": 3345
+              }
+            },
+            {
+              "expression": "payload.text !== \"\"",
+              "message": "Todo text must not be empty",
+              "location": {
+                "line": 81,
+                "column": 3423
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty after add",
+              "location": {
+                "line": 96,
+                "column": 3986
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 78
+          }
+        },
+        {
+          "messageType": "TODO_TOGGLE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to toggle",
+              "location": {
+                "line": 104,
+                "column": 4291
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 101
+          }
+        },
+        {
+          "messageType": "TODO_REMOVE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "todos.value.length > 0",
+              "message": "Todos must not be empty to remove",
+              "location": {
+                "line": 127,
+                "column": 5241
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 124
+          }
+        },
+        {
+          "messageType": "TODO_CLEAR_COMPLETED",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 139
+          }
+        },
+        {
+          "messageType": "TODO_SET_LIMIT",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "payload.limit > 0",
+              "message": "Limit must be positive",
+              "location": {
+                "line": 156,
+                "column": 6349
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 154
+          }
+        },
+        {
+          "messageType": "SET_THEME",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          }
+        },
+        {
+          "messageType": "GET_STATE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 174
+          }
+        },
+        {
+          "messageType": "GET_TODOS",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 187
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/message-bus.ts",
+            "line": 524
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}

@@ -1,0 +1,1754 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "PING"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 956
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1030
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [
+        {
+          "field": "user.active",
+          "messageType": "PING",
+          "requires": "state.user.active === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "User must be active to ping",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 20
+          }
+        }
+      ],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "counter",
+          "signalVariable": "counter",
+          "functionName": "Popup",
+          "filePath": "<project>/src/popup/index.tsx",
+          "line": 29
+        }
+      ]
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 956
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1030
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "PING"
+        ]
+      },
+      "stateConstraints": [
+        {
+          "field": "user.active",
+          "messageType": "PING",
+          "requires": "state.user.active === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "User must be active to ping",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 20
+          }
+        }
+      ],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "counter",
+          "signalVariable": "counter",
+          "functionName": "Popup",
+          "filePath": "<project>/src/popup/index.tsx",
+          "line": 29
+        }
+      ],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Minimal Example",
+        "version": "1.0.0",
+        "description": "Dead simple @fairfox/polly example"
+      },
+      "manifest": {
+        "name": "Minimal Example",
+        "version": "1.0.0",
+        "description": "Dead simple @fairfox/polly example",
+        "manifestVersion": 3,
+        "background": {
+          "type": "service_worker",
+          "files": [
+            "background/index.js"
+          ]
+        },
+        "contentScripts": {
+          "$type": "undefined"
+        },
+        "popup": {
+          "html": "popup/popup.html",
+          "default": true
+        },
+        "options": {
+          "$type": "undefined"
+        },
+        "devtools": {
+          "$type": "undefined"
+        },
+        "permissions": [],
+        "hostPermissions": []
+      },
+      "contexts": {
+        "background": {
+          "type": "background",
+          "entryPoint": "<project>/src/background/index.ts",
+          "handlers": [
+            {
+              "messageType": "PING",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [
+                {
+                  "expression": "user.value.active === true",
+                  "message": "User must be active to ping",
+                  "location": {
+                    "line": 26,
+                    "column": 956
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "user.value.active === true",
+                  "message": "User should remain active after ping",
+                  "location": {
+                    "line": 28,
+                    "column": 1030
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 25
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@fairfox/polly/background",
+            "../../specs/constraints.js",
+            "./handlers"
+          ],
+          "description": "// Background script - runs when extension loads"
+        }
+      },
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/specs/constraints.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "@/shared",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/background/log-store.ts"
+          ],
+          "description": "External dependency: @/shared"
+        },
+        {
+          "type": "external-script",
+          "name": "preact",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/popup/index.tsx"
+          ],
+          "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/shared/lib/state.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 80,
+      "evidence": [
+        "Found 15 file(s) using chrome.* APIs",
+        "Found 2 extension context directories",
+        "Found 12 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 2,
+          "maxInFlight": 6,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "alternatives": [
+        {
+          "adapterType": "worker",
+          "confidence": 30,
+          "evidence": [
+            "Found 17 .postMessage() call(s)"
+          ]
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "chrome-extension",
+      "adapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 1,
+          "maxInFlight": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "background",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": true,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "content",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": true
+            }
+          },
+          {
+            "id": "popup",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "devtools",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "options",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "offscreen",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "sidepanel",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "LOG",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_GET",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_CLEAR",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_EXPORT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "PING",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "message",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "connect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "disconnect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "changed",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "LOG",
+              "LOGS_GET",
+              "LOGS_CLEAR",
+              "LOGS_EXPORT",
+              "PING",
+              "message",
+              "connect",
+              "disconnect",
+              "changed"
+            ],
+            "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "LOG",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 25
+            }
+          },
+          {
+            "messageType": "LOGS_GET",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 49
+            }
+          },
+          {
+            "messageType": "LOGS_CLEAR",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 77
+            }
+          },
+          {
+            "messageType": "LOGS_EXPORT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 84
+            }
+          },
+          {
+            "messageType": "PING",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "user.value.active === true",
+                "message": "User must be active to ping",
+                "location": {
+                  "line": 26,
+                  "column": 960
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "user.value.active === true",
+                "message": "User should remain active after ping",
+                "location": {
+                  "line": 28,
+                  "column": 1034
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 25
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+              "line": 105
+            }
+          },
+          {
+            "messageType": "connect",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 90
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 116
+            }
+          },
+          {
+            "messageType": "disconnect",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 122
+            }
+          },
+          {
+            "messageType": "changed",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
+              "line": 28
+            }
+          }
+        ],
+        "stateConstraints": [
+          {
+            "field": "user.active",
+            "messageType": "PING",
+            "requires": "state.user.active === true",
+            "ensures": {
+              "$type": "undefined"
+            },
+            "message": "User must be active to ping",
+            "location": {
+              "file": "<project>/specs/constraints.ts",
+              "line": 20
+            }
+          }
+        ],
+        "bounds": {
+          "maxConcurrentMessages": 3,
+          "maxNodes": 7,
+          "custom": {
+            "maxTabs": 1
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "connect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "disconnect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "changed",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "PING",
+            "message",
+            "connect",
+            "disconnect",
+            "changed"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOG",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 960
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1034
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+            "line": 105
+          }
+        },
+        {
+          "messageType": "connect",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 90
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 116
+          }
+        },
+        {
+          "messageType": "disconnect",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 122
+          }
+        },
+        {
+          "messageType": "changed",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
+            "line": 28
+          }
+        }
+      ],
+      "stateConstraints": [
+        {
+          "field": "user.active",
+          "messageType": "PING",
+          "requires": "state.user.active === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "User must be active to ping",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 20
+          }
+        }
+      ],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "PING"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOG",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 960
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1034
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "PING",
+            "message"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOG",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 960
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1034
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/message-bus.ts",
+            "line": 524
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}

@@ -1,0 +1,1396 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "join_room",
+        "leave_room",
+        "offer",
+        "answer",
+        "ice_candidate",
+        "ws_open",
+        "ws_close",
+        "GET /stats",
+        "GET /health"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "join_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 63
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "leave_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 67
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 71
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "answer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 72
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ice_candidate",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 73
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ws_open",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ws_close",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /stats",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /health",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "join_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 63
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "leave_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 67
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 71
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "answer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 72
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ice_candidate",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 73
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "join_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 63
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "leave_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 67
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 71
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "answer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 72
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ice_candidate",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 73
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ws_open",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ws_close",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /stats",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/stats"
+        },
+        {
+          "messageType": "GET /health",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 20
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/health"
+        },
+        {
+          "messageType": "join_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 63
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "leave_room",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 67
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 71
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "answer",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 72
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ice_candidate",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 73
+          },
+          "origin": "event"
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "join_room",
+          "leave_room",
+          "offer",
+          "answer",
+          "ice_candidate",
+          "ws_open",
+          "ws_close",
+          "GET /stats",
+          "GET /health"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "webrtc-p2p-chat-server",
+        "version": "0.1.0"
+      },
+      "projectConfig": {
+        "type": "websocket-app",
+        "entryPoints": {
+          "server": "<project>/src/index.ts"
+        },
+        "contextMapping": {
+          "server": "WebSocket Server"
+        },
+        "metadata": {
+          "name": "webrtc-p2p-chat-server",
+          "version": "0.1.0",
+          "description": {
+            "$type": "undefined"
+          }
+        }
+      },
+      "contexts": {
+        "server": {
+          "type": "server",
+          "entryPoint": "<project>/src/index.ts",
+          "handlers": [
+            {
+              "messageType": "join_room",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 63
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "leave_room",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 67
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "offer",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 71
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "answer",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 72
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "ice_candidate",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 73
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "ws_open",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 20
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "ws_close",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 20
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "GET /stats",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 20
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              },
+              "handlerKind": "rest",
+              "httpMethod": "GET",
+              "routePath": "/stats"
+            },
+            {
+              "messageType": "GET /health",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 20
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              },
+              "handlerKind": "rest",
+              "httpMethod": "GET",
+              "routePath": "/health"
+            },
+            {
+              "messageType": "join_room",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 63
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "leave_room",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 67
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "offer",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 71
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "answer",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 72
+              },
+              "origin": "event"
+            },
+            {
+              "messageType": "ice_candidate",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 73
+              },
+              "origin": "event"
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@elysiajs/cors",
+            "elysia",
+            "./room-manager",
+            "./types"
+          ]
+        }
+      },
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@elysiajs/cors",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/index.ts"
+          ],
+          "description": "External dependency: @elysiajs/cors"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/index.ts"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "bun",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/room-manager.ts"
+          ],
+          "description": "External dependency: bun"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 0,
+      "evidence": [],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "websocket-app",
+      "adapter": {
+        "class": "WebSocketAdapter",
+        "name": "websocket",
+        "config": {
+          "useEdenTypes": true,
+          "handlerPattern": {
+            "$type": "RegExp",
+            "source": "^handle[A-Z]",
+            "flags": ""
+          },
+          "maxConnections": 10,
+          "maxInFlight": 5,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "server",
+            "type": "websocket-server",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isHub": true
+            }
+          },
+          {
+            "id": "client-1",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 1
+            }
+          },
+          {
+            "id": "client-2",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 2
+            }
+          },
+          {
+            "id": "client-3",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 3
+            }
+          },
+          {
+            "id": "client-4",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 4
+            }
+          },
+          {
+            "id": "client-5",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 5
+            }
+          },
+          {
+            "id": "client-6",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 6
+            }
+          },
+          {
+            "id": "client-7",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 7
+            }
+          },
+          {
+            "id": "client-8",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 8
+            }
+          },
+          {
+            "id": "client-9",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 9
+            }
+          },
+          {
+            "id": "client-10",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 10
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "JOIN_ROOM",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "LEAVE_ROOM",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "SIGNALING_MESSAGE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "JOIN_ROOM",
+              "LEAVE_ROOM",
+              "SIGNALING_MESSAGE"
+            ],
+            "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "JOIN_ROOM",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/index.ts",
+              "line": 104
+            }
+          },
+          {
+            "messageType": "LEAVE_ROOM",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/index.ts",
+              "line": 145
+            }
+          },
+          {
+            "messageType": "SIGNALING_MESSAGE",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/index.ts",
+              "line": 160
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 11,
+          "custom": {
+            "maxConnections": 10
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "JOIN_ROOM",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LEAVE_ROOM",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "SIGNALING_MESSAGE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "JOIN_ROOM",
+            "LEAVE_ROOM",
+            "SIGNALING_MESSAGE"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "JOIN_ROOM",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 104
+          }
+        },
+        {
+          "messageType": "LEAVE_ROOM",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 145
+          }
+        },
+        {
+          "messageType": "SIGNALING_MESSAGE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 160
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

@@ -1,0 +1,795 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "GET /main.js",
+        "GET /"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "GET /main.js",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 18
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 18
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "GET /main.js",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 18
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/main.js"
+        },
+        {
+          "messageType": "GET /",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/index.ts",
+            "line": 18
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/"
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "GET /main.js",
+          "GET /"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "blob-share-server",
+        "version": "0.1.0"
+      },
+      "projectConfig": {
+        "type": "websocket-app",
+        "entryPoints": {
+          "server": "<project>/src/index.ts"
+        },
+        "contextMapping": {
+          "server": "HTTP Server"
+        },
+        "metadata": {
+          "name": "blob-share-server",
+          "version": "0.1.0",
+          "description": {
+            "$type": "undefined"
+          }
+        }
+      },
+      "contexts": {
+        "server": {
+          "type": "server",
+          "entryPoint": "<project>/src/index.ts",
+          "handlers": [
+            {
+              "messageType": "GET /main.js",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 18
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              },
+              "handlerKind": "rest",
+              "httpMethod": "GET",
+              "routePath": "/main.js"
+            },
+            {
+              "messageType": "GET /",
+              "node": "server",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/index.ts",
+                "line": 18
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              },
+              "handlerKind": "rest",
+              "httpMethod": "GET",
+              "routePath": "/"
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "node:path",
+            "@elysiajs/html",
+            "@fairfox/polly/elysia",
+            "elysia"
+          ],
+          "description": "/**"
+        }
+      },
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "node:path",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/index.ts"
+          ],
+          "description": "External dependency: node:path"
+        },
+        {
+          "type": "external-script",
+          "name": "@elysiajs/html",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/index.ts"
+          ],
+          "description": "External dependency: @elysiajs/html"
+        },
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/index.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/index.ts"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals-core",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/elysia/types.d.ts"
+          ],
+          "description": "External dependency: @preact/signals-core"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-network-websocket",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-network-websocket"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-storage-nodefs",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-storage-nodefs"
+        },
+        {
+          "type": "external-script",
+          "name": "ws",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: ws"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 0,
+      "evidence": [],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "websocket-app",
+      "adapter": {
+        "class": "WebSocketAdapter",
+        "name": "websocket",
+        "config": {
+          "useEdenTypes": true,
+          "handlerPattern": {
+            "$type": "RegExp",
+            "source": "^handle[A-Z]",
+            "flags": ""
+          },
+          "maxConnections": 10,
+          "maxInFlight": 5,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "server",
+            "type": "websocket-server",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isHub": true
+            }
+          },
+          {
+            "id": "client-1",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 1
+            }
+          },
+          {
+            "id": "client-2",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 2
+            }
+          },
+          {
+            "id": "client-3",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 3
+            }
+          },
+          {
+            "id": "client-4",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 4
+            }
+          },
+          {
+            "id": "client-5",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 5
+            }
+          },
+          {
+            "id": "client-6",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 6
+            }
+          },
+          {
+            "id": "client-7",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 7
+            }
+          },
+          {
+            "id": "client-8",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 8
+            }
+          },
+          {
+            "id": "client-9",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 9
+            }
+          },
+          {
+            "id": "client-10",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 10
+            }
+          }
+        ],
+        "messageTypes": [],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [],
+            "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+          }
+        ],
+        "state": {},
+        "handlers": [],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 11,
+          "custom": {
+            "maxConnections": 10
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

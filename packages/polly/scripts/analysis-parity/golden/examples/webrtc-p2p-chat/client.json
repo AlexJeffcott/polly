@@ -1,0 +1,1297 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "room_joined",
+        "peer_joined",
+        "peer_left",
+        "offer",
+        "answer",
+        "ice_candidate",
+        "chat_message",
+        "ping",
+        "pong",
+        "typing_indicator",
+        "GET /client.js",
+        "GET /"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "room_joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 124
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer_joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 131
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer_left",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 137
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offer",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 141
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "answer",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 145
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ice_candidate",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 149
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "chat_message",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 295
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ping",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 309
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "pong",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 316
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "typing_indicator",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 323
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /client.js",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "peerCount",
+          "variableName": "peerCount",
+          "filePath": "<project>/src/state.ts",
+          "line": 27,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "isSignalingConnected",
+          "signalVariable": "isSignalingConnected",
+          "functionName": "PeerManager.connect",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 31
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.leaveRoom",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 66
+        },
+        {
+          "field": "messages",
+          "signalVariable": "messages",
+          "functionName": "PeerManager.sendMessage",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 84
+        },
+        {
+          "field": "messages",
+          "signalVariable": "messages",
+          "functionName": "PeerManager.sendMessage",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 104
+        },
+        {
+          "field": "isSignalingConnected",
+          "signalVariable": "isSignalingConnected",
+          "functionName": "PeerManager.disconnect",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 115
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.addPeer",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 256
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.removePeer",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 278
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.updatePeerState",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 285
+        },
+        {
+          "field": "messages",
+          "signalVariable": "messages",
+          "functionName": "PeerManager.handleP2PMessage",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 296
+        }
+      ]
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "room_joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 124
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer_joined",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 131
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer_left",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 137
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "offer",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 141
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "answer",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 145
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ice_candidate",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 149
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "chat_message",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 295
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ping",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 309
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "pong",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 316
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "typing_indicator",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/webrtc/peer-manager.ts",
+            "line": 323
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /client.js",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/client.js"
+        },
+        {
+          "messageType": "GET /",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/"
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "room_joined",
+          "peer_joined",
+          "peer_left",
+          "offer",
+          "answer",
+          "ice_candidate",
+          "chat_message",
+          "ping",
+          "pong",
+          "typing_indicator",
+          "GET /client.js",
+          "GET /"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "peerCount",
+          "variableName": "peerCount",
+          "filePath": "<project>/src/state.ts",
+          "line": 27,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "isSignalingConnected",
+          "signalVariable": "isSignalingConnected",
+          "functionName": "PeerManager.connect",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 31
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.leaveRoom",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 66
+        },
+        {
+          "field": "messages",
+          "signalVariable": "messages",
+          "functionName": "PeerManager.sendMessage",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 84
+        },
+        {
+          "field": "messages",
+          "signalVariable": "messages",
+          "functionName": "PeerManager.sendMessage",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 104
+        },
+        {
+          "field": "isSignalingConnected",
+          "signalVariable": "isSignalingConnected",
+          "functionName": "PeerManager.disconnect",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 115
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.addPeer",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 256
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.removePeer",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 278
+        },
+        {
+          "field": "peers",
+          "signalVariable": "peers",
+          "functionName": "PeerManager.updatePeerState",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 285
+        },
+        {
+          "field": "messages",
+          "signalVariable": "messages",
+          "functionName": "PeerManager.handleP2PMessage",
+          "filePath": "<project>/src/webrtc/peer-manager.ts",
+          "line": 296
+        }
+      ],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "webrtc-p2p-chat-client",
+        "version": "0.1.0"
+      },
+      "projectConfig": {
+        "type": "websocket-app",
+        "entryPoints": {},
+        "contextMapping": {
+          "server": "Server",
+          "client": "Client"
+        },
+        "metadata": {
+          "name": "webrtc-p2p-chat-client",
+          "version": "0.1.0",
+          "description": {
+            "$type": "undefined"
+          }
+        }
+      },
+      "contexts": {},
+      "messageFlows": [
+        {
+          "messageType": "offer",
+          "from": "client",
+          "to": [
+            "client"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "client.send(offer)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 198
+              }
+            },
+            {
+              "step": 2,
+              "action": "client.handle(offer)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 141
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "answer",
+          "from": "client",
+          "to": [
+            "client"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "client.send(answer)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 223
+              }
+            },
+            {
+              "step": 2,
+              "action": "client.handle(answer)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 145
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "ice_candidate",
+          "from": "client",
+          "to": [
+            "client"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "client.send(ice_candidate)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 183
+              }
+            },
+            {
+              "step": 2,
+              "action": "client.handle(ice_candidate)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 149
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "ping",
+          "from": "client",
+          "to": [
+            "client"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "client.send(ping)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-connection.ts",
+                "line": 171
+              }
+            },
+            {
+              "step": 2,
+              "action": "client.handle(ping)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 309
+              }
+            },
+            {
+              "step": 3,
+              "action": "client.send(pong)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 312
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "pong",
+          "from": "client",
+          "to": [
+            "client"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "client.send(pong)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 312
+              }
+            },
+            {
+              "step": 2,
+              "action": "client.handle(pong)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 316
+              }
+            },
+            {
+              "step": 3,
+              "action": "client.send(pong)",
+              "context": "client",
+              "location": {
+                "file": "<project>/src/webrtc/peer-manager.ts",
+                "line": 312
+              }
+            }
+          ]
+        }
+      ],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "preact",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/App.tsx"
+          ],
+          "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@elysiajs/html",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/server.tsx"
+          ],
+          "description": "External dependency: @elysiajs/html"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/server.tsx"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/state.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/polly-ui/Checkbox.d.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 45,
+      "evidence": [
+        "Found 5 file(s) using chrome.* APIs",
+        "Found 3 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "websocket-app",
+      "adapter": {
+        "class": "WebSocketAdapter",
+        "name": "websocket",
+        "config": {
+          "useEdenTypes": true,
+          "handlerPattern": {
+            "$type": "RegExp",
+            "source": "^handle[A-Z]",
+            "flags": ""
+          },
+          "maxConnections": 10,
+          "maxInFlight": 5,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "server",
+            "type": "websocket-server",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isHub": true
+            }
+          },
+          {
+            "id": "client-1",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 1
+            }
+          },
+          {
+            "id": "client-2",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 2
+            }
+          },
+          {
+            "id": "client-3",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 3
+            }
+          },
+          {
+            "id": "client-4",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 4
+            }
+          },
+          {
+            "id": "client-5",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 5
+            }
+          },
+          {
+            "id": "client-6",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 6
+            }
+          },
+          {
+            "id": "client-7",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 7
+            }
+          },
+          {
+            "id": "client-8",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 8
+            }
+          },
+          {
+            "id": "client-9",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 9
+            }
+          },
+          {
+            "id": "client-10",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 10
+            }
+          }
+        ],
+        "messageTypes": [],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [],
+            "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+          }
+        ],
+        "state": {},
+        "handlers": [],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 11,
+          "custom": {
+            "maxConnections": 10
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

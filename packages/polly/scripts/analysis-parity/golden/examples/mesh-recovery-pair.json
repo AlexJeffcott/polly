@@ -1,0 +1,2712 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "peer-candidate",
+        "peer-disconnected",
+        "ROSTER_PEER_JOINED",
+        "APPLY_PAIR_TOKEN",
+        "OPEN_DATA_CHANNEL",
+        "WRITE_SENTINEL",
+        "RECEIVE_SENTINEL"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "peer-candidate",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 204
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 207
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer-candidate",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 245
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 248
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ROSTER_PEER_JOINED",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "aRosterHasB",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Roster must reflect peer-joined after the event fires",
+              "location": {
+                "line": 45,
+                "column": 1597
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 43
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "APPLY_PAIR_TOKEN",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "aKeyringHasB",
+              "value": true
+            },
+            {
+              "field": "aAdapterKnowsB",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Pair token in this scenario lands after the signalling roster reports the peer",
+              "location": {
+                "line": 55,
+                "column": 2054
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Keyring must contain peer after pair token applied",
+              "location": {
+                "line": 64,
+                "column": 2323
+              }
+            },
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "polly#103: applying the pair token must refresh the adapter knownPeers",
+              "location": {
+                "line": 65,
+                "column": 2417
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "OPEN_DATA_CHANNEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "dataChannelOpen",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "Data channel can only open once the adapter knows the peer",
+              "location": {
+                "line": 76,
+                "column": 2815
+              }
+            },
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Data channel can only open once the roster confirms the peer",
+              "location": {
+                "line": 80,
+                "column": 2932
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Data channel must be open after the open event",
+              "location": {
+                "line": 87,
+                "column": 3082
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 75
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "WRITE_SENTINEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "sentinelWritten",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Sentinel is written after the channel is open",
+              "location": {
+                "line": 93,
+                "column": 3299
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "Sentinel write must register in shared state",
+              "location": {
+                "line": 97,
+                "column": 3426
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 92
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "RECEIVE_SENTINEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "sentinelObserved",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "B can only observe a sentinel that A actually wrote",
+              "location": {
+                "line": 105,
+                "column": 3748
+              }
+            },
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Receive can only happen across an open data channel",
+              "location": {
+                "line": 106,
+                "column": 3847
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelObserved.value === true",
+              "message": "Sentinel must be observed after receive",
+              "location": {
+                "line": 110,
+                "column": 3981
+              }
+            },
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Convergence: a peer that observes A's write must be in A's keyring",
+              "location": {
+                "line": 116,
+                "column": 4426
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 104
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "peer-candidate",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 204
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "event"
+          ]
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 207
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "event"
+          ]
+        },
+        {
+          "messageType": "peer-candidate",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 245
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "event"
+          ]
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "main",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 248
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "event"
+          ]
+        },
+        {
+          "messageType": "ROSTER_PEER_JOINED",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "aRosterHasB",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Roster must reflect peer-joined after the event fires",
+              "location": {
+                "line": 45,
+                "column": 1597
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 43
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "APPLY_PAIR_TOKEN",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "aKeyringHasB",
+              "value": true
+            },
+            {
+              "field": "aAdapterKnowsB",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Pair token in this scenario lands after the signalling roster reports the peer",
+              "location": {
+                "line": 55,
+                "column": 2054
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Keyring must contain peer after pair token applied",
+              "location": {
+                "line": 64,
+                "column": 2323
+              }
+            },
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "polly#103: applying the pair token must refresh the adapter knownPeers",
+              "location": {
+                "line": 65,
+                "column": 2417
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "OPEN_DATA_CHANNEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "dataChannelOpen",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "Data channel can only open once the adapter knows the peer",
+              "location": {
+                "line": 76,
+                "column": 2815
+              }
+            },
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Data channel can only open once the roster confirms the peer",
+              "location": {
+                "line": 80,
+                "column": 2932
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Data channel must be open after the open event",
+              "location": {
+                "line": 87,
+                "column": 3082
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 75
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "WRITE_SENTINEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "sentinelWritten",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Sentinel is written after the channel is open",
+              "location": {
+                "line": 93,
+                "column": 3299
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "Sentinel write must register in shared state",
+              "location": {
+                "line": 97,
+                "column": 3426
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 92
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "RECEIVE_SENTINEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "sentinelObserved",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "B can only observe a sentinel that A actually wrote",
+              "location": {
+                "line": 105,
+                "column": 3748
+              }
+            },
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Receive can only happen across an open data channel",
+              "location": {
+                "line": 106,
+                "column": 3847
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelObserved.value === true",
+              "message": "Sentinel must be observed after receive",
+              "location": {
+                "line": 110,
+                "column": 3981
+              }
+            },
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Convergence: a peer that observes A's write must be in A's keyring",
+              "location": {
+                "line": 116,
+                "column": 4426
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 104
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "peer-candidate",
+          "peer-disconnected",
+          "ROSTER_PEER_JOINED",
+          "APPLY_PAIR_TOKEN",
+          "OPEN_DATA_CHANNEL",
+          "WRITE_SENTINEL",
+          "RECEIVE_SENTINEL"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "mesh-recovery-pair-example",
+        "version": "0.1.0"
+      },
+      "projectConfig": {
+        "type": "websocket-app",
+        "entryPoints": {
+          "server": "<project>/src/index.ts"
+        },
+        "contextMapping": {
+          "server": "Server"
+        },
+        "metadata": {
+          "name": "mesh-recovery-pair-example",
+          "version": "0.1.0",
+          "description": {
+            "$type": "undefined"
+          }
+        }
+      },
+      "contexts": {
+        "server": {
+          "type": "server",
+          "entryPoint": "<project>/src/index.ts",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "./handlers"
+          ],
+          "description": "// Background entrypoint for the verification model. The handlers"
+        }
+      },
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/main.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/main.ts"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "werift",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/main.ts"
+          ],
+          "description": "External dependency: werift"
+        },
+        {
+          "type": "external-script",
+          "name": "@/shared",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/background/log-store.d.ts"
+          ],
+          "description": "External dependency: @/shared"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals-core",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/elysia/types.d.ts"
+          ],
+          "description": "External dependency: @preact/signals-core"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/blob-store-impl.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-network-websocket",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-network-websocket"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-storage-nodefs",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-storage-nodefs"
+        },
+        {
+          "type": "external-script",
+          "name": "ws",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: ws"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/state.d.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 65,
+      "evidence": [
+        "Found 5 file(s) using chrome.* APIs",
+        "Found 1 extension context directories",
+        "Found 6 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 2,
+          "maxInFlight": 6,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "alternatives": [
+        {
+          "adapterType": "event-bus",
+          "confidence": 30,
+          "evidence": [
+            "Found 12 .on() call(s)"
+          ]
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "websocket-app",
+      "adapter": {
+        "class": "WebSocketAdapter",
+        "name": "websocket",
+        "config": {
+          "useEdenTypes": true,
+          "handlerPattern": {
+            "$type": "RegExp",
+            "source": "^handle[A-Z]",
+            "flags": ""
+          },
+          "maxConnections": 10,
+          "maxInFlight": 5,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "server",
+            "type": "websocket-server",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isHub": true
+            }
+          },
+          {
+            "id": "client-1",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 1
+            }
+          },
+          {
+            "id": "client-2",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 2
+            }
+          },
+          {
+            "id": "client-3",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 3
+            }
+          },
+          {
+            "id": "client-4",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 4
+            }
+          },
+          {
+            "id": "client-5",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 5
+            }
+          },
+          {
+            "id": "client-6",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 6
+            }
+          },
+          {
+            "id": "client-7",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 7
+            }
+          },
+          {
+            "id": "client-8",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 8
+            }
+          },
+          {
+            "id": "client-9",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 9
+            }
+          },
+          {
+            "id": "client-10",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 10
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "peer-candidate",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "peer-disconnected",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "ROSTER_PEER_JOINED",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "APPLY_PAIR_TOKEN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "OPEN_DATA_CHANNEL",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "WRITE_SENTINEL",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "RECEIVE_SENTINEL",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "peer-candidate",
+              "peer-disconnected",
+              "ROSTER_PEER_JOINED",
+              "APPLY_PAIR_TOKEN",
+              "OPEN_DATA_CHANNEL",
+              "WRITE_SENTINEL",
+              "RECEIVE_SENTINEL"
+            ],
+            "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "peer-candidate",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/main.ts",
+              "line": 204
+            }
+          },
+          {
+            "messageType": "peer-disconnected",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/main.ts",
+              "line": 207
+            }
+          },
+          {
+            "messageType": "peer-candidate",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/main.ts",
+              "line": 245
+            }
+          },
+          {
+            "messageType": "peer-disconnected",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/main.ts",
+              "line": 248
+            }
+          },
+          {
+            "messageType": "ROSTER_PEER_JOINED",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [
+              {
+                "expression": "aRosterHasB.value === true",
+                "message": "Roster must reflect peer-joined after the event fires",
+                "location": {
+                  "line": 45,
+                  "column": 1599
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 43
+            }
+          },
+          {
+            "messageType": "APPLY_PAIR_TOKEN",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "aRosterHasB.value === true",
+                "message": "Pair token in this scenario lands after the signalling roster reports the peer",
+                "location": {
+                  "line": 55,
+                  "column": 2056
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "aKeyringHasB.value === true",
+                "message": "Keyring must contain peer after pair token applied",
+                "location": {
+                  "line": 64,
+                  "column": 2325
+                }
+              },
+              {
+                "expression": "aAdapterKnowsB.value === true",
+                "message": "polly#103: applying the pair token must refresh the adapter knownPeers",
+                "location": {
+                  "line": 65,
+                  "column": 2419
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 54
+            }
+          },
+          {
+            "messageType": "OPEN_DATA_CHANNEL",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "aAdapterKnowsB.value === true",
+                "message": "Data channel can only open once the adapter knows the peer",
+                "location": {
+                  "line": 76,
+                  "column": 2817
+                }
+              },
+              {
+                "expression": "aRosterHasB.value === true",
+                "message": "Data channel can only open once the roster confirms the peer",
+                "location": {
+                  "line": 80,
+                  "column": 2934
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "dataChannelOpen.value === true",
+                "message": "Data channel must be open after the open event",
+                "location": {
+                  "line": 87,
+                  "column": 3084
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 75
+            }
+          },
+          {
+            "messageType": "WRITE_SENTINEL",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "dataChannelOpen.value === true",
+                "message": "Sentinel is written after the channel is open",
+                "location": {
+                  "line": 93,
+                  "column": 3301
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "sentinelWritten.value === true",
+                "message": "Sentinel write must register in shared state",
+                "location": {
+                  "line": 97,
+                  "column": 3428
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 92
+            }
+          },
+          {
+            "messageType": "RECEIVE_SENTINEL",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "sentinelWritten.value === true",
+                "message": "B can only observe a sentinel that A actually wrote",
+                "location": {
+                  "line": 105,
+                  "column": 3750
+                }
+              },
+              {
+                "expression": "dataChannelOpen.value === true",
+                "message": "Receive can only happen across an open data channel",
+                "location": {
+                  "line": 106,
+                  "column": 3849
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "sentinelObserved.value === true",
+                "message": "Sentinel must be observed after receive",
+                "location": {
+                  "line": 110,
+                  "column": 3983
+                }
+              },
+              {
+                "expression": "aKeyringHasB.value === true",
+                "message": "Convergence: a peer that observes A's write must be in A's keyring",
+                "location": {
+                  "line": 116,
+                  "column": 4428
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 104
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 11,
+          "custom": {
+            "maxConnections": 10
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "peer-candidate",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "peer-disconnected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "ROSTER_PEER_JOINED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "APPLY_PAIR_TOKEN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "OPEN_DATA_CHANNEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "WRITE_SENTINEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "RECEIVE_SENTINEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "peer-candidate",
+            "peer-disconnected",
+            "ROSTER_PEER_JOINED",
+            "APPLY_PAIR_TOKEN",
+            "OPEN_DATA_CHANNEL",
+            "WRITE_SENTINEL",
+            "RECEIVE_SENTINEL"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "peer-candidate",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 204
+          }
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 207
+          }
+        },
+        {
+          "messageType": "peer-candidate",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 245
+          }
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 248
+          }
+        },
+        {
+          "messageType": "ROSTER_PEER_JOINED",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "aRosterHasB",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Roster must reflect peer-joined after the event fires",
+              "location": {
+                "line": 45,
+                "column": 1599
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 43
+          }
+        },
+        {
+          "messageType": "APPLY_PAIR_TOKEN",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "aKeyringHasB",
+              "value": true
+            },
+            {
+              "field": "aAdapterKnowsB",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Pair token in this scenario lands after the signalling roster reports the peer",
+              "location": {
+                "line": 55,
+                "column": 2056
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Keyring must contain peer after pair token applied",
+              "location": {
+                "line": 64,
+                "column": 2325
+              }
+            },
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "polly#103: applying the pair token must refresh the adapter knownPeers",
+              "location": {
+                "line": 65,
+                "column": 2419
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          }
+        },
+        {
+          "messageType": "OPEN_DATA_CHANNEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "dataChannelOpen",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "Data channel can only open once the adapter knows the peer",
+              "location": {
+                "line": 76,
+                "column": 2817
+              }
+            },
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Data channel can only open once the roster confirms the peer",
+              "location": {
+                "line": 80,
+                "column": 2934
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Data channel must be open after the open event",
+              "location": {
+                "line": 87,
+                "column": 3084
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 75
+          }
+        },
+        {
+          "messageType": "WRITE_SENTINEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "sentinelWritten",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Sentinel is written after the channel is open",
+              "location": {
+                "line": 93,
+                "column": 3301
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "Sentinel write must register in shared state",
+              "location": {
+                "line": 97,
+                "column": 3428
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 92
+          }
+        },
+        {
+          "messageType": "RECEIVE_SENTINEL",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "sentinelObserved",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "B can only observe a sentinel that A actually wrote",
+              "location": {
+                "line": 105,
+                "column": 3750
+              }
+            },
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Receive can only happen across an open data channel",
+              "location": {
+                "line": 106,
+                "column": 3849
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelObserved.value === true",
+              "message": "Sentinel must be observed after receive",
+              "location": {
+                "line": 110,
+                "column": 3983
+              }
+            },
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Convergence: a peer that observes A's write must be in A's keyring",
+              "location": {
+                "line": 116,
+                "column": 4428
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 104
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "peer-candidate",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "peer-disconnected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "ROSTER_PEER_JOINED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "APPLY_PAIR_TOKEN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "OPEN_DATA_CHANNEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "WRITE_SENTINEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "RECEIVE_SENTINEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "peer-candidate",
+            "peer-disconnected",
+            "ROSTER_PEER_JOINED",
+            "APPLY_PAIR_TOKEN",
+            "OPEN_DATA_CHANNEL",
+            "WRITE_SENTINEL",
+            "RECEIVE_SENTINEL"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "peer-candidate",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 204
+          }
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 207
+          }
+        },
+        {
+          "messageType": "peer-candidate",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 245
+          }
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 248
+          }
+        },
+        {
+          "messageType": "ROSTER_PEER_JOINED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Roster must reflect peer-joined after the event fires",
+              "location": {
+                "line": 45,
+                "column": 1599
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 43
+          }
+        },
+        {
+          "messageType": "APPLY_PAIR_TOKEN",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Pair token in this scenario lands after the signalling roster reports the peer",
+              "location": {
+                "line": 55,
+                "column": 2056
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Keyring must contain peer after pair token applied",
+              "location": {
+                "line": 64,
+                "column": 2325
+              }
+            },
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "polly#103: applying the pair token must refresh the adapter knownPeers",
+              "location": {
+                "line": 65,
+                "column": 2419
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          }
+        },
+        {
+          "messageType": "OPEN_DATA_CHANNEL",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "Data channel can only open once the adapter knows the peer",
+              "location": {
+                "line": 76,
+                "column": 2817
+              }
+            },
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Data channel can only open once the roster confirms the peer",
+              "location": {
+                "line": 80,
+                "column": 2934
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Data channel must be open after the open event",
+              "location": {
+                "line": 87,
+                "column": 3084
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 75
+          }
+        },
+        {
+          "messageType": "WRITE_SENTINEL",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Sentinel is written after the channel is open",
+              "location": {
+                "line": 93,
+                "column": 3301
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "Sentinel write must register in shared state",
+              "location": {
+                "line": 97,
+                "column": 3428
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 92
+          }
+        },
+        {
+          "messageType": "RECEIVE_SENTINEL",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "B can only observe a sentinel that A actually wrote",
+              "location": {
+                "line": 105,
+                "column": 3750
+              }
+            },
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Receive can only happen across an open data channel",
+              "location": {
+                "line": 106,
+                "column": 3849
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelObserved.value === true",
+              "message": "Sentinel must be observed after receive",
+              "location": {
+                "line": 110,
+                "column": 3983
+              }
+            },
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Convergence: a peer that observes A's write must be in A's keyring",
+              "location": {
+                "line": 116,
+                "column": 4428
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 104
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "Main Process",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "peer-candidate",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "peer-disconnected",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "ROSTER_PEER_JOINED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "APPLY_PAIR_TOKEN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "OPEN_DATA_CHANNEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "WRITE_SENTINEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "RECEIVE_SENTINEL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "peer-candidate",
+            "peer-disconnected",
+            "ROSTER_PEER_JOINED",
+            "APPLY_PAIR_TOKEN",
+            "OPEN_DATA_CHANNEL",
+            "WRITE_SENTINEL",
+            "RECEIVE_SENTINEL"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "peer-candidate",
+          "node": "Main Process",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 204
+          }
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "Main Process",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 207
+          }
+        },
+        {
+          "messageType": "peer-candidate",
+          "node": "Main Process",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 245
+          }
+        },
+        {
+          "messageType": "peer-disconnected",
+          "node": "Main Process",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/main.ts",
+            "line": 248
+          }
+        },
+        {
+          "messageType": "ROSTER_PEER_JOINED",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Roster must reflect peer-joined after the event fires",
+              "location": {
+                "line": 45,
+                "column": 1599
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 43
+          }
+        },
+        {
+          "messageType": "APPLY_PAIR_TOKEN",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Pair token in this scenario lands after the signalling roster reports the peer",
+              "location": {
+                "line": 55,
+                "column": 2056
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Keyring must contain peer after pair token applied",
+              "location": {
+                "line": 64,
+                "column": 2325
+              }
+            },
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "polly#103: applying the pair token must refresh the adapter knownPeers",
+              "location": {
+                "line": 65,
+                "column": 2419
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          }
+        },
+        {
+          "messageType": "OPEN_DATA_CHANNEL",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "aAdapterKnowsB.value === true",
+              "message": "Data channel can only open once the adapter knows the peer",
+              "location": {
+                "line": 76,
+                "column": 2817
+              }
+            },
+            {
+              "expression": "aRosterHasB.value === true",
+              "message": "Data channel can only open once the roster confirms the peer",
+              "location": {
+                "line": 80,
+                "column": 2934
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Data channel must be open after the open event",
+              "location": {
+                "line": 87,
+                "column": 3084
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 75
+          }
+        },
+        {
+          "messageType": "WRITE_SENTINEL",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Sentinel is written after the channel is open",
+              "location": {
+                "line": 93,
+                "column": 3301
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "Sentinel write must register in shared state",
+              "location": {
+                "line": 97,
+                "column": 3428
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 92
+          }
+        },
+        {
+          "messageType": "RECEIVE_SENTINEL",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "sentinelWritten.value === true",
+              "message": "B can only observe a sentinel that A actually wrote",
+              "location": {
+                "line": 105,
+                "column": 3750
+              }
+            },
+            {
+              "expression": "dataChannelOpen.value === true",
+              "message": "Receive can only happen across an open data channel",
+              "location": {
+                "line": 106,
+                "column": 3849
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "sentinelObserved.value === true",
+              "message": "Sentinel must be observed after receive",
+              "location": {
+                "line": 110,
+                "column": 3983
+              }
+            },
+            {
+              "expression": "aKeyringHasB.value === true",
+              "message": "Convergence: a peer that observes A's write must be in A's keyring",
+              "location": {
+                "line": 116,
+                "column": 4428
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 104
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 3
+      }
+    },
+    "logs": []
+  }
+}

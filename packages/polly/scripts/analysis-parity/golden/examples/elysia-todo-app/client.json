@@ -1,0 +1,1266 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "todos_FetchStart",
+        "todos_FetchSuccess",
+        "todos_FetchError",
+        "GET /client.js",
+        "GET /"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "todos_FetchStart",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "todos_status",
+              "value": "loading"
+            },
+            {
+              "field": "todos_error",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos_status !== \"loading\"",
+              "location": {
+                "line": 14,
+                "column": 0
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/todosResource.ts",
+            "line": 14
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "todos_FetchSuccess",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "todos_status",
+              "value": "success"
+            },
+            {
+              "field": "todos_error",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos_status === \"loading\"",
+              "location": {
+                "line": 14,
+                "column": 0
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/todosResource.ts",
+            "line": 14
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "todos_FetchError",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "todos_status",
+              "value": "error"
+            },
+            {
+              "field": "todos_error",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos_status === \"loading\"",
+              "location": {
+                "line": 14,
+                "column": 0
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/todosResource.ts",
+            "line": 14
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "GET /client.js",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [
+        {
+          "name": "todos",
+          "variableName": "todosResource",
+          "filePath": "<project>/src/todosResource.ts",
+          "line": 14,
+          "sourceSignals": []
+        }
+      ],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "todos_FetchStart",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "todos_status",
+              "value": "loading"
+            },
+            {
+              "field": "todos_error",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos_status !== \"loading\"",
+              "location": {
+                "line": 14,
+                "column": 0
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/todosResource.ts",
+            "line": 14
+          }
+        },
+        {
+          "messageType": "todos_FetchSuccess",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "todos_status",
+              "value": "success"
+            },
+            {
+              "field": "todos_error",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos_status === \"loading\"",
+              "location": {
+                "line": 14,
+                "column": 0
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/todosResource.ts",
+            "line": 14
+          }
+        },
+        {
+          "messageType": "todos_FetchError",
+          "node": "client",
+          "assignments": [
+            {
+              "field": "todos_status",
+              "value": "error"
+            },
+            {
+              "field": "todos_error",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "todos_status === \"loading\"",
+              "location": {
+                "line": 14,
+                "column": 0
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/todosResource.ts",
+            "line": 14
+          }
+        },
+        {
+          "messageType": "GET /client.js",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/client.js"
+        },
+        {
+          "messageType": "GET /",
+          "node": "server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/server.tsx",
+            "line": 4
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/"
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "todos_FetchStart",
+          "todos_FetchSuccess",
+          "todos_FetchError",
+          "GET /client.js",
+          "GET /"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [
+        {
+          "name": "todos",
+          "variableName": "todosResource",
+          "filePath": "<project>/src/todosResource.ts",
+          "line": 14,
+          "sourceSignals": []
+        }
+      ],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "elysia-todo-app-client",
+        "version": "0.1.0"
+      },
+      "projectConfig": {
+        "type": "websocket-app",
+        "entryPoints": {},
+        "contextMapping": {
+          "server": "Server",
+          "client": "Client"
+        },
+        "metadata": {
+          "name": "elysia-todo-app-client",
+          "version": "0.1.0",
+          "description": {
+            "$type": "undefined"
+          }
+        }
+      },
+      "contexts": {},
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/api.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/api.ts"
+          ],
+          "description": "External dependency: @preact/signals"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia-todo-app-server",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/api.ts"
+          ],
+          "description": "External dependency: elysia-todo-app-server"
+        },
+        {
+          "type": "external-script",
+          "name": "preact",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/client.tsx"
+          ],
+          "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@elysiajs/html",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/server.tsx"
+          ],
+          "description": "External dependency: @elysiajs/html"
+        },
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/server.tsx"
+          ],
+          "description": "External dependency: elysia"
+        },
+        {
+          "type": "external-script",
+          "name": "@elysiajs/cors",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/examples/elysia-todo-app/server/src/app.ts"
+          ],
+          "description": "External dependency: @elysiajs/cors"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals-core",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/examples/elysia-todo-app/server/src/app.ts"
+          ],
+          "description": "External dependency: @preact/signals-core"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-network-websocket",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-network-websocket"
+        },
+        {
+          "type": "external-script",
+          "name": "@automerge/automerge-repo-storage-nodefs",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: @automerge/automerge-repo-storage-nodefs"
+        },
+        {
+          "type": "external-script",
+          "name": "ws",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/dist/src/shared/lib/peer-repo-server.d.ts"
+          ],
+          "description": "External dependency: ws"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 50,
+      "evidence": [
+        "Found 5 file(s) using chrome.* APIs",
+        "Found 6 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "websocket-app",
+      "adapter": {
+        "class": "WebSocketAdapter",
+        "name": "websocket",
+        "config": {
+          "useEdenTypes": true,
+          "handlerPattern": {
+            "$type": "RegExp",
+            "source": "^handle[A-Z]",
+            "flags": ""
+          },
+          "maxConnections": 10,
+          "maxInFlight": 5,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "server",
+            "type": "websocket-server",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isHub": true
+            }
+          },
+          {
+            "id": "client-1",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 1
+            }
+          },
+          {
+            "id": "client-2",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 2
+            }
+          },
+          {
+            "id": "client-3",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 3
+            }
+          },
+          {
+            "id": "client-4",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 4
+            }
+          },
+          {
+            "id": "client-5",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 5
+            }
+          },
+          {
+            "id": "client-6",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 6
+            }
+          },
+          {
+            "id": "client-7",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 7
+            }
+          },
+          {
+            "id": "client-8",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 8
+            }
+          },
+          {
+            "id": "client-9",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 9
+            }
+          },
+          {
+            "id": "client-10",
+            "type": "websocket-client",
+            "canSendTo": [
+              "server"
+            ],
+            "canReceiveFrom": [
+              "server"
+            ],
+            "metadata": {
+              "clientId": 10
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "LOGIN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "LOGOUT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "ADD_TODO",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "TOGGLE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          },
+          {
+            "name": "DELETE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "server"
+              ],
+              "to": [
+                "client-*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "LOGIN",
+              "LOGOUT",
+              "ADD_TODO",
+              "TOGGLE",
+              "DELETE"
+            ],
+            "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "LOGIN",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/App.tsx",
+              "line": 10
+            }
+          },
+          {
+            "messageType": "LOGOUT",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/App.tsx",
+              "line": 20
+            }
+          },
+          {
+            "messageType": "ADD_TODO",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/App.tsx",
+              "line": 29
+            }
+          },
+          {
+            "messageType": "TOGGLE",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/App.tsx",
+              "line": 47
+            }
+          },
+          {
+            "messageType": "DELETE",
+            "node": "Server",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/App.tsx",
+              "line": 56
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 11,
+          "custom": {
+            "maxConnections": 10
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "ADD_TODO",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "TOGGLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "DELETE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "LOGIN",
+            "LOGOUT",
+            "ADD_TODO",
+            "TOGGLE",
+            "DELETE"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "LOGIN",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 10
+          }
+        },
+        {
+          "messageType": "LOGOUT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 20
+          }
+        },
+        {
+          "messageType": "ADD_TODO",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 29
+          }
+        },
+        {
+          "messageType": "TOGGLE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 47
+          }
+        },
+        {
+          "messageType": "DELETE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/App.tsx",
+            "line": 56
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        }
+      ],
+      "messageTypes": [],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 1
+      }
+    },
+    "logs": []
+  }
+}

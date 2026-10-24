@@ -1,0 +1,2011 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": {
+        "name": "AppState",
+        "kind": "object",
+        "nullable": false,
+        "properties": {
+          "flag": {
+            "name": "flag",
+            "kind": "boolean",
+            "nullable": false
+          },
+          "literalTrue": {
+            "name": "literalTrue",
+            "kind": "boolean",
+            "nullable": false
+          },
+          "role": {
+            "name": "role",
+            "kind": "enum",
+            "nullable": false,
+            "enumValues": [
+              "admin",
+              "user",
+              "guest"
+            ]
+          },
+          "inlineEnum": {
+            "name": "inlineEnum",
+            "kind": "enum",
+            "nullable": false,
+            "enumValues": [
+              "on",
+              "off"
+            ]
+          },
+          "count": {
+            "name": "count",
+            "kind": "number",
+            "nullable": false
+          },
+          "literalNumber": {
+            "name": "literalNumber",
+            "kind": "number",
+            "nullable": false
+          },
+          "label": {
+            "name": "label",
+            "kind": "string",
+            "nullable": false
+          },
+          "literalString": {
+            "name": "literalString",
+            "kind": "string",
+            "nullable": false
+          },
+          "maybeName": {
+            "name": "maybeName",
+            "kind": "string",
+            "nullable": true
+          },
+          "optionalCount": {
+            "name": "optionalCount",
+            "kind": "number",
+            "nullable": true
+          },
+          "nullableRole": {
+            "name": "nullableRole",
+            "kind": "union",
+            "nullable": true,
+            "unionTypes": [
+              {
+                "name": "nullableRole_0",
+                "kind": "null",
+                "nullable": true
+              },
+              {
+                "name": "nullableRole_1",
+                "kind": "string",
+                "nullable": false
+              },
+              {
+                "name": "nullableRole_2",
+                "kind": "string",
+                "nullable": false
+              },
+              {
+                "name": "nullableRole_3",
+                "kind": "string",
+                "nullable": false
+              }
+            ]
+          },
+          "mixed": {
+            "name": "mixed",
+            "kind": "union",
+            "nullable": false,
+            "unionTypes": [
+              {
+                "name": "mixed_0",
+                "kind": "string",
+                "nullable": false
+              },
+              {
+                "name": "mixed_1",
+                "kind": "number",
+                "nullable": false
+              }
+            ]
+          },
+          "tags": {
+            "name": "tags",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "tags_element",
+              "kind": "string",
+              "nullable": false
+            }
+          },
+          "profiles": {
+            "name": "profiles",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "profiles_element",
+              "kind": "object",
+              "nullable": false,
+              "properties": {
+                "name": {
+                  "name": "name",
+                  "kind": "string",
+                  "nullable": false
+                },
+                "age": {
+                  "name": "age",
+                  "kind": "number",
+                  "nullable": false
+                },
+                "verified": {
+                  "name": "verified",
+                  "kind": "boolean",
+                  "nullable": false
+                }
+              }
+            }
+          },
+          "matrix": {
+            "name": "matrix",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "matrix_element",
+              "kind": "array",
+              "nullable": false,
+              "elementType": {
+                "name": "matrix_element_element",
+                "kind": "number",
+                "nullable": false
+              }
+            }
+          },
+          "byId": {
+            "name": "byId",
+            "kind": "map",
+            "nullable": false,
+            "valueType": {
+              "name": "byId_value",
+              "kind": "object",
+              "nullable": false,
+              "properties": {
+                "name": {
+                  "name": "name",
+                  "kind": "string",
+                  "nullable": false
+                },
+                "age": {
+                  "name": "age",
+                  "kind": "number",
+                  "nullable": false
+                },
+                "verified": {
+                  "name": "verified",
+                  "kind": "boolean",
+                  "nullable": false
+                }
+              }
+            }
+          },
+          "seen": {
+            "name": "seen",
+            "kind": "set",
+            "nullable": false,
+            "elementType": {
+              "name": "seen_element",
+              "kind": "number",
+              "nullable": false
+            }
+          },
+          "record": {
+            "name": "record",
+            "kind": "object",
+            "nullable": false,
+            "properties": {}
+          },
+          "nested": {
+            "name": "nested",
+            "kind": "object",
+            "nullable": false,
+            "properties": {
+              "inner": {
+                "name": "inner",
+                "kind": "object",
+                "nullable": false,
+                "properties": {
+                  "depth": {
+                    "name": "depth",
+                    "kind": "number",
+                    "nullable": false
+                  },
+                  "mode": {
+                    "name": "mode",
+                    "kind": "enum",
+                    "nullable": false,
+                    "enumValues": [
+                      "a",
+                      "b",
+                      "c"
+                    ]
+                  }
+                }
+              },
+              "list": {
+                "name": "list",
+                "kind": "array",
+                "nullable": false,
+                "elementType": {
+                  "name": "list_element",
+                  "kind": "enum",
+                  "nullable": false,
+                  "enumValues": [
+                    "x",
+                    "y"
+                  ]
+                }
+              }
+            }
+          },
+          "callback": {
+            "name": "callback",
+            "kind": "object",
+            "nullable": false,
+            "properties": {}
+          },
+          "anything": {
+            "name": "anything",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "nothing": {
+            "name": "nothing",
+            "kind": "null",
+            "nullable": true
+          }
+        }
+      },
+      "messageTypes": [
+        "PING",
+        "PONG",
+        "USER_LOGIN",
+        "USER_LOGOUT",
+        "SET_ROLE",
+        "RESET",
+        "OPEN",
+        "CLOSE",
+        "CMD_STOP"
+      ],
+      "fields": [
+        {
+          "path": "flag",
+          "type": {
+            "name": "flag",
+            "kind": "boolean",
+            "nullable": false
+          },
+          "confidence": "high",
+          "evidence": [
+            "Boolean type - auto-configured"
+          ],
+          "suggestions": [],
+          "bounds": {}
+        },
+        {
+          "path": "literalTrue",
+          "type": {
+            "name": "literalTrue",
+            "kind": "boolean",
+            "nullable": false
+          },
+          "confidence": "high",
+          "evidence": [
+            "Boolean type - auto-configured"
+          ],
+          "suggestions": [],
+          "bounds": {}
+        },
+        {
+          "path": "role",
+          "type": {
+            "name": "role",
+            "kind": "enum",
+            "nullable": false,
+            "enumValues": [
+              "admin",
+              "user",
+              "guest"
+            ]
+          },
+          "confidence": "high",
+          "evidence": [
+            "Enum with 3 values"
+          ],
+          "suggestions": [],
+          "bounds": {
+            "values": [
+              "admin",
+              "user",
+              "guest"
+            ]
+          }
+        },
+        {
+          "path": "inlineEnum",
+          "type": {
+            "name": "inlineEnum",
+            "kind": "enum",
+            "nullable": false,
+            "enumValues": [
+              "on",
+              "off"
+            ]
+          },
+          "confidence": "high",
+          "evidence": [
+            "Enum with 2 values"
+          ],
+          "suggestions": [],
+          "bounds": {
+            "values": [
+              "on",
+              "off"
+            ]
+          }
+        },
+        {
+          "path": "count",
+          "type": {
+            "name": "count",
+            "kind": "number",
+            "nullable": false
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide min and max values based on your application logic"
+          ],
+          "bounds": {
+            "min": {
+              "$type": "undefined"
+            },
+            "max": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "literalNumber",
+          "type": {
+            "name": "literalNumber",
+            "kind": "number",
+            "nullable": false
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide min and max values based on your application logic"
+          ],
+          "bounds": {
+            "min": {
+              "$type": "undefined"
+            },
+            "max": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "label",
+          "type": {
+            "name": "label",
+            "kind": "string",
+            "nullable": false
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide 2-3 example values: [\"value1\", \"value2\", \"value3\"]",
+            "Or use { abstract: true } for symbolic verification"
+          ],
+          "bounds": {
+            "values": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "literalString",
+          "type": {
+            "name": "literalString",
+            "kind": "string",
+            "nullable": false
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide 2-3 example values: [\"value1\", \"value2\", \"value3\"]",
+            "Or use { abstract: true } for symbolic verification"
+          ],
+          "bounds": {
+            "values": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "maybeName",
+          "type": {
+            "name": "maybeName",
+            "kind": "string",
+            "nullable": true
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide 2-3 example values: [\"value1\", \"value2\", \"value3\"]",
+            "Or use { abstract: true } for symbolic verification"
+          ],
+          "bounds": {
+            "values": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "optionalCount",
+          "type": {
+            "name": "optionalCount",
+            "kind": "number",
+            "nullable": true
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide min and max values based on your application logic"
+          ],
+          "bounds": {
+            "min": {
+              "$type": "undefined"
+            },
+            "max": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "nullableRole",
+          "type": {
+            "name": "nullableRole",
+            "kind": "union",
+            "nullable": true,
+            "unionTypes": [
+              {
+                "name": "nullableRole_0",
+                "kind": "null",
+                "nullable": true
+              },
+              {
+                "name": "nullableRole_1",
+                "kind": "string",
+                "nullable": false
+              },
+              {
+                "name": "nullableRole_2",
+                "kind": "string",
+                "nullable": false
+              },
+              {
+                "name": "nullableRole_3",
+                "kind": "string",
+                "nullable": false
+              }
+            ]
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [],
+          "bounds": {}
+        },
+        {
+          "path": "mixed",
+          "type": {
+            "name": "mixed",
+            "kind": "union",
+            "nullable": false,
+            "unionTypes": [
+              {
+                "name": "mixed_0",
+                "kind": "string",
+                "nullable": false
+              },
+              {
+                "name": "mixed_1",
+                "kind": "number",
+                "nullable": false
+              }
+            ]
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [],
+          "bounds": {}
+        },
+        {
+          "path": "tags",
+          "type": {
+            "name": "tags",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "tags_element",
+              "kind": "string",
+              "nullable": false
+            }
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)"
+          ],
+          "bounds": {
+            "maxLength": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "profiles",
+          "type": {
+            "name": "profiles",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "profiles_element",
+              "kind": "object",
+              "nullable": false,
+              "properties": {
+                "name": {
+                  "name": "name",
+                  "kind": "string",
+                  "nullable": false
+                },
+                "age": {
+                  "name": "age",
+                  "kind": "number",
+                  "nullable": false
+                },
+                "verified": {
+                  "name": "verified",
+                  "kind": "boolean",
+                  "nullable": false
+                }
+              }
+            }
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)"
+          ],
+          "bounds": {
+            "maxLength": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "matrix",
+          "type": {
+            "name": "matrix",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "matrix_element",
+              "kind": "array",
+              "nullable": false,
+              "elementType": {
+                "name": "matrix_element_element",
+                "kind": "number",
+                "nullable": false
+              }
+            }
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)"
+          ],
+          "bounds": {
+            "maxLength": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "byId",
+          "type": {
+            "name": "byId",
+            "kind": "map",
+            "nullable": false,
+            "valueType": {
+              "name": "byId_value",
+              "kind": "object",
+              "nullable": false,
+              "properties": {
+                "name": {
+                  "name": "name",
+                  "kind": "string",
+                  "nullable": false
+                },
+                "age": {
+                  "name": "age",
+                  "kind": "number",
+                  "nullable": false
+                },
+                "verified": {
+                  "name": "verified",
+                  "kind": "boolean",
+                  "nullable": false
+                }
+              }
+            }
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide maxSize (recommended: 3-5)"
+          ],
+          "bounds": {
+            "maxSize": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "seen",
+          "type": {
+            "name": "seen",
+            "kind": "set",
+            "nullable": false,
+            "elementType": {
+              "name": "seen_element",
+              "kind": "number",
+              "nullable": false
+            }
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide maxSize (recommended: 3-5)"
+          ],
+          "bounds": {
+            "maxSize": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "nested.inner.depth",
+          "type": {
+            "name": "depth",
+            "kind": "number",
+            "nullable": false
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Provide min and max values based on your application logic"
+          ],
+          "bounds": {
+            "min": {
+              "$type": "undefined"
+            },
+            "max": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "nested.inner.mode",
+          "type": {
+            "name": "mode",
+            "kind": "enum",
+            "nullable": false,
+            "enumValues": [
+              "a",
+              "b",
+              "c"
+            ]
+          },
+          "confidence": "high",
+          "evidence": [
+            "Enum with 3 values"
+          ],
+          "suggestions": [],
+          "bounds": {
+            "values": [
+              "a",
+              "b",
+              "c"
+            ]
+          }
+        },
+        {
+          "path": "nested.list",
+          "type": {
+            "name": "list",
+            "kind": "array",
+            "nullable": false,
+            "elementType": {
+              "name": "list_element",
+              "kind": "enum",
+              "nullable": false,
+              "enumValues": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [
+            "Choose maxLength: 5 (fast), 10 (balanced), or 20 (thorough)"
+          ],
+          "bounds": {
+            "maxLength": {
+              "$type": "undefined"
+            }
+          }
+        },
+        {
+          "path": "anything",
+          "type": {
+            "name": "anything",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [],
+          "bounds": {}
+        },
+        {
+          "path": "nothing",
+          "type": {
+            "name": "nothing",
+            "kind": "null",
+            "nullable": true
+          },
+          "confidence": "low",
+          "evidence": [],
+          "suggestions": [],
+          "bounds": {}
+        }
+      ],
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "user"
+            },
+            {
+              "field": "flag",
+              "value": true
+            },
+            {
+              "field": "count",
+              "value": "@ + 1"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "state.role === \"guest\"",
+              "message": "Must be a guest",
+              "location": {
+                "line": 41,
+                "column": 863
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "state.role === \"user\"",
+              "message": "Must be a user",
+              "location": {
+                "line": 45,
+                "column": 982
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "guest"
+            },
+            {
+              "field": "flag",
+              "value": false
+            },
+            {
+              "field": "maybeName",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 48
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "SET_ROLE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "admin"
+            },
+            {
+              "field": "nested.inner.mode",
+              "value": "b"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "user"
+            },
+            {
+              "field": "flag",
+              "value": true
+            },
+            {
+              "field": "count",
+              "value": "@ + 1"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "state.role === \"guest\"",
+              "message": "Must be a guest",
+              "location": {
+                "line": 41,
+                "column": 863
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "state.role === \"user\"",
+              "message": "Must be a user",
+              "location": {
+                "line": 45,
+                "column": 982
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "guest"
+            },
+            {
+              "field": "flag",
+              "value": false
+            },
+            {
+              "field": "maybeName",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 48
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "SET_ROLE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "admin"
+            },
+            {
+              "field": "nested.inner.mode",
+              "value": "b"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "USER_LOGIN",
+          "USER_LOGOUT",
+          "SET_ROLE"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Unknown Project",
+        "version": "0.0.0"
+      },
+      "projectConfig": {
+        "type": "generic",
+        "entryPoints": {},
+        "metadata": {
+          "name": "Unknown Project"
+        }
+      },
+      "contexts": {},
+      "messageFlows": [],
+      "integrations": []
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 15,
+      "evidence": [
+        "Found 3 .on() call(s)"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "generic",
+      "adapter": {
+        "class": "EventBusAdapter",
+        "name": "event-bus",
+        "config": {
+          "emitterLibrary": "events",
+          "emitterPattern": {
+            "$type": "RegExp",
+            "source": "emitter|bus|events|dispatch|publish",
+            "flags": "i"
+          },
+          "maxInFlight": 5,
+          "maxEmitters": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "central-bus",
+            "type": "event-bus",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isMediator": true
+            }
+          },
+          {
+            "id": "bus",
+            "type": "emitter",
+            "canSendTo": [
+              "central-bus",
+              "*"
+            ],
+            "canReceiveFrom": [
+              "central-bus",
+              "*"
+            ],
+            "metadata": {
+              "isEmitter": true
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "USER_LOGIN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "USER_LOGOUT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "SET_ROLE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "broadcast",
+            "messageTypes": [
+              "USER_LOGIN",
+              "USER_LOGOUT",
+              "SET_ROLE"
+            ],
+            "description": "Event bus broadcast pattern - one-to-many messaging"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "USER_LOGIN",
+            "node": "bus",
+            "assignments": [
+              {
+                "field": "role",
+                "value": "user"
+              },
+              {
+                "field": "flag",
+                "value": true
+              }
+            ],
+            "preconditions": [
+              {
+                "expression": "state.role === \"guest\"",
+                "message": "Must be a guest",
+                "location": {
+                  "line": 41,
+                  "column": 865
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "state.role === \"user\"",
+                "message": "Must be a user",
+                "location": {
+                  "line": 45,
+                  "column": 984
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 40
+            }
+          },
+          {
+            "messageType": "USER_LOGOUT",
+            "node": "bus",
+            "assignments": [
+              {
+                "field": "role",
+                "value": "guest"
+              },
+              {
+                "field": "flag",
+                "value": false
+              },
+              {
+                "field": "maybeName",
+                "value": null
+              }
+            ],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 48
+            }
+          },
+          {
+            "messageType": "SET_ROLE",
+            "node": "bus",
+            "assignments": [
+              {
+                "field": "role",
+                "value": "admin"
+              },
+              {
+                "field": "nested.inner.mode",
+                "value": "b"
+              }
+            ],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers.ts",
+              "line": 54
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 2
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "SET_ROLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "SET_ROLE"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "user"
+            },
+            {
+              "field": "flag",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "state.role === \"guest\"",
+              "message": "Must be a guest",
+              "location": {
+                "line": 41,
+                "column": 865
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "state.role === \"user\"",
+              "message": "Must be a user",
+              "location": {
+                "line": 45,
+                "column": 984
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "guest"
+            },
+            {
+              "field": "flag",
+              "value": false
+            },
+            {
+              "field": "maybeName",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 48
+          }
+        },
+        {
+          "messageType": "SET_ROLE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "admin"
+            },
+            {
+              "field": "nested.inner.mode",
+              "value": "b"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "SET_ROLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "SET_ROLE"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "Server",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "user"
+            },
+            {
+              "field": "flag",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "state.role === \"guest\"",
+              "message": "Must be a guest",
+              "location": {
+                "line": 41,
+                "column": 865
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "state.role === \"user\"",
+              "message": "Must be a user",
+              "location": {
+                "line": 45,
+                "column": 984
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "Server",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "guest"
+            },
+            {
+              "field": "flag",
+              "value": false
+            },
+            {
+              "field": "maybeName",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 48
+          }
+        },
+        {
+          "messageType": "SET_ROLE",
+          "node": "Server",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "admin"
+            },
+            {
+              "field": "nested.inner.mode",
+              "value": "b"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "SET_ROLE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "SET_ROLE"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "bus",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "user"
+            },
+            {
+              "field": "flag",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "state.role === \"guest\"",
+              "message": "Must be a guest",
+              "location": {
+                "line": 41,
+                "column": 865
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "state.role === \"user\"",
+              "message": "Must be a user",
+              "location": {
+                "line": 45,
+                "column": 984
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 40
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "bus",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "guest"
+            },
+            {
+              "field": "flag",
+              "value": false
+            },
+            {
+              "field": "maybeName",
+              "value": null
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 48
+          }
+        },
+        {
+          "messageType": "SET_ROLE",
+          "node": "bus",
+          "assignments": [
+            {
+              "field": "role",
+              "value": "admin"
+            },
+            {
+              "field": "nested.inner.mode",
+              "value": "b"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers.ts",
+            "line": 54
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}

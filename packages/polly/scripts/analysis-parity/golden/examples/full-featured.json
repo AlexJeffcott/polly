@@ -1,0 +1,3890 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "USER_LOGIN",
+        "USER_LOGOUT",
+        "BOOKMARK_ADD",
+        "BOOKMARK_REMOVE",
+        "GET_BOOKMARKS",
+        "TAB_GET_CURRENT",
+        "TAB_OPEN",
+        "SETTINGS_UPDATE",
+        "GET_SETTINGS",
+        "DOM_QUERY",
+        "DOM_UPDATE",
+        "DOM_INSERT",
+        "DOM_REMOVE",
+        "PAGE_GET_VAR",
+        "PAGE_CALL_FN",
+        "PAGE_SET_VAR",
+        "API_REQUEST",
+        "API_BATCH",
+        "CLIPBOARD_WRITE",
+        "CLIPBOARD_WRITE_HTML",
+        "CLIPBOARD_WRITE_RICH",
+        "CLIPBOARD_READ",
+        "CONTEXT_MENU_CLICKED",
+        "CONTEXT_MENU_CREATE",
+        "CONTEXT_MENU_REMOVE",
+        "STATE_SYNC",
+        "TAB_QUERY",
+        "TAB_RELOAD",
+        "DEVTOOLS_INSPECT_ELEMENT",
+        "DEVTOOLS_LOG",
+        "LOG",
+        "LOGS_GET",
+        "LOGS_CLEAR",
+        "LOGS_EXPORT",
+        "TEST_MESSAGE",
+        "TEST",
+        "CUSTOM_MESSAGE",
+        "SETTINGS_GET",
+        "SIGNAL_UPDATE",
+        "USER_DATA"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "loginState_loggedIn",
+              "value": true
+            },
+            {
+              "field": "loginState_username",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 108,
+                "column": 3468
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 96
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "loginState_loggedIn",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 121,
+                "column": 3736
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 129,
+                "column": 4044
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 119
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to add bookmarks",
+              "location": {
+                "line": 140,
+                "column": 4318
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "bookmarkCount.value > 0",
+              "message": "Bookmark count must be positive after add",
+              "location": {
+                "line": 159,
+                "column": 4782
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 138
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "BOOKMARK_REMOVE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TAB_GET_CURRENT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 179
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TAB_OPEN",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 195
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "SETTINGS_UPDATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to update settings",
+              "location": {
+                "line": 206,
+                "column": 5865
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 204
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET_SETTINGS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 218
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET_BOOKMARKS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 222
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [
+        {
+          "field": "loggedIn",
+          "messageType": "USER_LOGOUT",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to logout",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 43
+          }
+        },
+        {
+          "field": "loggedIn",
+          "messageType": "BOOKMARK_ADD",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to add bookmarks",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 47
+          }
+        },
+        {
+          "field": "loggedIn",
+          "messageType": "SETTINGS_UPDATE",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to update settings",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 51
+          }
+        }
+      ],
+      "globalStateConstraints": [
+        {
+          "name": "BookmarksRequireLogin",
+          "expression": "bookmarkCount.value <= 0 || loginState.value.loggedIn === true",
+          "message": "Cannot have bookmarks without being logged in",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 31
+          }
+        }
+      ],
+      "verifiedStates": [
+        {
+          "key": "bookmarkCount",
+          "variableName": "bookmarkCount",
+          "filePath": "<project>/src/background/handlers.ts",
+          "line": 42,
+          "fields": []
+        },
+        {
+          "key": "login-state",
+          "variableName": "loginState",
+          "filePath": "<project>/src/background/handlers.ts",
+          "line": 46,
+          "fields": [
+            "loggedIn"
+          ]
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "settings_theme",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 33
+        },
+        {
+          "field": "settings_autoSync",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 59
+        },
+        {
+          "field": "settings_refreshInterval",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 73
+        },
+        {
+          "field": "settings_notifications",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 92
+        },
+        {
+          "field": "settings_apiEndpoint",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 112
+        },
+        {
+          "field": "settings_debugMode",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 135
+        }
+      ]
+    },
+    "logs": [
+      "log: [WARN] Dropped 3 handler(s) with unrepresentable message types:",
+      "log: [WARN]   - Handler for \"{ username: string }\" at <project>/src/popup/index.tsx:48",
+      "log: [WARN]   - Handler for \"{ success: true }\" at <project>/src/popup/index.tsx:68",
+      "log: [WARN]   - Handler for \"{ success: true }\" at <project>/src/popup/index.tsx:104"
+    ]
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "loginState_loggedIn",
+              "value": true
+            },
+            {
+              "field": "loginState_username",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 108,
+                "column": 3468
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 96
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "loginState_loggedIn",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 121,
+                "column": 3736
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 129,
+                "column": 4044
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 119
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to add bookmarks",
+              "location": {
+                "line": 140,
+                "column": 4318
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "bookmarkCount.value > 0",
+              "message": "Bookmark count must be positive after add",
+              "location": {
+                "line": 159,
+                "column": 4782
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 138
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "BOOKMARK_REMOVE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "TAB_GET_CURRENT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 179
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "TAB_OPEN",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 195
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "SETTINGS_UPDATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to update settings",
+              "location": {
+                "line": 206,
+                "column": 5865
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 204
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "GET_SETTINGS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 218
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "GET_BOOKMARKS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 222
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "{ username: string }",
+          "node": "popup",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/popup/index.tsx",
+            "line": 48
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "{ success: true }",
+          "node": "popup",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/popup/index.tsx",
+            "line": 68
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "{ success: true }",
+          "node": "popup",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/popup/index.tsx",
+            "line": 104
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "USER_LOGIN",
+          "USER_LOGOUT",
+          "BOOKMARK_ADD",
+          "BOOKMARK_REMOVE",
+          "TAB_GET_CURRENT",
+          "TAB_OPEN",
+          "SETTINGS_UPDATE",
+          "GET_SETTINGS",
+          "GET_BOOKMARKS"
+        ]
+      },
+      "stateConstraints": [
+        {
+          "field": "loggedIn",
+          "messageType": "USER_LOGOUT",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to logout",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 43
+          }
+        },
+        {
+          "field": "loggedIn",
+          "messageType": "BOOKMARK_ADD",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to add bookmarks",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 47
+          }
+        },
+        {
+          "field": "loggedIn",
+          "messageType": "SETTINGS_UPDATE",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to update settings",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 51
+          }
+        }
+      ],
+      "globalStateConstraints": [
+        {
+          "name": "BookmarksRequireLogin",
+          "expression": "bookmarkCount.value <= 0 || loginState.value.loggedIn === true",
+          "message": "Cannot have bookmarks without being logged in",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 31
+          }
+        }
+      ],
+      "verifiedStates": [
+        {
+          "key": "bookmarkCount",
+          "variableName": "bookmarkCount",
+          "filePath": "<project>/src/background/handlers.ts",
+          "line": 42,
+          "fields": []
+        },
+        {
+          "key": "login-state",
+          "variableName": "loginState",
+          "filePath": "<project>/src/background/handlers.ts",
+          "line": 46,
+          "fields": [
+            "loggedIn"
+          ]
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "settings_theme",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 33
+        },
+        {
+          "field": "settings_autoSync",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 59
+        },
+        {
+          "field": "settings_refreshInterval",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 73
+        },
+        {
+          "field": "settings_notifications",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 92
+        },
+        {
+          "field": "settings_apiEndpoint",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 112
+        },
+        {
+          "field": "settings_debugMode",
+          "signalVariable": "settings",
+          "functionName": "Options",
+          "filePath": "<project>/src/options/index.tsx",
+          "line": 135
+        }
+      ],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Full-Featured Example",
+        "version": "0.1.0",
+        "description": "Demonstrates real-world extension patterns: authentication, bookmarks, tab management, and settings"
+      },
+      "manifest": {
+        "name": "Full-Featured Example",
+        "version": "0.1.0",
+        "description": "Demonstrates real-world extension patterns: authentication, bookmarks, tab management, and settings",
+        "manifestVersion": 3,
+        "background": {
+          "type": "service_worker",
+          "files": [
+            "background/index.js"
+          ]
+        },
+        "contentScripts": {
+          "$type": "undefined"
+        },
+        "popup": {
+          "html": "popup/popup.html",
+          "default": true
+        },
+        "options": {
+          "page": "options/options.html",
+          "openInTab": false
+        },
+        "devtools": {
+          "$type": "undefined"
+        },
+        "permissions": [
+          "storage",
+          "tabs",
+          "activeTab"
+        ],
+        "hostPermissions": []
+      },
+      "contexts": {
+        "background": {
+          "type": "background",
+          "entryPoint": "<project>/src/background/index.ts",
+          "handlers": [
+            {
+              "messageType": "USER_LOGIN",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "loginState_loggedIn",
+                  "value": true
+                },
+                {
+                  "field": "loginState_username",
+                  "value": "@"
+                }
+              ],
+              "preconditions": [],
+              "postconditions": [
+                {
+                  "expression": "loginState.value.loggedIn === true",
+                  "message": "User must be logged in after login",
+                  "location": {
+                    "line": 108,
+                    "column": 3468
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 96
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "USER_LOGOUT",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "loginState_loggedIn",
+                  "value": false
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "loginState.value.loggedIn === true",
+                  "message": "Must be logged in to logout",
+                  "location": {
+                    "line": 121,
+                    "column": 3736
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "loginState.value.loggedIn === false",
+                  "message": "User must be logged out after logout",
+                  "location": {
+                    "line": 129,
+                    "column": 4044
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 119
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "BOOKMARK_ADD",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [
+                {
+                  "expression": "loginState.value.loggedIn === true",
+                  "message": "Must be logged in to add bookmarks",
+                  "location": {
+                    "line": 140,
+                    "column": 4318
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "bookmarkCount.value > 0",
+                  "message": "Bookmark count must be positive after add",
+                  "location": {
+                    "line": 159,
+                    "column": 4782
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 138
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "BOOKMARK_REMOVE",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 167
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "TAB_GET_CURRENT",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 179
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "TAB_OPEN",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 195
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "SETTINGS_UPDATE",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [
+                {
+                  "expression": "loginState.value.loggedIn === true",
+                  "message": "Must be logged in to update settings",
+                  "location": {
+                    "line": 206,
+                    "column": 5865
+                  }
+                }
+              ],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 204
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "GET_SETTINGS",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 218
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "GET_BOOKMARKS",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 222
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            }
+          ],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@fairfox/polly/background",
+            "../../specs/constraints.js",
+            "../shared/types/messages",
+            "./handlers"
+          ],
+          "description": "/**"
+        }
+      },
+      "messageFlows": [
+        {
+          "messageType": "USER_LOGIN",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(USER_LOGIN)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 62
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGIN)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 96
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(USER_LOGOUT)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 82
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_LOGOUT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 119
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(BOOKMARK_ADD)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 98
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(BOOKMARK_ADD)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 138
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(BOOKMARK_ADD)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 148
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(BOOKMARK_ADD)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 138
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "BOOKMARK_REMOVE",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(BOOKMARK_REMOVE)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 116
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(BOOKMARK_REMOVE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 167
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "TAB_GET_CURRENT",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(TAB_GET_CURRENT)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 125
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(TAB_GET_CURRENT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 179
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "SETTINGS_UPDATE",
+          "from": "popup",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "popup.send(SETTINGS_UPDATE)",
+              "context": "popup",
+              "location": {
+                "file": "<project>/src/popup/index.tsx",
+                "line": 161
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(SETTINGS_UPDATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 204
+              }
+            }
+          ]
+        }
+      ],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/specs/constraints.ts"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
+          "name": "preact",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/options/index.tsx"
+          ],
+          "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/popup/index.tsx"
+          ],
+          "description": "External dependency: @preact/signals"
+        },
+        {
+          "type": "external-script",
+          "name": "@/shared",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/background/log-store.ts"
+          ],
+          "description": "External dependency: @/shared"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 80,
+      "evidence": [
+        "Found 16 file(s) using chrome.* APIs",
+        "Found 2 extension context directories",
+        "Found 16 file(s) using MessageBus"
+      ],
+      "suggestedAdapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 2,
+          "maxInFlight": 6,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "alternatives": [
+        {
+          "adapterType": "worker",
+          "confidence": 30,
+          "evidence": [
+            "Found 17 .postMessage() call(s)"
+          ]
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "chrome-extension",
+      "adapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 1,
+          "maxInFlight": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "background",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": true,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "content",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": true
+            }
+          },
+          {
+            "id": "popup",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "devtools",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "options",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "offscreen",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "sidepanel",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "USER_LOGIN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "USER_LOGOUT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "BOOKMARK_ADD",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "BOOKMARK_REMOVE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TAB_GET_CURRENT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TAB_OPEN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "SETTINGS_UPDATE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "GET_SETTINGS",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "GET_BOOKMARKS",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOG",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_GET",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_CLEAR",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_EXPORT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "message",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "connect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "disconnect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "changed",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "USER_LOGIN",
+              "USER_LOGOUT",
+              "BOOKMARK_ADD",
+              "BOOKMARK_REMOVE",
+              "TAB_GET_CURRENT",
+              "TAB_OPEN",
+              "SETTINGS_UPDATE",
+              "GET_SETTINGS",
+              "GET_BOOKMARKS",
+              "LOG",
+              "LOGS_GET",
+              "LOGS_CLEAR",
+              "LOGS_EXPORT",
+              "message",
+              "connect",
+              "disconnect",
+              "changed"
+            ],
+            "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "USER_LOGIN",
+            "node": "background",
+            "assignments": [
+              {
+                "field": "loginState_loggedIn",
+                "value": true
+              }
+            ],
+            "preconditions": [],
+            "postconditions": [
+              {
+                "expression": "loginState.value.loggedIn === true",
+                "message": "User must be logged in after login",
+                "location": {
+                  "line": 108,
+                  "column": 3472
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 96
+            }
+          },
+          {
+            "messageType": "USER_LOGOUT",
+            "node": "background",
+            "assignments": [
+              {
+                "field": "loginState_loggedIn",
+                "value": false
+              }
+            ],
+            "preconditions": [
+              {
+                "expression": "loginState.value.loggedIn === true",
+                "message": "Must be logged in to logout",
+                "location": {
+                  "line": 121,
+                  "column": 3740
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "loginState.value.loggedIn === false",
+                "message": "User must be logged out after logout",
+                "location": {
+                  "line": 129,
+                  "column": 4048
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 119
+            }
+          },
+          {
+            "messageType": "BOOKMARK_ADD",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "loginState.value.loggedIn === true",
+                "message": "Must be logged in to add bookmarks",
+                "location": {
+                  "line": 140,
+                  "column": 4322
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "bookmarkCount.value > 0",
+                "message": "Bookmark count must be positive after add",
+                "location": {
+                  "line": 159,
+                  "column": 4786
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 138
+            }
+          },
+          {
+            "messageType": "BOOKMARK_REMOVE",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 167
+            }
+          },
+          {
+            "messageType": "TAB_GET_CURRENT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 179
+            }
+          },
+          {
+            "messageType": "TAB_OPEN",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 195
+            }
+          },
+          {
+            "messageType": "SETTINGS_UPDATE",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "loginState.value.loggedIn === true",
+                "message": "Must be logged in to update settings",
+                "location": {
+                  "line": 206,
+                  "column": 5869
+                }
+              }
+            ],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 204
+            }
+          },
+          {
+            "messageType": "GET_SETTINGS",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 218
+            }
+          },
+          {
+            "messageType": "GET_BOOKMARKS",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 222
+            }
+          },
+          {
+            "messageType": "LOG",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 25
+            }
+          },
+          {
+            "messageType": "LOGS_GET",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 49
+            }
+          },
+          {
+            "messageType": "LOGS_CLEAR",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 77
+            }
+          },
+          {
+            "messageType": "LOGS_EXPORT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 84
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+              "line": 105
+            }
+          },
+          {
+            "messageType": "connect",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 90
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 116
+            }
+          },
+          {
+            "messageType": "disconnect",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+              "line": 122
+            }
+          },
+          {
+            "messageType": "changed",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
+              "line": 28
+            }
+          }
+        ],
+        "stateConstraints": [
+          {
+            "field": "loggedIn",
+            "messageType": "USER_LOGOUT",
+            "requires": "state.loggedIn === true",
+            "ensures": {
+              "$type": "undefined"
+            },
+            "message": "Must be logged in to logout",
+            "location": {
+              "file": "<project>/specs/constraints.ts",
+              "line": 43
+            }
+          },
+          {
+            "field": "loggedIn",
+            "messageType": "BOOKMARK_ADD",
+            "requires": "state.loggedIn === true",
+            "ensures": {
+              "$type": "undefined"
+            },
+            "message": "Must be logged in to add bookmarks",
+            "location": {
+              "file": "<project>/specs/constraints.ts",
+              "line": 47
+            }
+          },
+          {
+            "field": "loggedIn",
+            "messageType": "SETTINGS_UPDATE",
+            "requires": "state.loggedIn === true",
+            "ensures": {
+              "$type": "undefined"
+            },
+            "message": "Must be logged in to update settings",
+            "location": {
+              "file": "<project>/specs/constraints.ts",
+              "line": 51
+            }
+          }
+        ],
+        "bounds": {
+          "maxConcurrentMessages": 3,
+          "maxNodes": 7,
+          "custom": {
+            "maxTabs": 1
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "BOOKMARK_ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "BOOKMARK_REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TAB_GET_CURRENT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TAB_OPEN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "SETTINGS_UPDATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_SETTINGS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_BOOKMARKS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "connect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "disconnect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "changed",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "BOOKMARK_ADD",
+            "BOOKMARK_REMOVE",
+            "TAB_GET_CURRENT",
+            "TAB_OPEN",
+            "SETTINGS_UPDATE",
+            "GET_SETTINGS",
+            "GET_BOOKMARKS",
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "message",
+            "connect",
+            "disconnect",
+            "changed"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "loginState_loggedIn",
+              "value": true
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 108,
+                "column": 3472
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 96
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "loginState_loggedIn",
+              "value": false
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 121,
+                "column": 3740
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 129,
+                "column": 4048
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 119
+          }
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to add bookmarks",
+              "location": {
+                "line": 140,
+                "column": 4322
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "bookmarkCount.value > 0",
+              "message": "Bookmark count must be positive after add",
+              "location": {
+                "line": 159,
+                "column": 4786
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 138
+          }
+        },
+        {
+          "messageType": "BOOKMARK_REMOVE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          }
+        },
+        {
+          "messageType": "TAB_GET_CURRENT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 179
+          }
+        },
+        {
+          "messageType": "TAB_OPEN",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 195
+          }
+        },
+        {
+          "messageType": "SETTINGS_UPDATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to update settings",
+              "location": {
+                "line": 206,
+                "column": 5869
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 204
+          }
+        },
+        {
+          "messageType": "GET_SETTINGS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 218
+          }
+        },
+        {
+          "messageType": "GET_BOOKMARKS",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 222
+          }
+        },
+        {
+          "messageType": "LOG",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+            "line": 105
+          }
+        },
+        {
+          "messageType": "connect",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 90
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 116
+          }
+        },
+        {
+          "messageType": "disconnect",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/runtime.chrome.ts",
+            "line": 122
+          }
+        },
+        {
+          "messageType": "changed",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
+            "line": 28
+          }
+        }
+      ],
+      "stateConstraints": [
+        {
+          "field": "loggedIn",
+          "messageType": "USER_LOGOUT",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to logout",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 43
+          }
+        },
+        {
+          "field": "loggedIn",
+          "messageType": "BOOKMARK_ADD",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to add bookmarks",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 47
+          }
+        },
+        {
+          "field": "loggedIn",
+          "messageType": "SETTINGS_UPDATE",
+          "requires": "state.loggedIn === true",
+          "ensures": {
+            "$type": "undefined"
+          },
+          "message": "Must be logged in to update settings",
+          "location": {
+            "file": "<project>/specs/constraints.ts",
+            "line": 51
+          }
+        }
+      ],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "BOOKMARK_ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "BOOKMARK_REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "TAB_GET_CURRENT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "TAB_OPEN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "SETTINGS_UPDATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "GET_SETTINGS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "GET_BOOKMARKS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "BOOKMARK_ADD",
+            "BOOKMARK_REMOVE",
+            "TAB_GET_CURRENT",
+            "TAB_OPEN",
+            "SETTINGS_UPDATE",
+            "GET_SETTINGS",
+            "GET_BOOKMARKS",
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 108,
+                "column": 3472
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 96
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 121,
+                "column": 3740
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 129,
+                "column": 4048
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 119
+          }
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to add bookmarks",
+              "location": {
+                "line": 140,
+                "column": 4322
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "bookmarkCount.value > 0",
+              "message": "Bookmark count must be positive after add",
+              "location": {
+                "line": 159,
+                "column": 4786
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 138
+          }
+        },
+        {
+          "messageType": "BOOKMARK_REMOVE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          }
+        },
+        {
+          "messageType": "TAB_GET_CURRENT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 179
+          }
+        },
+        {
+          "messageType": "TAB_OPEN",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 195
+          }
+        },
+        {
+          "messageType": "SETTINGS_UPDATE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to update settings",
+              "location": {
+                "line": 206,
+                "column": 5869
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 204
+          }
+        },
+        {
+          "messageType": "GET_SETTINGS",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 218
+          }
+        },
+        {
+          "messageType": "GET_BOOKMARKS",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 222
+          }
+        },
+        {
+          "messageType": "LOG",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_LOGIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_LOGOUT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "BOOKMARK_ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "BOOKMARK_REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TAB_GET_CURRENT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TAB_OPEN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "SETTINGS_UPDATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_SETTINGS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "GET_BOOKMARKS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "USER_LOGIN",
+            "USER_LOGOUT",
+            "BOOKMARK_ADD",
+            "BOOKMARK_REMOVE",
+            "TAB_GET_CURRENT",
+            "TAB_OPEN",
+            "SETTINGS_UPDATE",
+            "GET_SETTINGS",
+            "GET_BOOKMARKS",
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
+            "message"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_LOGIN",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "User must be logged in after login",
+              "location": {
+                "line": 108,
+                "column": 3472
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 96
+          }
+        },
+        {
+          "messageType": "USER_LOGOUT",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to logout",
+              "location": {
+                "line": 121,
+                "column": 3740
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "loginState.value.loggedIn === false",
+              "message": "User must be logged out after logout",
+              "location": {
+                "line": 129,
+                "column": 4048
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 119
+          }
+        },
+        {
+          "messageType": "BOOKMARK_ADD",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to add bookmarks",
+              "location": {
+                "line": 140,
+                "column": 4322
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "bookmarkCount.value > 0",
+              "message": "Bookmark count must be positive after add",
+              "location": {
+                "line": 159,
+                "column": 4786
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 138
+          }
+        },
+        {
+          "messageType": "BOOKMARK_REMOVE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 167
+          }
+        },
+        {
+          "messageType": "TAB_GET_CURRENT",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 179
+          }
+        },
+        {
+          "messageType": "TAB_OPEN",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 195
+          }
+        },
+        {
+          "messageType": "SETTINGS_UPDATE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "loginState.value.loggedIn === true",
+              "message": "Must be logged in to update settings",
+              "location": {
+                "line": 206,
+                "column": 5869
+              }
+            }
+          ],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 204
+          }
+        },
+        {
+          "messageType": "GET_SETTINGS",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 218
+          }
+        },
+        {
+          "messageType": "GET_BOOKMARKS",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 222
+          }
+        },
+        {
+          "messageType": "LOG",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/message-bus.ts",
+            "line": 524
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}
