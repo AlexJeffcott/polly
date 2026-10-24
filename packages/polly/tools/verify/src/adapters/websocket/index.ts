@@ -144,6 +144,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
       routingRules,
       state: {}, // Populated by user configuration
       handlers,
+      stateConstraints: [], // This adapter recognises no $constraints declarations
       bounds: {
         maxConcurrentMessages: this.config.maxInFlight ?? 5,
         maxNodes: nodes.length,

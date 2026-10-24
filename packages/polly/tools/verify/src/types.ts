@@ -149,7 +149,12 @@ export type BoundedExplorationConfig = {
   criticalPaths?: string[][]; // Sequences of message types that must be fully explored
 };
 
-export type StateConfig = Record<string, FieldConfig>;
+/**
+ * A state field, or an object of them. The codegen flattens a nested object
+ * into `parent_child` fields (`collectNestedFields`), matching the extractor's
+ * `user.role` → `user_role`.
+ */
+export type StateConfig = { [field: string]: FieldConfig | StateConfig };
 
 /**
  * polly#117: mesh-document declarations. Maps docId → field schema.

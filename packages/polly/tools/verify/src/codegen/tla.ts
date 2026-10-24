@@ -11,6 +11,7 @@ import type {
   FieldAnalysis,
   FieldConfig,
   StateAssignment,
+  StateConfig,
   SubsystemConfig,
   VerificationCondition,
   VerificationConfig,
@@ -941,17 +942,14 @@ export class TLAGenerator {
    */
   private collectNestedFields(
     prefix: string,
-    fieldConfig: FieldConfig,
+    fieldConfig: FieldConfig | StateConfig,
     config: VerificationConfig,
     stateFields: string[]
   ): void {
-    // Check if this is a leaf field (has a type we can translate)
-    const tlaType = this.fieldConfigToTLAType(prefix, fieldConfig, config);
-
-    // If we got a non-default type or this config has type indicators, it's a leaf field
-    if (tlaType !== "Value" || this.hasTypeIndicators(fieldConfig)) {
+    // A config with type indicators is a leaf field
+    if (this.hasTypeIndicators(fieldConfig)) {
       const fieldName = this.sanitizeFieldName(prefix);
-      stateFields.push(`${fieldName}: ${tlaType}`);
+      stateFields.push(`${fieldName}: ${this.fieldConfigToTLAType(prefix, fieldConfig, config)}`);
       return;
     }
 
@@ -966,14 +964,14 @@ export class TLAGenerator {
       }
 
       const nestedPath = `${prefix}_${key}`;
-      this.collectNestedFields(nestedPath, value as unknown as FieldConfig, config, stateFields);
+      this.collectNestedFields(nestedPath, value, config, stateFields);
     }
   }
 
   /**
    * Check if a field config has type indicators (not just nested structure)
    */
-  private hasTypeIndicators(fieldConfig: FieldConfig): boolean {
+  private hasTypeIndicators(fieldConfig: FieldConfig | StateConfig): fieldConfig is FieldConfig {
     return (
       "type" in fieldConfig ||
       "values" in fieldConfig ||
@@ -1401,7 +1399,7 @@ export class TLAGenerator {
    */
   private flattenStateConfig(config: VerificationConfig): Map<string, FieldConfig> {
     const out = new Map<string, FieldConfig>();
-    const recurse = (prefix: string, fc: FieldConfig): void => {
+    const recurse = (prefix: string, fc: FieldConfig | StateConfig): void => {
       if (this.hasTypeIndicators(fc)) {
         out.set(this.sanitizeFieldName(prefix), fc);
         return;
@@ -1409,7 +1407,7 @@ export class TLAGenerator {
       for (const [key, value] of Object.entries(fc)) {
         if (typeof value !== "object" || value === null) continue;
         if (key === "item" || key === "element") continue;
-        recurse(`${prefix}_${key}`, value as unknown as FieldConfig);
+        recurse(`${prefix}_${key}`, value);
       }
     };
     for (const [fieldPath, fc] of Object.entries(config.state)) {
@@ -1573,7 +1571,7 @@ export class TLAGenerator {
    */
   private collectNestedInitialValues(
     prefix: string,
-    fieldConfig: FieldConfig,
+    fieldConfig: FieldConfig | StateConfig,
     fields: string[]
   ): void {
     // Check if this is a leaf field (has type indicators)
@@ -1594,7 +1592,7 @@ export class TLAGenerator {
       }
 
       const nestedPath = `${prefix}_${key}`;
-      this.collectNestedInitialValues(nestedPath, value as unknown as FieldConfig, fields);
+      this.collectNestedInitialValues(nestedPath, value, fields);
     }
   }
 
@@ -2029,7 +2027,9 @@ export class TLAGenerator {
     if (assignment.value !== null) return assignment;
 
     const fieldConfig = state[assignment.field];
-    if (!fieldConfig || typeof fieldConfig !== "object") return assignment;
+    if (!fieldConfig || typeof fieldConfig !== "object" || !this.hasTypeIndicators(fieldConfig)) {
+      return assignment;
+    }
 
     // Abstract or nullable fields: preserve null → TLA+ NULL
     if ("abstract" in fieldConfig && fieldConfig.abstract) return assignment;

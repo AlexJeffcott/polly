@@ -435,8 +435,7 @@ export class ConfigValidator {
 
     // Validate symmetry groups have at least 2 members
     if (messages.symmetry) {
-      for (let i = 0; i < messages.symmetry.length; i++) {
-        const group = messages.symmetry[i];
+      for (const [i, group] of messages.symmetry.entries()) {
         if (group.length < 2) {
           this.issues.push({
             type: "invalid_value",
@@ -727,8 +726,7 @@ export class ConfigValidator {
   private validateTier2Optimizations(tier2: NonNullable<VerificationConfig["tier2"]>): void {
     // Validate temporal constraints
     if (tier2.temporalConstraints) {
-      for (let i = 0; i < tier2.temporalConstraints.length; i++) {
-        const constraint = tier2.temporalConstraints[i];
+      for (const [i, constraint] of tier2.temporalConstraints.entries()) {
         if (!constraint.before || !constraint.after) {
           this.issues.push({
             type: "invalid_value",

@@ -120,18 +120,6 @@
     "text": "config as unknown as UnifiedVerificationConfig"
   },
   {
-    "file": "tools/verify/src/codegen/tla.ts",
-    "text": "value as unknown as FieldConfig"
-  },
-  {
-    "file": "tools/verify/src/codegen/tla.ts",
-    "text": "value as unknown as FieldConfig"
-  },
-  {
-    "file": "tools/verify/src/codegen/tla.ts",
-    "text": "value as unknown as FieldConfig"
-  },
-  {
     "file": "tools/visualize/src/__tests__/fixtures/cross-file-handlers/server.ts",
     "text": "JSON.parse(data) as unknown as RequestMessage"
   },
