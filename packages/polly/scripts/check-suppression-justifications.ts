@@ -32,6 +32,10 @@ const BASELINE_PATH = resolve(ROOT, "suppression-baseline.json");
 
 const SCAN_DIRS = ["src", "tools", "tests", "scripts", "cli"];
 const SCAN_EXTS = ["ts", "tsx", "js", "jsx"];
+// Analysis fixtures are input to the parity harness, not code: a directive
+// there is part of the case under test (it keeps biome from reshaping what
+// the golden records), so it has no path to deletion and no ticket.
+const EXCLUDE_PREFIXES = ["scripts/analysis-parity/fixtures/"];
 
 // Match real suppression directives. A directive is recognised when it
 // appears at the start of a line comment (// ...), a block-comment line
@@ -64,8 +68,9 @@ async function collectSuppressions(): Promise<Suppression[]> {
     if (!existsSync(root)) continue;
     const glob = new Glob(`**/*.{${SCAN_EXTS.join(",")}}`);
     for await (const absPath of glob.scan({ cwd: root, absolute: true })) {
-      const contents = readFileSync(absPath, "utf-8");
       const rel = absPath.replace(`${ROOT}/`, "");
+      if (EXCLUDE_PREFIXES.some((prefix) => rel.startsWith(prefix))) continue;
+      const contents = readFileSync(absPath, "utf-8");
       for (const line of contents.split("\n")) {
         if (SUPPRESSION_PATTERN.test(line)) {
           out.push({ file: rel, text: line.trim() });

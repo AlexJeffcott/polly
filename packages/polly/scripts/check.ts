@@ -128,6 +128,10 @@ async function checkSecurity(verbose: boolean): Promise<boolean> {
     "--exclude=docker-compose*",
     // Generated: copies of cast expressions; their source files are scanned.
     "--exclude=casts-baseline.json",
+    // Analysis fixtures are parsed as input, never run; the program-test oracle
+    // holds copies of sources scanned in place.
+    "--exclude=**/analysis-parity/fixtures/**",
+    "--exclude=**/program/__tests__/oracle/**",
     "--error",
   ];
   if (!verbose) {
