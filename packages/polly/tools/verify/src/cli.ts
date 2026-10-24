@@ -20,7 +20,12 @@ import {
 } from "./codegen/model-constants";
 import type { WitnessSpecLocation } from "./codegen/witness";
 import { validateConfig } from "./config/parser";
-import type { CustomTLAPath, UnifiedVerificationConfig } from "./config/types";
+import {
+  type CustomTLAPath,
+  isAdapterConfig,
+  type LegacyVerificationConfig,
+  type UnifiedVerificationConfig,
+} from "./config/types";
 import type { CodebaseAnalysis } from "./core/model";
 import { analyzeCodebase } from "./extract/types";
 import type { DockerRunner, TLCResult, TLCStats } from "./runner/docker";
@@ -467,7 +472,7 @@ function displayMeshOrPeerSignalWarnings(
  * unmodelled path cannot pass with a green check.
  */
 function isStrictMode(): boolean {
-  return process.argv.includes("--strict") || process.env.POLLY_VERIFY_STRICT === "1";
+  return process.argv.includes("--strict") || process.env["POLLY_VERIFY_STRICT"] === "1";
 }
 
 /**
@@ -691,7 +696,7 @@ async function verifyCommand() {
     if (error instanceof Error) {
       // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
       console.error(color(error.message, COLORS.red));
-      if (process.env.POLLY_DEBUG) {
+      if (process.env["POLLY_DEBUG"]) {
         // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
         console.error(color("\nStack trace:", COLORS.gray));
         // biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting
@@ -930,6 +935,14 @@ async function runFullVerification(configPath: string) {
 
   // Validate expressions
   const typedConfig = config as unknown as UnifiedVerificationConfig;
+  if (isAdapterConfig(typedConfig)) {
+    // The TLA+ codegen reads the legacy `messages` block; an adapter-format
+    // config has none, and generation would fail on `config.messages`.
+    console.log(
+      color("❌ Adapter-format configs are not supported by `polly verify` yet\n", COLORS.red)
+    );
+    process.exit(1);
+  }
   // polly#117: mesh/peer signal variable names — references into these
   // are not "unmodeled fields"; they are handled by the dedicated
   // mesh/peer signal warning below.
@@ -981,7 +994,7 @@ async function runFullVerification(configPath: string) {
 }
 
 async function runMonolithicVerification(
-  config: UnifiedVerificationConfig,
+  config: LegacyVerificationConfig,
   analysis: CodebaseAnalysis
 ) {
   // Generate TLA+ specs
@@ -1048,7 +1061,7 @@ async function runMonolithicVerification(
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Subsystem orchestration requires sequential steps with branching
 async function runSubsystemVerification(
-  config: UnifiedVerificationConfig,
+  config: LegacyVerificationConfig,
   analysis: import("./core/model").CodebaseAnalysis
 ) {
   const subsystems = config.subsystems ?? {};
@@ -1761,8 +1774,8 @@ async function runCodebaseAnalysis(): Promise<CodebaseAnalysis> {
 }
 
 async function generateAndWriteTLASpecs(
-  config: unknown,
-  analysis: unknown
+  config: LegacyVerificationConfig,
+  analysis: CodebaseAnalysis
 ): Promise<{ specPath: string; specDir: string }> {
   const { generateTLA } = await import("./codegen/tla");
 

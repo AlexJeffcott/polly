@@ -2,7 +2,13 @@
 
 import type { RoutingAdapter } from "../adapters/base";
 import type { StateSchema } from "../core/model";
-import type { MeshConfig, MessageConfig, SubsystemConfig, VerificationConfig } from "../types";
+import type {
+  MeshConfig,
+  MessageConfig,
+  StateConfig,
+  SubsystemConfig,
+  VerificationConfig,
+} from "../types";
 
 // New Adapter-Based Configuration
 
@@ -151,7 +157,7 @@ export interface CustomTLAPath {
 
 export interface LegacyVerificationConfig {
   /** State configuration (old format) */
-  state: Record<string, unknown>;
+  state: StateConfig;
 
   /**
    * polly#185: the contexts this project actually has, emitted as the `.cfg`'s
