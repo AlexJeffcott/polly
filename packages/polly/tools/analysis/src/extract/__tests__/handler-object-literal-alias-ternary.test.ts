@@ -47,7 +47,7 @@ describe("HandlerExtractor — aliases and ternaries in object literals", () => 
     return tsConfigPath;
   }
 
-  function extract(body: string) {
+  async function extract(body: string) {
     fs.writeFileSync(
       path.join(tempDir, "handlers.ts"),
       `
@@ -69,20 +69,20 @@ ${body}
     return new HandlerExtractor(createTsConfig()).extractHandlers();
   }
 
-  function assignmentsFor(body: string, messageType: string) {
-    const result = extract(body);
+  async function assignmentsFor(body: string, messageType: string) {
+    const result = await extract(body);
     const handler = result.handlers.find((h) => h.messageType === messageType);
     expect(handler).toBeDefined();
     return handler!.assignments;
   }
 
   describe("alias resolution (polly#169)", () => {
-    test("an alias named `state` resolves to the signal, not to the framework `state.` form", () => {
+    test("an alias named `state` resolves to the signal, not to the framework `state.` form", async () => {
       // The dangerous shape: `state.unsyncedChanges` matches the codegen's
       // Phase-2c rule and silently becomes `contextStates[ctx].unsyncedChanges`
       // — a field that does not exist. The record member is
       // `offlineQueue_unsyncedChanges`.
-      const assignments = assignmentsFor(
+      const assignments = await assignmentsFor(
         `
 bus.on("QUEUE_OP", () => {
   const state = offlineQueue.value;
@@ -105,8 +105,8 @@ bus.on("QUEUE_OP", () => {
       );
     });
 
-    test("an alias under any other name resolves too", () => {
-      const assignments = assignmentsFor(
+    test("an alias under any other name resolves too", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("QUEUE_OP2", () => {
   const q = offlineQueue.value;
@@ -126,8 +126,8 @@ bus.on("QUEUE_OP2", () => {
       );
     });
 
-    test("an alias of a different signal resolves to that signal", () => {
-      const assignments = assignmentsFor(
+    test("an alias of a different signal resolves to that signal", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("COPY", () => {
   const o = other.value;
@@ -144,11 +144,11 @@ bus.on("COPY", () => {
       );
     });
 
-    test("only the enclosing function's aliases apply", () => {
+    test("only the enclosing function's aliases apply", async () => {
       // A sibling handler's `const state = other.value` must not leak into this
       // one. Keying on extractor instance state instead of the enclosing
       // function would resolve to `other` here.
-      const assignments = assignmentsFor(
+      const assignments = await assignmentsFor(
         `
 bus.on("SIBLING", () => {
   const state = other.value;
@@ -172,10 +172,10 @@ bus.on("TARGET", () => {
       );
     });
 
-    test("a destructured binding is not treated as an alias", () => {
+    test("a destructured binding is not treated as an alias", async () => {
       // Narrow by design: a wrong entry rewrites an expression into a field
       // that DOES exist, which is worse than one that fails loudly.
-      const assignments = assignmentsFor(
+      const assignments = await assignmentsFor(
         `
 bus.on("DESTRUCTURED", () => {
   const { unsyncedChanges } = offlineQueue.value;
@@ -189,8 +189,8 @@ bus.on("DESTRUCTURED", () => {
       expect(captured?.value).not.toBe("EXPR:offlineQueue.value.unsyncedChanges + 1");
     });
 
-    test("a reassigned `let` is not treated as an alias", () => {
-      const assignments = assignmentsFor(
+    test("a reassigned `let` is not treated as an alias", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("REASSIGNED", () => {
   let state = offlineQueue.value;
@@ -207,8 +207,8 @@ bus.on("REASSIGNED", () => {
   });
 
   describe("ternary initializers (polly#170)", () => {
-    test("a single ternary is captured rather than dropped", () => {
-      const assignments = assignmentsFor(
+    test("a single ternary is captured rather than dropped", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("MARK_PENDING", () => {
   offlineQueue.value = {
@@ -225,8 +225,8 @@ bus.on("MARK_PENDING", () => {
       expect(captured!.value).toContain("?");
     });
 
-    test("a ternary through an alias is both resolved and captured", () => {
-      const assignments = assignmentsFor(
+    test("a ternary through an alias is both resolved and captured", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("MARK_PENDING_ALIAS", () => {
   const state = offlineQueue.value;
@@ -245,9 +245,9 @@ bus.on("MARK_PENDING_ALIAS", () => {
       expect(captured!.value).toContain("offlineQueue.value.syncState");
     });
 
-    test("a nested ternary is rejected, not mistranslated", () => {
+    test("a nested ternary is rejected, not mistranslated", async () => {
       // translateTernary is a regex; nesting produces stacked IF IF IF.
-      const assignments = assignmentsFor(
+      const assignments = await assignmentsFor(
         `
 bus.on("NESTED", () => {
   offlineQueue.value = {
@@ -261,12 +261,12 @@ bus.on("NESTED", () => {
       expect(assignments.find((a) => a.field === "offlineQueue_unsyncedChanges")).toBeUndefined();
     });
 
-    test("a parenthesised ternary is unwrapped so the codegen regex cannot mangle it", () => {
+    test("a parenthesised ternary is unwrapped so the codegen regex cannot mangle it", async () => {
       // Today `isTranslatableInitializer` admits ParenthesizedExpression, so
       // this reached translateTernary and produced `IF (a THEN "y" ELSE "n")`
       // — unbalanced parens that SANY rejects. Unwrapping keeps the capability
       // and removes the shape the regex gets wrong.
-      const assignments = assignmentsFor(
+      const assignments = await assignmentsFor(
         `
 bus.on("PARENS", () => {
   offlineQueue.value = {
@@ -282,8 +282,8 @@ bus.on("PARENS", () => {
       expect(captured!.value).not.toContain("(");
     });
 
-    test("a ternary nested inside arithmetic is rejected", () => {
-      const assignments = assignmentsFor(
+    test("a ternary nested inside arithmetic is rejected", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("MIXED", () => {
   offlineQueue.value = {
@@ -297,8 +297,8 @@ bus.on("MIXED", () => {
       expect(assignments.find((a) => a.field === "offlineQueue_unsyncedChanges")).toBeUndefined();
     });
 
-    test("a call expression anywhere in the subtree is rejected", () => {
-      const assignments = assignmentsFor(
+    test("a call expression anywhere in the subtree is rejected", async () => {
+      const assignments = await assignmentsFor(
         `
 bus.on("CALL", () => {
   offlineQueue.value = { unsyncedChanges: other.value.count + Date.now() };
@@ -310,9 +310,9 @@ bus.on("CALL", () => {
       expect(assignments.find((a) => a.field === "offlineQueue_unsyncedChanges")).toBeUndefined();
     });
 
-    test("a commented ternary is rejected", () => {
+    test("a commented ternary is rejected", async () => {
       // A `//` inside the source text is carried into the generated line.
-      const assignments = assignmentsFor(
+      const assignments = await assignmentsFor(
         `
 bus.on("COMMENTED", () => {
   offlineQueue.value = {

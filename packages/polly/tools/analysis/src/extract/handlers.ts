@@ -54,26 +54,90 @@
 // To request support for additional patterns, please open an issue at:
 // https://github.com/anthropics/polly/issues
 
-import {
-  type ArrowFunction,
-  type BinaryExpression,
-  type CallExpression,
-  type FunctionDeclaration,
-  type FunctionExpression,
-  type Identifier,
-  type IfStatement,
-  type MethodDeclaration,
+import { basename } from "node:path";
+import type {
+  ArrayLiteralExpression,
+  ArrowFunction,
+  BinaryExpression,
+  CallExpression,
+  Declaration,
+  Expression,
+  FunctionDeclaration,
+  FunctionExpression,
+  Identifier,
+  IfStatement,
+  MethodDeclaration,
+  NewExpression,
   Node,
-  type ObjectLiteralExpression,
-  Project,
-  type PropertyAccessExpression,
-  type SourceFile,
-  type Statement,
-  type SwitchStatement,
-  SyntaxKind,
-  type VariableDeclaration,
-  VariableDeclarationKind,
-} from "ts-morph";
+  ObjectLiteralExpression,
+  PropertyAccessExpression,
+  SourceFile,
+  Statement,
+  SwitchStatement,
+  VariableDeclaration,
+} from "typescript-7/ast";
+import { SyntaxKind } from "typescript-7/ast";
+import {
+  isArrayLiteralExpression,
+  isArrowFunction,
+  isAwaitExpression,
+  isBinaryExpression,
+  isBlock,
+  isCallExpression,
+  isCaseClause,
+  isClassDeclaration,
+  isConditionalExpression,
+  isElementAccessExpression,
+  isExpressionStatement,
+  isFunctionDeclaration,
+  isFunctionExpression,
+  isGetAccessorDeclaration,
+  isIdentifier,
+  isIfStatement,
+  isMethodDeclaration,
+  isNewExpression,
+  isNumericLiteral,
+  isObjectLiteralExpression,
+  isParenthesizedExpression,
+  isPostfixUnaryExpression,
+  isPrefixUnaryExpression,
+  isPropertyAccessExpression,
+  isPropertyAssignment,
+  isReturnStatement,
+  isSetAccessorDeclaration,
+  isShorthandPropertyAssignment,
+  isSpreadAssignment,
+  isSpreadElement,
+  isStringLiteral,
+  isSwitchStatement,
+  isTemplateExpression,
+  isTypePredicateNode,
+  isVariableDeclaration,
+  isVariableDeclarationList,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  type AnalysisSource,
+  declarationKind,
+  firstAncestor,
+  firstDescendant,
+  forEachDescendant,
+  functionDeclarations,
+  hasExportKeyword,
+  importDeclarations,
+  kindName,
+  lineAndColumn,
+  literalValue,
+  moduleSpecifierValue,
+  nameOf,
+  objectProperty,
+  startLine,
+  startLinePos,
+  startOf,
+  textOf,
+  variableStatements,
+  withProgram,
+} from "../program";
 import type {
   ComponentRelationship,
   GlobalStateConstraint,
@@ -86,8 +150,7 @@ import type {
   VerificationCondition,
   VerifiedStateInfo,
 } from "../types";
-import { MorphRelationshipExtractor as RelationshipExtractor } from "./relationships-morph";
-import { sourceFilesInPathOrder } from "./source-file-order";
+import { RelationshipExtractor } from "./relationships";
 
 /** A function whose parameters and body a handler is extracted from. */
 type HandlerFunction = ArrowFunction | FunctionExpression | FunctionDeclaration | MethodDeclaration;
@@ -111,10 +174,27 @@ export interface HandlerAnalysis {
   warnings: ExtractionWarning[];
 }
 
+/** ts-morph `getName()` on a node whose name is required (property access, variable, property, parameter). */
+function nameText(node: Node & { readonly name: Node }): string {
+  return textOf(node.name);
+}
+
+/** ts-morph `getArguments()`: a `new X` without parentheses has none. */
+function argumentsOf(expr: CallExpression | NewExpression): readonly Expression[] {
+  return expr.arguments ?? [];
+}
+
+/**
+ * Extracts message handlers and their state mutations from one tsconfig's
+ * program. AST-only apart from go-to-definition (three lookups, answered from
+ * `prefetchDefinitions`), import targets (`prefetchImports`) and the
+ * `isExported` check of the issue-#27 lift pass.
+ */
 export class HandlerExtractor {
-  private project: Project;
+  private tsConfigPath: string;
+  private programRef: AnalysisProgram | undefined;
+  private relationshipRef: RelationshipExtractor | undefined;
   private typeGuardCache: WeakMap<SourceFile, Map<string, string>>;
-  private relationshipExtractor: RelationshipExtractor;
   private analyzedFiles: Set<string>; // Track files we've already analyzed
   private packageRoot: string; // Package directory (contains package.json)
   private warnings: ExtractionWarning[]; // Warnings for unsupported patterns
@@ -123,18 +203,47 @@ export class HandlerExtractor {
   // polly#163: source spans of every function body the extractor modelled as a
   // handler. A verified-state write outside all of these is "off-surface".
   private onSurfaceSpans: Array<{ file: string; start: number; end: number }> = [];
+  // Definition lookups the prefetch did not cover (see `definitionsOf`).
+  private prefetchMisses: string[] = [];
 
   constructor(tsConfigPath: string, contextOverrides?: Map<string, string>) {
-    this.project = new Project({
-      tsConfigFilePath: tsConfigPath,
-    });
+    this.tsConfigPath = tsConfigPath;
     this.typeGuardCache = new WeakMap();
-    this.relationshipExtractor = new RelationshipExtractor();
     this.analyzedFiles = new Set<string>();
     this.warnings = [];
     this.contextOverrides = contextOverrides || new Map();
     // Find package root by looking for package.json from tsconfig location
     this.packageRoot = this.findPackageRoot(tsConfigPath);
+  }
+
+  /** The program of the running `extractHandlers` call. */
+  private get program(): AnalysisProgram {
+    if (!this.programRef) throw new Error("HandlerExtractor: no extraction is running");
+    return this.programRef;
+  }
+
+  private get relationshipExtractor(): RelationshipExtractor {
+    if (!this.relationshipRef) throw new Error("HandlerExtractor: no extraction is running");
+    return this.relationshipRef;
+  }
+
+  /**
+   * ts-morph `identifier.getDefinitionNodes()`, answered from the prefetch.
+   *
+   * Every identifier this extractor resolves is a call callee, a call or
+   * `new` argument, or a property-assignment value, which is the set the
+   * default `prefetchDefinitions()` covers. The call sites swallow errors
+   * (ts-morph's lookup could throw), so a lookup outside the prefetch would
+   * silently lose a handler; it is recorded instead, and `extractHandlers`
+   * throws on it.
+   */
+  private definitionsOf(identifier: Identifier): readonly Declaration[] {
+    try {
+      return this.program.definitionNodes(identifier);
+    } catch (error) {
+      this.prefetchMisses.push(error instanceof Error ? error.message : String(error));
+      return [];
+    }
   }
 
   /**
@@ -157,7 +266,7 @@ export class HandlerExtractor {
    * Extract parameter names from a function
    */
   private extractParameterNames(func: HandlerFunction): string[] {
-    return func.getParameters().map((p) => p.getName());
+    return func.parameters.map((p) => nameText(p));
   }
 
   /**
@@ -165,8 +274,8 @@ export class HandlerExtractor {
    */
   private getNodeLocation(node: Node): string {
     const sourceFile = node.getSourceFile();
-    const lineAndCol = sourceFile.getLineAndColumnAtPos(node.getStart());
-    const filePath = sourceFile.getFilePath();
+    const lineAndCol = lineAndColumn(sourceFile, startOf(node, sourceFile));
+    const filePath = sourceFile.fileName;
     const relativePath = filePath.startsWith(this.packageRoot)
       ? filePath.substring(this.packageRoot.length + 1)
       : filePath;
@@ -207,8 +316,32 @@ export class HandlerExtractor {
    * 2. Follow imports recursively (within package boundary)
    * 3. Cache analyzed files to avoid re-processing
    */
+  //
+  // With no `source`, opens (and closes) a session of its own; a passed
+  // source stays the caller's.
+  async extractHandlers(source?: AnalysisSource): Promise<HandlerAnalysis> {
+    return withProgram(this.tsConfigPath, source, async (program) => {
+      await Promise.all([program.prefetchDefinitions(), program.prefetchImports()]);
+      this.programRef = program;
+      this.relationshipRef = new RelationshipExtractor(program);
+      this.prefetchMisses = [];
+      try {
+        const analysis = await this.extractFrom(program);
+        if (this.prefetchMisses.length > 0) {
+          throw new Error(
+            `HandlerExtractor: ${this.prefetchMisses.length} definition lookup(s) outside the prefetch:\n${this.prefetchMisses.join("\n")}`
+          );
+        }
+        return analysis;
+      } finally {
+        this.programRef = undefined;
+        this.relationshipRef = undefined;
+      }
+    });
+  }
+
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handler extraction requires analyzing multiple patterns and file boundaries
-  extractHandlers(): HandlerAnalysis {
+  private async extractFrom(program: AnalysisProgram): Promise<HandlerAnalysis> {
     const handlers: MessageHandler[] = [];
     const messageTypes = new Set<string>();
     const invalidMessageTypes = new Set<string>();
@@ -221,9 +354,9 @@ export class HandlerExtractor {
     this.onSurfaceSpans = []; // polly#163: reset modelled-handler spans
 
     // Find all source files from tsconfig as potential entry points
-    const allSourceFiles = sourceFilesInPathOrder(this.project);
+    const allSourceFiles = program.sourceFiles;
     // Filter to only files within the package boundary
-    const entryPoints = allSourceFiles.filter((f) => this.isWithinPackage(f.getFilePath()));
+    const entryPoints = allSourceFiles.filter((f) => this.isWithinPackage(f.fileName));
 
     this.debugLogSourceFiles(allSourceFiles, entryPoints);
 
@@ -250,10 +383,10 @@ export class HandlerExtractor {
       }
 
       for (const filePath of this.analyzedFiles) {
-        const sourceFile = this.project.getSourceFile(filePath);
+        const sourceFile = program.sourceFile(filePath);
         if (!sourceFile) continue;
 
-        const mutatingHandlers = this.findStateMutatingFunctions(sourceFile, verifiedStates);
+        const mutatingHandlers = await this.findStateMutatingFunctions(sourceFile, verifiedStates);
 
         for (const handler of mutatingHandlers) {
           // Avoid duplicates - check if handler already exists for this message type
@@ -279,7 +412,7 @@ export class HandlerExtractor {
     // one — the verifier currently has no native support for their
     // cross-peer semantics.
     for (const filePath of this.analyzedFiles) {
-      const sourceFile = this.project.getSourceFile(filePath);
+      const sourceFile = program.sourceFile(filePath);
       if (!sourceFile) continue;
       meshOrPeerSignals.push(...this.extractMeshOrPeerSignalsFromFile(sourceFile));
     }
@@ -295,7 +428,7 @@ export class HandlerExtractor {
     // rest.
     const stateSignalNames = new Set<string>();
     for (const filePath of this.analyzedFiles) {
-      const sourceFile = this.project.getSourceFile(filePath);
+      const sourceFile = program.sourceFile(filePath);
       if (!sourceFile) continue;
       for (const name of this.extractStateSignalVariableNames(sourceFile)) {
         stateSignalNames.add(name);
@@ -310,7 +443,7 @@ export class HandlerExtractor {
         // Test/spec/feature files seed verified state directly by design; that
         // is not a model gap, so the off-surface scan only covers app source.
         if (!this.isOffSurfaceScannable(filePath)) continue;
-        const sourceFile = this.project.getSourceFile(filePath);
+        const sourceFile = program.sourceFile(filePath);
         if (!sourceFile) continue;
         offSurfaceMutations.push(...this.findOffSurfaceMutations(sourceFile, stateSignalNames));
       }
@@ -338,8 +471,8 @@ export class HandlerExtractor {
    */
   extractMeshOrPeerSignalsFromFile(sourceFile: SourceFile): MeshOrPeerSignalInfo[] {
     const out: MeshOrPeerSignalInfo[] = [];
-    const filePath = sourceFile.getFilePath();
-    sourceFile.forEachDescendant((node) => {
+    const filePath = sourceFile.fileName;
+    forEachDescendant(sourceFile, (node) => {
       const info = this.recognizeMeshOrPeerStateCall(node, filePath);
       if (info) out.push(info);
     });
@@ -352,19 +485,19 @@ export class HandlerExtractor {
    * `recognizeVerifiedStateCall` but for the mesh/peer family.
    */
   private recognizeMeshOrPeerStateCall(node: Node, filePath: string): MeshOrPeerSignalInfo | null {
-    if (!Node.isCallExpression(node)) return null;
-    const expression = node.getExpression();
-    if (!Node.isIdentifier(expression)) return null;
+    if (!isCallExpression(node)) return null;
+    const expression = node.expression;
+    if (!isIdentifier(expression)) return null;
 
-    const funcName = expression.getText();
+    const funcName = textOf(expression);
     const kind: "mesh" | "peer" | null =
       funcName === "$meshState" ? "mesh" : funcName === "$peerState" ? "peer" : null;
     if (!kind) return null;
 
-    const args = node.getArguments();
+    const args = node.arguments;
     const keyArg = args[0];
-    if (!keyArg || !Node.isStringLiteral(keyArg)) return null;
-    const key = keyArg.getLiteralValue();
+    if (!keyArg || !isStringLiteral(keyArg)) return null;
+    const key = keyArg.text;
 
     const variableName = this.getVariableNameFromParent(node) || key;
     const access = this.extractMeshAccess(args[2]);
@@ -374,7 +507,7 @@ export class HandlerExtractor {
       key,
       variableName,
       filePath,
-      line: node.getStartLineNumber(),
+      line: startLine(node),
       ...(access ? { access } : {}),
     };
   }
@@ -388,16 +521,16 @@ export class HandlerExtractor {
   private extractMeshAccess(
     optionsArg: Node | undefined
   ): { read: string; write: string } | undefined {
-    if (!optionsArg || !Node.isObjectLiteralExpression(optionsArg)) return undefined;
-    const accessProp = optionsArg.getProperty("access");
-    if (!accessProp || !Node.isPropertyAssignment(accessProp)) return undefined;
-    const accessObj = accessProp.getInitializer();
-    if (!accessObj || !Node.isObjectLiteralExpression(accessObj)) return undefined;
+    if (!optionsArg || !isObjectLiteralExpression(optionsArg)) return undefined;
+    const accessProp = objectProperty(optionsArg, "access");
+    if (!accessProp || !isPropertyAssignment(accessProp)) return undefined;
+    const accessObj = accessProp.initializer;
+    if (!accessObj || !isObjectLiteralExpression(accessObj)) return undefined;
 
     const predicateText = (name: string): string | undefined => {
-      const prop = accessObj.getProperty(name);
-      if (!prop || !Node.isPropertyAssignment(prop)) return undefined;
-      return prop.getInitializer()?.getText().replace(/\s+/g, " ").trim();
+      const prop = objectProperty(accessObj, name);
+      if (!prop || !isPropertyAssignment(prop)) return undefined;
+      return textOf(prop.initializer).replace(/\s+/g, " ").trim();
     };
     const read = predicateText("read");
     const write = predicateText("write");
@@ -423,7 +556,7 @@ export class HandlerExtractor {
     verifiedStates: VerifiedStateInfo[],
     resources: ResourceInfo[]
   ): void {
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
 
     // Skip if already analyzed
     if (this.analyzedFiles.has(filePath)) {
@@ -471,12 +604,11 @@ export class HandlerExtractor {
     }
 
     // Follow imports to discover more files (within package boundary only)
-    const importDeclarations = sourceFile.getImportDeclarations();
-    for (const importDecl of importDeclarations) {
-      const importedFile = importDecl.getModuleSpecifierSourceFile();
+    for (const importDecl of importDeclarations(sourceFile)) {
+      const importedFile = this.program.moduleSpecifierSourceFile(importDecl);
 
       if (importedFile) {
-        const importedPath = importedFile.getFilePath();
+        const importedPath = importedFile.fileName;
 
         // Only follow imports within the same package
         // This excludes:
@@ -504,7 +636,7 @@ export class HandlerExtractor {
         );
       } else if (process.env["POLLY_DEBUG"]) {
         // Log unresolved imports for debugging
-        const specifier = importDecl.getModuleSpecifierValue();
+        const specifier = moduleSpecifierValue(importDecl) ?? "";
         if (!specifier.startsWith("node:") && !this.isNodeModuleImport(specifier)) {
           console.log(`[DEBUG] Could not resolve import: ${specifier} in ${filePath}`);
         }
@@ -549,14 +681,17 @@ export class HandlerExtractor {
     );
   }
 
-  private debugLogSourceFiles(allSourceFiles: SourceFile[], entryPoints: SourceFile[]): void {
+  private debugLogSourceFiles(
+    allSourceFiles: readonly SourceFile[],
+    entryPoints: readonly SourceFile[]
+  ): void {
     if (!process.env["POLLY_DEBUG"]) return;
 
     console.log(`[DEBUG] Loaded ${allSourceFiles.length} source files from tsconfig`);
     console.log(`[DEBUG] Filtered to ${entryPoints.length} entry points within package`);
     if (entryPoints.length <= 20) {
       for (const sf of entryPoints) {
-        console.log(`[DEBUG]   - ${sf.getFilePath()}`);
+        console.log(`[DEBUG]   - ${sf.fileName}`);
       }
     }
   }
@@ -602,10 +737,10 @@ export class HandlerExtractor {
    */
   private extractFromFile(sourceFile: SourceFile): MessageHandler[] {
     const handlers: MessageHandler[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
     const context = this.inferContext(filePath);
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       this.processNodeForHandlers(node, context, filePath, handlers);
     });
 
@@ -621,21 +756,21 @@ export class HandlerExtractor {
     filePath: string,
     handlers: MessageHandler[]
   ): void {
-    if (Node.isCallExpression(node)) {
+    if (isCallExpression(node)) {
       this.processCallExpressionHandler(node, context, filePath, handlers);
     }
 
-    if (Node.isSwitchStatement(node)) {
+    if (isSwitchStatement(node)) {
       const switchHandlers = this.extractSwitchCaseHandlers(node, context, filePath);
       handlers.push(...switchHandlers);
     }
 
-    if (Node.isVariableDeclaration(node)) {
+    if (isVariableDeclaration(node)) {
       const mapHandlers = this.extractHandlerMapPattern(node, context, filePath);
       handlers.push(...mapHandlers);
     }
 
-    if (Node.isIfStatement(node) && !this.isElseIfStatement(node)) {
+    if (isIfStatement(node) && !this.isElseIfStatement(node)) {
       const typeGuardHandlers = this.extractTypeGuardHandlers(node, context, filePath);
       handlers.push(...typeGuardHandlers);
     }
@@ -650,10 +785,10 @@ export class HandlerExtractor {
     filePath: string,
     handlers: MessageHandler[]
   ): void {
-    const expression = node.getExpression();
+    const expression = node.expression;
 
-    if (Node.isPropertyAccessExpression(expression)) {
-      const methodName = expression.getName();
+    if (isPropertyAccessExpression(expression)) {
+      const methodName = nameText(expression);
 
       if (methodName === "on" || methodName === "addEventListener") {
         const handler = this.extractHandler(node, context, filePath);
@@ -687,8 +822,8 @@ export class HandlerExtractor {
    * Check if a node is an else-if statement
    */
   private isElseIfStatement(node: Node): boolean {
-    const parent = node.getParent();
-    return parent !== undefined && Node.isIfStatement(parent);
+    const parent = node.parent;
+    return parent !== undefined && isIfStatement(parent);
   }
 
   /**
@@ -700,7 +835,7 @@ export class HandlerExtractor {
     context: string,
     filePath: string
   ): MessageHandler | null {
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length < 2) {
       return null;
@@ -710,11 +845,11 @@ export class HandlerExtractor {
     const messageTypeArg = args[0];
     let messageType: string | null = null;
 
-    if (Node.isStringLiteral(messageTypeArg)) {
-      messageType = messageTypeArg.getLiteralValue();
-    } else if (Node.isTemplateExpression(messageTypeArg)) {
+    if (messageTypeArg && isStringLiteral(messageTypeArg)) {
+      messageType = messageTypeArg.text;
+    } else if (messageTypeArg && isTemplateExpression(messageTypeArg)) {
       // Handle template literals if needed
-      messageType = messageTypeArg.getText().replace(/[`'"]/g, "");
+      messageType = textOf(messageTypeArg).replace(/[`'"]/g, "");
     }
 
     if (!messageType) {
@@ -730,9 +865,9 @@ export class HandlerExtractor {
     // Parse the handler function for state assignments and verification conditions
     let actualHandler: ArrowFunction | FunctionExpression | FunctionDeclaration | null = null;
 
-    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+    if (handlerArg && (isArrowFunction(handlerArg) || isFunctionExpression(handlerArg))) {
       actualHandler = handlerArg;
-    } else if (Node.isIdentifier(handlerArg)) {
+    } else if (handlerArg && isIdentifier(handlerArg)) {
       // Resolve function reference (e.g., bus.on('query', handleQuery))
       actualHandler = this.resolveFunctionReference(handlerArg);
     }
@@ -747,13 +882,13 @@ export class HandlerExtractor {
       this.extractVerificationConditions(actualHandler, preconditions, postconditions);
 
       // Check for async mutations (potential race conditions)
-      if (Node.isArrowFunction(actualHandler) || Node.isFunctionExpression(actualHandler)) {
+      if (isArrowFunction(actualHandler) || isFunctionExpression(actualHandler)) {
         this.checkAsyncMutations(actualHandler, messageType);
       }
       this.currentFunctionParams = [];
     }
 
-    const line = callExpr.getStartLineNumber();
+    const line = startLine(callExpr);
 
     // Extract relationships from handler code
     const sourceFile = callExpr.getSourceFile();
@@ -797,33 +932,33 @@ export class HandlerExtractor {
     filePath: string,
     handlers: MessageHandler[]
   ): void {
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) return;
 
     // First arg is the route path (string)
     const routeArg = args[0];
-    if (!routeArg || !Node.isStringLiteral(routeArg)) return;
-    const routePath = routeArg.getLiteralValue();
+    if (!routeArg || !isStringLiteral(routeArg)) return;
+    const routePath = routeArg.text;
 
     // Second arg is the config object
     const configArg = args[1];
-    if (!configArg || !Node.isObjectLiteralExpression(configArg)) return;
+    if (!configArg || !isObjectLiteralExpression(configArg)) return;
 
     // Look for message, open, close callbacks
     const callbacks = ["message", "open", "close"];
     for (const cbName of callbacks) {
-      const prop = configArg.getProperty(cbName);
+      const prop = objectProperty(configArg, cbName);
       if (!prop) continue;
 
       let funcBody: HandlerFunction | null = null;
 
-      if (Node.isMethodDeclaration(prop)) {
+      if (isMethodDeclaration(prop)) {
         // Method shorthand: message(ws, data) { ... }
         // Use the method body directly for analysis
         funcBody = prop;
-      } else if (Node.isPropertyAssignment(prop)) {
-        const init = prop.getInitializer();
-        if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+      } else if (isPropertyAssignment(prop)) {
+        const init = prop.initializer;
+        if (init && (isArrowFunction(init) || isFunctionExpression(init))) {
           funcBody = init;
         }
       }
@@ -832,7 +967,7 @@ export class HandlerExtractor {
 
       if (cbName === "message") {
         // Walk body for type guard handlers and switch statements
-        const body = funcBody.getBody();
+        const body = funcBody.body;
         if (!body) continue;
 
         const subHandlers = this.extractSubHandlersFromBody(body, context, filePath);
@@ -848,7 +983,7 @@ export class HandlerExtractor {
               context,
               filePath,
               funcBody,
-              node.getStartLineNumber()
+              startLine(node)
             )
           );
         }
@@ -861,7 +996,7 @@ export class HandlerExtractor {
             context,
             filePath,
             funcBody,
-            node.getStartLineNumber()
+            startLine(node)
           )
         );
       }
@@ -878,12 +1013,12 @@ export class HandlerExtractor {
   ): MessageHandler[] {
     const subHandlers: MessageHandler[] = [];
 
-    body.forEachDescendant((child) => {
-      if (Node.isIfStatement(child) && !this.isElseIfStatement(child)) {
+    forEachDescendant(body, (child) => {
+      if (isIfStatement(child) && !this.isElseIfStatement(child)) {
         const typeGuardHandlers = this.extractTypeGuardHandlers(child, context, filePath);
         subHandlers.push(...typeGuardHandlers);
       }
-      if (Node.isSwitchStatement(child)) {
+      if (isSwitchStatement(child)) {
         const switchHandlers = this.extractSwitchCaseHandlers(child, context, filePath);
         subHandlers.push(...switchHandlers);
       }
@@ -932,13 +1067,13 @@ export class HandlerExtractor {
     context: string,
     filePath: string
   ): MessageHandler | null {
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) return null;
 
     // First arg must be a string literal route path
     const routeArg = args[0];
-    if (!routeArg || !Node.isStringLiteral(routeArg)) return null;
-    const routePath = routeArg.getLiteralValue();
+    if (!routeArg || !isStringLiteral(routeArg)) return null;
+    const routePath = routeArg.text;
 
     const httpMethod = methodName.toUpperCase();
     const messageType = `${httpMethod} ${routePath}`;
@@ -951,9 +1086,9 @@ export class HandlerExtractor {
 
     let actualHandler: ArrowFunction | FunctionExpression | FunctionDeclaration | null = null;
 
-    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+    if (handlerArg && (isArrowFunction(handlerArg) || isFunctionExpression(handlerArg))) {
       actualHandler = handlerArg;
-    } else if (Node.isIdentifier(handlerArg)) {
+    } else if (handlerArg && isIdentifier(handlerArg)) {
       actualHandler = this.resolveFunctionReference(handlerArg);
     }
 
@@ -976,7 +1111,7 @@ export class HandlerExtractor {
       postconditions,
       location: {
         file: filePath,
-        line: node.getStartLineNumber(),
+        line: startLine(node),
       },
       origin: "event" as const,
       parameters,
@@ -991,8 +1126,8 @@ export class HandlerExtractor {
    */
   private isWebFrameworkFile(sourceFile: SourceFile): boolean {
     const frameworks = ["elysia", "express", "hono", "fastify", "koa", "@elysiajs/eden"];
-    for (const importDecl of sourceFile.getImportDeclarations()) {
-      const specifier = importDecl.getModuleSpecifierValue();
+    for (const importDecl of importDeclarations(sourceFile)) {
+      const specifier = moduleSpecifierValue(importDecl) ?? "";
       if (frameworks.some((fw) => specifier === fw || specifier.startsWith(`${fw}/`))) {
         return true;
       }
@@ -1014,16 +1149,16 @@ export class HandlerExtractor {
     // verified-state write inside its span is "on-surface" and must not be
     // re-reported as an escaped mutator.
     this.recordOnSurfaceSpan(funcNode);
-    funcNode.forEachDescendant((node: Node) => {
-      if (Node.isBinaryExpression(node)) {
+    forEachDescendant(funcNode, (node: Node) => {
+      if (isBinaryExpression(node)) {
         this.extractBinaryExpressionAssignment(node, assignments);
       }
 
-      if (Node.isCallExpression(node)) {
+      if (isCallExpression(node)) {
         this.extractArrayMutationAssignment(node, assignments);
       }
 
-      if (Node.isPostfixUnaryExpression(node) || Node.isPrefixUnaryExpression(node)) {
+      if (isPostfixUnaryExpression(node) || isPrefixUnaryExpression(node)) {
         this.extractUnaryExpressionAssignment(node, assignments);
       }
     });
@@ -1033,9 +1168,9 @@ export class HandlerExtractor {
    * Extract assignments from binary expressions (=, +=, -=, etc.)
    */
   private extractBinaryExpressionAssignment(node: Node, assignments: StateAssignment[]): void {
-    if (!Node.isBinaryExpression(node)) return;
+    if (!isBinaryExpression(node)) return;
 
-    const operator = node.getOperatorToken().getText();
+    const operator = textOf(node.operatorToken);
 
     if (operator === "=") {
       this.extractSimpleOrElementAccessAssignment(node, assignments);
@@ -1048,14 +1183,14 @@ export class HandlerExtractor {
    * Extract simple or element access assignments (state.field = value or state.items[0] = value)
    */
   private extractSimpleOrElementAccessAssignment(node: Node, assignments: StateAssignment[]): void {
-    if (!Node.isBinaryExpression(node)) return;
+    if (!isBinaryExpression(node)) return;
 
-    const left = node.getLeft();
-    const right = node.getRight();
+    const left = node.left;
+    const right = node.right;
 
-    if (Node.isPropertyAccessExpression(left)) {
+    if (isPropertyAccessExpression(left)) {
       this.extractPropertyAccessAssignment(left, right, assignments);
-    } else if (Node.isElementAccessExpression(left)) {
+    } else if (isElementAccessExpression(left)) {
       this.extractElementAccessAssignment(left, right, assignments);
     }
   }
@@ -1068,7 +1203,7 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): void {
-    if (!Node.isPropertyAccessExpression(left)) return;
+    if (!isPropertyAccessExpression(left)) return;
 
     const fieldPath = this.getPropertyPath(left);
 
@@ -1121,7 +1256,7 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): boolean {
-    if (!fieldPath.endsWith(".value") || !Node.isObjectLiteralExpression(right)) return false;
+    if (!fieldPath.endsWith(".value") || !isObjectLiteralExpression(right)) return false;
     const signalName = fieldPath.slice(0, -6);
     if (this.isSpreadUpdatePattern(right, fieldPath)) {
       this.extractSpreadUpdateAssignments(right, assignments, signalName);
@@ -1133,14 +1268,14 @@ export class HandlerExtractor {
 
   /** Check if object literal is a spread update pattern: { ...existing, field: value } */
   private isSpreadUpdatePattern(
-    objectLiteral: import("ts-morph").ObjectLiteralExpression,
+    objectLiteral: ObjectLiteralExpression,
     fieldPath: string
   ): boolean {
-    const properties = objectLiteral.getProperties();
+    const properties = objectLiteral.properties;
     if (properties.length === 0) return false;
     const firstProp = properties[0];
-    if (!firstProp || !Node.isSpreadAssignment(firstProp)) return false;
-    const spreadExpr = firstProp.getExpression();
+    if (!firstProp || !isSpreadAssignment(firstProp)) return false;
+    const spreadExpr = firstProp.expression;
     if (!spreadExpr) return false;
     return this.getPropertyPath(spreadExpr) === fieldPath;
   }
@@ -1151,7 +1286,7 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): boolean {
-    if (!fieldPath.endsWith(".value") || !Node.isArrayLiteralExpression(right)) return false;
+    if (!fieldPath.endsWith(".value") || !isArrayLiteralExpression(right)) return false;
     const signalName = fieldPath.slice(0, -6);
     const arrayAssignment = this.extractArraySpreadOperation(right, fieldPath, signalName);
     if (arrayAssignment) {
@@ -1166,7 +1301,7 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): boolean {
-    if (!fieldPath.endsWith(".value") || !Node.isCallExpression(right)) return false;
+    if (!fieldPath.endsWith(".value") || !isCallExpression(right)) return false;
     const signalName = fieldPath.slice(0, -6);
 
     // Check for and warn about Set/Map direct method calls that mutate
@@ -1180,18 +1315,18 @@ export class HandlerExtractor {
   }
 
   /** Check for mutating Set/Map methods and emit warnings */
-  private checkForMutatingCollectionMethods(callExpr: import("ts-morph").CallExpression): void {
-    const expression = callExpr.getExpression();
-    if (!Node.isPropertyAccessExpression(expression)) return;
+  private checkForMutatingCollectionMethods(callExpr: CallExpression): void {
+    const expression = callExpr.expression;
+    if (!isPropertyAccessExpression(expression)) return;
 
-    const methodName = expression.getName();
-    const sourceExpr = expression.getExpression();
+    const methodName = nameText(expression);
+    const sourceExpr = expression.expression;
 
     // Check for Set mutating methods
     const setMethods = ["add", "delete", "clear"];
     if (setMethods.includes(methodName)) {
       // Try to determine if this is a Set operation by checking the source expression
-      const sourceText = sourceExpr.getText();
+      const sourceText = textOf(sourceExpr);
       if (sourceText.includes("Set") || this.looksLikeSetOrMap(sourceExpr, "Set")) {
         this.warnUnsupportedPattern(
           `set.${methodName}()`,
@@ -1204,7 +1339,7 @@ export class HandlerExtractor {
     // Check for Map mutating methods
     const mapMethods = ["set", "delete", "clear"];
     if (mapMethods.includes(methodName)) {
-      const sourceText = sourceExpr.getText();
+      const sourceText = textOf(sourceExpr);
       if (sourceText.includes("Map") || this.looksLikeSetOrMap(sourceExpr, "Map")) {
         this.warnUnsupportedPattern(
           `map.${methodName}()`,
@@ -1217,7 +1352,7 @@ export class HandlerExtractor {
 
   /** Heuristic check if an expression might be a Set or Map */
   private looksLikeSetOrMap(expr: Node, collectionType: "Set" | "Map"): boolean {
-    const text = expr.getText().toLowerCase();
+    const text = textOf(expr).toLowerCase();
     return text.includes(collectionType.toLowerCase());
   }
 
@@ -1227,9 +1362,9 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): boolean {
-    if (!fieldPath.endsWith(".value") || !Node.isNewExpression(right)) return false;
-    const constructorExpr = right.getExpression();
-    if (!Node.isIdentifier(constructorExpr) || constructorExpr.getText() !== "Set") return false;
+    if (!fieldPath.endsWith(".value") || !isNewExpression(right)) return false;
+    const constructorExpr = right.expression;
+    if (!isIdentifier(constructorExpr) || textOf(constructorExpr) !== "Set") return false;
 
     const signalName = fieldPath.slice(0, -6);
     const setAssignment = this.extractSetOperation(right, fieldPath, signalName);
@@ -1245,9 +1380,9 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): boolean {
-    if (!fieldPath.endsWith(".value") || !Node.isNewExpression(right)) return false;
-    const constructorExpr = right.getExpression();
-    if (!Node.isIdentifier(constructorExpr) || constructorExpr.getText() !== "Map") return false;
+    if (!fieldPath.endsWith(".value") || !isNewExpression(right)) return false;
+    const constructorExpr = right.expression;
+    if (!isIdentifier(constructorExpr) || textOf(constructorExpr) !== "Map") return false;
 
     const signalName = fieldPath.slice(0, -6);
     const mapAssignment = this.extractMapOperation(right, fieldPath, signalName);
@@ -1277,7 +1412,7 @@ export class HandlerExtractor {
     }
 
     // Try extracting payload.xxx property access
-    if (Node.isPropertyAccessExpression(right)) {
+    if (isPropertyAccessExpression(right)) {
       const rightPath = this.getPropertyPath(right);
       const parts = rightPath.split(".");
       if (
@@ -1296,11 +1431,11 @@ export class HandlerExtractor {
 
   /** Extract Set operations from new Set(...) constructor */
   private extractSetOperation(
-    newExpr: import("ts-morph").NewExpression,
+    newExpr: NewExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const args = newExpr.getArguments();
+    const args = argumentsOf(newExpr);
 
     // new Set() - clear operation
     if (args.length === 0) {
@@ -1311,12 +1446,12 @@ export class HandlerExtractor {
     if (!firstArg) return null;
 
     // new Set([...set.value, item]) - add operation
-    if (Node.isArrayLiteralExpression(firstArg)) {
+    if (isArrayLiteralExpression(firstArg)) {
       return this.extractSetArrayOperation(firstArg, fieldPath, signalName);
     }
 
     // new Set([...set.value].filter(...)) - delete operation via method chain
-    if (Node.isCallExpression(firstArg)) {
+    if (isCallExpression(firstArg)) {
       return this.extractSetMethodChainOperation(firstArg, fieldPath, signalName);
     }
 
@@ -1325,19 +1460,19 @@ export class HandlerExtractor {
 
   /** Extract Set operation from array literal: new Set([...set.value, item]) */
   private extractSetArrayOperation(
-    arrayLiteral: import("ts-morph").ArrayLiteralExpression,
+    arrayLiteral: ArrayLiteralExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const elements = arrayLiteral.getElements();
+    const elements = arrayLiteral.elements;
     if (elements.length < 1) return null;
 
     const firstElement = elements[0];
     const lastElement = elements[elements.length - 1];
 
     // Check for add: new Set([...set.value, item])
-    if (firstElement && Node.isSpreadElement(firstElement)) {
-      const spreadExpr = firstElement.getExpression();
+    if (firstElement && isSpreadElement(firstElement)) {
+      const spreadExpr = firstElement.expression;
       if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
         // Add operation: @ \union {payload}
         return { field: signalName, value: "@ \\union {payload}" };
@@ -1345,8 +1480,8 @@ export class HandlerExtractor {
     }
 
     // Check for add at beginning: new Set([item, ...set.value])
-    if (lastElement && Node.isSpreadElement(lastElement)) {
-      const spreadExpr = lastElement.getExpression();
+    if (lastElement && isSpreadElement(lastElement)) {
+      const spreadExpr = lastElement.expression;
       if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
         return { field: signalName, value: "{payload} \\union @" };
       }
@@ -1357,23 +1492,23 @@ export class HandlerExtractor {
 
   /** Extract Set operation from method chain: new Set([...set.value].filter(...)) */
   private extractSetMethodChainOperation(
-    callExpr: import("ts-morph").CallExpression,
+    callExpr: CallExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const expression = callExpr.getExpression();
-    if (!Node.isPropertyAccessExpression(expression)) return null;
+    const expression = callExpr.expression;
+    if (!isPropertyAccessExpression(expression)) return null;
 
-    const methodName = expression.getName();
-    const sourceExpr = expression.getExpression();
+    const methodName = nameText(expression);
+    const sourceExpr = expression.expression;
 
     // Check for [...set.value].filter(...) pattern
-    if (methodName === "filter" && Node.isArrayLiteralExpression(sourceExpr)) {
-      const elements = sourceExpr.getElements();
+    if (methodName === "filter" && isArrayLiteralExpression(sourceExpr)) {
+      const elements = sourceExpr.elements;
       if (elements.length === 1) {
         const spreadEl = elements[0];
-        if (spreadEl && Node.isSpreadElement(spreadEl)) {
-          const spreadExpr = spreadEl.getExpression();
+        if (spreadEl && isSpreadElement(spreadEl)) {
+          const spreadExpr = spreadEl.expression;
           if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
             // Delete operation: @ \ {payload}
             return { field: signalName, value: "@ \\ {payload}" };
@@ -1387,11 +1522,11 @@ export class HandlerExtractor {
 
   /** Extract Map operations from new Map(...) constructor */
   private extractMapOperation(
-    newExpr: import("ts-morph").NewExpression,
+    newExpr: NewExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const args = newExpr.getArguments();
+    const args = argumentsOf(newExpr);
 
     // new Map() - clear operation
     if (args.length === 0) {
@@ -1402,12 +1537,12 @@ export class HandlerExtractor {
     if (!firstArg) return null;
 
     // new Map([...map.value, [key, value]]) - set operation
-    if (Node.isArrayLiteralExpression(firstArg)) {
+    if (isArrayLiteralExpression(firstArg)) {
       return this.extractMapArrayOperation(firstArg, fieldPath, signalName);
     }
 
     // new Map([...map.value].filter(...)) - delete operation via method chain
-    if (Node.isCallExpression(firstArg)) {
+    if (isCallExpression(firstArg)) {
       return this.extractMapMethodChainOperation(firstArg, fieldPath, signalName);
     }
 
@@ -1416,18 +1551,18 @@ export class HandlerExtractor {
 
   /** Extract Map operation from array literal: new Map([...map.value, [key, val]]) */
   private extractMapArrayOperation(
-    arrayLiteral: import("ts-morph").ArrayLiteralExpression,
+    arrayLiteral: ArrayLiteralExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const elements = arrayLiteral.getElements();
+    const elements = arrayLiteral.elements;
     if (elements.length < 1) return null;
 
     const firstElement = elements[0];
 
     // Check for set: new Map([...map.value, [key, value]])
-    if (firstElement && Node.isSpreadElement(firstElement)) {
-      const spreadExpr = firstElement.getExpression();
+    if (firstElement && isSpreadElement(firstElement)) {
+      const spreadExpr = firstElement.expression;
       if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
         // Set operation: [@ EXCEPT ![payload.key] = payload.value]
         return { field: signalName, value: "[@ EXCEPT ![payload.key] = payload.value]" };
@@ -1439,23 +1574,23 @@ export class HandlerExtractor {
 
   /** Extract Map operation from method chain: new Map([...map.value].filter(...)) */
   private extractMapMethodChainOperation(
-    callExpr: import("ts-morph").CallExpression,
+    callExpr: CallExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const expression = callExpr.getExpression();
-    if (!Node.isPropertyAccessExpression(expression)) return null;
+    const expression = callExpr.expression;
+    if (!isPropertyAccessExpression(expression)) return null;
 
-    const methodName = expression.getName();
-    const sourceExpr = expression.getExpression();
+    const methodName = nameText(expression);
+    const sourceExpr = expression.expression;
 
     // Check for [...map.value].filter(...) pattern
-    if (methodName === "filter" && Node.isArrayLiteralExpression(sourceExpr)) {
-      const elements = sourceExpr.getElements();
+    if (methodName === "filter" && isArrayLiteralExpression(sourceExpr)) {
+      const elements = sourceExpr.elements;
       if (elements.length === 1) {
         const spreadEl = elements[0];
-        if (spreadEl && Node.isSpreadElement(spreadEl)) {
-          const spreadExpr = spreadEl.getExpression();
+        if (spreadEl && isSpreadElement(spreadEl)) {
+          const spreadExpr = spreadEl.expression;
           if (spreadExpr && this.getPropertyPath(spreadExpr) === fieldPath) {
             // Delete operation: restrict domain
             return { field: signalName, value: "[k \\in DOMAIN @ \\ {payload.key} |-> @[k]]" };
@@ -1471,15 +1606,15 @@ export class HandlerExtractor {
    * Extract array method operations: arr.filter(...), arr.map(...)
    */
   private extractArrayMethodOperation(
-    callExpr: import("ts-morph").CallExpression,
+    callExpr: CallExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const expression = callExpr.getExpression();
-    if (!Node.isPropertyAccessExpression(expression)) return null;
+    const expression = callExpr.expression;
+    if (!isPropertyAccessExpression(expression)) return null;
 
-    const methodName = expression.getName();
-    const sourceExpr = expression.getExpression();
+    const methodName = nameText(expression);
+    const sourceExpr = expression.expression;
     const sourcePath = this.getPropertyPath(sourceExpr);
 
     // Check if source matches target (e.g., todos.value = todos.value.filter(...))
@@ -1564,13 +1699,13 @@ export class HandlerExtractor {
    * Only extracts the explicitly set properties, not the spread
    */
   private extractSpreadUpdateAssignments(
-    objectLiteral: import("ts-morph").ObjectLiteralExpression,
+    objectLiteral: ObjectLiteralExpression,
     assignments: StateAssignment[],
     signalName: string
   ): void {
-    for (const prop of objectLiteral.getProperties()) {
+    for (const prop of objectLiteral.properties) {
       // Skip spread assignments (they preserve existing values)
-      if (Node.isSpreadAssignment(prop)) continue;
+      if (isSpreadAssignment(prop)) continue;
 
       // Extract regular property assignments
       this.extractPropertyAssignment(prop, assignments, signalName);
@@ -1581,11 +1716,11 @@ export class HandlerExtractor {
    * Extract array spread operations: [...arr, item] or [item, ...arr]
    */
   private extractArraySpreadOperation(
-    arrayLiteral: import("ts-morph").ArrayLiteralExpression,
+    arrayLiteral: ArrayLiteralExpression,
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
-    const elements = arrayLiteral.getElements();
+    const elements = arrayLiteral.elements;
     if (elements.length < 1) return null;
 
     // Try append pattern first, then prepend
@@ -1597,14 +1732,14 @@ export class HandlerExtractor {
 
   /** Extract append operation: [...arr, item] or [...arr, item1, item2] */
   private tryExtractAppendOperation(
-    elements: Node[],
+    elements: readonly Node[],
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
     const firstElement = elements[0];
-    if (!firstElement || !Node.isSpreadElement(firstElement)) return null;
+    if (!firstElement || !isSpreadElement(firstElement)) return null;
 
-    const spreadExpr = firstElement.getExpression();
+    const spreadExpr = firstElement.expression;
     if (!spreadExpr || this.getPropertyPath(spreadExpr) !== fieldPath) return null;
 
     if (elements.length === 2) {
@@ -1618,16 +1753,16 @@ export class HandlerExtractor {
 
   /** Extract prepend operation: [item, ...arr] or [item1, item2, ...arr] */
   private tryExtractPrependOperation(
-    elements: Node[],
+    elements: readonly Node[],
     fieldPath: string,
     signalName: string
   ): StateAssignment | null {
     if (elements.length < 2) return null;
 
     const lastElement = elements[elements.length - 1];
-    if (!lastElement || !Node.isSpreadElement(lastElement)) return null;
+    if (!lastElement || !isSpreadElement(lastElement)) return null;
 
-    const spreadExpr = lastElement.getExpression();
+    const spreadExpr = lastElement.expression;
     if (!spreadExpr || this.getPropertyPath(spreadExpr) !== fieldPath) return null;
 
     if (elements.length === 2) {
@@ -1649,9 +1784,9 @@ export class HandlerExtractor {
     assignments: StateAssignment[],
     signalName?: string
   ): void {
-    if (!Node.isObjectLiteralExpression(objectLiteral)) return;
+    if (!isObjectLiteralExpression(objectLiteral)) return;
 
-    for (const prop of objectLiteral.getProperties()) {
+    for (const prop of objectLiteral.properties) {
       this.extractPropertyAssignment(prop, assignments, signalName);
     }
   }
@@ -1665,14 +1800,14 @@ export class HandlerExtractor {
     signalName?: string
   ): void {
     // Handle regular property assignments: { field: value }
-    if (Node.isPropertyAssignment(prop)) {
+    if (isPropertyAssignment(prop)) {
       this.extractRegularPropertyAssignment(prop, assignments, signalName);
       return;
     }
 
     // Handle shorthand properties: { field }
-    if (Node.isShorthandPropertyAssignment(prop)) {
-      const name = prop.getName();
+    if (isShorthandPropertyAssignment(prop)) {
+      const name = nameText(prop);
       const field = signalName ? `${signalName}_${name}` : name;
       // If the identifier matches a function parameter, trace it to payload
       if (this.currentFunctionParams.includes(name)) {
@@ -1696,9 +1831,9 @@ export class HandlerExtractor {
     assignments: StateAssignment[],
     signalName?: string
   ): void {
-    if (!Node.isPropertyAssignment(prop)) return;
-    const name = prop.getName();
-    const initializer = prop.getInitializer();
+    if (!isPropertyAssignment(prop)) return;
+    const name = nameText(prop);
+    const initializer = prop.initializer;
     if (!name || !initializer) return;
 
     const field = signalName ? `${signalName}_${name}` : name;
@@ -1714,8 +1849,8 @@ export class HandlerExtractor {
     // `{ view }` form already does this; without this branch the renamed
     // form silently drops the assignment from the action body and leaves
     // ensures references to the parameter unbound (issue #77).
-    if (Node.isIdentifier(initializer)) {
-      const paramName = initializer.getText();
+    if (isIdentifier(initializer)) {
+      const paramName = textOf(initializer);
       if (this.currentFunctionParams.includes(paramName)) {
         assignments.push({ field, value: `param:${paramName}` });
         return;
@@ -1737,7 +1872,7 @@ export class HandlerExtractor {
     // arithmetic on the signal's own field (`outstanding + 1`), a copy of
     // another field, an index access — is captured verbatim and translated to
     // TLA+ at codegen time, mirroring how `state.foo += 1` keeps its RHS via
-    // `right.getText()`. Without this the assignment was silently dropped, so a
+    // `textOf(right)`. Without this the assignment was silently dropped, so a
     // counter `signal.value = { outstanding: signal.value.outstanding + 1 }`
     // generated an UNCHANGED stub and its bounded-counter ensures could never
     // be anchored.
@@ -1757,7 +1892,7 @@ export class HandlerExtractor {
     // written over it then holds vacuously (polly#170).
     const on = signalName ? ` on ${signalName}.value` : "";
     console.log(
-      `[WARN] dropped object-literal property '${name}'${on} — initializer \`${initializer.getText().replace(/\s+/g, " ").slice(0, 80)}\` (${initializer.getKindName()}) is not translatable to TLA+`
+      `[WARN] dropped object-literal property '${name}'${on} — initializer \`${textOf(initializer).replace(/\s+/g, " ").slice(0, 80)}\` (${kindName(initializer)}) is not translatable to TLA+`
     );
   }
 
@@ -1784,31 +1919,31 @@ export class HandlerExtractor {
    */
   private resolveSignalAliases(initializer: Node): string {
     const aliases = this.collectSignalAliases(initializer);
-    if (aliases.size === 0) return initializer.getText();
+    if (aliases.size === 0) return textOf(initializer);
 
-    const base = initializer.getStart();
+    const base = startOf(initializer);
     const edits: Array<{ start: number; end: number; text: string }> = [];
 
     // forEachDescendant excludes the node itself, and the initializer is often
     // the whole access (`o.count`), so visit the root as well.
     const visit = (node: Node): void => {
-      if (!Node.isPropertyAccessExpression(node)) return;
-      const target = node.getExpression();
-      if (!Node.isIdentifier(target)) return;
-      const signal = aliases.get(target.getText());
+      if (!isPropertyAccessExpression(node)) return;
+      const target = node.expression;
+      if (!isIdentifier(target)) return;
+      const signal = aliases.get(textOf(target));
       if (!signal) return;
       edits.push({
-        start: target.getStart() - base,
-        end: target.getEnd() - base,
+        start: startOf(target) - base,
+        end: target.end - base,
         text: `${signal}.value`,
       });
     };
     visit(initializer);
-    initializer.forEachDescendant(visit);
+    forEachDescendant(initializer, visit);
 
-    if (edits.length === 0) return initializer.getText();
+    if (edits.length === 0) return textOf(initializer);
 
-    let text = initializer.getText();
+    let text = textOf(initializer);
     for (const edit of edits.sort((a, b) => b.start - a.start)) {
       text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
     }
@@ -1827,16 +1962,17 @@ export class HandlerExtractor {
   private collectSignalAliases(node: Node): Map<string, string> {
     const aliases = new Map<string, string>();
 
-    const fn = node.getFirstAncestor(
-      (a) =>
-        Node.isArrowFunction(a) || Node.isFunctionExpression(a) || Node.isFunctionDeclaration(a)
+    const fn = firstAncestor(
+      node,
+      (a): a is ArrowFunction | FunctionExpression | FunctionDeclaration =>
+        isArrowFunction(a) || isFunctionExpression(a) || isFunctionDeclaration(a)
     );
     if (!fn) return aliases;
 
     const reassigned = this.collectReassignedIdentifiers(fn);
 
-    fn.forEachDescendant((inner) => {
-      if (!Node.isVariableDeclaration(inner)) return;
+    forEachDescendant(fn, (inner) => {
+      if (!isVariableDeclaration(inner)) return;
       const binding = this.readSignalAliasBinding(inner);
       if (!binding) return;
       // An alias of an alias, and a rebound name, are both left untranslated.
@@ -1851,11 +1987,11 @@ export class HandlerExtractor {
   /** Identifiers assigned anywhere in `fn`, so a rebound alias can be ignored. */
   private collectReassignedIdentifiers(fn: Node): Set<string> {
     const reassigned = new Set<string>();
-    fn.forEachDescendant((inner) => {
-      if (!Node.isBinaryExpression(inner)) return;
-      if (inner.getOperatorToken().getText() !== "=") return;
-      const left = inner.getLeft();
-      if (Node.isIdentifier(left)) reassigned.add(left.getText());
+    forEachDescendant(fn, (inner) => {
+      if (!isBinaryExpression(inner)) return;
+      if (textOf(inner.operatorToken) !== "=") return;
+      const left = inner.left;
+      if (isIdentifier(left)) reassigned.add(textOf(left));
     });
     return reassigned;
   }
@@ -1870,21 +2006,21 @@ export class HandlerExtractor {
   private readSignalAliasBinding(
     decl: VariableDeclaration
   ): { alias: string; signal: string } | null {
-    const list = decl.getParent();
-    if (!Node.isVariableDeclarationList(list)) return null;
-    if (list.getDeclarationKind() !== VariableDeclarationKind.Const) return null;
+    const list = decl.parent;
+    if (!isVariableDeclarationList(list)) return null;
+    if (declarationKind(list) !== "const") return null;
 
-    const nameNode = decl.getNameNode();
-    if (!Node.isIdentifier(nameNode)) return null;
+    const nameNode = decl.name;
+    if (!isIdentifier(nameNode)) return null;
 
-    const init = decl.getInitializer();
-    if (!init || !Node.isPropertyAccessExpression(init)) return null;
-    if (init.getName() !== "value") return null;
+    const init = decl.initializer;
+    if (!init || !isPropertyAccessExpression(init)) return null;
+    if (nameText(init) !== "value") return null;
 
-    const target = init.getExpression();
-    if (!Node.isIdentifier(target)) return null;
+    const target = init.expression;
+    if (!isIdentifier(target)) return null;
 
-    return { alias: nameNode.getText(), signal: target.getText() };
+    return { alias: textOf(nameNode), signal: textOf(target) };
   }
 
   /**
@@ -1909,17 +2045,17 @@ export class HandlerExtractor {
    */
   private isTranslatableInitializer(node: Node): boolean {
     const kindAllowed =
-      Node.isBinaryExpression(node) ||
-      Node.isPropertyAccessExpression(node) ||
-      Node.isElementAccessExpression(node) ||
-      Node.isPrefixUnaryExpression(node) ||
-      Node.isPostfixUnaryExpression(node) ||
-      Node.isParenthesizedExpression(node) ||
-      Node.isConditionalExpression(node);
+      isBinaryExpression(node) ||
+      isPropertyAccessExpression(node) ||
+      isElementAccessExpression(node) ||
+      isPrefixUnaryExpression(node) ||
+      isPostfixUnaryExpression(node) ||
+      isParenthesizedExpression(node) ||
+      isConditionalExpression(node);
 
     if (!kindAllowed) return false;
     if (this.containsComment(node)) return false;
-    if (node.getFirstDescendantByKind(SyntaxKind.CallExpression)) return false;
+    if (firstDescendant(node, isCallExpression)) return false;
 
     // A ternary is admitted only as the whole expression, and only one deep.
     // Unwrap parentheses first: a nested ternary is normally written
@@ -1929,17 +2065,14 @@ export class HandlerExtractor {
     // ternary and a ternary anywhere under a binary or parenthesized root — the
     // two shapes `translateTernary`'s regex gets wrong — while admitting a root
     // ternary with none below it.
-    return (
-      this.unwrapParentheses(node).getFirstDescendantByKind(SyntaxKind.ConditionalExpression) ===
-      undefined
-    );
+    return firstDescendant(this.unwrapParentheses(node), isConditionalExpression) === undefined;
   }
 
   /** Strip redundant parentheses, so branch checks see the real node. */
   private unwrapParentheses(node: Node): Node {
     let current = node;
-    while (Node.isParenthesizedExpression(current)) {
-      current = current.getExpression();
+    while (isParenthesizedExpression(current)) {
+      current = current.expression;
     }
     return current;
   }
@@ -1949,7 +2082,7 @@ export class HandlerExtractor {
    * expression is carried verbatim into the generated TLA+ line (polly#170).
    */
   private containsComment(node: Node): boolean {
-    const text = node.getText();
+    const text = textOf(node);
     return text.includes("//") || text.includes("/*");
   }
 
@@ -1958,7 +2091,7 @@ export class HandlerExtractor {
    * of the current handler, return X. Otherwise return null.
    */
   private extractPayloadPropertyParam(initializer: Node): string | null {
-    if (!Node.isPropertyAccessExpression(initializer)) return null;
+    if (!isPropertyAccessExpression(initializer)) return null;
     const parts = this.getPropertyPath(initializer).split(".");
     if (parts.length !== 2) return null;
     const [paramName, fieldName] = parts;
@@ -1975,17 +2108,17 @@ export class HandlerExtractor {
     right: Node,
     assignments: StateAssignment[]
   ): void {
-    if (!Node.isElementAccessExpression(left)) return;
+    if (!isElementAccessExpression(left)) return;
 
-    const expr = left.getExpression();
-    if (!Node.isPropertyAccessExpression(expr)) return;
+    const expr = left.expression;
+    if (!isPropertyAccessExpression(expr)) return;
 
     const fieldPath = this.getPropertyPath(expr);
     const field = this.extractFieldFromStatePath(fieldPath);
 
     if (!field) return;
-    const indexExpr = left.getArgumentExpression();
-    const index = indexExpr ? indexExpr.getText() : "0";
+    const indexExpr = left.argumentExpression;
+    const index = indexExpr ? textOf(indexExpr) : "0";
     const value = this.extractValue(right);
 
     if (value !== undefined) {
@@ -2023,18 +2156,18 @@ export class HandlerExtractor {
    * Extract compound assignments (+=, -=, *=, /=, %=)
    */
   private extractCompoundAssignment(node: Node, assignments: StateAssignment[]): void {
-    if (!Node.isBinaryExpression(node)) return;
+    if (!isBinaryExpression(node)) return;
 
-    const operator = node.getOperatorToken().getText();
-    const left = node.getLeft();
-    const right = node.getRight();
+    const operator = textOf(node.operatorToken);
+    const left = node.left;
+    const right = node.right;
 
-    if (Node.isPropertyAccessExpression(left)) {
+    if (isPropertyAccessExpression(left)) {
       const fieldPath = this.getPropertyPath(left);
       const field = this.extractFieldFromStatePath(fieldPath);
 
       if (field) {
-        const rightValue = right.getText();
+        const rightValue = textOf(right);
         const tlaOp = operator.slice(0, -1); // Remove '=' suffix
         assignments.push({
           field,
@@ -2045,18 +2178,12 @@ export class HandlerExtractor {
   }
 
   /**
-   * Get operator text from unary expression token
+   * Get operator text from a unary expression's operator (a SyntaxKind; ts-morph's
+   * `getOperatorToken()` returned the same number for both unary kinds)
    */
-  private getUnaryOperatorText(operator: unknown): string | null {
-    if (typeof operator === "number") {
-      // It's a SyntaxKind enum value
-      if (operator === SyntaxKind.PlusPlusToken) return "++";
-      if (operator === SyntaxKind.MinusMinusToken) return "--";
-      return null;
-    }
-    if (Node.isNode(operator)) {
-      return operator.getText();
-    }
+  private getUnaryOperatorText(operator: SyntaxKind): string | null {
+    if (operator === SyntaxKind.PlusPlusToken) return "++";
+    if (operator === SyntaxKind.MinusMinusToken) return "--";
     return null;
   }
 
@@ -2064,16 +2191,16 @@ export class HandlerExtractor {
    * Extract unary expression assignments (++, --)
    */
   private extractUnaryExpressionAssignment(node: Node, assignments: StateAssignment[]): void {
-    if (!Node.isPostfixUnaryExpression(node) && !Node.isPrefixUnaryExpression(node)) return;
+    if (!isPostfixUnaryExpression(node) && !isPrefixUnaryExpression(node)) return;
 
-    const operator = node.getOperatorToken();
+    const operator = node.operator;
     const operatorText = this.getUnaryOperatorText(operator);
 
     // Only handle ++ and --
     if (operatorText !== "++" && operatorText !== "--") return;
 
-    const operand = node.getOperand();
-    if (!Node.isPropertyAccessExpression(operand)) return;
+    const operand = node.operand;
+    if (!isPropertyAccessExpression(operand)) return;
 
     const fieldPath = this.getPropertyPath(operand);
     const field = this.extractFieldFromStatePath(fieldPath);
@@ -2089,20 +2216,20 @@ export class HandlerExtractor {
    * Extract array mutation assignments (push, pop, shift, unshift, splice)
    */
   private extractArrayMutationAssignment(node: Node, assignments: StateAssignment[]): void {
-    if (!Node.isCallExpression(node)) return;
+    if (!isCallExpression(node)) return;
 
-    const expr = node.getExpression();
-    if (!Node.isPropertyAccessExpression(expr)) return;
+    const expr = node.expression;
+    if (!isPropertyAccessExpression(expr)) return;
 
-    const methodName = expr.getName();
-    const object = expr.getExpression();
+    const methodName = nameText(expr);
+    const object = expr.expression;
 
-    if (Node.isPropertyAccessExpression(object)) {
+    if (isPropertyAccessExpression(object)) {
       const fieldPath = this.getPropertyPath(object);
       const field = this.extractFieldFromStatePath(fieldPath);
 
       if (field) {
-        const args = node.getArguments().map((arg) => arg.getText());
+        const args = node.arguments.map((arg) => textOf(arg));
         const tlaValue = this.translateArrayMethod(methodName, args, fieldPath);
 
         if (tlaValue) {
@@ -2153,9 +2280,7 @@ export class HandlerExtractor {
     messageType: string
   ): void {
     // Check if function is async
-    const isAsync =
-      funcNode.hasModifier?.(SyntaxKind.AsyncKeyword) ||
-      funcNode.getModifiers?.()?.some((m: Node) => m.getKind() === SyntaxKind.AsyncKeyword);
+    const isAsync = funcNode.modifiers?.some((m) => m.kind === SyntaxKind.AsyncKeyword) ?? false;
 
     if (!isAsync) {
       return; // Not async, no race conditions possible
@@ -2163,8 +2288,8 @@ export class HandlerExtractor {
 
     // Find all await expressions
     const awaitExpressions: Node[] = [];
-    funcNode.forEachDescendant((node: Node) => {
-      if (Node.isAwaitExpression(node)) {
+    forEachDescendant(funcNode, (node: Node) => {
+      if (isAwaitExpression(node)) {
         awaitExpressions.push(node);
       }
     });
@@ -2175,7 +2300,7 @@ export class HandlerExtractor {
 
     // Find all state mutations
     const mutations: Array<{ field: string; line: number; afterAwait: boolean }> = [];
-    const body = funcNode.getBody();
+    const body = funcNode.body;
 
     if (!body) {
       return;
@@ -2185,15 +2310,15 @@ export class HandlerExtractor {
     if (!firstAwait) return;
 
     // Get position of first await
-    const firstAwaitPos = firstAwait.getStart();
+    const firstAwaitPos = startOf(firstAwait);
 
     // Track mutations and whether they occur after await
-    funcNode.forEachDescendant((node: Node) => {
-      if (Node.isBinaryExpression(node)) {
+    forEachDescendant(funcNode, (node: Node) => {
+      if (isBinaryExpression(node)) {
         this.checkBinaryExpressionMutation(node, firstAwaitPos, mutations);
       }
 
-      if (Node.isCallExpression(node)) {
+      if (isCallExpression(node)) {
         this.checkCallExpressionMutation(node, firstAwaitPos, mutations);
       }
     });
@@ -2222,8 +2347,8 @@ export class HandlerExtractor {
     preconditions: VerificationCondition[],
     postconditions: VerificationCondition[]
   ): void {
-    const body = funcNode.getBody();
-    const statements = Node.isBlock(body) ? body.getStatements() : body ? [body] : [];
+    const body = funcNode.body;
+    const statements = body && isBlock(body) ? body.statements : body ? [body] : [];
 
     for (const statement of statements) {
       this.processStatementForConditions(statement, preconditions, postconditions);
@@ -2238,15 +2363,15 @@ export class HandlerExtractor {
     preconditions: VerificationCondition[],
     postconditions: VerificationCondition[]
   ): void {
-    if (!Node.isExpressionStatement(statement)) return;
+    if (!isExpressionStatement(statement)) return;
 
-    const expr = statement.getExpression();
-    if (!Node.isCallExpression(expr)) return;
+    const expr = statement.expression;
+    if (!isCallExpression(expr)) return;
 
-    const callee = expr.getExpression();
-    if (!Node.isIdentifier(callee)) return;
+    const callee = expr.expression;
+    if (!isIdentifier(callee)) return;
 
-    const functionName = callee.getText();
+    const functionName = textOf(callee);
 
     if (functionName === "requires") {
       const condition = this.extractCondition(expr);
@@ -2265,7 +2390,7 @@ export class HandlerExtractor {
    * Extract condition from a requires() or ensures() call
    */
   private extractCondition(callExpr: CallExpression): VerificationCondition | null {
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length === 0) {
       return null;
@@ -2275,16 +2400,17 @@ export class HandlerExtractor {
     const conditionArg = args[0];
     if (!conditionArg) return null;
 
-    const expression = conditionArg.getText();
+    const expression = textOf(conditionArg);
 
     // Second argument (optional) is the message
     let message: string | undefined;
-    if (args.length >= 2 && Node.isStringLiteral(args[1])) {
-      message = args[1].getLiteralValue();
+    const messageArg = args[1];
+    if (args.length >= 2 && messageArg && isStringLiteral(messageArg)) {
+      message = messageArg.text;
     }
 
-    const line = callExpr.getStartLineNumber();
-    const column = callExpr.getStartLinePos();
+    const line = startLine(callExpr);
+    const column = startLinePos(callExpr);
 
     return {
       expression,
@@ -2303,14 +2429,14 @@ export class HandlerExtractor {
     const parts: string[] = [];
 
     let current = node;
-    while (Node.isPropertyAccessExpression(current)) {
-      parts.unshift(current.getName());
-      current = current.getExpression();
+    while (isPropertyAccessExpression(current)) {
+      parts.unshift(nameText(current));
+      current = current.expression;
     }
 
     // Add the base identifier
-    if (Node.isIdentifier(current)) {
-      parts.unshift(current.getText());
+    if (isIdentifier(current)) {
+      parts.unshift(textOf(current));
     }
 
     return parts.join(".");
@@ -2320,23 +2446,23 @@ export class HandlerExtractor {
    * Extract a literal value from an expression
    */
   private extractValue(node: Node): string | boolean | number | null | undefined {
-    if (Node.isStringLiteral(node)) {
-      return node.getLiteralValue();
+    if (isStringLiteral(node)) {
+      return node.text;
     }
 
-    if (Node.isNumericLiteral(node)) {
-      return node.getLiteralValue();
+    if (isNumericLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (node.getKind() === SyntaxKind.TrueKeyword) {
+    if (node.kind === SyntaxKind.TrueKeyword) {
       return true;
     }
 
-    if (node.getKind() === SyntaxKind.FalseKeyword) {
+    if (node.kind === SyntaxKind.FalseKeyword) {
       return false;
     }
 
-    if (node.getKind() === SyntaxKind.NullKeyword) {
+    if (node.kind === SyntaxKind.NullKeyword) {
       return null;
     }
 
@@ -2364,8 +2490,8 @@ export class HandlerExtractor {
 
     try {
       // Check if switching on message.type or similar
-      const expression = switchNode.getExpression();
-      const expressionText = expression.getText();
+      const expression = switchNode.expression;
+      const expressionText = textOf(expression);
 
       // Look for patterns like: message.type, data.type, msg.type, event.type
       if (!/\.(type|kind|event|action)/.test(expressionText)) {
@@ -2373,19 +2499,19 @@ export class HandlerExtractor {
       }
 
       // Extract handlers from each case clause
-      const caseClauses = switchNode.getClauses();
+      const caseClauses = switchNode.caseBlock.clauses;
       for (const clause of caseClauses) {
-        if (Node.isCaseClause(clause)) {
-          const caseExpr = clause.getExpression();
+        if (isCaseClause(clause)) {
+          const caseExpr = clause.expression;
 
           // Extract message type from case expression
           let messageType: string | null = null;
-          if (Node.isStringLiteral(caseExpr)) {
-            messageType = caseExpr.getLiteralValue();
+          if (isStringLiteral(caseExpr)) {
+            messageType = caseExpr.text;
           }
 
           if (messageType) {
-            const line = clause.getStartLineNumber();
+            const line = startLine(clause);
 
             handlers.push({
               messageType,
@@ -2418,7 +2544,7 @@ export class HandlerExtractor {
     const handlers: MessageHandler[] = [];
 
     try {
-      const initializer = varDecl.getInitializer();
+      const initializer = varDecl.initializer;
       if (!initializer) {
         return handlers;
       }
@@ -2430,7 +2556,7 @@ export class HandlerExtractor {
       }
 
       // Extract handlers from object properties
-      const properties = objectLiteral.getProperties();
+      const properties = objectLiteral.properties;
       for (const prop of properties) {
         const handler = this.extractHandlerFromProperty(prop, context, filePath);
         if (handler) {
@@ -2453,8 +2579,8 @@ export class HandlerExtractor {
     varDecl: VariableDeclaration
   ): ObjectLiteralExpression | null {
     // Only process direct object literals
-    if (Node.isObjectLiteralExpression(initializer)) {
-      if (this.isHandlerMapName(varDecl.getName())) {
+    if (isObjectLiteralExpression(initializer)) {
+      if (this.isHandlerMapName(nameText(varDecl))) {
         return initializer;
       }
     }
@@ -2476,18 +2602,18 @@ export class HandlerExtractor {
     context: string,
     filePath: string
   ): MessageHandler | null {
-    if (!Node.isPropertyAssignment(prop)) {
+    if (!isPropertyAssignment(prop)) {
       return null;
     }
 
-    const nameNode = prop.getNameNode();
+    const nameNode = prop.name;
     const messageType = this.getMessageTypeFromPropertyName(nameNode);
 
     if (!messageType) {
       return null;
     }
 
-    const value = prop.getInitializer();
+    const value = prop.initializer;
     const assignments: StateAssignment[] = [];
     const preconditions: VerificationCondition[] = [];
     const postconditions: VerificationCondition[] = [];
@@ -2495,12 +2621,12 @@ export class HandlerExtractor {
     // Extract from the handler function
     if (value) {
       // Case 1: Inline arrow function or function expression
-      if (Node.isArrowFunction(value) || Node.isFunctionExpression(value)) {
+      if (isArrowFunction(value) || isFunctionExpression(value)) {
         this.extractAssignments(value, assignments);
         this.extractVerificationConditions(value, preconditions, postconditions);
       }
       // Case 2: Function reference (e.g., handleQuery)
-      else if (Node.isIdentifier(value)) {
+      else if (isIdentifier(value)) {
         const referencedFunction = this.resolveFunctionReference(value);
         if (referencedFunction) {
           this.extractAssignments(referencedFunction, assignments);
@@ -2509,7 +2635,7 @@ export class HandlerExtractor {
       }
     }
 
-    const line = prop.getStartLineNumber();
+    const line = startLine(prop);
     return {
       messageType,
       node: context,
@@ -2524,11 +2650,11 @@ export class HandlerExtractor {
    * Extract message type from property name node
    */
   private getMessageTypeFromPropertyName(nameNode: Node): string | null {
-    if (Node.isStringLiteral(nameNode)) {
-      return nameNode.getLiteralValue();
+    if (isStringLiteral(nameNode)) {
+      return nameNode.text;
     }
-    if (Node.isIdentifier(nameNode)) {
-      return nameNode.getText();
+    if (isIdentifier(nameNode)) {
+      return textOf(nameNode);
     }
     return null;
   }
@@ -2543,26 +2669,23 @@ export class HandlerExtractor {
   private resolveFunctionReference(
     identifier: Node
   ): FunctionDeclaration | ArrowFunction | FunctionExpression | null {
-    if (!Node.isIdentifier(identifier)) {
+    if (!isIdentifier(identifier)) {
       return null;
     }
 
     try {
-      const definitions = identifier.getDefinitionNodes();
+      const definitions = this.definitionsOf(identifier);
 
       for (const def of definitions) {
         // Direct function declaration
-        if (Node.isFunctionDeclaration(def)) {
+        if (isFunctionDeclaration(def)) {
           return def;
         }
 
         // Variable declaration with function initializer
-        if (Node.isVariableDeclaration(def)) {
-          const initializer = def.getInitializer();
-          if (
-            initializer &&
-            (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
-          ) {
+        if (isVariableDeclaration(def)) {
+          const initializer = def.initializer;
+          if (initializer && (isArrowFunction(initializer) || isFunctionExpression(initializer))) {
             return initializer;
           }
         }
@@ -2616,7 +2739,7 @@ export class HandlerExtractor {
   private debugLogTypeGuards(sourceFile: SourceFile, typeGuards: Map<string, string>): void {
     if (!process.env["POLLY_DEBUG"]) return;
 
-    console.log(`[DEBUG] File: ${sourceFile.getBaseName()}`);
+    console.log(`[DEBUG] File: ${basename(sourceFile.fileName)}`);
     console.log(`[DEBUG] Local type guards found: ${typeGuards.size}`);
 
     if (typeGuards.size > 0) {
@@ -2646,8 +2769,8 @@ export class HandlerExtractor {
       }
 
       // Check for else-if
-      const elseStatement = ifStatement.getElseStatement();
-      if (elseStatement && Node.isIfStatement(elseStatement)) {
+      const elseStatement = ifStatement.elseStatement;
+      if (elseStatement && isIfStatement(elseStatement)) {
         ifStatement = elseStatement;
       } else {
         break;
@@ -2683,12 +2806,12 @@ export class HandlerExtractor {
     filePath: string
   ): MessageHandler | null {
     try {
-      const condition = ifStmt.getExpression();
+      const condition = ifStmt.expression;
 
       // Pattern 1: Type guard function call — if (isSubscribe(msg))
-      if (Node.isCallExpression(condition)) {
-        const funcExpr = condition.getExpression();
-        const funcName = Node.isIdentifier(funcExpr) ? funcExpr.getText() : undefined;
+      if (isCallExpression(condition)) {
+        const funcExpr = condition.expression;
+        const funcName = isIdentifier(funcExpr) ? textOf(funcExpr) : undefined;
 
         this.debugLogProcessingFunction(funcName);
 
@@ -2698,7 +2821,7 @@ export class HandlerExtractor {
           return null;
         }
 
-        const line = ifStmt.getStartLineNumber();
+        const line = startLine(ifStmt);
         const relationships = this.extractRelationshipsFromIfBlock(ifStmt, messageType);
 
         return {
@@ -2713,10 +2836,10 @@ export class HandlerExtractor {
       }
 
       // Pattern 2: Equality check — if (data.type === 'subscribe')
-      if (Node.isBinaryExpression(condition)) {
+      if (isBinaryExpression(condition)) {
         const messageType = this.extractMessageTypeFromEqualityCheck(condition);
         if (messageType) {
-          const line = ifStmt.getStartLineNumber();
+          const line = startLine(ifStmt);
           const relationships = this.extractRelationshipsFromIfBlock(ifStmt, messageType);
 
           return {
@@ -2740,35 +2863,29 @@ export class HandlerExtractor {
   /**
    * Extract message type from equality check: data.type === 'subscribe'
    */
-  private extractMessageTypeFromEqualityCheck(
-    expr: import("ts-morph").BinaryExpression
-  ): string | null {
-    const operator = expr.getOperatorToken().getText();
+  private extractMessageTypeFromEqualityCheck(expr: BinaryExpression): string | null {
+    const operator = textOf(expr.operatorToken);
     if (operator !== "===" && operator !== "==") return null;
 
-    const left = expr.getLeft();
-    const right = expr.getRight();
+    const left = expr.left;
+    const right = expr.right;
 
     // Check: xxx.type === 'value' or 'value' === xxx.type
-    const stringLiteral = Node.isStringLiteral(right)
-      ? right
-      : Node.isStringLiteral(left)
-        ? left
-        : null;
-    const propAccess = Node.isPropertyAccessExpression(left)
+    const stringLiteral = isStringLiteral(right) ? right : isStringLiteral(left) ? left : null;
+    const propAccess = isPropertyAccessExpression(left)
       ? left
-      : Node.isPropertyAccessExpression(right)
+      : isPropertyAccessExpression(right)
         ? right
         : null;
 
     if (!stringLiteral || !propAccess) return null;
 
-    const propName = propAccess.getName();
+    const propName = nameText(propAccess);
     if (propName !== "type" && propName !== "kind" && propName !== "action") {
       return null;
     }
 
-    return stringLiteral.getLiteralValue();
+    return stringLiteral.text;
   }
 
   /**
@@ -2805,7 +2922,7 @@ export class HandlerExtractor {
       }
     }
 
-    if (Node.isIdentifier(funcExpr)) {
+    if (isIdentifier(funcExpr)) {
       this.debugLogTryingImportResolution(funcName);
       return this.resolveImportedTypeGuard(funcExpr) ?? undefined;
     }
@@ -2838,7 +2955,7 @@ export class HandlerExtractor {
     ifStmt: IfStatement,
     messageType: string
   ): ComponentRelationship[] | undefined {
-    const thenStatement = ifStmt.getThenStatement();
+    const thenStatement = ifStmt.thenStatement;
     if (!thenStatement) {
       return undefined;
     }
@@ -2862,7 +2979,7 @@ export class HandlerExtractor {
   private findTypePredicateFunctions(sourceFile: SourceFile): Map<string, string> {
     const typeGuards = new Map<string, string>();
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       this.processTypePredicate(node, typeGuards);
     });
 
@@ -2877,8 +2994,8 @@ export class HandlerExtractor {
       return;
     }
 
-    const returnTypeNode = node.getReturnTypeNode();
-    if (!returnTypeNode || !Node.isTypePredicate(returnTypeNode)) {
+    const returnTypeNode = node.type;
+    if (!returnTypeNode || !isTypePredicateNode(returnTypeNode)) {
       return;
     }
 
@@ -2899,11 +3016,11 @@ export class HandlerExtractor {
   private extractFunctionName(
     node: FunctionDeclaration | FunctionExpression | ArrowFunction
   ): string | undefined {
-    if (Node.isFunctionDeclaration(node)) {
-      return node.getName();
+    if (isFunctionDeclaration(node)) {
+      return nameOf(node);
     }
 
-    if (Node.isFunctionExpression(node) || Node.isArrowFunction(node)) {
+    if (isFunctionExpression(node) || isArrowFunction(node)) {
       return this.extractFunctionNameFromVariable(node);
     }
 
@@ -2916,9 +3033,9 @@ export class HandlerExtractor {
   private extractFunctionNameFromVariable(
     node: FunctionExpression | ArrowFunction
   ): string | undefined {
-    const parent = node.getParent();
-    if (Node.isVariableDeclaration(parent)) {
-      return parent.getName();
+    const parent = node.parent;
+    if (isVariableDeclaration(parent)) {
+      return nameText(parent);
     }
     return undefined;
   }
@@ -2930,20 +3047,17 @@ export class HandlerExtractor {
     node: FunctionDeclaration | FunctionExpression | ArrowFunction,
     returnTypeNode: Node
   ): string | null {
-    if (!Node.isTypePredicate(returnTypeNode)) {
+    if (!isTypePredicateNode(returnTypeNode)) {
       return null;
     }
 
-    // Try to get type node if method exists
-    if ("getTypeNode" in returnTypeNode && typeof returnTypeNode.getTypeNode === "function") {
-      const typeNode = returnTypeNode.getTypeNode();
-
-      if (typeNode) {
-        const typeName = typeNode.getText();
-        const messageType = this.extractMessageTypeFromTypeName(typeName);
-        if (messageType) {
-          return messageType;
-        }
+    // The predicate's type node (absent for `asserts x`)
+    const typeNode = returnTypeNode.type;
+    if (typeNode) {
+      const typeName = textOf(typeNode);
+      const messageType = this.extractMessageTypeFromTypeName(typeName);
+      if (messageType) {
+        return messageType;
       }
     }
 
@@ -2956,12 +3070,12 @@ export class HandlerExtractor {
   private extractMessageTypeFromFunctionBodyText(
     node: FunctionDeclaration | FunctionExpression | ArrowFunction
   ): string | null {
-    const body = node.getBody();
+    const body = node.body;
     if (!body) {
       return null;
     }
 
-    const bodyText = body.getText();
+    const bodyText = textOf(body);
     const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/);
 
     if (typeValueMatch) {
@@ -2973,13 +3087,13 @@ export class HandlerExtractor {
 
   /**
    * Resolve type guard from imported function
-   * Uses ts-morph symbol resolution to find definition across files
+   * Uses go-to-definition (prefetched) to find the definition across files
    * Checks AST structure, not resolved types (which can lose type predicate info)
    */
   private resolveImportedTypeGuard(identifier: Identifier): string | null {
     try {
-      const funcName = identifier.getText();
-      const definitions = identifier.getDefinitionNodes();
+      const funcName = textOf(identifier);
+      const definitions = this.definitionsOf(identifier);
 
       if (definitions.length === 0) {
         this.debugLogNoDefinitions(funcName);
@@ -3007,8 +3121,8 @@ export class HandlerExtractor {
       return null;
     }
 
-    const returnTypeNode = def.getReturnTypeNode();
-    this.debugLogReturnTypeInfo(funcName, def, returnTypeNode);
+    const returnTypeNode = def.type;
+    this.debugLogReturnTypeInfo(funcName, returnTypeNode);
 
     const typePredicateResult = this.extractFromTypePredicate(returnTypeNode, funcName);
     if (typePredicateResult) {
@@ -3024,11 +3138,7 @@ export class HandlerExtractor {
   private isFunctionNode(
     node: Node
   ): node is FunctionDeclaration | FunctionExpression | ArrowFunction {
-    return (
-      Node.isFunctionDeclaration(node) ||
-      Node.isFunctionExpression(node) ||
-      Node.isArrowFunction(node)
-    );
+    return isFunctionDeclaration(node) || isFunctionExpression(node) || isArrowFunction(node);
   }
 
   /**
@@ -3038,16 +3148,16 @@ export class HandlerExtractor {
     returnTypeNode: Node | undefined,
     funcName: string
   ): string | null {
-    if (!returnTypeNode || !Node.isTypePredicate(returnTypeNode)) {
+    if (!returnTypeNode || !isTypePredicateNode(returnTypeNode)) {
       return null;
     }
 
-    const typeNode = returnTypeNode.getTypeNode();
+    const typeNode = returnTypeNode.type;
     if (!typeNode) {
       return null;
     }
 
-    const typeName = typeNode.getText();
+    const typeName = textOf(typeNode);
     const messageType = this.extractMessageTypeFromTypeName(typeName);
 
     if (messageType) {
@@ -3065,12 +3175,12 @@ export class HandlerExtractor {
     def: FunctionDeclaration | FunctionExpression | ArrowFunction,
     funcName: string
   ): string | null {
-    const body = def.getBody();
+    const body = def.body;
     if (!body) {
       return null;
     }
 
-    const bodyText = body.getText();
+    const bodyText = textOf(body);
     const typeValueMatch = bodyText.match(/\.type\s*===?\s*['"](\w+)['"]/);
 
     if (typeValueMatch) {
@@ -3094,17 +3204,14 @@ export class HandlerExtractor {
   /**
    * Debug: Log return type info
    */
-  private debugLogReturnTypeInfo(
-    funcName: string,
-    def: FunctionDeclaration | FunctionExpression | ArrowFunction,
-    returnTypeNode: Node | undefined
-  ): void {
+  private debugLogReturnTypeInfo(funcName: string, returnTypeNode: Node | undefined): void {
     if (process.env["POLLY_DEBUG"]) {
-      const returnType = def.getReturnType().getText();
-      console.log(`[DEBUG] Function ${funcName} return type (resolved): ${returnType}`);
+      // The resolved return type needs the checker; the declared one is logged instead.
+      const returnType = returnTypeNode ? textOf(returnTypeNode) : "(not declared)";
+      console.log(`[DEBUG] Function ${funcName} return type (declared): ${returnType}`);
       console.log(`[DEBUG] Has return type node: ${!!returnTypeNode}`);
       console.log(
-        `[DEBUG] Is type predicate node: ${returnTypeNode && Node.isTypePredicate(returnTypeNode)}`
+        `[DEBUG] Is type predicate node: ${returnTypeNode && isTypePredicateNode(returnTypeNode)}`
       );
     }
   }
@@ -3281,22 +3388,22 @@ export class HandlerExtractor {
     firstAwaitPos: number,
     mutations: Array<{ field: string; line: number; afterAwait: boolean }>
   ): void {
-    if (!Node.isBinaryExpression(node)) return;
+    if (!isBinaryExpression(node)) return;
 
-    const operator = node.getOperatorToken().getText();
+    const operator = textOf(node.operatorToken);
     if (operator !== "=" && !["+=", "-=", "*=", "/=", "%="].includes(operator)) return;
 
-    const left = node.getLeft();
-    if (!Node.isPropertyAccessExpression(left) && !Node.isElementAccessExpression(left)) return;
+    const left = node.left;
+    if (!isPropertyAccessExpression(left) && !isElementAccessExpression(left)) return;
 
-    const fieldPath = Node.isPropertyAccessExpression(left)
+    const fieldPath = isPropertyAccessExpression(left)
       ? this.getPropertyPath(left)
-      : this.getPropertyPath(left.getExpression());
+      : this.getPropertyPath(left.expression);
 
     const field = this.extractFieldFromStatePath(fieldPath);
     if (field) {
-      const line = node.getStartLineNumber();
-      const afterAwait = node.getStart() > firstAwaitPos;
+      const line = startLine(node);
+      const afterAwait = startOf(node) > firstAwaitPos;
       mutations.push({ field, line, afterAwait });
     }
   }
@@ -3309,22 +3416,22 @@ export class HandlerExtractor {
     firstAwaitPos: number,
     mutations: Array<{ field: string; line: number; afterAwait: boolean }>
   ): void {
-    if (!Node.isCallExpression(node)) return;
+    if (!isCallExpression(node)) return;
 
-    const expr = node.getExpression();
-    if (!Node.isPropertyAccessExpression(expr)) return;
+    const expr = node.expression;
+    if (!isPropertyAccessExpression(expr)) return;
 
-    const methodName = expr.getName();
-    const object = expr.getExpression();
+    const methodName = nameText(expr);
+    const object = expr.expression;
 
-    if (!Node.isPropertyAccessExpression(object)) return;
+    if (!isPropertyAccessExpression(object)) return;
 
     const fieldPath = this.getPropertyPath(object);
     const field = this.extractFieldFromStatePath(fieldPath);
 
     if (field && ["push", "pop", "shift", "unshift", "splice"].includes(methodName)) {
-      const line = node.getStartLineNumber();
-      const afterAwait = node.getStart() > firstAwaitPos;
+      const line = startLine(node);
+      const afterAwait = startOf(node) > firstAwaitPos;
       mutations.push({ field, line, afterAwait });
     }
   }
@@ -3334,9 +3441,9 @@ export class HandlerExtractor {
    */
   private extractStateConstraintsFromFile(sourceFile: SourceFile): StateConstraint[] {
     const constraints: StateConstraint[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       const nodeConstraints = this.recognizeStateConstraint(node, filePath);
       constraints.push(...nodeConstraints);
     });
@@ -3349,9 +3456,9 @@ export class HandlerExtractor {
    */
   private extractGlobalStateConstraintsFromFile(sourceFile: SourceFile): GlobalStateConstraint[] {
     const constraints: GlobalStateConstraint[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       const constraint = this.recognizeGlobalStateConstraint(node, filePath);
       if (constraint) {
         constraints.push(constraint);
@@ -3369,67 +3476,67 @@ export class HandlerExtractor {
     node: Node,
     filePath: string
   ): GlobalStateConstraint | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const expression = node.getExpression();
-    if (!Node.isIdentifier(expression)) {
+    const expression = node.expression;
+    if (!isIdentifier(expression)) {
       return null;
     }
 
-    const functionName = expression.getText();
+    const functionName = textOf(expression);
     if (functionName !== "stateConstraint") {
       return null;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) {
       return null;
     }
 
     // Arg 0: string literal → name
     const nameArg = args[0];
-    if (!Node.isStringLiteral(nameArg)) {
+    if (!nameArg || !isStringLiteral(nameArg)) {
       return null;
     }
-    const name = nameArg.getLiteralValue();
+    const name = nameArg.text;
 
     // Arg 1: arrow function → extract body expression
     const predicateArg = args[1];
-    if (!Node.isArrowFunction(predicateArg)) {
+    if (!predicateArg || !isArrowFunction(predicateArg)) {
       return null;
     }
 
-    const body = predicateArg.getBody();
+    const body = predicateArg.body;
     let expressionText: string;
 
-    if (Node.isBlock(body)) {
+    if (isBlock(body)) {
       // Block body: find return statement
-      const returnStatement = body.getStatements().find((s) => Node.isReturnStatement(s));
-      if (!returnStatement || !Node.isReturnStatement(returnStatement)) {
+      const returnStatement = body.statements.find((s) => isReturnStatement(s));
+      if (!returnStatement || !isReturnStatement(returnStatement)) {
         return null;
       }
-      const returnExpr = returnStatement.getExpression();
+      const returnExpr = returnStatement.expression;
       if (!returnExpr) {
         return null;
       }
-      expressionText = returnExpr.getText();
+      expressionText = textOf(returnExpr);
     } else {
       // Expression body
-      expressionText = body.getText();
+      expressionText = textOf(body);
     }
 
     // Arg 2 (optional): object literal with message property
     let message: string | undefined;
     if (args.length >= 3) {
       const optionsArg = args[2];
-      if (Node.isObjectLiteralExpression(optionsArg)) {
-        for (const prop of optionsArg.getProperties()) {
-          if (Node.isPropertyAssignment(prop) && prop.getName() === "message") {
-            const value = prop.getInitializer();
-            if (value && Node.isStringLiteral(value)) {
-              message = value.getLiteralValue();
+      if (optionsArg && isObjectLiteralExpression(optionsArg)) {
+        for (const prop of optionsArg.properties) {
+          if (isPropertyAssignment(prop) && nameText(prop) === "message") {
+            const value = prop.initializer;
+            if (value && isStringLiteral(value)) {
+              message = value.text;
             }
           }
         }
@@ -3442,7 +3549,7 @@ export class HandlerExtractor {
       message,
       location: {
         file: filePath,
-        line: node.getStartLineNumber(),
+        line: startLine(node),
       },
     };
   }
@@ -3452,49 +3559,49 @@ export class HandlerExtractor {
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals
   private recognizeStateConstraint(node: Node, filePath: string): StateConstraint[] {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return [];
     }
 
-    const expression = node.getExpression();
-    if (!Node.isIdentifier(expression)) {
+    const expression = node.expression;
+    if (!isIdentifier(expression)) {
       return [];
     }
 
-    const functionName = expression.getText();
+    const functionName = textOf(expression);
     if (functionName !== "$constraints") {
       return [];
     }
 
     // Get arguments: $constraints(field, constraintsObject)
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) {
       return [];
     }
 
     // First argument is the state field name
     const fieldArg = args[0];
-    if (!Node.isStringLiteral(fieldArg)) {
+    if (!fieldArg || !isStringLiteral(fieldArg)) {
       return [];
     }
-    const field = fieldArg.getLiteralValue();
+    const field = fieldArg.text;
 
     // Second argument is the constraints object
     const constraintsArg = args[1];
-    if (!Node.isObjectLiteralExpression(constraintsArg)) {
+    if (!constraintsArg || !isObjectLiteralExpression(constraintsArg)) {
       return [];
     }
 
     // Extract each message type constraint
     const results: StateConstraint[] = [];
-    for (const property of constraintsArg.getProperties()) {
-      if (!Node.isPropertyAssignment(property)) {
+    for (const property of constraintsArg.properties) {
+      if (!isPropertyAssignment(property)) {
         continue;
       }
 
-      const messageType = property.getName();
-      const initializer = property.getInitializer();
-      if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
+      const messageType = nameText(property);
+      const initializer = property.initializer;
+      if (!initializer || !isObjectLiteralExpression(initializer)) {
         continue;
       }
 
@@ -3503,23 +3610,23 @@ export class HandlerExtractor {
       let ensures: string | undefined;
       let message: string | undefined;
 
-      for (const constraintProp of initializer.getProperties()) {
-        if (!Node.isPropertyAssignment(constraintProp)) {
+      for (const constraintProp of initializer.properties) {
+        if (!isPropertyAssignment(constraintProp)) {
           continue;
         }
 
-        const propName = constraintProp.getName();
-        const propValue = constraintProp.getInitializer();
+        const propName = nameText(constraintProp);
+        const propValue = constraintProp.initializer;
         if (!propValue) {
           continue;
         }
 
-        if (propName === "requires" && Node.isStringLiteral(propValue)) {
-          requires = propValue.getLiteralValue();
-        } else if (propName === "ensures" && Node.isStringLiteral(propValue)) {
-          ensures = propValue.getLiteralValue();
-        } else if (propName === "message" && Node.isStringLiteral(propValue)) {
-          message = propValue.getLiteralValue();
+        if (propName === "requires" && isStringLiteral(propValue)) {
+          requires = propValue.text;
+        } else if (propName === "ensures" && isStringLiteral(propValue)) {
+          ensures = propValue.text;
+        } else if (propName === "message" && isStringLiteral(propValue)) {
+          message = propValue.text;
         }
       }
 
@@ -3531,7 +3638,7 @@ export class HandlerExtractor {
         message,
         location: {
           file: filePath,
-          line: property.getStartLineNumber(),
+          line: startLine(property),
         },
       });
     }
@@ -3550,10 +3657,10 @@ export class HandlerExtractor {
    */
   extractVerifiedStatesFromFile(sourceFile: SourceFile): VerifiedStateInfo[] {
     const verifiedStates: VerifiedStateInfo[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
 
-    sourceFile.forEachDescendant((node) => {
-      if (!Node.isCallExpression(node)) return;
+    forEachDescendant(sourceFile, (node) => {
+      if (!isCallExpression(node)) return;
 
       const stateInfo = this.recognizeVerifiedStateCall(node, filePath);
       if (stateInfo) {
@@ -3568,18 +3675,18 @@ export class HandlerExtractor {
    * Recognize a $sharedState/$syncedState/$persistedState call with verify: true
    */
   private recognizeVerifiedStateCall(node: Node, filePath: string): VerifiedStateInfo | null {
-    if (!Node.isCallExpression(node)) return null;
+    if (!isCallExpression(node)) return null;
 
-    const expression = node.getExpression();
-    if (!Node.isIdentifier(expression)) return null;
+    const expression = node.expression;
+    if (!isIdentifier(expression)) return null;
 
-    const funcName = expression.getText();
+    const funcName = textOf(expression);
     // Match state primitives that support verification
     if (!["$sharedState", "$syncedState", "$persistedState"].includes(funcName)) {
       return null;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) return null;
 
     // Check for { verify: true } in options (3rd argument)
@@ -3588,8 +3695,8 @@ export class HandlerExtractor {
 
     // Extract state key (1st argument)
     const keyArg = args[0];
-    if (!keyArg || !Node.isStringLiteral(keyArg)) return null;
-    const key = keyArg.getLiteralValue();
+    if (!keyArg || !isStringLiteral(keyArg)) return null;
+    const key = keyArg.text;
 
     // Get variable name from parent declaration
     const variableName = this.getVariableNameFromParent(node) || key;
@@ -3608,7 +3715,7 @@ export class HandlerExtractor {
       key,
       variableName,
       filePath,
-      line: node.getStartLineNumber(),
+      line: startLine(node),
       fields,
     };
   }
@@ -3617,16 +3724,16 @@ export class HandlerExtractor {
    * Check if an options object contains verify: true
    */
   private hasVerifyTrue(optionsNode: Node): boolean {
-    if (!Node.isObjectLiteralExpression(optionsNode)) return false;
+    if (!isObjectLiteralExpression(optionsNode)) return false;
 
-    for (const prop of optionsNode.getProperties()) {
-      if (!Node.isPropertyAssignment(prop)) continue;
+    for (const prop of optionsNode.properties) {
+      if (!isPropertyAssignment(prop)) continue;
 
-      const name = prop.getName();
+      const name = nameText(prop);
       if (name !== "verify") continue;
 
-      const initializer = prop.getInitializer();
-      if (initializer && initializer.getKind() === SyntaxKind.TrueKeyword) {
+      const initializer = prop.initializer;
+      if (initializer && initializer.kind === SyntaxKind.TrueKeyword) {
         return true;
       }
     }
@@ -3638,9 +3745,9 @@ export class HandlerExtractor {
    * Get variable name from parent VariableDeclaration
    */
   private getVariableNameFromParent(node: Node): string | null {
-    const parent = node.getParent();
-    if (Node.isVariableDeclaration(parent)) {
-      return parent.getName();
+    const parent = node.parent;
+    if (isVariableDeclaration(parent)) {
+      return nameText(parent);
     }
     return null;
   }
@@ -3653,19 +3760,19 @@ export class HandlerExtractor {
   private extractFieldNames(node: Node): string[] {
     const fields: string[] = [];
 
-    if (Node.isObjectLiteralExpression(node)) {
-      for (const prop of node.getProperties()) {
-        if (Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)) {
-          fields.push(prop.getName());
+    if (isObjectLiteralExpression(node)) {
+      for (const prop of node.properties) {
+        if (isPropertyAssignment(prop) || isShorthandPropertyAssignment(prop)) {
+          fields.push(nameText(prop));
         }
       }
-    } else if (Node.isIdentifier(node)) {
+    } else if (isIdentifier(node)) {
       // Try to resolve the identifier to its declaration
-      const definitions = node.getDefinitionNodes();
+      const definitions = this.definitionsOf(node);
       for (const def of definitions) {
-        if (Node.isVariableDeclaration(def)) {
-          const initializer = def.getInitializer();
-          if (initializer && Node.isObjectLiteralExpression(initializer)) {
+        if (isVariableDeclaration(def)) {
+          const initializer = def.initializer;
+          if (initializer && isObjectLiteralExpression(initializer)) {
             return this.extractFieldNames(initializer);
           }
         }
@@ -3683,20 +3790,22 @@ export class HandlerExtractor {
    *   - authState.value.field = value
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: State mutation detection requires complex AST pattern matching
-  findStateMutatingFunctions(
+  async findStateMutatingFunctions(
     sourceFile: SourceFile,
     verifiedStates: VerifiedStateInfo[]
-  ): MessageHandler[] {
+  ): Promise<MessageHandler[]> {
     const handlers: MessageHandler[] = [];
     const stateVarNames = new Set(verifiedStates.map((s) => s.variableName));
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
     const context = this.inferContext(filePath);
 
-    // Find all exported functions
-    for (const func of sourceFile.getFunctions()) {
-      if (!func.isExported()) continue;
+    // Find all exported functions (`export { f }` counts, so ask the checker)
+    const functions = functionDeclarations(sourceFile);
+    const exported = await Promise.all(functions.map((func) => this.program.isExported(func)));
+    for (const [index, func] of functions.entries()) {
+      if (!exported[index]) continue;
 
-      const funcName = func.getName();
+      const funcName = nameOf(func);
       if (!funcName) continue;
 
       // Check if function modifies any verified state
@@ -3734,7 +3843,7 @@ export class HandlerExtractor {
         postconditions,
         location: {
           file: filePath,
-          line: func.getStartLineNumber(),
+          line: startLine(func),
         },
         origin: "stateHandler" as const,
         parameters,
@@ -3742,15 +3851,15 @@ export class HandlerExtractor {
     }
 
     // Also check exported variable declarations with arrow functions
-    for (const varStmt of sourceFile.getVariableStatements()) {
-      if (!varStmt.isExported()) continue;
+    for (const varStmt of variableStatements(sourceFile)) {
+      if (!hasExportKeyword(varStmt)) continue;
 
-      for (const decl of varStmt.getDeclarations()) {
-        const initializer = decl.getInitializer();
+      for (const decl of varStmt.declarationList.declarations) {
+        const initializer = decl.initializer;
         if (!initializer) continue;
-        if (!Node.isArrowFunction(initializer) && !Node.isFunctionExpression(initializer)) continue;
+        if (!isArrowFunction(initializer) && !isFunctionExpression(initializer)) continue;
 
-        const funcName = decl.getName();
+        const funcName = nameText(decl);
         if (!funcName) continue;
 
         this.currentFunctionParams = this.extractParameterNames(initializer);
@@ -3782,7 +3891,7 @@ export class HandlerExtractor {
           postconditions,
           location: {
             file: filePath,
-            line: decl.getStartLineNumber(),
+            line: startLine(decl),
           },
           origin: "stateHandler" as const,
           parameters: arrowParams,
@@ -3798,18 +3907,18 @@ export class HandlerExtractor {
    * `.addEventListener(...)` somewhere below `func`.
    */
   private isInsideHandlerRegistration(node: Node, func: Node): boolean {
-    let current: Node | undefined = node.getParent();
+    let current: Node | undefined = node.parent;
     while (current && current !== func) {
-      if (Node.isCallExpression(current)) {
-        const callee = current.getExpression();
+      if (isCallExpression(current)) {
+        const callee = current.expression;
         if (
-          Node.isPropertyAccessExpression(callee) &&
-          (callee.getName() === "on" || callee.getName() === "addEventListener")
+          isPropertyAccessExpression(callee) &&
+          (nameText(callee) === "on" || nameText(callee) === "addEventListener")
         ) {
           return true;
         }
       }
-      current = current.getParent();
+      current = current.parent;
     }
     return false;
   }
@@ -3828,10 +3937,10 @@ export class HandlerExtractor {
     this.recordOnSurfaceSpan(func);
 
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: AST traversal for state mutations requires multiple pattern checks
-    func.forEachDescendant((node) => {
-      if (!Node.isBinaryExpression(node)) return;
+    forEachDescendant(func, (node) => {
+      if (!isBinaryExpression(node)) return;
 
-      const operator = node.getOperatorToken().getText();
+      const operator = textOf(node.operatorToken);
       if (operator !== "=") return;
 
       // A write inside a `bus.on(...)` callback registered by this function is
@@ -3840,8 +3949,8 @@ export class HandlerExtractor {
       // its own that replays every nested write unguarded.
       if (this.isInsideHandlerRegistration(node, func)) return;
 
-      const left = node.getLeft();
-      if (!Node.isPropertyAccessExpression(left)) return;
+      const left = node.left;
+      if (!isPropertyAccessExpression(left)) return;
 
       const path = this.getPropertyPath(left);
 
@@ -3852,8 +3961,8 @@ export class HandlerExtractor {
         // Pattern 1: Full state replacement
         // e.g., authState.value = { loggedIn: true } → authState_loggedIn = true
         if (path === `${varName}.value`) {
-          const right = node.getRight();
-          if (Node.isObjectLiteralExpression(right)) {
+          const right = node.right;
+          if (isObjectLiteralExpression(right)) {
             this.extractObjectLiteralAssignments(right, mutations, varName);
           }
           break;
@@ -3864,7 +3973,7 @@ export class HandlerExtractor {
         const fieldPrefix = `${varName}.value.`;
         if (path.startsWith(fieldPrefix)) {
           const fieldName = path.substring(fieldPrefix.length);
-          const value = this.extractValue(node.getRight());
+          const value = this.extractValue(node.right);
           mutations.push({ field: `${varName}_${fieldName}`, value: value ?? "@" });
           break;
         }
@@ -3905,11 +4014,11 @@ export class HandlerExtractor {
    */
   private extractStateSignalVariableNames(sourceFile: SourceFile): string[] {
     const names: string[] = [];
-    sourceFile.forEachDescendant((node) => {
-      if (!Node.isCallExpression(node)) return;
-      const expr = node.getExpression();
-      if (!Node.isIdentifier(expr)) return;
-      if (!HandlerExtractor.STATE_SIGNAL_FACTORIES.has(expr.getText())) return;
+    forEachDescendant(sourceFile, (node) => {
+      if (!isCallExpression(node)) return;
+      const expr = node.expression;
+      if (!isIdentifier(expr)) return;
+      if (!HandlerExtractor.STATE_SIGNAL_FACTORIES.has(textOf(expr))) return;
       const varName = this.getVariableNameFromParent(node);
       if (varName) names.push(varName);
     });
@@ -3925,9 +4034,9 @@ export class HandlerExtractor {
    */
   private recordOnSurfaceSpan(node: Node): void {
     this.onSurfaceSpans.push({
-      file: node.getSourceFile().getFilePath(),
-      start: node.getStart(),
-      end: node.getEnd(),
+      file: node.getSourceFile().fileName,
+      start: startOf(node),
+      end: node.end,
     });
   }
 
@@ -3953,10 +4062,10 @@ export class HandlerExtractor {
     stateVarNames: ReadonlySet<string>
   ): OffSurfaceMutation[] {
     const out: OffSurfaceMutation[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
 
-    sourceFile.forEachDescendant((node) => {
-      if (Node.isBinaryExpression(node)) {
+    forEachDescendant(sourceFile, (node) => {
+      if (isBinaryExpression(node)) {
         out.push(...this.offSurfaceWritesAt(node, stateVarNames, filePath));
       }
     });
@@ -3973,22 +4082,22 @@ export class HandlerExtractor {
     stateVarNames: ReadonlySet<string>,
     filePath: string
   ): OffSurfaceMutation[] {
-    if (node.getOperatorToken().getText() !== "=") return [];
+    if (textOf(node.operatorToken) !== "=") return [];
 
-    const left = node.getLeft();
-    if (!Node.isPropertyAccessExpression(left)) return [];
+    const left = node.left;
+    if (!isPropertyAccessExpression(left)) return [];
 
     const match = this.matchVerifiedStateWrite(this.getPropertyPath(left), stateVarNames);
     if (!match) return [];
 
     // On-surface writes belong to a modelled handler — skip them.
-    if (this.isWithinOnSurfaceSpan(filePath, left.getStart())) return [];
+    if (this.isWithinOnSurfaceSpan(filePath, startOf(left))) return [];
 
     const base = {
       signalVariable: match.signal,
       functionName: this.enclosingFunctionName(node),
       filePath,
-      line: node.getStartLineNumber(),
+      line: startLine(node),
     };
 
     // Field-level write: one finding, keyed `${signal}_${field}`.
@@ -3998,7 +4107,7 @@ export class HandlerExtractor {
 
     // Whole-state replacement: one finding per object-literal key, or the bare
     // signal name when the RHS is not an object literal.
-    const fields = this.objectLiteralFieldNames(node.getRight());
+    const fields = this.objectLiteralFieldNames(node.right);
     if (fields.length === 0) return [{ field: match.signal, ...base }];
     return fields.map((f) => ({ field: `${match.signal}_${f}`, ...base }));
   }
@@ -4022,11 +4131,11 @@ export class HandlerExtractor {
 
   /** Object-literal property names (for `signal.value = { a, b }`). */
   private objectLiteralFieldNames(right: Node): string[] {
-    if (!Node.isObjectLiteralExpression(right)) return [];
+    if (!isObjectLiteralExpression(right)) return [];
     const names: string[] = [];
-    for (const prop of right.getProperties()) {
-      if (Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)) {
-        names.push(prop.getName());
+    for (const prop of right.properties) {
+      if (isPropertyAssignment(prop) || isShorthandPropertyAssignment(prop)) {
+        names.push(nameText(prop));
       }
     }
     return names;
@@ -4038,11 +4147,11 @@ export class HandlerExtractor {
    * function expression is bound to, or `<module>` for top-level module code.
    */
   private enclosingFunctionName(node: Node): string {
-    let current: Node | undefined = node.getParent();
+    let current: Node | undefined = node.parent;
     while (current) {
       const name = this.namedScope(current);
       if (name !== null) return name;
-      current = current.getParent();
+      current = current.parent;
     }
     return "<module>";
   }
@@ -4053,18 +4162,19 @@ export class HandlerExtractor {
    * to the nearest named scope).
    */
   private namedScope(node: Node): string | null {
-    if (Node.isFunctionDeclaration(node)) {
-      return node.getName() ?? "<anonymous function>";
+    if (isFunctionDeclaration(node)) {
+      return nameOf(node) ?? "<anonymous function>";
     }
-    if (Node.isMethodDeclaration(node)) {
-      const clsName = node.getFirstAncestorByKind(SyntaxKind.ClassDeclaration)?.getName();
-      const methodName = node.getName();
+    if (isMethodDeclaration(node)) {
+      const cls = firstAncestor(node, isClassDeclaration);
+      const clsName = cls ? nameOf(cls) : undefined;
+      const methodName = nameText(node);
       return clsName ? `${clsName}.${methodName}` : methodName;
     }
-    if (Node.isGetAccessorDeclaration(node) || Node.isSetAccessorDeclaration(node)) {
-      return node.getName();
+    if (isGetAccessorDeclaration(node) || isSetAccessorDeclaration(node)) {
+      return nameText(node);
     }
-    if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
+    if (isArrowFunction(node) || isFunctionExpression(node)) {
       return this.boundFunctionName(node) ?? null;
     }
     return null;
@@ -4072,10 +4182,10 @@ export class HandlerExtractor {
 
   /** The variable / property name a function expression is assigned to, if any. */
   private boundFunctionName(fn: Node): string | undefined {
-    const parent = fn.getParent();
+    const parent = fn.parent;
     if (!parent) return undefined;
-    if (Node.isVariableDeclaration(parent)) return parent.getName();
-    if (Node.isPropertyAssignment(parent)) return parent.getName();
+    if (isVariableDeclaration(parent)) return nameText(parent);
+    if (isPropertyAssignment(parent)) return nameText(parent);
     return undefined;
   }
 
@@ -4113,8 +4223,8 @@ export class HandlerExtractor {
   private extractResourcesFromFile(sourceFile: SourceFile, filePath: string): ResourceInfo[] {
     const resources: ResourceInfo[] = [];
 
-    sourceFile.forEachDescendant((node) => {
-      if (!Node.isCallExpression(node)) return;
+    forEachDescendant(sourceFile, (node) => {
+      if (!isCallExpression(node)) return;
 
       const resource = this.extractResourcePattern(node, filePath);
       if (resource) {
@@ -4129,21 +4239,21 @@ export class HandlerExtractor {
    * Match a $resource() call and extract its metadata.
    */
   private extractResourcePattern(node: CallExpression, filePath: string): ResourceInfo | null {
-    const expression = node.getExpression();
-    if (!Node.isIdentifier(expression)) return null;
-    if (expression.getText() !== "$resource") return null;
+    const expression = node.expression;
+    if (!isIdentifier(expression)) return null;
+    if (textOf(expression) !== "$resource") return null;
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) return null;
 
     // First arg: resource name (string literal)
     const nameArg = args[0];
-    if (!nameArg || !Node.isStringLiteral(nameArg)) return null;
-    const name = nameArg.getLiteralValue();
+    if (!nameArg || !isStringLiteral(nameArg)) return null;
+    const name = nameArg.text;
 
     // Second arg: options object with source, fetcher, initialValue
     const optionsArg = args[1];
-    if (!optionsArg || !Node.isObjectLiteralExpression(optionsArg)) return null;
+    if (!optionsArg || !isObjectLiteralExpression(optionsArg)) return null;
 
     // Extract source signal reads
     const sourceSignals = this.extractResourceSourceReads(optionsArg);
@@ -4161,7 +4271,7 @@ export class HandlerExtractor {
       name,
       variableName,
       filePath,
-      line: node.getStartLineNumber(),
+      line: startLine(node),
       sourceSignals,
     };
   }
@@ -4176,17 +4286,17 @@ export class HandlerExtractor {
   private extractResourceSourceReads(optionsObj: ObjectLiteralExpression): string[] {
     const signals: string[] = [];
 
-    const sourceProp = optionsObj.getProperty("source");
-    if (!sourceProp || !Node.isPropertyAssignment(sourceProp)) return signals;
+    const sourceProp = objectProperty(optionsObj, "source");
+    if (!sourceProp || !isPropertyAssignment(sourceProp)) return signals;
 
-    const sourceInit = sourceProp.getInitializer();
+    const sourceInit = sourceProp.initializer;
     if (!sourceInit) return signals;
 
     // Walk the source function body looking for .value reads
-    sourceInit.forEachDescendant((node) => {
-      if (!Node.isPropertyAccessExpression(node)) return;
+    forEachDescendant(sourceInit, (node) => {
+      if (!isPropertyAccessExpression(node)) return;
 
-      const text = node.getText();
+      const text = textOf(node);
       // Match: signal.value.field or signal.value
       const match = text.match(/^(\w+)\.value(?:\.(\w+))?$/);
       if (match) {
@@ -4269,7 +4379,10 @@ export class HandlerExtractor {
   }
 }
 
-export function extractHandlers(tsConfigPath: string): HandlerAnalysis {
+export function extractHandlers(
+  tsConfigPath: string,
+  source?: AnalysisSource
+): Promise<HandlerAnalysis> {
   const extractor = new HandlerExtractor(tsConfigPath);
-  return extractor.extractHandlers();
+  return extractor.extractHandlers(source);
 }

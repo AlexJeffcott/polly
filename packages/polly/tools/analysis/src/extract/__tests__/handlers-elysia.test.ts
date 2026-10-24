@@ -39,7 +39,7 @@ describe("Elysia .ws() Handler Extraction", () => {
     fs.writeFileSync(path.join(tempDir, "server.ts"), serverCode);
   }
 
-  test("extracts type guard handlers from .ws() message callback", () => {
+  test("extracts type guard handlers from .ws() message callback", async () => {
     setupProject(`
 import { Elysia } from 'elysia';
 
@@ -56,14 +56,14 @@ const app = new Elysia()
 `);
 
     const extractor = new HandlerExtractor(path.join(tempDir, "tsconfig.json"));
-    const { handlers } = extractor.extractHandlers();
+    const { handlers } = await extractor.extractHandlers();
 
     const messageTypes = handlers.map((h) => h.messageType);
     expect(messageTypes).toContain("subscribe");
     expect(messageTypes).toContain("unsubscribe");
   });
 
-  test("extracts open and close lifecycle handlers", () => {
+  test("extracts open and close lifecycle handlers", async () => {
     setupProject(`
 import { Elysia } from 'elysia';
 
@@ -82,7 +82,7 @@ const app = new Elysia()
 `);
 
     const extractor = new HandlerExtractor(path.join(tempDir, "tsconfig.json"));
-    const { handlers } = extractor.extractHandlers();
+    const { handlers } = await extractor.extractHandlers();
 
     const messageTypes = handlers.map((h) => h.messageType);
     expect(messageTypes).toContain("ws_open");
@@ -90,7 +90,7 @@ const app = new Elysia()
     expect(messageTypes).toContain("ws_close");
   });
 
-  test("extracts from arrow function style callbacks", () => {
+  test("extracts from arrow function style callbacks", async () => {
     setupProject(`
 import { Elysia } from 'elysia';
 
@@ -108,7 +108,7 @@ const app = new Elysia()
 `);
 
     const extractor = new HandlerExtractor(path.join(tempDir, "tsconfig.json"));
-    const { handlers } = extractor.extractHandlers();
+    const { handlers } = await extractor.extractHandlers();
 
     const messageTypes = handlers.map((h) => h.messageType);
     expect(messageTypes).toContain("ping");
@@ -151,7 +151,7 @@ describe("REST Route Handler Extraction", () => {
     fs.writeFileSync(path.join(tempDir, "server.ts"), serverCode);
   }
 
-  test("extracts Elysia REST handlers", () => {
+  test("extracts Elysia REST handlers", async () => {
     setupProject(`
 import { Elysia } from 'elysia';
 
@@ -168,7 +168,7 @@ const app = new Elysia()
 `);
 
     const extractor = new HandlerExtractor(path.join(tempDir, "tsconfig.json"));
-    const { handlers } = extractor.extractHandlers();
+    const { handlers } = await extractor.extractHandlers();
 
     const restHandlers = handlers.filter((h) => h.handlerKind === "rest");
     expect(restHandlers.length).toBe(3);
@@ -183,7 +183,7 @@ const app = new Elysia()
     expect(getHandler?.routePath).toBe("/todos");
   });
 
-  test("ignores .get() on non-framework objects", () => {
+  test("ignores .get() on non-framework objects", async () => {
     setupProject(`
 // No elysia import — plain object
 const map = new Map<string, number>();
@@ -195,7 +195,7 @@ const val = arr.pop();
 `);
 
     const extractor = new HandlerExtractor(path.join(tempDir, "tsconfig.json"));
-    const { handlers } = extractor.extractHandlers();
+    const { handlers } = await extractor.extractHandlers();
 
     const restHandlers = handlers.filter((h) => h.handlerKind === "rest");
     expect(restHandlers.length).toBe(0);

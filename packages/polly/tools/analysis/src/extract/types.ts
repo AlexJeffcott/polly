@@ -47,19 +47,20 @@ export class TypeExtractor {
     stateFilePath?: string,
     session?: AnalysisSession
   ): Promise<CodebaseAnalysis> {
-    // The type queries need the checker; the session (if it is ours) is
-    // closed before the handler extraction, which runs on its own project.
-    const readTypes = async (from: AnalysisSession) =>
-      this.readTypes(await from.openIsolated(this.tsConfigPath), stateFilePath);
-    const { stateType, messageTypes, tsConfigPath } = session
-      ? await readTypes(session)
-      : await withAnalysisSession(readTypes);
+    // The type queries run on an isolated program (their union order follows
+    // checker history); the handler extraction then runs on the session's
+    // shared program for the resolved tsconfig.
+    const read = async (from: AnalysisSession) => {
+      const types = await this.readTypes(await from.openIsolated(this.tsConfigPath), stateFilePath);
+      const handlerAnalysis = await this.extractHandlerAnalysis(types.tsConfigPath, from);
+      return { ...types, handlerAnalysis };
+    };
+    const { stateType, messageTypes, handlerAnalysis } = session
+      ? await read(session)
+      : await withAnalysisSession(read);
 
     // Analyze fields
     const fields = stateType ? this.analyzeFields(stateType) : [];
-
-    // Extract message handlers
-    const handlerAnalysis = this.extractHandlerAnalysis(tsConfigPath);
 
     // Filter message types and handlers to only include valid TLA+ identifiers
     const validMessageTypes = this.filterAndLogMessageTypes(
@@ -113,13 +114,10 @@ export class TypeExtractor {
     return { stateType, messageTypes, tsConfigPath };
   }
 
-  /**
-   * Extract handler analysis from the project (HandlerExtractor still runs on
-   * ts-morph, on its own project; it is handed the resolved tsconfig path).
-   */
-  private extractHandlerAnalysis(tsConfigPath: string) {
+  /** Extract handler analysis from the project, on the resolved tsconfig path. */
+  private extractHandlerAnalysis(tsConfigPath: string, session: AnalysisSession) {
     const handlerExtractor = new HandlerExtractor(tsConfigPath);
-    return handlerExtractor.extractHandlers();
+    return handlerExtractor.extractHandlers(session);
   }
 
   /**

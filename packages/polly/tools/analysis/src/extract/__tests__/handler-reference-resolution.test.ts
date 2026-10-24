@@ -17,7 +17,7 @@ describe("HandlerExtractor - Function Reference Resolution", () => {
     }
   });
 
-  test("DEBUG: check what is extracted", () => {
+  test("DEBUG: check what is extracted", async () => {
     const testFile = path.join(tempDir, "test.ts");
     fs.writeFileSync(
       testFile,
@@ -46,7 +46,7 @@ function handleIncrement() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     console.log("Handlers found:", result.handlers.length);
     for (const handler of result.handlers) {
@@ -59,7 +59,7 @@ function handleIncrement() {
     expect(result.handlers.length).toBeGreaterThan(0);
   });
 
-  test("should discover handlers from bus.on() with function references", () => {
+  test("should discover handlers from bus.on() with function references", async () => {
     // Create test file with bus.on() pattern using function references
     const testFile = path.join(tempDir, "verification-handlers.ts");
     fs.writeFileSync(
@@ -104,7 +104,7 @@ bus.on("authenticate", handleAuthenticate);
 
     // Extract handlers
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // Should discover both handlers
     expect(result.handlers.length).toBeGreaterThanOrEqual(2);
@@ -123,7 +123,7 @@ bus.on("authenticate", handleAuthenticate);
     expect(authHandler?.assignments[0]?.value).toBe(true);
   });
 
-  test("should extract state transitions from referenced functions", () => {
+  test("should extract state transitions from referenced functions", async () => {
     const testFile = path.join(tempDir, "handlers-with-transitions.ts");
     fs.writeFileSync(
       testFile,
@@ -160,7 +160,7 @@ function handleAddItem() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const incrementHandler = result.handlers.find((h) => h.messageType === "increment");
     expect(incrementHandler).toBeDefined();
@@ -173,7 +173,7 @@ function handleAddItem() {
     expect(addItemHandler?.assignments[0]?.field).toBe("items");
   });
 
-  test("should handle inline arrow functions in handler maps", () => {
+  test("should handle inline arrow functions in handler maps", async () => {
     const testFile = path.join(tempDir, "inline-handlers.ts");
     fs.writeFileSync(
       testFile,
@@ -199,7 +199,7 @@ export const handlers = {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const activateHandler = result.handlers.find((h) => h.messageType === "activate");
     expect(activateHandler).toBeDefined();
@@ -207,7 +207,7 @@ export const handlers = {
     expect(activateHandler?.assignments[0]?.value).toBe(true);
   });
 
-  test("should extract verification conditions from referenced functions", () => {
+  test("should extract verification conditions from referenced functions", async () => {
     const testFile = path.join(tempDir, "handlers-with-conditions.ts");
     fs.writeFileSync(
       testFile,
@@ -243,7 +243,7 @@ function handleQuery() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const queryHandler = result.handlers.find((h) => h.messageType === "query");
     expect(queryHandler).toBeDefined();
@@ -257,7 +257,7 @@ function handleQuery() {
     expect(queryHandler?.postconditions[0]?.expression).toContain("count");
   });
 
-  test("should resolve function references in bus.on() patterns", () => {
+  test("should resolve function references in bus.on() patterns", async () => {
     const testFile = path.join(tempDir, "bus-on-references.ts");
     fs.writeFileSync(
       testFile,
@@ -297,7 +297,7 @@ bus.on("activate", handleActivate);
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // Should discover both handlers via bus.on() with function references
     const incrementHandler = result.handlers.find((h) => h.messageType === "increment");
@@ -312,7 +312,7 @@ bus.on("activate", handleActivate);
     expect(activateHandler?.assignments[0]?.value).toBe(true);
   });
 
-  test("should handle complex state mutations in referenced functions", () => {
+  test("should handle complex state mutations in referenced functions", async () => {
     const testFile = path.join(tempDir, "complex-mutations.ts");
     fs.writeFileSync(
       testFile,
@@ -347,7 +347,7 @@ function handleConnect() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const connectHandler = result.handlers.find((h) => h.messageType === "connect");
     expect(connectHandler).toBeDefined();
@@ -363,7 +363,7 @@ function handleConnect() {
     expect(authAssignment?.value).toBe(false);
   });
 
-  test("should extract state mutations from .value pattern (signal-based state)", () => {
+  test("should extract state mutations from .value pattern (signal-based state)", async () => {
     const testFile = path.join(tempDir, "signal-state-handlers.ts");
     fs.writeFileSync(
       testFile,
@@ -416,7 +416,7 @@ bus.on("connect", async () => {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // Should find both handlers
     expect(result.handlers.length).toBeGreaterThanOrEqual(2);
@@ -442,7 +442,7 @@ bus.on("connect", async () => {
     expect(authAssignment?.value).toBe(true);
   });
 
-  test("should extract nested .value.field assignments", () => {
+  test("should extract nested .value.field assignments", async () => {
     const testFile = path.join(tempDir, "nested-value-assignments.ts");
     fs.writeFileSync(
       testFile,
@@ -481,7 +481,7 @@ bus.on("increment", async () => {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // Find authenticate handler with nested .value.field assignment
     const authHandler = result.handlers.find((h) => h.messageType === "authenticate");

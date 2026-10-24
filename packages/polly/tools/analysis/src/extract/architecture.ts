@@ -31,8 +31,8 @@ export interface ArchitectureAnalysisOptions {
   useProjectDetector?: boolean;
 
   /**
-   * Optional: the typescript-7 session to run the contexts, flows and
-   * integrations on (the caller closes it). Without one, `analyze` opens and
+   * Optional: the typescript-7 session to run the handlers, contexts,
+   * flows and integrations on (the caller closes it). Without one, `analyze` opens and
    * closes a session of its own.
    */
   session?: AnalysisSession;
@@ -67,16 +67,16 @@ export class ArchitectureAnalyzer {
       }
     }
 
+    // Handlers, contexts, flows and integrations share one program (all AST
+    // walks, plus go-to-definition for handlers and component prop types).
+    const program = await session.open(this.options.tsConfigPath);
+
     // 2. Extract message handlers
     const handlerExtractor = new HandlerExtractor(
       this.options.tsConfigPath,
       contextOverrides.size > 0 ? contextOverrides : undefined
     );
-    const { handlers, meshOrPeerSignals } = handlerExtractor.extractHandlers();
-
-    // Contexts, flows and integrations share one program (all AST walks,
-    // plus component prop types).
-    const program = await session.open(this.options.tsConfigPath);
+    const { handlers, meshOrPeerSignals } = await handlerExtractor.extractHandlers(program);
 
     // 3. Analyze each context
     const contexts = await this.analyzeContexts(program, entryPoints, handlers);

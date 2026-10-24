@@ -42,7 +42,7 @@ describe("HandlerExtractor - Verified State Discovery (Issue #27)", () => {
     return tsConfigPath;
   }
 
-  test("should detect $sharedState with verify: true", () => {
+  test("should detect $sharedState with verify: true", async () => {
     const testFile = path.join(tempDir, "auth-state.ts");
     fs.writeFileSync(
       testFile,
@@ -65,7 +65,7 @@ export const authState = $sharedState('auth', initialAuthState, { verify: true }
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.verifiedStates.length).toBe(1);
     expect(result.verifiedStates[0]?.key).toBe("auth");
@@ -76,7 +76,7 @@ export const authState = $sharedState('auth', initialAuthState, { verify: true }
     expect(result.verifiedStates[0]?.fields).toContain("error");
   });
 
-  test("should ignore $sharedState without verify: true", () => {
+  test("should ignore $sharedState without verify: true", async () => {
     const testFile = path.join(tempDir, "settings-state.ts");
     fs.writeFileSync(
       testFile,
@@ -98,13 +98,13 @@ export const settingsC = $sharedState('settings-c', { theme: 'dark' }, { verify:
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.verifiedStates.length).toBe(1);
     expect(result.verifiedStates[0]?.key).toBe("settings-c");
   });
 
-  test("should discover exported functions that modify verified state", () => {
+  test("should discover exported functions that modify verified state", async () => {
     const testFile = path.join(tempDir, "auth-handlers.ts");
     fs.writeFileSync(
       testFile,
@@ -145,7 +145,7 @@ function internalHelper(): void {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // Should find 2 handlers from the exported functions
     const authHandlers = result.handlers.filter(
@@ -167,7 +167,7 @@ function internalHelper(): void {
     expect(logoutHandler).toBeDefined();
   });
 
-  test("should extract requires() and ensures() from state-modifying functions", () => {
+  test("should extract requires() and ensures() from state-modifying functions", async () => {
     const testFile = path.join(tempDir, "verified-handlers.ts");
     fs.writeFileSync(
       testFile,
@@ -208,7 +208,7 @@ export function handleAuthSuccess(userProfile: { name: string }): void {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const authHandler = result.handlers.find((h) => h.messageType === "AuthSuccess");
     expect(authHandler).toBeDefined();
@@ -221,7 +221,7 @@ export function handleAuthSuccess(userProfile: { name: string }): void {
     expect(authHandler?.postconditions.length).toBeGreaterThanOrEqual(1);
   });
 
-  test("should convert function names to message types correctly", () => {
+  test("should convert function names to message types correctly", async () => {
     const testFile = path.join(tempDir, "name-conversion.ts");
     fs.writeFileSync(
       testFile,
@@ -261,7 +261,7 @@ export function resetAll(): void {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const messageTypes = result.handlers.map((h) => h.messageType);
 
@@ -272,7 +272,7 @@ export function resetAll(): void {
     expect(messageTypes).toContain("ResetAll");
   });
 
-  test("should handle arrow functions exported as const", () => {
+  test("should handle arrow functions exported as const", async () => {
     const testFile = path.join(tempDir, "arrow-handlers.ts");
     fs.writeFileSync(
       testFile,
@@ -295,13 +295,13 @@ export const handleDecrement = (): void => {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.handlers.some((h) => h.messageType === "Increment")).toBe(true);
     expect(result.handlers.some((h) => h.messageType === "Decrement")).toBe(true);
   });
 
-  test("should detect field updates via dot notation", () => {
+  test("should detect field updates via dot notation", async () => {
     const testFile = path.join(tempDir, "field-updates.ts");
     fs.writeFileSync(
       testFile,
@@ -328,7 +328,7 @@ export function handleActivate(): void {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const setNameHandler = result.handlers.find((h) => h.messageType === "SetName");
     expect(setNameHandler).toBeDefined();
@@ -343,7 +343,7 @@ export function handleActivate(): void {
     ).toBe(true);
   });
 
-  test("should handle multiple verified states in same file", () => {
+  test("should handle multiple verified states in same file", async () => {
     const testFile = path.join(tempDir, "multi-state.ts");
     fs.writeFileSync(
       testFile,
@@ -367,7 +367,7 @@ export function handleSetTheme(theme: string): void {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.verifiedStates.length).toBe(2);
     expect(result.verifiedStates.map((s) => s.key)).toContain("auth");
@@ -376,7 +376,7 @@ export function handleSetTheme(theme: string): void {
     expect(result.handlers.some((h) => h.messageType === "Login")).toBe(true);
     expect(result.handlers.some((h) => h.messageType === "SetTheme")).toBe(true);
   });
-  test("does not lift a register helper whose writes sit inside bus.on callbacks", () => {
+  test("does not lift a register helper whose writes sit inside bus.on callbacks", async () => {
     const testFile = path.join(tempDir, "register-handlers.ts");
     fs.writeFileSync(
       testFile,
@@ -410,7 +410,7 @@ export function handleReset(): void {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const types = result.handlers.map((h) => h.messageType);
     expect(types).not.toContain("RegisterHandlers");

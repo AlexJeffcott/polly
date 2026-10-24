@@ -18,7 +18,7 @@ describe("HandlerExtractor - Type Guard Detection", () => {
   });
 
   describe("Local type guards (same file)", () => {
-    test("should detect type guards defined in the same file", () => {
+    test("should detect type guards defined in the same file", async () => {
       // Create test file with local type guards
       const testFile = path.join(tempDir, "local-guards.ts");
       fs.writeFileSync(
@@ -72,7 +72,7 @@ export function handleMessage(message: RequestMessage) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       expect(result.handlers.length).toBe(2);
       expect(result.messageTypes.has("query")).toBe(true);
@@ -88,7 +88,7 @@ export function handleMessage(message: RequestMessage) {
   });
 
   describe("Imported type guards", () => {
-    test("should detect type guards imported from another file", () => {
+    test("should detect type guards imported from another file", async () => {
       // Create type guards file
       const guardsFile = path.join(tempDir, "guards.ts");
       fs.writeFileSync(
@@ -149,7 +149,7 @@ export function handleMessage(message: RequestMessage) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       expect(result.handlers.length).toBe(2);
       expect(result.messageTypes.has("query")).toBe(true);
@@ -161,7 +161,7 @@ export function handleMessage(message: RequestMessage) {
       expect(queryHandler?.location.file).toBe(handlerFile);
     });
 
-    test("should detect type guards imported with .ts extension (Bun/Deno style)", () => {
+    test("should detect type guards imported with .ts extension (Bun/Deno style)", async () => {
       // Create type guards file
       const guardsFile = path.join(tempDir, "messages.ts");
       fs.writeFileSync(
@@ -223,14 +223,14 @@ export function handleRequest(message: RequestMessage) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       expect(result.handlers.length).toBe(2);
       expect(result.messageTypes.has("subscribe")).toBe(true);
       expect(result.messageTypes.has("unsubscribe")).toBe(true);
     });
 
-    test("should detect type guards imported with path aliases", () => {
+    test("should detect type guards imported with path aliases", async () => {
       // Create directory structure
       const srcDir = path.join(tempDir, "src");
       const wsDir = path.join(srcDir, "ws");
@@ -301,7 +301,7 @@ export function handleWebSocketMessage(message: RequestMessage) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       expect(result.handlers.length).toBe(2);
       expect(result.messageTypes.has("auth")).toBe(true);
@@ -310,7 +310,7 @@ export function handleWebSocketMessage(message: RequestMessage) {
   });
 
   describe("Type name extraction", () => {
-    test("should extract message type from type name with Message suffix", () => {
+    test("should extract message type from type name with Message suffix", async () => {
       const testFile = path.join(tempDir, "extraction.ts");
       fs.writeFileSync(
         testFile,
@@ -368,7 +368,7 @@ export function process(message: RequestMessage) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       // Should extract "query", "command", "subscribe" (lowercase, without "Message")
       expect(result.messageTypes.has("query")).toBe(true);
@@ -379,7 +379,7 @@ export function process(message: RequestMessage) {
   });
 
   describe("Edge cases", () => {
-    test("should handle else-if chains with multiple type guards", () => {
+    test("should handle else-if chains with multiple type guards", async () => {
       const testFile = path.join(tempDir, "chain.ts");
       fs.writeFileSync(
         testFile,
@@ -425,7 +425,7 @@ function handle(m: Message) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       expect(result.handlers.length).toBe(4);
       expect(result.messageTypes.has("create")).toBe(true);
@@ -434,7 +434,7 @@ function handle(m: Message) {
       expect(result.messageTypes.has("read")).toBe(true);
     });
 
-    test("should not detect non-type-guard functions", () => {
+    test("should not detect non-type-guard functions", async () => {
       const testFile = path.join(tempDir, "non-guard.ts");
       fs.writeFileSync(
         testFile,
@@ -471,7 +471,7 @@ function handle(msg: Message) {
       );
 
       const extractor = new HandlerExtractor(tsconfig);
-      const result = extractor.extractHandlers();
+      const result = await extractor.extractHandlers();
 
       // Should not detect any handlers (isValid is not a type guard)
       expect(result.handlers.length).toBe(0);

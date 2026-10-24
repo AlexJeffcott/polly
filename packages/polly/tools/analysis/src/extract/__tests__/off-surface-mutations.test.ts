@@ -26,7 +26,9 @@ describe("HandlerExtractor - off-surface mutators (polly#163)", () => {
     if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true });
   });
 
-  function run(files: Record<string, string>): ReturnType<HandlerExtractor["extractHandlers"]> {
+  async function run(
+    files: Record<string, string>
+  ): ReturnType<HandlerExtractor["extractHandlers"]> {
     fs.writeFileSync(
       path.join(tempDir, "tsconfig.json"),
       JSON.stringify({
@@ -42,8 +44,8 @@ describe("HandlerExtractor - off-surface mutators (polly#163)", () => {
     return new HandlerExtractor(path.join(tempDir, "tsconfig.json")).extractHandlers();
   }
 
-  test("reports a write inside a class method", () => {
-    const result = run({
+  test("reports a write inside a class method", async () => {
+    const result = await run({
       "app.ts": `${STATE_PRELUDE}
 class RecoveryFlow {
   register() {
@@ -61,8 +63,8 @@ new RecoveryFlow().register();
     });
   });
 
-  test("reports a write inside a non-exported function", () => {
-    const result = run({
+  test("reports a write inside a non-exported function", async () => {
+    const result = await run({
       "app.ts": `${STATE_PRELUDE}
 function grant() {
   session.value.canSend = true;
@@ -74,8 +76,8 @@ grant();
     expect(result.offSurfaceMutations[0]?.field).toBe("session_canSend");
   });
 
-  test("reports a write at module top level as <module>", () => {
-    const result = run({
+  test("reports a write at module top level as <module>", async () => {
+    const result = await run({
       "app.ts": `${STATE_PRELUDE}
 session.value.canSend = true;
 `,
@@ -83,8 +85,8 @@ session.value.canSend = true;
     expect(result.offSurfaceMutations.map((m) => m.functionName)).toEqual(["<module>"]);
   });
 
-  test("does NOT report a write inside an exported function (lifted by Issue #27)", () => {
-    const result = run({
+  test("does NOT report a write inside an exported function (lifted by Issue #27)", async () => {
+    const result = await run({
       "app.ts": `${STATE_PRELUDE}
 export function authenticate() {
   session.value.authenticated = true;
@@ -97,8 +99,8 @@ export function authenticate() {
     expect(result.handlers.some((h) => h.messageType === "Authenticate")).toBe(true);
   });
 
-  test("a whole-state replacement reports one finding per object-literal key", () => {
-    const result = run({
+  test("a whole-state replacement reports one finding per object-literal key", async () => {
+    const result = await run({
       "app.ts": `${STATE_PRELUDE}
 class Reset {
   run() {
@@ -117,8 +119,8 @@ new Reset().run();
     );
   });
 
-  test("excludes test files (fixtures seed state by design)", () => {
-    const result = run({
+  test("excludes test files (fixtures seed state by design)", async () => {
+    const result = await run({
       "app.ts": STATE_PRELUDE,
       "app.test.ts": `import { session } from "./app";
 session.value.canSend = true;
@@ -127,8 +129,8 @@ session.value.canSend = true;
     expect(result.offSurfaceMutations).toEqual([]);
   });
 
-  test("reports writes only for state-signal factories, not arbitrary .value writes", () => {
-    const result = run({
+  test("reports writes only for state-signal factories, not arbitrary .value writes", async () => {
+    const result = await run({
       "app.ts": `${STATE_PRELUDE}
 const plain = { value: 0 };
 function touch() {

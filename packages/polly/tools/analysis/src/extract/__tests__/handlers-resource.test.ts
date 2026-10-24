@@ -49,7 +49,7 @@ describe("HandlerExtractor - $resource Discovery", () => {
     );
   }
 
-  test("should detect $resource call and emit three synthetic handlers", () => {
+  test("should detect $resource call and emit three synthetic handlers", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "resources.ts");
     fs.writeFileSync(
@@ -72,7 +72,7 @@ const todosResource = $resource("todos", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // Should have three synthetic handlers
     const resourceHandlers = result.handlers.filter((h) => h.messageType.startsWith("todos_"));
@@ -87,7 +87,7 @@ const todosResource = $resource("todos", {
     expect(result.resources[0]?.variableName).toBe("todosResource");
   });
 
-  test("FetchStart handler has correct precondition and assignments", () => {
+  test("FetchStart handler has correct precondition and assignments", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "resources.ts");
     fs.writeFileSync(
@@ -107,7 +107,7 @@ const myResource = $resource("items", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const fetchStart = result.handlers.find((h) => h.messageType === "items_FetchStart");
     expect(fetchStart).toBeDefined();
@@ -119,7 +119,7 @@ const myResource = $resource("items", {
     ]);
   });
 
-  test("FetchSuccess handler has correct precondition and assignments", () => {
+  test("FetchSuccess handler has correct precondition and assignments", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "resources.ts");
     fs.writeFileSync(
@@ -139,7 +139,7 @@ const myResource = $resource("items", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const fetchSuccess = result.handlers.find((h) => h.messageType === "items_FetchSuccess");
     expect(fetchSuccess).toBeDefined();
@@ -151,7 +151,7 @@ const myResource = $resource("items", {
     ]);
   });
 
-  test("FetchError handler has correct precondition and assignments", () => {
+  test("FetchError handler has correct precondition and assignments", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "resources.ts");
     fs.writeFileSync(
@@ -171,7 +171,7 @@ const myResource = $resource("items", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const fetchError = result.handlers.find((h) => h.messageType === "items_FetchError");
     expect(fetchError).toBeDefined();
@@ -183,7 +183,7 @@ const myResource = $resource("items", {
     ]);
   });
 
-  test("should extract source signal reads", () => {
+  test("should extract source signal reads", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "resources.ts");
     fs.writeFileSync(
@@ -209,7 +209,7 @@ const myResource = $resource("data", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.resources.length).toBe(1);
     const signals = result.resources[0]?.sourceSignals;
@@ -218,7 +218,7 @@ const myResource = $resource("data", {
     expect(signals).toContain("settings");
   });
 
-  test("should not match non-$resource function calls", () => {
+  test("should not match non-$resource function calls", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "not-resource.ts");
     fs.writeFileSync(
@@ -242,7 +242,7 @@ const res = createResource("data", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     // No resource handlers — only verified state from $sharedState
     expect(result.resources.length).toBe(0);
@@ -252,7 +252,7 @@ const res = createResource("data", {
     expect(resourceHandlers.length).toBe(0);
   });
 
-  test("message types are added to messageTypes set", () => {
+  test("message types are added to messageTypes set", async () => {
     createPackageJson();
     const testFile = path.join(tempDir, "resources.ts");
     fs.writeFileSync(
@@ -272,7 +272,7 @@ const myResource = $resource("items", {
 
     const tsConfigPath = createTsConfig();
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.messageTypes.has("items_FetchStart")).toBe(true);
     expect(result.messageTypes.has("items_FetchSuccess")).toBe(true);

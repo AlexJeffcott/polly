@@ -58,14 +58,14 @@ ${body}
     );
   }
 
-  test("longhand `{ field: paramName.X }` produces a param:X marker", () => {
+  test("longhand `{ field: paramName.X }` produces a param:X marker", async () => {
     writeHandlerFile(`
 bus.on<{ role: string }>("USER_SET_ROLE", (payload) => {
   user.value = { ...user.value, role: payload.role };
 });
 `);
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const handler = result.handlers.find((h) => h.messageType === "USER_SET_ROLE");
     expect(handler).toBeDefined();
@@ -74,7 +74,7 @@ bus.on<{ role: string }>("USER_SET_ROLE", (payload) => {
     );
   });
 
-  test("longhand with renamed property still resolves payload identifier", () => {
+  test("longhand with renamed property still resolves payload identifier", async () => {
     // Property is named differently from the payload field it pulls from:
     // `role: payload.kind` → field is "user_role", payload field is "kind".
     writeHandlerFile(`
@@ -83,7 +83,7 @@ bus.on<{ kind: string }>("USER_SET_KIND", (payload) => {
 });
 `);
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const handler = result.handlers.find((h) => h.messageType === "USER_SET_KIND");
     expect(handler).toBeDefined();
@@ -92,7 +92,7 @@ bus.on<{ kind: string }>("USER_SET_KIND", (payload) => {
     );
   });
 
-  test("renamed-property assignment `{ field: paramName }` produces a param:paramName marker", () => {
+  test("renamed-property assignment `{ field: paramName }` produces a param:paramName marker", async () => {
     // Issue #77: `{ currentView: view }` is the renamed-property equivalent
     // of the shorthand `{ view }`. The two forms should be treated the same
     // way; previously the renamed form was silently dropped, leaving the
@@ -121,7 +121,7 @@ export function navigate(view: ViewType): void {
 `
     );
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const handler = result.handlers.find((h) => h.messageType === "Navigate");
     expect(handler).toBeDefined();
@@ -130,7 +130,7 @@ export function navigate(view: ViewType): void {
     );
   });
 
-  test("renamed-property and shorthand forms produce identical markers for the same parameter", () => {
+  test("renamed-property and shorthand forms produce identical markers for the same parameter", async () => {
     // The two assignment styles differ only in syntax; the extractor should
     // emit the same param marker for both. This is the consistency guarantee
     // issue #77 names directly: action-body extraction and ensures extraction
@@ -144,7 +144,7 @@ bus.on<{ role: string }>("USER_RENAMED", (kind) => {
 });
 `);
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const shorthand = result.handlers.find((h) => h.messageType === "USER_SHORTHAND");
     const renamed = result.handlers.find((h) => h.messageType === "USER_RENAMED");
@@ -158,7 +158,7 @@ bus.on<{ role: string }>("USER_RENAMED", (kind) => {
     );
   });
 
-  test("renamed-property assignment with non-parameter identifier does NOT produce a marker", () => {
+  test("renamed-property assignment with non-parameter identifier does NOT produce a marker", async () => {
     // Only identifiers that resolve to function parameters become payload
     // markers; module-scope or imported identifiers must not be misread as
     // payload contributions.
@@ -169,7 +169,7 @@ bus.on<{}>("USE_DEFAULT", () => {
 });
 `);
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const handler = result.handlers.find((h) => h.messageType === "USE_DEFAULT");
     expect(handler).toBeDefined();
@@ -179,7 +179,7 @@ bus.on<{}>("USE_DEFAULT", () => {
     expect(paramAssignments).toEqual([]);
   });
 
-  test("non-payload property access (`other.x`) does NOT produce a marker", () => {
+  test("non-payload property access (`other.x`) does NOT produce a marker", async () => {
     // The RHS must come from a function parameter; arbitrary property access
     // (e.g. another module-scope object) is not surfaced as a payload field.
     writeHandlerFile(`
@@ -189,7 +189,7 @@ bus.on<{}>("USE_OTHER", () => {
 });
 `);
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     const handler = result.handlers.find((h) => h.messageType === "USE_OTHER");
     expect(handler).toBeDefined();

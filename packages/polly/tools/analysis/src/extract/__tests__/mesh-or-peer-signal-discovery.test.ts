@@ -39,7 +39,7 @@ describe("HandlerExtractor — mesh/peer signal discovery (polly#117)", () => {
     return tsConfigPath;
   }
 
-  test("recognises $meshState calls and reports the signal", () => {
+  test("recognises $meshState calls and reports the signal", async () => {
     const testFile = path.join(tempDir, "state.ts");
     fs.writeFileSync(
       testFile,
@@ -53,7 +53,7 @@ export const todos = $meshState<{ entries: string[] }>("todos-doc", { entries: [
     );
 
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.meshOrPeerSignals).toHaveLength(1);
     const sig = result.meshOrPeerSignals[0]!;
@@ -62,7 +62,7 @@ export const todos = $meshState<{ entries: string[] }>("todos-doc", { entries: [
     expect(sig.variableName).toBe("todos");
   });
 
-  test("recognises $peerState calls and reports the signal", () => {
+  test("recognises $peerState calls and reports the signal", async () => {
     const testFile = path.join(tempDir, "peer-state.ts");
     fs.writeFileSync(
       testFile,
@@ -76,7 +76,7 @@ export const presence = $peerState<{ online: boolean }>("presence-doc", { online
     );
 
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.meshOrPeerSignals).toHaveLength(1);
     const sig = result.meshOrPeerSignals[0]!;
@@ -85,7 +85,7 @@ export const presence = $peerState<{ online: boolean }>("presence-doc", { online
     expect(sig.variableName).toBe("presence");
   });
 
-  test("recognises both factories in the same file", () => {
+  test("recognises both factories in the same file", async () => {
     const testFile = path.join(tempDir, "mixed.ts");
     fs.writeFileSync(
       testFile,
@@ -99,14 +99,14 @@ export const docB = $peerState<{ ts: number }>("doc-b", { ts: 0 });
     );
 
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.meshOrPeerSignals).toHaveLength(2);
     const kinds = result.meshOrPeerSignals.map((s) => s.kind).sort();
     expect(kinds).toEqual(["mesh", "peer"]);
   });
 
-  test("does not recognise $sharedState as mesh or peer", () => {
+  test("does not recognise $sharedState as mesh or peer", async () => {
     const testFile = path.join(tempDir, "shared.ts");
     fs.writeFileSync(
       testFile,
@@ -118,7 +118,7 @@ export const local = $sharedState<{ count: number }>("local", { count: 0 });
     );
 
     const extractor = new HandlerExtractor(createTsConfig());
-    const result = extractor.extractHandlers();
+    const result = await extractor.extractHandlers();
 
     expect(result.meshOrPeerSignals).toHaveLength(0);
   });

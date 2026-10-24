@@ -40,7 +40,7 @@ describe("HandlerExtractor — object-literal arithmetic RHS (polly#147)", () =>
     return tsConfigPath;
   }
 
-  function extract(body: string) {
+  async function extract(body: string) {
     fs.writeFileSync(
       path.join(tempDir, "handlers.ts"),
       `
@@ -59,8 +59,8 @@ ${body}
     return new HandlerExtractor(createTsConfig()).extractHandlers();
   }
 
-  test("mint: `{ outstanding: sessions.value.outstanding + 1 }` is captured as an EXPR", () => {
-    const result = extract(`
+  test("mint: `{ outstanding: sessions.value.outstanding + 1 }` is captured as an EXPR", async () => {
+    const result = await extract(`
 bus.on("MINT", () => {
   sessions.value = { outstanding: sessions.value.outstanding + 1 };
 });
@@ -74,8 +74,8 @@ bus.on("MINT", () => {
     );
   });
 
-  test("revoke: subtraction RHS is captured", () => {
-    const result = extract(`
+  test("revoke: subtraction RHS is captured", async () => {
+    const result = await extract(`
 bus.on("REVOKE", () => {
   sessions.value = { outstanding: sessions.value.outstanding - 1 };
 });
@@ -88,8 +88,8 @@ bus.on("REVOKE", () => {
     );
   });
 
-  test("spread + arithmetic: the spread is ignored, the arithmetic field captured", () => {
-    const result = extract(`
+  test("spread + arithmetic: the spread is ignored, the arithmetic field captured", async () => {
+    const result = await extract(`
 bus.on("MINT_SPREAD", () => {
   sessions.value = { ...sessions.value, outstanding: sessions.value.outstanding + 1 };
 });
@@ -102,8 +102,8 @@ bus.on("MINT_SPREAD", () => {
     );
   });
 
-  test("plain copy of another field is captured as an EXPR", () => {
-    const result = extract(`
+  test("plain copy of another field is captured as an EXPR", async () => {
+    const result = await extract(`
 bus.on("COPY", () => {
   sessions.value = { outstanding: other.value.count };
 });
@@ -114,8 +114,8 @@ bus.on("COPY", () => {
     );
   });
 
-  test("literal RHS is still captured as a plain value (unchanged behaviour)", () => {
-    const result = extract(`
+  test("literal RHS is still captured as a plain value (unchanged behaviour)", async () => {
+    const result = await extract(`
 bus.on("RESET", () => {
   sessions.value = { outstanding: 0 };
 });
@@ -126,8 +126,8 @@ bus.on("RESET", () => {
     );
   });
 
-  test("payload-parameter RHS still produces a param: marker, not an EXPR", () => {
-    const result = extract(`
+  test("payload-parameter RHS still produces a param: marker, not an EXPR", async () => {
+    const result = await extract(`
 bus.on<{ n: number }>("SET", (payload) => {
   sessions.value = { outstanding: payload.n };
 });

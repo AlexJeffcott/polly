@@ -9,7 +9,7 @@ const outputDir = path.join(verificationDir, "output");
 const tsConfigPath = path.join(verificationDir, "tsconfig.json");
 const _packageRoot = path.join(verificationDir, "..");
 const extractor = new HandlerExtractor(tsConfigPath);
-const analysis = extractor.extractHandlers();
+const analysis = await extractor.extractHandlers();
 const { verificationConfig } = await import(path.join(verificationDir, "verify.config.ts"));
 
 // Create codebase analysis

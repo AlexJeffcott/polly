@@ -304,7 +304,9 @@ async function runExtractor(
       });
     }
     case "analysis.extractHandlers": {
-      return new HandlerExtractor(required(verifyTsConfig(cwd), "tsconfig")).extractHandlers();
+      return await new HandlerExtractor(required(verifyTsConfig(cwd), "tsconfig")).extractHandlers(
+        session
+      );
     }
     case "visualize.analyzeArchitecture": {
       return await analyzeArchitecture({

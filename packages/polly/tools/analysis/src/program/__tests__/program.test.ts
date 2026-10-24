@@ -16,7 +16,6 @@ import {
 import type { Node, SourceFile } from "typescript-7/ast";
 import { isCallExpression, isIdentifier } from "typescript-7/ast/is";
 import type { Type } from "typescript-7/async";
-import { sourceFilesInPathOrder } from "../../extract/source-file-order";
 import { type AnalysisProgram, AnalysisSession, isDefinitionSite } from "../analysis-program";
 import {
   forEachDescendant,
@@ -30,6 +29,15 @@ import {
 import { createSourceGlob } from "../glob";
 import { typeIs, typeLiteralValue } from "../type-flags";
 import { FULL_FEATURED, Mismatches, TODO_LIST, TYPES_CORPUS, writeEdgeProject } from "./corpus";
+
+/** ts-morph's `project.getSourceFiles()`, sorted by absolute path (code-unit order). */
+function sourceFilesInPathOrder(project: Project): MorphSourceFile[] {
+  return [...project.getSourceFiles()].sort((a, b) => {
+    const left = a.getFilePath();
+    const right = b.getFilePath();
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
+}
 
 /** Default-library files: ts-morph serves its own bundled TS 6 copies, so answers there cannot agree. */
 const DEFAULT_LIB = /\/lib\.[^/]*\.d\.ts$/;
