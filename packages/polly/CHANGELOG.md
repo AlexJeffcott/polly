@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Code analysis runs on the TypeScript 7 API, and `ts-morph` is gone.**
+  `polly verify`, `polly verify --setup`, `polly visualize` and the routing
+  adapters extract handlers, types, contexts, flows, relationships and
+  integrations through `typescript-7/async`. One `tsgo` process serves a
+  CLI run, and each project is loaded once for every extractor; under
+  ts-morph, each of nine extractor and adapter classes built its own
+  Project. The output is unchanged: the parity
+  harness (`scripts/analysis-parity.ts`) compares every extractor's full
+  output byte for byte with goldens recorded from the ts-morph code, and all
+  30 projects match (26 in this repository, plus fairfox, lingua twice and
+  eal). The harness run fell from 185.5 s to 19.1 s across those 30
+  projects; lingua's architecture analysis from about 80 s to about 6.5 s.
+- **No public export changed; the extractors' source signatures did.** The
+  extractors are not in the exports map (`@fairfox/polly/verify` exports
+  the config helpers only), but code that imports them from source, such as
+  a vendored tree, sees them change: `extractHandlers`,
+  `HandlerExtractor.extractHandlers`, the adapters' `extractModel`,
+  `AdapterDetector.detect`, `detectAdapter`, `selectAdapter`,
+  `ContextAnalyzer.analyzeContext`, `FlowAnalyzer.analyzeFlows` and
+  `IntegrationAnalyzer.analyzeIntegrations` return promises and take an
+  optional `AnalysisSource` (an `AnalysisSession` or one of its programs)
+  to share a loaded project. `HandlerExtractor.findStateMutatingFunctions`
+  is async and takes a typescript-7 `SourceFile`. `RelationshipExtractor`
+  takes an `AnalysisProgram`.
+
+### Removed
+
+- **The `ts-morph` dependency.** Consumers no longer install a second
+  TypeScript: ts-morph 28 (1.5 MB) pulled in `@ts-morph/common` (12.8 MB),
+  which bundles TypeScript 6. Analysis uses the `typescript-7` alias polly
+  already depended on.
+
 ## [0.95.0] - 2026-10-24
 
 ### Changed
