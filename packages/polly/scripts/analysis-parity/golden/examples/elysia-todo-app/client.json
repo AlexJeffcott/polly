@@ -340,21 +340,21 @@
       "integrations": [
         {
           "type": "external-script",
+          "name": "@preact/signals",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/App.tsx"
+          ],
+          "description": "External dependency: @preact/signals"
+        },
+        {
+          "type": "external-script",
           "name": "@fairfox/polly",
           "technology": "npm package",
           "usedIn": [
             "<project>/src/api.ts"
           ],
           "description": "External dependency: @fairfox/polly"
-        },
-        {
-          "type": "external-script",
-          "name": "@preact/signals",
-          "technology": "npm package",
-          "usedIn": [
-            "<project>/src/api.ts"
-          ],
-          "description": "External dependency: @preact/signals"
         },
         {
           "type": "external-script",

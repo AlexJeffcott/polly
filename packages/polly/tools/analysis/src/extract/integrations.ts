@@ -3,6 +3,7 @@
 import * as path from "node:path";
 import { Node, Project, type SourceFile } from "ts-morph";
 import type { ExternalIntegration } from "../types/architecture";
+import { sourceFilesInPathOrder } from "./source-file-order";
 
 export class IntegrationAnalyzer {
   private project: Project;
@@ -23,14 +24,12 @@ export class IntegrationAnalyzer {
    * fixture directory still counts.
    */
   private applicationSourceFiles(): SourceFile[] {
-    return this.project
-      .getSourceFiles()
-      .filter(
-        (file) =>
-          !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
-            `/${path.relative(this.projectRoot, file.getFilePath())}`
-          )
-      );
+    return sourceFilesInPathOrder(this.project).filter(
+      (file) =>
+        !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
+          `/${path.relative(this.projectRoot, file.getFilePath())}`
+        )
+    );
   }
 
   /**

@@ -1562,21 +1562,21 @@
         },
         {
           "type": "external-script",
-          "name": "@/shared",
-          "technology": "npm package",
-          "usedIn": [
-            "<polly>/packages/polly/src/background/log-store.ts"
-          ],
-          "description": "External dependency: @/shared"
-        },
-        {
-          "type": "external-script",
           "name": "preact",
           "technology": "npm package",
           "usedIn": [
             "<project>/src/popup/index.tsx"
           ],
           "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@/shared",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/background/log-store.ts"
+          ],
+          "description": "External dependency: @/shared"
         },
         {
           "type": "external-script",
@@ -1783,70 +1783,6 @@
         ],
         "messageTypes": [
           {
-            "name": "LOG",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          },
-          {
-            "name": "LOGS_GET",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          },
-          {
-            "name": "LOGS_CLEAR",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          },
-          {
-            "name": "LOGS_EXPORT",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          },
-          {
             "name": "USER_LOGIN",
             "payload": {
               "name": "unknown",
@@ -2007,7 +1943,55 @@
             }
           },
           {
-            "name": "message",
+            "name": "LOG",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_GET",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_CLEAR",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOGS_EXPORT",
             "payload": {
               "name": "unknown",
               "kind": "unknown",
@@ -2024,6 +2008,22 @@
           },
           {
             "name": "connect",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "message",
             "payload": {
               "name": "unknown",
               "kind": "unknown",
@@ -2075,10 +2075,6 @@
           {
             "pattern": "request-reply",
             "messageTypes": [
-              "LOG",
-              "LOGS_GET",
-              "LOGS_CLEAR",
-              "LOGS_EXPORT",
               "USER_LOGIN",
               "USER_LOGOUT",
               "TODO_ADD",
@@ -2089,8 +2085,12 @@
               "SET_THEME",
               "GET_STATE",
               "GET_TODOS",
-              "message",
+              "LOG",
+              "LOGS_GET",
+              "LOGS_CLEAR",
+              "LOGS_EXPORT",
               "connect",
+              "message",
               "disconnect",
               "changed"
             ],
@@ -2099,50 +2099,6 @@
         ],
         "state": {},
         "handlers": [
-          {
-            "messageType": "LOG",
-            "node": "background",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<polly>/packages/polly/src/background/log-store.ts",
-              "line": 25
-            }
-          },
-          {
-            "messageType": "LOGS_GET",
-            "node": "background",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<polly>/packages/polly/src/background/log-store.ts",
-              "line": 49
-            }
-          },
-          {
-            "messageType": "LOGS_CLEAR",
-            "node": "background",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<polly>/packages/polly/src/background/log-store.ts",
-              "line": 77
-            }
-          },
-          {
-            "messageType": "LOGS_EXPORT",
-            "node": "background",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<polly>/packages/polly/src/background/log-store.ts",
-              "line": 84
-            }
-          },
           {
             "messageType": "USER_LOGIN",
             "node": "background",
@@ -2385,14 +2341,47 @@
             }
           },
           {
-            "messageType": "message",
-            "node": "unknown",
+            "messageType": "LOG",
+            "node": "background",
             "assignments": [],
             "preconditions": [],
             "postconditions": [],
             "location": {
-              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
-              "line": 105
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 25
+            }
+          },
+          {
+            "messageType": "LOGS_GET",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 49
+            }
+          },
+          {
+            "messageType": "LOGS_CLEAR",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 77
+            }
+          },
+          {
+            "messageType": "LOGS_EXPORT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/background/log-store.ts",
+              "line": 84
             }
           },
           {
@@ -2437,6 +2426,17 @@
             "location": {
               "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
               "line": 28
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+              "line": 105
             }
           }
         ],
@@ -2555,70 +2555,6 @@
         }
       ],
       "messageTypes": [
-        {
-          "name": "LOG",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_GET",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_CLEAR",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_EXPORT",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
         {
           "name": "USER_LOGIN",
           "payload": {
@@ -2780,7 +2716,55 @@
           }
         },
         {
-          "name": "message",
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
           "payload": {
             "name": "unknown",
             "kind": "unknown",
@@ -2797,6 +2781,22 @@
         },
         {
           "name": "connect",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "message",
           "payload": {
             "name": "unknown",
             "kind": "unknown",
@@ -2848,10 +2848,6 @@
         {
           "pattern": "request-reply",
           "messageTypes": [
-            "LOG",
-            "LOGS_GET",
-            "LOGS_CLEAR",
-            "LOGS_EXPORT",
             "USER_LOGIN",
             "USER_LOGOUT",
             "TODO_ADD",
@@ -2862,8 +2858,12 @@
             "SET_THEME",
             "GET_STATE",
             "GET_TODOS",
-            "message",
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
             "connect",
+            "message",
             "disconnect",
             "changed"
           ],
@@ -2872,50 +2872,6 @@
       ],
       "state": {},
       "handlers": [
-        {
-          "messageType": "LOG",
-          "node": "background",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 25
-          }
-        },
-        {
-          "messageType": "LOGS_GET",
-          "node": "background",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 49
-          }
-        },
-        {
-          "messageType": "LOGS_CLEAR",
-          "node": "background",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 77
-          }
-        },
-        {
-          "messageType": "LOGS_EXPORT",
-          "node": "background",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 84
-          }
-        },
         {
           "messageType": "USER_LOGIN",
           "node": "background",
@@ -3158,14 +3114,47 @@
           }
         },
         {
-          "messageType": "message",
-          "node": "unknown",
+          "messageType": "LOG",
+          "node": "background",
           "assignments": [],
           "preconditions": [],
           "postconditions": [],
           "location": {
-            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
-            "line": 105
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
           }
         },
         {
@@ -3210,6 +3199,17 @@
           "location": {
             "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
             "line": 28
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+            "line": 105
           }
         }
       ],
@@ -3373,70 +3373,6 @@
       ],
       "messageTypes": [
         {
-          "name": "LOG",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "server"
-            ],
-            "to": [
-              "client-*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_GET",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "server"
-            ],
-            "to": [
-              "client-*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_CLEAR",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "server"
-            ],
-            "to": [
-              "client-*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_EXPORT",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "server"
-            ],
-            "to": [
-              "client-*"
-            ]
-          }
-        },
-        {
           "name": "USER_LOGIN",
           "payload": {
             "name": "unknown",
@@ -3595,16 +3531,76 @@
               "client-*"
             ]
           }
+        },
+        {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
         }
       ],
       "routingRules": [
         {
           "pattern": "request-reply",
           "messageTypes": [
-            "LOG",
-            "LOGS_GET",
-            "LOGS_CLEAR",
-            "LOGS_EXPORT",
             "USER_LOGIN",
             "USER_LOGOUT",
             "TODO_ADD",
@@ -3614,57 +3610,17 @@
             "TODO_SET_LIMIT",
             "SET_THEME",
             "GET_STATE",
-            "GET_TODOS"
+            "GET_TODOS",
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT"
           ],
           "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
         }
       ],
       "state": {},
       "handlers": [
-        {
-          "messageType": "LOG",
-          "node": "Server",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 25
-          }
-        },
-        {
-          "messageType": "LOGS_GET",
-          "node": "Server",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 49
-          }
-        },
-        {
-          "messageType": "LOGS_CLEAR",
-          "node": "Server",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 77
-          }
-        },
-        {
-          "messageType": "LOGS_EXPORT",
-          "node": "Server",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 84
-          }
-        },
         {
           "messageType": "USER_LOGIN",
           "node": "Server",
@@ -3894,6 +3850,50 @@
           "location": {
             "file": "<project>/src/background/handlers.ts",
             "line": 187
+          }
+        },
+        {
+          "messageType": "LOG",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
           }
         }
       ],
@@ -3942,70 +3942,6 @@
       ],
       "messageTypes": [
         {
-          "name": "LOG",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_GET",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_CLEAR",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "LOGS_EXPORT",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
           "name": "USER_LOGIN",
           "payload": {
             "name": "unknown",
@@ -4166,6 +4102,70 @@
           }
         },
         {
+          "name": "LOG",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_GET",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_CLEAR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOGS_EXPORT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
           "name": "message",
           "payload": {
             "name": "unknown",
@@ -4186,10 +4186,6 @@
         {
           "pattern": "broadcast",
           "messageTypes": [
-            "LOG",
-            "LOGS_GET",
-            "LOGS_CLEAR",
-            "LOGS_EXPORT",
             "USER_LOGIN",
             "USER_LOGOUT",
             "TODO_ADD",
@@ -4200,6 +4196,10 @@
             "SET_THEME",
             "GET_STATE",
             "GET_TODOS",
+            "LOG",
+            "LOGS_GET",
+            "LOGS_CLEAR",
+            "LOGS_EXPORT",
             "message"
           ],
           "description": "Event bus broadcast pattern - one-to-many messaging"
@@ -4207,50 +4207,6 @@
       ],
       "state": {},
       "handlers": [
-        {
-          "messageType": "LOG",
-          "node": "central-bus",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 25
-          }
-        },
-        {
-          "messageType": "LOGS_GET",
-          "node": "central-bus",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 49
-          }
-        },
-        {
-          "messageType": "LOGS_CLEAR",
-          "node": "central-bus",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 77
-          }
-        },
-        {
-          "messageType": "LOGS_EXPORT",
-          "node": "central-bus",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/background/log-store.ts",
-            "line": 84
-          }
-        },
         {
           "messageType": "USER_LOGIN",
           "node": "bus",
@@ -4480,6 +4436,50 @@
           "location": {
             "file": "<project>/src/background/handlers.ts",
             "line": 187
+          }
+        },
+        {
+          "messageType": "LOG",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "LOGS_GET",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 49
+          }
+        },
+        {
+          "messageType": "LOGS_CLEAR",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 77
+          }
+        },
+        {
+          "messageType": "LOGS_EXPORT",
+          "node": "central-bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/background/log-store.ts",
+            "line": 84
           }
         },
         {

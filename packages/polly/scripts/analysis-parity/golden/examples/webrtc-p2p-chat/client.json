@@ -729,6 +729,15 @@
         },
         {
           "type": "external-script",
+          "name": "@fairfox/polly",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/components/ChatRoom.tsx"
+          ],
+          "description": "External dependency: @fairfox/polly"
+        },
+        {
+          "type": "external-script",
           "name": "@elysiajs/html",
           "technology": "npm package",
           "usedIn": [
@@ -747,19 +756,10 @@
         },
         {
           "type": "external-script",
-          "name": "@fairfox/polly",
-          "technology": "npm package",
-          "usedIn": [
-            "<project>/src/state.ts"
-          ],
-          "description": "External dependency: @fairfox/polly"
-        },
-        {
-          "type": "external-script",
           "name": "@preact/signals",
           "technology": "npm package",
           "usedIn": [
-            "<polly>/packages/polly/dist/src/polly-ui/Checkbox.d.ts"
+            "<polly>/packages/polly/dist/src/actions/form.d.ts"
           ],
           "description": "External dependency: @preact/signals"
         }

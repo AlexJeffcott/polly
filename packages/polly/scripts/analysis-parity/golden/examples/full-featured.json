@@ -1676,7 +1676,7 @@
             }
           },
           {
-            "name": "message",
+            "name": "connect",
             "payload": {
               "name": "unknown",
               "kind": "unknown",
@@ -1692,7 +1692,7 @@
             }
           },
           {
-            "name": "connect",
+            "name": "message",
             "payload": {
               "name": "unknown",
               "kind": "unknown",
@@ -1757,8 +1757,8 @@
               "LOGS_GET",
               "LOGS_CLEAR",
               "LOGS_EXPORT",
-              "message",
               "connect",
+              "message",
               "disconnect",
               "changed"
             ],
@@ -1975,17 +1975,6 @@
             }
           },
           {
-            "messageType": "message",
-            "node": "unknown",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
-              "line": 105
-            }
-          },
-          {
             "messageType": "connect",
             "node": "unknown",
             "assignments": [],
@@ -2027,6 +2016,17 @@
             "location": {
               "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
               "line": 28
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+              "line": 105
             }
           }
         ],
@@ -2394,7 +2394,7 @@
           }
         },
         {
-          "name": "message",
+          "name": "connect",
           "payload": {
             "name": "unknown",
             "kind": "unknown",
@@ -2410,7 +2410,7 @@
           }
         },
         {
-          "name": "connect",
+          "name": "message",
           "payload": {
             "name": "unknown",
             "kind": "unknown",
@@ -2475,8 +2475,8 @@
             "LOGS_GET",
             "LOGS_CLEAR",
             "LOGS_EXPORT",
-            "message",
             "connect",
+            "message",
             "disconnect",
             "changed"
           ],
@@ -2693,17 +2693,6 @@
           }
         },
         {
-          "messageType": "message",
-          "node": "unknown",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
-            "line": 105
-          }
-        },
-        {
           "messageType": "connect",
           "node": "unknown",
           "assignments": [],
@@ -2745,6 +2734,17 @@
           "location": {
             "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
             "line": 28
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+            "line": 105
           }
         }
       ],

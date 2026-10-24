@@ -3,7 +3,6 @@
     "result": {
       "stateType": null,
       "messageTypes": [
-        "sync_request",
         "joined",
         "task_created",
         "task_updated",
@@ -11,6 +10,7 @@
         "comment_added",
         "member_joined",
         "sync_response",
+        "sync_request",
         "updatefound",
         "statechange",
         "beforeinstallprompt",
@@ -22,23 +22,6 @@
       ],
       "fields": [],
       "handlers": [
-        {
-          "messageType": "sync_request",
-          "node": "client",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<project>/src/api.ts",
-            "line": 191
-          },
-          "relationships": {
-            "$type": "undefined"
-          },
-          "origin": {
-            "$type": "undefined"
-          }
-        },
         {
           "messageType": "joined",
           "node": "client",
@@ -143,6 +126,23 @@
             "$type": "undefined"
           },
           "origin": "event"
+        },
+        {
+          "messageType": "sync_request",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/api.ts",
+            "line": 191
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
         },
         {
           "messageType": "updatefound",
@@ -355,20 +355,6 @@
     "result": {
       "handlers": [
         {
-          "messageType": "sync_request",
-          "node": "client",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<project>/src/api.ts",
-            "line": 191
-          },
-          "relationships": {
-            "$type": "undefined"
-          }
-        },
-        {
           "messageType": "joined",
           "node": "client",
           "assignments": [],
@@ -451,6 +437,20 @@
             "line": 80
           },
           "origin": "event"
+        },
+        {
+          "messageType": "sync_request",
+          "node": "client",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/api.ts",
+            "line": 191
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
         },
         {
           "messageType": "updatefound",
@@ -646,7 +646,6 @@
       "messageTypes": {
         "$type": "Set",
         "values": [
-          "sync_request",
           "joined",
           "task_created",
           "task_updated",
@@ -654,6 +653,7 @@
           "comment_added",
           "member_joined",
           "sync_response",
+          "sync_request",
           "updatefound",
           "statechange",
           "beforeinstallprompt",
@@ -747,15 +747,6 @@
       "integrations": [
         {
           "type": "external-script",
-          "name": "@elysiajs/eden",
-          "technology": "npm package",
-          "usedIn": [
-            "<project>/src/api.ts"
-          ],
-          "description": "External dependency: @elysiajs/eden"
-        },
-        {
-          "type": "external-script",
           "name": "preact",
           "technology": "npm package",
           "usedIn": [
@@ -765,10 +756,19 @@
         },
         {
           "type": "external-script",
+          "name": "@elysiajs/eden",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/api.ts"
+          ],
+          "description": "External dependency: @elysiajs/eden"
+        },
+        {
+          "type": "external-script",
           "name": "@fairfox/polly",
           "technology": "npm package",
           "usedIn": [
-            "<project>/src/handlers.ts"
+            "<project>/src/components/InstallPrompt.tsx"
           ],
           "description": "External dependency: @fairfox/polly"
         },
@@ -804,7 +804,7 @@
           "name": "@preact/signals",
           "technology": "npm package",
           "usedIn": [
-            "<polly>/packages/polly/dist/src/polly-ui/Checkbox.d.ts"
+            "<polly>/packages/polly/dist/src/actions/form.d.ts"
           ],
           "description": "External dependency: @preact/signals"
         },

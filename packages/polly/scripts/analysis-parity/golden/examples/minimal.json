@@ -250,21 +250,21 @@
         },
         {
           "type": "external-script",
-          "name": "@/shared",
-          "technology": "npm package",
-          "usedIn": [
-            "<polly>/packages/polly/src/background/log-store.ts"
-          ],
-          "description": "External dependency: @/shared"
-        },
-        {
-          "type": "external-script",
           "name": "preact",
           "technology": "npm package",
           "usedIn": [
             "<project>/src/popup/index.tsx"
           ],
           "description": "External dependency: preact"
+        },
+        {
+          "type": "external-script",
+          "name": "@/shared",
+          "technology": "npm package",
+          "usedIn": [
+            "<polly>/packages/polly/src/background/log-store.ts"
+          ],
+          "description": "External dependency: @/shared"
         },
         {
           "type": "external-script",
@@ -444,6 +444,22 @@
         ],
         "messageTypes": [
           {
+            "name": "PING",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
             "name": "LOG",
             "payload": {
               "name": "unknown",
@@ -508,7 +524,7 @@
             }
           },
           {
-            "name": "PING",
+            "name": "connect",
             "payload": {
               "name": "unknown",
               "kind": "unknown",
@@ -525,22 +541,6 @@
           },
           {
             "name": "message",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          },
-          {
-            "name": "connect",
             "payload": {
               "name": "unknown",
               "kind": "unknown",
@@ -592,13 +592,13 @@
           {
             "pattern": "request-reply",
             "messageTypes": [
+              "PING",
               "LOG",
               "LOGS_GET",
               "LOGS_CLEAR",
               "LOGS_EXPORT",
-              "PING",
-              "message",
               "connect",
+              "message",
               "disconnect",
               "changed"
             ],
@@ -607,6 +607,35 @@
         ],
         "state": {},
         "handlers": [
+          {
+            "messageType": "PING",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [
+              {
+                "expression": "user.value.active === true",
+                "message": "User must be active to ping",
+                "location": {
+                  "line": 26,
+                  "column": 960
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "user.value.active === true",
+                "message": "User should remain active after ping",
+                "location": {
+                  "line": 28,
+                  "column": 1034
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 25
+            }
+          },
           {
             "messageType": "LOG",
             "node": "background",
@@ -652,46 +681,6 @@
             }
           },
           {
-            "messageType": "PING",
-            "node": "background",
-            "assignments": [],
-            "preconditions": [
-              {
-                "expression": "user.value.active === true",
-                "message": "User must be active to ping",
-                "location": {
-                  "line": 26,
-                  "column": 960
-                }
-              }
-            ],
-            "postconditions": [
-              {
-                "expression": "user.value.active === true",
-                "message": "User should remain active after ping",
-                "location": {
-                  "line": 28,
-                  "column": 1034
-                }
-              }
-            ],
-            "location": {
-              "file": "<project>/src/background/handlers.ts",
-              "line": 25
-            }
-          },
-          {
-            "messageType": "message",
-            "node": "unknown",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
-              "line": 105
-            }
-          },
-          {
             "messageType": "connect",
             "node": "unknown",
             "assignments": [],
@@ -733,6 +722,17 @@
             "location": {
               "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
               "line": 28
+            }
+          },
+          {
+            "messageType": "message",
+            "node": "unknown",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+              "line": 105
             }
           }
         ],
@@ -866,6 +866,22 @@
       ],
       "messageTypes": [
         {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
           "name": "LOG",
           "payload": {
             "name": "unknown",
@@ -930,7 +946,7 @@
           }
         },
         {
-          "name": "PING",
+          "name": "connect",
           "payload": {
             "name": "unknown",
             "kind": "unknown",
@@ -947,22 +963,6 @@
         },
         {
           "name": "message",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
-          "name": "connect",
           "payload": {
             "name": "unknown",
             "kind": "unknown",
@@ -1014,13 +1014,13 @@
         {
           "pattern": "request-reply",
           "messageTypes": [
+            "PING",
             "LOG",
             "LOGS_GET",
             "LOGS_CLEAR",
             "LOGS_EXPORT",
-            "PING",
-            "message",
             "connect",
+            "message",
             "disconnect",
             "changed"
           ],
@@ -1029,6 +1029,35 @@
       ],
       "state": {},
       "handlers": [
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 960
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1034
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          }
+        },
         {
           "messageType": "LOG",
           "node": "background",
@@ -1074,46 +1103,6 @@
           }
         },
         {
-          "messageType": "PING",
-          "node": "background",
-          "assignments": [],
-          "preconditions": [
-            {
-              "expression": "user.value.active === true",
-              "message": "User must be active to ping",
-              "location": {
-                "line": 26,
-                "column": 960
-              }
-            }
-          ],
-          "postconditions": [
-            {
-              "expression": "user.value.active === true",
-              "message": "User should remain active after ping",
-              "location": {
-                "line": 28,
-                "column": 1034
-              }
-            }
-          ],
-          "location": {
-            "file": "<project>/src/background/handlers.ts",
-            "line": 25
-          }
-        },
-        {
-          "messageType": "message",
-          "node": "unknown",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
-            "line": 105
-          }
-        },
-        {
           "messageType": "connect",
           "node": "unknown",
           "assignments": [],
@@ -1155,6 +1144,17 @@
           "location": {
             "file": "<polly>/packages/polly/src/shared/adapters/chrome/storage.chrome.ts",
             "line": 28
+          }
+        },
+        {
+          "messageType": "message",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<polly>/packages/polly/src/shared/lib/sync-adapter.ts",
+            "line": 105
           }
         }
       ],
@@ -1332,6 +1332,22 @@
       ],
       "messageTypes": [
         {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
           "name": "LOG",
           "payload": {
             "name": "unknown",
@@ -1394,39 +1410,52 @@
               "client-*"
             ]
           }
-        },
-        {
-          "name": "PING",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "server"
-            ],
-            "to": [
-              "client-*"
-            ]
-          }
         }
       ],
       "routingRules": [
         {
           "pattern": "request-reply",
           "messageTypes": [
+            "PING",
             "LOG",
             "LOGS_GET",
             "LOGS_CLEAR",
-            "LOGS_EXPORT",
-            "PING"
+            "LOGS_EXPORT"
           ],
           "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
         }
       ],
       "state": {},
       "handlers": [
+        {
+          "messageType": "PING",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 960
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1034
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          }
+        },
         {
           "messageType": "LOG",
           "node": "Server",
@@ -1469,35 +1498,6 @@
           "location": {
             "file": "<polly>/packages/polly/src/background/log-store.ts",
             "line": 84
-          }
-        },
-        {
-          "messageType": "PING",
-          "node": "Server",
-          "assignments": [],
-          "preconditions": [
-            {
-              "expression": "user.value.active === true",
-              "message": "User must be active to ping",
-              "location": {
-                "line": 26,
-                "column": 960
-              }
-            }
-          ],
-          "postconditions": [
-            {
-              "expression": "user.value.active === true",
-              "message": "User should remain active after ping",
-              "location": {
-                "line": 28,
-                "column": 1034
-              }
-            }
-          ],
-          "location": {
-            "file": "<project>/src/background/handlers.ts",
-            "line": 25
           }
         }
       ],
@@ -1546,6 +1546,22 @@
       ],
       "messageTypes": [
         {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
           "name": "LOG",
           "payload": {
             "name": "unknown",
@@ -1610,22 +1626,6 @@
           }
         },
         {
-          "name": "PING",
-          "payload": {
-            "name": "unknown",
-            "kind": "unknown",
-            "nullable": false
-          },
-          "routing": {
-            "from": [
-              "*"
-            ],
-            "to": [
-              "*"
-            ]
-          }
-        },
-        {
           "name": "message",
           "payload": {
             "name": "unknown",
@@ -1646,11 +1646,11 @@
         {
           "pattern": "broadcast",
           "messageTypes": [
+            "PING",
             "LOG",
             "LOGS_GET",
             "LOGS_CLEAR",
             "LOGS_EXPORT",
-            "PING",
             "message"
           ],
           "description": "Event bus broadcast pattern - one-to-many messaging"
@@ -1658,6 +1658,35 @@
       ],
       "state": {},
       "handlers": [
+        {
+          "messageType": "PING",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active to ping",
+              "location": {
+                "line": 26,
+                "column": 960
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User should remain active after ping",
+              "location": {
+                "line": 28,
+                "column": 1034
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 25
+          }
+        },
         {
           "messageType": "LOG",
           "node": "central-bus",
@@ -1700,35 +1729,6 @@
           "location": {
             "file": "<polly>/packages/polly/src/background/log-store.ts",
             "line": 84
-          }
-        },
-        {
-          "messageType": "PING",
-          "node": "bus",
-          "assignments": [],
-          "preconditions": [
-            {
-              "expression": "user.value.active === true",
-              "message": "User must be active to ping",
-              "location": {
-                "line": 26,
-                "column": 960
-              }
-            }
-          ],
-          "postconditions": [
-            {
-              "expression": "user.value.active === true",
-              "message": "User should remain active after ping",
-              "location": {
-                "line": 28,
-                "column": 1034
-              }
-            }
-          ],
-          "location": {
-            "file": "<project>/src/background/handlers.ts",
-            "line": 25
           }
         },
         {

@@ -9,6 +9,7 @@
 // - Verification primitives (requires, ensures)
 
 import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import { sourceFilesInPathOrder } from "../../../../analysis/src/extract/source-file-order";
 import type {
   CoreVerificationModel,
   MessageHandler,
@@ -61,7 +62,7 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Extract the complete verification model from the event-driven codebase
    */
   extractModel(): CoreVerificationModel {
-    const sourceFiles = this.project.getSourceFiles();
+    const sourceFiles = sourceFilesInPathOrder(this.project);
 
     // Extract all handlers
     const handlers: MessageHandler[] = [];

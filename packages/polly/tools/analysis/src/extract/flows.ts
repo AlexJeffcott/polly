@@ -3,6 +3,7 @@
 import { type CallExpression, Node, Project } from "ts-morph";
 import type { MessageFlow, MessageStep } from "../types/architecture";
 import type { MessageHandler } from "../types/core";
+import { sourceFilesInPathOrder } from "./source-file-order";
 
 export class FlowAnalyzer {
   private project: Project;
@@ -77,7 +78,7 @@ export class FlowAnalyzer {
   }> {
     const senders: Array<{ context: string; file: string; line: number }> = [];
 
-    for (const sourceFile of this.project.getSourceFiles()) {
+    for (const sourceFile of sourceFilesInPathOrder(this.project)) {
       const filePath = sourceFile.getFilePath();
       const context = this.inferContext(filePath);
 

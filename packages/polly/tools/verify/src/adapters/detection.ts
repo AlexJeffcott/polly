@@ -5,6 +5,7 @@
 
 import { Project, type SourceFile } from "ts-morph";
 import { readString } from "../../../../src/shared/lib/guards";
+import { sourceFilesInPathOrder } from "../../../analysis/src/extract/source-file-order";
 import type { RoutingAdapter } from "./base";
 import { EventBusAdapter } from "./event-bus";
 import { WebExtensionAdapter } from "./web-extension";
@@ -47,7 +48,7 @@ export class AdapterDetector {
    * Detect the most appropriate adapter for this project
    */
   detect(): AdapterDetectionResult {
-    const sourceFiles = this.project.getSourceFiles();
+    const sourceFiles = sourceFilesInPathOrder(this.project);
 
     // Run all detection heuristics
     const webExtensionScore = this.detectWebExtension(sourceFiles);

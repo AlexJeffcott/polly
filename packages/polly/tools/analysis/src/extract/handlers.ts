@@ -87,6 +87,7 @@ import type {
   VerifiedStateInfo,
 } from "../types";
 import { RelationshipExtractor } from "./relationships";
+import { sourceFilesInPathOrder } from "./source-file-order";
 
 /** A function whose parameters and body a handler is extracted from. */
 type HandlerFunction = ArrowFunction | FunctionExpression | FunctionDeclaration | MethodDeclaration;
@@ -220,7 +221,7 @@ export class HandlerExtractor {
     this.onSurfaceSpans = []; // polly#163: reset modelled-handler spans
 
     // Find all source files from tsconfig as potential entry points
-    const allSourceFiles = this.project.getSourceFiles();
+    const allSourceFiles = sourceFilesInPathOrder(this.project);
     // Filter to only files within the package boundary
     const entryPoints = allSourceFiles.filter((f) => this.isWithinPackage(f.getFilePath()));
 

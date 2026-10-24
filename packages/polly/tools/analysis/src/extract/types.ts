@@ -3,6 +3,7 @@
 import { Project, type SourceFile, type Type } from "ts-morph";
 import type { CodebaseAnalysis, FieldAnalysis, MessageHandler, TypeInfo } from "../types";
 import { HandlerExtractor } from "./handlers";
+import { sourceFilesInPathOrder } from "./source-file-order";
 
 /** A string-literal type's value, as a one-element list; empty for any other type. */
 function stringLiteralValues(type: Type): string[] {
@@ -201,7 +202,7 @@ export class TypeExtractor {
    */
   private findStateType(): TypeInfo | null {
     // Search for files with "state" in the name
-    const stateFiles = this.project.getSourceFiles("**/state*.ts");
+    const stateFiles = sourceFilesInPathOrder(this.project, "**/state*.ts");
 
     for (const file of stateFiles) {
       const typeAlias = file.getTypeAlias("AppState") || file.getTypeAlias("State");
@@ -230,7 +231,7 @@ export class TypeExtractor {
     const warnings: string[] = [];
 
     // Search for files with "message" in the name
-    const messageFiles = this.project.getSourceFiles("**/message*.ts");
+    const messageFiles = sourceFilesInPathOrder(this.project, "**/message*.ts");
 
     for (const file of messageFiles) {
       // Look for type aliases that might contain message types
@@ -582,7 +583,7 @@ export class TypeExtractor {
    */
   private convertObjectType(type: Type, name: string, nullable: boolean): TypeInfo {
     const properties: Record<string, TypeInfo> = {};
-    const sourceFile = this.project.getSourceFiles()[0];
+    const sourceFile = sourceFilesInPathOrder(this.project)[0];
 
     if (sourceFile) {
       for (const prop of type.getProperties()) {
