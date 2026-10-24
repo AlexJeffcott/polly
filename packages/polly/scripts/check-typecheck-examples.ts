@@ -15,10 +15,16 @@
  * broken instruction. This check runs `bun check` in each workspace that
  * has a tsconfig.json and reports every failure, not just the first.
  *
+ * The examples resolve `@fairfox/polly` through its package.json exports, so
+ * they are checked against the declarations in packages/polly/dist, not the
+ * source. A dist/ older than the source checks the examples against the last
+ * build's types, so the check first fails if dist/ is stale. It does not
+ * rebuild: the build deletes dist/, and the e2e scripts read it.
+ *
  *   bun scripts/check-typecheck-examples.ts [--verbose]
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { cpus } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { Glob } from "bun";
@@ -50,6 +56,29 @@ async function exampleWorkspaces(): Promise<string[]> {
   return dirs.sort();
 }
 
+/** Source globs whose content reaches dist/. Tests and fixtures do not. */
+const BUILD_INPUTS = ["src/**/*.{ts,tsx,css}", "tools/**/src/**/*.{ts,tsx,css}"];
+const NOT_BUILT = /(^|\/)(__tests__|test-projects)\/|\.(test|spec)\.tsx?$/;
+
+/** Why dist/ is stale, or null when it is current. */
+async function staleReason(pkg: string): Promise<string | null> {
+  const stamp = join(pkg, "dist", ".build-stamp");
+  if (!existsSync(stamp)) return "has no completed build (no dist/.build-stamp)";
+  const built = statSync(stamp).mtimeMs;
+  let newest: { file: string; mtime: number } | null = null;
+  const files = ["package.json", "build-lib.ts"];
+  for (const pattern of BUILD_INPUTS) {
+    for await (const file of new Glob(pattern).scan({ cwd: pkg, onlyFiles: true })) {
+      if (!NOT_BUILT.test(file)) files.push(file);
+    }
+  }
+  for (const file of files) {
+    const mtime = statSync(join(pkg, file)).mtimeMs;
+    if (mtime > built && (!newest || mtime > newest.mtime)) newest = { file, mtime };
+  }
+  return newest ? `is older than ${relative(ROOT, join(pkg, newest.file))}` : null;
+}
+
 interface Failure {
   workspace: string;
   output: string;
@@ -76,6 +105,15 @@ async function typecheck(dir: string): Promise<Failure | null> {
 
 /** Drain the workspaces through a bounded pool — `bun check` uses every core. */
 async function run(): Promise<number> {
+  const stale = await staleReason(join(ROOT, "packages", "polly"));
+  if (stale) {
+    process.stdout.write(
+      `❌ packages/polly/dist ${stale}; the examples would be checked against stale types.\n` +
+        "   Run `bun run build:lib` in packages/polly, then re-run this check.\n"
+    );
+    return 1;
+  }
+
   const dirs = await exampleWorkspaces();
   if (dirs.length === 0) {
     process.stdout.write("✅ No example workspaces to typecheck\n");

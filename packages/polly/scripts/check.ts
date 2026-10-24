@@ -9,7 +9,7 @@
  * Implemented checks:
  *
  *   typecheck       bun check (root + tests workspace)
- *   typecheck-examples  bun check in every example workspace
+ *   typecheck-examples  bun check in every example workspace (fails on a stale dist/)
   css-layout          no display:flex/grid outside <Layout> and <Cluster>
  *   lint            biome check . (formatting + lint rules)
  *   secrets         gitleaks scan with .gitleaks.toml allowlist
@@ -320,7 +320,7 @@ Usage: bun run check <subcommand>
 
 Subcommands:
   typecheck       bun check (root + tests workspace)
-  typecheck-examples  bun check in every example workspace
+  typecheck-examples  bun check in every example workspace (fails on a stale dist/)
   lint            biome check (formatting + lint rules)
   secrets         gitleaks secret scanning
   gitignore       gitleaks allowlist must be reflected in .gitignore

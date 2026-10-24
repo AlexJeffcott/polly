@@ -362,4 +362,8 @@ try {
   process.exit(1);
 }
 
+// Written last: the build deletes dist/ first, so a missing stamp means the
+// build failed part-way. `check typecheck-examples` compares it with the source.
+await Bun.write(join(DIST_DIR, ".build-stamp"), `${new Date().toISOString()}\n`);
+
 console.log("\n✨ Build complete!");
