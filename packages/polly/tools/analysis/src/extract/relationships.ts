@@ -1,15 +1,35 @@
 // Component relationship extraction from TypeScript code
 // Detects function calls, imports, and dependencies between components
 
-import {
-  type ArrowFunction,
-  type CallExpression,
-  type FunctionDeclaration,
-  type FunctionExpression,
-  type Identifier,
+import type {
+  ArrowFunction,
+  CallExpression,
+  FunctionDeclaration,
+  FunctionExpression,
+  Identifier,
   Node,
-  type SourceFile,
-} from "ts-morph";
+  SourceFile,
+} from "typescript-7/ast";
+import {
+  isArrowFunction,
+  isAwaitExpression,
+  isCallExpression,
+  isFunctionExpression,
+  isIdentifier,
+  isPropertyAccessExpression,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  forEachDescendant,
+  functionDeclaration,
+  importDeclarations,
+  importedName,
+  moduleSpecifierValue,
+  namedImports,
+  nameOf,
+  textOf,
+  variableDeclaration,
+} from "../program";
 
 /**
  * Represents a relationship between components detected from code analysis
@@ -30,9 +50,19 @@ export interface DetectedRelationship {
 }
 
 /**
- * Extracts component relationships from handler code
+ * Extracts component relationships from handler code.
+ *
+ * Synchronous over an AnalysisProgram whose imports are prefetched: call
+ * `await program.prefetchImports()` before the first `extractFromHandler`
+ * (cross-file calls are followed through `moduleSpecifierSourceFile`).
  */
 export class RelationshipExtractor {
+  private readonly program: AnalysisProgram;
+
+  constructor(program: AnalysisProgram) {
+    this.program = program;
+  }
+
   /**
    * Extract relationships from a function/handler body
    */
@@ -59,7 +89,7 @@ export class RelationshipExtractor {
     relationships: DetectedRelationship[],
     visited: Set<string>
   ): void {
-    node.forEachDescendant((descendant) => {
+    forEachDescendant(node, (descendant) => {
       this.processDescendantNode(descendant, sourceFile, handlerName, relationships, visited);
     });
   }
@@ -74,18 +104,18 @@ export class RelationshipExtractor {
     relationships: DetectedRelationship[],
     visited: Set<string>
   ): void {
-    if (Node.isCallExpression(descendant)) {
+    if (isCallExpression(descendant)) {
       this.processCallExpression(descendant, sourceFile, handlerName, relationships, visited);
     }
 
-    if (Node.isAwaitExpression(descendant)) {
+    if (isAwaitExpression(descendant)) {
       const rel = this.extractFromDatabaseCall(descendant, handlerName);
       if (rel) {
         relationships.push(rel);
       }
     }
 
-    if (Node.isCallExpression(descendant) && descendant.getExpression().getText() === "fetch") {
+    if (isCallExpression(descendant) && textOf(descendant.expression) === "fetch") {
       const rel = this.extractFromFetchCall(descendant, handlerName);
       if (rel) {
         relationships.push(rel);
@@ -103,14 +133,14 @@ export class RelationshipExtractor {
     relationships: DetectedRelationship[],
     visited: Set<string>
   ): void {
-    const expr = callExpr.getExpression();
+    const expr = callExpr.expression;
 
-    if (Node.isIdentifier(expr)) {
+    if (isIdentifier(expr)) {
       this.processIdentifierCall(expr, sourceFile, handlerName, relationships, visited);
       return;
     }
 
-    if (Node.isPropertyAccessExpression(expr)) {
+    if (isPropertyAccessExpression(expr)) {
       const rel = this.extractFromPropertyAccess(expr, handlerName);
       if (rel) {
         relationships.push(rel);
@@ -134,7 +164,7 @@ export class RelationshipExtractor {
     relationships: DetectedRelationship[],
     visited: Set<string>
   ): void {
-    const functionName = identifier.getText();
+    const functionName = textOf(identifier);
     const resolved = this.resolveFunctionDeclaration(functionName, sourceFile);
 
     if (resolved && !visited.has(functionName)) {
@@ -165,7 +195,7 @@ export class RelationshipExtractor {
     sourceFile: SourceFile;
   } | null {
     let functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression | undefined =
-      sourceFile.getFunction(functionName);
+      functionDeclaration(sourceFile, functionName);
     let targetSourceFile = sourceFile;
 
     if (!functionDecl) {
@@ -196,7 +226,7 @@ export class RelationshipExtractor {
   ): void {
     visited.add(functionName);
 
-    const body = functionDecl.getBody();
+    const body = functionDecl.body;
     if (body) {
       this.extractFromNode(body, targetSourceFile, handlerName, relationships, visited);
     }
@@ -231,8 +261,8 @@ export class RelationshipExtractor {
     handlerName: string,
     sourceFile: SourceFile
   ): DetectedRelationship | null {
-    const expr = callExpr.getExpression();
-    const exprText = expr.getText();
+    const expr = callExpr.expression;
+    const exprText = textOf(expr);
 
     // Skip common utility functions and built-ins
     const skipList = [
@@ -260,10 +290,10 @@ export class RelationshipExtractor {
     let targetComponent: string | null = null;
 
     // Handle property access (e.g., db.getConnection() -> db_client)
-    if (Node.isPropertyAccessExpression(expr)) {
-      const objectExpr = expr.getExpression();
-      const objectName = objectExpr.getText();
-      const methodName = expr.getName();
+    if (isPropertyAccessExpression(expr)) {
+      const objectExpr = expr.expression;
+      const objectName = textOf(objectExpr);
+      const methodName = nameOf(expr) ?? "";
 
       // Map common patterns to component names
       targetComponent = this.inferComponentFromCall(objectName);
@@ -300,21 +330,21 @@ export class RelationshipExtractor {
     propAccess: Node,
     handlerName: string
   ): DetectedRelationship | null {
-    if (!Node.isPropertyAccessExpression(propAccess)) {
+    if (!isPropertyAccessExpression(propAccess)) {
       return null;
     }
 
-    const fullChain = propAccess.getText();
-    const methodName = propAccess.getName();
+    const fullChain = textOf(propAccess);
+    const methodName = nameOf(propAccess);
 
     // Extract the root object from potentially nested property access
     // e.g., repositories.users.create -> repositories
-    let rootObject = propAccess.getExpression();
-    while (Node.isPropertyAccessExpression(rootObject)) {
-      rootObject = rootObject.getExpression();
+    let rootObject: Node = propAccess.expression;
+    while (isPropertyAccessExpression(rootObject)) {
+      rootObject = rootObject.expression;
     }
 
-    const objectName = rootObject.getText();
+    const objectName = textOf(rootObject);
 
     // Map object name to component name
     const targetComponent = this.inferComponentFromCall(objectName);
@@ -340,16 +370,16 @@ export class RelationshipExtractor {
     awaitExpr: Node,
     handlerName: string
   ): DetectedRelationship | null {
-    if (!Node.isAwaitExpression(awaitExpr)) {
+    if (!isAwaitExpression(awaitExpr)) {
       return null;
     }
 
-    const innerExpr = awaitExpr.getExpression();
-    if (!Node.isCallExpression(innerExpr)) {
+    const innerExpr = awaitExpr.expression;
+    if (!isCallExpression(innerExpr)) {
       return null;
     }
 
-    const callExpr = innerExpr.getExpression().getText();
+    const callExpr = textOf(innerExpr.expression);
 
     // Detect database patterns
     if (
@@ -382,12 +412,12 @@ export class RelationshipExtractor {
     callExpr: CallExpression,
     handlerName: string
   ): DetectedRelationship | null {
-    const args = callExpr.getArguments();
-    if (args.length === 0 || !args[0]) {
+    const first = callExpr.arguments[0];
+    if (!first) {
       return null;
     }
 
-    const urlArg = args[0].getText();
+    const urlArg = textOf(first);
 
     // Try to extract API name from URL
     let apiName = "external_api";
@@ -527,12 +557,10 @@ export class RelationshipExtractor {
    * Resolve component from import statement
    */
   private resolveComponentFromImport(functionName: string, sourceFile: SourceFile): string | null {
-    for (const importDecl of sourceFile.getImportDeclarations()) {
-      const namedImports = importDecl.getNamedImports();
-
-      for (const namedImport of namedImports) {
-        if (namedImport.getName() === functionName) {
-          const modulePath = importDecl.getModuleSpecifierValue();
+    for (const importDecl of importDeclarations(sourceFile)) {
+      for (const namedImport of namedImports(importDecl)) {
+        if (importedName(namedImport) === functionName) {
+          const modulePath = moduleSpecifierValue(importDecl) ?? "";
           const component = this.inferComponentFromModulePath(modulePath);
           if (component) return component;
         }
@@ -573,24 +601,20 @@ export class RelationshipExtractor {
     functionDecl: FunctionDeclaration | ArrowFunction | FunctionExpression;
     sourceFile: SourceFile;
   } | null {
-    try {
-      for (const importDecl of sourceFile.getImportDeclarations()) {
-        const namedImports = importDecl.getNamedImports();
+    // ts-morph resolved imports lazily and could throw here (missing files,
+    // parse errors), which counted as "not found". The prefetched lookup
+    // cannot fail that way; it throws only when prefetchImports() was not
+    // awaited, a caller bug that must not be swallowed.
+    for (const importDecl of importDeclarations(sourceFile)) {
+      for (const namedImport of namedImports(importDecl)) {
+        if (importedName(namedImport) === functionName) {
+          const moduleSpecifier = this.program.moduleSpecifierSourceFile(importDecl);
+          if (!moduleSpecifier) continue;
 
-        for (const namedImport of namedImports) {
-          if (namedImport.getName() === functionName) {
-            const moduleSpecifier = importDecl.getModuleSpecifierSourceFile();
-            if (!moduleSpecifier) continue;
-
-            const result = this.findFunctionInModule(functionName, moduleSpecifier);
-            if (result) return result;
-          }
+          const result = this.findFunctionInModule(functionName, moduleSpecifier);
+          if (result) return result;
         }
       }
-    } catch (_error) {
-      // Silently fail on resolution errors (e.g., missing files, parse errors)
-      // This ensures the extractor is resilient to incomplete projects
-      return null;
     }
 
     return null;
@@ -607,7 +631,7 @@ export class RelationshipExtractor {
     sourceFile: SourceFile;
   } | null {
     // Find the function in the imported file
-    const functionDecl = moduleSpecifier.getFunction(functionName);
+    const functionDecl = functionDeclaration(moduleSpecifier, functionName);
     if (functionDecl) {
       return {
         functionDecl,
@@ -616,13 +640,10 @@ export class RelationshipExtractor {
     }
 
     // Also check for exported arrow functions or const declarations
-    const variableDecl = moduleSpecifier.getVariableDeclaration(functionName);
+    const variableDecl = variableDeclaration(moduleSpecifier, functionName);
     if (variableDecl) {
-      const initializer = variableDecl.getInitializer();
-      if (
-        initializer &&
-        (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))
-      ) {
+      const initializer = variableDecl.initializer;
+      if (initializer && (isArrowFunction(initializer) || isFunctionExpression(initializer))) {
         return {
           functionDecl: initializer,
           sourceFile: moduleSpecifier,

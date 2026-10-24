@@ -1,40 +1,65 @@
-// Type extraction from TypeScript using ts-morph
+// Type extraction from TypeScript, on the typescript-7 checker
 
-import { Project, type SourceFile, type Type } from "ts-morph";
+import type { Node, SourceFile } from "typescript-7/ast";
+import type { Type } from "typescript-7/async";
+import {
+  type AnalysisProgram,
+  type AnalysisSession,
+  nameOf,
+  typeAlias,
+  typeAliases,
+  typeIs,
+  typeLiteralValue,
+  withAnalysisSession,
+} from "../program";
 import type { CodebaseAnalysis, FieldAnalysis, MessageHandler, TypeInfo } from "../types";
 import { HandlerExtractor } from "./handlers";
-import { sourceFilesInPathOrder } from "./source-file-order";
 
 /** A string-literal type's value, as a one-element list; empty for any other type. */
 function stringLiteralValues(type: Type): string[] {
-  const value = type.getLiteralValue();
+  const value = typeLiteralValue(type);
   return typeof value === "string" ? [value] : [];
 }
 
+/**
+ * Reads state and message types from the checker.
+ *
+ * PARITY: union members come back in checker creation order
+ * (`unionMembers`), and creation order depends on what the checker was
+ * asked before. So the extractor runs on its own `openIsolated` program and
+ * asks its questions one at a time, in the order ts-morph asked them
+ * (depth first, no batching across siblings): a batched query can create a
+ * sibling's literal types before a nested member's and reorder a union.
+ */
 export class TypeExtractor {
-  private project: Project;
+  private tsConfigPath: string;
 
   constructor(tsConfigPath: string) {
-    this.project = new Project({
-      tsConfigFilePath: tsConfigPath,
-    });
+    this.tsConfigPath = tsConfigPath;
   }
 
   /**
-   * Analyze the codebase and extract state types and message types
+   * Analyze the codebase and extract state types and message types. With a
+   * `session`, the extractor opens an isolated program in it and the caller
+   * keeps ownership; without one it opens and closes a session of its own.
    */
-  async analyzeCodebase(stateFilePath?: string): Promise<CodebaseAnalysis> {
-    // Find state type
-    const stateType = stateFilePath ? this.extractStateType(stateFilePath) : this.findStateType();
-
-    // Find message types
-    const messageTypes = this.findMessageTypes();
+  async analyzeCodebase(
+    stateFilePath?: string,
+    session?: AnalysisSession
+  ): Promise<CodebaseAnalysis> {
+    // The type queries need the checker; the session (if it is ours) is
+    // closed before the handler extraction, which runs on its own project.
+    const readTypes = async (from: AnalysisSession) =>
+      this.readTypes(await from.openIsolated(this.tsConfigPath), stateFilePath);
+    const { stateType, messageTypes, tsConfigPath } = session
+      ? await readTypes(session)
+      : await withAnalysisSession(readTypes);
 
     // Analyze fields
     const fields = stateType ? this.analyzeFields(stateType) : [];
 
     // Extract message handlers
-    const handlerAnalysis = this.extractHandlerAnalysis();
+    const handlerAnalysis = this.extractHandlerAnalysis(tsConfigPath);
 
     // Filter message types and handlers to only include valid TLA+ identifiers
     const validMessageTypes = this.filterAndLogMessageTypes(
@@ -70,12 +95,29 @@ export class TypeExtractor {
     };
   }
 
-  /**
-   * Extract handler analysis from the project
-   */
-  private extractHandlerAnalysis() {
-    const configFilePath = this.project.getCompilerOptions()["configFilePath"];
+  /** The state type, the message types and the resolved tsconfig path, read from the checker. */
+  private async readTypes(
+    program: AnalysisProgram,
+    stateFilePath?: string
+  ): Promise<{ stateType: TypeInfo | null; messageTypes: string[]; tsConfigPath: string }> {
+    // Find state type
+    const stateType = stateFilePath
+      ? await this.extractStateType(program, stateFilePath)
+      : await this.findStateType(program);
+
+    // Find message types
+    const messageTypes = await this.findMessageTypes(program);
+
+    const configFilePath = program.compilerOptions.configFilePath;
     const tsConfigPath = typeof configFilePath === "string" ? configFilePath : "tsconfig.json";
+    return { stateType, messageTypes, tsConfigPath };
+  }
+
+  /**
+   * Extract handler analysis from the project (HandlerExtractor still runs on
+   * ts-morph, on its own project; it is handed the resolved tsconfig path).
+   */
+  private extractHandlerAnalysis(tsConfigPath: string) {
     const handlerExtractor = new HandlerExtractor(tsConfigPath);
     return handlerExtractor.extractHandlers();
   }
@@ -177,39 +219,42 @@ export class TypeExtractor {
   /**
    * Extract state type from a specific file
    */
-  private extractStateType(filePath: string): TypeInfo | null {
-    const sourceFile = this.project.getSourceFile(filePath);
+  private async extractStateType(
+    program: AnalysisProgram,
+    filePath: string
+  ): Promise<TypeInfo | null> {
+    const sourceFile = program.sourceFile(filePath);
     if (!sourceFile) {
       return null;
     }
 
     // Look for type alias named "AppState" or similar
-    const typeAlias =
-      sourceFile.getTypeAlias("AppState") ||
-      sourceFile.getTypeAlias("State") ||
-      sourceFile.getTypeAliases()[0];
+    const alias =
+      typeAlias(sourceFile, "AppState") ||
+      typeAlias(sourceFile, "State") ||
+      typeAliases(sourceFile)[0];
 
-    if (!typeAlias) {
+    if (!alias) {
       return null;
     }
 
-    const type = typeAlias.getType();
-    return this.convertType(type, typeAlias.getName());
+    const type = await program.typeOf(alias);
+    return this.convertType(program, type, nameOf(alias) ?? "");
   }
 
   /**
    * Find state type by searching common patterns
    */
-  private findStateType(): TypeInfo | null {
+  private async findStateType(program: AnalysisProgram): Promise<TypeInfo | null> {
     // Search for files with "state" in the name
-    const stateFiles = sourceFilesInPathOrder(this.project, "**/state*.ts");
+    const stateFiles = program.sourceFilesMatching("**/state*.ts");
 
     for (const file of stateFiles) {
-      const typeAlias = file.getTypeAlias("AppState") || file.getTypeAlias("State");
+      const alias = typeAlias(file, "AppState") || typeAlias(file, "State");
 
-      if (typeAlias) {
-        const type = typeAlias.getType();
-        return this.convertType(type, typeAlias.getName());
+      if (alias) {
+        const type = await program.typeOf(alias);
+        return this.convertType(program, type, nameOf(alias) ?? "");
       }
     }
 
@@ -223,22 +268,22 @@ export class TypeExtractor {
    * - Discriminated unions ({ type: 'foo' } | { type: 'bar' })
    * - Type aliases across files
    * - Template literal types (with warning)
-   * - Conditional types (conservatively)
    * - Mapped types
    */
-  private findMessageTypes(): string[] {
+  private async findMessageTypes(program: AnalysisProgram): Promise<string[]> {
     const messageTypes: string[] = [];
     const warnings: string[] = [];
 
     // Search for files with "message" in the name
-    const messageFiles = sourceFilesInPathOrder(this.project, "**/message*.ts");
+    const messageFiles = program.sourceFilesMatching("**/message*.ts");
 
     for (const file of messageFiles) {
       // Look for type aliases that might contain message types
-      for (const typeAlias of file.getTypeAliases()) {
-        const extractedTypes = this.extractMessageTypesFromType(
-          typeAlias.getType(),
-          typeAlias.getName(),
+      for (const alias of typeAliases(file)) {
+        const extractedTypes = await this.extractMessageTypesFromType(
+          program,
+          await program.typeOf(alias),
+          nameOf(alias) ?? "",
           file,
           warnings
         );
@@ -260,36 +305,34 @@ export class TypeExtractor {
   /**
    * Extract message types from a TypeScript type
    * Recursively handles unions, discriminated unions, aliases, etc.
+   *
+   * There is no conditional-type branch: the ts-morph version probed for an
+   * `isConditionalType` method that ts-morph's Type does not have, so that
+   * branch never ran, and a conditional type falls through to the text checks.
    */
-  private extractMessageTypesFromType(
+  private async extractMessageTypesFromType(
+    program: AnalysisProgram,
     type: Type,
     typeName: string,
     sourceFile: SourceFile,
     warnings: string[]
-  ): string[] {
-    if (type.isUnion()) {
-      return this.extractFromUnionType(type, typeName, sourceFile, warnings);
+  ): Promise<string[]> {
+    if (typeIs.union(type)) {
+      return this.extractFromUnionType(program, type, typeName, sourceFile, warnings);
     }
 
-    if (type.getAliasSymbol()) {
-      return this.extractFromTypeAlias(type, typeName, sourceFile, warnings);
+    if (await type.getAliasSymbol()) {
+      return this.extractFromTypeAlias(program, type, typeName, sourceFile, warnings);
     }
 
-    // Check if type has conditional type method before calling (ts-morph 28's Type has none)
-    const isConditionalType: unknown = Reflect.get(type, "isConditionalType");
-    if (
-      typeof isConditionalType === "function" &&
-      Reflect.apply(isConditionalType, type, []) === true
-    ) {
-      return this.extractFromConditionalType(type, warnings);
+    const text = await program.typeText(type);
+
+    if (text.includes("[K in ")) {
+      return this.extractFromMappedType(program, text, sourceFile, warnings);
     }
 
-    if (type.getText().includes("[K in ")) {
-      return this.extractFromMappedType(type, sourceFile, warnings);
-    }
-
-    if (type.getText().includes("`")) {
-      this.warnTemplateLiteral(type, warnings);
+    if (text.includes("`")) {
+      this.warnTemplateLiteral(text, warnings);
       return [];
     }
 
@@ -299,17 +342,24 @@ export class TypeExtractor {
   /**
    * Extract message types from union type
    */
-  private extractFromUnionType(
+  private async extractFromUnionType(
+    program: AnalysisProgram,
     type: Type,
     typeName: string,
     sourceFile: SourceFile,
     warnings: string[]
-  ): string[] {
+  ): Promise<string[]> {
     const messageTypes: string[] = [];
-    const unionTypes = type.getUnionTypes();
+    const unionTypes = await program.unionMembers(type);
 
     for (const unionType of unionTypes) {
-      const extracted = this.extractFromUnionMember(unionType, typeName, sourceFile, warnings);
+      const extracted = await this.extractFromUnionMember(
+        program,
+        unionType,
+        typeName,
+        sourceFile,
+        warnings
+      );
       messageTypes.push(...extracted);
     }
 
@@ -319,25 +369,24 @@ export class TypeExtractor {
   /**
    * Extract message types from a single union member
    */
-  private extractFromUnionMember(
+  private async extractFromUnionMember(
+    program: AnalysisProgram,
     unionType: Type,
     typeName: string,
     sourceFile: SourceFile,
     warnings: string[]
-  ): string[] {
-    if (unionType.isObject()) {
-      return this.extractFromDiscriminatedUnion(unionType, sourceFile, warnings);
+  ): Promise<string[]> {
+    if (typeIs.object(unionType)) {
+      return this.extractFromDiscriminatedUnion(program, unionType, sourceFile, warnings);
     }
 
-    if (unionType.isStringLiteral()) {
+    if (typeIs.stringLiteral(unionType)) {
       return stringLiteralValues(unionType);
     }
 
-    if (unionType.getAliasSymbol()) {
-      const aliasedType = unionType.getAliasSymbol()?.getDeclaredType();
-      if (aliasedType) {
-        return this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings);
-      }
+    const aliasedType = await program.aliasDeclaredType(unionType);
+    if (aliasedType) {
+      return this.extractMessageTypesFromType(program, aliasedType, typeName, sourceFile, warnings);
     }
 
     return [];
@@ -346,26 +395,26 @@ export class TypeExtractor {
   /**
    * Extract message types from discriminated union
    */
-  private extractFromDiscriminatedUnion(
+  private async extractFromDiscriminatedUnion(
+    program: AnalysisProgram,
     unionType: Type,
     sourceFile: SourceFile,
     warnings: string[]
-  ): string[] {
-    const typeProperty = unionType.getProperty("type");
+  ): Promise<string[]> {
+    const typeProperty = await program.property(unionType, "type", sourceFile);
     if (!typeProperty) {
       return [];
     }
 
-    const typeType = typeProperty.getTypeAtLocation(sourceFile);
+    const typeType = typeProperty.type;
 
-    if (typeType.isStringLiteral()) {
+    if (typeIs.stringLiteral(typeType)) {
       return stringLiteralValues(typeType);
     }
 
-    if (typeType.getText().includes("`")) {
-      warnings.push(
-        `Template literal type in discriminant: ${typeType.getText()} - may be unbounded`
-      );
+    const text = await program.typeText(typeType);
+    if (text.includes("`")) {
+      warnings.push(`Template literal type in discriminant: ${text} - may be unbounded`);
     }
 
     return [];
@@ -374,124 +423,100 @@ export class TypeExtractor {
   /**
    * Extract message types from type alias
    */
-  private extractFromTypeAlias(
+  private async extractFromTypeAlias(
+    program: AnalysisProgram,
     type: Type,
     typeName: string,
     sourceFile: SourceFile,
     warnings: string[]
-  ): string[] {
-    const aliasedType = type.getAliasSymbol()?.getDeclaredType();
-    if (!aliasedType || aliasedType === type) {
+  ): Promise<string[]> {
+    const aliasedType = await program.aliasDeclaredType(type);
+    // ts-morph caches one wrapper per checker type, so its `===` was type identity.
+    if (!aliasedType || aliasedType.id === type.id) {
       return [];
     }
 
-    return this.extractMessageTypesFromType(aliasedType, typeName, sourceFile, warnings);
+    return this.extractMessageTypesFromType(program, aliasedType, typeName, sourceFile, warnings);
   }
 
   /**
-   * Extract message types from conditional type
+   * Extract message types from mapped type (`text` is the type's text)
    */
-  private extractFromConditionalType(type: Type, warnings: string[]): string[] {
-    warnings.push(`Conditional type detected: ${type.getText()} - extracting conservatively`);
+  private async extractFromMappedType(
+    program: AnalysisProgram,
+    text: string,
+    sourceFile: SourceFile,
+    warnings: string[]
+  ): Promise<string[]> {
+    warnings.push(`Mapped type detected: ${text} - attempting to extract keys`);
 
-    const messageTypes: string[] = [];
-    const typeText = type.getText();
-    const parts = typeText.split("?");
-
-    if (parts.length < 2) {
-      return messageTypes;
-    }
-
-    const secondPart = parts[1];
-    if (!secondPart) return messageTypes;
-
-    const branches = secondPart.split(":");
-    for (const branch of branches) {
-      const extracted = this.extractStringLiteralFromBranch(branch);
-      if (extracted) {
-        messageTypes.push(extracted);
-      }
-    }
-
-    return messageTypes;
-  }
-
-  /**
-   * Extract string literal from conditional branch
-   */
-  private extractStringLiteralFromBranch(branch: string): string | null {
-    const trimmed = branch.trim();
-    const match = trimmed.match(/^["'](\w+)["']$/);
-    return match?.[1] ?? null;
-  }
-
-  /**
-   * Extract message types from mapped type
-   */
-  private extractFromMappedType(type: Type, sourceFile: SourceFile, warnings: string[]): string[] {
-    warnings.push(`Mapped type detected: ${type.getText()} - attempting to extract keys`);
-
-    const match = type.getText().match(/\[K in ([^\]]+)\]/);
+    const match = text.match(/\[K in ([^\]]+)\]/);
     if (!match?.[1]) {
       return [];
     }
 
     const keyTypeName = match[1].trim();
-    const keyTypeAlias = sourceFile.getTypeAlias?.(keyTypeName);
+    const keyTypeAlias = typeAlias(sourceFile, keyTypeName);
 
     if (!keyTypeAlias) {
       return [];
     }
 
-    const keyType = keyTypeAlias.getType();
-    return this.extractMessageTypesFromType(keyType, keyTypeName, sourceFile, warnings);
+    const keyType = await program.typeOf(keyTypeAlias);
+    return this.extractMessageTypesFromType(program, keyType, keyTypeName, sourceFile, warnings);
   }
 
   /**
-   * Warn about template literal types
+   * Warn about template literal types (`text` is the type's text)
    */
-  private warnTemplateLiteral(type: Type, warnings: string[]): void {
+  private warnTemplateLiteral(text: string, warnings: string[]): void {
     warnings.push(
-      `Template literal type: ${type.getText()} - this creates an unbounded set and cannot be fully extracted`
+      `Template literal type: ${text} - this creates an unbounded set and cannot be fully extracted`
     );
   }
 
   /**
-   * Convert ts-morph Type to our TypeInfo
+   * Convert a checker Type to our TypeInfo
    */
-  private convertType(type: Type, name: string): TypeInfo {
-    const nullable = type.isNullable();
+  private async convertType(program: AnalysisProgram, type: Type, name: string): Promise<TypeInfo> {
+    const nullable = await program.isNullable(type);
 
-    if (type.isBoolean() || type.isBooleanLiteral()) {
+    if (typeIs.boolean(type) || typeIs.booleanLiteral(type)) {
       return { name, kind: "boolean", nullable };
     }
 
-    if (type.isUnion()) {
-      return this.convertUnionType(type, name, nullable);
+    if (typeIs.union(type)) {
+      return this.convertUnionType(program, type, name, nullable);
     }
 
-    if (type.isString() || type.isStringLiteral()) {
+    if (typeIs.string(type) || typeIs.stringLiteral(type)) {
       return { name, kind: "string", nullable };
     }
 
-    if (type.isNumber() || type.isNumberLiteral()) {
+    if (typeIs.number(type) || typeIs.numberLiteral(type)) {
       return { name, kind: "number", nullable };
     }
 
-    if (type.isArray()) {
-      return this.convertArrayType(type, name, nullable);
+    const elementType = await program.arrayElement(type);
+    if (elementType) {
+      return {
+        name,
+        kind: "array",
+        nullable,
+        elementType: await this.convertType(program, elementType, `${name}_element`),
+      };
     }
 
-    const collectionType = this.tryConvertCollectionType(type, name, nullable);
+    const collectionType = await this.tryConvertCollectionType(program, type, name, nullable);
     if (collectionType) {
       return collectionType;
     }
 
-    if (type.isObject()) {
-      return this.convertObjectType(type, name, nullable);
+    if (typeIs.object(type)) {
+      return this.convertObjectType(program, type, name, nullable);
     }
 
-    if (type.isNull()) {
+    if (typeIs.null(type)) {
       return { name, kind: "null", nullable: true };
     }
 
@@ -501,77 +526,75 @@ export class TypeExtractor {
   /**
    * Convert union type to TypeInfo
    */
-  private convertUnionType(type: Type, name: string, nullable: boolean): TypeInfo {
-    const unionTypes = type.getUnionTypes();
+  private async convertUnionType(
+    program: AnalysisProgram,
+    type: Type,
+    name: string,
+    nullable: boolean
+  ): Promise<TypeInfo> {
+    const unionTypes = await program.unionMembers(type);
 
     // Check for string literal union (enum)
-    const allStringLiterals = unionTypes.every((t) => t.isStringLiteral());
+    const allStringLiterals = unionTypes.every((t) => typeIs.stringLiteral(t));
     if (allStringLiterals) {
       const enumValues = unionTypes.flatMap(stringLiteralValues);
       return { name, kind: "enum", nullable, enumValues };
     }
 
     // Check for nullable type (T | null | undefined)
-    const nonNullTypes = unionTypes.filter((t) => !t.isNull() && !t.isUndefined());
+    const nonNullTypes = unionTypes.filter((t) => !typeIs.null(t) && !typeIs.undefined(t));
 
     if (nonNullTypes.length === 1) {
       const firstType = nonNullTypes[0];
       if (firstType) {
-        const baseType = this.convertType(firstType, name);
+        const baseType = await this.convertType(program, firstType, name);
         return { ...baseType, nullable: true };
       }
     }
 
     // Generic union
-    return {
-      name,
-      kind: "union",
-      nullable,
-      unionTypes: unionTypes.map((t, i) => this.convertType(t, `${name}_${i}`)),
-    };
-  }
-
-  /**
-   * Convert array type to TypeInfo
-   */
-  private convertArrayType(type: Type, name: string, nullable: boolean): TypeInfo {
-    const elementType = type.getArrayElementType();
-    return {
-      name,
-      kind: "array",
-      nullable,
-      elementType: elementType
-        ? this.convertType(elementType, `${name}_element`)
-        : { name: "unknown", kind: "unknown", nullable: false },
-    };
+    const members: TypeInfo[] = [];
+    for (const [i, t] of unionTypes.entries()) {
+      members.push(await this.convertType(program, t, `${name}_${i}`));
+    }
+    return { name, kind: "union", nullable, unionTypes: members };
   }
 
   /**
    * Try to convert Map or Set type to TypeInfo
    */
-  private tryConvertCollectionType(type: Type, name: string, nullable: boolean): TypeInfo | null {
-    const symbol = type.getSymbol();
+  private async tryConvertCollectionType(
+    program: AnalysisProgram,
+    type: Type,
+    name: string,
+    nullable: boolean
+  ): Promise<TypeInfo | null> {
+    const symbol = await type.getSymbol();
     if (!symbol) return null;
 
-    const symbolName = symbol.getName();
+    const symbolName = symbol.name;
 
     if (symbolName === "Map") {
-      const typeArgs = type.getTypeArguments();
+      const valueArg = (await program.typeArguments(type))[1];
       return {
         name,
         kind: "map",
         nullable,
-        valueType: typeArgs?.[1] ? this.convertType(typeArgs[1], `${name}_value`) : undefined,
+        valueType: valueArg
+          ? await this.convertType(program, valueArg, `${name}_value`)
+          : undefined,
       };
     }
 
     if (symbolName === "Set") {
-      const typeArgs = type.getTypeArguments();
+      const elementArg = (await program.typeArguments(type))[0];
       return {
         name,
         kind: "set",
         nullable,
-        elementType: typeArgs?.[0] ? this.convertType(typeArgs[0], `${name}_element`) : undefined,
+        elementType: elementArg
+          ? await this.convertType(program, elementArg, `${name}_element`)
+          : undefined,
       };
     }
 
@@ -581,15 +604,19 @@ export class TypeExtractor {
   /**
    * Convert object type to TypeInfo
    */
-  private convertObjectType(type: Type, name: string, nullable: boolean): TypeInfo {
+  private async convertObjectType(
+    program: AnalysisProgram,
+    type: Type,
+    name: string,
+    nullable: boolean
+  ): Promise<TypeInfo> {
     const properties: Record<string, TypeInfo> = {};
-    const sourceFile = sourceFilesInPathOrder(this.project)[0];
+    const at: Node | undefined = program.sourceFiles[0];
 
-    if (sourceFile) {
-      for (const prop of type.getProperties()) {
-        const propName = prop.getName();
-        const propType = prop.getTypeAtLocation(sourceFile);
-        properties[propName] = this.convertType(propType, propName);
+    if (at) {
+      for (const prop of await program.propertySymbols(type)) {
+        const propType = await program.symbolTypeAt(prop, at);
+        properties[prop.name] = await this.convertType(program, propType, prop.name);
       }
     }
 
@@ -740,10 +767,16 @@ export class TypeExtractor {
   }
 }
 
+/**
+ * Analyze a codebase for `polly verify`. With `session`, the type queries
+ * run on an isolated program in it and the caller closes it; without one the
+ * call opens and closes a session of its own.
+ */
 export async function analyzeCodebase(options: {
   tsConfigPath: string;
   stateFilePath?: string;
+  session?: AnalysisSession;
 }): Promise<CodebaseAnalysis> {
   const extractor = new TypeExtractor(options.tsConfigPath);
-  return extractor.analyzeCodebase(options.stateFilePath);
+  return extractor.analyzeCodebase(options.stateFilePath, options.session);
 }

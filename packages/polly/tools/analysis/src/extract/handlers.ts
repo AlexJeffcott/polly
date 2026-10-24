@@ -86,7 +86,7 @@ import type {
   VerificationCondition,
   VerifiedStateInfo,
 } from "../types";
-import { RelationshipExtractor } from "./relationships";
+import { MorphRelationshipExtractor as RelationshipExtractor } from "./relationships-morph";
 import { sourceFilesInPathOrder } from "./source-file-order";
 
 /** A function whose parameters and body a handler is extracted from. */

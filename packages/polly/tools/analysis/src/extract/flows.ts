@@ -1,12 +1,31 @@
 // Message flow analysis - trace messages between contexts
 
-import { type CallExpression, Node, Project } from "ts-morph";
+import type { CallExpression, Node } from "typescript-7/ast";
+import {
+  isCallExpression,
+  isIdentifier,
+  isObjectLiteralExpression,
+  isPropertyAccessExpression,
+  isPropertyAssignment,
+  isStringLiteral,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  type AnalysisSource,
+  forEachDescendant,
+  jsDocs,
+  jsDocText,
+  nameOf,
+  objectProperty,
+  startLine,
+  textOf,
+  withProgram,
+} from "../program";
 import type { MessageFlow, MessageStep } from "../types/architecture";
 import type { MessageHandler } from "../types/core";
-import { sourceFilesInPathOrder } from "./source-file-order";
 
 export class FlowAnalyzer {
-  private project: Project;
+  private tsConfigPath: string;
   private handlers: MessageHandler[];
   private contextOverrides: Map<string, string>;
 
@@ -15,17 +34,20 @@ export class FlowAnalyzer {
     handlers: MessageHandler[],
     contextOverrides?: Map<string, string>
   ) {
-    this.project = new Project({
-      tsConfigFilePath: tsConfigPath,
-    });
+    this.tsConfigPath = tsConfigPath;
     this.handlers = handlers;
     this.contextOverrides = contextOverrides || new Map();
   }
 
   /**
-   * Analyze message flows between contexts
+   * Analyze message flows between contexts. With no `source`, opens (and
+   * closes) a session of its own; a passed source stays the caller's.
    */
-  analyzeFlows(): MessageFlow[] {
+  analyzeFlows(source?: AnalysisSource): Promise<MessageFlow[]> {
+    return withProgram(this.tsConfigPath, source, (program) => this.flowsIn(program));
+  }
+
+  private flowsIn(program: AnalysisProgram): MessageFlow[] {
     const flows: MessageFlow[] = [];
 
     // Group handlers by message type
@@ -40,17 +62,17 @@ export class FlowAnalyzer {
     // For each message type, trace the flow
     for (const [messageType, handlers] of handlersByType) {
       // Find senders
-      const senders = this.findMessageSenders(messageType);
+      const senders = this.findMessageSenders(program, messageType);
 
       // For each sender, create a flow
       for (const sender of senders) {
         const recipients = handlers.map((h) => h.node);
 
         // Build sequence of steps
-        const sequence = this.buildSequence(messageType, sender, handlers);
+        const sequence = this.buildSequence(program, messageType, sender, handlers);
 
         // Extract flow metadata
-        const flowMetadata = this.extractFlowMetadata(sender.file, sender.line);
+        const flowMetadata = this.extractFlowMetadata(program, sender.file, sender.line);
 
         flows.push({
           messageType,
@@ -71,18 +93,21 @@ export class FlowAnalyzer {
    * Find all places where a message is sent
    * Supports: .send(), .emit(), postMessage(), ws.send(), broadcast(), etc.
    */
-  private findMessageSenders(messageType: string): Array<{
+  private findMessageSenders(
+    program: AnalysisProgram,
+    messageType: string
+  ): Array<{
     context: string;
     file: string;
     line: number;
   }> {
     const senders: Array<{ context: string; file: string; line: number }> = [];
 
-    for (const sourceFile of sourceFilesInPathOrder(this.project)) {
-      const filePath = sourceFile.getFilePath();
+    for (const sourceFile of program.sourceFiles) {
+      const filePath = sourceFile.fileName;
       const context = this.inferContext(filePath);
 
-      sourceFile.forEachDescendant((node) => {
+      forEachDescendant(sourceFile, (node) => {
         this.processMessageSender(node, messageType, context, filePath, senders);
       });
     }
@@ -100,15 +125,15 @@ export class FlowAnalyzer {
     filePath: string,
     senders: Array<{ context: string; file: string; line: number }>
   ): void {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return;
     }
 
-    const expression = node.getExpression();
+    const expression = node.expression;
 
-    if (Node.isPropertyAccessExpression(expression)) {
+    if (isPropertyAccessExpression(expression)) {
       this.processPropertyAccessSender(node, expression, messageType, context, filePath, senders);
-    } else if (Node.isIdentifier(expression)) {
+    } else if (isIdentifier(expression)) {
       this.processIdentifierSender(node, expression, messageType, context, filePath, senders);
     }
   }
@@ -124,17 +149,17 @@ export class FlowAnalyzer {
     filePath: string,
     senders: Array<{ context: string; file: string; line: number }>
   ): void {
-    if (!Node.isPropertyAccessExpression(expression)) {
+    if (!isPropertyAccessExpression(expression)) {
       return;
     }
 
-    const methodName = expression.getName();
+    const methodName = nameOf(expression) ?? "";
 
     if (!this.isMessageSendMethod(methodName)) {
       return;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length === 0) {
       return;
     }
@@ -147,7 +172,7 @@ export class FlowAnalyzer {
       senders.push({
         context,
         file: filePath,
-        line: node.getStartLineNumber(),
+        line: startLine(node),
       });
     }
   }
@@ -163,15 +188,15 @@ export class FlowAnalyzer {
     filePath: string,
     senders: Array<{ context: string; file: string; line: number }>
   ): void {
-    if (!Node.isIdentifier(expression)) {
+    if (!isIdentifier(expression)) {
       return;
     }
 
-    if (expression.getText() !== "postMessage") {
+    if (textOf(expression) !== "postMessage") {
       return;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length === 0) {
       return;
     }
@@ -184,7 +209,7 @@ export class FlowAnalyzer {
       senders.push({
         context,
         file: filePath,
-        line: node.getStartLineNumber(),
+        line: startLine(node),
       });
     }
   }
@@ -205,6 +230,7 @@ export class FlowAnalyzer {
    * Build sequence of steps for a message flow
    */
   private buildSequence(
+    program: AnalysisProgram,
     messageType: string,
     sender: { context: string; file: string; line: number },
     handlers: MessageHandler[]
@@ -233,7 +259,7 @@ export class FlowAnalyzer {
       });
 
       // Add substeps for any messages sent by this handler
-      const subsends = this.findMessagesInHandler(handler);
+      const subsends = this.findMessagesInHandler(program, handler);
       for (const subsend of subsends) {
         steps.push({
           step: stepNumber++,
@@ -250,18 +276,21 @@ export class FlowAnalyzer {
   /**
    * Find messages sent within a handler
    */
-  private findMessagesInHandler(handler: MessageHandler): Array<{
+  private findMessagesInHandler(
+    program: AnalysisProgram,
+    handler: MessageHandler
+  ): Array<{
     messageType: string;
     location: { file: string; line: number };
   }> {
     const sends: Array<{ messageType: string; location: { file: string; line: number } }> = [];
 
-    const sourceFile = this.project.getSourceFile(handler.location.file);
+    const sourceFile = program.sourceFile(handler.location.file);
     if (!sourceFile) return sends;
 
     const targetLine = handler.location.line;
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       this.processSendCall(node, targetLine, handler.location.file, sends);
     });
 
@@ -277,21 +306,21 @@ export class FlowAnalyzer {
     filePath: string,
     sends: Array<{ messageType: string; location: { file: string; line: number } }>
   ): void {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return;
     }
 
-    const line = node.getStartLineNumber();
+    const line = startLine(node);
     if (!this.isNearLine(line, targetLine)) {
       return;
     }
 
-    const expression = node.getExpression();
+    const expression = node.expression;
     if (!this.isSendOrEmitCall(expression)) {
       return;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length === 0) {
       return;
     }
@@ -319,11 +348,11 @@ export class FlowAnalyzer {
    * Check if expression is a send or emit call
    */
   private isSendOrEmitCall(expression: Node): boolean {
-    if (!Node.isPropertyAccessExpression(expression)) {
+    if (!isPropertyAccessExpression(expression)) {
       return false;
     }
 
-    const methodName = expression.getName();
+    const methodName = nameOf(expression);
     return methodName === "send" || methodName === "emit";
   }
 
@@ -331,11 +360,11 @@ export class FlowAnalyzer {
    * Extract message type from send/emit argument
    */
   private extractMessageTypeFromArg(arg: Node): string | undefined {
-    if (Node.isStringLiteral(arg)) {
-      return arg.getLiteralValue();
+    if (isStringLiteral(arg)) {
+      return arg.text;
     }
 
-    if (Node.isObjectLiteralExpression(arg)) {
+    if (isObjectLiteralExpression(arg)) {
       return this.extractMessageTypeFromObject(arg);
     }
 
@@ -346,27 +375,28 @@ export class FlowAnalyzer {
    * Extract message type from object literal
    */
   private extractMessageTypeFromObject(obj: Node): string | undefined {
-    if (!Node.isObjectLiteralExpression(obj)) {
+    if (!isObjectLiteralExpression(obj)) {
       return undefined;
     }
 
-    const typeProperty = obj.getProperty("type");
-    if (!typeProperty || !Node.isPropertyAssignment(typeProperty)) {
+    const typeProperty = objectProperty(obj, "type");
+    if (!typeProperty || !isPropertyAssignment(typeProperty)) {
       return undefined;
     }
 
-    const initializer = typeProperty.getInitializer();
-    if (!initializer || !Node.isStringLiteral(initializer)) {
+    const initializer = typeProperty.initializer;
+    if (!isStringLiteral(initializer)) {
       return undefined;
     }
 
-    return initializer.getLiteralValue();
+    return initializer.text;
   }
 
   /**
    * Extract flow metadata from JSDoc annotations
    */
   private extractFlowMetadata(
+    program: AnalysisProgram,
     filePath: string,
     lineNumber: number
   ): {
@@ -374,25 +404,23 @@ export class FlowAnalyzer {
     flowName?: string;
     description?: string;
   } {
-    const sourceFile = this.project.getSourceFile(filePath);
+    const sourceFile = program.sourceFile(filePath);
     if (!sourceFile) return {};
 
     // Find the node at this line (the last one in traversal order)
     const atLine: Node[] = [];
-    sourceFile.forEachDescendant((node) => {
-      if (node.getStartLineNumber() === lineNumber) {
+    forEachDescendant(sourceFile, (node) => {
+      if (startLine(node, sourceFile) === lineNumber) {
         atLine.push(node);
       }
     });
     const targetNode = atLine.at(-1);
 
     // Only a JSDoc-able node carries the annotations
-    if (!Node.isJSDocable(targetNode)) return {};
-
-    const firstDoc = targetNode.getJsDocs()[0];
+    const firstDoc = jsDocs(targetNode)[0];
     if (!firstDoc) return {};
 
-    const comment = firstDoc.getText();
+    const comment = jsDocText(firstDoc, sourceFile);
 
     // Extract @flow annotation
     const flowName = comment.match(/@flow\s+([^\s]+)/)?.[1];

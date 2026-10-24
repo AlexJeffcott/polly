@@ -2,6 +2,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type AnalysisProgram, type AnalysisSession, withAnalysisSession } from "../program";
 import type {
   ArchitectureAnalysis,
   ContextInfo,
@@ -28,6 +29,13 @@ export interface ArchitectureAnalysisOptions {
 
   /** Optional: Use generic project detection (non-extension) */
   useProjectDetector?: boolean;
+
+  /**
+   * Optional: the typescript-7 session to run the contexts, flows and
+   * integrations on (the caller closes it). Without one, `analyze` opens and
+   * closes a session of its own.
+   */
+  session?: AnalysisSession;
 }
 
 export class ArchitectureAnalyzer {
@@ -41,6 +49,12 @@ export class ArchitectureAnalyzer {
    * Perform complete architecture analysis
    */
   async analyze(): Promise<ArchitectureAnalysis> {
+    const { session } = this.options;
+    if (session) return this.analyzeWith(session);
+    return withAnalysisSession((own) => this.analyzeWith(own));
+  }
+
+  private async analyzeWith(session: AnalysisSession): Promise<ArchitectureAnalysis> {
     // 1. Initialize system info and entry points
     const { manifest, projectConfig, entryPoints, systemInfo } = await this.initializeSystemInfo();
 
@@ -60,8 +74,12 @@ export class ArchitectureAnalyzer {
     );
     const { handlers, meshOrPeerSignals } = handlerExtractor.extractHandlers();
 
+    // Contexts, flows and integrations share one program (all AST walks,
+    // plus component prop types).
+    const program = await session.open(this.options.tsConfigPath);
+
     // 3. Analyze each context
-    const contexts = this.analyzeContexts(entryPoints, handlers);
+    const contexts = await this.analyzeContexts(program, entryPoints, handlers);
 
     // 4. Analyze message flows
     const flowAnalyzer = new FlowAnalyzer(
@@ -69,11 +87,11 @@ export class ArchitectureAnalyzer {
       handlers,
       contextOverrides.size > 0 ? contextOverrides : undefined
     );
-    const messageFlows = flowAnalyzer.analyzeFlows();
+    const messageFlows = await flowAnalyzer.analyzeFlows(program);
 
     // 5. Analyze external integrations
     const integrationAnalyzer = new IntegrationAnalyzer(this.options.tsConfigPath);
-    const integrations = integrationAnalyzer.analyzeIntegrations();
+    const integrations = await integrationAnalyzer.analyzeIntegrations(program);
 
     // 6. Merge external API calls into context info
     this.mergeExternalAPIsIntoContexts(contexts, integrations);
@@ -145,16 +163,22 @@ export class ArchitectureAnalyzer {
   /**
    * Analyze all contexts from entry points
    */
-  private analyzeContexts(
+  private async analyzeContexts(
+    program: AnalysisProgram,
     entryPoints: Record<string, string>,
     handlers: MessageHandler[]
-  ): Record<string, ContextInfo> {
+  ): Promise<Record<string, ContextInfo>> {
     const contextAnalyzer = new ContextAnalyzer(this.options.tsConfigPath);
     const contexts: Record<string, ContextInfo> = {};
 
     for (const [contextType, entryPoint] of Object.entries(entryPoints)) {
       try {
-        const contextInfo = contextAnalyzer.analyzeContext(contextType, entryPoint, handlers);
+        const contextInfo = await contextAnalyzer.analyzeContext(
+          contextType,
+          entryPoint,
+          handlers,
+          program
+        );
         contexts[contextType] = contextInfo;
       } catch (error) {
         // Skip contexts that fail to analyze

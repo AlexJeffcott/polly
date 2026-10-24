@@ -38,17 +38,17 @@ describe("IntegrationAnalyzer - test files", () => {
     return new IntegrationAnalyzer(path.join(tempDir, "tsconfig.json")).analyzeIntegrations();
   }
 
-  test("a fetch in application source is an integration", () => {
-    const integrations = run({
+  test("a fetch in application source is an integration", async () => {
+    const integrations = await run({
       "src/weather.ts": `export const load = () => fetch("https://api.weather.example/today");`,
     });
     expect(integrations.map((i) => i.url)).toEqual(["https://api.weather.example"]);
   });
 
-  test("a project that itself lives under a __tests__ directory still counts", () => {
+  test("a project that itself lives under a __tests__ directory still counts", async () => {
     tempDir = path.join(rootDir, "__tests__", "fixtures", "app");
     fs.mkdirSync(tempDir, { recursive: true });
-    const integrations = run({
+    const integrations = await run({
       "src/weather.ts": `export const load = () => fetch("https://api.weather.example/today");`,
     });
     expect(integrations.map((i) => i.url)).toEqual(["https://api.weather.example"]);
@@ -60,8 +60,8 @@ describe("IntegrationAnalyzer - test files", () => {
     "src/api.spec.ts",
     "tests/api.ts",
     "e2e/api.ts",
-  ])("fetch and WebSocket in %s are not integrations", (rel) => {
-    const integrations = run({
+  ])("fetch and WebSocket in %s are not integrations", async (rel) => {
+    const integrations = await run({
       [rel]: `
         export const a = () => fetch("http://localhost:3000/todos");
         export const b = () => new WebSocket("ws://localhost:3000/polly/ws");

@@ -1,31 +1,79 @@
 // Context analysis - analyze individual execution contexts
 
-import {
-  type ArrowFunction,
-  type ClassDeclaration,
-  type FunctionDeclaration,
-  type FunctionExpression,
+import type {
+  ArrowFunction,
+  ClassDeclaration,
+  FunctionDeclaration,
+  FunctionExpression,
+  HeritageClauseElement,
   Node,
-  Project,
-  type SourceFile,
-} from "ts-morph";
+  SourceFile,
+} from "typescript-7/ast";
+import { SyntaxKind } from "typescript-7/ast";
+import {
+  isArrowFunction,
+  isBlock,
+  isClassDeclaration,
+  isFunctionDeclaration,
+  isFunctionExpression,
+  isJsxElement,
+  isJsxSelfClosingElement,
+  isPropertyAccessExpression,
+  isVariableDeclaration,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  type AnalysisSource,
+  forEachDescendant,
+  importDeclarations,
+  jsDocDescription,
+  jsDocs,
+  leadingComments,
+  moduleSpecifierValue,
+  nameOf,
+  startLine,
+  textOf,
+  withProgram,
+} from "../program";
 import type { ComponentInfo, ContextInfo } from "../types/architecture";
 import type { MessageHandler } from "../types/core";
 
+/** A component found in the walk, before its props are read from the checker. */
+interface ComponentCandidate {
+  info: Omit<ComponentInfo, "props">;
+  props: () => Promise<string[]>;
+}
+
 export class ContextAnalyzer {
-  private project: Project;
+  private tsConfigPath: string;
 
   constructor(tsConfigPath: string) {
-    this.project = new Project({
-      tsConfigFilePath: tsConfigPath,
-    });
+    this.tsConfigPath = tsConfigPath;
   }
 
   /**
-   * Analyze a specific context given its entry point
+   * Analyze a specific context given its entry point. With no `source`,
+   * opens (and closes) a session of its own; a passed source stays the
+   * caller's.
    */
-  analyzeContext(contextType: string, entryPoint: string, handlers: MessageHandler[]): ContextInfo {
-    const sourceFile = this.project.getSourceFile(entryPoint);
+  analyzeContext(
+    contextType: string,
+    entryPoint: string,
+    handlers: MessageHandler[],
+    source?: AnalysisSource
+  ): Promise<ContextInfo> {
+    return withProgram(this.tsConfigPath, source, (program) =>
+      this.contextIn(program, contextType, entryPoint, handlers)
+    );
+  }
+
+  private async contextIn(
+    program: AnalysisProgram,
+    contextType: string,
+    entryPoint: string,
+    handlers: MessageHandler[]
+  ): Promise<ContextInfo> {
+    const sourceFile = program.sourceFile(entryPoint);
 
     if (!sourceFile) {
       throw new Error(`Could not find source file: ${entryPoint}`);
@@ -42,7 +90,7 @@ export class ContextAnalyzer {
 
     // Extract components (for UI contexts)
     const components = this.isUIContext(contextType)
-      ? this.extractComponents(sourceFile)
+      ? await this.extractComponents(program, sourceFile)
       : undefined;
 
     // Filter handlers for this context
@@ -66,9 +114,9 @@ export class ContextAnalyzer {
   private extractChromeAPIs(sourceFile: SourceFile): string[] {
     const apis = new Set<string>();
 
-    sourceFile.forEachDescendant((node: Node) => {
-      if (Node.isPropertyAccessExpression(node)) {
-        const text = node.getText();
+    forEachDescendant(sourceFile, (node: Node) => {
+      if (isPropertyAccessExpression(node)) {
+        const text = textOf(node, sourceFile);
         this.detectAPIPattern(text, apis);
       }
     });
@@ -125,9 +173,9 @@ export class ContextAnalyzer {
   private extractDependencies(sourceFile: SourceFile): string[] {
     const deps: string[] = [];
 
-    for (const importDecl of sourceFile.getImportDeclarations()) {
-      const moduleSpecifier = importDecl.getModuleSpecifierValue();
-      deps.push(moduleSpecifier);
+    for (const importDecl of importDeclarations(sourceFile)) {
+      const moduleSpecifier = moduleSpecifierValue(importDecl);
+      if (moduleSpecifier !== undefined) deps.push(moduleSpecifier);
     }
 
     return deps;
@@ -138,16 +186,13 @@ export class ContextAnalyzer {
    */
   private extractDescription(sourceFile: SourceFile): string | undefined {
     // Look for file-level JSDoc comment
-    const firstStatement = sourceFile.getStatements()[0];
+    const firstStatement = sourceFile.statements[0];
     if (!firstStatement) return undefined;
 
-    const leadingComments = firstStatement.getLeadingCommentRanges();
-    if (leadingComments.length === 0) return undefined;
-
-    const firstComment = leadingComments[0];
+    const firstComment = leadingComments(firstStatement, sourceFile)[0];
     if (!firstComment) return undefined;
 
-    const comment = firstComment.getText();
+    const comment = firstComment.text;
 
     // Extract description from JSDoc
     const descMatch = comment.match(/@description\s+(.+?)(?:\n|$)/s);
@@ -165,17 +210,31 @@ export class ContextAnalyzer {
   }
 
   /**
-   * Extract React/Preact components from source file
+   * Extract React/Preact components from source file. The walk is
+   * synchronous; props are then read from the checker one component at a
+   * time, in walk order, as ts-morph asked for them.
    */
-  private extractComponents(sourceFile: SourceFile): ComponentInfo[] {
-    const components: ComponentInfo[] = [];
+  private async extractComponents(
+    program: AnalysisProgram,
+    sourceFile: SourceFile
+  ): Promise<ComponentInfo[]> {
+    const candidates: ComponentCandidate[] = [];
 
-    sourceFile.forEachDescendant((node: Node) => {
-      this.extractFunctionComponent(node, sourceFile, components);
-      this.extractArrowFunctionComponent(node, sourceFile, components);
-      this.extractClassComponent(node, sourceFile, components);
+    forEachDescendant(sourceFile, (node: Node) => {
+      this.extractFunctionComponent(program, node, sourceFile, candidates);
+      this.extractArrowFunctionComponent(program, node, sourceFile, candidates);
+      this.extractClassComponent(program, node, sourceFile, candidates);
     });
 
+    const components: ComponentInfo[] = [];
+    for (const candidate of candidates) {
+      const { description, ...rest } = candidate.info;
+      components.push({
+        ...rest,
+        props: await candidate.props(),
+        ...(description ? { description } : {}),
+      });
+    }
     return components;
   }
 
@@ -183,23 +242,26 @@ export class ContextAnalyzer {
    * Extract function component from node if applicable
    */
   private extractFunctionComponent(
+    program: AnalysisProgram,
     node: Node,
     sourceFile: SourceFile,
-    components: ComponentInfo[]
+    components: ComponentCandidate[]
   ): void {
-    if (!Node.isFunctionDeclaration(node)) return;
+    if (!isFunctionDeclaration(node)) return;
 
-    const name = node.getName();
+    const name = nameOf(node);
     if (!name || !this.looksLikeComponent(name, node)) return;
 
     const description = this.extractJSDocDescription(node);
     components.push({
-      name,
-      type: "function",
-      filePath: sourceFile.getFilePath(),
-      line: node.getStartLineNumber(),
-      props: this.extractProps(node),
-      ...(description ? { description } : {}),
+      info: {
+        name,
+        type: "function",
+        filePath: sourceFile.fileName,
+        line: startLine(node, sourceFile),
+        ...(description ? { description } : {}),
+      },
+      props: () => this.extractProps(program, node),
     });
   }
 
@@ -207,27 +269,30 @@ export class ContextAnalyzer {
    * Extract arrow function component from node if applicable
    */
   private extractArrowFunctionComponent(
+    program: AnalysisProgram,
     node: Node,
     sourceFile: SourceFile,
-    components: ComponentInfo[]
+    components: ComponentCandidate[]
   ): void {
-    if (!Node.isVariableDeclaration(node)) return;
+    if (!isVariableDeclaration(node)) return;
 
-    const name = node.getName();
-    const initializer = node.getInitializer();
+    const name = nameOf(node);
+    const initializer = node.initializer;
 
     if (!name || !initializer) return;
-    if (!Node.isArrowFunction(initializer) && !Node.isFunctionExpression(initializer)) return;
+    if (!isArrowFunction(initializer) && !isFunctionExpression(initializer)) return;
     if (!this.looksLikeComponent(name, initializer)) return;
 
     const description = this.extractJSDocDescription(node);
     components.push({
-      name,
-      type: "function",
-      filePath: sourceFile.getFilePath(),
-      line: node.getStartLineNumber(),
-      props: this.extractProps(initializer),
-      ...(description ? { description } : {}),
+      info: {
+        name,
+        type: "function",
+        filePath: sourceFile.fileName,
+        line: startLine(node, sourceFile),
+        ...(description ? { description } : {}),
+      },
+      props: () => this.extractProps(program, initializer),
     });
   }
 
@@ -235,23 +300,26 @@ export class ContextAnalyzer {
    * Extract class component from node if applicable
    */
   private extractClassComponent(
+    program: AnalysisProgram,
     node: Node,
     sourceFile: SourceFile,
-    components: ComponentInfo[]
+    components: ComponentCandidate[]
   ): void {
-    if (!Node.isClassDeclaration(node)) return;
+    if (!isClassDeclaration(node)) return;
 
-    const name = node.getName();
+    const name = nameOf(node);
     if (!name || !this.looksLikeClassComponent(node)) return;
 
     const description = this.extractJSDocDescription(node);
     components.push({
-      name,
-      type: "class",
-      filePath: sourceFile.getFilePath(),
-      line: node.getStartLineNumber(),
-      props: this.extractPropsFromClass(node),
-      ...(description ? { description } : {}),
+      info: {
+        name,
+        type: "class",
+        filePath: sourceFile.fileName,
+        line: startLine(node, sourceFile),
+        ...(description ? { description } : {}),
+      },
+      props: () => this.extractPropsFromClass(program, node),
     });
   }
 
@@ -266,18 +334,18 @@ export class ContextAnalyzer {
     if (!/^[A-Z]/.test(name)) return false;
 
     // Check if it returns JSX
-    const body = node.getBody();
+    const body = node.body;
     if (!body) return false;
 
     let hasJSX = false;
 
-    if (Node.isBlock(body)) {
-      body.forEachDescendant((child: Node) => {
-        if (Node.isJsxElement(child) || Node.isJsxSelfClosingElement(child)) {
+    if (isBlock(body)) {
+      forEachDescendant(body, (child: Node) => {
+        if (isJsxElement(child) || isJsxSelfClosingElement(child)) {
           hasJSX = true;
         }
       });
-    } else if (Node.isJsxElement(body) || Node.isJsxSelfClosingElement(body)) {
+    } else if (isJsxElement(body) || isJsxSelfClosingElement(body)) {
       // Arrow function with implicit return
       hasJSX = true;
     }
@@ -289,68 +357,52 @@ export class ContextAnalyzer {
    * Check if a class looks like a React component
    */
   private looksLikeClassComponent(node: ClassDeclaration): boolean {
-    const extendedTypes = node.getExtends();
+    const extendedTypes = classExtends(node);
     if (!extendedTypes) return false;
 
-    const extendsText = extendedTypes.getText();
+    const extendsText = textOf(extendedTypes);
     return /Component|PureComponent/.test(extendsText);
   }
 
   /**
    * Extract props from function component
    */
-  private extractProps(node: FunctionDeclaration | ArrowFunction | FunctionExpression): string[] {
-    const params = node.getParameters();
-    if (params.length === 0) return [];
-
-    const propsParam = params[0];
+  private async extractProps(
+    program: AnalysisProgram,
+    node: FunctionDeclaration | ArrowFunction | FunctionExpression
+  ): Promise<string[]> {
+    const propsParam = node.parameters[0];
     if (!propsParam) return [];
 
-    const type = propsParam.getType();
-
-    const props: string[] = [];
-    for (const prop of type.getProperties()) {
-      props.push(prop.getName());
-    }
-
-    return props;
+    const type = await program.typeOf(propsParam);
+    return program.propertyNames(type);
   }
 
   /**
    * Extract props from class component
    */
-  private extractPropsFromClass(node: ClassDeclaration): string[] {
-    const extendedTypes = node.getExtends();
+  private async extractPropsFromClass(
+    program: AnalysisProgram,
+    node: ClassDeclaration
+  ): Promise<string[]> {
+    const extendedTypes = classExtends(node);
     if (!extendedTypes) return [];
 
-    const typeArgs = extendedTypes.getType().getTypeArguments();
-    if (typeArgs.length === 0) return [];
-
+    const typeArgs = await program.typeArguments(await program.typeOf(extendedTypes));
     const propsType = typeArgs[0];
     if (!propsType) return [];
 
-    const props: string[] = [];
-
-    for (const prop of propsType.getProperties()) {
-      props.push(prop.getName());
-    }
-
-    return props;
+    return program.propertyNames(propsType);
   }
 
   /**
    * Extract JSDoc description from node
    */
   private extractJSDocDescription(node: Node): string | undefined {
-    if (!Node.isJSDocable(node)) return undefined;
-
-    const jsDocs = node.getJsDocs();
-    if (jsDocs.length === 0) return undefined;
-
-    const firstDoc = jsDocs[0];
+    const firstDoc = jsDocs(node)[0];
     if (!firstDoc) return undefined;
 
-    const description = firstDoc.getDescription().trim();
+    const description = jsDocDescription(firstDoc).trim();
     return description || undefined;
   }
 
@@ -360,4 +412,10 @@ export class ContextAnalyzer {
   private isUIContext(contextType: string): boolean {
     return ["popup", "options", "devtools"].includes(contextType);
   }
+}
+
+/** ts-morph `classDeclaration.getExtends()`: the first type of the `extends` clause. */
+function classExtends(node: ClassDeclaration): HeritageClauseElement | undefined {
+  const clause = node.heritageClauses?.find((c) => c.token === SyntaxKind.ExtendsKeyword);
+  return clause?.types[0];
 }

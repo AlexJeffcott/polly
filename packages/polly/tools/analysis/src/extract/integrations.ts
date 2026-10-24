@@ -1,19 +1,38 @@
 // External integration detection - find external APIs, services, etc.
 
 import * as path from "node:path";
-import { Node, Project, type SourceFile } from "ts-morph";
+import type { Expression, Node, SourceFile } from "typescript-7/ast";
+import {
+  isCallExpression,
+  isIdentifier,
+  isNewExpression,
+  isObjectLiteralExpression,
+  isPropertyAssignment,
+  isStringLiteral,
+  isTemplateExpression,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  type AnalysisSource,
+  forEachDescendant,
+  importDeclarations,
+  jsDocDescription,
+  jsDocs,
+  moduleSpecifierValue,
+  objectProperty,
+  startLine,
+  textOf,
+  withProgram,
+} from "../program";
 import type { ExternalIntegration } from "../types/architecture";
-import { sourceFilesInPathOrder } from "./source-file-order";
 
 export class IntegrationAnalyzer {
-  private project: Project;
+  private tsConfigPath: string;
   private projectRoot: string;
 
   constructor(tsConfigPath: string) {
+    this.tsConfigPath = tsConfigPath;
     this.projectRoot = path.dirname(path.resolve(tsConfigPath));
-    this.project = new Project({
-      tsConfigFilePath: tsConfigPath,
-    });
   }
 
   /**
@@ -23,35 +42,42 @@ export class IntegrationAnalyzer {
    * path inside the project so a project that itself sits under a `__tests__`
    * fixture directory still counts.
    */
-  private applicationSourceFiles(): SourceFile[] {
-    return sourceFilesInPathOrder(this.project).filter(
+  private applicationSourceFiles(program: AnalysisProgram): SourceFile[] {
+    return program.sourceFiles.filter(
       (file) =>
         !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
-          `/${path.relative(this.projectRoot, file.getFilePath())}`
+          `/${path.relative(this.projectRoot, file.fileName)}`
         )
     );
   }
 
   /**
-   * Analyze external integrations in the codebase
+   * Analyze external integrations in the codebase. With no `source`, opens
+   * (and closes) a session of its own; a passed source stays the caller's.
    */
-  analyzeIntegrations(): ExternalIntegration[] {
+  analyzeIntegrations(source?: AnalysisSource): Promise<ExternalIntegration[]> {
+    return withProgram(this.tsConfigPath, source, (program) =>
+      this.integrationsIn(this.applicationSourceFiles(program))
+    );
+  }
+
+  private integrationsIn(files: readonly SourceFile[]): ExternalIntegration[] {
     const integrations = new Map<string, ExternalIntegration>();
 
     // Find all fetch() calls
-    const fetchCalls = this.findFetchCalls();
+    const fetchCalls = this.findFetchCalls(files);
     for (const call of fetchCalls) {
       this.addOrMergeIntegration(integrations, this.createAPIIntegration(call));
     }
 
     // Find WebSocket connections
-    const websockets = this.findWebSockets();
+    const websockets = this.findWebSockets(files);
     for (const ws of websockets) {
       this.addOrMergeIntegration(integrations, this.createWebSocketIntegration(ws));
     }
 
     // Find external script imports
-    const externalScripts = this.findExternalScripts();
+    const externalScripts = this.findExternalScripts(files);
     for (const script of externalScripts) {
       this.addOrMergeIntegration(integrations, script);
     }
@@ -62,7 +88,7 @@ export class IntegrationAnalyzer {
   /**
    * Find all fetch() API calls
    */
-  private findFetchCalls(): Array<{
+  private findFetchCalls(files: readonly SourceFile[]): Array<{
     url: string;
     method: string;
     file: string;
@@ -77,8 +103,8 @@ export class IntegrationAnalyzer {
       description?: string;
     }> = [];
 
-    for (const sourceFile of this.applicationSourceFiles()) {
-      sourceFile.forEachDescendant((node) => {
+    for (const sourceFile of files) {
+      forEachDescendant(sourceFile, (node) => {
         this.processFetchCall(node, sourceFile, calls);
       });
     }
@@ -100,16 +126,16 @@ export class IntegrationAnalyzer {
       description?: string;
     }>
   ): void {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return;
     }
 
-    const expression = node.getExpression();
+    const expression = node.expression;
     if (!this.isFetchCall(expression)) {
       return;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length === 0) {
       return;
     }
@@ -128,8 +154,8 @@ export class IntegrationAnalyzer {
     calls.push({
       url,
       method,
-      file: sourceFile.getFilePath(),
-      line: node.getStartLineNumber(),
+      file: sourceFile.fileName,
+      line: startLine(node, sourceFile),
       description,
     });
   }
@@ -138,19 +164,19 @@ export class IntegrationAnalyzer {
    * Check if expression is a fetch call
    */
   private isFetchCall(expression: Node): boolean {
-    return Node.isIdentifier(expression) && expression.getText() === "fetch";
+    return isIdentifier(expression) && textOf(expression) === "fetch";
   }
 
   /**
    * Extract URL from fetch argument
    */
   private extractURLFromArg(urlArg: Node): string | null {
-    if (Node.isStringLiteral(urlArg)) {
-      return urlArg.getLiteralValue();
+    if (isStringLiteral(urlArg)) {
+      return urlArg.text;
     }
 
-    if (Node.isTemplateExpression(urlArg)) {
-      return this.extractBaseURL(urlArg.getText());
+    if (isTemplateExpression(urlArg)) {
+      return this.extractBaseURL(textOf(urlArg));
     }
 
     return null;
@@ -159,7 +185,7 @@ export class IntegrationAnalyzer {
   /**
    * Extract HTTP method from fetch options
    */
-  private extractMethodFromOptions(args: Node[]): string {
+  private extractMethodFromOptions(args: readonly Expression[]): string {
     const defaultMethod = "GET";
 
     if (args.length <= 1) {
@@ -167,27 +193,27 @@ export class IntegrationAnalyzer {
     }
 
     const optionsArg = args[1];
-    if (!Node.isObjectLiteralExpression(optionsArg)) {
+    if (!optionsArg || !isObjectLiteralExpression(optionsArg)) {
       return defaultMethod;
     }
 
-    const methodProp = optionsArg.getProperty("method");
-    if (!methodProp || !Node.isPropertyAssignment(methodProp)) {
+    const methodProp = objectProperty(optionsArg, "method");
+    if (!methodProp || !isPropertyAssignment(methodProp)) {
       return defaultMethod;
     }
 
-    const initializer = methodProp.getInitializer();
-    if (!initializer || !Node.isStringLiteral(initializer)) {
+    const initializer = methodProp.initializer;
+    if (!isStringLiteral(initializer)) {
       return defaultMethod;
     }
 
-    return initializer.getLiteralValue().toUpperCase();
+    return initializer.text.toUpperCase();
   }
 
   /**
    * Find WebSocket connections
    */
-  private findWebSockets(): Array<{
+  private findWebSockets(files: readonly SourceFile[]): Array<{
     url: string;
     file: string;
     line: number;
@@ -200,22 +226,22 @@ export class IntegrationAnalyzer {
       description?: string;
     }> = [];
 
-    for (const sourceFile of this.applicationSourceFiles()) {
-      sourceFile.forEachDescendant((node) => {
-        if (Node.isNewExpression(node)) {
-          const expression = node.getExpression();
+    for (const sourceFile of files) {
+      forEachDescendant(sourceFile, (node) => {
+        if (isNewExpression(node)) {
+          const expression = node.expression;
 
           // Check for new WebSocket()
-          if (Node.isIdentifier(expression) && expression.getText() === "WebSocket") {
-            const args = node.getArguments();
-            if (args.length > 0 && Node.isStringLiteral(args[0])) {
-              const url = args[0].getLiteralValue();
+          if (isIdentifier(expression) && textOf(expression) === "WebSocket") {
+            const first = node.arguments?.[0];
+            if (first && isStringLiteral(first)) {
+              const url = first.text;
               const description = this.extractJSDocDescription(node);
 
               websockets.push({
                 url,
-                file: sourceFile.getFilePath(),
-                line: node.getStartLineNumber(),
+                file: sourceFile.fileName,
+                line: startLine(node, sourceFile),
                 description,
               });
             }
@@ -230,11 +256,11 @@ export class IntegrationAnalyzer {
   /**
    * Find external script dependencies (from imports)
    */
-  private findExternalScripts(): ExternalIntegration[] {
+  private findExternalScripts(files: readonly SourceFile[]): ExternalIntegration[] {
     const scripts: ExternalIntegration[] = [];
     const seen = new Set<string>();
 
-    for (const sourceFile of this.applicationSourceFiles()) {
+    for (const sourceFile of files) {
       this.extractExternalImportsFromFile(sourceFile, scripts, seen);
     }
 
@@ -249,10 +275,10 @@ export class IntegrationAnalyzer {
     scripts: ExternalIntegration[],
     seen: Set<string>
   ): void {
-    for (const importDecl of sourceFile.getImportDeclarations()) {
-      const moduleSpecifier = importDecl.getModuleSpecifierValue();
+    for (const importDecl of importDeclarations(sourceFile)) {
+      const moduleSpecifier = moduleSpecifierValue(importDecl);
 
-      if (this.isExternalImport(moduleSpecifier)) {
+      if (moduleSpecifier !== undefined && this.isExternalImport(moduleSpecifier)) {
         const packageName = this.extractPackageName(moduleSpecifier);
 
         if (packageName && !seen.has(packageName)) {
@@ -293,7 +319,7 @@ export class IntegrationAnalyzer {
       type: "external-script",
       name: packageName,
       technology: "npm package",
-      usedIn: [sourceFile.getFilePath()],
+      usedIn: [sourceFile.fileName],
       description: `External dependency: ${packageName}`,
     };
   }
@@ -429,15 +455,10 @@ export class IntegrationAnalyzer {
    * Extract JSDoc description from node
    */
   private extractJSDocDescription(node: Node): string | undefined {
-    if (!Node.isJSDocable(node)) return undefined;
-
-    const jsDocs = node.getJsDocs();
-    if (jsDocs.length === 0) return undefined;
-
-    const firstDoc = jsDocs[0];
+    const firstDoc = jsDocs(node)[0];
     if (!firstDoc) return undefined;
 
-    const comment = firstDoc.getDescription().trim();
+    const comment = jsDocDescription(firstDoc).trim();
     return comment || undefined;
   }
 }

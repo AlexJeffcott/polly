@@ -26,9 +26,13 @@
  *   adapters.web-extension       WebExtensionAdapter, default config, extractModel().
  *   adapters.websocket           WebSocketAdapter, default config, extractModel().
  *   adapters.event-bus           EventBusAdapter, default config, extractModel().
- *                                The adapters share one typescript-7 AnalysisSession
- *                                per worker (opened by the first, closed when the
- *                                worker ends), so the first carries the load time.
+ *                                Every extractor shares one typescript-7
+ *                                AnalysisSession per worker (closed when the worker
+ *                                ends). analyzeCodebase's type queries run on an
+ *                                isolated program of it (union order follows checker
+ *                                history); analyzeArchitecture opens the shared
+ *                                program, so it carries the load time the adapters
+ *                                then reuse.
  *
  * Every extractor records its return value (or the error it throws, as
  * name + message) and the console output it wrote. Each project runs in its
@@ -294,6 +298,7 @@ async function runExtractor(
       return await analyzeCodebase({
         tsConfigPath: required(verifyTsConfig(cwd), "tsconfig"),
         stateFilePath: verifyStateFile(cwd),
+        session,
       });
     }
     case "analysis.extractHandlers": {
@@ -303,6 +308,7 @@ async function runExtractor(
       return await analyzeArchitecture({
         tsConfigPath: required(visualizeTsConfig(cwd), "tsconfig"),
         projectRoot: required(visualizeProjectRoot(cwd), "project root"),
+        session,
       });
     }
     case "adapters.detectAdapter": {
