@@ -350,7 +350,7 @@ describe("Subsystem TLA+ generation", () => {
 
     const config = {
       state: {
-        loggedIn: { type: "boolean" as const },
+        loggedIn: [false, true] as const,
         status: { type: "enum" as const, values: ["idle", "connected"] },
         theme: { type: "enum" as const, values: ["light", "dark"] },
       },

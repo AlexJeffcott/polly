@@ -9,7 +9,12 @@ import {
   sanitizeContextName,
 } from "../codegen/model-constants";
 import { MIN_TLC_MEMORY, MIN_TLC_MEMORY_BYTES, parseMemoryBytes } from "../runner/memory";
-import type { ConfigIssue, ValidationResult, VerificationConfig } from "../types";
+import {
+  type ConfigIssue,
+  isBooleanPair,
+  type ValidationResult,
+  type VerificationConfig,
+} from "../types";
 import { validateCapabilities, validateCoupledFields } from "./capability-validation";
 
 /**
@@ -269,7 +274,8 @@ export class ConfigValidator {
 
     // Check state field bounds
     for (const [fieldName, fieldConfig] of Object.entries(config.state)) {
-      if (typeof fieldConfig !== "object" || fieldConfig === null) {
+      // A boolean pair has no bounds to validate
+      if (typeof fieldConfig !== "object" || fieldConfig === null || isBooleanPair(fieldConfig)) {
         continue;
       }
 
