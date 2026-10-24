@@ -4,7 +4,12 @@
 // Does NOT include heavy dependencies (ts-morph, analysis, etc.)
 // which are only needed by the CLI tool.
 
-// Configuration Types (inlined to avoid heavy dependencies)
+// Configuration Types (inlined to avoid heavy dependencies; state-config.ts
+// imports nothing, so it is shared with the CLI instead)
+
+import type { MeshConfig, StateConfig } from "./state-config.js";
+
+export type { BooleanPair, FieldConfig, MeshConfig, StateConfig } from "./state-config.js";
 
 // polly#160: a directional capability whose grant requires a precondition.
 // Desugars to a TLA+ safety invariant `(enabledBy) => (requires)`. enabledBy /
@@ -46,7 +51,7 @@ interface CustomTLAPath {
 
 // Legacy verification configuration
 interface LegacyVerificationConfig {
-  state: Record<string, unknown>;
+  state: StateConfig;
   /**
    * polly#185: the contexts this project actually has, emitted as the `.cfg`'s
    * `Contexts` set.
@@ -100,7 +105,7 @@ interface LegacyVerificationConfig {
    * });
    * ```
    */
-  mesh?: Record<string, Record<string, unknown>>;
+  mesh?: MeshConfig;
   messages: {
     // Basic bounds
     maxInFlight?: number;
