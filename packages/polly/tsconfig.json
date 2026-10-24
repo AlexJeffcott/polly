@@ -60,6 +60,7 @@
     "examples",
     "tools/verify/test-projects",
     "scripts/analysis-parity/fixtures/architecture-corpus",
+    "scripts/analysis-parity/fixtures/handlers-corpus",
     "tools/visualize/src/__tests__/fixtures"
   ]
 }

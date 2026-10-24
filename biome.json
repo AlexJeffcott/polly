@@ -19,6 +19,7 @@
       "!**/.stryker-tmp",
       "!**/.polly",
       "!**/scripts/analysis-parity/golden",
+      "!**/scripts/analysis-parity/fixtures/handlers-corpus",
       "!**/vendor",
       "!**/build*.ts",
       "!**/examples/**/docs",

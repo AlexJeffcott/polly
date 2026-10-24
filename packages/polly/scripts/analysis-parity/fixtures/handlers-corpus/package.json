@@ -1,0 +1,6 @@
+{
+  "name": "handlers-corpus",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Parity corpus for the handler extractor"
+}

@@ -119,6 +119,8 @@ const INTERNAL_DIRS = [
   "packages/polly/scripts/analysis-parity/fixtures/types-corpus",
   // Harness-owned: UI components, sender annotations, integrations, relationships.
   "packages/polly/scripts/analysis-parity/fixtures/architecture-corpus",
+  // Harness-owned: handler references, imported type guards, exported mutators.
+  "packages/polly/scripts/analysis-parity/fixtures/handlers-corpus",
 ];
 
 /** Read-only consumers outside this repo, relative to ~/projects. */

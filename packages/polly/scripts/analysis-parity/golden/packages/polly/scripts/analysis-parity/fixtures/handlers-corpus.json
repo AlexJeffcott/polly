@@ -1,0 +1,3016 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "ADD",
+        "REMOVE",
+        "ARROW",
+        "EXPORTED_ALIAS",
+        "ADD_AGAIN",
+        "LOCAL",
+        "FN_EXPR",
+        "OVERLOADED",
+        "LAZY",
+        "NOT_A_HANDLER",
+        "TIMER",
+        "INC",
+        "DEC",
+        "LOCAL_AGAIN",
+        "QUOTED-KEY",
+        "INLINE",
+        "MAP",
+        "POST /items",
+        "GET /items",
+        "ping",
+        "custom",
+        "ambient",
+        "Add",
+        "Remove",
+        "Renamed",
+        "Arrow",
+        "Login",
+        "Logout",
+        "BumpCounter",
+        "ResetCounter",
+        "SetLabel"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "ADD",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 6
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "REMOVE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 7
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ARROW",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 8
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "EXPORTED_ALIAS",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "renamed"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 9
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ADD_AGAIN",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 10
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "LOCAL",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 15
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "FN_EXPR",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 20
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "OVERLOADED",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 27
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "LAZY",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 30
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "NOT_A_HANDLER",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 34
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "TIMER",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 37
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "INC",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 40
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "DEC",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 41
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "LOCAL_AGAIN",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 42
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "QUOTED-KEY",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 43
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "INLINE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 2
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 44
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "MAP",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 48
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "POST /items",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 3
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/rest.ts",
+            "line": 9
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "GET /items",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/rest.ts",
+            "line": 9
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "ping",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 9
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "custom",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 15
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ping",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 17
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ambient",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 21
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ping",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 25
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "Add",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 3
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Remove",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 7
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Renamed",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "renamed"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 15
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Arrow",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 11
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Login",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "auth_loggedIn",
+              "value": true
+            },
+            {
+              "field": "auth_user",
+              "value": "param:user"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "!auth.value.loggedIn",
+              "message": "already logged in",
+              "location": {
+                "line": 6,
+                "column": 163
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "auth.value.loggedIn",
+              "message": {
+                "$type": "undefined"
+              },
+              "location": {
+                "line": 8,
+                "column": 259
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 5
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "Logout",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "auth_loggedIn",
+              "value": false
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 12
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "BumpCounter",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 1
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 17
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "ResetCounter",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            },
+            {
+              "field": "counter_label",
+              "value": "reset"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 27
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        },
+        {
+          "messageType": "SetLabel",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 32
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "stateHandler"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "auth",
+          "variableName": "auth",
+          "filePath": "<project>/src/state.ts",
+          "line": 5,
+          "fields": [
+            "loggedIn",
+            "user"
+          ]
+        },
+        {
+          "key": "counter",
+          "variableName": "counter",
+          "filePath": "<project>/src/state.ts",
+          "line": 9,
+          "fields": [
+            "count",
+            "label"
+          ]
+        },
+        {
+          "key": "plain",
+          "variableName": "plain",
+          "filePath": "<project>/src/state.ts",
+          "line": 13,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "counter_label",
+          "signalVariable": "counter",
+          "functionName": "overloaded",
+          "filePath": "<project>/src/handlers-ref.ts",
+          "line": 25
+        },
+        {
+          "field": "counter_label",
+          "signalVariable": "counter",
+          "functionName": "relabel",
+          "filePath": "<project>/src/mutators.ts",
+          "line": 23
+        }
+      ]
+    },
+    "logs": [
+      "log: [WARN] Dropped 1 handler(s) with unrepresentable message types:",
+      "log: [WARN]   - Handler for \"msg & { type: \"pong\" }\" at <project>/src/router.ts:19"
+    ]
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "ADD",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 6
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "REMOVE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 7
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ARROW",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 8
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "EXPORTED_ALIAS",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "renamed"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 9
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ADD_AGAIN",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 10
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "LOCAL",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 15
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "FN_EXPR",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 20
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "OVERLOADED",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 27
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "x"
+          ]
+        },
+        {
+          "messageType": "LAZY",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 30
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "NOT_A_HANDLER",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 34
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "TIMER",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 37
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": [
+            "handler",
+            "timeout",
+            "arguments"
+          ]
+        },
+        {
+          "messageType": "INC",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 40
+          }
+        },
+        {
+          "messageType": "DEC",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 41
+          }
+        },
+        {
+          "messageType": "LOCAL_AGAIN",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 42
+          }
+        },
+        {
+          "messageType": "QUOTED-KEY",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 43
+          }
+        },
+        {
+          "messageType": "INLINE",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 2
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 44
+          }
+        },
+        {
+          "messageType": "MAP",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 48
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "POST /items",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 3
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/rest.ts",
+            "line": 9
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          },
+          "handlerKind": "rest",
+          "httpMethod": "POST",
+          "routePath": "/items"
+        },
+        {
+          "messageType": "GET /items",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/rest.ts",
+            "line": 9
+          },
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ],
+          "handlerKind": "rest",
+          "httpMethod": "GET",
+          "routePath": "/items"
+        },
+        {
+          "messageType": "ping",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 9
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "custom",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 15
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ping",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 17
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "msg & { type: \"pong\" }",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 19
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ambient",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 21
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ping",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/router.ts",
+            "line": 25
+          },
+          "relationships": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "Add",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 3
+          },
+          "origin": "stateHandler",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "Remove",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 7
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "Renamed",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "renamed"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 15
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "Arrow",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 11
+          },
+          "origin": "stateHandler",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "Login",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "auth_loggedIn",
+              "value": true
+            },
+            {
+              "field": "auth_user",
+              "value": "param:user"
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "!auth.value.loggedIn",
+              "message": "already logged in",
+              "location": {
+                "line": 6,
+                "column": 163
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "auth.value.loggedIn",
+              "message": {
+                "$type": "undefined"
+              },
+              "location": {
+                "line": 8,
+                "column": 259
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 5
+          },
+          "origin": "stateHandler",
+          "parameters": [
+            "user"
+          ]
+        },
+        {
+          "messageType": "Logout",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "auth_loggedIn",
+              "value": false
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 12
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "BumpCounter",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 1
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 17
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "ResetCounter",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_count",
+              "value": 0
+            },
+            {
+              "field": "counter_label",
+              "value": "reset"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 27
+          },
+          "origin": "stateHandler",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "SetLabel",
+          "node": "unknown",
+          "assignments": [
+            {
+              "field": "counter_label",
+              "value": "@"
+            }
+          ],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/mutators.ts",
+            "line": 32
+          },
+          "origin": "stateHandler",
+          "parameters": [
+            "label"
+          ]
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "ADD",
+          "REMOVE",
+          "ARROW",
+          "EXPORTED_ALIAS",
+          "ADD_AGAIN",
+          "LOCAL",
+          "FN_EXPR",
+          "OVERLOADED",
+          "LAZY",
+          "NOT_A_HANDLER",
+          "TIMER",
+          "INC",
+          "DEC",
+          "LOCAL_AGAIN",
+          "QUOTED-KEY",
+          "INLINE",
+          "MAP",
+          "POST /items",
+          "GET /items",
+          "ping",
+          "custom",
+          "ambient",
+          "Add",
+          "Remove",
+          "Renamed",
+          "Arrow",
+          "Login",
+          "Logout",
+          "BumpCounter",
+          "ResetCounter",
+          "SetLabel"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [
+        {
+          "key": "auth",
+          "variableName": "auth",
+          "filePath": "<project>/src/state.ts",
+          "line": 5,
+          "fields": [
+            "loggedIn",
+            "user"
+          ]
+        },
+        {
+          "key": "counter",
+          "variableName": "counter",
+          "filePath": "<project>/src/state.ts",
+          "line": 9,
+          "fields": [
+            "count",
+            "label"
+          ]
+        },
+        {
+          "key": "plain",
+          "variableName": "plain",
+          "filePath": "<project>/src/state.ts",
+          "line": 13,
+          "fields": []
+        }
+      ],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [
+        {
+          "field": "counter_label",
+          "signalVariable": "counter",
+          "functionName": "overloaded",
+          "filePath": "<project>/src/handlers-ref.ts",
+          "line": 25
+        },
+        {
+          "field": "counter_label",
+          "signalVariable": "counter",
+          "functionName": "relabel",
+          "filePath": "<project>/src/mutators.ts",
+          "line": 23
+        }
+      ],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "handlers-corpus",
+        "version": "0.0.1",
+        "description": "Parity corpus for the handler extractor"
+      },
+      "projectConfig": {
+        "type": "generic",
+        "entryPoints": {},
+        "metadata": {
+          "name": "handlers-corpus",
+          "version": "0.0.1",
+          "description": "Parity corpus for the handler extractor"
+        }
+      },
+      "contexts": {},
+      "messageFlows": [],
+      "integrations": [
+        {
+          "type": "external-script",
+          "name": "elysia",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/rest.ts"
+          ],
+          "description": "External dependency: elysia"
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "unknown",
+      "confidence": 30,
+      "evidence": [
+        "Found 12 .on() call(s)"
+      ],
+      "suggestedAdapter": {
+        "$type": "undefined"
+      },
+      "alternatives": []
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "generic",
+      "adapter": {
+        "class": "EventBusAdapter",
+        "name": "event-bus",
+        "config": {
+          "emitterLibrary": "events",
+          "emitterPattern": {
+            "$type": "RegExp",
+            "source": "emitter|bus|events|dispatch|publish",
+            "flags": "i"
+          },
+          "maxInFlight": 5,
+          "maxEmitters": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "central-bus",
+            "type": "event-bus",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isMediator": true
+            }
+          },
+          {
+            "id": "bus",
+            "type": "emitter",
+            "canSendTo": [
+              "central-bus",
+              "*"
+            ],
+            "canReceiveFrom": [
+              "central-bus",
+              "*"
+            ],
+            "metadata": {
+              "isEmitter": true
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "ADD",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "REMOVE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "ARROW",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "EXPORTED_ALIAS",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "ADD_AGAIN",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LOCAL",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "FN_EXPR",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "OVERLOADED",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "LAZY",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "NOT_A_HANDLER",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "TIMER",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "MAP",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "broadcast",
+            "messageTypes": [
+              "ADD",
+              "REMOVE",
+              "ARROW",
+              "EXPORTED_ALIAS",
+              "ADD_AGAIN",
+              "LOCAL",
+              "FN_EXPR",
+              "OVERLOADED",
+              "LAZY",
+              "NOT_A_HANDLER",
+              "TIMER",
+              "MAP"
+            ],
+            "description": "Event bus broadcast pattern - one-to-many messaging"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "ADD",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 6
+            }
+          },
+          {
+            "messageType": "REMOVE",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 7
+            }
+          },
+          {
+            "messageType": "ARROW",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 8
+            }
+          },
+          {
+            "messageType": "EXPORTED_ALIAS",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 9
+            }
+          },
+          {
+            "messageType": "ADD_AGAIN",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 10
+            }
+          },
+          {
+            "messageType": "LOCAL",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 15
+            }
+          },
+          {
+            "messageType": "FN_EXPR",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 20
+            }
+          },
+          {
+            "messageType": "OVERLOADED",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 27
+            }
+          },
+          {
+            "messageType": "LAZY",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 30
+            }
+          },
+          {
+            "messageType": "NOT_A_HANDLER",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 34
+            }
+          },
+          {
+            "messageType": "TIMER",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 37
+            }
+          },
+          {
+            "messageType": "MAP",
+            "node": "bus",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/handlers-ref.ts",
+              "line": 48
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 5,
+          "maxNodes": 2
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "ARROW",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "EXPORTED_ALIAS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "ADD_AGAIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOCAL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "FN_EXPR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "OVERLOADED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LAZY",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "NOT_A_HANDLER",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TIMER",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "MAP",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "ADD",
+            "REMOVE",
+            "ARROW",
+            "EXPORTED_ALIAS",
+            "ADD_AGAIN",
+            "LOCAL",
+            "FN_EXPR",
+            "OVERLOADED",
+            "LAZY",
+            "NOT_A_HANDLER",
+            "TIMER",
+            "MAP"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "ADD",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 6
+          }
+        },
+        {
+          "messageType": "REMOVE",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 7
+          }
+        },
+        {
+          "messageType": "ARROW",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 8
+          }
+        },
+        {
+          "messageType": "EXPORTED_ALIAS",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 9
+          }
+        },
+        {
+          "messageType": "ADD_AGAIN",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 10
+          }
+        },
+        {
+          "messageType": "LOCAL",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 15
+          }
+        },
+        {
+          "messageType": "FN_EXPR",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 20
+          }
+        },
+        {
+          "messageType": "OVERLOADED",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 27
+          }
+        },
+        {
+          "messageType": "LAZY",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 30
+          }
+        },
+        {
+          "messageType": "NOT_A_HANDLER",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 34
+          }
+        },
+        {
+          "messageType": "TIMER",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 37
+          }
+        },
+        {
+          "messageType": "MAP",
+          "node": "unknown",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 48
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "MAP",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "RENAMED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "MAP",
+            "ADD",
+            "REMOVE",
+            "RENAMED"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "MAP",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 48
+          }
+        },
+        {
+          "messageType": "ADD",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 3
+          }
+        },
+        {
+          "messageType": "REMOVE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 7
+          }
+        },
+        {
+          "messageType": "RENAMED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/impl.ts",
+            "line": 15
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "ADD",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "REMOVE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "ARROW",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "EXPORTED_ALIAS",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "ADD_AGAIN",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LOCAL",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "FN_EXPR",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "OVERLOADED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "LAZY",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "NOT_A_HANDLER",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "TIMER",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "MAP",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "ADD",
+            "REMOVE",
+            "ARROW",
+            "EXPORTED_ALIAS",
+            "ADD_AGAIN",
+            "LOCAL",
+            "FN_EXPR",
+            "OVERLOADED",
+            "LAZY",
+            "NOT_A_HANDLER",
+            "TIMER",
+            "MAP"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "ADD",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 6
+          }
+        },
+        {
+          "messageType": "REMOVE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 7
+          }
+        },
+        {
+          "messageType": "ARROW",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 8
+          }
+        },
+        {
+          "messageType": "EXPORTED_ALIAS",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 9
+          }
+        },
+        {
+          "messageType": "ADD_AGAIN",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 10
+          }
+        },
+        {
+          "messageType": "LOCAL",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 15
+          }
+        },
+        {
+          "messageType": "FN_EXPR",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 20
+          }
+        },
+        {
+          "messageType": "OVERLOADED",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 27
+          }
+        },
+        {
+          "messageType": "LAZY",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 30
+          }
+        },
+        {
+          "messageType": "NOT_A_HANDLER",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 34
+          }
+        },
+        {
+          "messageType": "TIMER",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 37
+          }
+        },
+        {
+          "messageType": "MAP",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/handlers-ref.ts",
+            "line": 48
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}
