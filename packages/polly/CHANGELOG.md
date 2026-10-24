@@ -7,8 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-10-24
+
+### Changed
+
+- **`@fairfox/polly/verify` types `state` and `mesh`.** `defineVerification`
+  declared both as `Record<string, unknown>`, a copy separate from the
+  types the CLI reads, so a config the CLI cannot use still type-checked.
+  They are now `StateConfig` and `MeshConfig`, exported with `FieldConfig`
+  and `BooleanPair`. A state value that is not a field config, a
+  `[boolean, boolean]` pair or an object of those is now a type error.
+- **Structural types replace DOM and adapter classes in public options.**
+  `MeshWebRTCAdapter` takes `MeshPeerConnectionConstructor` and a
+  `MeshSignalingTransport`; `MeshSignalingClientOptions.WebSocket` takes
+  `MeshSignalingSocketConstructor`; `createBlobStore` takes a
+  `BlobTransport`; `adapterFactory` returns a `PeerRelayNetworkAdapter`;
+  `openIDB` takes an `IDBOpenFn` that returns `IDBOpenRequestLike`. The
+  DOM classes, the `ws` WebSocket and the existing adapters satisfy them.
+  The new types are exported from `@fairfox/polly/mesh` and
+  `@fairfox/polly/peer`.
+- **`createPollyClient<T>` requires `T extends AnyElysia`**, the constraint
+  Eden's `treaty<T>` needs. Before, any `T` was accepted and gave a broken
+  `Treaty.Create<T>`.
+- **`engines.bun` is `>=1.4.4`.**
+
 ### Added
 
+- **`onSyncProgress(listener)` on `MeshWebRTCAdapter`**, which returns an
+  unsubscribe function. The untyped `"sync-progress"` event still fires.
 - **`drop:malformed-sync-message` mesh diagnostic.** `MeshNetworkAdapter`
   now validates the inner message of a verified, decrypted Sync payload.
   A body shorter than its length prefix, a header that is not JSON, or a
@@ -25,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sync-yield on (the default) `MeshWebRTCAdapter` emits from a
   `setTimeout`, so the throw was an uncaught exception; with it off the
   base adapter swallowed it silently. Both now take the drop above.
+- **Mesh wire input is validated, not cast.** A signalling offer, answer or
+  ICE candidate with ill-typed fields, a `peers-present` frame with a
+  non-string peer id, and a blob or sync-fragment header with wrong field
+  types are dropped. Before, they reached `setRemoteDescription`,
+  `addIceCandidate` and the handlers as cast. A blob request with
+  `missing: null` now means every chunk.
+- **A malformed stored keyring throws.** `deserialiseKeyring` names the bad
+  field instead of coercing it; `revokedPeers: "abc"` used to become
+  `Set {"a", "b", "c"}`. Absent or `null` collections still read as empty.
 
 ## [0.94.0] - 2026-10-22
 
