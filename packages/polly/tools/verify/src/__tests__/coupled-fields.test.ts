@@ -15,10 +15,7 @@ function makeHandler(messageType: string, fields: string[]): MessageHandler {
     })),
     preconditions: [],
     postconditions: [],
-    constraints: [],
-    context: "background",
-    filePath: "test.ts",
-    lineNumber: 1,
+    location: { file: "test.ts", line: 1 },
   };
 }
 

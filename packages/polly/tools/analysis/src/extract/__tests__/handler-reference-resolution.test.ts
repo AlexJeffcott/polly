@@ -46,7 +46,7 @@ function handleIncrement() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     console.log("Handlers found:", result.handlers.length);
     for (const handler of result.handlers) {
@@ -104,7 +104,7 @@ bus.on("authenticate", handleAuthenticate);
 
     // Extract handlers
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     // Should discover both handlers
     expect(result.handlers.length).toBeGreaterThanOrEqual(2);
@@ -160,7 +160,7 @@ function handleAddItem() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     const incrementHandler = result.handlers.find((h) => h.messageType === "increment");
     expect(incrementHandler).toBeDefined();
@@ -199,7 +199,7 @@ export const handlers = {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     const activateHandler = result.handlers.find((h) => h.messageType === "activate");
     expect(activateHandler).toBeDefined();
@@ -243,7 +243,7 @@ function handleQuery() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     const queryHandler = result.handlers.find((h) => h.messageType === "query");
     expect(queryHandler).toBeDefined();
@@ -297,7 +297,7 @@ bus.on("activate", handleActivate);
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     // Should discover both handlers via bus.on() with function references
     const incrementHandler = result.handlers.find((h) => h.messageType === "increment");
@@ -347,7 +347,7 @@ function handleConnect() {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     const connectHandler = result.handlers.find((h) => h.messageType === "connect");
     expect(connectHandler).toBeDefined();
@@ -416,7 +416,7 @@ bus.on("connect", async () => {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     // Should find both handlers
     expect(result.handlers.length).toBeGreaterThanOrEqual(2);
@@ -481,7 +481,7 @@ bus.on("increment", async () => {
     );
 
     const extractor = new HandlerExtractor(tsConfigPath);
-    const result = extractor.extractHandlers([testFile], testFile);
+    const result = extractor.extractHandlers();
 
     // Find authenticate handler with nested .value.field assignment
     const authHandler = result.handlers.find((h) => h.messageType === "authenticate");

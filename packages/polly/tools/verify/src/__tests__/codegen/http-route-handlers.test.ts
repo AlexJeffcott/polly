@@ -33,9 +33,13 @@ function analysisWith(
       node: "background" as const,
       assignments: [],
       preconditions: [],
-      postconditions: h.postconditions ?? [],
+      postconditions: (h.postconditions ?? []).map((p) => ({
+        ...p,
+        location: { line: 1, column: 0 },
+      })),
       location: { file: "server.ts", line: 1 },
     })),
+    stateConstraints: [],
   };
 }
 

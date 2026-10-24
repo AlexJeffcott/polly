@@ -83,8 +83,8 @@ const todosResource = $resource("todos", {
 
     // Should also have the resource info
     expect(result.resources.length).toBe(1);
-    expect(result.resources[0].name).toBe("todos");
-    expect(result.resources[0].variableName).toBe("todosResource");
+    expect(result.resources[0]?.name).toBe("todos");
+    expect(result.resources[0]?.variableName).toBe("todosResource");
   });
 
   test("FetchStart handler has correct precondition and assignments", () => {
@@ -112,7 +112,7 @@ const myResource = $resource("items", {
     const fetchStart = result.handlers.find((h) => h.messageType === "items_FetchStart");
     expect(fetchStart).toBeDefined();
     expect(fetchStart!.preconditions.length).toBe(1);
-    expect(fetchStart!.preconditions[0].expression).toBe('items_status !== "loading"');
+    expect(fetchStart!.preconditions[0]?.expression).toBe('items_status !== "loading"');
     expect(fetchStart!.assignments).toEqual([
       { field: "items_status", value: "loading" },
       { field: "items_error", value: false },
@@ -144,7 +144,7 @@ const myResource = $resource("items", {
     const fetchSuccess = result.handlers.find((h) => h.messageType === "items_FetchSuccess");
     expect(fetchSuccess).toBeDefined();
     expect(fetchSuccess!.preconditions.length).toBe(1);
-    expect(fetchSuccess!.preconditions[0].expression).toBe('items_status === "loading"');
+    expect(fetchSuccess!.preconditions[0]?.expression).toBe('items_status === "loading"');
     expect(fetchSuccess!.assignments).toEqual([
       { field: "items_status", value: "success" },
       { field: "items_error", value: false },
@@ -176,7 +176,7 @@ const myResource = $resource("items", {
     const fetchError = result.handlers.find((h) => h.messageType === "items_FetchError");
     expect(fetchError).toBeDefined();
     expect(fetchError!.preconditions.length).toBe(1);
-    expect(fetchError!.preconditions[0].expression).toBe('items_status === "loading"');
+    expect(fetchError!.preconditions[0]?.expression).toBe('items_status === "loading"');
     expect(fetchError!.assignments).toEqual([
       { field: "items_status", value: "error" },
       { field: "items_error", value: true },
@@ -212,7 +212,7 @@ const myResource = $resource("data", {
     const result = extractor.extractHandlers();
 
     expect(result.resources.length).toBe(1);
-    const signals = result.resources[0].sourceSignals;
+    const signals = result.resources[0]?.sourceSignals;
     expect(signals).toContain("authState_userId");
     expect(signals).toContain("authState_role");
     expect(signals).toContain("settings");

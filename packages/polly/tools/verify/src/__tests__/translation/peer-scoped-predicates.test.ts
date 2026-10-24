@@ -4,8 +4,8 @@
 // the binder's signal references rebound to contextStates[<binder>].
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { CodebaseAnalysis, VerificationConfig } from "../../../analysis/src/types";
 import { TLAGenerator } from "../../codegen/tla";
+import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Cross-peer quantifier translation (polly#117)", () => {
   let generator: TLAGenerator;
@@ -16,6 +16,8 @@ describe("Cross-peer quantifier translation (polly#117)", () => {
     generator = new TLAGenerator();
 
     baseConfig = {
+      onBuild: "warn",
+      onRelease: "warn",
       state: {
         todos: { type: "enum", values: ["0", "1", "2"] },
       },
@@ -31,6 +33,8 @@ describe("Cross-peer quantifier translation (polly#117)", () => {
       fields: [],
       handlers: [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "test",
           assignments: [],
           preconditions: [],

@@ -11,6 +11,8 @@ import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Property Integration", () => {
   const baseConfig: VerificationConfig = {
+    onBuild: "warn",
+    onRelease: "warn",
     state: {
       count: { type: "enum", values: ["0", "1", "2"] },
     },
@@ -24,6 +26,7 @@ describe("Property Integration", () => {
     messageTypes: ["increment", "reset"],
     handlers: [
       {
+        location: { file: "test.ts", line: 1 },
         messageType: "increment",
         node: "test",
         assignments: [
@@ -36,8 +39,17 @@ describe("Property Integration", () => {
         postconditions: [],
       },
     ],
-    fields: [{ name: "count", type: "number" }],
-    typeDefinitions: [],
+    fields: [
+      {
+        path: "count",
+        type: { name: "number", kind: "number", nullable: false },
+        confidence: "high",
+        evidence: [],
+        suggestions: [],
+      },
+    ],
+    stateType: null,
+    stateConstraints: [],
   };
 
   // Temporal Property Integration Tests
@@ -57,7 +69,8 @@ describe("Property Integration", () => {
       messageTypes: ["init", "request", "response"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator({
@@ -89,7 +102,8 @@ describe("Property Integration", () => {
       messageTypes: ["init", "request", "response", "query", "result", "start", "complete"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator({
@@ -113,6 +127,7 @@ describe("Property Integration", () => {
       messageTypes: ["login", "updateProfile"],
       handlers: [
         {
+          location: { file: "test.ts", line: 1 },
           messageType: "updateProfile",
           node: "test",
           preconditions: [
@@ -126,7 +141,8 @@ describe("Property Integration", () => {
         },
       ],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator({

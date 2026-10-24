@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { TLAGenerator } from "../../codegen/tla";
-import type { CodebaseAnalysis, FieldAnalysis, VerificationConfig } from "../../core/model";
+import type { CodebaseAnalysis, FieldAnalysis, VerificationConfig } from "../../types";
 
 describe("Property-Based Testing: TLA+ Generation", () => {
   // Arbitraries for generating random valid inputs
@@ -90,7 +90,7 @@ describe("Property-Based Testing: TLA+ Generation", () => {
       "unknown"
     ),
     nullable: fc.boolean(),
-    enumValues: fc.option(fc.array(fc.string(), { maxLength: 5 })),
+    enumValues: fc.option(fc.array(fc.string(), { maxLength: 5 }), { nil: undefined }),
   });
 
   const fieldAnalysisArb: fc.Arbitrary<FieldAnalysis> = fc.record({
@@ -114,7 +114,8 @@ describe("Property-Based Testing: TLA+ Generation", () => {
     messageTypes: fc.array(validIdentifierArb, { maxLength: 10 }),
     handlers: fc.constant([]),
     fields: fc.array(fieldAnalysisArb, { maxLength: 5 }),
-    typeDefinitions: fc.constant([]),
+    stateType: fc.constant(null),
+    stateConstraints: fc.constant([]),
   });
 
   test("generates valid TLA+ for any valid config", async () => {
@@ -173,10 +174,9 @@ describe("Property-Based Testing: TLA+ Generation", () => {
         const stateFieldNames = Object.keys(config.state);
         for (const fieldName of stateFieldNames) {
           // Sanitized field name should appear in State ==
-          const _sanitized = fieldName.replace(/\./g, "_");
-          if (stateFieldNames.length > 0) {
-            expect(result.spec).toContain("State == [");
-          }
+          const sanitized = fieldName.replace(/\./g, "_");
+          expect(result.spec).toContain("State == [");
+          expect(result.spec).toContain(sanitized);
         }
       }),
       { numRuns: 50, timeout: 30000 }
@@ -250,7 +250,8 @@ describe("Property-Based Testing: TLA+ Generation", () => {
       messageTypes: [],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -277,7 +278,8 @@ describe("Property-Based Testing: TLA+ Generation", () => {
       messageTypes: [],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();

@@ -46,11 +46,19 @@
     "src/**/*",
     "cli/**/*",
     "scripts/**/*",
-    "tools/gallery/src/**/*",
+    "tools/**/*",
     "build.ts",
     "build-lib.ts",
     "bun-env.d.ts",
     "vendor/**/*"
   ],
-  "exclude": ["dist", "node_modules", "releases", "tests", "examples"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "releases",
+    "tests",
+    "examples",
+    "tools/verify/test-projects",
+    "tools/visualize/src/__tests__/fixtures"
+  ]
 }

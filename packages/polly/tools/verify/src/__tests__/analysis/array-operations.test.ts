@@ -22,6 +22,7 @@ describe("Array Operations Translation", () => {
     stateType: null,
     messageTypes: ["test"],
     fields: [],
+    stateConstraints: [],
     handlers:
       preconditions.length > 0
         ? [

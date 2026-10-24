@@ -44,6 +44,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("the action body no longer carries the postcondition as an Assert conjunct", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         assignments: [{ field: "phase", value: "disconnected" }],
         preconditions: [],
@@ -67,6 +69,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("each handler with postconditions emits a step-temporal property", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         assignments: [{ field: "phase", value: "disconnected" }],
         preconditions: [],
@@ -98,6 +102,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("multiple ensures on one handler combine into a single property", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         assignments: [{ field: "phase", value: "disconnected" }],
         preconditions: [],
@@ -135,6 +141,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
     // surfaces as a real counterexample.
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         // bug: handler writes "connecting" instead of "disconnected"
         assignments: [{ field: "phase", value: "connecting" }],
@@ -166,6 +174,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("the property is registered in the cfg PROPERTIES section", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         assignments: [{ field: "phase", value: "disconnected" }],
         preconditions: [],
@@ -188,6 +198,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("module-end marker is the last non-empty line of the spec", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         assignments: [{ field: "phase", value: "disconnected" }],
         preconditions: [],
@@ -217,6 +229,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("a handler with no postconditions does not create a property", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "PING",
         assignments: [{ field: "phase", value: "connecting" }],
         preconditions: [],
@@ -241,6 +255,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
     // `target` via LET.
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "CONNECT",
         assignments: [{ field: "phase", value: "connected-leader" }],
         preconditions: [],
@@ -267,6 +283,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("issue #75 — UserRouteMessage records the chosen target in deliveredTo", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "CONNECT",
         assignments: [{ field: "phase", value: "connected-leader" }],
         preconditions: [],
@@ -292,6 +310,8 @@ describe("ensures() emits a step-temporal property (issue #74)", () => {
   test("double-quote in user-supplied message survives into the property description comment", async () => {
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "DISCONNECT",
         assignments: [{ field: "phase", value: "disconnected" }],
         preconditions: [],

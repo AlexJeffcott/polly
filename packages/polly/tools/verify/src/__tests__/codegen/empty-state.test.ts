@@ -27,6 +27,7 @@ describe("Empty State Handling", () => {
       stateType: null,
       messageTypes: ["query", "command"],
       fields: [],
+      stateConstraints: [],
       handlers: [
         {
           messageType: "query",
@@ -74,6 +75,7 @@ describe("Empty State Handling", () => {
       stateType: null,
       messageTypes: ["increment"],
       fields: [],
+      stateConstraints: [],
       handlers: [
         {
           messageType: "increment",
@@ -116,11 +118,14 @@ describe("Empty State Handling", () => {
       fields: [
         {
           path: "counter",
-          type: { kind: "number" },
-          optional: false,
+          type: { name: "number", kind: "number", nullable: false },
+          confidence: "high",
+          evidence: [],
+          suggestions: [],
         },
       ],
       handlers: [],
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();

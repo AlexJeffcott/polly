@@ -23,6 +23,7 @@ describe("Compound Assignments Detection", () => {
     stateType: null,
     messageTypes: ["test"],
     fields: [],
+    stateConstraints: [],
     handlers: [
       {
         messageType: "test",

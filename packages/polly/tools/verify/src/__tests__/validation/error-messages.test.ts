@@ -31,6 +31,7 @@ describe("Error Message Quality", () => {
     stateType: null,
     messageTypes,
     fields: [],
+    stateConstraints: [],
     handlers: handlers.map((h) => ({
       ...h,
       node: "background" as const,

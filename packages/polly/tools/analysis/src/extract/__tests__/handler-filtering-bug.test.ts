@@ -90,10 +90,7 @@ export function routeMessage(msg: Message) {
     // "{ ok: true; value: t }" is not a real message type — it carries TS
     // type-expression punctuation and must never reach the handlers array.
     for (const handler of analysis.handlers) {
-      expect(handler.messageType).not.toMatch(
-        /[{}();<>=]/,
-        `Handler at ${handler.location.file}:${handler.location.line} has extraction-artifact messageType: "${handler.messageType}"`
-      );
+      expect(handler.messageType).not.toMatch(/[{}();<>=]/);
     }
 
     // Verify we have the expected valid handlers

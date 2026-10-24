@@ -20,6 +20,7 @@ import path from "node:path";
 import { analyzeCodebase } from "../../../analysis/src";
 import { generateTLA } from "../codegen/tla";
 import { isSeedFixDisabled, meshSeedCfg, SEED_CONVERGENCE_INVARIANT } from "../runner/mesh-seed";
+import type { VerificationConfig } from "../types";
 
 // ─── The mesh-seed-guard fixture exercises the polly#117 mesh codegen ────────
 
@@ -28,7 +29,7 @@ describe("mesh-seed-guard fixture", () => {
 
   // The fixture's verification.config.ts, inlined — generateTLA takes the
   // config object directly, and the CLI's config loader is not on this path.
-  const config = {
+  const config: VerificationConfig = {
     state: { "session.active": { type: "boolean" } },
     mesh: {
       "mesh-todos": { count: { type: "number", min: 0, max: 3 } },

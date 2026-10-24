@@ -2,8 +2,8 @@
 // 80 tests for ternary, nullish coalescing, optional chaining, and nesting
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { CodebaseAnalysis, VerificationConfig } from "../../../analysis/src/types";
 import { TLAGenerator } from "../../codegen/tla";
+import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Complex Expression Translation", () => {
   let generator: TLAGenerator;
@@ -14,6 +14,8 @@ describe("Complex Expression Translation", () => {
     generator = new TLAGenerator();
 
     baseConfig = {
+      onBuild: "warn",
+      onRelease: "warn",
       state: {
         count: { type: "enum", values: ["0", "1", "2"] },
         active: { type: "enum", values: ["true", "false"] },
@@ -32,6 +34,8 @@ describe("Complex Expression Translation", () => {
       fields: [],
       handlers: [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "test",
           assignments: [],
           preconditions: [],
@@ -412,7 +416,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates nullish coalescing with nested property", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user_name ?? 'unknown'", location: { line: 1, column: 1 } },
       ];
@@ -463,7 +467,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates nullish coalescing with array", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.items ?? []", location: { line: 1, column: 1 } },
       ];
@@ -540,7 +544,7 @@ describe("Complex Expression Translation", () => {
 
   describe("Optional Chaining", () => {
     test("translates simple optional chaining", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.name", location: { line: 1, column: 1 } },
       ];
@@ -552,7 +556,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining in comparison", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.name === 'admin'", location: { line: 1, column: 1 } },
       ];
@@ -564,7 +568,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates chained optional access", async () => {
-      baseConfig.state.user_profile_name = {
+      baseConfig.state["user_profile_name"] = {
         type: "enum",
         values: ["admin", "guest", "null"],
       };
@@ -579,7 +583,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining with fallback", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "(state.user?.name) ?? 'guest'", location: { line: 1, column: 1 } },
       ];
@@ -590,7 +594,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining in ternary", async () => {
-      baseConfig.state.user_active = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["user_active"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.active ? 'yes' : 'no'", location: { line: 1, column: 1 } },
       ];
@@ -612,7 +616,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining with array index", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.items?.[0]", location: { line: 1, column: 1 } },
       ];
@@ -623,7 +627,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining in postcondition", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.postconditions = [
         { expression: "state.user?.name", location: { line: 1, column: 1 } },
       ];
@@ -636,7 +640,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional method call", async () => {
-      baseConfig.state.name = { type: "enum", values: ["test", "hello"] };
+      baseConfig.state["name"] = { type: "enum", values: ["test", "hello"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.name?.startsWith('test')", location: { line: 1, column: 1 } },
       ];
@@ -647,7 +651,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates deeply nested optional chaining", async () => {
-      baseConfig.state.a_b_c_d = { type: "enum", values: ["value", "null"] };
+      baseConfig.state["a_b_c_d"] = { type: "enum", values: ["value", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.a?.b?.c?.d", location: { line: 1, column: 1 } },
       ];
@@ -658,7 +662,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining with comparison", async () => {
-      baseConfig.state.user_age = { type: "enum", values: ["0", "1", "2"] };
+      baseConfig.state["user_age"] = { type: "enum", values: ["0", "1", "2"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.age > 18", location: { line: 1, column: 1 } },
       ];
@@ -669,7 +673,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining with logical AND", async () => {
-      baseConfig.state.user_active = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["user_active"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.active && state.count > 0", location: { line: 1, column: 1 } },
       ];
@@ -681,7 +685,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining in negation", async () => {
-      baseConfig.state.user_active = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["user_active"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "!state.user?.active", location: { line: 1, column: 1 } },
       ];
@@ -693,7 +697,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining with parentheses", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "(state.user)?.name", location: { line: 1, column: 1 } },
       ];
@@ -704,8 +708,8 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles multiple optional chains in expression", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest"] };
-      baseConfig.state.profile_title = { type: "enum", values: ["mr", "ms"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest"] };
+      baseConfig.state["profile_title"] = { type: "enum", values: ["mr", "ms"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.user?.name === state.profile?.title",
@@ -719,7 +723,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining with array method", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.items?.length > 0", location: { line: 1, column: 1 } },
       ];
@@ -730,8 +734,8 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining in both ternary branches", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest"] };
-      baseConfig.state.profile_name = { type: "enum", values: ["john", "jane"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest"] };
+      baseConfig.state["profile_name"] = { type: "enum", values: ["john", "jane"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.active ? state.user?.name : state.profile?.name",
@@ -756,7 +760,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining with numeric property", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.items?.[0]?.active", location: { line: 1, column: 1 } },
       ];
@@ -767,7 +771,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates optional chaining combined with nullish coalescing", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.name ?? 'guest'", location: { line: 1, column: 1 } },
       ];
@@ -796,7 +800,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles ternary with optional chaining in condition", async () => {
-      baseConfig.state.user_active = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["user_active"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.active ? 1 : 0", location: { line: 1, column: 1 } },
       ];
@@ -808,7 +812,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining with nullish coalescing", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.user?.name ?? 'guest'", location: { line: 1, column: 1 } },
       ];
@@ -833,7 +837,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles complex expression with all three operators", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest", "null"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest", "null"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.active ? (state.user?.name ?? 'guest') : 'none'",
@@ -870,7 +874,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining in array operations", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.items?.length > 0", location: { line: 1, column: 1 } },
       ];
@@ -881,7 +885,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles mixed operators with parentheses", async () => {
-      baseConfig.state.user_age = { type: "enum", values: ["0", "18", "21"] };
+      baseConfig.state["user_age"] = { type: "enum", values: ["0", "18", "21"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "((state.user?.age ?? 0) > 18) ? 'adult' : 'minor'",
@@ -896,7 +900,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles deeply nested mixed operators", async () => {
-      baseConfig.state.user_profile_age = { type: "enum", values: ["0", "18", "21"] };
+      baseConfig.state["user_profile_age"] = { type: "enum", values: ["0", "18", "21"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression:
@@ -939,7 +943,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles optional chaining with array methods", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.items?.some(i => i.active)", location: { line: 1, column: 1 } },
       ];
@@ -963,7 +967,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles nested optional chaining with nullish coalescing", async () => {
-      baseConfig.state.user_profile_name = {
+      baseConfig.state["user_profile_name"] = {
         type: "enum",
         values: ["admin", "guest", "null"],
       };
@@ -977,8 +981,8 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles ternary with optional chaining in both branches", async () => {
-      baseConfig.state.user_name = { type: "enum", values: ["admin", "guest"] };
-      baseConfig.state.profile_name = { type: "enum", values: ["john", "jane"] };
+      baseConfig.state["user_name"] = { type: "enum", values: ["admin", "guest"] };
+      baseConfig.state["profile_name"] = { type: "enum", values: ["john", "jane"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.active ? state.user?.name : state.profile?.name",
@@ -992,7 +996,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles comparison with all three operators", async () => {
-      baseConfig.state.user_age = { type: "enum", values: ["0", "18", "21"] };
+      baseConfig.state["user_age"] = { type: "enum", values: ["0", "18", "21"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "(state.user?.age ?? 0) >= 18", location: { line: 1, column: 1 } },
       ];
@@ -1003,7 +1007,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles negation with complex operators", async () => {
-      baseConfig.state.user_active = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["user_active"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "!(state.user?.active ?? false)", location: { line: 1, column: 1 } },
       ];
@@ -1015,7 +1019,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles array operations with complex operators", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 5 };
+      baseConfig.state["items"] = { type: "array", maxLength: 5 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "(state.items?.length ?? 0) > 0 ? true : false",
@@ -1030,7 +1034,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles string operations with complex operators", async () => {
-      baseConfig.state.name = { type: "enum", values: ["test", "hello"] };
+      baseConfig.state["name"] = { type: "enum", values: ["test", "hello"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.name?.startsWith('test') ?? false", location: { line: 1, column: 1 } },
       ];
@@ -1045,7 +1049,7 @@ describe("Complex Expression Translation", () => {
 
   describe("Verified State Syntax Conversion", () => {
     test("converts single quotes to double quotes for TLA+ strings", async () => {
-      baseConfig.state.status = { type: "enum", values: ["connected", "disconnected"] };
+      baseConfig.state["status"] = { type: "enum", values: ["connected", "disconnected"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "connectionState.value.status === 'disconnected'",
@@ -1061,7 +1065,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("converts stateName.value.field to contextStates[ctx].field in preconditions", async () => {
-      baseConfig.state.isAuthenticated = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["isAuthenticated"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "authState.value.isAuthenticated === false",
@@ -1077,7 +1081,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("converts stateName.value.field to contextStates'[ctx].field in postconditions", async () => {
-      baseConfig.state.isAuthenticated = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["isAuthenticated"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.postconditions = [
         {
           expression: "authState.value.isAuthenticated === true",
@@ -1094,7 +1098,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles nested path in stateName.value.nested.path", async () => {
-      baseConfig.state.user_profile_name = { type: "enum", values: ["admin", "guest"] };
+      baseConfig.state["user_profile_name"] = { type: "enum", values: ["admin", "guest"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "userState.value.user.profile.name === 'admin'",
@@ -1112,8 +1116,8 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles multiple signal state references in same expression", async () => {
-      baseConfig.state.loggedIn = { type: "enum", values: ["true", "false"] };
-      baseConfig.state.role = { type: "enum", values: ["admin", "user", "guest"] };
+      baseConfig.state["loggedIn"] = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["role"] = { type: "enum", values: ["admin", "user", "guest"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "userState.value.loggedIn && authState.value.role === 'admin'",
@@ -1132,7 +1136,10 @@ describe("Complex Expression Translation", () => {
     });
 
     test("converts both single quotes and signal references together", async () => {
-      baseConfig.state.status = { type: "enum", values: ["connected", "disconnected", "pending"] };
+      baseConfig.state["status"] = {
+        type: "enum",
+        values: ["connected", "disconnected", "pending"],
+      };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression:
@@ -1153,7 +1160,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles requires() extracted expression with signal state pattern", async () => {
-      baseConfig.state.isConnected = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["isConnected"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "networkState.value.isConnected === true", location: { line: 1, column: 1 } },
       ];
@@ -1166,7 +1173,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("handles ensures() extracted expression with signal state pattern", async () => {
-      baseConfig.state.isConnected = { type: "enum", values: ["true", "false"] };
+      baseConfig.state["isConnected"] = { type: "enum", values: ["true", "false"] };
       baseAnalysis.handlers[0]!.postconditions = [
         {
           expression: "networkState.value.isConnected === false",
@@ -1183,7 +1190,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("converts function parameter in comparison to payload reference", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 10 };
+      baseConfig.state["items"] = { type: "array", maxLength: 10 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.items.some((item) => item.id === targetId)",
@@ -1201,7 +1208,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("preserves quantified variables in array operations", async () => {
-      baseConfig.state.operations = { type: "array", maxLength: 10 };
+      baseConfig.state["operations"] = { type: "array", maxLength: 10 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.operations.some((op) => op.status === 'queued')",
@@ -1218,7 +1225,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("does not convert string literal content to payload", async () => {
-      baseConfig.state.status = { type: "enum", values: ["active", "inactive"] };
+      baseConfig.state["status"] = { type: "enum", values: ["active", "inactive"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "state.status === 'active'",
@@ -1257,7 +1264,7 @@ describe("Complex Expression Translation", () => {
 
   describe("Verification Helper Functions", () => {
     test("translates hasLength with max constraint", async () => {
-      baseConfig.state.todos = { type: "array", maxLength: 100 };
+      baseConfig.state["todos"] = { type: "array", maxLength: 100 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "hasLength(todos.value, { max: 99 })",
@@ -1274,7 +1281,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates hasLength with min constraint", async () => {
-      baseConfig.state.items = { type: "array", maxLength: 10 };
+      baseConfig.state["items"] = { type: "array", maxLength: 10 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "hasLength(items.value, { min: 1 })",
@@ -1291,7 +1298,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates hasLength with min and max constraints", async () => {
-      baseConfig.state.data = { type: "array", maxLength: 50 };
+      baseConfig.state["data"] = { type: "array", maxLength: 50 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "hasLength(data.value, { min: 5, max: 20 })",
@@ -1309,7 +1316,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates inRange helper function", async () => {
-      baseConfig.state.count = { type: "enum", values: ["0", "1", "2", "3", "4", "5"] };
+      baseConfig.state["count"] = { type: "enum", values: ["0", "1", "2", "3", "4", "5"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "inRange(state.count, 0, 100)",
@@ -1326,7 +1333,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates oneOf helper function with string values", async () => {
-      baseConfig.state.role = { type: "enum", values: ["admin", "user", "guest"] };
+      baseConfig.state["role"] = { type: "enum", values: ["admin", "user", "guest"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: 'oneOf(state.role, ["admin", "user"])',
@@ -1342,7 +1349,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates oneOf helper function with numeric values", async () => {
-      baseConfig.state.priority = { type: "enum", values: ["1", "2", "3"] };
+      baseConfig.state["priority"] = { type: "enum", values: ["1", "2", "3"] };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "oneOf(state.priority, [1, 2, 3])",
@@ -1358,7 +1365,7 @@ describe("Complex Expression Translation", () => {
     });
 
     test("translates hasLength with signal state reference", async () => {
-      baseConfig.state.todos = { type: "array", maxLength: 100 };
+      baseConfig.state["todos"] = { type: "array", maxLength: 100 };
       baseAnalysis.handlers[0]!.preconditions = [
         {
           expression: "hasLength(todoState.value.todos, { max: 99 })",
@@ -1439,6 +1446,8 @@ describe("Complex Expression Translation", () => {
     test("PayloadType includes handler parameter names", async () => {
       baseAnalysis.handlers = [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "SET_STATUS",
           assignments: [{ field: "status", value: "param:status" }],
           preconditions: [],
@@ -1458,6 +1467,8 @@ describe("Complex Expression Translation", () => {
       // The name-pattern heuristic in inferFieldType applies as a fallback.
       baseAnalysis.handlers = [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "SET_ONLINE",
           assignments: [],
           preconditions: [],
@@ -1474,6 +1485,8 @@ describe("Complex Expression Translation", () => {
     test("param: assignment resolves to payload reference", async () => {
       baseAnalysis.handlers = [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "SET_ONLINE",
           assignments: [{ field: "active", value: "param:isOnline" }],
           preconditions: [],
@@ -1490,6 +1503,8 @@ describe("Complex Expression Translation", () => {
     test("excluded params (state, msg) are not added to PayloadType", async () => {
       baseAnalysis.handlers = [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "UPDATE",
           assignments: [{ field: "count", value: true }],
           preconditions: [],
@@ -1508,6 +1523,8 @@ describe("Complex Expression Translation", () => {
     test("default payload fields preserved when no handler params", async () => {
       baseAnalysis.handlers = [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "test",
           assignments: [],
           preconditions: [],
