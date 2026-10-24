@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TLAGenerator } from "../../codegen/tla";
-import type { CodebaseAnalysis, VerificationConfig } from "../../core/model";
+import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Corpus Testing: Real-World TLA+ Examples", () => {
   /**
@@ -21,7 +21,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
     messageTypes: ["increment", "decrement", "reset"],
     handlers: [],
     fields: [],
-    typeDefinitions: [],
+    stateType: null,
+    stateConstraints: [],
   };
 
   test("generates spec with DieHard-style structure", async () => {
@@ -40,7 +41,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["fillSmall", "fillBig", "emptySmall", "emptyBig", "smallToBig", "bigToSmall"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -71,7 +73,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["prepare", "commit", "abort"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -101,7 +104,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["Prepare", "Promise", "Accept", "Accepted"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -128,7 +132,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["enqueue", "dequeue"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -153,7 +158,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["add", "remove", "clear"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -222,7 +228,7 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       if (match) {
         const operatorName = match[1];
         // Should start with capital letter (already matched)
-        expect(operatorName[0]).toMatch(/[A-Z]/);
+        expect(operatorName?.[0]).toMatch(/[A-Z]/);
       }
     }
   });
@@ -241,7 +247,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["increment"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -282,7 +289,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["updateUser", "updateSettings", "clearCache"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();
@@ -335,7 +343,8 @@ describe("Corpus Testing: Real-World TLA+ Examples", () => {
       messageTypes: ["test"],
       handlers: [],
       fields: [],
-      typeDefinitions: [],
+      stateType: null,
+      stateConstraints: [],
     };
 
     for (const projectType of projectTypes) {

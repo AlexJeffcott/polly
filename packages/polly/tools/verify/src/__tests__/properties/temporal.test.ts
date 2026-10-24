@@ -1,7 +1,6 @@
 // Tests for temporal property generation
 
 import { describe, expect, test } from "bun:test";
-import type { CodebaseAnalysis } from "../../../../analysis/src/extract/types";
 import {
   always,
   eventually,
@@ -12,13 +11,15 @@ import {
   TemporalPropertyGenerator,
   TemporalTLAGenerator,
 } from "../../codegen/temporal";
+import type { CodebaseAnalysis } from "../../types";
 
 describe("Temporal Property Generation", () => {
   const createAnalysis = (messageTypes: string[], handlers: any[] = []): CodebaseAnalysis => ({
     messageTypes,
     handlers,
     fields: [],
-    typeDefinitions: [],
+    stateType: null,
+    stateConstraints: [],
   });
 
   // Basic Property Generation (10 tests)

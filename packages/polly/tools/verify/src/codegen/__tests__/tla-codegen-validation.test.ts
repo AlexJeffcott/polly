@@ -41,6 +41,7 @@ describe("TLA+ Code Generation Validation", () => {
         "{ ok: false; error: e }",
       ],
       fields: [],
+      stateConstraints: [],
       handlers: [
         {
           messageType: "query",
@@ -106,6 +107,7 @@ describe("TLA+ Code Generation Validation", () => {
         "has:colon",
       ],
       fields: [],
+      stateConstraints: [],
       handlers: [],
     };
 
@@ -146,6 +148,7 @@ describe("TLA+ Code Generation Validation", () => {
       ],
       fields: [],
       handlers: [],
+      stateConstraints: [],
     };
 
     const generator = new TLAGenerator();

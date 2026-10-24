@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { CodebaseAnalysis } from "../../../analysis/types";
-import type { VerificationConfig } from "../../../config/types";
 import { TLAGenerator } from "../../codegen/tla";
+import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Object/Array Method Translation", () => {
   let generator: TLAGenerator;
@@ -12,6 +11,8 @@ describe("Object/Array Method Translation", () => {
     generator = new TLAGenerator();
 
     baseConfig = {
+      onBuild: "warn",
+      onRelease: "warn",
       state: {
         items: { type: "array", maxLength: 5 },
         users: { type: "array", maxLength: 3 },
@@ -29,8 +30,11 @@ describe("Object/Array Method Translation", () => {
       stateType: null,
       messageTypes: ["test"],
       fields: [],
+      stateConstraints: [],
       handlers: [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "test",
           assignments: [],
           preconditions: [],
@@ -184,7 +188,7 @@ describe("Object/Array Method Translation", () => {
     });
 
     test("translates nested array access", async () => {
-      baseConfig.state.matrix = { type: "array", maxLength: 3 };
+      baseConfig.state["matrix"] = { type: "array", maxLength: 3 };
       // Currently only first index is converted; nested indices are a known limitation
       baseAnalysis.handlers[0]!.preconditions = [
         { expression: "state.matrix[0] === 'value'", location: { line: 1, column: 1 } },

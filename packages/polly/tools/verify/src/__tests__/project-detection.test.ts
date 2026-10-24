@@ -13,7 +13,7 @@ describe("Project Detection for Verify Command", () => {
     expect(config.entryPoints).toHaveProperty("server");
     expect(config.contextMapping).toHaveProperty("server");
     // Should detect WebSocket Server based on imports
-    expect(config.contextMapping?.server).toMatch(/Server/);
+    expect(config.contextMapping?.["server"]).toMatch(/Server/);
   });
 
   test("detects PWA project", () => {

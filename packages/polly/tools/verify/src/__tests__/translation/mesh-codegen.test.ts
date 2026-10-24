@@ -5,8 +5,8 @@
 // integrates with `forAllPeers` for genuine cross-peer claims.
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { CodebaseAnalysis, VerificationConfig } from "../../../analysis/src/types";
 import { TLAGenerator } from "../../codegen/tla";
+import type { CodebaseAnalysis, VerificationConfig } from "../../types";
 
 describe("Mesh-state codegen (polly#117)", () => {
   let generator: TLAGenerator;
@@ -16,6 +16,8 @@ describe("Mesh-state codegen (polly#117)", () => {
   beforeEach(() => {
     generator = new TLAGenerator();
     baseConfig = {
+      onBuild: "warn",
+      onRelease: "warn",
       state: {},
       mesh: {
         todos: {
@@ -33,6 +35,8 @@ describe("Mesh-state codegen (polly#117)", () => {
       fields: [],
       handlers: [
         {
+          node: "background",
+          location: { file: "test.ts", line: 1 },
           messageType: "test",
           assignments: [],
           preconditions: [],
@@ -192,6 +196,8 @@ describe("Mesh-state codegen (polly#117)", () => {
 
   test("config without mesh declaration: spec is unchanged from legacy shape", async () => {
     const config: VerificationConfig = {
+      onBuild: "warn",
+      onRelease: "warn",
       state: { localFlag: { type: "boolean" } },
       messages: { maxInFlight: 2, maxTabs: 1 },
     };
@@ -199,7 +205,16 @@ describe("Mesh-state codegen (polly#117)", () => {
       stateType: null,
       messageTypes: ["test"],
       fields: [],
-      handlers: [{ messageType: "test", assignments: [], preconditions: [], postconditions: [] }],
+      handlers: [
+        {
+          messageType: "test",
+          node: "background",
+          assignments: [],
+          preconditions: [],
+          postconditions: [],
+          location: { file: "test.ts", line: 1 },
+        },
+      ],
       stateConstraints: [],
     };
 

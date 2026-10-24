@@ -13,10 +13,7 @@ function makeHandler(messageType: string, fields: string[]): MessageHandler {
     })),
     preconditions: [],
     postconditions: [],
-    constraints: [],
-    context: "background",
-    filePath: "test.ts",
-    lineNumber: 1,
+    location: { file: "test.ts", line: 1 },
   };
 }
 
@@ -353,7 +350,7 @@ describe("Subsystem TLA+ generation", () => {
 
     const config = {
       state: {
-        loggedIn: [false, true],
+        loggedIn: { type: "boolean" as const },
         status: { type: "enum" as const, values: ["idle", "connected"] },
         theme: { type: "enum" as const, values: ["light", "dark"] },
       },

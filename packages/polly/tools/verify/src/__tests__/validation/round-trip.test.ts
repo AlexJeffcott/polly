@@ -24,6 +24,7 @@ describe("Round-Trip Validation", () => {
     stateType: null,
     messageTypes,
     fields: [],
+    stateConstraints: [],
     handlers: handlers.map((h) => ({
       ...h,
       node: "background" as const,

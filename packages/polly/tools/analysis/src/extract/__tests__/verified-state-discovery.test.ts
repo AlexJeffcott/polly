@@ -68,12 +68,12 @@ export const authState = $sharedState('auth', initialAuthState, { verify: true }
     const result = extractor.extractHandlers();
 
     expect(result.verifiedStates.length).toBe(1);
-    expect(result.verifiedStates[0].key).toBe("auth");
-    expect(result.verifiedStates[0].variableName).toBe("authState");
-    expect(result.verifiedStates[0].fields).toContain("isAuthenticated");
-    expect(result.verifiedStates[0].fields).toContain("isLoading");
-    expect(result.verifiedStates[0].fields).toContain("userProfile");
-    expect(result.verifiedStates[0].fields).toContain("error");
+    expect(result.verifiedStates[0]?.key).toBe("auth");
+    expect(result.verifiedStates[0]?.variableName).toBe("authState");
+    expect(result.verifiedStates[0]?.fields).toContain("isAuthenticated");
+    expect(result.verifiedStates[0]?.fields).toContain("isLoading");
+    expect(result.verifiedStates[0]?.fields).toContain("userProfile");
+    expect(result.verifiedStates[0]?.fields).toContain("error");
   });
 
   test("should ignore $sharedState without verify: true", () => {
@@ -101,7 +101,7 @@ export const settingsC = $sharedState('settings-c', { theme: 'dark' }, { verify:
     const result = extractor.extractHandlers();
 
     expect(result.verifiedStates.length).toBe(1);
-    expect(result.verifiedStates[0].key).toBe("settings-c");
+    expect(result.verifiedStates[0]?.key).toBe("settings-c");
   });
 
   test("should discover exported functions that modify verified state", () => {
@@ -215,7 +215,7 @@ export function handleAuthSuccess(userProfile: { name: string }): void {
 
     // Should have precondition from requires()
     expect(authHandler?.preconditions.length).toBeGreaterThanOrEqual(1);
-    expect(authHandler?.preconditions[0].expression).toContain("isAuthenticated");
+    expect(authHandler?.preconditions[0]?.expression).toContain("isAuthenticated");
 
     // Should have postconditions from ensures()
     expect(authHandler?.postconditions.length).toBeGreaterThanOrEqual(1);

@@ -18,6 +18,7 @@ describe("Config Generation for Different Project Types", () => {
     },
     messageTypes: ["message1", "message2"],
     fields: [],
+    stateConstraints: [],
     handlers: [],
   };
 

@@ -32,6 +32,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
     };
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "SET_THEME",
         assignments: [{ field: "theme", value: "param:theme" }],
         preconditions: [],
@@ -58,6 +60,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
     };
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "SET_COUNT",
         assignments: [{ field: "count", value: "param:count" }],
         preconditions: [],
@@ -87,6 +91,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
     };
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "SET_ONLINE",
         assignments: [{ field: "connectionState", value: "param:isOnline" }],
         preconditions: [],
@@ -115,6 +121,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
     };
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "USER_SET_ROLE",
         assignments: [{ field: "user_role", value: "param:role" }],
         preconditions: [],
@@ -142,6 +150,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
     };
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "GENERIC",
         assignments: [],
         preconditions: [],
@@ -171,6 +181,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
     };
     baseAnalysis.handlers = [
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "SET_STATUS",
         assignments: [{ field: "status", value: "param:value" }],
         preconditions: [],
@@ -178,6 +190,8 @@ describe("PayloadType domain wiring (issue #72)", () => {
         parameters: ["value"],
       },
       {
+        node: "background",
+        location: { file: "test.ts", line: 1 },
         messageType: "SET_VOLUME",
         assignments: [{ field: "volume", value: "param:value" }],
         preconditions: [],
