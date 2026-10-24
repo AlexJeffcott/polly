@@ -156,6 +156,18 @@ export type BoundedExplorationConfig = {
  */
 export type StateConfig = { [field: string]: FieldConfig | StateConfig };
 
+/** The `[false, true]` boolean shorthand of FieldConfig. */
+export type BooleanPair = readonly [boolean, boolean];
+
+export function isBooleanPair(config: FieldConfig | StateConfig): config is BooleanPair {
+  return (
+    Array.isArray(config) &&
+    config.length === 2 &&
+    typeof config[0] === "boolean" &&
+    typeof config[1] === "boolean"
+  );
+}
+
 /**
  * polly#117: mesh-document declarations. Maps docId → field schema.
  */
@@ -163,6 +175,8 @@ export type MeshConfig = Record<string, Record<string, FieldConfig>>;
 
 export type FieldConfig =
   | { type: "boolean" }
+  /** Boolean shorthand, e.g. `[false, true]`. The first element is the initial value. */
+  | BooleanPair
   | { type: "array"; maxLength?: number | null; initial?: unknown[] }
   | { type: "string"; initial?: string }
   | { type: "number"; min?: number; max?: number }

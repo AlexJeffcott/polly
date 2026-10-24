@@ -5,16 +5,17 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { MessageHandler } from "../core/model";
 import type { SANYRunner, ValidationResult as SANYValidationResult } from "../runner/sany";
-import type {
-  CapabilityConfig,
-  CodebaseAnalysis,
-  FieldAnalysis,
-  FieldConfig,
-  StateAssignment,
-  StateConfig,
-  SubsystemConfig,
-  VerificationCondition,
-  VerificationConfig,
+import {
+  type CapabilityConfig,
+  type CodebaseAnalysis,
+  type FieldAnalysis,
+  type FieldConfig,
+  isBooleanPair,
+  type StateAssignment,
+  type StateConfig,
+  type SubsystemConfig,
+  type VerificationCondition,
+  type VerificationConfig,
 } from "../types";
 import { type Invariant, InvariantGenerator } from "./invariants";
 import { generatedTabValues, resolveContexts } from "./model-constants";
@@ -725,7 +726,10 @@ export class TLAGenerator {
     let first = firstConstant;
 
     for (const [field, fieldConfig] of Object.entries(state)) {
-      if (typeof fieldConfig !== "object" || fieldConfig === null) continue;
+      // A boolean pair has no bounds, so it declares no constants
+      if (typeof fieldConfig !== "object" || fieldConfig === null || isBooleanPair(fieldConfig)) {
+        continue;
+      }
 
       const constName = this.fieldToConstName(field);
       first = this.addFieldConstants(field, fieldConfig, constName, first);
@@ -973,6 +977,8 @@ export class TLAGenerator {
    */
   private hasTypeIndicators(fieldConfig: FieldConfig | StateConfig): fieldConfig is FieldConfig {
     return (
+      // Checked first: `"values" in` is also true for any array, through Array.prototype.values
+      isBooleanPair(fieldConfig) ||
       "type" in fieldConfig ||
       "values" in fieldConfig ||
       "maxLength" in fieldConfig ||
@@ -2036,7 +2042,7 @@ export class TLAGenerator {
     if ("nullable" in fieldConfig && fieldConfig.nullable) return assignment;
 
     // Non-abstract fields with values: map null to last value (legacy)
-    if ("values" in fieldConfig && fieldConfig.values) {
+    if ("values" in fieldConfig && Array.isArray(fieldConfig.values)) {
       const nullValue = fieldConfig.values[fieldConfig.values.length - 1] ?? null;
       return { ...assignment, value: nullValue };
     }
@@ -4041,7 +4047,11 @@ export class TLAGenerator {
       return String(fieldConfig.min || 0);
     }
 
-    if ("values" in fieldConfig && fieldConfig.values && fieldConfig.values.length > 0) {
+    if (
+      "values" in fieldConfig &&
+      Array.isArray(fieldConfig.values) &&
+      fieldConfig.values.length > 0
+    ) {
       return `"${fieldConfig.values[0]}"`;
     }
 
