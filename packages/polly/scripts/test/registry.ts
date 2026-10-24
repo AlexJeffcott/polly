@@ -204,6 +204,10 @@ export function internalPlan(): TierPlan {
           cost: "heavy",
         }),
         e2e("cli.quality", "e2e-cli-quality.ts", { tags: ["cli", "quality"] }),
+        e2e("cli.analysis-cold-install", "e2e-analysis-cold-install.ts", {
+          tags: ["cli", "analysis", "package"],
+          cost: "heavy",
+        }),
         e2e("cli.coverage-consumer", "e2e-coverage-consumer.ts", {
           tags: ["cli", "coverage"],
           cost: "heavy",
