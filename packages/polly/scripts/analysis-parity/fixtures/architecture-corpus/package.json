@@ -1,0 +1,10 @@
+{
+  "name": "architecture-corpus",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Parity corpus for the architecture extractors",
+  "repository": {
+    "type": "git",
+    "url": "https://example.invalid/architecture-corpus.git"
+  }
+}

@@ -113,6 +113,8 @@ const INTERNAL_DIRS = [
   "packages/polly/tools/verify/test-projects/websocket-server",
   // Harness-owned: reaches the type conversion the examples barely touch.
   "packages/polly/scripts/analysis-parity/fixtures/types-corpus",
+  // Harness-owned: UI components, sender annotations, integrations, relationships.
+  "packages/polly/scripts/analysis-parity/fixtures/architecture-corpus",
 ];
 
 /** Read-only consumers outside this repo, relative to ~/projects. */

@@ -1,0 +1,2179 @@
+{
+  "verify.analyzeCodebase": {
+    "result": {
+      "stateType": null,
+      "messageTypes": [
+        "USER_CREATE",
+        "USER_CREATED",
+        "AUDIT",
+        "PING"
+      ],
+      "fields": [],
+      "handlers": [
+        {
+          "messageType": "USER_CREATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 25
+          },
+          "relationships": [
+            {
+              "from": "user_create_handler",
+              "to": "database",
+              "description": "Reads from database",
+              "technology": "SQL",
+              "confidence": "high",
+              "evidence": [
+                "Database call: db.query"
+              ]
+            },
+            {
+              "from": "user_create_handler",
+              "to": "db_client",
+              "description": "Calls query()",
+              "technology": "Function Call",
+              "confidence": "high",
+              "evidence": [
+                "Property access: db.query"
+              ]
+            },
+            {
+              "from": "user_create_handler",
+              "to": "repositories",
+              "description": "Calls create()",
+              "technology": "Function Call",
+              "confidence": "high",
+              "evidence": [
+                "Property access: repositories.users.create"
+              ]
+            },
+            {
+              "from": "user_create_handler",
+              "to": "openai_api",
+              "description": "Calls external API",
+              "technology": "HTTP/REST",
+              "confidence": "high",
+              "evidence": [
+                "fetch() call to: \"https://api.openai.com/v1/chat\""
+              ]
+            }
+          ],
+          "origin": "event"
+        },
+        {
+          "messageType": "USER_CREATED",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 36
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "AUDIT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 42
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 47
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        }
+      ],
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": []
+    },
+    "logs": []
+  },
+  "analysis.extractHandlers": {
+    "result": {
+      "handlers": [
+        {
+          "messageType": "USER_CREATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 25
+          },
+          "relationships": [
+            {
+              "from": "user_create_handler",
+              "to": "database",
+              "description": "Reads from database",
+              "technology": "SQL",
+              "confidence": "high",
+              "evidence": [
+                "Database call: db.query"
+              ]
+            },
+            {
+              "from": "user_create_handler",
+              "to": "db_client",
+              "description": "Calls query()",
+              "technology": "Function Call",
+              "confidence": "high",
+              "evidence": [
+                "Property access: db.query"
+              ]
+            },
+            {
+              "from": "user_create_handler",
+              "to": "repositories",
+              "description": "Calls create()",
+              "technology": "Function Call",
+              "confidence": "high",
+              "evidence": [
+                "Property access: repositories.users.create"
+              ]
+            },
+            {
+              "from": "user_create_handler",
+              "to": "openai_api",
+              "description": "Calls external API",
+              "technology": "HTTP/REST",
+              "confidence": "high",
+              "evidence": [
+                "fetch() call to: \"https://api.openai.com/v1/chat\""
+              ]
+            }
+          ],
+          "origin": "event",
+          "parameters": [
+            "payload"
+          ]
+        },
+        {
+          "messageType": "USER_CREATED",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 36
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "AUDIT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 42
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 47
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        }
+      ],
+      "messageTypes": {
+        "$type": "Set",
+        "values": [
+          "USER_CREATE",
+          "USER_CREATED",
+          "AUDIT",
+          "PING"
+        ]
+      },
+      "stateConstraints": [],
+      "globalStateConstraints": [],
+      "verifiedStates": [],
+      "meshOrPeerSignals": [],
+      "resources": [],
+      "offSurfaceMutations": [],
+      "warnings": []
+    },
+    "logs": []
+  },
+  "visualize.analyzeArchitecture": {
+    "result": {
+      "projectRoot": "<project>",
+      "system": {
+        "name": "Architecture Corpus",
+        "version": "1.2.3",
+        "description": "Parity corpus for the architecture extractors"
+      },
+      "manifest": {
+        "name": "Architecture Corpus",
+        "version": "1.2.3",
+        "description": "Parity corpus for the architecture extractors",
+        "manifestVersion": 3,
+        "background": {
+          "type": "service_worker",
+          "files": [
+            "background/index.js"
+          ]
+        },
+        "contentScripts": [
+          {
+            "matches": [
+              "<all_urls>"
+            ],
+            "js": [
+              "content/index.js"
+            ],
+            "css": {
+              "$type": "undefined"
+            }
+          }
+        ],
+        "popup": {
+          "html": "src/popup/popup.html",
+          "default": true
+        },
+        "options": {
+          "page": "src/options/options.html",
+          "openInTab": false
+        },
+        "devtools": {
+          "page": "src/devtools/devtools.html"
+        },
+        "permissions": [],
+        "hostPermissions": []
+      },
+      "contexts": {
+        "background": {
+          "type": "background",
+          "entryPoint": "<project>/src/background/index.ts",
+          "handlers": [
+            {
+              "messageType": "USER_CREATE",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 25
+              },
+              "relationships": [
+                {
+                  "from": "user_create_handler",
+                  "to": "database",
+                  "description": "Reads from database",
+                  "technology": "SQL",
+                  "confidence": "high",
+                  "evidence": [
+                    "Database call: db.query"
+                  ]
+                },
+                {
+                  "from": "user_create_handler",
+                  "to": "db_client",
+                  "description": "Calls query()",
+                  "technology": "Function Call",
+                  "confidence": "high",
+                  "evidence": [
+                    "Property access: db.query"
+                  ]
+                },
+                {
+                  "from": "user_create_handler",
+                  "to": "repositories",
+                  "description": "Calls create()",
+                  "technology": "Function Call",
+                  "confidence": "high",
+                  "evidence": [
+                    "Property access: repositories.users.create"
+                  ]
+                },
+                {
+                  "from": "user_create_handler",
+                  "to": "openai_api",
+                  "description": "Calls external API",
+                  "technology": "HTTP/REST",
+                  "confidence": "high",
+                  "evidence": [
+                    "fetch() call to: \"https://api.openai.com/v1/chat\""
+                  ]
+                }
+              ],
+              "origin": "event",
+              "parameters": [
+                "payload"
+              ]
+            },
+            {
+              "messageType": "USER_CREATED",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 36
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "AUDIT",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 42
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "messageType": "PING",
+              "node": "background",
+              "assignments": [],
+              "preconditions": [],
+              "postconditions": [],
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 47
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            }
+          ],
+          "chromeAPIs": [
+            "runtime",
+            "runtime.onMessage",
+            "storage",
+            "storage.local",
+            "tabs",
+            "tabs.query"
+          ],
+          "externalAPIs": [
+            {
+              "method": "GET",
+              "endpoint": "https://api.openai.com/v1/chat",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 30
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            }
+          ],
+          "dependencies": [
+            "../db/client",
+            "../db/repositories",
+            "../services/user-service"
+          ],
+          "description": "Routes messages between the popup, the content script"
+        },
+        "content": {
+          "type": "content",
+          "entryPoint": "<project>/src/content/index.ts",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [
+            {
+              "method": "GET",
+              "endpoint": "https://api.example.com/v1/items",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 11
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "method": "POST",
+              "endpoint": "https://api.example.com/v1/items",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 13
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "method": "GET",
+              "endpoint": "https://v2",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 12
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "method": "DELETE",
+              "endpoint": "https://www.github.com/repos",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 14
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            }
+          ],
+          "dependencies": [
+            "@scope/pkg/sub",
+            "bun",
+            "lodash",
+            "./local"
+          ],
+          "description": "// Content script: talks to remote services."
+        },
+        "popup": {
+          "type": "popup",
+          "entryPoint": "<project>/src/popup/popup.tsx",
+          "handlers": [],
+          "chromeAPIs": [
+            "tabs",
+            "tabs.create"
+          ],
+          "externalAPIs": [],
+          "components": [
+            {
+              "name": "App",
+              "type": "function",
+              "filePath": "<project>/src/popup/popup.tsx",
+              "line": 29,
+              "props": [
+                "user",
+                "onLogout"
+              ],
+              "description": "The app shell.\nRenders the header and the counter,\n  with an indented continuation line."
+            },
+            {
+              "name": "Header",
+              "type": "function",
+              "filePath": "<project>/src/popup/popup.tsx",
+              "line": 39,
+              "props": [
+                "title"
+              ]
+            },
+            {
+              "name": "Footer",
+              "type": "function",
+              "filePath": "<project>/src/popup/popup.tsx",
+              "line": 42,
+              "props": [
+                "zeta",
+                "alpha"
+              ]
+            },
+            {
+              "name": "Counter",
+              "type": "class",
+              "filePath": "<project>/src/popup/popup.tsx",
+              "line": 55,
+              "props": [
+                "start",
+                "step",
+                "label"
+              ],
+              "description": "Counter as a class."
+            },
+            {
+              "name": "NoProps",
+              "type": "function",
+              "filePath": "<project>/src/popup/popup.tsx",
+              "line": 75,
+              "props": []
+            }
+          ],
+          "dependencies": [
+            "./jsx"
+          ],
+          "description": "/**"
+        },
+        "options": {
+          "type": "options",
+          "entryPoint": "<project>/src/options/options.tsx",
+          "handlers": [],
+          "chromeAPIs": [
+            "storage",
+            "storage.sync"
+          ],
+          "externalAPIs": [],
+          "components": [
+            {
+              "name": "Options",
+              "type": "function",
+              "filePath": "<project>/src/options/options.tsx",
+              "line": 4,
+              "props": [
+                "theme"
+              ]
+            }
+          ],
+          "dependencies": [],
+          "description": "// Options page: stores preferences."
+        },
+        "devtools": {
+          "type": "devtools",
+          "entryPoint": "<project>/src/devtools/devtools.ts",
+          "handlers": [],
+          "chromeAPIs": [
+            "devtools",
+            "devtools.panels"
+          ],
+          "externalAPIs": [],
+          "components": [],
+          "dependencies": []
+        }
+      },
+      "messageFlows": [
+        {
+          "messageType": "USER_CREATE",
+          "from": "background",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "background.send(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 59
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 25
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_CREATE",
+          "from": "content",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "content.send(USER_CREATE)",
+              "context": "content",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 19
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 25
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "USER_CREATED",
+          "from": "background",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 36
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "AUDIT",
+          "from": "background",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 42
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            },
+            {
+              "step": 5,
+              "action": "background.send(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 59
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "AUDIT",
+          "from": "content",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "content.send(AUDIT)",
+              "context": "content",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 20
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 42
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            },
+            {
+              "step": 5,
+              "action": "background.send(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 59
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "PING",
+          "from": "background",
+          "to": [
+            "background"
+          ],
+          "sequence": [
+            {
+              "step": 1,
+              "action": "background.send(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 62
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 47
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            },
+            {
+              "step": 5,
+              "action": "background.send(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 59
+              }
+            },
+            {
+              "step": 6,
+              "action": "background.send(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 62
+              }
+            },
+            {
+              "step": 7,
+              "action": "background.send(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 65
+              }
+            }
+          ]
+        },
+        {
+          "messageType": "PING",
+          "from": "background",
+          "to": [
+            "background"
+          ],
+          "trigger": "Pong arrives @description Replies */",
+          "flowName": "ping-reply",
+          "description": "Replies */",
+          "sequence": [
+            {
+              "step": 1,
+              "action": "background.send(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 65
+              }
+            },
+            {
+              "step": 2,
+              "action": "background.handle(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 47
+              }
+            },
+            {
+              "step": 3,
+              "action": "background.send(USER_CREATED)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 32
+              }
+            },
+            {
+              "step": 4,
+              "action": "background.send(AUDIT)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 38
+              }
+            },
+            {
+              "step": 5,
+              "action": "background.send(USER_CREATE)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 59
+              }
+            },
+            {
+              "step": 6,
+              "action": "background.send(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 62
+              }
+            },
+            {
+              "step": 7,
+              "action": "background.send(PING)",
+              "context": "background",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 65
+              }
+            }
+          ]
+        }
+      ],
+      "integrations": [
+        {
+          "type": "api",
+          "name": "Api API",
+          "technology": "REST API",
+          "url": "https://api.openai.com",
+          "usedIn": [
+            "<project>/src/background/index.ts",
+            "<project>/src/content/index.ts"
+          ],
+          "description": "External API: Api API",
+          "calls": [
+            {
+              "method": "GET",
+              "endpoint": "https://api.openai.com/v1/chat",
+              "location": {
+                "file": "<project>/src/background/index.ts",
+                "line": 30
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "method": "GET",
+              "endpoint": "https://api.example.com/v1/items",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 11
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            },
+            {
+              "method": "POST",
+              "endpoint": "https://api.example.com/v1/items",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 13
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            }
+          ]
+        },
+        {
+          "type": "api",
+          "name": "V2 API",
+          "technology": "REST API",
+          "url": "https://v2",
+          "usedIn": [
+            "<project>/src/content/index.ts"
+          ],
+          "description": "External API: V2 API",
+          "calls": [
+            {
+              "method": "GET",
+              "endpoint": "https://v2",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 12
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            }
+          ]
+        },
+        {
+          "type": "api",
+          "name": "Github API",
+          "technology": "REST API",
+          "url": "https://www.github.com",
+          "usedIn": [
+            "<project>/src/content/index.ts"
+          ],
+          "description": "External API: Github API",
+          "calls": [
+            {
+              "method": "DELETE",
+              "endpoint": "https://www.github.com/repos",
+              "location": {
+                "file": "<project>/src/content/index.ts",
+                "line": 14
+              },
+              "description": {
+                "$type": "undefined"
+              }
+            }
+          ]
+        },
+        {
+          "type": "websocket",
+          "name": "Ws API",
+          "technology": "WebSocket",
+          "url": "wss://ws.example.org/feed",
+          "usedIn": [
+            "<project>/src/content/index.ts"
+          ],
+          "description": "WebSocket connection: Ws API"
+        },
+        {
+          "type": "external-script",
+          "name": "@scope/pkg",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/content/index.ts"
+          ],
+          "description": "External dependency: @scope/pkg"
+        },
+        {
+          "type": "external-script",
+          "name": "bun",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/content/index.ts"
+          ],
+          "description": "External dependency: bun"
+        },
+        {
+          "type": "external-script",
+          "name": "lodash",
+          "technology": "npm package",
+          "usedIn": [
+            "<project>/src/content/index.ts"
+          ],
+          "description": "External dependency: lodash"
+        }
+      ],
+      "repository": {
+        "url": "https://example.invalid/architecture-corpus.git",
+        "type": "git"
+      }
+    },
+    "logs": []
+  },
+  "adapters.detectAdapter": {
+    "result": {
+      "adapterType": "web-extension",
+      "confidence": 65,
+      "evidence": [
+        "Found 2 file(s) using chrome.* APIs",
+        "Found 3 extension context directories"
+      ],
+      "suggestedAdapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 2,
+          "maxInFlight": 6,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "alternatives": [
+        {
+          "adapterType": "event-bus",
+          "confidence": 23,
+          "evidence": [
+            "Found 4 .on() call(s)",
+            "Found 1 .emit() call(s)"
+          ]
+        }
+      ]
+    },
+    "logs": []
+  },
+  "adapters.selectAdapter": {
+    "result": {
+      "projectType": "chrome-extension",
+      "adapter": {
+        "class": "WebExtensionAdapter",
+        "name": "web-extension",
+        "config": {
+          "contexts": [
+            "background",
+            "content",
+            "popup",
+            "devtools",
+            "options",
+            "offscreen",
+            "sidepanel"
+          ],
+          "detectTabBased": true,
+          "maxTabs": 1,
+          "maxInFlight": 3,
+          "tsConfigPath": "<project>/tsconfig.json"
+        }
+      },
+      "model": {
+        "nodes": [
+          {
+            "id": "background",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": true,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "content",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": true
+            }
+          },
+          {
+            "id": "popup",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "devtools",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "options",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "offscreen",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          },
+          {
+            "id": "sidepanel",
+            "type": "extension-context",
+            "canSendTo": [
+              "*"
+            ],
+            "canReceiveFrom": [
+              "*"
+            ],
+            "metadata": {
+              "isServiceWorker": false,
+              "isContentScript": false
+            }
+          }
+        ],
+        "messageTypes": [
+          {
+            "name": "message",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "USER_CREATE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "USER_CREATED",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "AUDIT",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
+            "name": "PING",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "pattern": "request-reply",
+            "messageTypes": [
+              "message",
+              "USER_CREATE",
+              "USER_CREATED",
+              "AUDIT",
+              "PING"
+            ],
+            "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+          }
+        ],
+        "state": {},
+        "handlers": [
+          {
+            "messageType": "message",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/index.ts",
+              "line": 19
+            }
+          },
+          {
+            "messageType": "USER_CREATE",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/index.ts",
+              "line": 25
+            }
+          },
+          {
+            "messageType": "USER_CREATED",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/index.ts",
+              "line": 36
+            }
+          },
+          {
+            "messageType": "AUDIT",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/index.ts",
+              "line": 42
+            }
+          },
+          {
+            "messageType": "PING",
+            "node": "background",
+            "assignments": [],
+            "preconditions": [],
+            "postconditions": [],
+            "location": {
+              "file": "<project>/src/background/index.ts",
+              "line": 47
+            }
+          }
+        ],
+        "stateConstraints": [],
+        "bounds": {
+          "maxConcurrentMessages": 3,
+          "maxNodes": 7,
+          "custom": {
+            "maxTabs": 1
+          }
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.web-extension": {
+    "result": {
+      "nodes": [
+        {
+          "id": "background",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": true,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "content",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": true
+          }
+        },
+        {
+          "id": "popup",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "devtools",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "options",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "offscreen",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        },
+        {
+          "id": "sidepanel",
+          "type": "extension-context",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isServiceWorker": false,
+            "isContentScript": false
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "message",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_CREATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_CREATED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "AUDIT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "message",
+            "USER_CREATE",
+            "USER_CREATED",
+            "AUDIT",
+            "PING"
+          ],
+          "description": "Chrome extension message passing with chrome.runtime.sendMessage"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "message",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 19
+          }
+        },
+        {
+          "messageType": "USER_CREATE",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "USER_CREATED",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 36
+          }
+        },
+        {
+          "messageType": "AUDIT",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 42
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "background",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 47
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 3,
+        "maxNodes": 7,
+        "custom": {
+          "maxTabs": 1
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.websocket": {
+    "result": {
+      "nodes": [
+        {
+          "id": "server",
+          "type": "websocket-server",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isHub": true
+          }
+        },
+        {
+          "id": "client-1",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 1
+          }
+        },
+        {
+          "id": "client-2",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 2
+          }
+        },
+        {
+          "id": "client-3",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 3
+          }
+        },
+        {
+          "id": "client-4",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 4
+          }
+        },
+        {
+          "id": "client-5",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 5
+          }
+        },
+        {
+          "id": "client-6",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 6
+          }
+        },
+        {
+          "id": "client-7",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 7
+          }
+        },
+        {
+          "id": "client-8",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 8
+          }
+        },
+        {
+          "id": "client-9",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 9
+          }
+        },
+        {
+          "id": "client-10",
+          "type": "websocket-client",
+          "canSendTo": [
+            "server"
+          ],
+          "canReceiveFrom": [
+            "server"
+          ],
+          "metadata": {
+            "clientId": 10
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_CREATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "USER_CREATED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "client-*"
+            ],
+            "to": [
+              "server"
+            ]
+          }
+        },
+        {
+          "name": "AUDIT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "request-reply",
+          "messageTypes": [
+            "USER_CREATE",
+            "USER_CREATED",
+            "AUDIT",
+            "PING"
+          ],
+          "description": "WebSocket hub-and-spoke: clients send to server, server broadcasts to clients"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_CREATE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "USER_CREATED",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 36
+          }
+        },
+        {
+          "messageType": "AUDIT",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 42
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 47
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 11,
+        "custom": {
+          "maxConnections": 10
+        }
+      }
+    },
+    "logs": []
+  },
+  "adapters.event-bus": {
+    "result": {
+      "nodes": [
+        {
+          "id": "central-bus",
+          "type": "event-bus",
+          "canSendTo": [
+            "*"
+          ],
+          "canReceiveFrom": [
+            "*"
+          ],
+          "metadata": {
+            "isMediator": true
+          }
+        },
+        {
+          "id": "bus",
+          "type": "emitter",
+          "canSendTo": [
+            "central-bus",
+            "*"
+          ],
+          "canReceiveFrom": [
+            "central-bus",
+            "*"
+          ],
+          "metadata": {
+            "isEmitter": true
+          }
+        }
+      ],
+      "messageTypes": [
+        {
+          "name": "USER_CREATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "USER_CREATED",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "AUDIT",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
+          "name": "PING",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        }
+      ],
+      "routingRules": [
+        {
+          "pattern": "broadcast",
+          "messageTypes": [
+            "USER_CREATE",
+            "USER_CREATED",
+            "AUDIT",
+            "PING"
+          ],
+          "description": "Event bus broadcast pattern - one-to-many messaging"
+        }
+      ],
+      "state": {},
+      "handlers": [
+        {
+          "messageType": "USER_CREATE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 25
+          }
+        },
+        {
+          "messageType": "USER_CREATED",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 36
+          }
+        },
+        {
+          "messageType": "AUDIT",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 42
+          }
+        },
+        {
+          "messageType": "PING",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [],
+          "postconditions": [],
+          "location": {
+            "file": "<project>/src/background/index.ts",
+            "line": 47
+          }
+        }
+      ],
+      "stateConstraints": [],
+      "bounds": {
+        "maxConcurrentMessages": 5,
+        "maxNodes": 2
+      }
+    },
+    "logs": []
+  }
+}

@@ -59,6 +59,7 @@
     "tests",
     "examples",
     "tools/verify/test-projects",
+    "scripts/analysis-parity/fixtures/architecture-corpus",
     "tools/visualize/src/__tests__/fixtures"
   ]
 }
