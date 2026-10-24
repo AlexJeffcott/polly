@@ -4,10 +4,12 @@
 export {
   AnalysisProgram,
   AnalysisSession,
+  type AnalysisSource,
   isDefinitionSite,
   MORPH_TYPE_FORMAT,
   type PropertyInfo,
   withAnalysisSession,
+  withProgram,
 } from "./analysis-program";
 export {
   declarationKind,

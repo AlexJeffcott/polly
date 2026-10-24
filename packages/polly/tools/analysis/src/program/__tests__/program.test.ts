@@ -398,7 +398,25 @@ async function compareProperties(
     m.getProperties().map((p) => p.getName()),
     props.map((p) => p.name)
   );
+  const morphNames = m.getProperties().map((p) => p.getName());
+  out.check(where, "propertyNames", morphNames, await program.propertyNames(t));
+  const symbols = await program.propertySymbols(t);
+  out.check(
+    where,
+    "propertySymbols",
+    morphNames,
+    symbols.map((s) => s.name)
+  );
   const first = m.getProperties()[0];
+  const firstSymbol = symbols[0];
+  if (first && firstSymbol) {
+    out.check(
+      where,
+      "symbolTypeAt",
+      morphPredicates(first.getTypeAtLocation(morphAnchor)),
+      ts7Predicates(await program.symbolTypeAt(firstSymbol, anchor))
+    );
+  }
   if (first) {
     const one = await program.property(t, first.getName(), anchor);
     out.check(where, "property", first.getName(), one?.name);

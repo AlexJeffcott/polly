@@ -252,6 +252,16 @@ export class AnalysisProgram {
     return this.describeProperties(await this.propertySymbols(type), at);
   }
 
+  /** ts-morph `type.getProperties().map((p) => p.getName())`. */
+  async propertyNames(type: Type): Promise<string[]> {
+    return (await this.propertySymbols(type)).map((symbol) => symbol.name);
+  }
+
+  /** ts-morph `symbol.getTypeAtLocation(at)`. */
+  symbolTypeAt(symbol: TsSymbol, at: Node): Promise<Type> {
+    return this.checker.getTypeOfSymbolAtLocation(symbol, at);
+  }
+
   /** ts-morph `type.getProperty(name)`, with `getTypeAtLocation(at)`. */
   async property(type: Type, name: string, at: Node): Promise<PropertyInfo | undefined> {
     const symbols = await this.propertySymbols(type);
@@ -259,7 +269,11 @@ export class AnalysisProgram {
     return symbol ? (await this.describeProperties([symbol], at))[0] : undefined;
   }
 
-  private async propertySymbols(type: Type): Promise<readonly TsSymbol[]> {
+  /**
+   * ts-morph `type.getProperties()`: the property symbols, mapped-type
+   * properties in `unionMembers` order of their keys (see `properties`).
+   */
+  async propertySymbols(type: Type): Promise<readonly TsSymbol[]> {
     const symbols = await this.checker.getPropertiesOfType(type);
     if (!type.isMappedType()) return symbols;
     const constraint = await type.getConstraintType();
@@ -655,4 +669,22 @@ export async function withAnalysisSession<T>(
   } finally {
     await session.close();
   }
+}
+
+/** Where an extractor gets its program: a session (it opens its tsconfig there) or an open program. */
+export type AnalysisSource = AnalysisSession | AnalysisProgram;
+
+/**
+ * Run `fn` on the program for `tsconfig`: the given program as is, the
+ * project opened in the given session, or a session of its own, closed
+ * however `fn` ends. A caller that passes a source keeps ownership of it.
+ */
+export async function withProgram<T>(
+  tsconfig: string,
+  source: AnalysisSource | undefined,
+  fn: (program: AnalysisProgram) => T | Promise<T>
+): Promise<T> {
+  if (source instanceof AnalysisProgram) return fn(source);
+  if (source instanceof AnalysisSession) return fn(await source.open(tsconfig));
+  return withAnalysisSession(async (session) => fn(await session.open(tsconfig)));
 }
