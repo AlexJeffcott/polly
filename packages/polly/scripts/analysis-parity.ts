@@ -26,6 +26,9 @@
  *   adapters.web-extension       WebExtensionAdapter, default config, extractModel().
  *   adapters.websocket           WebSocketAdapter, default config, extractModel().
  *   adapters.event-bus           EventBusAdapter, default config, extractModel().
+ *                                The adapters share one typescript-7 AnalysisSession
+ *                                per worker (opened by the first, closed when the
+ *                                worker ends), so the first carries the load time.
  *
  * Every extractor records its return value (or the error it throws, as
  * name + message) and the console output it wrote. Each project runs in its
@@ -61,6 +64,7 @@ import { dirname, join, resolve } from "node:path";
 import { analyzeArchitecture } from "../tools/analysis/src/extract/architecture";
 import { HandlerExtractor } from "../tools/analysis/src/extract/handlers";
 import { detectProjectConfig } from "../tools/analysis/src/extract/project-detector";
+import { AnalysisSession } from "../tools/analysis/src/program";
 import { detectAdapter } from "../tools/verify/src/adapters/detection";
 import { EventBusAdapter } from "../tools/verify/src/adapters/event-bus";
 import { selectAdapter } from "../tools/verify/src/adapters/registry";
@@ -226,7 +230,7 @@ function encodeObject(
   return fields;
 }
 
-/** An adapter instance as data: its class, name and config, not its ts-morph Project. */
+/** An adapter instance as data: its class, name and config. */
 function describeAdapter(adapter: unknown): unknown {
   if (!isObject(adapter)) return adapter;
   return {
@@ -278,7 +282,11 @@ function required<T>(value: T | null, what: string): T {
   return value;
 }
 
-async function runExtractor(name: ExtractorName, cwd: string): Promise<unknown> {
+async function runExtractor(
+  name: ExtractorName,
+  cwd: string,
+  session: AnalysisSession
+): Promise<unknown> {
   switch (name) {
     case "verify.analyzeCodebase": {
       return await analyzeCodebase({
@@ -296,25 +304,27 @@ async function runExtractor(name: ExtractorName, cwd: string): Promise<unknown> 
       });
     }
     case "adapters.detectAdapter": {
-      const result = detectAdapter(required(verifyTsConfig(cwd), "tsconfig"));
+      const result = await detectAdapter(required(verifyTsConfig(cwd), "tsconfig"), session);
       return { ...result, suggestedAdapter: describeAdapter(result.suggestedAdapter) };
     }
     case "adapters.selectAdapter": {
       const projectType = detectProjectConfig(cwd).type;
-      const adapter = selectAdapter(projectType, required(verifyTsConfig(cwd), "tsconfig"));
-      return { projectType, adapter: describeAdapter(adapter), model: adapter.extractModel() };
+      const tsConfigPath = required(verifyTsConfig(cwd), "tsconfig");
+      const adapter = await selectAdapter(projectType, tsConfigPath, session);
+      const model = await adapter.extractModel(session);
+      return { projectType, adapter: describeAdapter(adapter), model };
     }
     case "adapters.web-extension": {
       const tsConfigPath = required(verifyTsConfig(cwd), "tsconfig");
-      return new WebExtensionAdapter({ tsConfigPath }).extractModel();
+      return await new WebExtensionAdapter({ tsConfigPath }).extractModel(session);
     }
     case "adapters.websocket": {
       const tsConfigPath = required(verifyTsConfig(cwd), "tsconfig");
-      return new WebSocketAdapter({ tsConfigPath }).extractModel();
+      return await new WebSocketAdapter({ tsConfigPath }).extractModel(session);
     }
     case "adapters.event-bus": {
       const tsConfigPath = required(verifyTsConfig(cwd), "tsconfig");
-      return new EventBusAdapter({ tsConfigPath }).extractModel();
+      return await new EventBusAdapter({ tsConfigPath }).extractModel(session);
     }
   }
 }
@@ -347,13 +357,14 @@ async function worker(projectId: string, outFile: string): Promise<void> {
   process.chdir(cwd);
   const rel = makeRelativiser(cwd);
   const out: WorkerOutput = { project: projectId, extractors: {}, timings: {} };
+  await using session = new AnalysisSession({ cwd });
 
   for (const name of EXTRACTORS) {
     const started = performance.now();
     const logs: string[] = [];
     let record: ExtractorRecord;
     try {
-      const captured = await captureConsole(() => runExtractor(name, cwd));
+      const captured = await captureConsole(() => runExtractor(name, cwd, session));
       logs.push(...captured.logs);
       record = { result: encode(captured.value, rel), logs: [] };
     } catch (error) {

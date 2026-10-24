@@ -62,7 +62,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 5,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         // Should find 'connection', 'message', 'close' handlers
         expect(model.handlers.length).toBeGreaterThanOrEqual(2);
@@ -100,7 +100,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 5,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         const messageTypes = model.handlers.map((h) => h.messageType);
         expect(messageTypes).toContain("connection");
@@ -145,7 +145,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 5,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         const connectionHandler = model.handlers.find((h) => h.messageType === "connection");
         expect(connectionHandler).toBeDefined();
@@ -174,7 +174,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 5,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         // Should return empty handlers, NOT fallback to fake data
         expect(model.handlers).toEqual([]);
@@ -205,7 +205,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 3,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         // Should find onMessage handler
         expect(model.handlers.length).toBeGreaterThan(0);
@@ -232,7 +232,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 3,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         expect(model.handlers.length).toBeGreaterThan(0);
       } finally {
@@ -258,7 +258,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 3,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         expect(model.handlers.length).toBeGreaterThan(0);
       } finally {
@@ -287,7 +287,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 3,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         // Context detection happens in HandlerExtractor, not adapter
         // So we just verify handlers were found
@@ -322,7 +322,7 @@ describe("Adapter Pattern Matching", () => {
           maxInFlight: 5,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         const messageTypes = model.handlers.map((h) => h.messageType);
         expect(messageTypes).toContain("user-login");
@@ -356,7 +356,7 @@ describe("Adapter Pattern Matching", () => {
           emitterPattern: /ipc|electron/i,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         const messageTypes = model.handlers.map((h) => h.messageType);
         expect(messageTypes).toContain("open-file");
@@ -388,7 +388,7 @@ describe("Adapter Pattern Matching", () => {
           emitterPattern: /ipc|electron/i,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         const messageTypes = model.handlers.map((h) => h.messageType);
         expect(messageTypes).toContain("file-opened");
@@ -417,7 +417,7 @@ describe("Adapter Pattern Matching", () => {
           emitterPattern: /WILL_NOT_MATCH/,
         });
 
-        const model = adapter.extractModel();
+        const model = await adapter.extractModel();
 
         // Should return empty, NOT fallback to finding events anyway
         expect(model.handlers).toEqual([]);
@@ -428,7 +428,7 @@ describe("Adapter Pattern Matching", () => {
   });
 
   describe("Integration with Real Test Projects", () => {
-    test("WebSocket test project extracts handlers correctly", () => {
+    test("WebSocket test project extracts handlers correctly", async () => {
       const projectPath = path.join(fixturesDir, "websocket-server");
       const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
@@ -438,7 +438,7 @@ describe("Adapter Pattern Matching", () => {
         maxInFlight: 5,
       });
 
-      const model = adapter.extractModel();
+      const model = await adapter.extractModel();
 
       // Our test project has connection and message handlers
       expect(model.handlers.length).toBeGreaterThanOrEqual(2);
@@ -448,7 +448,7 @@ describe("Adapter Pattern Matching", () => {
       expect(messageTypes).toContain("message");
     });
 
-    test("Electron test project extracts IPC handlers correctly", () => {
+    test("Electron test project extracts IPC handlers correctly", async () => {
       const projectPath = path.join(fixturesDir, "electron");
       const tsConfigPath = path.join(projectPath, "tsconfig.json");
 
@@ -458,7 +458,7 @@ describe("Adapter Pattern Matching", () => {
         emitterPattern: /ipc|electron/i,
       });
 
-      const model = adapter.extractModel();
+      const model = await adapter.extractModel();
 
       // Our test project has ipcMain.on handlers
       // Should find the handlers we defined

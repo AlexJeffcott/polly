@@ -3,9 +3,14 @@
 // Automatically detects which adapter to use based on project structure,
 // dependencies, and code patterns.
 
-import { Project, type SourceFile } from "ts-morph";
+import type { SourceFile } from "typescript-7/ast";
 import { readString } from "../../../../src/shared/lib/guards";
-import { sourceFilesInPathOrder } from "../../../analysis/src/extract/source-file-order";
+import {
+  type AnalysisProgram,
+  importDeclarations,
+  moduleSpecifierValue,
+} from "../../../analysis/src/program";
+import { type AnalysisSource, withAdapterProgram } from "./analysis-source";
 import type { RoutingAdapter } from "./base";
 import { EventBusAdapter } from "./event-bus";
 import { WebExtensionAdapter } from "./web-extension";
@@ -36,19 +41,26 @@ export interface AdapterDetectionResult {
 // Adapter Detector
 
 export class AdapterDetector {
-  private project: Project;
+  private readonly tsConfigPath: string;
 
   constructor(tsConfigPath: string) {
-    this.project = new Project({
-      tsConfigFilePath: tsConfigPath,
-    });
+    this.tsConfigPath = tsConfigPath;
   }
 
   /**
    * Detect the most appropriate adapter for this project
+   *
+   * @param source - A session (the tsconfig is opened in it) or an open
+   *   program; the caller keeps ownership. Omitted, a session is opened for
+   *   this call and closed before it returns.
    */
-  detect(): AdapterDetectionResult {
-    const sourceFiles = sourceFilesInPathOrder(this.project);
+  detect(source?: AnalysisSource): Promise<AdapterDetectionResult> {
+    return withAdapterProgram(this.tsConfigPath, source, (program) => this.detectIn(program));
+  }
+
+  private detectIn(program: AnalysisProgram): AdapterDetectionResult {
+    const sourceFiles = program.sourceFiles;
+    const tsConfigPath = readString(program.compilerOptions.configFilePath) || "tsconfig.json";
 
     // Run all detection heuristics
     const webExtensionScore = this.detectWebExtension(sourceFiles);
@@ -73,15 +85,13 @@ export class AdapterDetector {
     if (best.confidence > 50) {
       if (best.type === "web-extension") {
         suggestedAdapter = new WebExtensionAdapter({
-          tsConfigPath:
-            readString(this.project.getCompilerOptions()["configFilePath"]) || "tsconfig.json",
+          tsConfigPath,
           maxInFlight: 6,
           maxTabs: 2,
         });
       } else if (best.type === "event-bus") {
         suggestedAdapter = new EventBusAdapter({
-          tsConfigPath:
-            readString(this.project.getCompilerOptions()["configFilePath"]) || "tsconfig.json",
+          tsConfigPath,
           maxInFlight: 5,
         });
       }
@@ -105,12 +115,15 @@ export class AdapterDetector {
   /**
    * Detect web extension patterns
    */
-  private detectWebExtension(files: SourceFile[]): { confidence: number; evidence: string[] } {
+  private detectWebExtension(files: readonly SourceFile[]): {
+    confidence: number;
+    evidence: string[];
+  } {
     let confidence = 0;
     const evidence: string[] = [];
 
     // Check for manifest.json
-    const hasManifest = files.some((f) => f.getFilePath().includes("manifest.json"));
+    const hasManifest = files.some((f) => f.fileName.includes("manifest.json"));
     if (hasManifest) {
       confidence += 30;
       evidence.push("Found manifest.json");
@@ -119,7 +132,7 @@ export class AdapterDetector {
     // Check for chrome API imports
     let chromeApiCount = 0;
     for (const file of files) {
-      const text = file.getFullText();
+      const text = file.text;
       if (text.includes("chrome.runtime") || text.includes("chrome.tabs")) {
         chromeApiCount++;
       }
@@ -130,9 +143,9 @@ export class AdapterDetector {
     }
 
     // Check for extension directories
-    const hasBackground = files.some((f) => f.getFilePath().includes("/background/"));
-    const hasContent = files.some((f) => f.getFilePath().includes("/content/"));
-    const hasPopup = files.some((f) => f.getFilePath().includes("/popup/"));
+    const hasBackground = files.some((f) => f.fileName.includes("/background/"));
+    const hasContent = files.some((f) => f.fileName.includes("/content/"));
+    const hasPopup = files.some((f) => f.fileName.includes("/popup/"));
 
     const contextCount = [hasBackground, hasContent, hasPopup].filter(Boolean).length;
     if (contextCount > 0) {
@@ -143,7 +156,7 @@ export class AdapterDetector {
     // Check for MessageBus usage
     let messageBusCount = 0;
     for (const file of files) {
-      const text = file.getFullText();
+      const text = file.text;
       if (text.includes("MessageBus") || text.includes("getMessageBus")) {
         messageBusCount++;
       }
@@ -159,7 +172,7 @@ export class AdapterDetector {
   /**
    * Detect event bus patterns
    */
-  private detectEventBus(files: SourceFile[]): { confidence: number; evidence: string[] } {
+  private detectEventBus(files: readonly SourceFile[]): { confidence: number; evidence: string[] } {
     let confidence = 0;
     const evidence: string[] = [];
 
@@ -197,12 +210,11 @@ export class AdapterDetector {
   /**
    * Count EventEmitter imports across files
    */
-  private countEventEmitterImports(files: SourceFile[]): number {
+  private countEventEmitterImports(files: readonly SourceFile[]): number {
     let count = 0;
     for (const file of files) {
-      const imports = file.getImportDeclarations();
-      for (const imp of imports) {
-        const module = imp.getModuleSpecifierValue();
+      for (const imp of importDeclarations(file)) {
+        const module = moduleSpecifierValue(imp);
         if (module === "events" || module === "eventemitter3" || module === "mitt") {
           count++;
         }
@@ -214,10 +226,10 @@ export class AdapterDetector {
   /**
    * Count pattern matches across files
    */
-  private countPatternMatches(files: SourceFile[], pattern: RegExp): number {
+  private countPatternMatches(files: readonly SourceFile[], pattern: RegExp): number {
     let count = 0;
     for (const file of files) {
-      const text = file.getFullText();
+      const text = file.text;
       const matches = text.match(pattern);
       if (matches) {
         count += matches.length;
@@ -229,10 +241,10 @@ export class AdapterDetector {
   /**
    * Count Chrome API usage across files
    */
-  private countChromeAPIUsage(files: SourceFile[]): number {
+  private countChromeAPIUsage(files: readonly SourceFile[]): number {
     let count = 0;
     for (const file of files) {
-      if (file.getFullText().includes("chrome.runtime")) {
+      if (file.text.includes("chrome.runtime")) {
         count++;
       }
     }
@@ -242,14 +254,14 @@ export class AdapterDetector {
   /**
    * Detect web worker patterns
    */
-  private detectWorker(files: SourceFile[]): { confidence: number; evidence: string[] } {
+  private detectWorker(files: readonly SourceFile[]): { confidence: number; evidence: string[] } {
     let confidence = 0;
     const evidence: string[] = [];
 
     // Check for Worker usage
     let workerCount = 0;
     for (const file of files) {
-      const text = file.getFullText();
+      const text = file.text;
       if (text.includes("new Worker(") || text.includes("new SharedWorker(")) {
         workerCount++;
       }
@@ -262,7 +274,7 @@ export class AdapterDetector {
     // Check for postMessage usage
     let postMessageCount = 0;
     for (const file of files) {
-      const text = file.getFullText();
+      const text = file.text;
       const matches = text.match(/\.postMessage\s*\(/g);
       if (matches) {
         postMessageCount += matches.length;
@@ -275,7 +287,7 @@ export class AdapterDetector {
 
     // Check for worker directories
     const hasWorkerDir = files.some(
-      (f) => f.getFilePath().includes("/worker/") || f.getFilePath().includes("/workers/")
+      (f) => f.fileName.includes("/worker/") || f.fileName.includes("/workers/")
     );
     if (hasWorkerDir) {
       confidence += 20;
@@ -289,7 +301,9 @@ export class AdapterDetector {
 /**
  * Detect the most appropriate adapter for a project
  */
-export function detectAdapter(tsConfigPath: string): AdapterDetectionResult {
-  const detector = new AdapterDetector(tsConfigPath);
-  return detector.detect();
+export function detectAdapter(
+  tsConfigPath: string,
+  source?: AnalysisSource
+): Promise<AdapterDetectionResult> {
+  return new AdapterDetector(tsConfigPath).detect(source);
 }

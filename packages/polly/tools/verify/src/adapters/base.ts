@@ -4,13 +4,14 @@
 // Each adapter implements pattern matching and extraction logic for a
 // specific messaging paradigm.
 
-import type { Node } from "ts-morph";
+import type { Node } from "typescript-7/ast";
 import type {
   CoreVerificationModel,
   MessageHandler,
   StateAssignment,
   VerificationCondition,
 } from "../core/model";
+import type { AnalysisSource } from "./analysis-source";
 
 // Adapter Configuration
 
@@ -54,13 +55,17 @@ export interface RoutingAdapter<TConfig extends AdapterConfig = AdapterConfig> {
    * 3. Infer routing rules
    * 4. Extract message handlers and state mutations
    * 5. Return a complete CoreVerificationModel
+   *
+   * @param source - A session (the adapter opens `config.tsConfigPath` in it)
+   *   or an open program. The caller keeps ownership and closes it. Omitted,
+   *   the adapter opens its own session for this call and closes it.
    */
-  extractModel(): CoreVerificationModel;
+  extractModel(source?: AnalysisSource): Promise<CoreVerificationModel>;
 
   /**
    * Recognize if an AST node is a message handler registration
    *
-   * @param node - TypeScript AST node to analyze
+   * @param node - typescript-7 AST node to analyze
    * @returns MessageHandler if recognized, null otherwise
    *
    * @example
@@ -75,7 +80,7 @@ export interface RoutingAdapter<TConfig extends AdapterConfig = AdapterConfig> {
   /**
    * Recognize if an AST node is a state mutation
    *
-   * @param node - TypeScript AST node to analyze
+   * @param node - typescript-7 AST node to analyze
    * @returns StateAssignment if recognized, null otherwise
    *
    * @example
@@ -87,7 +92,7 @@ export interface RoutingAdapter<TConfig extends AdapterConfig = AdapterConfig> {
   /**
    * Recognize if an AST node is a verification condition
    *
-   * @param node - TypeScript AST node to analyze
+   * @param node - typescript-7 AST node to analyze
    * @param type - "precondition" or "postcondition"
    * @returns VerificationCondition if recognized, null otherwise
    *
@@ -123,7 +128,7 @@ export abstract class BaseRoutingAdapter<TConfig extends AdapterConfig = Adapter
   abstract readonly name: string;
   abstract readonly config: TConfig;
 
-  abstract extractModel(): CoreVerificationModel;
+  abstract extractModel(source?: AnalysisSource): Promise<CoreVerificationModel>;
   abstract recognizeMessageHandler(node: Node): MessageHandler | null;
   abstract recognizeStateUpdate(node: Node): StateAssignment | null;
   abstract recognizeVerificationCondition(

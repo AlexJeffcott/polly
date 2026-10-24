@@ -8,8 +8,29 @@
 // - State mutations via state.field = value
 // - Verification primitives (requires, ensures)
 
-import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { sourceFilesInPathOrder } from "../../../../analysis/src/extract/source-file-order";
+import { type Node, type SourceFile, SyntaxKind } from "typescript-7/ast";
+import {
+  isArrowFunction,
+  isBinaryExpression,
+  isBlock,
+  isCallExpression,
+  isExpressionStatement,
+  isFunctionExpression,
+  isIdentifier,
+  isNumericLiteral,
+  isPropertyAccessExpression,
+  isStringLiteral,
+  isTemplateExpression,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  forEachDescendant,
+  literalValue,
+  nameOf,
+  startLine,
+  startOf,
+  textOf,
+} from "../../../../analysis/src/program";
 import type {
   CoreVerificationModel,
   MessageHandler,
@@ -19,6 +40,7 @@ import type {
   StateAssignment,
   VerificationCondition,
 } from "../../core/model";
+import { type AnalysisSource, withAdapterProgram } from "../analysis-source";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
 // Configuration
@@ -42,7 +64,6 @@ export interface EventBusAdapterConfig extends AdapterConfig {
 export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
   readonly name = "event-bus";
   readonly config: EventBusAdapterConfig;
-  private project: Project;
 
   constructor(config: EventBusAdapterConfig) {
     this.config = {
@@ -52,17 +73,19 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
       maxEmitters: 3,
       ...config,
     };
-
-    this.project = new Project({
-      tsConfigFilePath: config.tsConfigPath,
-    });
   }
 
   /**
    * Extract the complete verification model from the event-driven codebase
    */
-  extractModel(): CoreVerificationModel {
-    const sourceFiles = sourceFilesInPathOrder(this.project);
+  extractModel(source?: AnalysisSource): Promise<CoreVerificationModel> {
+    return withAdapterProgram(this.config.tsConfigPath, source, (program) =>
+      this.extractModelFrom(program)
+    );
+  }
+
+  private extractModelFrom(program: AnalysisProgram): CoreVerificationModel {
+    const sourceFiles = program.sourceFiles;
 
     // Extract all handlers
     const handlers: MessageHandler[] = [];
@@ -149,18 +172,18 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Recognize message handler registration: emitter.on("event", handler)
    */
   recognizeMessageHandler(node: Node): MessageHandler | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const expression = node.getExpression();
+    const expression = node.expression;
 
     // Check if this is a .on() or .addListener() call
-    if (!Node.isPropertyAccessExpression(expression)) {
+    if (!isPropertyAccessExpression(expression)) {
       return null;
     }
 
-    const methodName = expression.getName();
+    const methodName = nameOf(expression);
     if (methodName !== "on" && methodName !== "addListener" && methodName !== "addEventListener") {
       return null;
     }
@@ -172,20 +195,19 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Recognize state mutation: state.field = value
    */
   recognizeStateUpdate(node: Node): StateAssignment | null {
-    if (!Node.isBinaryExpression(node)) {
+    if (!isBinaryExpression(node)) {
       return null;
     }
 
-    const operator = node.getOperatorToken().getText();
-    if (operator !== "=") {
+    if (node.operatorToken.kind !== SyntaxKind.EqualsToken) {
       return null;
     }
 
-    const left = node.getLeft();
-    const right = node.getRight();
+    const left = node.left;
+    const right = node.right;
 
     // Check if left side is a state property access
-    if (!Node.isPropertyAccessExpression(left)) {
+    if (!isPropertyAccessExpression(left)) {
       return null;
     }
 
@@ -216,16 +238,16 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     node: Node,
     type: "precondition" | "postcondition"
   ): VerificationCondition | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const callee = node.getExpression();
-    if (!Node.isIdentifier(callee)) {
+    const callee = node.expression;
+    if (!isIdentifier(callee)) {
       return null;
     }
 
-    const functionName = callee.getText();
+    const functionName = textOf(callee);
     const expectedName = type === "precondition" ? "requires" : "ensures";
 
     if (functionName !== expectedName) {
@@ -242,10 +264,10 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    */
   private extractHandlersFromFile(sourceFile: SourceFile): MessageHandler[] {
     const handlers: MessageHandler[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
     const contextFromPath = this.inferContextFromPath(filePath);
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       const handler = this.recognizeMessageHandler(node);
       if (handler) {
         // Override node with context inferred from file path if available
@@ -267,11 +289,11 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Extract handler details from a .on() call expression
    */
   private extractHandlerFromOnCall(callExpr: Node): MessageHandler | null {
-    if (!Node.isCallExpression(callExpr)) {
+    if (!isCallExpression(callExpr)) {
       return null;
     }
 
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length < 2) {
       return null;
@@ -281,10 +303,10 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     const eventNameArg = args[0];
     let eventName: string | null = null;
 
-    if (Node.isStringLiteral(eventNameArg)) {
-      eventName = eventNameArg.getLiteralValue();
-    } else if (Node.isTemplateExpression(eventNameArg)) {
-      eventName = eventNameArg.getText().replace(/[`'"]/g, "");
+    if (eventNameArg && isStringLiteral(eventNameArg)) {
+      eventName = literalValue(eventNameArg);
+    } else if (eventNameArg && isTemplateExpression(eventNameArg)) {
+      eventName = textOf(eventNameArg).replace(/[`'"]/g, "");
     }
 
     if (!eventName) {
@@ -298,18 +320,18 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     const postconditions: VerificationCondition[] = [];
 
     // Parse the handler function for state assignments and verification conditions
-    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+    if (handlerArg && (isArrowFunction(handlerArg) || isFunctionExpression(handlerArg))) {
       this.extractAssignmentsFromFunction(handlerArg, assignments);
       this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions);
     }
 
     // Infer emitter name from the call expression
-    const expression = callExpr.getExpression();
+    const expression = callExpr.expression;
     let emitterName = "central-bus";
-    if (Node.isPropertyAccessExpression(expression)) {
-      const emitterExpr = expression.getExpression();
-      if (Node.isIdentifier(emitterExpr)) {
-        emitterName = emitterExpr.getText();
+    if (isPropertyAccessExpression(expression)) {
+      const emitterExpr = expression.expression;
+      if (isIdentifier(emitterExpr)) {
+        emitterName = textOf(emitterExpr);
       }
     }
 
@@ -319,7 +341,7 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     }
 
     const sourceFile = callExpr.getSourceFile();
-    const line = callExpr.getStartLineNumber();
+    const line = startLine(callExpr);
 
     return {
       messageType: eventName,
@@ -328,7 +350,7 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
       preconditions,
       postconditions,
       location: {
-        file: sourceFile.getFilePath(),
+        file: sourceFile.fileName,
         line,
       },
     };
@@ -338,7 +360,7 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Extract state assignments from a handler function
    */
   private extractAssignmentsFromFunction(funcNode: Node, assignments: StateAssignment[]): void {
-    funcNode.forEachDescendant((node) => {
+    forEachDescendant(funcNode, (node) => {
       const assignment = this.recognizeStateUpdate(node);
       if (assignment) {
         assignments.push(assignment);
@@ -355,21 +377,19 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     postconditions: VerificationCondition[]
   ): void {
     const body =
-      Node.isArrowFunction(funcNode) || Node.isFunctionExpression(funcNode)
-        ? funcNode.getBody()
-        : funcNode;
+      isArrowFunction(funcNode) || isFunctionExpression(funcNode) ? funcNode.body : funcNode;
 
     if (!body) {
       return;
     }
 
     // Get all statements in the function body
-    const statements = Node.isBlock(body) ? body.getStatements() : [body];
+    const statements = isBlock(body) ? body.statements : [body];
 
     for (const statement of statements) {
       // Look for expression statements that are function calls
-      if (Node.isExpressionStatement(statement)) {
-        const expr = statement.getExpression();
+      if (isExpressionStatement(statement)) {
+        const expr = statement.expression;
 
         const precond = this.recognizeVerificationCondition(expr, "precondition");
         if (precond) {
@@ -388,11 +408,11 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Extract condition from a requires() or ensures() call
    */
   private extractCondition(callExpr: Node): VerificationCondition | null {
-    if (!Node.isCallExpression(callExpr)) {
+    if (!isCallExpression(callExpr)) {
       return null;
     }
 
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length === 0) {
       return null;
@@ -401,16 +421,17 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     // First argument is the condition expression
     const conditionArg = args[0];
     if (!conditionArg) return null;
-    const expression = conditionArg.getText();
+    const expression = textOf(conditionArg);
 
     // Second argument (optional) is the message
     let message: string | undefined;
-    if (args.length >= 2 && Node.isStringLiteral(args[1])) {
-      message = args[1].getLiteralValue();
+    const messageArg = args[1];
+    if (messageArg && isStringLiteral(messageArg)) {
+      message = literalValue(messageArg);
     }
 
-    const line = callExpr.getStartLineNumber();
-    const column = callExpr.getStart();
+    const line = startLine(callExpr);
+    const column = startOf(callExpr);
 
     return {
       expression,
@@ -429,14 +450,14 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
     const parts: string[] = [];
 
     let current: Node = node;
-    while (Node.isPropertyAccessExpression(current)) {
-      parts.unshift(current.getName());
-      current = current.getExpression();
+    while (isPropertyAccessExpression(current)) {
+      parts.unshift(textOf(current.name));
+      current = current.expression;
     }
 
     // Add the base identifier
-    if (Node.isIdentifier(current)) {
-      parts.unshift(current.getText());
+    if (isIdentifier(current)) {
+      parts.unshift(textOf(current));
     }
 
     return parts.join(".");
@@ -446,23 +467,23 @@ export class EventBusAdapter implements RoutingAdapter<EventBusAdapterConfig> {
    * Extract a literal value from an expression
    */
   private extractValue(node: Node): string | boolean | number | null | undefined {
-    if (Node.isStringLiteral(node)) {
-      return node.getLiteralValue();
+    if (isStringLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (Node.isNumericLiteral(node)) {
-      return node.getLiteralValue();
+    if (isNumericLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (node.getKind() === SyntaxKind.TrueKeyword) {
+    if (node.kind === SyntaxKind.TrueKeyword) {
       return true;
     }
 
-    if (node.getKind() === SyntaxKind.FalseKeyword) {
+    if (node.kind === SyntaxKind.FalseKeyword) {
       return false;
     }
 
-    if (node.getKind() === SyntaxKind.NullKeyword) {
+    if (node.kind === SyntaxKind.NullKeyword) {
       return null;
     }
 

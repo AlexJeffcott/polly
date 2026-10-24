@@ -4,15 +4,21 @@
 // Automatically selects the correct adapter based on detected project type.
 
 import type { ProjectType } from "../../../analysis/src";
+import type { AnalysisSource } from "./analysis-source";
 import type { RoutingAdapter } from "./base";
+import { detectAdapter } from "./detection";
 import { EventBusAdapter } from "./event-bus";
 import { WebExtensionAdapter } from "./web-extension";
 import { WebSocketAdapter } from "./websocket";
 
 /**
- * Adapter factory function type
+ * Adapter factory function type. Only `generic` reads the code (adapter
+ * detection), so only it uses `source`, and only it is asynchronous.
  */
-type AdapterFactory = (tsConfigPath: string) => RoutingAdapter;
+type AdapterFactory = (
+  tsConfigPath: string,
+  source?: AnalysisSource
+) => RoutingAdapter | Promise<RoutingAdapter>;
 
 /**
  * Registry mapping ProjectType to adapter factory functions
@@ -89,10 +95,9 @@ export const ADAPTER_REGISTRY: Record<ProjectType, AdapterFactory> = {
    * Generic TypeScript Project: Falls back to detection-based adapter selection
    * Tries to auto-detect the best adapter based on code patterns
    */
-  generic: (tsConfigPath: string) => {
-    // Import detection module to analyze code patterns
-    const { detectAdapter } = require("./detection");
-    const result = detectAdapter(tsConfigPath);
+  generic: async (tsConfigPath: string, source?: AnalysisSource) => {
+    // Analyze code patterns
+    const result = await detectAdapter(tsConfigPath, source);
 
     // If detection is confident, use suggested adapter
     if (result.confidence > 50 && result.suggestedAdapter) {
@@ -114,13 +119,19 @@ export const ADAPTER_REGISTRY: Record<ProjectType, AdapterFactory> = {
  *
  * @param projectType - Detected project type
  * @param tsConfigPath - Path to tsconfig.json
+ * @param source - Session or program for adapter detection (`generic` only);
+ *   the caller keeps ownership. Omitted, detection opens and closes its own.
  * @returns Configured RoutingAdapter instance
  *
  * @example
- * const adapter = selectAdapter("websocket-app", "./tsconfig.json")
- * const model = adapter.extractModel()
+ * const adapter = await selectAdapter("websocket-app", "./tsconfig.json")
+ * const model = await adapter.extractModel()
  */
-export function selectAdapter(projectType: ProjectType, tsConfigPath: string): RoutingAdapter {
+export async function selectAdapter(
+  projectType: ProjectType,
+  tsConfigPath: string,
+  source?: AnalysisSource
+): Promise<RoutingAdapter> {
   const factory = ADAPTER_REGISTRY[projectType];
 
   if (!factory) {
@@ -130,7 +141,7 @@ export function selectAdapter(projectType: ProjectType, tsConfigPath: string): R
     );
   }
 
-  return factory(tsConfigPath);
+  return factory(tsConfigPath, source);
 }
 
 /**

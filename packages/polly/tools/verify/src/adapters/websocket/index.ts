@@ -8,8 +8,29 @@
 // - State mutations via global state object
 // - Verification primitives (requires, ensures)
 
-import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { sourceFilesInPathOrder } from "../../../../analysis/src/extract/source-file-order";
+import { type Node, type SourceFile, SyntaxKind } from "typescript-7/ast";
+import {
+  isArrowFunction,
+  isBinaryExpression,
+  isBlock,
+  isCallExpression,
+  isExpressionStatement,
+  isFunctionDeclaration,
+  isFunctionExpression,
+  isIdentifier,
+  isNumericLiteral,
+  isPropertyAccessExpression,
+  isStringLiteral,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  forEachDescendant,
+  literalValue,
+  nameOf,
+  startLine,
+  startOf,
+  textOf,
+} from "../../../../analysis/src/program";
 import type {
   CoreVerificationModel,
   MessageHandler,
@@ -19,6 +40,7 @@ import type {
   StateAssignment,
   VerificationCondition,
 } from "../../core/model";
+import { type AnalysisSource, withAdapterProgram } from "../analysis-source";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
 // Configuration
@@ -42,7 +64,6 @@ export interface WebSocketAdapterConfig extends AdapterConfig {
 export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> {
   readonly name = "websocket";
   readonly config: WebSocketAdapterConfig;
-  private project: Project;
 
   constructor(config: WebSocketAdapterConfig) {
     this.config = {
@@ -52,17 +73,19 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
       maxInFlight: 5,
       ...config,
     };
-
-    this.project = new Project({
-      tsConfigFilePath: config.tsConfigPath,
-    });
   }
 
   /**
    * Extract the complete verification model from the WebSocket application
    */
-  extractModel(): CoreVerificationModel {
-    const sourceFiles = sourceFilesInPathOrder(this.project);
+  extractModel(source?: AnalysisSource): Promise<CoreVerificationModel> {
+    return withAdapterProgram(this.config.tsConfigPath, source, (program) =>
+      this.extractModelFrom(program)
+    );
+  }
+
+  private extractModelFrom(program: AnalysisProgram): CoreVerificationModel {
+    const sourceFiles = program.sourceFiles;
 
     // Extract all handlers
     const handlers: MessageHandler[] = [];
@@ -160,11 +183,11 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * Recognize message handler: handle* functions
    */
   recognizeMessageHandler(node: Node): MessageHandler | null {
-    if (!Node.isFunctionDeclaration(node)) {
+    if (!isFunctionDeclaration(node)) {
       return null;
     }
 
-    const name = node.getName();
+    const name = nameOf(node);
     if (!name || !this.config.handlerPattern?.test(name)) {
       return null;
     }
@@ -176,20 +199,24 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * Recognize state mutation: state.field = value
    */
   recognizeStateUpdate(node: Node): StateAssignment | null {
-    if (!Node.isBinaryExpression(node)) {
+    if (!isBinaryExpression(node)) {
       return null;
     }
 
-    const operator = node.getOperatorToken().getText();
-    if (operator !== "=" && operator !== "+=" && operator !== "-=") {
+    const operator = node.operatorToken.kind;
+    if (
+      operator !== SyntaxKind.EqualsToken &&
+      operator !== SyntaxKind.PlusEqualsToken &&
+      operator !== SyntaxKind.MinusEqualsToken
+    ) {
       return null;
     }
 
-    const left = node.getLeft();
-    const right = node.getRight();
+    const left = node.left;
+    const right = node.right;
 
     // Check if left side is a state property access
-    if (!Node.isPropertyAccessExpression(left)) {
+    if (!isPropertyAccessExpression(left)) {
       return null;
     }
 
@@ -203,7 +230,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     const field = fieldPath.substring(6); // Remove "state." prefix
 
     // For += and -= operators, we can't extract the exact value
-    if (operator !== "=") {
+    if (operator !== SyntaxKind.EqualsToken) {
       return null;
     }
 
@@ -226,16 +253,16 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     node: Node,
     type: "precondition" | "postcondition"
   ): VerificationCondition | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const callee = node.getExpression();
-    if (!Node.isIdentifier(callee)) {
+    const callee = node.expression;
+    if (!isIdentifier(callee)) {
       return null;
     }
 
-    const functionName = callee.getText();
+    const functionName = textOf(callee);
     const expectedName = type === "precondition" ? "requires" : "ensures";
 
     if (functionName !== expectedName) {
@@ -253,7 +280,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
   private extractHandlersFromFile(sourceFile: SourceFile): MessageHandler[] {
     const handlers: MessageHandler[] = [];
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       // Try to recognize as a function declaration (handle* pattern)
       const handler = this.recognizeMessageHandler(node);
       if (handler) {
@@ -279,38 +306,38 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * - io.on('connection', (socket) => { ... })
    */
   private recognizeEventListenerHandler(node: Node): MessageHandler | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const expression = node.getExpression();
+    const expression = node.expression;
 
     // Check if it's a .on() call
-    if (!Node.isPropertyAccessExpression(expression)) {
+    if (!isPropertyAccessExpression(expression)) {
       return null;
     }
 
-    const methodName = expression.getName();
+    const methodName = nameOf(expression);
     if (methodName !== "on") {
       return null;
     }
 
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) {
       return null;
     }
 
     // First argument should be the event name (string literal)
     const eventNameArg = args[0];
-    if (!Node.isStringLiteral(eventNameArg)) {
+    if (!eventNameArg || !isStringLiteral(eventNameArg)) {
       return null;
     }
 
-    const messageType = eventNameArg.getLiteralValue();
+    const messageType = literalValue(eventNameArg);
 
     // Second argument should be the handler function (arrow function or function expression)
     const handlerArg = args[1];
-    if (!Node.isArrowFunction(handlerArg) && !Node.isFunctionExpression(handlerArg)) {
+    if (!handlerArg || (!isArrowFunction(handlerArg) && !isFunctionExpression(handlerArg))) {
       return null;
     }
 
@@ -323,7 +350,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions);
 
     const sourceFile = node.getSourceFile();
-    const line = node.getStartLineNumber();
+    const line = startLine(node, sourceFile);
 
     return {
       messageType,
@@ -332,7 +359,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
       preconditions,
       postconditions,
       location: {
-        file: sourceFile.getFilePath(),
+        file: sourceFile.fileName,
         line,
       },
     };
@@ -342,11 +369,11 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * Extract handler details from a handle* function
    */
   private extractHandlerFromFunction(funcNode: Node): MessageHandler | null {
-    if (!Node.isFunctionDeclaration(funcNode)) {
+    if (!isFunctionDeclaration(funcNode)) {
       return null;
     }
 
-    const name = funcNode.getName();
+    const name = nameOf(funcNode);
     if (!name) {
       return null;
     }
@@ -364,7 +391,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     this.extractVerificationConditionsFromFunction(funcNode, preconditions, postconditions);
 
     const sourceFile = funcNode.getSourceFile();
-    const line = funcNode.getStartLineNumber();
+    const line = startLine(funcNode, sourceFile);
 
     return {
       messageType,
@@ -373,7 +400,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
       preconditions,
       postconditions,
       location: {
-        file: sourceFile.getFilePath(),
+        file: sourceFile.fileName,
         line,
       },
     };
@@ -398,7 +425,7 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * Extract state assignments from a function
    */
   private extractAssignmentsFromFunction(funcNode: Node, assignments: StateAssignment[]): void {
-    funcNode.forEachDescendant((node) => {
+    forEachDescendant(funcNode, (node) => {
       const assignment = this.recognizeStateUpdate(node);
       if (assignment) {
         assignments.push(assignment);
@@ -416,32 +443,32 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
   ): void {
     // Support function declarations, arrow functions, and function expressions
     if (
-      !Node.isFunctionDeclaration(funcNode) &&
-      !Node.isArrowFunction(funcNode) &&
-      !Node.isFunctionExpression(funcNode)
+      !isFunctionDeclaration(funcNode) &&
+      !isArrowFunction(funcNode) &&
+      !isFunctionExpression(funcNode)
     ) {
       return;
     }
 
-    const body = funcNode.getBody();
+    const body = funcNode.body;
 
     if (!body) {
       return;
     }
 
     // Handle both block statements and expression bodies (arrow functions)
-    if (!Node.isBlock(body)) {
+    if (!isBlock(body)) {
       // For arrow functions with expression body, no statements to check
       return;
     }
 
     // Get all statements in the function body
-    const statements = body.getStatements();
+    const statements = body.statements;
 
     for (const statement of statements) {
       // Look for expression statements that are function calls
-      if (Node.isExpressionStatement(statement)) {
-        const expr = statement.getExpression();
+      if (isExpressionStatement(statement)) {
+        const expr = statement.expression;
 
         const precond = this.recognizeVerificationCondition(expr, "precondition");
         if (precond) {
@@ -460,11 +487,11 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * Extract condition from a requires() or ensures() call
    */
   private extractCondition(callExpr: Node): VerificationCondition | null {
-    if (!Node.isCallExpression(callExpr)) {
+    if (!isCallExpression(callExpr)) {
       return null;
     }
 
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length === 0) {
       return null;
@@ -473,16 +500,17 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     // First argument is the condition expression
     const conditionArg = args[0];
     if (!conditionArg) return null;
-    const expression = conditionArg.getText();
+    const expression = textOf(conditionArg);
 
     // Second argument (optional) is the message
     let message: string | undefined;
-    if (args.length >= 2 && Node.isStringLiteral(args[1])) {
-      message = args[1].getLiteralValue();
+    const messageArg = args[1];
+    if (messageArg && isStringLiteral(messageArg)) {
+      message = literalValue(messageArg);
     }
 
-    const line = callExpr.getStartLineNumber();
-    const column = callExpr.getStart();
+    const line = startLine(callExpr);
+    const column = startOf(callExpr);
 
     return {
       expression,
@@ -501,14 +529,14 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
     const parts: string[] = [];
 
     let current: Node = node;
-    while (Node.isPropertyAccessExpression(current)) {
-      parts.unshift(current.getName());
-      current = current.getExpression();
+    while (isPropertyAccessExpression(current)) {
+      parts.unshift(textOf(current.name));
+      current = current.expression;
     }
 
     // Add the base identifier
-    if (Node.isIdentifier(current)) {
-      parts.unshift(current.getText());
+    if (isIdentifier(current)) {
+      parts.unshift(textOf(current));
     }
 
     return parts.join(".");
@@ -518,23 +546,23 @@ export class WebSocketAdapter implements RoutingAdapter<WebSocketAdapterConfig> 
    * Extract a literal value from an expression
    */
   private extractValue(node: Node): string | boolean | number | null | undefined {
-    if (Node.isStringLiteral(node)) {
-      return node.getLiteralValue();
+    if (isStringLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (Node.isNumericLiteral(node)) {
-      return node.getLiteralValue();
+    if (isNumericLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (node.getKind() === SyntaxKind.TrueKeyword) {
+    if (node.kind === SyntaxKind.TrueKeyword) {
       return true;
     }
 
-    if (node.getKind() === SyntaxKind.FalseKeyword) {
+    if (node.kind === SyntaxKind.FalseKeyword) {
       return false;
     }
 
-    if (node.getKind() === SyntaxKind.NullKeyword) {
+    if (node.kind === SyntaxKind.NullKeyword) {
       return null;
     }
 

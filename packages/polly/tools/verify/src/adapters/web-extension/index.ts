@@ -7,8 +7,36 @@
 // - State mutations via state.field = value
 // - Verification primitives (requires, ensures)
 
-import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { sourceFilesInPathOrder } from "../../../../analysis/src/extract/source-file-order";
+import {
+  type Node,
+  type ObjectLiteralExpression,
+  type SourceFile,
+  SyntaxKind,
+} from "typescript-7/ast";
+import {
+  isArrowFunction,
+  isBinaryExpression,
+  isBlock,
+  isCallExpression,
+  isExpressionStatement,
+  isFunctionExpression,
+  isIdentifier,
+  isNumericLiteral,
+  isObjectLiteralExpression,
+  isPropertyAccessExpression,
+  isPropertyAssignment,
+  isStringLiteral,
+  isTemplateExpression,
+} from "typescript-7/ast/is";
+import {
+  type AnalysisProgram,
+  forEachDescendant,
+  literalValue,
+  nameOf,
+  startLine,
+  startOf,
+  textOf,
+} from "../../../../analysis/src/program";
 import type {
   CoreVerificationModel,
   MessageHandler,
@@ -19,6 +47,7 @@ import type {
   StateConstraint,
   VerificationCondition,
 } from "../../core/model";
+import { type AnalysisSource, withAdapterProgram } from "../analysis-source";
 import type { AdapterConfig, RoutingAdapter } from "../base";
 
 // Configuration
@@ -54,7 +83,6 @@ export interface WebExtensionAdapterConfig extends AdapterConfig {
 export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterConfig> {
   readonly name = "web-extension";
   readonly config: WebExtensionAdapterConfig;
-  private project: Project;
 
   constructor(config: WebExtensionAdapterConfig) {
     this.config = {
@@ -64,17 +92,19 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       maxInFlight: 3,
       ...config,
     };
-
-    this.project = new Project({
-      tsConfigFilePath: config.tsConfigPath,
-    });
   }
 
   /**
    * Extract the complete verification model from the extension codebase
    */
-  extractModel(): CoreVerificationModel {
-    const sourceFiles = sourceFilesInPathOrder(this.project);
+  extractModel(source?: AnalysisSource): Promise<CoreVerificationModel> {
+    return withAdapterProgram(this.config.tsConfigPath, source, (program) =>
+      this.extractModelFrom(program)
+    );
+  }
+
+  private extractModelFrom(program: AnalysisProgram): CoreVerificationModel {
+    const sourceFiles = program.sourceFiles;
 
     // Extract all handlers
     const handlers: MessageHandler[] = [];
@@ -168,18 +198,18 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * - chrome.tabs.onUpdated.addListener(handler)
    */
   recognizeMessageHandler(node: Node): MessageHandler | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const expression = node.getExpression();
+    const expression = node.expression;
 
     // Check if this is a .on() or .addListener() call
-    if (!Node.isPropertyAccessExpression(expression)) {
+    if (!isPropertyAccessExpression(expression)) {
       return null;
     }
 
-    const methodName = expression.getName();
+    const methodName = nameOf(expression);
 
     // Handle .on() pattern
     if (methodName === "on") {
@@ -200,25 +230,25 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * - chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => { ... })
    */
   private extractHandlerFromAddListener(callExpr: Node): MessageHandler | null {
-    if (!Node.isCallExpression(callExpr)) {
+    if (!isCallExpression(callExpr)) {
       return null;
     }
 
-    const expression = callExpr.getExpression();
-    if (!Node.isPropertyAccessExpression(expression)) {
+    const expression = callExpr.expression;
+    if (!isPropertyAccessExpression(expression)) {
       return null;
     }
 
     // Get the event object (e.g., chrome.runtime.onMessage, chrome.tabs.onUpdated)
-    const eventObject = expression.getExpression();
-    if (!Node.isPropertyAccessExpression(eventObject)) {
+    const eventObject = expression.expression;
+    if (!isPropertyAccessExpression(eventObject)) {
       return null;
     }
 
     // Extract event name from the property chain
     // chrome.runtime.onMessage -> "onMessage"
     // chrome.tabs.onUpdated -> "onUpdated"
-    const eventName = eventObject.getName();
+    const eventName = textOf(eventObject.name);
 
     // Convert event name to message type
     // onMessage -> "message"
@@ -226,13 +256,13 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     const messageType = eventName.replace(/^on/, "").toLowerCase();
 
     // Get the handler function (first argument)
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
     if (args.length === 0) {
       return null;
     }
 
     const handlerArg = args[0];
-    if (!Node.isArrowFunction(handlerArg) && !Node.isFunctionExpression(handlerArg)) {
+    if (!handlerArg || (!isArrowFunction(handlerArg) && !isFunctionExpression(handlerArg))) {
       return null;
     }
 
@@ -245,7 +275,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions);
 
     const sourceFile = callExpr.getSourceFile();
-    const line = callExpr.getStartLineNumber();
+    const line = startLine(callExpr);
 
     return {
       messageType,
@@ -254,7 +284,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       preconditions,
       postconditions,
       location: {
-        file: sourceFile.getFilePath(),
+        file: sourceFile.fileName,
         line,
       },
     };
@@ -264,20 +294,19 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * Recognize state mutation: state.field = value OR signalName.value = expression
    */
   recognizeStateUpdate(node: Node): StateAssignment | null {
-    if (!Node.isBinaryExpression(node)) {
+    if (!isBinaryExpression(node)) {
       return null;
     }
 
-    const operator = node.getOperatorToken().getText();
-    if (operator !== "=") {
+    if (node.operatorToken.kind !== SyntaxKind.EqualsToken) {
       return null;
     }
 
-    const left = node.getLeft();
-    const right = node.getRight();
+    const left = node.left;
+    const right = node.right;
 
     // Check if left side is a state property access
-    if (!Node.isPropertyAccessExpression(left)) {
+    if (!isPropertyAccessExpression(left)) {
       return null;
     }
 
@@ -320,7 +349,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
 
     // Case 2: Object literal - extract first extractable property as state field
     // e.g., user.value = { loggedIn: true } -> user_loggedIn = true
-    if (Node.isObjectLiteralExpression(right)) {
+    if (isObjectLiteralExpression(right)) {
       return this.extractFirstObjectProperty(signalName, right);
     }
 
@@ -333,13 +362,13 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    */
   private extractFirstObjectProperty(
     signalName: string,
-    objectLiteral: import("ts-morph").ObjectLiteralExpression
+    objectLiteral: ObjectLiteralExpression
   ): StateAssignment | null {
-    for (const prop of objectLiteral.getProperties()) {
-      if (!Node.isPropertyAssignment(prop)) continue;
+    for (const prop of objectLiteral.properties) {
+      if (!isPropertyAssignment(prop)) continue;
 
-      const propName = prop.getName();
-      const initializer = prop.getInitializer();
+      const propName = textOf(prop.name);
+      const initializer = prop.initializer;
       if (!initializer) continue;
 
       const propValue = this.extractValue(initializer);
@@ -358,16 +387,16 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     node: Node,
     type: "precondition" | "postcondition"
   ): VerificationCondition | null {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return null;
     }
 
-    const callee = node.getExpression();
-    if (!Node.isIdentifier(callee)) {
+    const callee = node.expression;
+    if (!isIdentifier(callee)) {
       return null;
     }
 
-    const functionName = callee.getText();
+    const functionName = textOf(callee);
     const expectedName = type === "precondition" ? "requires" : "ensures";
 
     if (functionName !== expectedName) {
@@ -384,10 +413,10 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    */
   private extractHandlersFromFile(sourceFile: SourceFile): MessageHandler[] {
     const handlers: MessageHandler[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
     const context = this.inferContextFromPath(filePath);
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       const handler = this.recognizeMessageHandler(node);
       if (handler) {
         // Override context with inferred value
@@ -406,9 +435,9 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    */
   private extractStateConstraintsFromFile(sourceFile: SourceFile): StateConstraint[] {
     const constraints: StateConstraint[] = [];
-    const filePath = sourceFile.getFilePath();
+    const filePath = sourceFile.fileName;
 
-    sourceFile.forEachDescendant((node) => {
+    forEachDescendant(sourceFile, (node) => {
       const nodeConstraints = this.recognizeStateConstraint(node);
       if (nodeConstraints.length > 0) {
         for (const constraint of nodeConstraints) {
@@ -431,49 +460,49 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals
   private recognizeStateConstraint(node: Node): StateConstraint[] {
-    if (!Node.isCallExpression(node)) {
+    if (!isCallExpression(node)) {
       return [];
     }
 
-    const expression = node.getExpression();
-    if (!Node.isIdentifier(expression)) {
+    const expression = node.expression;
+    if (!isIdentifier(expression)) {
       return [];
     }
 
-    const functionName = expression.getText();
+    const functionName = textOf(expression);
     if (functionName !== "$constraints") {
       return [];
     }
 
     // Get arguments: $constraints(field, constraintsObject)
-    const args = node.getArguments();
+    const args = node.arguments;
     if (args.length < 2) {
       return [];
     }
 
     // First argument is the state field name
     const fieldArg = args[0];
-    if (!Node.isStringLiteral(fieldArg)) {
+    if (!fieldArg || !isStringLiteral(fieldArg)) {
       return [];
     }
-    const field = fieldArg.getLiteralValue();
+    const field = literalValue(fieldArg);
 
     // Second argument is the constraints object
     const constraintsArg = args[1];
-    if (!Node.isObjectLiteralExpression(constraintsArg)) {
+    if (!constraintsArg || !isObjectLiteralExpression(constraintsArg)) {
       return [];
     }
 
     // Extract each message type constraint
     const results: StateConstraint[] = [];
-    for (const property of constraintsArg.getProperties()) {
-      if (!Node.isPropertyAssignment(property)) {
+    for (const property of constraintsArg.properties) {
+      if (!isPropertyAssignment(property)) {
         continue;
       }
 
-      const messageType = property.getName();
-      const initializer = property.getInitializer();
-      if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
+      const messageType = textOf(property.name);
+      const initializer = property.initializer;
+      if (!initializer || !isObjectLiteralExpression(initializer)) {
         continue;
       }
 
@@ -482,23 +511,23 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       let ensures: string | undefined;
       let message: string | undefined;
 
-      for (const constraintProp of initializer.getProperties()) {
-        if (!Node.isPropertyAssignment(constraintProp)) {
+      for (const constraintProp of initializer.properties) {
+        if (!isPropertyAssignment(constraintProp)) {
           continue;
         }
 
-        const propName = constraintProp.getName();
-        const propValue = constraintProp.getInitializer();
+        const propName = textOf(constraintProp.name);
+        const propValue = constraintProp.initializer;
         if (!propValue) {
           continue;
         }
 
-        if (propName === "requires" && Node.isStringLiteral(propValue)) {
-          requires = propValue.getLiteralValue();
-        } else if (propName === "ensures" && Node.isStringLiteral(propValue)) {
-          ensures = propValue.getLiteralValue();
-        } else if (propName === "message" && Node.isStringLiteral(propValue)) {
-          message = propValue.getLiteralValue();
+        if (propName === "requires" && isStringLiteral(propValue)) {
+          requires = literalValue(propValue);
+        } else if (propName === "ensures" && isStringLiteral(propValue)) {
+          ensures = literalValue(propValue);
+        } else if (propName === "message" && isStringLiteral(propValue)) {
+          message = literalValue(propValue);
         }
       }
 
@@ -510,7 +539,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
         message,
         location: {
           file: "", // Will be set by caller
-          line: property.getStartLineNumber(),
+          line: startLine(property),
         },
       });
     }
@@ -523,11 +552,11 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * Extract handler details from a .on() call expression
    */
   private extractHandlerFromOnCall(callExpr: Node): MessageHandler | null {
-    if (!Node.isCallExpression(callExpr)) {
+    if (!isCallExpression(callExpr)) {
       return null;
     }
 
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length < 2) {
       return null;
@@ -537,10 +566,10 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     const messageTypeArg = args[0];
     let messageType: string | null = null;
 
-    if (Node.isStringLiteral(messageTypeArg)) {
-      messageType = messageTypeArg.getLiteralValue();
-    } else if (Node.isTemplateExpression(messageTypeArg)) {
-      messageType = messageTypeArg.getText().replace(/[`'"]/g, "");
+    if (messageTypeArg && isStringLiteral(messageTypeArg)) {
+      messageType = literalValue(messageTypeArg);
+    } else if (messageTypeArg && isTemplateExpression(messageTypeArg)) {
+      messageType = textOf(messageTypeArg).replace(/[`'"]/g, "");
     }
 
     if (!messageType) {
@@ -554,13 +583,13 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     const postconditions: VerificationCondition[] = [];
 
     // Parse the handler function for state assignments and verification conditions
-    if (Node.isArrowFunction(handlerArg) || Node.isFunctionExpression(handlerArg)) {
+    if (handlerArg && (isArrowFunction(handlerArg) || isFunctionExpression(handlerArg))) {
       this.extractAssignmentsFromFunction(handlerArg, assignments);
       this.extractVerificationConditionsFromFunction(handlerArg, preconditions, postconditions);
     }
 
     const sourceFile = callExpr.getSourceFile();
-    const line = callExpr.getStartLineNumber();
+    const line = startLine(callExpr);
 
     return {
       messageType,
@@ -569,7 +598,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
       preconditions,
       postconditions,
       location: {
-        file: sourceFile.getFilePath(),
+        file: sourceFile.fileName,
         line,
       },
     };
@@ -579,7 +608,7 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * Extract state assignments from a handler function
    */
   private extractAssignmentsFromFunction(funcNode: Node, assignments: StateAssignment[]): void {
-    funcNode.forEachDescendant((node) => {
+    forEachDescendant(funcNode, (node) => {
       const assignment = this.recognizeStateUpdate(node);
       if (assignment) {
         assignments.push(assignment);
@@ -596,21 +625,19 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     postconditions: VerificationCondition[]
   ): void {
     const body =
-      Node.isArrowFunction(funcNode) || Node.isFunctionExpression(funcNode)
-        ? funcNode.getBody()
-        : funcNode;
+      isArrowFunction(funcNode) || isFunctionExpression(funcNode) ? funcNode.body : funcNode;
 
     if (!body) {
       return;
     }
 
     // Get all statements in the function body
-    const statements = Node.isBlock(body) ? body.getStatements() : [body];
+    const statements = isBlock(body) ? body.statements : [body];
 
     for (const statement of statements) {
       // Look for expression statements that are function calls
-      if (Node.isExpressionStatement(statement)) {
-        const expr = statement.getExpression();
+      if (isExpressionStatement(statement)) {
+        const expr = statement.expression;
 
         const precond = this.recognizeVerificationCondition(expr, "precondition");
         if (precond) {
@@ -629,11 +656,11 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * Extract condition from a requires() or ensures() call
    */
   private extractCondition(callExpr: Node): VerificationCondition | null {
-    if (!Node.isCallExpression(callExpr)) {
+    if (!isCallExpression(callExpr)) {
       return null;
     }
 
-    const args = callExpr.getArguments();
+    const args = callExpr.arguments;
 
     if (args.length === 0) {
       return null;
@@ -642,16 +669,17 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     // First argument is the condition expression
     const conditionArg = args[0];
     if (!conditionArg) return null;
-    const expression = conditionArg.getText();
+    const expression = textOf(conditionArg);
 
     // Second argument (optional) is the message
     let message: string | undefined;
-    if (args.length >= 2 && Node.isStringLiteral(args[1])) {
-      message = args[1].getLiteralValue();
+    const messageArg = args[1];
+    if (messageArg && isStringLiteral(messageArg)) {
+      message = literalValue(messageArg);
     }
 
-    const line = callExpr.getStartLineNumber();
-    const column = callExpr.getStart();
+    const line = startLine(callExpr);
+    const column = startOf(callExpr);
 
     return {
       expression,
@@ -670,14 +698,14 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
     const parts: string[] = [];
 
     let current: Node = node;
-    while (Node.isPropertyAccessExpression(current)) {
-      parts.unshift(current.getName());
-      current = current.getExpression();
+    while (isPropertyAccessExpression(current)) {
+      parts.unshift(textOf(current.name));
+      current = current.expression;
     }
 
     // Add the base identifier
-    if (Node.isIdentifier(current)) {
-      parts.unshift(current.getText());
+    if (isIdentifier(current)) {
+      parts.unshift(textOf(current));
     }
 
     return parts.join(".");
@@ -687,23 +715,23 @@ export class WebExtensionAdapter implements RoutingAdapter<WebExtensionAdapterCo
    * Extract a literal value from an expression
    */
   private extractValue(node: Node): string | boolean | number | null | undefined {
-    if (Node.isStringLiteral(node)) {
-      return node.getLiteralValue();
+    if (isStringLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (Node.isNumericLiteral(node)) {
-      return node.getLiteralValue();
+    if (isNumericLiteral(node)) {
+      return literalValue(node);
     }
 
-    if (node.getKind() === SyntaxKind.TrueKeyword) {
+    if (node.kind === SyntaxKind.TrueKeyword) {
       return true;
     }
 
-    if (node.getKind() === SyntaxKind.FalseKeyword) {
+    if (node.kind === SyntaxKind.FalseKeyword) {
       return false;
     }
 
-    if (node.getKind() === SyntaxKind.NullKeyword) {
+    if (node.kind === SyntaxKind.NullKeyword) {
       return null;
     }
 
