@@ -86,7 +86,7 @@ insufficient:
 
 Everything else partitions cleanly — `verify`, `analysis`, and `quality` have
 no `src/` dependencies at all; they operate on the consumer's code via
-ts-morph.
+the TypeScript 7 API (`typescript-7`).
 
 ## Gotchas the build surfaces (already handled by the script)
 

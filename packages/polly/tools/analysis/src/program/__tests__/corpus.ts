@@ -1,6 +1,7 @@
 // Shared corpora for the program-module tests. The expected answers were
 // recorded once from ts-morph 28 (TS 6.0) and live in ./oracle/; the tests
-// compare an AnalysisSession's answers against them.
+// compare an AnalysisSession's answers against them. The recorder left with
+// ts-morph: `git show a27015c:packages/polly/tools/analysis/src/program/__tests__/oracle/record.ts`.
 //
 // The inputs are frozen with the answers: the edge project is the text below,
 // and the repository corpora (the types corpus, examples/full-featured,
@@ -280,7 +281,7 @@ export function writeCorpora(snapshot: Record<string, string> = readSnapshot()):
 
 export function readOracle<T>(name: string): T {
   const parsed: unknown = JSON.parse(fs.readFileSync(path.join(ORACLE_DIR, name), "utf8"));
-  // cast: generic deserialisation boundary; the file is written by oracle/record.ts.
+  // cast: generic deserialisation boundary; the files were written by the recorder.
   return parsed as T;
 }
 

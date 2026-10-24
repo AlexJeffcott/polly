@@ -196,14 +196,6 @@
     "text": "// biome-ignore lint/suspicious/noExplicitAny: Mapping partial handler objects to complete MessageHandler interface"
   },
   {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "// biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability"
-  },
-  {
-    "file": "tools/analysis/src/extract/types.ts",
-    "text": "// biome-ignore lint/suspicious/noExplicitAny: Runtime check for ts-morph Type method availability"
-  },
-  {
     "file": "tools/bdd/src/cli.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface."
   },

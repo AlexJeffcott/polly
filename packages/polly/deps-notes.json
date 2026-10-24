@@ -32,9 +32,9 @@
     "preact": "React-compatible UI runtime \u2014 small bundle, used by the popup/devtools/options entry points. On 11.x: polly-ui imports its attribute/event types from `preact` (11 cut the JSX namespace) and createPortal from core, so nothing pulls in preact/compat.",
     "preact-render-to-string": "Server-side rendering for example Elysia clients.",
     "puppeteer": "Headless Chrome driver \u2014 used by the e2e visualize verification script and browser tests.",
-    "ts-morph": "TypeScript AST library used by tools/analysis to extract handlers, contexts, flows, types, and integrations.",
     "tweetnacl": "Ed25519 / box crypto primitives used by the peer authentication layer.",
     "typescript": "Pinned at 7.1.0-beta, once, at the monorepo root, the same version as packages/polly's `typescript-7` alias so one copy installs. Not the type checker (that is `bun check`); `bunx tsc` in build-lib.ts emits the .d.ts. A single version also keeps one Elysia copy (Elysia peers on typescript).",
+    "typescript-7": "npm alias for typescript@7.1.0-beta: the TypeScript 7 API (`typescript-7/async`, `/ast`) that tools/analysis and the verify adapters extract handlers, contexts, flows, types and integrations with, and that the casts gate and the mutate type filter probe with. Replaced ts-morph (which bundled TS 6).",
     "werift": "Pure-TS WebRTC implementation \u2014 node alternative to @roamhq/wrtc, used in environments where the native binding is unavailable.",
     "ws": "WebSocket server/client used by mesh-node for cross-device sync."
   }

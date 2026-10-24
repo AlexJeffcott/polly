@@ -1,7 +1,7 @@
 // ts-morph's `project.getSourceFiles(glob)` match rule, without minimatch.
 //
-// ts-morph anchors a relative glob at the process cwd (`./` stripped, then
-// joined onto cwd) and matches it against each absolute file path with
+// ts-morph anchored a relative glob at the process cwd (`./` stripped, then
+// joined onto cwd) and matched it against each absolute file path with
 // minimatch's defaults: case-sensitive, and `*`, `?` and `**` never match a
 // path segment that starts with a dot. Bun.Glob does match dot segments under
 // `**`, and matches `../x` against `**/x`, so it is not a drop-in.
@@ -79,7 +79,7 @@ function matchGlobstar(
 
 /**
  * A predicate over absolute, `/`-separated file paths that answers as
- * ts-morph's `getSourceFiles(glob)` does with `cwd` as the current directory.
+ * ts-morph's `getSourceFiles(glob)` did with `cwd` as the current directory.
  */
 export function createSourceGlob(glob: string, cwd: string): (filePath: string) => boolean {
   if (UNSUPPORTED.test(glob)) {

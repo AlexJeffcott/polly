@@ -1,9 +1,10 @@
 // Synchronous AST helpers over typescript-7 nodes, each reproducing the
-// ts-morph method the extractors call today (named in the doc comment).
+// ts-morph method the extractors called before the port (named in the doc
+// comment), so their output stayed identical.
 //
 // A fetched typescript-7 SourceFile is a plain local tree: everything here is
 // free of IPC. Positions and line numbers follow ts-morph's text-based rules
-// (it counts `\n` only; TS 7's line map also breaks on `\r`, U+2028 and
+// (it counted `\n` only; TS 7's line map also breaks on `\r`, U+2028 and
 // U+2029), so a file with a lone CR or a line separator in a string keeps the
 // line numbers ts-morph gave it.
 
@@ -119,8 +120,8 @@ export function kindName(node: Node): string {
 
 /**
  * ts-morph `node.getName()` on a named declaration or property: the name
- * node's text (quotes kept for a string-literal name, as ts-morph keeps them).
- * For an ImportSpecifier use `importedName`: ts-morph names it by `propertyName`.
+ * node's text (quotes kept for a string-literal name, as ts-morph kept them).
+ * For an ImportSpecifier use `importedName`: ts-morph named it by `propertyName`.
  */
 export function nameOf(node: Node & { readonly name?: Node | undefined }): string | undefined {
   return node.name?.getText(node.getSourceFile());
@@ -367,7 +368,7 @@ export function jsDocText(doc: JSDoc, sourceFile: SourceFile = doc.getSourceFile
 /**
  * ts-morph `jsDoc.getDescription()`: the comment's text before its first tag,
  * stars stripped line by line, computed from the source text exactly as
- * ts-morph does (getTextOfJSDocComment normalises whitespace differently).
+ * ts-morph did (getTextOfJSDocComment normalises whitespace differently).
  */
 export function jsDocDescription(doc: JSDoc, sourceFile: SourceFile = doc.getSourceFile()): string {
   const text = sourceFile.text;

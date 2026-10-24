@@ -294,7 +294,7 @@ cat > "$TARGET/package.json" <<'PKG'
     "@preact/signals": "2.9.0",
     "@preact/signals-core": "1.14.2",
     "preact": "10.29.1",
-    "ts-morph": "28.0.0"
+    "typescript-7": "npm:typescript@7.1.0-beta"
   },
   "peerDependencies": {
     "typescript": ">= 5.9.3",
@@ -408,7 +408,7 @@ const toolsResult = await Bun.build({
   sourcemap: "external",
   // @cucumber/* stays external (the bdd Gherkin parser) — resolved at runtime
   // from dependencies, never bundled.
-  external: ["ts-morph", "bun", "bun:*", "node:*", "elysia", "@elysiajs/*", "@cucumber/*"],
+  external: ["typescript-7", "bun", "bun:*", "node:*", "elysia", "@elysiajs/*", "@cucumber/*"],
 });
 if (!toolsResult.success) {
   console.error("❌ Tools build failed:");

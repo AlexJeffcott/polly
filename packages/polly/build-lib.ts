@@ -213,7 +213,6 @@ const toolsResult = await Bun.build({
     entry: "[dir]/[name].[ext]",
   },
   external: [
-    "ts-morph",
     "bun",
     "bun:*",
     "node:*",
@@ -233,7 +232,7 @@ const toolsResult = await Bun.build({
     "oxc-parser",
     // Regex mutants for the bun mutation engine (the generator Stryker used, so mutants stay comparable) — a dependency, kept external.
     "weapon-regex",
-    // TypeScript 7 (npm alias) for the mutation engine's type filter — spawns tsgo, kept external.
+    // TypeScript 7 (npm alias): the analysis API and the mutation engine's type filter — spawns tsgo, kept external.
     "typescript-7",
   ],
 });

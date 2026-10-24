@@ -1,4 +1,5 @@
-// The typescript-7 program the extractors run on, in place of ts-morph.
+// The typescript-7 program the extractors run on (they ran on ts-morph,
+// with TS 6 bundled, until the port).
 //
 // One `AnalysisSession` owns one tsgo process for a CLI run; `open(tsconfig)`
 // loads a project once and hands every extractor the same `AnalysisProgram`.
@@ -12,8 +13,9 @@
 //  - `prefetchDefinitions` / `prefetchImports` resolve the few checker facts
 //    the AST-only extractors need up front, so their lookups stay synchronous.
 //
-// Each helper names the ts-morph method it replaces and reproduces its answer;
-// the exceptions are listed on the helper (see also __tests__/).
+// Each helper names the ts-morph method it replaced and reproduces that
+// method's answer; the exceptions are listed on the helper. The answers
+// ts-morph gave are recorded in __tests__/oracle/.
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -154,7 +156,7 @@ export class AnalysisProgram {
 
   /**
    * ts-morph `project.getSourceFiles(glob)`: the glob is joined onto `cwd`
-   * (ts-morph uses the process cwd) and matched with minimatch's defaults,
+   * (ts-morph used the process cwd) and matched with minimatch's defaults,
    * so `**` never enters a dot directory. Path order, like `sourceFiles`.
    */
   sourceFilesMatching(glob: string, cwd: string = process.cwd()): SourceFile[] {
@@ -321,7 +323,7 @@ export class AnalysisProgram {
    * ts-morph `isExported()`: an `export` keyword, or (for a function) a file
    * export that is, or aliases, the declaration's symbol (`export { f }`,
    * `export default f`). A variable statement has no symbol, so only its
-   * keyword counts, as in ts-morph.
+   * keyword counts, as it did in ts-morph.
    */
   async isExported(declaration: FunctionDeclaration | VariableStatement): Promise<boolean> {
     if (hasExportKeyword(declaration)) return true;
@@ -389,8 +391,8 @@ export class AnalysisProgram {
    * or the arrow function a `const` holds) only that one is returned, and
    * otherwise it is appended (`const { f } = await import("./x"); f()` →
    * the BindingElement and `f`'s declaration in x). Declarations in default
-   * library files are returned too, but ts-morph reads its own bundled TS 6
-   * libs, so those nodes differ from ts-morph's by construction.
+   * library files are returned too, but ts-morph read its own bundled TS 6
+   * libs, so those nodes differed from ts-morph's by construction.
    */
   prefetchDefinitions(identifiers?: Iterable<Identifier>): Promise<void> {
     if (identifiers)
@@ -490,7 +492,7 @@ export class AnalysisProgram {
   /**
    * ts-morph `importDecl.getModuleSpecifierSourceFile()`, after
    * `prefetchImports`. A target outside `sourceFiles` (a node_modules
-   * declaration file) is returned as ts-morph returns it. Throws for an
+   * declaration file) is returned as ts-morph returned it. Throws for an
    * import declaration that was not prefetched.
    */
   moduleSpecifierSourceFile(importDecl: ImportDeclaration): SourceFile | undefined {
@@ -546,7 +548,7 @@ function isSignatureDeclarationLike(node: Declaration): boolean {
 }
 
 /**
- * The node ts-morph maps a signature definition to: the parent of the
+ * The node ts-morph mapped a signature definition to: the parent of the
  * identifier at the definition's span. A named declaration is itself; an
  * unnamed function takes the name it is assigned to (`const f = () => …`),
  * and an unnamed, unassigned one has no definition node.

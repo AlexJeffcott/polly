@@ -305,7 +305,7 @@ export class TypeExtractor {
    * Recursively handles unions, discriminated unions, aliases, etc.
    *
    * There is no conditional-type branch: the ts-morph version probed for an
-   * `isConditionalType` method that ts-morph's Type does not have, so that
+   * `isConditionalType` method that ts-morph's Type did not have, so that
    * branch never ran, and a conditional type falls through to the text checks.
    */
   private async extractMessageTypesFromType(
@@ -429,7 +429,7 @@ export class TypeExtractor {
     warnings: string[]
   ): Promise<string[]> {
     const aliasedType = await program.aliasDeclaredType(type);
-    // ts-morph caches one wrapper per checker type, so its `===` was type identity.
+    // ts-morph cached one wrapper per checker type, so its `===` was type identity.
     if (!aliasedType || aliasedType.id === type.id) {
       return [];
     }

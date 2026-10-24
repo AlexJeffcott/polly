@@ -1,5 +1,5 @@
 // Every synchronous AST helper, checked node by node against the answers
-// ts-morph 28 gave for the method it replaces (recorded in oracle/ast.json),
+// ts-morph 28 gave for the method it replaced (recorded in oracle/ast.json),
 // on frozen copies of real projects (full-featured, the types corpus) and on
 // an edge-case project written to a temp dir.
 
@@ -212,7 +212,7 @@ function compareKind(e: Expected, n: Node, at: string, out: Mismatches): boolean
 }
 
 function comparePositions(e: Expected, n: Node, sf: SourceFile, at: string, out: Mismatches): void {
-  // The recorded text is a slice of the file the hash pins (record.ts checks it).
+  // The recorded text is a slice of the file the hash pins (the recorder checked it).
   out.check(at, "text", sf.text.slice(e.start, e.start + e.textLength), textOf(n, sf));
   out.check(at, "start", e.start, startOf(n, sf));
   out.check(at, "startLine", e.startLine, startLine(n, sf));

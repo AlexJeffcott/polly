@@ -5,7 +5,7 @@ import { type Type, TypeFlags } from "typescript-7/async";
 
 const has = (type: Type, flag: TypeFlags): boolean => (type.flags & flag) !== 0;
 
-/** ts-morph `type.isUnion()`, `isString()`, … — one predicate per ts-morph method the extractors call. */
+/** ts-morph `type.isUnion()`, `isString()`, … — one predicate per ts-morph method the extractors called. */
 export const typeIs = {
   union: (type: Type): boolean => has(type, TypeFlags.Union),
   boolean: (type: Type): boolean => has(type, TypeFlags.Boolean),

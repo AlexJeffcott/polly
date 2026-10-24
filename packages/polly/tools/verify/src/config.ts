@@ -1,7 +1,7 @@
 // Configuration Helper for @fairfox/polly/verify
 //
 // Lightweight entry point for user configuration files.
-// Does NOT include heavy dependencies (ts-morph, analysis, etc.)
+// Does NOT include heavy dependencies (typescript-7, analysis, etc.)
 // which are only needed by the CLI tool.
 
 // Configuration Types (inlined to avoid heavy dependencies; state-config.ts

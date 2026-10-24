@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Parity gate for the static-analysis extractors (ts-morph today).
+ * Parity gate for the static-analysis extractors.
  *
- * Captures the full output of every ts-morph-based extractor over a fixed
- * corpus and compares it, byte for byte, against recorded goldens. It exists
- * so a port of the extractors (ts-morph → typescript-7/async) can be shown to
- * reproduce today's output exactly.
+ * Captures the full output of every extractor over a fixed corpus and
+ * compares it, byte for byte, against recorded goldens. The goldens were
+ * recorded with the ts-morph extractors; the port to typescript-7/async
+ * reproduces them exactly, and the gate now keeps it that way.
  *
  * Extractors, per project (cwd = the project directory, as a CLI user runs):
  *   verify.analyzeCodebase       `polly verify` / `polly verify --setup` path:
@@ -36,7 +36,7 @@
  *
  * Every extractor records its return value (or the error it throws, as
  * name + message) and the console output it wrote. Each project runs in its
- * own subprocess, so no ts-morph or module state crosses projects.
+ * own subprocess, so no session or module state crosses projects.
  *
  * Encoding: insertion order is kept (no sorting; recording twice is identical).
  * Map, Set, RegExp, undefined, non-finite numbers and class instances are
