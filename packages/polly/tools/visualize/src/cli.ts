@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 // CLI for visualization system
 
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
+import { constants as osConstants } from "node:os";
 import * as path from "node:path";
 import { readRecord, readString, readStringArray } from "../../../src/shared/lib/guards";
 import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
@@ -44,6 +46,16 @@ function errorMessage(error: unknown): string {
  * program spans every workspace package; removed once analysis finishes.
  */
 const WORKSPACE_TSCONFIG = "tsconfig.polly-visualize.json";
+
+/**
+ * Top-level key marking a WORKSPACE_TSCONFIG as polly's own: the pid that
+ * wrote it and a per-run token, so a run removes only the file it wrote and
+ * can tell a stale leftover from a stranger's file.
+ */
+const WORKSPACE_TSCONFIG_MARKER = "pollyVisualize";
+
+/** Removing the temp tsconfig must also happen when the run is signalled. */
+const CLEANUP_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 
 type ProjectSetup = {
   tsConfigPath: string;
@@ -210,10 +222,24 @@ function setupWorkspaceRoot(
   workspace: { dirs: string[]; declared: boolean }
 ): ProjectSetup {
   const tsConfigPath = path.join(root, WORKSPACE_TSCONFIG);
-  if (fs.existsSync(tsConfigPath)) {
-    fail(`${tsConfigPath} already exists; remove it so polly visualize can write its own`);
-  }
-  fs.writeFileSync(tsConfigPath, workspaceTsConfig(root, workspace.dirs), "utf-8");
+  if (fs.existsSync(tsConfigPath)) refuseOrReplaceStale(tsConfigPath);
+
+  const token = randomUUID();
+  fs.writeFileSync(tsConfigPath, workspaceTsConfig(root, workspace.dirs, token), "utf-8");
+  const removeOwn = () => {
+    if (readMarker(tsConfigPath)?.token === token) fs.rmSync(tsConfigPath, { force: true });
+  };
+
+  // A signal kills the process before any `finally` runs, so remove the file
+  // here too, then exit as the default action would (128 + signal number).
+  const handlers = CLEANUP_SIGNALS.map((signal) => {
+    const handler = () => {
+      removeOwn();
+      process.exit(128 + osConstants.signals[signal]);
+    };
+    process.on(signal, handler);
+    return { signal, handler };
+  });
 
   const names = workspace.dirs.map((dir) => path.relative(root, dir)).join(", ");
   console.log(color(`   Using: workspace packages ${names}`, COLORS.gray));
@@ -224,8 +250,49 @@ function setupWorkspaceRoot(
     tsConfigPath,
     projectRoot: root,
     inferWorkspaces: !workspace.declared,
-    cleanup: () => fs.rmSync(tsConfigPath, { force: true }),
+    cleanup: () => {
+      for (const { signal, handler } of handlers) process.off(signal, handler);
+      removeOwn();
+    },
   };
+}
+
+/** The marker of a polly-written temp tsconfig, or undefined for any other file. */
+function readMarker(filePath: string): { pid: number; token: string } | undefined {
+  const marker = readRecord(readJsonRecord(filePath)?.[WORKSPACE_TSCONFIG_MARKER]);
+  const pid = marker?.["pid"];
+  const token = readString(marker?.["token"]);
+  return typeof pid === "number" && token ? { pid, token } : undefined;
+}
+
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to another user.
+    return error instanceof Error && "code" in error && error.code === "EPERM";
+  }
+}
+
+/**
+ * A temp tsconfig left by a run that died is replaced. One a live run is
+ * using, or one polly did not write, is left alone and the run stops.
+ */
+function refuseOrReplaceStale(tsConfigPath: string): void {
+  const marker = readMarker(tsConfigPath);
+  if (!marker) {
+    fail(
+      `${tsConfigPath} exists and was not written by polly visualize; rename or delete it so generate can write its own`
+    );
+  }
+  if (marker.pid !== process.pid && isRunning(marker.pid)) {
+    fail(
+      `${tsConfigPath} is in use by another polly visualize run (pid ${marker.pid}). Wait for it to finish; if no such run is active, the file is safe to delete.`
+    );
+  }
+  console.log(color(`   Replacing stale ${tsConfigPath} left by an earlier run`, COLORS.yellow));
+  fs.rmSync(tsConfigPath, { force: true });
 }
 
 /**
@@ -233,7 +300,7 @@ function setupWorkspaceRoot(
  * `include` (default all files) re-rooted at the workspace root, and the
  * first JSX settings any package declares.
  */
-function workspaceTsConfig(root: string, dirs: string[]): string {
+function workspaceTsConfig(root: string, dirs: string[], token: string): string {
   const include: string[] = [];
   const jsx: Record<string, string> = {};
 
@@ -251,6 +318,11 @@ function workspaceTsConfig(root: string, dirs: string[]): string {
   }
 
   const config = {
+    [WORKSPACE_TSCONFIG_MARKER]: {
+      note: "Temporary file written by polly visualize generate; safe to delete.",
+      pid: process.pid,
+      token,
+    },
     compilerOptions: {
       target: "ESNext",
       module: "ESNext",

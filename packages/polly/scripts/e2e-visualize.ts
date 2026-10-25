@@ -43,6 +43,10 @@ export const capability = "visualize.generate" as const;
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..");
 const REPO_ROOT = path.resolve(import.meta.dir, "..", "..", "..");
 const POLLY_CLI = path.join(PACKAGE_DIR, "cli", "polly.ts");
+// The visualize CLI itself: the signal cases signal it directly, as the
+// relay in cli/polly.ts would.
+const VISUALIZE_CLI = path.join(PACKAGE_DIR, "tools", "visualize", "src", "cli.ts");
+const WORKSPACE_TSCONFIG = "tsconfig.polly-visualize.json";
 // Use structurizr/structurizr (the consolidated successor); structurizr/cli is
 // deprecated and its `validate` command silently no-ops on invalid input.
 const STRUCTURIZR_IMAGE = "structurizr/structurizr:latest";
@@ -269,7 +273,7 @@ async function runOne(c: Case): Promise<Result> {
   const failures = checkDsl(c, dsl);
   // A workspace root is analysed through a tsconfig generate writes and
   // must remove again.
-  const leftover = path.join(cwd, "tsconfig.polly-visualize.json");
+  const leftover = path.join(cwd, WORKSPACE_TSCONFIG);
   if (fs.existsSync(leftover)) failures.push(`generate left ${leftover} behind`);
 
   let validate: ValidateStatus = "skipped";
@@ -473,6 +477,75 @@ async function runFailureCases(ctx: TierContext): Promise<number> {
   return failed;
 }
 
+type CleanupCase = {
+  label: string;
+  /** Signal sent once the temp tsconfig exists; none = run to completion. */
+  signal?: "SIGINT" | "SIGTERM";
+  expectedExit: number;
+  /** Plant a temp tsconfig from a dead run first; generate must replace it. */
+  staleLeftover?: boolean;
+};
+
+// generate at a workspace root writes a temp tsconfig there; it must be gone
+// however the run ends. The file's appearance opens the signal window: the
+// analysis that follows takes most of a second.
+const cleanupCases: CleanupCase[] = [
+  { label: "SIGINT mid-analysis", signal: "SIGINT", expectedExit: 130 },
+  { label: "SIGTERM mid-analysis", signal: "SIGTERM", expectedExit: 143 },
+  { label: "stale temp tsconfig", expectedExit: 0, staleLeftover: true },
+];
+
+async function runCleanupCase(c: CleanupCase): Promise<string[]> {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-viz-cleanup-"));
+  const cwd = path.join(tmpRoot, "elysia-todo-app");
+  copyExample(path.join(REPO_ROOT, "examples", "elysia-todo-app"), cwd);
+  const tempTsConfig = path.join(cwd, WORKSPACE_TSCONFIG);
+  if (c.staleLeftover) {
+    // pid 2^22 + 1 is above every platform's default pid ceiling: never alive.
+    const stale = { pollyVisualize: { pid: 4194305, token: "stale" }, include: [] };
+    fs.writeFileSync(tempTsConfig, JSON.stringify(stale));
+  }
+  try {
+    const proc = Bun.spawn(["bun", VISUALIZE_CLI, "generate"], {
+      cwd,
+      stdout: "ignore",
+      stderr: "pipe",
+      env: { ...process.env },
+    });
+    const failures: string[] = [];
+    if (c.signal) {
+      const deadline = Date.now() + 15_000;
+      while (!fs.existsSync(tempTsConfig) && Date.now() < deadline) await Bun.sleep(5);
+      if (!fs.existsSync(tempTsConfig)) failures.push("temp tsconfig never appeared");
+      proc.kill(c.signal);
+    }
+    const exitCode = await proc.exited;
+    if (exitCode !== c.expectedExit) {
+      const stderr = (await new Response(proc.stderr).text()).trim().slice(-300);
+      failures.push(
+        `exited ${exitCode}, expected ${c.expectedExit}; stderr: ${stderr || "(empty)"}`
+      );
+    }
+    if (fs.existsSync(tempTsConfig)) failures.push(`${WORKSPACE_TSCONFIG} left behind`);
+    return failures;
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/** Run every temp-tsconfig cleanup case, log each verdict, and return how many failed. */
+async function runCleanupCases(ctx: TierContext): Promise<number> {
+  ctx.log("\nTemp tsconfig cleanup (workspace root):");
+  let failed = 0;
+  for (const c of cleanupCases) {
+    const failures = await runCleanupCase(c);
+    ctx.log(`  ▸ ${pad(c.label, 26)} ${failures.length === 0 ? "PASS" : "FAIL"}`);
+    for (const f of failures) ctx.log(`    - ${f}`);
+    if (failures.length > 0) failed++;
+  }
+  return failed;
+}
+
 // No try/catch wrapper: an unexpected throw is caught by the engine worker (and
 // by selfRun when standalone), both reporting it as a failure. Keeping the body
 // flat also stays under the cognitive-complexity ceiling.
@@ -503,10 +576,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     }
   }
 
-  const failedPaths = await runFailureCases(ctx);
+  const failedPaths = (await runFailureCases(ctx)) + (await runCleanupCases(ctx));
 
   const failed = results.filter((r) => r.outcome !== "passed").length + failedPaths;
-  const total = results.length + failureCases.length;
+  const total = results.length + failureCases.length + cleanupCases.length;
   ctx.log("");
   if (failed > 0) {
     ctx.log(`${failed}/${total} failed`);
