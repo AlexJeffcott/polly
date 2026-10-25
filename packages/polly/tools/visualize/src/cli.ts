@@ -3,7 +3,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { readRecord, readString, readStringArray } from "../../../src/shared/lib/guards";
 import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
+import { findWorkspacePackageDirs } from "../../analysis/src/extract/project-detector";
 import type { ArchitectureAnalysis } from "../../analysis/src/types/architecture";
 import { generateStructurizrDSL } from "./codegen/structurizr";
 import {
@@ -26,6 +28,31 @@ const COLORS = {
 function color(text: string, colorCode: string): string {
   return `${colorCode}${text}${COLORS.reset}`;
 }
+
+/** Print a red error to stderr and exit 1. Every failing exit goes through here. */
+function fail(message: string): never {
+  process.stderr.write(`${color(`\n✗ ${message}\n`, COLORS.red)}\n`);
+  process.exit(1);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Written into a workspace root that has no tsconfig.json of its own, so one
+ * program spans every workspace package; removed once analysis finishes.
+ */
+const WORKSPACE_TSCONFIG = "tsconfig.polly-visualize.json";
+
+type ProjectSetup = {
+  tsConfigPath: string;
+  projectRoot: string;
+  /** Child packages stand in for a missing `workspaces` field. */
+  inferWorkspaces: boolean;
+  /** Removes the synthesized tsconfig, if one was written. */
+  cleanup: () => void;
+};
 
 async function main() {
   const args = process.argv.slice(2);
@@ -62,17 +89,22 @@ async function main() {
 async function generateCommand(args: string[]) {
   console.log(color("\n📊 Analyzing architecture...\n", COLORS.blue));
 
+  let dslPath: string;
   try {
     const { snapshotPath } = parseGenerateArgs(args);
     const snapshot = snapshotPath ? loadAndReportSnapshot(snapshotPath) : undefined;
-    const { tsConfigPath, projectRoot } = findAndDisplayProjectConfig();
-    const analysis = await analyzeAndDisplayResults(tsConfigPath, projectRoot);
-    const dslPath = generateAndWriteDSL(analysis, snapshot);
-    displayNextSteps(dslPath);
-  } catch (_error) {
-    // Error details logged by underlying functions
-    process.exit(1);
+    const setup = findAndDisplayProjectConfig();
+    let analysis: ArchitectureAnalysis;
+    try {
+      analysis = await analyzeAndDisplayResults(setup);
+    } finally {
+      setup.cleanup();
+    }
+    dslPath = generateAndWriteDSL(analysis, snapshot);
+  } catch (error) {
+    fail(`Architecture analysis failed: ${errorMessage(error)}`);
   }
+  displayNextSteps(dslPath);
 }
 
 /** Parse the options `polly visualize generate` accepts. */
@@ -84,8 +116,7 @@ function parseGenerateArgs(args: string[]): { snapshotPath?: string } {
     if (arg === "--snapshot") {
       const next = args[i + 1];
       if (!next || next.startsWith("--")) {
-        console.log(color("\n✗ --snapshot requires a file path\n", COLORS.red));
-        process.exit(1);
+        fail("--snapshot requires a file path");
       }
       result.snapshotPath = next;
       i++;
@@ -109,8 +140,7 @@ function loadAndReportSnapshot(snapshotPath: string): OverlaySnapshot | undefine
     snapshot = loadMeshSnapshot(snapshotPath);
   } catch (error) {
     const message = error instanceof MeshSnapshotError ? error.message : String(error);
-    console.log(color(`\n✗ Snapshot error: ${message}\n`, COLORS.red));
-    process.exit(1);
+    fail(`Snapshot error: ${message}`);
   }
 
   const isEmpty =
@@ -129,22 +159,121 @@ function loadAndReportSnapshot(snapshotPath: string): OverlaySnapshot | undefine
   return snapshot;
 }
 
-function findAndDisplayProjectConfig(): { tsConfigPath: string; projectRoot: string } {
-  const tsConfigPath = findTsConfig();
-  if (!tsConfigPath) {
-    process.exit(1);
-  }
+/**
+ * Resolve what to analyse, in order: ./tsconfig.json; a workspace root (a
+ * package.json whose `workspaces`, or failing that whose child directories,
+ * name packages), analysed as one program; ../tsconfig.json.
+ */
+function findAndDisplayProjectConfig(): ProjectSetup {
+  const cwd = process.cwd();
+  const ownTsConfig = path.join(cwd, "tsconfig.json");
+  const parentTsConfig = path.join(cwd, "..", "tsconfig.json");
+
+  if (fs.existsSync(ownTsConfig)) return setupFromTsConfig(ownTsConfig);
+
+  const workspace = findWorkspacePackageDirs(cwd);
+  if (workspace.dirs.length > 0) return setupWorkspaceRoot(cwd, workspace);
+
+  if (fs.existsSync(parentTsConfig)) return setupFromTsConfig(parentTsConfig);
+
+  fail(
+    [
+      "No TypeScript project found. Searched for:",
+      `    ${ownTsConfig}`,
+      `    ${path.join(cwd, "package.json")} with workspace packages`,
+      `    ${parentTsConfig}`,
+      "  Run polly visualize from a directory that has a tsconfig.json, or from a",
+      "  workspace root (a package.json with package subdirectories or `workspaces`).",
+    ].join("\n")
+  );
+}
+
+function setupFromTsConfig(tsConfigPath: string): ProjectSetup {
   console.log(color(`   Using: ${tsConfigPath}`, COLORS.gray));
 
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
-    process.exit(1);
+    const cwd = process.cwd();
+    fail(
+      `No project root found: none of manifest.json, package.json or tsconfig.json in ${cwd} or ${path.join(cwd, "..")}`
+    );
   }
   console.log(color(`   Project: ${projectRoot}`, COLORS.gray));
 
   displayProjectType(projectRoot);
 
-  return { tsConfigPath, projectRoot };
+  return { tsConfigPath, projectRoot, inferWorkspaces: false, cleanup: () => undefined };
+}
+
+function setupWorkspaceRoot(
+  root: string,
+  workspace: { dirs: string[]; declared: boolean }
+): ProjectSetup {
+  const tsConfigPath = path.join(root, WORKSPACE_TSCONFIG);
+  if (fs.existsSync(tsConfigPath)) {
+    fail(`${tsConfigPath} already exists; remove it so polly visualize can write its own`);
+  }
+  fs.writeFileSync(tsConfigPath, workspaceTsConfig(root, workspace.dirs), "utf-8");
+
+  const names = workspace.dirs.map((dir) => path.relative(root, dir)).join(", ");
+  console.log(color(`   Using: workspace packages ${names}`, COLORS.gray));
+  console.log(color(`   Project: ${root}`, COLORS.gray));
+  displayProjectType(root);
+
+  return {
+    tsConfigPath,
+    projectRoot: root,
+    inferWorkspaces: !workspace.declared,
+    cleanup: () => fs.rmSync(tsConfigPath, { force: true }),
+  };
+}
+
+/**
+ * One tsconfig spanning every workspace package: each package's own
+ * `include` (default all files) re-rooted at the workspace root, and the
+ * first JSX settings any package declares.
+ */
+function workspaceTsConfig(root: string, dirs: string[]): string {
+  const include: string[] = [];
+  const jsx: Record<string, string> = {};
+
+  for (const dir of dirs) {
+    const rel = path.relative(root, dir).split(path.sep).join("/");
+    const own = readJsonRecord(path.join(dir, "tsconfig.json"));
+    const patterns = readStringArray(own?.["include"]) ?? ["**/*"];
+    include.push(...patterns.map((pattern) => path.posix.join(rel, pattern)));
+
+    const options = readRecord(own?.["compilerOptions"]);
+    for (const key of ["jsx", "jsxImportSource"]) {
+      const value = readString(options?.[key]);
+      if (value && jsx[key] === undefined) jsx[key] = value;
+    }
+  }
+
+  const config = {
+    compilerOptions: {
+      target: "ESNext",
+      module: "ESNext",
+      moduleResolution: "bundler",
+      strict: true,
+      skipLibCheck: true,
+      noEmit: true,
+      ...jsx,
+    },
+    include,
+    exclude: ["**/node_modules", "**/dist"],
+  };
+  return `${JSON.stringify(config, null, 2)}\n`;
+}
+
+/** A JSON file's top-level object, or undefined when absent or not plain JSON. */
+function readJsonRecord(filePath: string): Record<string, unknown> | undefined {
+  if (!fs.existsSync(filePath)) return undefined;
+  try {
+    return readRecord(JSON.parse(fs.readFileSync(filePath, "utf-8")));
+  } catch {
+    return undefined;
+  }
 }
 
 function displayProjectType(projectRoot: string): void {
@@ -153,11 +282,9 @@ function displayProjectType(projectRoot: string): void {
   console.log(color(`   Type: ${projectType}`, COLORS.gray));
 }
 
-async function analyzeAndDisplayResults(
-  tsConfigPath: string,
-  projectRoot: string
-): Promise<ArchitectureAnalysis> {
-  const analysis = await analyzeArchitecture({ tsConfigPath, projectRoot });
+async function analyzeAndDisplayResults(setup: ProjectSetup): Promise<ArchitectureAnalysis> {
+  const { tsConfigPath, projectRoot, inferWorkspaces } = setup;
+  const analysis = await analyzeArchitecture({ tsConfigPath, projectRoot, inferWorkspaces });
 
   console.log(color(`\n✓ Found ${Object.keys(analysis.contexts).length} context(s)`, COLORS.green));
   console.log(color(`✓ Found ${analysis.messageFlows.length} message flow(s)`, COLORS.green));
@@ -246,13 +373,13 @@ function displayNextSteps(dslPath: string): void {
 async function exportCommand(_args: string[]) {
   console.log(color("\n📤 Generating static site...\n", COLORS.blue));
 
-  try {
-    // Find DSL file
-    const dslPath = path.join(process.cwd(), "docs", "architecture.dsl");
-    if (!fs.existsSync(dslPath)) {
-      process.exit(1);
-    }
+  // Find DSL file
+  const dslPath = path.join(process.cwd(), "docs", "architecture.dsl");
+  if (!fs.existsSync(dslPath)) {
+    fail(`No DSL found at ${dslPath}. Run polly visualize --generate first.`);
+  }
 
+  try {
     const outputDir = path.join(process.cwd(), "docs", "site");
 
     console.log(color(`   DSL: ${dslPath}`, COLORS.gray));
@@ -269,7 +396,7 @@ async function exportCommand(_args: string[]) {
     });
 
     if (!result.success) {
-      process.exit(1);
+      fail(`Export failed: ${result.error ?? "no reason given"}`);
     }
 
     // Show results
@@ -281,23 +408,21 @@ async function exportCommand(_args: string[]) {
     console.log(color("   • View: polly visualize --serve", COLORS.gray));
     console.log(color("   • Or open: docs/site/index.html", COLORS.gray));
     console.log();
-  } catch (_error) {
-    // Error details logged by underlying functions
-    process.exit(1);
+  } catch (error) {
+    fail(`Export failed: ${errorMessage(error)}`);
   }
 }
 
 async function serveCommand(args: string[]) {
   console.log(color("\n🌐 Starting static site server...\n", COLORS.blue));
 
+  const siteDir = path.join(process.cwd(), "docs", "site");
+  const indexPath = path.join(siteDir, "index.html");
+  if (!fs.existsSync(indexPath)) {
+    fail(`No static site found at ${indexPath}. Run polly visualize --export first.`);
+  }
+
   try {
-    const siteDir = path.join(process.cwd(), "docs", "site");
-    const indexPath = path.join(siteDir, "index.html");
-
-    if (!fs.existsSync(indexPath)) {
-      process.exit(1);
-    }
-
     // Parse port argument
     const portArg = args.find((arg) => arg.startsWith("--port="));
     const port = portArg ? Number.parseInt(portArg.replace("--port=", ""), 10) : 3000;
@@ -346,8 +471,8 @@ async function serveCommand(args: string[]) {
     await new Promise(() => {
       // Intentionally empty - keeps the server running
     });
-  } catch (_error) {
-    process.exit(1);
+  } catch (error) {
+    fail(`Serve failed: ${errorMessage(error)}`);
   }
 }
 
@@ -408,21 +533,6 @@ ${color("Learn More:", COLORS.blue)}
 `);
 }
 
-function findTsConfig(): string | null {
-  const locations = [
-    path.join(process.cwd(), "tsconfig.json"),
-    path.join(process.cwd(), "..", "tsconfig.json"),
-  ];
-
-  for (const loc of locations) {
-    if (fs.existsSync(loc)) {
-      return loc;
-    }
-  }
-
-  return null;
-}
-
 function findProjectRoot(): string | null {
   const locations = [process.cwd(), path.join(process.cwd(), "..")];
 
@@ -440,7 +550,6 @@ function findProjectRoot(): string | null {
   return null;
 }
 
-main().catch((_error) => {
-  // Error details logged by underlying functions
-  process.exit(1);
+main().catch((error) => {
+  fail(`polly visualize failed: ${errorMessage(error)}`);
 });

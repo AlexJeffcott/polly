@@ -15,8 +15,14 @@
 //   minimal           — single-package extension, runs at example root
 //   elysia-todo-app   — workspace, runs from server/
 //   webrtc-p2p-chat   — workspace, runs from server/
+//   elysia-todo-app-root — workspace root with no tsconfig.json of its own;
+//                       both packages analysed as one program
 //   mesh-overlay      — polly#127: `generate --snapshot` overlays a
 //                       captured MeshClientPeerStateSnapshot
+//
+// Then the failure paths: generate with no project, export with no DSL,
+// serve with no site, a bad --snapshot. Each must exit non-zero AND say
+// why on stderr; they used to exit 1 with no output at all.
 //
 // On failure the tmp dir is retained and printed so the generated DSL
 // can be inspected in place. On success the tmp dir is removed.
@@ -104,6 +110,30 @@ const cases: Case[] = [
     // No external systems: the `localhost_api` this case used to expect was
     // api.test.ts fetching the example's own server, which is not an
     // integration. Integration analysis skips test files now.
+    minRelationships: 5,
+  },
+  {
+    // Run from the workspace root, which has a package.json and client/ +
+    // server/ packages but no tsconfig.json; generate used to exit 1 here
+    // with no output.
+    label: "elysia-todo-app-root",
+    examplePath: "examples/elysia-todo-app",
+    cwdSubpath: "",
+    expectedWorkspace: "elysia-todo-app-example",
+    expectedContainers: ["server", "client"],
+    expectedComponents: [
+      "login_handler",
+      "logout_handler",
+      "post_auth_login",
+      "post_auth_logout",
+      "delete_todos_id",
+      "patch_todos_id",
+      "post_todos",
+      "get_todos",
+      "todos_fetchstart_handler",
+      "get_client_js",
+    ],
+    minComponents: 13,
     minRelationships: 5,
   },
   {
@@ -237,6 +267,10 @@ async function runOne(c: Case): Promise<Result> {
 
   const dsl = fs.readFileSync(dslPath, "utf8");
   const failures = checkDsl(c, dsl);
+  // A workspace root is analysed through a tsconfig generate writes and
+  // must remove again.
+  const leftover = path.join(cwd, "tsconfig.polly-visualize.json");
+  if (fs.existsSync(leftover)) failures.push(`generate left ${leftover} behind`);
 
   let validate: ValidateStatus = "skipped";
   if (failures.length === 0 && (await dockerAvailable())) {
@@ -367,6 +401,78 @@ async function describeDockerStatus(): Promise<string> {
   return "not available (structurizr validate skipped)";
 }
 
+type FailureCase = {
+  label: string;
+  args: string[];
+  /** Phrase stderr must contain: the specific reason, not just any output. */
+  stderrIncludes: string;
+};
+
+// Each runs in an empty directory nested in an empty tmp dir, so neither
+// cwd nor its parent holds a tsconfig.json, package.json, DSL or site.
+const failureCases: FailureCase[] = [
+  {
+    label: "generate, no project",
+    args: ["visualize", "generate"],
+    stderrIncludes: "No TypeScript project found",
+  },
+  { label: "export, no DSL", args: ["visualize", "export"], stderrIncludes: "No DSL found at" },
+  {
+    label: "serve, no site",
+    args: ["visualize", "serve"],
+    stderrIncludes: "No static site found at",
+  },
+  {
+    label: "--snapshot, no path",
+    args: ["visualize", "generate", "--snapshot"],
+    stderrIncludes: "--snapshot requires a file path",
+  },
+  {
+    label: "--snapshot, missing file",
+    args: ["visualize", "generate", "--snapshot", "absent.json"],
+    stderrIncludes: "Snapshot error:",
+  },
+];
+
+async function runFailureCase(c: FailureCase): Promise<string[]> {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-viz-fail-"));
+  const cwd = path.join(tmpRoot, "empty");
+  fs.mkdirSync(cwd);
+  try {
+    const proc = Bun.spawn(["bun", POLLY_CLI, ...c.args], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env },
+    });
+    const exitCode = await proc.exited;
+    const stderr = await new Response(proc.stderr).text();
+    const failures: string[] = [];
+    if (exitCode === 0) failures.push("exited 0");
+    if (!stderr.includes(c.stderrIncludes)) {
+      failures.push(
+        `stderr lacks "${c.stderrIncludes}"; got: ${stderr.trim().slice(-300) || "(empty)"}`
+      );
+    }
+    return failures;
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/** Run every failure case, log each verdict, and return how many failed. */
+async function runFailureCases(ctx: TierContext): Promise<number> {
+  ctx.log("\nFailure paths (non-zero exit with a reason on stderr):");
+  let failed = 0;
+  for (const c of failureCases) {
+    const failures = await runFailureCase(c);
+    ctx.log(`  ▸ ${pad(c.label, 26)} ${failures.length === 0 ? "PASS" : "FAIL"}`);
+    for (const f of failures) ctx.log(`    - ${f}`);
+    if (failures.length > 0) failed++;
+  }
+  return failed;
+}
+
 // No try/catch wrapper: an unexpected throw is caught by the engine worker (and
 // by selfRun when standalone), both reporting it as a failure. Keeping the body
 // flat also stays under the cognitive-complexity ceiling.
@@ -397,13 +503,16 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     }
   }
 
-  const failed = results.filter((r) => r.outcome !== "passed").length;
+  const failedPaths = await runFailureCases(ctx);
+
+  const failed = results.filter((r) => r.outcome !== "passed").length + failedPaths;
+  const total = results.length + failureCases.length;
   ctx.log("");
   if (failed > 0) {
-    ctx.log(`${failed}/${results.length} failed`);
-    return { pass: false, message: `${failed}/${results.length} visualize cases failed` };
+    ctx.log(`${failed}/${total} failed`);
+    return { pass: false, message: `${failed}/${total} visualize cases failed` };
   }
-  ctx.log(`All ${results.length} passed`);
+  ctx.log(`All ${total} passed`);
   return { pass: true };
 }
 

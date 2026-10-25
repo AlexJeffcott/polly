@@ -15,11 +15,22 @@ import type { ProjectConfig } from "../types/architecture";
  * Detect project type and generate configuration
  * Falls back to tsconfig.json when manifest.json is not available
  */
+export interface ProjectDetectorOptions {
+  /**
+   * Treat the immediate child directories that hold a package.json as
+   * workspace packages when package.json declares no `workspaces` field.
+   * `polly visualize` sets it when run from a multi-package root.
+   */
+  inferWorkspaces?: boolean;
+}
+
 export class ProjectDetector {
   private projectRoot: string;
+  private inferWorkspaces: boolean;
 
-  constructor(projectRoot: string) {
+  constructor(projectRoot: string, options: ProjectDetectorOptions = {}) {
     this.projectRoot = projectRoot;
+    this.inferWorkspaces = options.inferWorkspaces === true;
   }
 
   /**
@@ -44,8 +55,8 @@ export class ProjectDetector {
     if (fs.existsSync(packageJsonPath)) {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
 
-      // Check for monorepo (workspaces field)
-      if (packageJson.workspaces) {
+      // Check for monorepo (workspaces field, or child packages when inferring)
+      if (packageJson.workspaces || this.inferWorkspaces) {
         const monorepoConfig = this.detectMonorepo(packageJson);
         if (monorepoConfig) {
           return monorepoConfig;
@@ -692,9 +703,14 @@ export class ProjectDetector {
       readStringArray(readRecord(workspacesRaw)?.["packages"]) ??
       [];
 
-    if (patterns.length === 0) return null;
-
-    const workspaceDirs = this.resolveWorkspaceGlobs(patterns);
+    let workspaceDirs: string[];
+    if (patterns.length > 0) {
+      workspaceDirs = this.resolveWorkspaceGlobs(patterns);
+    } else if (this.inferWorkspaces && workspacesRaw === undefined) {
+      workspaceDirs = childPackageDirs(this.projectRoot);
+    } else {
+      return null;
+    }
     if (workspaceDirs.length === 0) return null;
 
     const entryPoints: Record<string, string> = {};
@@ -717,7 +733,12 @@ export class ProjectDetector {
       }
 
       const pkgName = readString(wsPkg["name"]) || path.basename(wsDir);
-      const context = this.inferContextFromPackageName(pkgName);
+      const inferred = this.inferContextFromPackageName(pkgName);
+      // Two packages inferring one role ("app-server", "admin-server") keep
+      // their full names rather than overwrite each other.
+      const context = workspacePackages.some((pkg) => pkg.context === inferred)
+        ? this.baseNameOf(pkgName)
+        : inferred;
 
       // Score server candidates relative to this workspace
       const serverCandidates = [
@@ -759,12 +780,16 @@ export class ProjectDetector {
           "src/main.tsx",
           "src/app.ts",
           "src/app.tsx",
+          "src/client.ts",
+          "src/client.tsx",
           "index.ts",
           "index.tsx",
         ];
         for (const candidate of commonEntries) {
           const fullPath = path.join(wsDir, candidate);
-          if (fs.existsSync(fullPath)) {
+          // Exact case: on a case-insensitive disk `src/app.tsx` "exists" as
+          // `src/App.tsx`, and the analyser then cannot find that source file.
+          if (existsWithExactCase(fullPath)) {
             entryPoints[context] = fullPath;
             contextMapping[context] = this.capitalize(context);
             break;
@@ -794,7 +819,7 @@ export class ProjectDetector {
    * Resolve workspace glob patterns to actual directories
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: glob resolution with error handling
-  private resolveWorkspaceGlobs(patterns: string[]): string[] {
+  resolveWorkspaceGlobs(patterns: string[]): string[] {
     const dirs: string[] = [];
 
     for (const pattern of patterns) {
@@ -830,22 +855,29 @@ export class ProjectDetector {
   /**
    * Infer context name from a package name
    */
-  private inferContextFromPackageName(name: string): string {
-    // Strip scope: "@myorg/api" → "api"
+  /** Strip scope and lowercase: "@myorg/API" → "api". */
+  private baseNameOf(name: string): string {
     const parts = name.split("/");
     const baseName = name.includes("/") ? parts[parts.length - 1] || name : name;
-    const lower = baseName.toLowerCase();
+    return baseName.toLowerCase();
+  }
 
-    const serverAliases = ["api", "server", "backend"];
-    if (serverAliases.includes(lower)) return "server";
+  private inferContextFromPackageName(name: string): string {
+    const lower = this.baseNameOf(name);
+    const role = (word: string): string | undefined => {
+      if (["api", "server", "backend"].includes(word)) return "server";
+      if (["web", "app", "frontend", "client", "ui"].includes(word)) return "client";
+      if (["shared", "common", "lib", "core", "utils"].includes(word)) return "shared";
+      return undefined;
+    };
 
-    const clientAliases = ["web", "app", "frontend", "client", "ui"];
-    if (clientAliases.includes(lower)) return "client";
-
-    const sharedAliases = ["shared", "common", "lib", "core", "utils"];
-    if (sharedAliases.includes(lower)) return "shared";
-
-    return lower;
+    // Exact alias ("server"), then an unambiguous hyphenated suffix
+    // ("todo-app-server"). "app", "lib", "core" and "utils" are too common
+    // as name endings to read as a role.
+    const suffix = lower.includes("-") ? lower.slice(lower.lastIndexOf("-") + 1) : "";
+    const suffixRoles = ["api", "server", "backend", "web", "frontend", "client", "ui", "shared"];
+    const suffixRole = suffixRoles.includes(suffix) ? role(suffix) : undefined;
+    return role(lower) ?? suffixRole ?? lower;
   }
 
   /**
@@ -990,7 +1022,68 @@ export class ProjectDetector {
 /**
  * Detect project configuration from project root
  */
-export function detectProjectConfig(projectRoot: string): ProjectConfig {
-  const detector = new ProjectDetector(projectRoot);
+export function detectProjectConfig(
+  projectRoot: string,
+  options: ProjectDetectorOptions = {}
+): ProjectConfig {
+  const detector = new ProjectDetector(projectRoot, options);
   return detector.detect();
+}
+
+/** `fs.existsSync`, but false when the file on disk differs in letter case. */
+function existsWithExactCase(filePath: string): boolean {
+  if (!fs.existsSync(filePath)) return false;
+  try {
+    return fs.readdirSync(path.dirname(filePath)).includes(path.basename(filePath));
+  } catch {
+    return false;
+  }
+}
+
+/** Immediate child directories of `root` that hold a package.json, sorted. */
+function childPackageDirs(root: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        !entry.name.startsWith(".") &&
+        entry.name !== "node_modules" &&
+        fs.existsSync(path.join(root, entry.name, "package.json"))
+    )
+    .map((entry) => path.join(root, entry.name))
+    .sort();
+}
+
+/**
+ * The workspace package directories of a multi-package root: those its
+ * package.json `workspaces` field names, or, when it has none, the
+ * immediate child directories that hold a package.json. Empty when
+ * `root` has no package.json.
+ */
+export function findWorkspacePackageDirs(root: string): {
+  dirs: string[];
+  declared: boolean;
+} {
+  const packageJsonPath = path.join(root, "package.json");
+  if (!fs.existsSync(packageJsonPath)) return { dirs: [], declared: false };
+  let packageJson: Record<string, unknown> = {};
+  try {
+    packageJson = readRecord(JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"))) ?? {};
+  } catch {
+    return { dirs: [], declared: false };
+  }
+  const workspacesRaw = packageJson["workspaces"];
+  if (workspacesRaw === undefined) return { dirs: childPackageDirs(root), declared: false };
+  const patterns =
+    readStringArray(workspacesRaw) ??
+    readStringArray(readRecord(workspacesRaw)?.["packages"]) ??
+    [];
+  const detector = new ProjectDetector(root);
+  return { dirs: detector.resolveWorkspaceGlobs(patterns), declared: true };
 }

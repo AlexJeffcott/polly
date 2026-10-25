@@ -31,6 +31,12 @@ export interface ArchitectureAnalysisOptions {
   useProjectDetector?: boolean;
 
   /**
+   * Optional: treat child directories holding a package.json as workspace
+   * packages when the root package.json has no `workspaces` field.
+   */
+  inferWorkspaces?: boolean;
+
+  /**
    * Optional: the typescript-7 session to run the handlers, contexts,
    * flows and integrations on (the caller closes it). Without one, `analyze` opens and
    * closes a session of its own.
@@ -145,7 +151,9 @@ export class ArchitectureAnalyzer {
 
     // Use project detector for generic projects
     const { detectProjectConfig } = await import("./project-detector");
-    const projectConfig = detectProjectConfig(this.options.projectRoot);
+    const projectConfig = detectProjectConfig(this.options.projectRoot, {
+      inferWorkspaces: this.options.inferWorkspaces === true,
+    });
 
     return {
       projectConfig,

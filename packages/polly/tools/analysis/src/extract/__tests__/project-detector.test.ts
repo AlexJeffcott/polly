@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { detectProjectConfig } from "../project-detector";
+import { detectProjectConfig, findWorkspacePackageDirs } from "../project-detector";
 
 describe("Project Detector", () => {
   let tempDir: string;
@@ -535,6 +535,76 @@ const app = new Elysia().listen(3000);`
       const names = config.workspacePackages!.map((p) => p.name);
       expect(names).toContain("alpha");
       expect(names).toContain("beta");
+    });
+
+    /** A root package.json without `workspaces`, plus client/ and server/ packages. */
+    function writeUndeclaredWorkspace(): void {
+      fs.writeFileSync(path.join(tempDir, "package.json"), JSON.stringify({ name: "todo-root" }));
+      fs.mkdirSync(path.join(tempDir, "server", "src"), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, "client", "src"), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, "notes"));
+      fs.writeFileSync(
+        path.join(tempDir, "server", "package.json"),
+        JSON.stringify({ name: "todo-app-server" })
+      );
+      fs.writeFileSync(
+        path.join(tempDir, "server", "src", "index.ts"),
+        `import { Elysia } from 'elysia';
+const app = new Elysia().listen(3000);`
+      );
+      fs.writeFileSync(
+        path.join(tempDir, "client", "package.json"),
+        JSON.stringify({ name: "todo-app-client" })
+      );
+      // Capitalised: `src/app.tsx` must not match it on a case-insensitive disk.
+      fs.writeFileSync(path.join(tempDir, "client", "src", "App.tsx"), "export const App = 1;");
+      fs.writeFileSync(path.join(tempDir, "client", "src", "client.tsx"), "console.log(1);");
+    }
+
+    test("infers workspace packages from child directories only when asked", () => {
+      writeUndeclaredWorkspace();
+
+      expect(detectProjectConfig(tempDir).type).not.toBe("monorepo");
+
+      const config = detectProjectConfig(tempDir, { inferWorkspaces: true });
+      expect(config.type).toBe("monorepo");
+      expect(config.workspacePackages?.map((p) => p.context).sort()).toEqual(["client", "server"]);
+      expect(config.entryPoints["server"]).toBe(path.join(tempDir, "server", "src", "index.ts"));
+      expect(config.entryPoints["client"]).toBe(path.join(tempDir, "client", "src", "client.tsx"));
+    });
+
+    test("two packages with one role suffix keep their full names", () => {
+      writeUndeclaredWorkspace();
+      fs.writeFileSync(
+        path.join(tempDir, "client", "package.json"),
+        JSON.stringify({ name: "admin-server" })
+      );
+
+      const config = detectProjectConfig(tempDir, { inferWorkspaces: true });
+      // client/ sorts first and takes "server"; server/ keeps its full name.
+      expect(config.workspacePackages?.map((p) => p.context)).toEqual([
+        "server",
+        "todo-app-server",
+      ]);
+    });
+
+    test("findWorkspacePackageDirs reads `workspaces`, else child packages", () => {
+      expect(findWorkspacePackageDirs(tempDir)).toEqual({ dirs: [], declared: false });
+
+      writeUndeclaredWorkspace();
+      expect(findWorkspacePackageDirs(tempDir)).toEqual({
+        dirs: [path.join(tempDir, "client"), path.join(tempDir, "server")],
+        declared: false,
+      });
+
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({ name: "todo-root", workspaces: ["server"] })
+      );
+      expect(findWorkspacePackageDirs(tempDir)).toEqual({
+        dirs: [path.join(tempDir, "server")],
+        declared: true,
+      });
     });
   });
 
