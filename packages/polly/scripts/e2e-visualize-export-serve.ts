@@ -18,7 +18,11 @@
  *      plus its asset bundle — not an empty directory.
  *   3. `serve --port=<ephemeral>` boots a static server; an HTTP GET returns
  *      200 and the served bytes are the exported `index.html`.
- *   4. Teeth: `export` with no DSL, and `serve` with no site, each exit
+ *   4. Teeth: SIGTERM to the `polly` wrapper stops the server — the port
+ *      stops answering. The wrapper used to die alone and orphan the
+ *      `visualize serve` grandchild, which kept the port up and held this
+ *      script's stdio pipes open, so it hung after printing PASS.
+ *   5. Teeth: `export` with no DSL, and `serve` with no site, each exit
  *      non-zero rather than claiming success over nothing.
  *
  * The serve subprocess would otherwise `open` a real browser tab; the script
@@ -87,6 +91,50 @@ async function probe(url: string, timeoutMs: number): Promise<string> {
   throw new Error(`serve did not answer 200 at ${url} within ${timeoutMs}ms (${String(lastErr)})`);
 }
 
+/** Wait for `proc` to exit; SIGKILL it if it outlives `timeoutMs`. */
+async function exitWithin(proc: Bun.Subprocess, timeoutMs: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<boolean>((r) => {
+    timer = setTimeout(() => r(true), timeoutMs);
+  });
+  const outlived = await Promise.race([proc.exited.then(() => false), timedOut]);
+  clearTimeout(timer);
+  if (outlived) {
+    proc.kill("SIGKILL");
+    await proc.exited;
+  }
+}
+
+/** True if `url` still gets any HTTP response once `windowMs` has passed. */
+async function answersAfter(url: string, windowMs: number): Promise<boolean> {
+  const deadline = Date.now() + windowMs;
+  while (Date.now() < deadline) {
+    try {
+      await fetch(url, { signal: AbortSignal.timeout(500) });
+    } catch {
+      return false; // connection refused: nothing is listening
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return true;
+}
+
+/** Best-effort teardown of whatever still listens on `port` (a leaked
+ *  grandchild), so a failing run does not leave a server behind. */
+function killPortListener(port: number): void {
+  const found = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"]);
+  for (const pid of found.stdout.toString().split("\n")) {
+    const n = Number.parseInt(pid, 10);
+    if (Number.isInteger(n) && n > 0) {
+      try {
+        process.kill(n, "SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
+  }
+}
+
 export async function run(ctx: TierContext): Promise<TierResult> {
   const temp = mkdtempSync(join(tmpdir(), "polly-e2e-viz-"));
   const appDir = join(temp, "minimal");
@@ -113,10 +161,13 @@ export async function run(ctx: TierContext): Promise<TierResult> {
 
     ctx.log("[e2e] polly visualize serve --port=<ephemeral> (GET → 200)");
     const port = 41000 + Math.floor(Math.random() * 2000);
+    // stdio goes to a file, not a pipe: an orphaned grandchild holding the
+    // write end of a pipe kept this script alive after it printed PASS.
+    const serveLog = join(temp, "serve.log");
     const serve = Bun.spawn(["bun", POLLY_CLI, "visualize", "serve", `--port=${port}`], {
       cwd: appDir,
-      stdout: "pipe",
-      stderr: "pipe",
+      stdout: Bun.file(serveLog),
+      stderr: Bun.file(serveLog),
       env: { ...process.env, PATH: `${noBrowserBin(temp)}:${process.env["PATH"] ?? ""}` },
     });
     try {
@@ -124,7 +175,22 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       assert(/structurizr/i.test(body), "served root is not the exported structurizr index");
     } finally {
       serve.kill();
-      await serve.exited;
+      await exitWithin(serve, 5_000);
+    }
+
+    // Teeth: killing the `polly` wrapper must stop the server it spawned.
+    // Before the wrapper relayed signals, SIGTERM orphaned the
+    // `visualize serve` grandchild, which kept the port answering.
+    ctx.log("[e2e] teeth: SIGTERM to the polly wrapper stops the server");
+    const stillServing = await answersAfter(`http://127.0.0.1:${port}/`, 3_000);
+    if (stillServing) {
+      killPortListener(port);
+      const log = existsSync(serveLog) ? readFileSync(serveLog, "utf8") : "";
+      assert(
+        false,
+        `port ${port} still answers 3s after the polly wrapper exited — ` +
+          `the wrapper orphaned its serve child (killed the listener in teardown)\n${log}`
+      );
     }
 
     // Teeth: both downstream commands must refuse when their input is absent.
