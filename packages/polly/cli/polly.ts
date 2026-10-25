@@ -37,6 +37,8 @@
  *   --type=TYPE         Project type for init command
  */
 
+import { constants as osConstants } from "node:os";
+
 // Use Bun built-ins instead of Node.js APIs
 const __dirname = import.meta.dir;
 
@@ -51,6 +53,65 @@ const args = {
     ? process.argv[process.argv.indexOf("--config") + 1]
     : undefined,
 };
+
+/** Signals the wrapper relays to its child instead of dying on them. */
+const FORWARDED_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+
+/** Spawn options every subcommand passes; output always goes to the terminal. */
+interface ChildOptions {
+  cwd: string;
+  stdout: "inherit";
+  stderr: "inherit";
+  stdin?: "inherit";
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * A subcommand's child exited non-zero. `exitCode` is the status the wrapper
+ * should exit with: the child's own code, or 128 + signal number when the
+ * child was killed by a signal (the shell convention).
+ */
+class ChildExitError extends Error {
+  readonly exitCode: number;
+  constructor(message: string, exitCode: number) {
+    super(message);
+    this.name = "ChildExitError";
+    this.exitCode = exitCode;
+  }
+}
+
+/**
+ * Run a subcommand's child process to completion and return its exit status.
+ *
+ * Without this, SIGTERM/SIGHUP to the wrapper killed only the wrapper and left
+ * the child (e.g. `visualize serve`) running as an orphan, still holding its
+ * port and the wrapper's stdout/stderr pipes. While the child runs, the
+ * wrapper catches SIGINT/SIGTERM/SIGHUP and relays each one to it, then exits
+ * with the child's status once the child has gone.
+ *
+ * Ctrl-C in a terminal delivers SIGINT to the child directly (same process
+ * group) as well as through the relay. That second SIGINT is harmless: the
+ * tools either take the default action or run an idempotent shutdown, and
+ * kill() on an already-exited child is a no-op. The listeners are removed as
+ * soon as the child exits, so they never hold the wrapper open.
+ */
+async function runChild(cmd: string[], options: ChildOptions): Promise<number> {
+  const proc = Bun.spawn(cmd, options);
+  const relay = (signal: NodeJS.Signals): void => {
+    proc.kill(signal);
+  };
+  for (const signal of FORWARDED_SIGNALS) process.on(signal, relay);
+  try {
+    await proc.exited;
+  } finally {
+    for (const signal of FORWARDED_SIGNALS) process.off(signal, relay);
+  }
+  const signal = proc.signalCode;
+  if (signal !== null) {
+    return 128 + (typeof signal === "number" ? signal : osConstants.signals[signal]);
+  }
+  return proc.exitCode ?? 1;
+}
 
 /**
  * Load user's configuration
@@ -101,13 +162,11 @@ async function build() {
   process.env["WEB_EXT_PROD"] = args.prod ? "true" : "false";
 
   // Run build
-  const proc = Bun.spawn(["bun", buildScriptPath], {
+  const exitCode = await runChild(["bun", buildScriptPath], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
     process.exit(exitCode);
   }
@@ -129,17 +188,15 @@ async function verify() {
   const monorepoCli = `${__dirname}/../tools/verify/src/cli.ts`;
   const verifyCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", verifyCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", verifyCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Verification failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Verification failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -154,17 +211,15 @@ async function mutate() {
 
   // Pass the full commandArgs through — the tool's own cli reads the subcommand
   // (run/report/decisions/verify) as its first positional.
-  const proc = Bun.spawn(["bun", mutateCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", mutateCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Mutation testing failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Mutation testing failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -179,17 +234,15 @@ async function bdd() {
 
   // Pass the full commandArgs through — the tool's own cli reads the subcommand
   // (run/check/new) as its first positional.
-  const proc = Bun.spawn(["bun", bddCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", bddCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`BDD run failed with exit code ${exitCode}`);
+    throw new ChildExitError(`BDD run failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -202,17 +255,15 @@ async function visualize() {
   const monorepoCli = `${__dirname}/../tools/visualize/src/cli.ts`;
   const visualizeCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", visualizeCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", visualizeCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Visualization failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Visualization failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -224,17 +275,15 @@ async function gallery() {
   const monorepoCli = `${__dirname}/../tools/gallery/src/cli.ts`;
   const galleryCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", galleryCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", galleryCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Gallery failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Gallery failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -246,17 +295,15 @@ async function quality() {
   const monorepoCli = `${__dirname}/../tools/quality/src/cli.ts`;
   const qualityCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", qualityCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", qualityCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Quality checks failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Quality checks failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -264,15 +311,13 @@ async function quality() {
  * Typecheck command - run TypeScript type checking
  */
 async function typecheck() {
-  const proc = Bun.spawn(["bun", "--check"], {
+  const exitCode = await runChild(["bun", "--check"], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Type checking failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Type checking failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -283,15 +328,13 @@ async function lint() {
   const fix = commandArgs.includes("--fix");
   const lintArgs = fix ? ["check", "--write", "."] : ["check", "."];
 
-  const proc = Bun.spawn(["bunx", "@biomejs/biome", ...lintArgs], {
+  const exitCode = await runChild(["bunx", "@biomejs/biome", ...lintArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Linting failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Linting failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -299,15 +342,13 @@ async function lint() {
  * Format command - run Biome formatter
  */
 async function format() {
-  const proc = Bun.spawn(["bunx", "@biomejs/biome", "format", "--write", "."], {
+  const exitCode = await runChild(["bunx", "@biomejs/biome", "format", "--write", "."], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Formatting failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Formatting failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -352,17 +393,15 @@ async function testTiers() {
     runnerCli = sourceConsumer;
   }
 
-  const proc = Bun.spawn(["bun", runnerCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", runnerCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Tiered tests failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Tiered tests failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -389,16 +428,15 @@ async function coverage() {
     args.unshift("--config", "scripts/coverage.config.ts", "--no-mutate");
   }
 
-  const proc = Bun.spawn(["bun", cliPath, ...args], {
+  const exitCode = await runChild(["bun", cliPath, ...args], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Coverage check failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Coverage check failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -411,16 +449,14 @@ async function test() {
   const monorepoCli = `${__dirname}/../tools/test/src/cli.ts`;
   const testCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", testCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", testCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Tests failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Tests failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -434,17 +470,15 @@ async function testBrowser() {
   const monorepoCli = `${__dirname}/../tools/test/src/browser/run.ts`;
   const browserCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", browserCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", browserCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
     env: process.env,
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Browser tests failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Browser tests failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -464,7 +498,11 @@ async function check() {
   for (const { name, fn, optional } of checks) {
     try {
       await fn();
-    } catch (_error) {
+    } catch (error) {
+      // A signalled child (Ctrl-C, SIGTERM) stops the whole run, optional or not.
+      if (error instanceof ChildExitError && error.exitCode > 128) {
+        throw error;
+      }
       if (optional) {
         continue;
       }
@@ -483,16 +521,14 @@ async function init() {
   const monorepoCli = `${__dirname}/../tools/init/src/cli.ts`;
   const initCli = (await Bun.file(bundledCli).exists()) ? bundledCli : monorepoCli;
 
-  const proc = Bun.spawn(["bun", initCli, ...commandArgs], {
+  const exitCode = await runChild(["bun", initCli, ...commandArgs], {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
   });
-
-  const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Initialization failed with exit code ${exitCode}`);
+    throw new ChildExitError(`Initialization failed with exit code ${exitCode}`, exitCode);
   }
 }
 
@@ -604,6 +640,12 @@ async function main() {
         process.exit(1);
     }
   } catch (error) {
+    if (error instanceof ChildExitError) {
+      // The child already reported its own failure; relay its status. A
+      // signalled child (exit > 128) was stopped on purpose, so stay quiet.
+      if (error.exitCode <= 128) console.log(`\n❌ Command failed: ${error.message}`);
+      process.exit(error.exitCode);
+    }
     console.log("\n❌ Command failed:", error);
     process.exit(1);
   }
