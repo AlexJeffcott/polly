@@ -48,9 +48,13 @@ export default defineMutation({
     "packages/polly/src/polly-ui/Select.tsx",
     "packages/polly/src/polly-ui/Dropdown.tsx",
     "packages/polly/src/polly-ui/internal/dispatch-action.ts",
+    "packages/polly/tools/visualize/src/codegen/structurizr.ts",
   ],
   tests: {
-    include: ["packages/polly/tests/unit/**/*.test.ts"],
+    include: [
+      "packages/polly/tests/unit/**/*.test.ts",
+      "packages/polly/tools/visualize/src/**/*.test.ts",
+    ],
     preload: ["./packages/polly/tests/setup.ts"],
   },
   // The kill matrix feeds the test-debt analysis (`polly mutate report`);
