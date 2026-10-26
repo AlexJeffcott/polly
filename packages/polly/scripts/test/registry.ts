@@ -213,6 +213,10 @@ export function internalPlan(): TierPlan {
           tags: ["cli", "package", "deps"],
           cost: "heavy",
         }),
+        e2e("cli.vendor-polly", "e2e-vendor-polly.ts", {
+          tags: ["cli", "vendor", "build"],
+          cost: "heavy",
+        }),
         e2e("cli.coverage-consumer", "e2e-coverage-consumer.ts", {
           tags: ["cli", "coverage"],
           cost: "heavy",

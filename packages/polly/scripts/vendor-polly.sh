@@ -115,22 +115,26 @@ del src/polly-ui src/assets src/content src/devtools src/offscreen src/options s
 # @cucumber/messages, no UI/mesh/framework-runtime imports), is exported as
 # `@fairfox/polly/bdd`, and `polly verify --witness` dynamic-imports it — so
 # dropping it would break the verify CLI build. Its tests are stripped below.
-log "deleting dropped tooling (init, test, gallery) …"
-del tools/init tools/test tools/gallery
+#
+# tools/mutate goes too: it is not part of the slice (the build below never
+# bundles it), and it imports tools/test plus the oxc-parser and weapon-regex
+# tool packages, so it cannot type-check here.
+log "deleting dropped tooling (init, test, gallery, mutate) …"
+del tools/init tools/test tools/gallery tools/mutate
 
 log "deleting top-level mesh/extension entry files …"
 del src/manifest.json src/wasm.d.ts src/mesh.ts src/mesh-node.ts src/peer.ts
 
 log "deleting mesh substrate in src/shared/lib/ …"
 for f in \
-  _client-only blob-cache blob-store blob-store-impl blob-transfer \
+  _client-only blob-cache blob-store blob-store-impl blob-transfer branded \
   crdt-specialised crdt-state derive-document-id derive-document-id-core \
   encryption keyring-storage \
   mesh-client mesh-diagnostics mesh-network-adapter mesh-signaling-client \
   mesh-state mesh-webrtc-adapter migrate-primitive pairing \
   peer-relay-adapter peer-repo-server peer-state primitive-registry \
   revocation revocation-summary schema-version signing sweep-sealed \
-  sync-fragment wasm-init
+  sync-fragment wasm-init wire-message
 do
   del "src/shared/lib/$f.ts"
 done
@@ -227,12 +231,9 @@ redirect() {
 }
 
 log "redirecting visualize mesh imports onto the stub …"
-redirect tools/visualize/src/cli.ts               "../../../src/shared/lib/mesh-client"        "./_vendor-mesh-stub"
 redirect tools/visualize/src/mesh-snapshot.ts     "../../../src/shared/lib/mesh-client"        "./_vendor-mesh-stub"
-redirect tools/visualize/src/codegen/structurizr.ts "../../../../src/shared/lib/mesh-client"     "../_vendor-mesh-stub"
-redirect tools/visualize/src/cli.ts               "./mesh-document-id"                         "./_vendor-mesh-stub"
+redirect tools/visualize/src/main.ts              "./mesh-document-id"                         "./_vendor-mesh-stub"
 del tools/visualize/src/mesh-document-id.ts
-redirect tools/visualize/src/types/structurizr.ts "../../../../src/shared/lib/mesh-client"     "../_vendor-mesh-stub"
 ok "imports redirected"
 
 # ----------------------------------------------------------------------------
@@ -391,11 +392,14 @@ const toolsResult = await Bun.build({
   entrypoints: [
     "cli/polly.ts",
     "tools/verify/src/cli.ts",
+    "tools/verify/src/main.ts",
     "tools/visualize/src/cli.ts",
+    "tools/visualize/src/main.ts",
     // bdd: the `polly bdd` CLI (cli/polly.ts spawns it) + the `./bdd` library
     // export (defineStep/defineWorld). `polly verify --witness` also
     // dynamic-imports tools/bdd/src/witness, so verify's CLI needs it built.
     "tools/bdd/src/cli.ts",
+    "tools/bdd/src/main.ts",
     "tools/bdd/src/index.ts",
     // quality library (the `./quality` subpath export) — node-target: it scans
     // source/CSS text via bun's Glob + node:fs, so it is not browser-safe.
@@ -506,7 +510,10 @@ if [ "$CHECK" -eq 1 ]; then
   # tool (e.g. verify's CLI dynamic-importing bdd) type-checks clean but fails
   # to bundle. build:lib is the only step that exercises every entrypoint.
   log "running --check (bun install + bun check + build:lib) …"
-  ( cd "$TARGET" && bun install && bun check && bun run build:lib ) \
-    && ok "typecheck + build passed" \
-    || warn "check reported issues — review above (the mesh stub types or a missing dep are the likely culprits)"
+  if ( cd "$TARGET" && bun install && bun check && bun run build:lib ); then
+    ok "typecheck + build passed"
+  else
+    warn "check reported issues — review above (the mesh stub types or a missing dep are the likely culprits)"
+    exit 1
+  fi
 fi
