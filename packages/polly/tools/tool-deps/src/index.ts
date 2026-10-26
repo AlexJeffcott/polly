@@ -14,6 +14,9 @@
  *     package with a top-level `await loadToolPackage(...)`, which throws a
  *     {@link MissingToolPackageError} carrying the same message.
  *
+ * {@link RUNTIME_PEERS} lists optional runtime peers that a tool loads only
+ * for one feature, through the same {@link loadToolPackage}.
+ *
  * The versions here must match packages/polly/package.json (devDependencies
  * and peerDependencies); a unit test holds them together.
  */
@@ -33,6 +36,34 @@ export const TOOL_PACKAGES = {
 
 export type ToolPackage = keyof typeof TOOL_PACKAGES;
 
+/**
+ * Optional runtime peers a tool loads only for one feature. These are not
+ * tool packages: the mesh runtime imports them, so a mesh app has them
+ * already. `polly visualize --snapshot` needs them to resolve a mesh key to
+ * its document id; a plain `polly visualize` does not load them.
+ */
+export const RUNTIME_PEERS = {
+  tweetnacl: { install: "tweetnacl@1.0.3", probe: "tweetnacl" },
+  "@automerge/automerge-repo": {
+    install: "@automerge/automerge-repo@2.5.6",
+    probe: "@automerge/automerge-repo/slim",
+  },
+} as const;
+
+export type RuntimePeer = keyof typeof RUNTIME_PEERS;
+
+/** Any optional peer a tool can report missing. */
+export type OptionalPeer = ToolPackage | RuntimePeer;
+
+const OPTIONAL_PEERS: Record<OptionalPeer, { install: string; probe: string }> = {
+  ...TOOL_PACKAGES,
+  ...RUNTIME_PEERS,
+};
+
+function isRuntimePeer(p: OptionalPeer): p is RuntimePeer {
+  return p in RUNTIME_PEERS;
+}
+
 const GHERKIN: readonly ToolPackage[] = ["@cucumber/gherkin", "@cucumber/messages"];
 
 /**
@@ -49,10 +80,10 @@ export const COMMAND_TOOL_PACKAGES: Readonly<Record<string, readonly ToolPackage
 
 /** `bun add -d <pkg>@<version> ...` for the given packages. */
 export function installCommand(
-  packages: readonly ToolPackage[],
+  packages: readonly OptionalPeer[],
   manager: "bun" | "npm" = "bun"
 ): string {
-  const specs = packages.map((p) => TOOL_PACKAGES[p].install).join(" ");
+  const specs = packages.map((p) => OPTIONAL_PEERS[p].install).join(" ");
   return manager === "bun" ? `bun add -d ${specs}` : `npm install -D ${specs}`;
 }
 
@@ -62,15 +93,18 @@ export function installCommand(
  */
 export function missingToolPackagesMessage(
   feature: string,
-  missing: readonly ToolPackage[]
+  missing: readonly OptionalPeer[]
 ): string {
   const names = [...missing];
   const last = names.pop() ?? "";
   const list = names.length === 0 ? last : `${names.join(", ")} and ${last}`;
   const verb = missing.length === 1 ? "is" : "are";
+  const why = missing.some(isRuntimePeer)
+    ? `@fairfox/polly lists ${list} as optional peer dependencies (its mesh runtime loads them), so ${missing.length === 1 ? "it is" : "they are"} not installed with it.`
+    : "@fairfox/polly lists its tool packages as optional peer dependencies, so they are not installed with it.";
   return [
     `${feature} needs ${list}, which ${verb} not installed.`,
-    "@fairfox/polly lists its tool packages as optional peer dependencies, so they are not installed with it.",
+    why,
     "Add them as dev dependencies:",
     `  ${installCommand(missing, "bun")}`,
     `  (npm: ${installCommand(missing, "npm")})`,
@@ -80,8 +114,8 @@ export function missingToolPackagesMessage(
 /** Thrown when an optional tool package cannot be found. `message` says what to install. */
 export class MissingToolPackageError extends Error {
   readonly feature: string;
-  readonly missing: readonly ToolPackage[];
-  constructor(feature: string, missing: readonly ToolPackage[], cause?: unknown) {
+  readonly missing: readonly OptionalPeer[];
+  constructor(feature: string, missing: readonly OptionalPeer[], cause?: unknown) {
     super(missingToolPackagesMessage(feature, missing), { cause });
     this.name = "MissingToolPackageError";
     this.feature = feature;
@@ -111,7 +145,7 @@ export function missingToolPackages(
 }
 
 /** True when `error` is a module-not-found for `pkg` (bun and node both use ERR_MODULE_NOT_FOUND). */
-export function isMissingPackageError(error: unknown, pkg: ToolPackage): boolean {
+export function isMissingPackageError(error: unknown, pkg: OptionalPeer): boolean {
   if (!isRecord(error)) return false;
   const code = readString(error["code"]);
   if (code !== "ERR_MODULE_NOT_FOUND" && code !== "MODULE_NOT_FOUND") return false;
@@ -119,16 +153,21 @@ export function isMissingPackageError(error: unknown, pkg: ToolPackage): boolean
   return text.includes(pkg);
 }
 
-/** A library entry point and every tool package it loads. */
+/** A library entry point (or tool feature) and every optional package it loads. */
 export interface ToolFeature {
   name: string;
-  packages: readonly ToolPackage[];
+  packages: readonly OptionalPeer[];
 }
 
 export const BDD_FEATURE: ToolFeature = { name: "@fairfox/polly/bdd", packages: GHERKIN };
 export const MUTATE_FEATURE: ToolFeature = {
   name: "@fairfox/polly/mutate",
   packages: COMMAND_TOOL_PACKAGES["mutate"] ?? [],
+};
+/** `polly visualize --snapshot`: the runtime peers that derive a mesh document id. */
+export const VISUALIZE_SNAPSHOT_FEATURE: ToolFeature = {
+  name: "polly visualize --snapshot",
+  packages: ["tweetnacl", "@automerge/automerge-repo"],
 };
 
 /**
@@ -137,11 +176,11 @@ export const MUTATE_FEATURE: ToolFeature = {
  * the specifiers resolve from this module, inside the same node_modules
  * chain as the module that asked.
  */
-async function missingByImport(packages: readonly ToolPackage[]): Promise<ToolPackage[]> {
-  const missing: ToolPackage[] = [];
+async function missingByImport(packages: readonly OptionalPeer[]): Promise<OptionalPeer[]> {
+  const missing: OptionalPeer[] = [];
   for (const p of packages) {
     try {
-      await import(TOOL_PACKAGES[p].probe);
+      await import(OPTIONAL_PEERS[p].probe);
     } catch (error) {
       if (isMissingPackageError(error, p)) missing.push(p);
     }
@@ -157,7 +196,7 @@ async function missingByImport(packages: readonly ToolPackage[]): Promise<ToolPa
  * any other failure is rethrown as it is.
  */
 export async function loadToolPackage<T>(
-  pkg: ToolPackage,
+  pkg: OptionalPeer,
   feature: ToolFeature,
   load: () => Promise<T>
 ): Promise<T> {

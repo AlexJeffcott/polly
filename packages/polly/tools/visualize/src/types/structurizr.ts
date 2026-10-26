@@ -256,6 +256,15 @@ export interface StructurizrDSLOptions {
    * static diagram is emitted unchanged.
    */
   snapshot?: OverlaySnapshot;
+
+  /**
+   * Maps a `$meshState` key to its document id, so a snapshot handle can
+   * be matched to its static `mesh_doc_*` node. Required with a
+   * `snapshot` on an analysis that has mesh documents; the caller loads it
+   * with `loadDocumentIdResolver()` (mesh-document-id.ts), which imports
+   * the optional peers tweetnacl and @automerge/automerge-repo.
+   */
+  resolveDocumentId?: (key: string) => string;
 }
 
 /**

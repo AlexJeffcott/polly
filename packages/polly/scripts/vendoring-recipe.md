@@ -75,12 +75,13 @@ insufficient:
 
 2. **`visualize`'s `--snapshot` overlay** (polly#127) imports
    `MeshClientPeerStateSnapshot` (type-only, from `mesh-client.ts`) in three
-   files and `deriveDocumentId` (a runtime value, from
-   `derive-document-id.ts`) in `structurizr.ts`. `deriveDocumentId` itself
-   pulls `@automerge/automerge-repo/slim`. The script deletes both leaf
-   modules and redirects all five imports onto a generated stub
+   files, and `cli.ts` imports `loadDocumentIdResolver` from
+   `mesh-document-id.ts`, which calls `derive-document-id-core.ts` and
+   dynamically imports `tweetnacl` and `@automerge/automerge-repo/slim`. The
+   script deletes the leaf modules and `mesh-document-id.ts` and redirects
+   the imports onto a generated stub
    (`tools/visualize/src/_vendor-mesh-stub.ts`): loose snapshot types plus a
-   `deriveDocumentId` that throws. The overlay code still compiles; invoking
+   `loadDocumentIdResolver` that throws. The overlay code still compiles; invoking
    `visualize --snapshot` throws a clear "unavailable in mesh-free build"
    error rather than failing to compile.
 

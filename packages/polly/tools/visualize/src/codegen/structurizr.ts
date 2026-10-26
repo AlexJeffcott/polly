@@ -1,6 +1,5 @@
 // Structurizr DSL generator
 
-import { deriveDocumentId } from "../../../../src/shared/lib/derive-document-id";
 import type {
   ArchitectureAnalysis,
   ContextInfo,
@@ -1077,11 +1076,19 @@ export class StructurizrDSLGenerator {
    */
   private buildDocIdNodeMap(): Map<string, string> {
     const docIdToNode = new Map<string, string>();
+    const signals = this.analysis.meshOrPeerSignals ?? [];
+    if (signals.length === 0) return docIdToNode;
+    const resolve = this.options.resolveDocumentId;
+    if (!resolve) {
+      throw new Error(
+        "generateStructurizrDSL: a snapshot over mesh documents needs options.resolveDocumentId (see loadDocumentIdResolver in mesh-document-id.ts)"
+      );
+    }
     const seenKeys = new Set<string>();
-    for (const sig of this.analysis.meshOrPeerSignals ?? []) {
+    for (const sig of signals) {
       if (seenKeys.has(sig.key)) continue;
       seenKeys.add(sig.key);
-      docIdToNode.set(String(deriveDocumentId(sig.key)), this.meshDocId(sig.key));
+      docIdToNode.set(resolve(sig.key), this.meshDocId(sig.key));
     }
     return docIdToNode;
   }

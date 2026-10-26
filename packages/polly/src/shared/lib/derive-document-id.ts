@@ -1,24 +1,15 @@
 /**
  * Leaf module for {@link deriveDocumentId}. Kept free of the wider
  * `mesh-state` module graph (CRDT primitives, the Repo, schema
- * migrations) so that tooling — notably `polly visualize` (polly#127) —
- * can resolve a logical key to its {@link DocumentId} without pulling
- * the whole mesh runtime into its bundle. `mesh-state` re-exports it,
- * so consumer-facing imports are unchanged.
+ * migrations) so that importing it does not pull the whole mesh runtime
+ * in. `mesh-state` re-exports it, so consumer-facing imports are
+ * unchanged. The derivation itself is in {@link ./derive-document-id-core},
+ * which `polly visualize` (polly#127) calls with lazily loaded primitives.
  */
 
-import {
-  type BinaryDocumentId,
-  type DocumentId,
-  interpretAsDocumentId,
-} from "@automerge/automerge-repo/slim";
+import { type DocumentId, interpretAsDocumentId } from "@automerge/automerge-repo/slim";
 import nacl from "tweetnacl";
-
-/** Domain prefix pinning the derivation to $meshState so that the same
- * logical key used in a different Polly subsystem would produce a
- * different id. */
-const DOC_ID_DOMAIN = "polly/meshState/v1";
-const keyEncoder = new TextEncoder();
+import { deriveDocumentIdWith } from "./derive-document-id-core";
 
 /**
  * Domain-separated hash of an application key into a 16-byte
@@ -32,7 +23,5 @@ const keyEncoder = new TextEncoder();
  * and stash that id in a runtime index.
  */
 export function deriveDocumentId(key: string): DocumentId {
-  const digest = nacl.hash(keyEncoder.encode(`${DOC_ID_DOMAIN}:${key}`));
-  const bytes = digest.slice(0, 16);
-  return interpretAsDocumentId(bytes as unknown as BinaryDocumentId);
+  return deriveDocumentIdWith({ hash: nacl.hash, interpretAsDocumentId }, key);
 }

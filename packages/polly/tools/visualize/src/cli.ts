@@ -9,7 +9,9 @@ import { readRecord, readString, readStringArray } from "../../../src/shared/lib
 import { analyzeArchitecture } from "../../analysis/src/extract/architecture";
 import { findWorkspacePackageDirs } from "../../analysis/src/extract/project-detector";
 import type { ArchitectureAnalysis } from "../../analysis/src/types/architecture";
+import { MissingToolPackageError } from "../../tool-deps/src/index.ts";
 import { generateStructurizrDSL } from "./codegen/structurizr";
+import { type DocumentIdResolver, loadDocumentIdResolver } from "./mesh-document-id";
 import {
   collectSnapshotPeerIds,
   loadMeshSnapshot,
@@ -105,6 +107,9 @@ async function generateCommand(args: string[]) {
   try {
     const { snapshotPath } = parseGenerateArgs(args);
     const snapshot = snapshotPath ? loadAndReportSnapshot(snapshotPath) : undefined;
+    // Only the snapshot overlay derives mesh document ids, so only it loads
+    // the optional peers that derivation needs; before analysis, to fail fast.
+    const resolveDocumentId = snapshot ? await loadResolverOrFail() : undefined;
     const setup = findAndDisplayProjectConfig();
     let analysis: ArchitectureAnalysis;
     try {
@@ -112,7 +117,7 @@ async function generateCommand(args: string[]) {
     } finally {
       setup.cleanup();
     }
-    dslPath = generateAndWriteDSL(analysis, snapshot);
+    dslPath = generateAndWriteDSL(analysis, snapshot, resolveDocumentId);
   } catch (error) {
     fail(`Architecture analysis failed: ${errorMessage(error)}`);
   }
@@ -138,6 +143,16 @@ function parseGenerateArgs(args: string[]): { snapshotPath?: string } {
   }
 
   return result;
+}
+
+/** Load the document-id resolver; a missing optional peer exits 1 with the install message. */
+async function loadResolverOrFail(): Promise<DocumentIdResolver> {
+  try {
+    return await loadDocumentIdResolver();
+  } catch (error) {
+    if (error instanceof MissingToolPackageError) fail(error.message);
+    throw error;
+  }
 }
 
 /**
@@ -396,7 +411,11 @@ function displayArchitectureSummary(analysis: ArchitectureAnalysis): void {
   }
 }
 
-function generateAndWriteDSL(analysis: ArchitectureAnalysis, snapshot?: OverlaySnapshot): string {
+function generateAndWriteDSL(
+  analysis: ArchitectureAnalysis,
+  snapshot?: OverlaySnapshot,
+  resolveDocumentId?: DocumentIdResolver
+): string {
   console.log(color("\n📝 Generating Structurizr DSL...\n", COLORS.blue));
 
   const contextTypes = Object.keys(analysis.contexts);
@@ -405,6 +424,7 @@ function generateAndWriteDSL(analysis: ArchitectureAnalysis, snapshot?: OverlayS
     includeComponentDiagrams: true,
     componentDiagramContexts: contextTypes.length > 0 ? contextTypes : ["background"],
     snapshot,
+    resolveDocumentId,
   });
 
   const outputDir = path.join(process.cwd(), "docs");

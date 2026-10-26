@@ -12,8 +12,11 @@ import {
   MUTATE_FEATURE,
   missingToolPackages,
   missingToolPackagesMessage,
+  RUNTIME_PEERS,
+  type RuntimePeer,
   TOOL_PACKAGES,
   type ToolPackage,
+  VISUALIZE_SNAPSHOT_FEATURE,
 } from "../index.ts";
 
 const packageRoot = join(import.meta.dir, "../../../..");
@@ -43,6 +46,19 @@ describe("package.json agrees with TOOL_PACKAGES", () => {
       expect(readRecord(meta[p])?.["optional"]).toBe(true);
     }
   });
+
+  test("each runtime peer is an optional peer and a devDependency at the install version", async () => {
+    const m = await manifest();
+    const dev = readRecord(m["devDependencies"]) ?? {};
+    const peers = readRecord(m["peerDependencies"]) ?? {};
+    const meta = readRecord(m["peerDependenciesMeta"]) ?? {};
+    const runtime = Object.keys(RUNTIME_PEERS).filter((k): k is RuntimePeer => k in RUNTIME_PEERS);
+    for (const p of runtime) {
+      expect(`${p}@${dev[p]}`).toBe(RUNTIME_PEERS[p].install);
+      expect(peers[p]).toBeDefined();
+      expect(readRecord(meta[p])?.["optional"]).toBe(true);
+    }
+  });
 });
 
 describe("messages", () => {
@@ -67,6 +83,25 @@ describe("messages", () => {
     expect(msg).toContain("npm install -D @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1");
     expect(missingToolPackagesMessage("polly visualize", ["typescript-7"])).toContain(
       "polly visualize needs typescript-7, which is not installed."
+    );
+  });
+
+  test("a runtime-peer message says they are optional peers, not tool packages", () => {
+    const msg = missingToolPackagesMessage(
+      VISUALIZE_SNAPSHOT_FEATURE.name,
+      VISUALIZE_SNAPSHOT_FEATURE.packages
+    );
+    expect(msg).toContain(
+      "polly visualize --snapshot needs tweetnacl and @automerge/automerge-repo, which are not installed."
+    );
+    expect(msg).toContain(
+      "@fairfox/polly lists tweetnacl and @automerge/automerge-repo as optional peer dependencies"
+    );
+    expect(msg).not.toContain("tool packages");
+    expect(msg).toContain("bun add -d tweetnacl@1.0.3 @automerge/automerge-repo@2.5.6");
+    expect(msg).toContain("npm install -D tweetnacl@1.0.3 @automerge/automerge-repo@2.5.6");
+    expect(missingToolPackagesMessage("polly visualize --snapshot", ["tweetnacl"])).toContain(
+      "so it is not installed with it."
     );
   });
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`polly visualize` needs only `typescript-7`, as the 0.97.0 install
+  table says.** In 0.97.0 the visualize bundle statically imported
+  `tweetnacl` and `@automerge/automerge-repo/slim` (both optional peers)
+  for `deriveDocumentId`, which only the `--snapshot` mesh overlay uses.
+  A cold install of 0.97.0 with only `typescript-7` added exited 1 on
+  `polly visualize --generate` with `Cannot find package 'tweetnacl'`
+  (`Cannot find module '@automerge/automerge-repo/slim'` in a project
+  without automerge-repo).
+  The two are now loaded with a dynamic import only when a non-empty
+  `--snapshot` is given; the bundle's only static package imports are
+  `typescript-7/*`. A project with mesh documents (`$meshState`) and no
+  `--snapshot` also needs nothing else. With `--snapshot` and either
+  package missing, visualize exits 1 naming the missing packages and the
+  `bun add -d tweetnacl@1.0.3 @automerge/automerge-repo@2.5.6` command.
+  The generated DSL is byte-identical for all 16 cases of
+  `scripts/e2e-visualize.ts`. `scripts/e2e-tool-deps-cold-install.ts`
+  now checks a project holding only the tarball and `typescript-7`, and
+  `scripts/e2e-analysis-cold-install.ts` no longer installs the two peers
+  that hid the gap.
+
 ## [0.97.0] - 2026-10-26
 
 ### Changed

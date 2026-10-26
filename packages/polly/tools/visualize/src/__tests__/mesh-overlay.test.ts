@@ -11,9 +11,11 @@
 
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
+import { deriveDocumentId } from "../../../../src/shared/lib/derive-document-id";
 import { ArchitectureAnalyzer } from "../../../analysis/src/extract/architecture";
 import type { ArchitectureAnalysis } from "../../../analysis/src/types/architecture";
 import { generateStructurizrDSL } from "../codegen/structurizr";
+import { loadDocumentIdResolver } from "../mesh-document-id";
 import {
   collectSnapshotPeerIds,
   loadMeshSnapshot,
@@ -30,7 +32,9 @@ const analysis: ArchitectureAnalysis = await new ArchitectureAnalyzer({
 }).analyze();
 
 const snapshot = loadMeshSnapshot(snapshotPath);
-const overlayDsl = generateStructurizrDSL(analysis, { snapshot });
+// The resolver the CLI loads for --snapshot (lazy tweetnacl + automerge-repo).
+const resolveDocumentId = await loadDocumentIdResolver();
+const overlayDsl = generateStructurizrDSL(analysis, { snapshot, resolveDocumentId });
 
 describe("mesh sync-state overlay (polly#127)", () => {
   test("synthesises one person node per snapshot peer", () => {
@@ -99,6 +103,18 @@ describe("mesh sync-state overlay (polly#127)", () => {
     // Passing `snapshot: undefined` explicitly must behave identically
     // to omitting it — the CLI does this on the no-snapshot path.
     expect(generateStructurizrDSL(analysis, { snapshot: undefined })).toBe(staticDsl);
+  });
+
+  test("the lazily loaded resolver derives the same id as deriveDocumentId", () => {
+    for (const key of ["chat-rooms", "chat-presence", ""]) {
+      expect(resolveDocumentId(key)).toBe(String(deriveDocumentId(key)));
+    }
+  });
+
+  test("a snapshot over mesh documents without a resolver is a clear error", () => {
+    expect(() => generateStructurizrDSL(analysis, { snapshot })).toThrow(
+      /needs options\.resolveDocumentId/
+    );
   });
 });
 
