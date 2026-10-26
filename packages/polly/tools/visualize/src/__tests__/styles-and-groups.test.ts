@@ -20,7 +20,7 @@ function handler(messageType: string): MessageHandler {
 
 function context(type: string, handlers: MessageHandler[] = []): ContextInfo {
   return {
-    type: type as ContextInfo["type"],
+    type,
     entryPoint: `${type}.ts`,
     handlers,
     chromeAPIs: [],
