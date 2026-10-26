@@ -38,7 +38,6 @@
  */
 
 import type { Chunk, DocumentId, StorageAdapterInterface } from "@automerge/automerge-repo/slim";
-import { Automerge } from "@automerge/automerge-repo/slim";
 import { toDocumentId } from "./branded";
 
 export interface SweepSealedOptions {
@@ -118,6 +117,12 @@ function concat(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
+/** The two Automerge calls the sweep makes, loaded on first sweep. */
+type AutomergeLoader = Pick<
+  typeof import("@automerge/automerge-repo/slim")["Automerge"],
+  "init" | "loadIncremental"
+>;
+
 /**
  * Materialise a document from its storage chunks. Snapshot chunks are
  * loaded before incrementals so the loader has its base first;
@@ -125,7 +130,7 @@ function concat(parts: Uint8Array[]): Uint8Array {
  * whose bytes fail to load (corrupt or partial) yields `undefined` and
  * is left untouched by the sweep.
  */
-function materialise(chunks: Chunk[]): unknown | undefined {
+function materialise(automerge: AutomergeLoader, chunks: Chunk[]): unknown | undefined {
   const content = chunks
     .filter(
       (chunk): chunk is Chunk & { data: Uint8Array } =>
@@ -134,7 +139,7 @@ function materialise(chunks: Chunk[]): unknown | undefined {
     .sort((a, b) => (a.key[1] === "snapshot" ? 0 : 1) - (b.key[1] === "snapshot" ? 0 : 1));
   if (content.length === 0) return undefined;
   try {
-    return Automerge.loadIncremental(Automerge.init(), concat(content.map((chunk) => chunk.data)));
+    return automerge.loadIncremental(automerge.init(), concat(content.map((chunk) => chunk.data)));
   } catch {
     return undefined;
   }
@@ -189,13 +194,14 @@ function classifyDocument(
   documentId: string,
   chunks: Chunk[],
   context: {
+    automerge: AutomergeLoader;
     repo: SweepSealedOptions["repo"];
     isSealed: (doc: unknown) => number | undefined;
     olderThan: number;
     at: number;
   }
 ): Verdict {
-  const doc = materialise(chunks);
+  const doc = materialise(context.automerge, chunks);
   if (doc === undefined) return { action: "ignore" };
 
   const sealedAt = context.isSealed(doc);
@@ -237,6 +243,10 @@ export async function sweepSealed(options: SweepSealedOptions): Promise<SweepRes
   const dryRun = options.dryRun ?? false;
   const now = options.now ?? Date.now;
 
+  // Loaded here, not at module top: `bun build` inlines this module into
+  // every entry that reaches it through a dynamic import (peer-repo-server
+  // does), and a static package import would load Automerge at entry load.
+  const { Automerge } = await import("@automerge/automerge-repo/slim");
   const byDocument = await collectChunksByDocument(storage, options.documentIds);
 
   const swept: SweptDoc[] = [];
@@ -244,7 +254,13 @@ export async function sweepSealed(options: SweepSealedOptions): Promise<SweepRes
   const at = now();
 
   for (const [documentId, chunks] of byDocument) {
-    const verdict = classifyDocument(documentId, chunks, { repo, isSealed, olderThan, at });
+    const verdict = classifyDocument(documentId, chunks, {
+      automerge: Automerge,
+      repo,
+      isSealed,
+      olderThan,
+      at,
+    });
     if (verdict.action === "keep") {
       kept.push(verdict.entry);
     } else if (verdict.action === "sweep") {
