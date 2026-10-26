@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.97.0] - 2026-10-26
+
 ### Changed
 
 - **The tool packages are optional peer dependencies, not dependencies.**
@@ -43,6 +45,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool died on a bare "Cannot find package" resolve error.
   `scripts/e2e-tool-deps-cold-install.ts` checks all of this from a cold
   install of the packed tarball.
+
+### Fixed
+
+- **`polly visualize` works from a workspace root.** At a root with
+  `client/` and `server/` packages but no `tsconfig.json` (4 of the 11
+  examples), generate exited 1 and printed nothing. It now analyses every
+  workspace package, through a temporary `tsconfig.polly-visualize.json`
+  that it removes on exit and on SIGINT, SIGTERM and SIGHUP. A stale copy
+  from a crashed run is recognised by a marker field and replaced; a file
+  of that name that polly did not write is left alone.
+- **Every failing `polly visualize` exit says why.** Caught errors, a
+  missing DSL, a missing site, no project found and a failed export each
+  print a message on stderr. Before, these paths exited 1 silently.
+- **Killing `polly` stops the subcommand it started.** The wrapper relays
+  SIGINT, SIGTERM and SIGHUP to its child and exits with the child's
+  status (128 + signal number when a signal killed it). Before, SIGTERM to
+  the wrapper left `polly visualize serve` running and holding its port.
+- **Structurizr accepts the generated DSL for every example.** It rejected
+  5 of 15 generate runs: a component declared twice (`GET_SETTINGS`
+  matched both the query and the command group), edges from
+  `extension.unknown` (sends in test and BDD step files were counted as
+  flows), repeated relationships, and view keys with spaces. Test, spec,
+  `features/` and e2e files no longer contribute flows; identical
+  relationships merge; view keys are reduced to `a-zA-Z0-9_-` and kept
+  unique, with the readable name as the view title.
+- **Diagram content.** A popup declared in `manifest.json` with its HTML
+  under `src/` gets its container. Container descriptions no longer read
+  `/**` or keep `//`. A project's own workspace packages are no longer
+  listed as external integrations. Type guards that narrow to an object
+  literal type are no longer counted as handlers.
 
 ## [0.96.0] - 2026-10-24
 

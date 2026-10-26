@@ -212,7 +212,7 @@
     },
     "packages/polly": {
       "name": "@fairfox/polly",
-      "version": "0.96.0",
+      "version": "0.97.0",
       "bin": {
         "polly": "./dist/cli/polly.js",
       },
