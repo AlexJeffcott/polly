@@ -7,6 +7,13 @@
 //     `extension.unknown` is no element.
 //   - dynamic view keys such as "General Flow": Structurizr allows only
 //     [A-Za-z0-9_-] in a view key, and keys must be unique.
+//   - a `"` in a message type ended the component name string early; the
+//     name was the one string not escaped.
+//   - `Ping`/`PING` gave two components named "Ping Handler", and
+//     `foo-bar`/`foo_bar` two components with id `foo_bar_handler`.
+//   - automatic flow steps named components by bare id (`ping_handler`);
+//     under `!identifiers hierarchical` a view needs the full path, so every
+//     project with a detected handler relationship got an invalid workspace.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -228,5 +235,96 @@ describe("view keys in generated DSL", () => {
       [flow("USER_LOGIN", "popup", ["background"])]
     );
     expect(generate(analysis)).toBe(generate(analysis));
+  });
+});
+
+function related(node: string, messageType: string, to: string): MessageHandler {
+  return {
+    ...handler(node, messageType),
+    // As the analyser writes it: `from` is `${messageType}_handler`, reduced.
+    relationships: [
+      {
+        from: `${messageType}_handler`.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+        to,
+        description: `${messageType} uses ${to}`,
+        confidence: "high",
+        evidence: [],
+      },
+    ],
+  };
+}
+
+describe("handler component identity", () => {
+  test("a quote in a message type is escaped in the component name", () => {
+    const dsl = generate(
+      analysisOf({ background: context("background", [handler("background", 'say"hi')]) })
+    );
+    expect(dsl).toContain('say_hi_handler = component "Say\\"hi Handler" "Processes say\\"hi');
+  });
+
+  test("message types that differ only in case get distinct ids and names", () => {
+    const dsl = generate(
+      analysisOf({
+        background: context("background", [
+          related("background", "Ping", "svc"),
+          related("background", "PING", "svc"),
+        ]),
+      })
+    );
+    expect(dsl).toContain('ping_handler = component "Ping Handler" "Processes Ping');
+    expect(dsl).toContain('ping_handler_2 = component "Ping Handler 2" "Processes PING');
+    // Each handler's edge starts at its own component.
+    expect(dsl).toContain('ping_handler -> svc "Ping uses svc"');
+    expect(dsl).toContain('ping_handler_2 -> svc "PING uses svc"');
+  });
+
+  test("message types that reduce to one id get distinct ids", () => {
+    const dsl = generate(
+      analysisOf({
+        background: context("background", [
+          handler("background", "foo-bar"),
+          handler("background", "foo_bar"),
+        ]),
+      })
+    );
+    expect(count(dsl, "foo_bar_handler = component")).toBe(1);
+    expect(count(dsl, "foo_bar_handler_2 = component")).toBe(1);
+  });
+
+  test("service targets that reduce to one id are one component", () => {
+    const dsl = generate(
+      analysisOf({
+        background: context("background", [
+          related("background", "getA", "user-service"),
+          related("background", "getB", "user_service"),
+        ]),
+      })
+    );
+    expect(count(dsl, "user_service = component")).toBe(1);
+  });
+});
+
+describe("automatic flow views", () => {
+  test("steps name components by their full hierarchical path", () => {
+    const dsl = generate(
+      analysisOf({
+        background: context("background", [related("background", "ping", "svc")]),
+        content: context("content", [related("content", "pong", "svc")]),
+      })
+    );
+    expect(dsl).toContain(
+      '      extension.background.ping_handler -> extension.background.svc "ping uses svc"'
+    );
+    expect(dsl).toContain(
+      '      extension.content.pong_handler -> extension.content.svc "pong uses svc"'
+    );
+  });
+
+  test("a context without declared components gets no flow steps", () => {
+    const dsl = generateStructurizrDSL(
+      analysisOf({ content: context("content", [related("content", "ping", "svc")]) })
+    );
+    // Default component contexts: background only. content declares none.
+    expect(dsl).not.toContain("ping_handler");
   });
 });

@@ -940,10 +940,10 @@ describe("component relationships from handlers", () => {
     );
     expect(dsl).toContain(
       [
-        '        ping -> db "to db" "SQL \\"x\\"" {',
+        '        ping_handler -> db "to db" "SQL \\"x\\"" {',
         '          tags "Auto-detected"',
         "        }",
-        '        ping -> cache "to cache" {',
+        '        ping_handler -> cache "to cache" {',
         '          tags "Auto-detected"',
         "        }",
       ].join("\n")

@@ -276,6 +276,19 @@ const cases: Case[] = [
     minRelationships: 6,
   },
   {
+    // The only case with detected handler relationships, so the only one
+    // that emits automatic flow views. Their steps named components by bare
+    // id, which `!identifiers hierarchical` rejects; no example caught it.
+    label: "cross-file-handlers",
+    examplePath: "packages/polly/tools/visualize/src/__tests__/fixtures/cross-file-handlers",
+    cwdSubpath: "",
+    expectedWorkspace: "Unknown Project",
+    expectedContainers: ["server"],
+    expectedComponents: ["message_handler", "query_handler", "command_handler", "user_service"],
+    minComponents: 7,
+    minRelationships: 4,
+  },
+  {
     // polly#127: the mesh-app fixture declares two $meshState documents;
     // its committed snapshot.json overlays runtime peers and
     // sync-state-coloured edges onto them through the real CLI.

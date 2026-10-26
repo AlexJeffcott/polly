@@ -406,6 +406,8 @@ describe("generateDynamicViews", () => {
     const blocks = dynamicBlocks(
       generateStructurizrDSL(analysis, {
         ...DYN,
+        // Automatic flow steps name components, so their container needs some.
+        includeComponentDiagrams: true,
         dynamicDiagrams: [
           {
             key: "Custom",
@@ -429,7 +431,7 @@ describe("generateDynamicViews", () => {
     }`,
       `    dynamic extension.background "Message_Processing_Flow" "Shows message processing flow through handlers and services" {
       title "Message Processing Flow"
-      pz_handler -> svc "step pz"
+      extension.background.pz_handler -> extension.background.svc "step pz"
       autoLayout lr
     }`,
       `    dynamic extension "General_Flow" "Message flow through the system" {
@@ -641,7 +643,7 @@ describe("category titles and descriptions", () => {
   function headers(handlers: MessageHandler[]): string[] {
     const analysis = analysisWith();
     analysis.contexts["background"] = context("background", handlers);
-    const dsl = generateStructurizrDSL(analysis, { includeComponentDiagrams: false });
+    const dsl = generateStructurizrDSL(analysis);
     return dynamicBlocks(dsl).map((b) => b.split("\n")[0] ?? "");
   }
 

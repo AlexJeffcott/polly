@@ -120,6 +120,14 @@ export class StructurizrDSLGenerator {
   private overlayPlanCache: OverlayPlan | undefined;
   /** View keys handed out so far in this `generate()`; keys must be unique. */
   private usedViewKeys = new Set<string>();
+  /**
+   * Handler component id + name per message type, claimed in first-seen
+   * order. `Ping`/`PING` and `foo-bar`/`foo_bar` reduce to one id or name,
+   * which Structurizr rejects, so a later type gets a `_2`/` 2` suffix.
+   */
+  private handlerComponents = new Map<string, { id: string; name: string }>();
+  private claimedHandlerIds = new Set<string>();
+  private claimedHandlerNames = new Set<string>();
 
   constructor(analysis: ArchitectureAnalysis, options: StructurizrDSLOptions = {}) {
     this.analysis = analysis;
@@ -162,6 +170,9 @@ export class StructurizrDSLGenerator {
   generate(): string {
     const parts: string[] = [];
     this.usedViewKeys = new Set();
+    this.handlerComponents = new Map();
+    this.claimedHandlerIds = new Set();
+    this.claimedHandlerNames = new Set();
 
     parts.push(this.generateWorkspaceHeader());
     parts.push(this.generateModel());
@@ -296,6 +307,14 @@ export class StructurizrDSLGenerator {
     return parts.join("\n\n");
   }
 
+  /** Whether `contextType`'s container declares components. */
+  private hasComponentDiagram(contextType: string): boolean {
+    return (
+      this.options.includeComponentDiagrams === true &&
+      this.options.componentDiagramContexts?.includes(contextType) === true
+    );
+  }
+
   /**
    * Generate container (context)
    */
@@ -310,10 +329,7 @@ export class StructurizrDSLGenerator {
     );
 
     // Generate components if enabled
-    if (
-      this.options.includeComponentDiagrams &&
-      this.options.componentDiagramContexts?.includes(contextType)
-    ) {
+    if (this.hasComponentDiagram(contextType)) {
       parts.push(this.generateComponents(contextType, contextInfo));
       parts.push("");
       parts.push(this.generateComponentRelationships(contextType, contextInfo));
@@ -450,7 +466,7 @@ export class StructurizrDSLGenerator {
       if (!firstHandler) continue;
 
       const isRest = firstHandler.handlerKind === "rest";
-      const componentName = isRest ? messageType : this.toComponentName(messageType);
+      const componentName = this.handlerComponentFor(messageType, handlers).name;
       const description = this.generateComponentDescription(messageType, firstHandler);
       const tags = this.getComponentTags(messageType, firstHandler);
       if (isRest) {
@@ -506,19 +522,20 @@ export class StructurizrDSLGenerator {
     contextInfo: ContextInfo,
     componentDefs: Array<{ id: string }>
   ): Set<string> {
-    const serviceComponents = new Set<string>();
+    // Keyed by id: `user-service` and `user_service` are one component.
+    const serviceComponents = new Map<string, string>();
     for (const handler of contextInfo.handlers) {
       if (handler.relationships) {
         for (const rel of handler.relationships) {
           const targetId = this.toId(rel.to);
           const isHandler = componentDefs.some((c) => c.id === targetId);
-          if (!isHandler) {
-            serviceComponents.add(rel.to);
+          if (!isHandler && !serviceComponents.has(targetId)) {
+            serviceComponents.set(targetId, rel.to);
           }
         }
       }
     }
-    return serviceComponents;
+    return new Set(serviceComponents.values());
   }
 
   /**
@@ -532,7 +549,7 @@ export class StructurizrDSLGenerator {
         .join(" ");
 
       parts.push(
-        `        ${this.toId(serviceId)} = component "${serviceName}" "Business logic service" {`
+        `        ${this.toId(serviceId)} = component "${this.escape(serviceName)}" "Business logic service" {`
       );
       parts.push(`          tags "Service" "Auto-detected"`);
       parts.push("        }");
@@ -829,7 +846,7 @@ export class StructurizrDSLGenerator {
       parts.push(`        ${fromId} -> ${toId} "${description}"${technology} {`);
 
       if (rel.tags && rel.tags.length > 0) {
-        parts.push(`          tags "${rel.tags.join('" "')}"`);
+        parts.push(`          tags "${rel.tags.map((t) => this.escape(t)).join('" "')}"`);
       }
 
       parts.push("        }");
@@ -849,8 +866,11 @@ export class StructurizrDSLGenerator {
         continue;
       }
 
+      // The source is the handler's own component, not `toId(rel.from)`: the
+      // analyser derives `from` from `${messageType}_handler`, which misses a
+      // collision-suffixed id (`ping_handler_2`) and a REST id (`post_todos`).
+      const fromId = this.componentIdForMessageType(handler.messageType, [handler]);
       for (const rel of handler.relationships) {
-        const fromId = this.toId(rel.from);
         const toId = this.toId(rel.to);
         const description = this.escape(rel.description);
         const technology = rel.technology ? ` "${this.escape(rel.technology)}"` : "";
@@ -1522,6 +1542,8 @@ export class StructurizrDSLGenerator {
     }> = [];
 
     for (const [contextType, contextInfo] of Object.entries(this.analysis.contexts)) {
+      // A flow step names components, and only these contexts declare any.
+      if (!this.hasComponentDiagram(contextType)) continue;
       for (const handler of contextInfo.handlers) {
         if (handler.relationships && handler.relationships.length > 0) {
           handlers.push({
@@ -1689,7 +1711,9 @@ export class StructurizrDSLGenerator {
     let stepCount = 0;
 
     // For each handler, show its flow through services
-    for (const { handler, contextName: _contextName } of handlers) {
+    for (const { handler, contextType } of handlers) {
+      // `!identifiers hierarchical`: a view names a component by its full path.
+      const container = `extension.${contextType}`;
       const handlerComponentId = this.componentIdForMessageType(handler.messageType, [handler]);
 
       // Show flow for each relationship
@@ -1698,7 +1722,9 @@ export class StructurizrDSLGenerator {
         const toComponent = this.toId(rel.to);
 
         // Add flow step
-        parts.push(`      ${handlerComponentId} -> ${toComponent} "${rel.description}"`);
+        parts.push(
+          `      ${container}.${handlerComponentId} -> ${container}.${toComponent} "${this.escape(rel.description)}"`
+        );
         stepCount++;
       }
     }
@@ -1917,7 +1943,7 @@ export class StructurizrDSLGenerator {
 
     const filteredTags = node.tags.filter((tag) => !tag.toLowerCase().includes("environment:"));
     if (filteredTags.length > 0) {
-      parts.push(`${indent}  tags "${filteredTags.join('" "')}"`);
+      parts.push(`${indent}  tags "${filteredTags.map((t) => this.escape(t)).join('" "')}"`);
     }
   }
 
@@ -2163,8 +2189,31 @@ export class StructurizrDSLGenerator {
   // buildComponentDefinitionsFromHandlers, otherwise relationship sources/targets
   // refer to identifiers that the model never declares.
   private componentIdForMessageType(messageType: string, handlers: MessageHandler[]): string {
+    return this.handlerComponentFor(messageType, handlers).id;
+  }
+
+  private handlerComponentFor(
+    messageType: string,
+    handlers: MessageHandler[]
+  ): { id: string; name: string } {
     const isRest = handlers[0]?.handlerKind === "rest";
-    return this.toId(isRest ? messageType : this.toComponentName(messageType));
+    const key = `${isRest ? "rest" : "message"}:${messageType}`;
+    const known = this.handlerComponents.get(key);
+    if (known) return known;
+
+    const baseName = isRest ? messageType : this.toComponentName(messageType);
+    const baseId = this.toId(baseName);
+    let id = baseId;
+    let name = baseName;
+    for (let n = 2; this.claimedHandlerIds.has(id) || this.claimedHandlerNames.has(name); n++) {
+      id = `${baseId}_${n}`;
+      name = `${baseName} ${n}`;
+    }
+    this.claimedHandlerIds.add(id);
+    this.claimedHandlerNames.add(name);
+    const claimed = { id, name };
+    this.handlerComponents.set(key, claimed);
+    return claimed;
   }
 
   /**
@@ -2203,11 +2252,11 @@ export class StructurizrDSLGenerator {
     const parts: string[] = [];
 
     parts.push(
-      `${indent}${comp.id} = component "${comp.name}" "${this.escape(comp.description)}" {`
+      `${indent}${comp.id} = component "${this.escape(comp.name)}" "${this.escape(comp.description)}" {`
     );
 
     if (comp.tags.length > 0) {
-      parts.push(`${indent}  tags "${comp.tags.join('" "')}"`);
+      parts.push(`${indent}  tags "${comp.tags.map((t) => this.escape(t)).join('" "')}"`);
     }
 
     if (comp.properties && Object.keys(comp.properties).length > 0) {
