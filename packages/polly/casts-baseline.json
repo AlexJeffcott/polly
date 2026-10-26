@@ -112,11 +112,11 @@
     "text": "window as unknown as { __pollyE2eDiagnostics?: MeshDiagnosticEvent[] }"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "config as unknown as import(\"./config/types\").UnifiedVerificationConfig"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "config as unknown as UnifiedVerificationConfig"
   },
   {

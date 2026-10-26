@@ -196,7 +196,7 @@
     "text": "// biome-ignore lint/suspicious/noExplicitAny: Mapping partial handler objects to complete MessageHandler interface"
   },
   {
-    "file": "tools/bdd/src/cli.ts",
+    "file": "tools/bdd/src/main.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface."
   },
   {
@@ -204,7 +204,7 @@
     "text": "// biome-ignore lint/suspicious/noThenProperty: `then` is Gherkin vocabulary here, not a thenable."
   },
   {
-    "file": "tools/mutate/src/cli.ts",
+    "file": "tools/mutate/src/main.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface."
   },
   {
@@ -300,35 +300,35 @@
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parser logic requires nested conditionals"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat per-scenario classify loop — the branches are the verdict surface."
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Subsystem orchestration requires sequential steps with branching"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
   },
   {
-    "file": "tools/verify/src/cli.ts",
+    "file": "tools/verify/src/main.ts",
     "text": "// biome-ignore lint/suspicious/noConsole: CLI tool needs console output for error reporting"
   },
   {

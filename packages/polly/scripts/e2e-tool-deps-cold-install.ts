@@ -11,23 +11,26 @@
  *
  *   1. `bun pm pack` (dist/ must be current; `bun run build:lib` first).
  *   2. Baseline: the same tarball with the five restored to `dependencies`
- *      (the 0.96.0 manifest), installed beside a server app's runtime peers
- *      (elysia, @automerge/automerge-repo). Its node_modules size is
+ *      (the 0.96.0 manifest), installed beside a server app's runtime peer
+ *      (elysia). Its node_modules size is
  *      reported for comparison.
  *   3. Install the real tarball beside the same peers. None of the five is in
  *      node_modules; the size is reported and must be smaller.
  *   4. `@fairfox/polly`, `@fairfox/polly/elysia` and `@fairfox/polly/state`
- *      import under bun and node, each exiting by itself within 15 s.
+ *      import under bun and node, each exiting by itself within 15 s, with
+ *      @automerge/automerge-repo absent from node_modules (asserted).
  *      `@fairfox/polly/bdd` and `@fairfox/polly/mutate` reject, under bun
  *      and node, with the install message naming all of their packages.
  *   5. `polly visualize`, `polly verify`, `polly mutate` and `polly bdd` each
  *      exit non-zero with the message naming its packages and the exact
- *      `bun add -d` command.
+ *      `bun add -d` command, through the `polly` wrapper and through each
+ *      tool's own cli.js; `polly verify --witness` adds the gherkin pair.
  *   6. `polly visualize` with typescript-7 alone, in a separate project that
  *      has only the tarball and `typescript-7` (no elysia, no
  *      @automerge/automerge-repo, no tweetnacl; asserted absent):
  *      `--generate` exits 0 and writes a DSL for examples/minimal and for
- *      the mesh-app fixture (two `$meshState` documents). With that
+ *      the mesh-app fixture (two `$meshState` documents), and
+ *      `polly verify --help` exits 0 without gherkin. With that
  *      fixture's `--snapshot`, it exits 1 naming tweetnacl and
  *      @automerge/automerge-repo and the `bun add -d` command; after that
  *      command, it exits 0 and the DSL carries the overlay. 0.97.0 failed
@@ -50,6 +53,7 @@ import { assert, selfRun, type TierContext, type TierResult } from "../tools/tes
 import {
   BDD_FEATURE,
   COMMAND_TOOL_PACKAGES,
+  commandToolPackages,
   installCommand,
   MUTATE_FEATURE,
   RUNTIME_PEERS,
@@ -64,11 +68,12 @@ const MINIMAL = join(REPO_ROOT, "examples/minimal");
 /** Two `$meshState` documents and a captured runtime snapshot (polly#114, polly#127). */
 const MESH_APP = join(POLLY_PKG_DIR, "tools/visualize/src/__tests__/fixtures/mesh-app");
 /**
- * The runtime peers a server app installs: elysia, and @automerge/automerge-repo,
- * which `@fairfox/polly/elysia` imports at load time (an optional peer, but
- * not optional for that entry; pre-existing, not this script's subject).
+ * The runtime peer a server app installs. @automerge/automerge-repo is left
+ * out on purpose: the runtime entries must import without it (step 4). Up to
+ * 0.97.1 `@fairfox/polly/elysia` loaded it at import time, through the
+ * sweep-sealed module that `bun build` inlined into the entry.
  */
-const SERVER_PEERS = { elysia: "1.4.30", "@automerge/automerge-repo": "2.5.6" };
+const SERVER_PEERS = { elysia: "1.4.30" };
 /** Packages the typescript-7-only visualize project must not contain (step 6). */
 const NOT_IN_VIZ_PROJECT = ["elysia", ...Object.keys(RUNTIME_PEERS)];
 const IMPORT_ALARM_S = 15;
@@ -198,6 +203,31 @@ async function visualizeOk(polly: string, cwd: string, args: string[]): Promise<
 }
 
 /**
+ * Step 5, from each tool's own cli.js, run without the `polly` wrapper: up to
+ * 0.97.1 only the wrapper checked, and a direct run died on "Cannot find
+ * module 'typescript-7/ast'" or a raw stack.
+ */
+async function directCliRuns(ctx: TierContext, app: string): Promise<void> {
+  const direct: { command: string; args: string[] }[] = [
+    ...Object.keys(COMMAND_TOOL_PACKAGES).map((command) => ({ command, args: [] })),
+    { command: "verify", args: ["--witness"] },
+  ];
+  for (const { command, args } of direct) {
+    const label = ["polly", command, ...args].join(" ");
+    const packages = commandToolPackages(command, args);
+    const cli = join(app, `node_modules/@fairfox/polly/dist/tools/${command}/src/cli.js`);
+    ctx.log(`[e2e] bun ${relative(app, cli)} ${args.join(" ")}`);
+    const r = await runAlarmed(["bun", cli, ...args], app, CLI_ALARM_S);
+    assert(r.exitCode === 1, `${label} via cli.js: ${describe(r)}`);
+    assert(r.stderr.includes(`${label} needs `), `${label} via cli.js: no message: ${describe(r)}`);
+    assert(
+      r.stderr.includes(installCommand(packages)),
+      `${label} via cli.js: no "${installCommand(packages)}" in ${describe(r)}`
+    );
+  }
+}
+
+/**
  * Step 6: `polly visualize` in a project with the tarball and typescript-7
  * only. A plain `--generate` needs nothing else, mesh documents included;
  * `--snapshot` names its two runtime peers until they are installed.
@@ -232,6 +262,12 @@ async function visualizeWithTypescriptOnly(
   const meshDsl = await visualizeOk(polly, mesh, ["visualize", "--generate"]);
   assert(meshDsl.includes("mesh_doc_chat_rooms"), "mesh DSL has no mesh_doc_chat_rooms node");
   assert(!meshDsl.includes("sync:"), "a DSL generated without --snapshot carries overlay edges");
+
+  // `polly verify` loads gherkin only for --witness; this project has none.
+  ctx.log("[e2e] polly verify --help (typescript-7 only) runs without gherkin");
+  const help = await runAlarmed([polly, "verify", "--help"], minimal, CLI_ALARM_S);
+  assert(help.exitCode === 0, `polly verify --help without gherkin: ${describe(help)}`);
+  assert(!`${help.stdout}${help.stderr}`.includes(" needs "), `verify --help: ${describe(help)}`);
 
   const snapshotArgs = ["visualize", "generate", "--snapshot", "snapshot.json"];
   ctx.log("[e2e] polly visualize --snapshot without tweetnacl / @automerge/automerge-repo");
@@ -278,7 +314,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     const beforeKb = sizeKb(join(before, "node_modules"));
     assert(installedTools(before).length === TOOLS.length, "baseline did not install the five");
 
-    ctx.log("[e2e] install the tarball beside elysia + automerge-repo, without the tool packages");
+    ctx.log("[e2e] install the tarball beside elysia, without the tool packages");
     const app = join(temp.dir, "app");
     await writeProject(app, { "@fairfox/polly": `file:${tarball}`, ...SERVER_PEERS });
     await install(app);
@@ -288,6 +324,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     ctx.log(`[e2e] node_modules: ${mb(beforeKb)} before, ${mb(afterKb)} after`);
     assert(afterKb < beforeKb, `node_modules did not shrink: ${mb(beforeKb)} → ${mb(afterKb)}`);
 
+    assert(
+      !existsSync(join(app, "node_modules/@automerge/automerge-repo")),
+      "@automerge/automerge-repo is installed; the runtime-entry imports would not prove it optional"
+    );
     for (const runtime of ["bun", "node"]) {
       for (const specifier of RUNTIME_ENTRIES) {
         ctx.log(`[e2e] ${runtime}: import ${specifier}`);
@@ -334,6 +374,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       );
       ctx.log(r.stderr.trim());
     }
+
+    await directCliRuns(ctx, app);
 
     await visualizeWithTypescriptOnly(ctx, tarball, join(temp.dir, "viz"));
 

@@ -172,7 +172,9 @@ const toolsResult = await Bun.build({
     "cli/polly.ts",
     "tools/init/src/cli.ts",
     "tools/verify/src/cli.ts",
+    "tools/verify/src/main.ts",
     "tools/visualize/src/cli.ts",
+    "tools/visualize/src/main.ts",
     "tools/test/src/cli.ts",
     "tools/test/src/browser/run.ts",
     // Consumer-facing tiered test runner (`polly test --tier`). The worker is a
@@ -188,6 +190,7 @@ const toolsResult = await Bun.build({
     // Mutation testing + useless-test detection (`polly mutate`). cli.ts is the
     // command; index.ts is the @fairfox/polly/mutate library surface.
     "tools/mutate/src/cli.ts",
+    "tools/mutate/src/main.ts",
     "tools/mutate/src/index.ts",
     // The bun engine's mutant-injection preload. Its own entrypoint because the
     // runner passes it to `bun test --preload` by path, like the tiers worker.
@@ -195,6 +198,7 @@ const toolsResult = await Bun.build({
     // Executable Gherkin / BDD (`polly bdd`). cli.ts is the command; index.ts is
     // the @fairfox/polly/bdd library surface (defineStep/defineWorld/driveBus).
     "tools/bdd/src/cli.ts",
+    "tools/bdd/src/main.ts",
     "tools/bdd/src/index.ts",
     "tools/quality/src/cli.ts",
     "tools/quality/src/index.ts",

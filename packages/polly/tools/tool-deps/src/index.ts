@@ -73,10 +73,26 @@ const GHERKIN: readonly ToolPackage[] = ["@cucumber/gherkin", "@cucumber/message
  */
 export const COMMAND_TOOL_PACKAGES: Readonly<Record<string, readonly ToolPackage[]>> = {
   visualize: ["typescript-7"],
-  verify: ["typescript-7", ...GHERKIN],
+  verify: ["typescript-7"],
   mutate: ["oxc-parser", "weapon-regex"],
   bdd: GHERKIN,
 };
+
+/** Packages a flag adds to its command's start-up set: `polly verify --witness` parses features. */
+export const FLAG_TOOL_PACKAGES: Readonly<
+  Record<string, Readonly<Record<string, readonly ToolPackage[]>>>
+> = {
+  verify: { "--witness": GHERKIN },
+};
+
+/** The packages `polly <command> <args>` loads: the command's own, plus those of each flag given. */
+export function commandToolPackages(command: string, args: readonly string[]): ToolPackage[] {
+  const packages = new Set(COMMAND_TOOL_PACKAGES[command] ?? []);
+  for (const [flag, extra] of Object.entries(FLAG_TOOL_PACKAGES[command] ?? {})) {
+    if (args.includes(flag)) for (const p of extra) packages.add(p);
+  }
+  return [...packages];
+}
 
 /** `bun add -d <pkg>@<version> ...` for the given packages. */
 export function installCommand(
@@ -142,6 +158,25 @@ export function missingToolPackages(
       return true;
     }
   });
+}
+
+/**
+ * Exit 1 with the install message when a package `polly <command> <args>`
+ * loads is missing. Each tool's cli.ts calls this before it imports main.ts,
+ * whose static imports would otherwise fail first with a bare "Cannot find
+ * module". `fromDir` is the calling tool's directory.
+ */
+export function exitIfMissingToolPackages(
+  command: string,
+  args: readonly string[],
+  fromDir: string
+): void {
+  const missing = missingToolPackages(commandToolPackages(command, args), fromDir);
+  if (missing.length === 0) return;
+  const flags = Object.keys(FLAG_TOOL_PACKAGES[command] ?? {}).filter((f) => args.includes(f));
+  const feature = ["polly", command, ...flags].join(" ");
+  process.stderr.write(`❌ ${missingToolPackagesMessage(feature, missing)}\n`);
+  process.exit(1);
 }
 
 /** True when `error` is a module-not-found for `pkg` (bun and node both use ERR_MODULE_NOT_FOUND). */

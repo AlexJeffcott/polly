@@ -250,13 +250,13 @@ function describeAdapter(adapter: unknown): unknown {
 
 // ── worker: one project, every extractor ───────────────────────────────────
 
-/** `polly verify`'s tsconfig lookup (tools/verify/src/cli.ts findTsConfig). */
+/** `polly verify`'s tsconfig lookup (tools/verify/src/main.ts findTsConfig). */
 function verifyTsConfig(cwd: string): string | null {
   const locations = [join(cwd, "tsconfig.json"), join(cwd, "packages", "web-ext", "tsconfig.json")];
   return locations.find((loc) => existsSync(loc)) ?? null;
 }
 
-/** `polly verify`'s state-file lookup (tools/verify/src/cli.ts findStateFile). */
+/** `polly verify`'s state-file lookup (tools/verify/src/main.ts findStateFile). */
 function verifyStateFile(cwd: string): string | undefined {
   const locations = [
     join(cwd, "types", "state.ts"),
@@ -266,13 +266,13 @@ function verifyStateFile(cwd: string): string | undefined {
   return locations.find((loc) => existsSync(loc));
 }
 
-/** `polly visualize`'s tsconfig lookup (tools/visualize/src/cli.ts findTsConfig). */
+/** `polly visualize`'s tsconfig lookup (tools/visualize/src/main.ts findTsConfig). */
 function visualizeTsConfig(cwd: string): string | null {
   const locations = [join(cwd, "tsconfig.json"), join(cwd, "..", "tsconfig.json")];
   return locations.find((loc) => existsSync(loc)) ?? null;
 }
 
-/** `polly visualize`'s project-root lookup (tools/visualize/src/cli.ts findProjectRoot). */
+/** `polly visualize`'s project-root lookup (tools/visualize/src/main.ts findProjectRoot). */
 function visualizeProjectRoot(cwd: string): string | null {
   const locations = [cwd, join(cwd, "..")];
   return (

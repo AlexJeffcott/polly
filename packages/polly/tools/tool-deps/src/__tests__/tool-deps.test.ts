@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { isRecord, readRecord } from "../../../../src/shared/lib/guards.ts";
 import {
   COMMAND_TOOL_PACKAGES,
+  commandToolPackages,
   installCommand,
   isMissingPackageError,
   loadToolPackage,
@@ -103,6 +104,20 @@ describe("messages", () => {
     expect(missingToolPackagesMessage("polly visualize --snapshot", ["tweetnacl"])).toContain(
       "so it is not installed with it."
     );
+  });
+
+  test("a flag adds its packages: verify needs gherkin only with --witness", () => {
+    expect(commandToolPackages("verify", [])).toEqual(["typescript-7"]);
+    expect(commandToolPackages("verify", ["--witness"])).toEqual([
+      "typescript-7",
+      "@cucumber/gherkin",
+      "@cucumber/messages",
+    ]);
+    expect(commandToolPackages("bdd", ["--witness"])).toEqual([
+      "@cucumber/gherkin",
+      "@cucumber/messages",
+    ]);
+    expect(commandToolPackages("init", [])).toEqual([]);
   });
 
   test("every command lists only known packages", () => {

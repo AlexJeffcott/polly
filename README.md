@@ -321,7 +321,8 @@ The authoring tools load packages a production install does not need, so they ar
 
 | Command / entry point | Dev dependencies |
 |---|---|
-| `polly verify` | `typescript-7@npm:typescript@7.1.0-beta @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
+| `polly verify` | `typescript-7@npm:typescript@7.1.0-beta` |
+| `polly verify --witness` | `typescript-7@npm:typescript@7.1.0-beta @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
 | `polly visualize` | `typescript-7@npm:typescript@7.1.0-beta` |
 | `polly mutate`, `@fairfox/polly/mutate` | `oxc-parser@0.137.0 weapon-regex@1.3.6` (plus `typescript-7` for the type filter) |
 | `polly bdd`, `@fairfox/polly/bdd` | `@cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
