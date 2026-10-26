@@ -110,14 +110,15 @@ export function internalPlan(): TierPlan {
           },
         },
         {
-          // The test kit itself — the tier engine's own helpers. Listed as a
+          // The test kit itself — the tier engine's own helpers — and the
+          // optional tool-package guard (tools/tool-deps). Listed as a
           // path, like the case above: nothing globs tools/*, so a new suite
           // under a tools package runs in no tier until a case names it.
           id: "tools.test-kit",
           tags: ["tools", "test-kit"],
           exec: {
             kind: "command",
-            argv: ["bun", "test", "tools/test/src"],
+            argv: ["bun", "test", "tools/test/src", "tools/tool-deps/src"],
             cwd: packageRoot,
             env: { SKIP_DOCKER: "1" },
           },
@@ -206,6 +207,10 @@ export function internalPlan(): TierPlan {
         e2e("cli.quality", "e2e-cli-quality.ts", { tags: ["cli", "quality"] }),
         e2e("cli.analysis-cold-install", "e2e-analysis-cold-install.ts", {
           tags: ["cli", "analysis", "package"],
+          cost: "heavy",
+        }),
+        e2e("cli.tool-deps-cold-install", "e2e-tool-deps-cold-install.ts", {
+          tags: ["cli", "package", "deps"],
           cost: "heavy",
         }),
         e2e("cli.coverage-consumer", "e2e-coverage-consumer.ts", {
