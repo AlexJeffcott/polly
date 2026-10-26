@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@fairfox/polly/elysia` imports without `@automerge/automerge-repo`.**
+  `bun build` inlined `sweep-sealed.ts` (reached through a dynamic
+  `import()` in `peer-repo-server.ts`) into the entry and hoisted its
+  static `import { Automerge }` to the top of `dist/src/elysia/index.js`.
+  `sweepSealed` now loads Automerge itself, on its first call.
+- **`polly verify` needs `@cucumber/gherkin` and `@cucumber/messages` only
+  with `--witness`.** Without the flag it needs `typescript-7` alone.
+- **Each tool's own `cli.js` names its missing packages.** Only the `polly`
+  wrapper checked; `bun dist/tools/<tool>/src/cli.js` stopped on
+  `Cannot find module 'typescript-7/ast'` (visualize, verify) or a raw
+  stack (mutate, bdd). The check now runs in each tool's `cli.js` before
+  the tool loads (the tool's code moved to `main.js`), so the wrapper and
+  a direct run print the same message.
+- **`polly visualize` draws a container for a root `main.ts` server and a
+  `src/index.tsx` / `src/main.tsx` / `src/app.tsx` entry.** showcase and
+  both mesh-large-initial-sync examples had a software system with no
+  containers. A root `main.ts` is used only when no other server entry
+  scores, so mesh-recovery-pair keeps `src/index.ts`.
+- **`node:*`, bare Node built-ins, `bun` and `bun:*` are not npm
+  packages.** Their integrations report `Node.js built-in module` or
+  `Bun built-in module`. `ws` and `undici`, which Bun's `isBuiltin` also
+  accepts, stay npm packages.
+- **Container descriptions skip `/// <reference … />` directives and a
+  title line that is only a scoped package name.** A first line such as
+  `@lingua/sync — …` is text, not a JSDoc tag, and is kept.
+- **`polly visualize` honours `NO_COLOR`.**
+- **`scripts/vendor-polly.sh --check` passes and fails correctly.** The
+  slice kept `tools/mutate` and two mesh files (`branded.ts`,
+  `wire-message.ts`): 8 type errors, with exit 0. It now removes them,
+  drops three stale import redirects, and exits 1 when the check fails.
+  `scripts/e2e-vendor-polly.ts` (`cli.vendor-polly`) runs it.
+
 ## [0.97.1] - 2026-10-26
 
 ### Fixed
