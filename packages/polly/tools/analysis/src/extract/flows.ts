@@ -1,5 +1,6 @@
 // Message flow analysis - trace messages between contexts
 
+import * as path from "node:path";
 import type { CallExpression, Node } from "typescript-7/ast";
 import {
   isCallExpression,
@@ -23,11 +24,13 @@ import {
 } from "../program";
 import type { MessageFlow, MessageStep } from "../types/architecture";
 import type { MessageHandler } from "../types/core";
+import { isOffSurfacePath } from "./source-surface";
 
 export class FlowAnalyzer {
   private tsConfigPath: string;
   private handlers: MessageHandler[];
   private contextOverrides: Map<string, string>;
+  private projectRoot: string;
 
   constructor(
     tsConfigPath: string,
@@ -37,6 +40,7 @@ export class FlowAnalyzer {
     this.tsConfigPath = tsConfigPath;
     this.handlers = handlers;
     this.contextOverrides = contextOverrides || new Map();
+    this.projectRoot = path.dirname(path.resolve(tsConfigPath));
   }
 
   /**
@@ -65,9 +69,10 @@ export class FlowAnalyzer {
       const senders = this.findMessageSenders(program, messageType);
 
       // For each sender, create a flow
+      // One entry per recipient context: several handlers for the type in
+      // one context are still one destination.
+      const recipients = [...new Set(handlers.map((h) => h.node))];
       for (const sender of senders) {
-        const recipients = handlers.map((h) => h.node);
-
         // Build sequence of steps
         const sequence = this.buildSequence(program, messageType, sender, handlers);
 
@@ -77,7 +82,7 @@ export class FlowAnalyzer {
         flows.push({
           messageType,
           from: sender.context,
-          to: recipients,
+          to: [...recipients],
           ...(flowMetadata.trigger ? { trigger: flowMetadata.trigger } : {}),
           ...(flowMetadata.flowName ? { flowName: flowMetadata.flowName } : {}),
           ...(flowMetadata.description ? { description: flowMetadata.description } : {}),
@@ -105,6 +110,9 @@ export class FlowAnalyzer {
 
     for (const sourceFile of program.sourceFiles) {
       const filePath = sourceFile.fileName;
+      // A test or BDD step that sends a message drives the app from outside;
+      // it is not a flow between the app's contexts (and has no context).
+      if (isOffSurfacePath(`/${path.relative(this.projectRoot, filePath)}`)) continue;
       const context = this.inferContext(filePath);
 
       forEachDescendant(sourceFile, (node) => {
@@ -443,7 +451,7 @@ export class FlowAnalyzer {
       if (filePath.startsWith(pathPrefix)) return context;
     }
 
-    const path = filePath.toLowerCase();
+    const lowerPath = filePath.toLowerCase();
 
     // Define context patterns to check
     const contextPatterns: Array<{ context: string; patterns: string[] }> = [
@@ -459,7 +467,7 @@ export class FlowAnalyzer {
     ];
 
     for (const { context, patterns } of contextPatterns) {
-      if (patterns.some((pattern) => path.includes(pattern))) {
+      if (patterns.some((pattern) => lowerPath.includes(pattern))) {
         return context;
       }
     }

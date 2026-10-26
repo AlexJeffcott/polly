@@ -313,7 +313,7 @@
             "ws",
             "./types/state"
           ],
-          "description": "// Test fixture: WebSocket server entry point"
+          "description": "Test fixture: WebSocket server entry point"
         }
       },
       "messageFlows": [],

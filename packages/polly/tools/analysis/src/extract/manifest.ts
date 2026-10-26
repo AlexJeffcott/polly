@@ -117,8 +117,7 @@ export class ManifestParser {
     const popup = this.parsePopup();
     if (!popup) return;
 
-    const htmlPath = path.join(this.baseDir, popup.html);
-    const jsPath = this.findAssociatedJS(htmlPath);
+    const jsPath = this.findAssociatedJS(this.findSourceHtml(popup.html));
     if (jsPath) {
       entryPoints["popup"] = jsPath;
     }
@@ -128,8 +127,7 @@ export class ManifestParser {
     const options = this.parseOptions();
     if (!options) return;
 
-    const htmlPath = path.join(this.baseDir, options.page);
-    const jsPath = this.findAssociatedJS(htmlPath);
+    const jsPath = this.findAssociatedJS(this.findSourceHtml(options.page));
     if (jsPath) {
       entryPoints["options"] = jsPath;
     }
@@ -139,8 +137,7 @@ export class ManifestParser {
     const devtools = this.parseDevtools();
     if (!devtools) return;
 
-    const htmlPath = path.join(this.baseDir, devtools.page);
-    const jsPath = this.findAssociatedJS(htmlPath);
+    const jsPath = this.findAssociatedJS(this.findSourceHtml(devtools.page));
     if (jsPath) {
       entryPoints["devtools"] = jsPath;
     }
@@ -272,6 +269,18 @@ export class ManifestParser {
 
     // Fallback to manifest path (will error later if not found)
     return path.join(this.baseDir, manifestPath);
+  }
+
+  /**
+   * The source HTML page for a manifest page path. The manifest names the
+   * built layout (`popup/popup.html`); the page usually lives under `src/`,
+   * as `findSourceFile` already allows for scripts.
+   */
+  private findSourceHtml(manifestPath: string): string {
+    const atRoot = path.join(this.baseDir, manifestPath);
+    if (fs.existsSync(atRoot)) return atRoot;
+    const inSrc = path.join(this.baseDir, "src", manifestPath);
+    return fs.existsSync(inSrc) ? inSrc : atRoot;
   }
 
   /**

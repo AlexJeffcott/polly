@@ -307,7 +307,7 @@
           "chromeAPIs": [],
           "externalAPIs": [],
           "dependencies": [],
-          "description": "// Test fixture: PWA service worker"
+          "description": "Test fixture: PWA service worker"
         }
       },
       "messageFlows": [],

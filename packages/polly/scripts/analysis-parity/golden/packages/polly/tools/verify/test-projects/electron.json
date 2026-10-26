@@ -177,7 +177,7 @@
           "dependencies": [
             "electron"
           ],
-          "description": "// Test fixture: Electron main process"
+          "description": "Test fixture: Electron main process"
         }
       },
       "messageFlows": [],

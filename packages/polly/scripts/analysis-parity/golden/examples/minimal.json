@@ -234,7 +234,28 @@
             "../../specs/constraints.js",
             "./handlers"
           ],
-          "description": "// Background script - runs when extension loads"
+          "description": "Background script - runs when extension loads"
+        },
+        "popup": {
+          "type": "popup",
+          "entryPoint": "<project>/src/popup/index.tsx",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "components": [
+            {
+              "name": "Popup",
+              "type": "function",
+              "filePath": "<project>/src/popup/index.tsx",
+              "line": 5,
+              "props": []
+            }
+          ],
+          "dependencies": [
+            "preact",
+            "../shared/state"
+          ],
+          "description": "Popup UI - appears when clicking extension icon"
         }
       },
       "messageFlows": [],

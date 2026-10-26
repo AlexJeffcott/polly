@@ -200,11 +200,8 @@ export class ContextAnalyzer {
       return descMatch[1].trim();
     }
 
-    // Or just take the first line of the comment
-    const lines = comment
-      .split("\n")
-      .map((l: string) => l.replace(/^[\s*]+/, "").trim())
-      .filter((l: string) => l && !l.startsWith("@"));
+    // Or just take the first line of the comment's text
+    const lines = commentTextLines(comment).filter((l) => l && !l.startsWith("@"));
 
     return lines[0] || undefined;
   }
@@ -418,4 +415,16 @@ export class ContextAnalyzer {
 function classExtends(node: ClassDeclaration): HeritageClauseElement | undefined {
   const clause = node.heritageClauses?.find((c) => c.token === SyntaxKind.ExtendsKeyword);
   return clause?.types[0];
+}
+
+/**
+ * The text lines of a comment, without its delimiters: `//`, the `/*` or
+ * `/**` opener, the closing `*\/` and each line's leading `*`. A JSDoc opener
+ * on a line of its own used to survive as the description `/**`.
+ */
+export function commentTextLines(comment: string): string[] {
+  const body = comment.startsWith("//")
+    ? comment.slice(2)
+    : comment.replace(/^\/\*+/, "").replace(/\*+\/$/, "");
+  return body.split("\n").map((line) => line.replace(/^[\s*]+/, "").trim());
 }

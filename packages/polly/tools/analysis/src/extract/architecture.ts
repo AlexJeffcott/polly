@@ -96,7 +96,10 @@ export class ArchitectureAnalyzer {
     const messageFlows = await flowAnalyzer.analyzeFlows(program);
 
     // 5. Analyze external integrations
-    const integrationAnalyzer = new IntegrationAnalyzer(this.options.tsConfigPath);
+    const integrationAnalyzer = new IntegrationAnalyzer(
+      this.options.tsConfigPath,
+      internalPackageNames(projectConfig)
+    );
     const integrations = await integrationAnalyzer.analyzeIntegrations(program);
 
     // 6. Merge external API calls into context info
@@ -257,6 +260,13 @@ export class ArchitectureAnalyzer {
 
     return undefined;
   }
+}
+
+/** The project's own package names: its workspace packages and itself. */
+function internalPackageNames(projectConfig: ProjectConfig | undefined): string[] {
+  const names = (projectConfig?.workspacePackages ?? []).map((pkg) => pkg.name);
+  const own = projectConfig?.metadata?.name;
+  return own ? [...names, own] : names;
 }
 
 /**

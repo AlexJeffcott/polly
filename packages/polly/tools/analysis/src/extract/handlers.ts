@@ -151,6 +151,7 @@ import type {
   VerifiedStateInfo,
 } from "../types";
 import { RelationshipExtractor } from "./relationships";
+import { isOffSurfacePath } from "./source-surface";
 
 /** A function whose parameters and body a handler is extracted from. */
 type HandlerFunction = ArrowFunction | FunctionExpression | FunctionDeclaration | MethodDeclaration;
@@ -3251,6 +3252,11 @@ export class HandlerExtractor {
    *   SubscribeMessage → subscribe
    */
   private extractMessageTypeFromTypeName(typeName: string): string {
+    // An object type literal (`value is { success: true }`) narrows a shape,
+    // not a message: it names no message type, so the guard is no handler
+    // unless its body compares `.type`.
+    if (typeName.trimStart().startsWith("{")) return "";
+
     // Remove common suffixes and convert to lowercase
     const messageType = typeName
       .replace(/Message$/, "")
@@ -3991,9 +3997,7 @@ export class HandlerExtractor {
    * as fixtures — expected, not an escaped runtime mutator — so they are out.
    */
   private isOffSurfaceScannable(filePath: string): boolean {
-    return !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
-      filePath
-    );
+    return !isOffSurfacePath(filePath);
   }
 
   /** The signal factories whose `.value` writes the model treats as state. */

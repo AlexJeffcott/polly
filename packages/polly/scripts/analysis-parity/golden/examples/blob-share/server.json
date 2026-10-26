@@ -178,7 +178,7 @@
             "@fairfox/polly/elysia",
             "elysia"
           ],
-          "description": "/**"
+          "description": "Blob-share example server."
         }
       },
       "messageFlows": [],

@@ -501,7 +501,7 @@
             "lodash",
             "./local"
           ],
-          "description": "// Content script: talks to remote services."
+          "description": "Content script: talks to remote services."
         },
         "popup": {
           "type": "popup",
@@ -566,7 +566,7 @@
           "dependencies": [
             "./jsx"
           ],
-          "description": "/**"
+          "description": "Popup UI."
         },
         "options": {
           "type": "options",
@@ -589,7 +589,7 @@
             }
           ],
           "dependencies": [],
-          "description": "// Options page: stores preferences."
+          "description": "Options page: stores preferences."
         },
         "devtools": {
           "type": "devtools",

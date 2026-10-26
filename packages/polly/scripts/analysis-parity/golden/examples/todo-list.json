@@ -1194,64 +1194,46 @@
             "../shared/messages",
             "./handlers"
           ],
-          "description": "// Background script entry point"
+          "description": "Background script entry point"
+        },
+        "popup": {
+          "type": "popup",
+          "entryPoint": "<project>/src/popup/index.tsx",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "components": [
+            {
+              "name": "App",
+              "type": "function",
+              "filePath": "<project>/src/popup/index.tsx",
+              "line": 12,
+              "props": []
+            },
+            {
+              "name": "TodoItem",
+              "type": "function",
+              "filePath": "<project>/src/popup/index.tsx",
+              "line": 151,
+              "props": [
+                "todo",
+                "onToggle",
+                "onRemove"
+              ]
+            }
+          ],
+          "dependencies": [
+            "@fairfox/polly/message-bus",
+            "preact",
+            "preact/hooks",
+            "../background/state",
+            "../shared/messages",
+            "../shared/types",
+            "./styles.css"
+          ]
         }
       },
       "messageFlows": [
-        {
-          "messageType": "USER_LOGIN",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(USER_LOGIN)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 90
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(USER_LOGIN)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 29
-              }
-            }
-          ]
-        },
-        {
-          "messageType": "USER_LOGIN",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(USER_LOGIN)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 102
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(USER_LOGIN)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 29
-              }
-            }
-          ]
-        },
         {
           "messageType": "USER_LOGIN",
           "from": "popup",
@@ -1275,33 +1257,6 @@
               "location": {
                 "file": "<project>/src/background/handlers.ts",
                 "line": 29
-              }
-            }
-          ]
-        },
-        {
-          "messageType": "USER_LOGOUT",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(USER_LOGOUT)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 96
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(USER_LOGOUT)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 57
               }
             }
           ]
@@ -1335,33 +1290,6 @@
         },
         {
           "messageType": "TODO_ADD",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(TODO_ADD)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 108
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(TODO_ADD)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 78
-              }
-            }
-          ]
-        },
-        {
-          "messageType": "TODO_ADD",
           "from": "popup",
           "to": [
             "background"
@@ -1383,60 +1311,6 @@
               "location": {
                 "file": "<project>/src/background/handlers.ts",
                 "line": 78
-              }
-            }
-          ]
-        },
-        {
-          "messageType": "TODO_TOGGLE",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(TODO_TOGGLE)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 114
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(TODO_TOGGLE)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 101
-              }
-            }
-          ]
-        },
-        {
-          "messageType": "TODO_TOGGLE",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(TODO_TOGGLE)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 120
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(TODO_TOGGLE)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 101
               }
             }
           ]
@@ -1491,33 +1365,6 @@
               "location": {
                 "file": "<project>/src/background/handlers.ts",
                 "line": 124
-              }
-            }
-          ]
-        },
-        {
-          "messageType": "TODO_CLEAR_COMPLETED",
-          "from": "unknown",
-          "to": [
-            "background"
-          ],
-          "sequence": [
-            {
-              "step": 1,
-              "action": "unknown.send(TODO_CLEAR_COMPLETED)",
-              "context": "unknown",
-              "location": {
-                "file": "<project>/features/steps.ts",
-                "line": 126
-              }
-            },
-            {
-              "step": 2,
-              "action": "background.handle(TODO_CLEAR_COMPLETED)",
-              "context": "background",
-              "location": {
-                "file": "<project>/src/background/handlers.ts",
-                "line": 139
               }
             }
           ]

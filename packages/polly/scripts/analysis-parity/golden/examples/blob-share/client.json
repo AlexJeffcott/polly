@@ -358,7 +358,7 @@
           "dependencies": [
             "@fairfox/polly/mesh"
           ],
-          "description": "/**"
+          "description": "blob-share client"
         }
       },
       "messageFlows": [],

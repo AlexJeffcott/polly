@@ -367,12 +367,7 @@
         }
       ]
     },
-    "logs": [
-      "log: [WARN] Dropped 3 handler(s) with unrepresentable message types:",
-      "log: [WARN]   - Handler for \"{ username: string }\" at <project>/src/popup/index.tsx:48",
-      "log: [WARN]   - Handler for \"{ success: true }\" at <project>/src/popup/index.tsx:68",
-      "log: [WARN]   - Handler for \"{ success: true }\" at <project>/src/popup/index.tsx:104"
-    ]
+    "logs": []
   },
   "analysis.extractHandlers": {
     "result": {
@@ -604,48 +599,6 @@
           },
           "origin": "event",
           "parameters": {
-            "$type": "undefined"
-          }
-        },
-        {
-          "messageType": "{ username: string }",
-          "node": "popup",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<project>/src/popup/index.tsx",
-            "line": 48
-          },
-          "relationships": {
-            "$type": "undefined"
-          }
-        },
-        {
-          "messageType": "{ success: true }",
-          "node": "popup",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<project>/src/popup/index.tsx",
-            "line": 68
-          },
-          "relationships": {
-            "$type": "undefined"
-          }
-        },
-        {
-          "messageType": "{ success: true }",
-          "node": "popup",
-          "assignments": [],
-          "preconditions": [],
-          "postconditions": [],
-          "location": {
-            "file": "<project>/src/popup/index.tsx",
-            "line": 104
-          },
-          "relationships": {
             "$type": "undefined"
           }
         }
@@ -1068,7 +1021,57 @@
             "../shared/types/messages",
             "./handlers"
           ],
-          "description": "/**"
+          "description": "Full-Featured Example - Background Script"
+        },
+        "popup": {
+          "type": "popup",
+          "entryPoint": "<project>/src/popup/index.tsx",
+          "handlers": [],
+          "chromeAPIs": [
+            "storage"
+          ],
+          "externalAPIs": [],
+          "components": [
+            {
+              "name": "Popup",
+              "type": "function",
+              "filePath": "<project>/src/popup/index.tsx",
+              "line": 54,
+              "props": []
+            }
+          ],
+          "dependencies": [
+            "@fairfox/polly/message-bus",
+            "@fairfox/polly/state",
+            "@fairfox/polly/ui",
+            "@preact/signals",
+            "preact",
+            "../shared/types/messages"
+          ],
+          "description": "Full-Featured Example - Popup"
+        },
+        "options": {
+          "type": "options",
+          "entryPoint": "<project>/src/options/index.tsx",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "components": [
+            {
+              "name": "Options",
+              "type": "function",
+              "filePath": "<project>/src/options/index.tsx",
+              "line": 21,
+              "props": []
+            }
+          ],
+          "dependencies": [
+            "@fairfox/polly/state",
+            "@fairfox/polly/ui",
+            "preact",
+            "../shared/types/messages"
+          ],
+          "description": "Full-Featured Example - Options Page"
         }
       },
       "messageFlows": [

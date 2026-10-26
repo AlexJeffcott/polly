@@ -25,14 +25,22 @@ import {
   withProgram,
 } from "../program";
 import type { ExternalIntegration } from "../types/architecture";
+import { isOffSurfacePath } from "./source-surface";
 
 export class IntegrationAnalyzer {
   private tsConfigPath: string;
   private projectRoot: string;
+  private internalPackages: ReadonlySet<string>;
 
-  constructor(tsConfigPath: string) {
+  /**
+   * `internalPackages`: the names of the project's own packages (a
+   * workspace's packages, the project itself). Importing one is code of
+   * the app, not an external dependency.
+   */
+  constructor(tsConfigPath: string, internalPackages: Iterable<string> = []) {
     this.tsConfigPath = tsConfigPath;
     this.projectRoot = path.dirname(path.resolve(tsConfigPath));
+    this.internalPackages = new Set(internalPackages);
   }
 
   /**
@@ -44,10 +52,7 @@ export class IntegrationAnalyzer {
    */
   private applicationSourceFiles(program: AnalysisProgram): SourceFile[] {
     return program.sourceFiles.filter(
-      (file) =>
-        !/(?:\.(?:test|spec|stories)\.[cm]?[jt]sx?$)|(?:\/(?:__tests__|tests|test|features|e2e|stories|__mocks__)\/)/i.test(
-          `/${path.relative(this.projectRoot, file.fileName)}`
-        )
+      (file) => !isOffSurfacePath(`/${path.relative(this.projectRoot, file.fileName)}`)
     );
   }
 
@@ -281,7 +286,7 @@ export class IntegrationAnalyzer {
       if (moduleSpecifier !== undefined && this.isExternalImport(moduleSpecifier)) {
         const packageName = this.extractPackageName(moduleSpecifier);
 
-        if (packageName && !seen.has(packageName)) {
+        if (packageName && !seen.has(packageName) && !this.internalPackages.has(packageName)) {
           seen.add(packageName);
           scripts.push(this.createExternalScriptIntegration(packageName, sourceFile));
         }
