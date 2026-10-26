@@ -9,10 +9,22 @@
  *   - fold Background steps into a feature-level list;
  *   - expand each Scenario Outline into one concrete scenario per Examples row.
  */
-import { AstBuilder, GherkinClassicTokenMatcher, Parser } from "@cucumber/gherkin";
 import type { GherkinDocument, Scenario } from "@cucumber/messages";
-import { IdGenerator } from "@cucumber/messages";
+import { BDD_FEATURE, loadToolPackage } from "../../tool-deps/src/index.ts";
 import type { ParsedFeature, ParsedScenario, ParsedStep, StepKeyword } from "./types.ts";
+
+// Optional peer dependencies: loaded through the guard so a missing package
+// names the install command instead of failing as a bare resolve error.
+const { AstBuilder, GherkinClassicTokenMatcher, Parser } = await loadToolPackage(
+  "@cucumber/gherkin",
+  BDD_FEATURE,
+  () => import("@cucumber/gherkin")
+);
+const { IdGenerator } = await loadToolPackage(
+  "@cucumber/messages",
+  BDD_FEATURE,
+  () => import("@cucumber/messages")
+);
 
 function newParser() {
   return new Parser(new AstBuilder(IdGenerator.uuid()), new GherkinClassicTokenMatcher());

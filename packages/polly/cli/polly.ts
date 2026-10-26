@@ -38,6 +38,11 @@
  */
 
 import { constants as osConstants } from "node:os";
+import {
+  COMMAND_TOOL_PACKAGES,
+  missingToolPackages,
+  missingToolPackagesMessage,
+} from "../tools/tool-deps/src/index.ts";
 
 // Use Bun built-ins instead of Node.js APIs
 const __dirname = import.meta.dir;
@@ -78,6 +83,21 @@ class ChildExitError extends Error {
     this.name = "ChildExitError";
     this.exitCode = exitCode;
   }
+}
+
+/**
+ * Stop before spawning a tool whose optional peer packages are not installed.
+ * The tools import them at load time, so without this check the child dies
+ * on a bare "Cannot find package" resolve error. Resolution starts from this
+ * file's directory: the bundled tools sit beside it under the same
+ * node_modules chain.
+ */
+function requireToolPackages(name: string): void {
+  const needed = COMMAND_TOOL_PACKAGES[name] ?? [];
+  const missing = missingToolPackages(needed, __dirname);
+  if (missing.length === 0) return;
+  process.stderr.write(`❌ ${missingToolPackagesMessage(`polly ${name}`, missing)}\n`);
+  process.exit(1);
 }
 
 /**
@@ -183,6 +203,7 @@ async function dev() {
  * Verify command - delegate to @fairfox/web-ext-verify
  */
 async function verify() {
+  requireToolPackages("verify");
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/verify/src/cli.js`;
   const monorepoCli = `${__dirname}/../tools/verify/src/cli.ts`;
@@ -204,6 +225,7 @@ async function verify() {
  * Mutate command - delegate to tools/mutate (mutation engine + useless-test detection)
  */
 async function mutate() {
+  requireToolPackages("mutate");
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/mutate/src/cli.js`;
   const monorepoCli = `${__dirname}/../tools/mutate/src/cli.ts`;
@@ -227,6 +249,7 @@ async function mutate() {
  * BDD command - delegate to tools/bdd (executable Gherkin against the model)
  */
 async function bdd() {
+  requireToolPackages("bdd");
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/bdd/src/cli.js`;
   const monorepoCli = `${__dirname}/../tools/bdd/src/cli.ts`;
@@ -250,6 +273,7 @@ async function bdd() {
  * Visualize command - delegate to @fairfox/polly-visualize
  */
 async function visualize() {
+  requireToolPackages("visualize");
   // Check if bundled (published) or in monorepo
   const bundledCli = `${__dirname}/../tools/visualize/src/cli.js`;
   const monorepoCli = `${__dirname}/../tools/visualize/src/cli.ts`;

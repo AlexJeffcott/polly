@@ -31,6 +31,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { Diagnostic, Snapshot } from "typescript-7/async";
+import { installCommand } from "../../../tool-deps/src/index.ts";
 import { applyMutant } from "./generate.ts";
 import type { Mutant } from "./types.ts";
 
@@ -47,9 +48,6 @@ export const TYPECHECK_OVERRIDES = {
 };
 
 export const TYPECHECK_CONFIG_NAME = "tsconfig.polly-mutate.json";
-
-/** The `typescript-7` version polly pins, for the install hint. */
-const TYPESCRIPT_7 = "7.1.0-beta";
 
 /** Caps a verdict's text, so a long assignability chain does not swamp the report. */
 const REASON_LIMIT = 300;
@@ -239,9 +237,7 @@ export async function typecheckMutants(
   }
   const mod = await loadApi();
   if (!mod) {
-    log(
-      `type filter off: typescript-7 is not installed (bun add typescript-7@npm:typescript@${TYPESCRIPT_7})`
-    );
+    log(`type filter off: typescript-7 is not installed (${installCommand(["typescript-7"])})`);
     return null;
   }
   const session = new Session(mod, opts.cwd);

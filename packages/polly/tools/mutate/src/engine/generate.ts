@@ -11,12 +11,20 @@
  * Parentheses are not nodes (`preserveParens: false`), as in the Babel AST
  * Stryker walks, so operators that look at a parent see the real one.
  */
-import { parseSync } from "oxc-parser";
+import { loadToolPackage, MUTATE_FEATURE } from "../../../tool-deps/src/index.ts";
 import { type AstNode, calleeName, children, isAstNode } from "./ast.ts";
 import { type DisableComment, disabledBy, parseDisableComments } from "./disable-comments.ts";
 import { OPERATORS, type OperatorContext } from "./operators.ts";
 import type { ContractSite, Mutant, MutatorName, Position } from "./types.ts";
 import { VERIFY_PRIMITIVES, verifyCallsiteReason } from "./verify-callsites.ts";
+
+// Optional peer dependency: loaded through the guard so a missing package names
+// the install command instead of failing as a bare resolve error.
+const { parseSync } = await loadToolPackage(
+  "oxc-parser",
+  MUTATE_FEATURE,
+  () => import("oxc-parser")
+);
 
 /** TS nodes that wrap a runtime expression. Every other `TS*` node is type-only. */
 const TS_RUNTIME_WRAPPERS = new Set([

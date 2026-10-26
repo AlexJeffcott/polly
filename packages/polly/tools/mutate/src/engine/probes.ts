@@ -18,9 +18,17 @@
  * coverage, which costs time but never a kill. Inserted text holds no
  * newline, so every line number in the target stays the same.
  */
-import { parseSync } from "oxc-parser";
+import { loadToolPackage, MUTATE_FEATURE } from "../../../tool-deps/src/index.ts";
 import { type AstNode, children, isAstNode } from "./ast.ts";
 import type { Mutant } from "./types.ts";
+
+// Optional peer dependency: loaded through the guard so a missing package names
+// the install command instead of failing as a bare resolve error.
+const { parseSync } = await loadToolPackage(
+  "oxc-parser",
+  MUTATE_FEATURE,
+  () => import("oxc-parser")
+);
 
 export const HIT = "globalThis.__pollyMutateHit?.";
 

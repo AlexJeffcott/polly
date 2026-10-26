@@ -11,10 +11,19 @@
  * The rules follow @stryker-mutator/instrumenter 9.6.1 (`dist/src/mutators/`).
  * Intended differences are listed in tools/mutate/README.md.
  */
-import { mutate as mutateRegex } from "weapon-regex";
+
 import { isRecord } from "../../../../src/shared/lib/guards";
+import { loadToolPackage, MUTATE_FEATURE } from "../../../tool-deps/src/index.ts";
 import { type AstNode, calleeName, child, children, isAstNode, stringField } from "./ast.ts";
 import type { MutatorName } from "./types.ts";
+
+// Optional peer dependency: loaded through the guard so a missing package names
+// the install command instead of failing as a bare resolve error.
+const { mutate: mutateRegex } = await loadToolPackage(
+  "weapon-regex",
+  MUTATE_FEATURE,
+  () => import("weapon-regex")
+);
 
 export interface OperatorContext {
   src: string;
