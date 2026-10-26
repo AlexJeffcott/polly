@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The tool packages are optional peer dependencies, not dependencies.**
+  `typescript-7` (`npm:typescript@7.1.0-beta`), `oxc-parser`,
+  `weapon-regex`, `@cucumber/gherkin` and `@cucumber/messages` are loaded
+  only by `polly verify`, `polly visualize`, `polly mutate`, `polly bdd`
+  and the `@fairfox/polly/mutate` and `@fairfox/polly/bdd` entry points,
+  but every install carried them. A server app installing polly beside
+  elysia and `@automerge/automerge-repo` went from 115.1 MB of
+  node_modules to 75.0 MB; beside elysia alone, the published 0.96.0
+  installs 61.0 MB and this version 21.0 MB (bun, macOS arm64). The main
+  entry and the runtime entries (`./elysia`, `./state`, `./client`,
+  `./mesh`, `./ui`, …) never imported them and are unchanged.
+- **Breaking for CLI users: add the packages your commands need as dev
+  dependencies.** Neither bun nor npm installs an optional peer:
+
+  | Command / entry point | Add |
+  |---|---|
+  | `polly verify` | `typescript-7@npm:typescript@7.1.0-beta @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
+  | `polly visualize` | `typescript-7@npm:typescript@7.1.0-beta` |
+  | `polly mutate`, `@fairfox/polly/mutate` | `oxc-parser@0.137.0 weapon-regex@1.3.6`, and `typescript-7` for the type filter (without it the filter switches off, as before) |
+  | `polly bdd`, `@fairfox/polly/bdd` | `@cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
+
+  For example `bun add -d typescript-7@npm:typescript@7.1.0-beta
+  @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1`. Keep the
+  `typescript-7` alias name; polly imports `typescript-7/async`. Under
+  bun's isolated linker and under npm the alias satisfies the optional peer
+  and is linked into polly's own node_modules.
+- **A missing tool package names itself.** `polly verify`, `visualize`,
+  `mutate` and `bdd` check for their packages before starting and exit 1
+  with the packages and the `bun add -d` / `npm install -D` command;
+  importing `@fairfox/polly/mutate` or `@fairfox/polly/bdd` without them
+  throws a `MissingToolPackageError` with the same message. Before, the
+  tool died on a bare "Cannot find package" resolve error.
+  `scripts/e2e-tool-deps-cold-install.ts` checks all of this from a cold
+  install of the packed tarball.
+
 ## [0.96.0] - 2026-10-24
 
 ### Changed

@@ -226,13 +226,13 @@ const toolsResult = await Bun.build({
     "tweetnacl",
     "pixelmatch",
     "pngjs",
-    // Gherkin parser for `polly bdd` — a dependency, kept external.
+    // Gherkin parser for `polly bdd` — an optional peer, kept external (loaded through tools/tool-deps).
     "@cucumber/*",
-    // Parser for the bun mutation engine — a native-binding dependency, kept external.
+    // Parser for the bun mutation engine — a native-binding optional peer, kept external.
     "oxc-parser",
-    // Regex mutants for the bun mutation engine (the generator Stryker used, so mutants stay comparable) — a dependency, kept external.
+    // Regex mutants for the bun mutation engine (the generator Stryker used, so mutants stay comparable) — an optional peer, kept external.
     "weapon-regex",
-    // TypeScript 7 (npm alias): the analysis API and the mutation engine's type filter — spawns tsgo, kept external.
+    // TypeScript 7 (npm alias): the analysis API and the mutation engine's type filter — spawns tsgo; an optional peer, kept external.
     "typescript-7",
   ],
 });

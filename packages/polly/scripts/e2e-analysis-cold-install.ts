@@ -11,12 +11,16 @@
  *   1. `bun pm pack` the package (dist/ must be current; run `bun run
  *      build:lib` first), the same tarball `npm publish` would upload.
  *   2. Install it into an empty project: no `ts-morph` or `@ts-morph/*`
- *      anywhere under node_modules, and every installed `typescript` is 7.x.
+ *      anywhere under node_modules, and no `typescript` at all (the
+ *      `typescript-7` alias is an optional peer; e2e-tool-deps-cold-install.ts
+ *      covers the install without the tool packages).
  *   3. Import `@fairfox/polly` and `@fairfox/polly/verify` under bun and
  *      node; each process must exit by itself within 15 s (an open handle
  *      kept the import alive before, see the BroadcastChannel unref fix).
  *   4. Copy examples/todo-list, point it at the tarball (its tsconfig
- *      `paths` into this checkout removed), install, and run the installed
+ *      `paths` into this checkout removed), add the optional tool packages
+ *      as devDependencies the way a consumer must, and every installed
+ *      `typescript` must be 7.x. Install, and run the installed
  *      `node_modules/.bin/polly verify --estimate`, `polly visualize
  *      --generate` and `polly verify --setup`, each under a 120 s alarm. Each
  *      must exit 0 by itself and leave no TypeScript API server (`tsc --api`,
@@ -47,6 +51,7 @@ import { join, relative } from "node:path";
 import { Glob } from "bun";
 import { POLLY_PKG_DIR, type RunResult, withTempDir } from "../tools/test/src/e2e-cli";
 import { assert, selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
+import { TOOL_PACKAGES } from "../tools/tool-deps/src/index.ts";
 
 const REPO_ROOT = join(POLLY_PKG_DIR, "../..");
 const EXAMPLE = join(REPO_ROOT, "examples/todo-list");
@@ -56,7 +61,7 @@ const IMPORT_ALARM_S = 15;
 const CLI_ALARM_S = 120;
 
 /** Run `argv` in `cwd` under `perl alarm`: SIGALRM (exit 142) means it did not exit by itself. */
-async function runAlarmed(argv: string[], cwd: string, seconds: number): Promise<RunResult> {
+export async function runAlarmed(argv: string[], cwd: string, seconds: number): Promise<RunResult> {
   const proc = Bun.spawn(["perl", "-e", `alarm ${seconds}; exec @ARGV`, ...argv], {
     cwd,
     stdout: "pipe",
@@ -71,13 +76,13 @@ async function runAlarmed(argv: string[], cwd: string, seconds: number): Promise
   return { exitCode, stdout, stderr };
 }
 
-function describe(r: RunResult): string {
+export function describe(r: RunResult): string {
   const timedOut = r.exitCode === 142 ? " (alarm: did not exit by itself)" : "";
   return `exit ${r.exitCode}${timedOut}\n${r.stdout}\n${r.stderr}`;
 }
 
 /** Why dist/ cannot be packed as is, or null when it is current. */
-async function staleDist(): Promise<string | null> {
+export async function staleDist(): Promise<string | null> {
   const stamp = join(POLLY_PKG_DIR, "dist", ".build-stamp");
   if (!existsSync(stamp)) return "dist/ has no completed build";
   const built = statSync(stamp).mtimeMs;
@@ -91,7 +96,7 @@ async function staleDist(): Promise<string | null> {
 }
 
 /** Every installed package directory under `nodeModules`, scoped ones included, recursively. */
-function packageDirs(nodeModules: string, out: string[] = []): string[] {
+export function packageDirs(nodeModules: string, out: string[] = []): string[] {
   if (!existsSync(nodeModules)) return out;
   for (const entry of readdirSync(nodeModules)) {
     if (entry === ".bin" || entry === ".cache") continue;
@@ -123,8 +128,11 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
-/** No ts-morph, and no TypeScript other than 7.x, anywhere in the install. */
-function checkInstall(dir: string): void {
+/**
+ * No ts-morph anywhere in the install. With `typescript`, at least one
+ * TypeScript and every one 7.x; without, none at all.
+ */
+function checkInstall(dir: string, typescript: boolean): void {
   const installed = packageDirs(join(dir, "node_modules"));
   const morph = installed.filter((p) => /(^|\/)(ts-morph|@ts-morph)(\/|$)/.test(p));
   assert(morph.length === 0, `ts-morph installed:\n${morph.join("\n")}`);
@@ -132,6 +140,11 @@ function checkInstall(dir: string): void {
     .filter((p) => existsSync(join(p, "package.json")))
     .map((p) => ({ p, pkg: readJson(join(p, "package.json")) }))
     .filter(({ pkg }) => pkg["name"] === "typescript");
+  if (!typescript) {
+    const found = typescripts.map(({ p }) => relative(dir, p)).join("\n");
+    assert(typescripts.length === 0, `typescript installed without being asked for:\n${found}`);
+    return;
+  }
   assert(typescripts.length > 0, "no typescript installed (typescript-7 alias expected)");
   for (const { p, pkg } of typescripts) {
     assert(
@@ -173,6 +186,17 @@ function writeApp(appDir: string, tarball: string): void {
     ...record(pkg["dependencies"]),
     "@fairfox/polly": `file:${tarball}`,
     ...VISUALIZE_PEERS,
+  };
+  // The tool packages are optional peers: a consumer that runs the analysis
+  // commands adds them as devDependencies.
+  pkg["devDependencies"] = {
+    ...record(pkg["devDependencies"]),
+    ...Object.fromEntries(
+      Object.entries(TOOL_PACKAGES).map(([name, { install }]) => [
+        name,
+        install.slice(name.length + 1),
+      ])
+    ),
   };
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   const tsconfigPath = join(appDir, "tsconfig.json");
@@ -217,7 +241,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       )}\n`
     );
     await install(empty);
-    checkInstall(empty);
+    checkInstall(empty, false);
 
     for (const runtime of ["bun", "node"]) {
       for (const specifier of ["@fairfox/polly", "@fairfox/polly/verify"]) {
@@ -233,7 +257,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     const app = join(temp.dir, "app");
     writeApp(app, tarballPath);
     await install(app);
-    checkInstall(app);
+    checkInstall(app, true);
     const polly = join(app, "node_modules/.bin/polly");
     for (const { argv, expect } of COMMANDS) {
       ctx.log(`[e2e] polly ${argv.join(" ")}`);

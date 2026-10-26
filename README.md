@@ -317,6 +317,23 @@ Witness result: ✓ PASS
 bun add @fairfox/polly preact @preact/signals
 ```
 
+The authoring tools load packages a production install does not need, so they are optional peer dependencies. Add the ones for the commands you run as dev dependencies:
+
+| Command / entry point | Dev dependencies |
+|---|---|
+| `polly verify` | `typescript-7@npm:typescript@7.1.0-beta @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
+| `polly visualize` | `typescript-7@npm:typescript@7.1.0-beta` |
+| `polly mutate`, `@fairfox/polly/mutate` | `oxc-parser@0.137.0 weapon-regex@1.3.6` (plus `typescript-7` for the type filter) |
+| `polly bdd`, `@fairfox/polly/bdd` | `@cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
+
+```bash
+# all of them
+bun add -d typescript-7@npm:typescript@7.1.0-beta oxc-parser@0.137.0 weapon-regex@1.3.6 \
+  @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1
+```
+
+`typescript-7` must keep that alias name: polly imports `typescript-7/async`. A command whose packages are missing names them and prints the install command.
+
 Scaffold a project:
 
 ```bash
