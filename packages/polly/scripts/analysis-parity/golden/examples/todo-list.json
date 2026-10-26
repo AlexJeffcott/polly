@@ -1437,20 +1437,11 @@
         {
           "type": "external-script",
           "name": "node:path",
-          "technology": "npm package",
+          "technology": "Node.js built-in module",
           "usedIn": [
             "<polly>/packages/polly/tools/bdd/src/check-verify.ts"
           ],
-          "description": "External dependency: node:path"
-        },
-        {
-          "type": "external-script",
-          "name": "@cucumber/gherkin",
-          "technology": "npm package",
-          "usedIn": [
-            "<polly>/packages/polly/tools/bdd/src/parse.ts"
-          ],
-          "description": "External dependency: @cucumber/gherkin"
+          "description": "Runtime module: node:path"
         },
         {
           "type": "external-script",

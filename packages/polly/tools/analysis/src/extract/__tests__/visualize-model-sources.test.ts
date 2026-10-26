@@ -18,7 +18,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { MessageHandler } from "../../types/core";
-import { commentTextLines } from "../contexts";
+import { commentTextLines, fileDescription } from "../contexts";
 import { FlowAnalyzer } from "../flows";
 import { HandlerExtractor } from "../handlers";
 import { IntegrationAnalyzer } from "../integrations";
@@ -83,6 +83,42 @@ describe("commentTextLines", () => {
     expect(commentTextLines("// Background script entry point")).toEqual([
       "Background script entry point",
     ]);
+  });
+});
+
+describe("fileDescription", () => {
+  test("a triple-slash directive is skipped for the comment after it", () => {
+    expect(
+      fileDescription([
+        '/// <reference types="chrome" />',
+        '/// <reference lib="dom" />',
+        "/**\n * @lingua/polly\n *\n * Main entry point for framework exports.\n */",
+      ])
+    ).toBe("Main entry point for framework exports.");
+  });
+
+  test("a line that starts with a package name is text, not a JSDoc tag", () => {
+    expect(fileDescription(["// @lingua/sync — cross-context coordination on top of Polly."])).toBe(
+      "@lingua/sync — cross-context coordination on top of Polly."
+    );
+  });
+
+  test("a title that is only the package name is skipped", () => {
+    expect(
+      fileDescription([
+        "/**\n * @lingua/auth\n *\n * Generic authentication package with pluggable providers.\n */",
+      ])
+    ).toBe("Generic authentication package with pluggable providers.");
+  });
+
+  test("JSDoc tag lines are skipped", () => {
+    expect(fileDescription(["/**\n * @module server\n * Main Elysia Server\n */"])).toBe(
+      "Main Elysia Server"
+    );
+  });
+
+  test("only directives: no description", () => {
+    expect(fileDescription(['/// <reference types="bun" />'])).toBeUndefined();
   });
 });
 

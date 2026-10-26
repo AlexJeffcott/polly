@@ -329,7 +329,13 @@ export class ProjectDetector {
       "index.js",
     ];
 
-    const scoredServers = this.scoreServerCandidates(serverCandidates);
+    // A root main.ts is the entry only when nothing above scores: in
+    // mesh-recovery-pair it is the demo runner beside the src/index.ts model.
+    // mesh-large-initial-sync has main.ts alone, and drew no container.
+    let scoredServers = this.scoreServerCandidates(serverCandidates);
+    if (scoredServers.length === 0) {
+      scoredServers = this.scoreServerCandidates(["main.ts", "main.js"]);
+    }
     if (scoredServers.length > 0) {
       const best = scoredServers[0];
       if (best) {
@@ -916,7 +922,16 @@ export class ProjectDetector {
 
     // If no entry points found, scan src directory
     if (Object.keys(entryPoints).length === 0) {
-      const commonEntries = ["src/index.ts", "src/main.ts", "src/app.ts", "index.ts", "main.ts"];
+      const commonEntries = [
+        "src/index.ts",
+        "src/index.tsx",
+        "src/main.ts",
+        "src/main.tsx",
+        "src/app.ts",
+        "src/app.tsx",
+        "index.ts",
+        "main.ts",
+      ];
 
       for (const candidate of commonEntries) {
         const fullPath = path.join(this.projectRoot, candidate);

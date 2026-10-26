@@ -41,14 +41,30 @@
       },
       "projectConfig": {
         "type": "generic",
-        "entryPoints": {},
+        "entryPoints": {
+          "main": "<project>/src/index.tsx"
+        },
         "metadata": {
           "name": "showcase-example",
           "version": "1.0.0",
           "description": "Visual gallery of every @fairfox/polly UI primitive. Acts as the team's UI testing playground: visual regression baselines + browser unit tests live alongside the components they exercise."
         }
       },
-      "contexts": {},
+      "contexts": {
+        "main": {
+          "type": "main",
+          "entryPoint": "<project>/src/index.tsx",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@fairfox/polly/ui",
+            "@preact/signals",
+            "preact"
+          ],
+          "description": "Polly UI Showcase — visual gallery of every primitive in its"
+        }
+      },
       "messageFlows": [],
       "integrations": [
         {

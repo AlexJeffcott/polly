@@ -685,11 +685,11 @@
         {
           "type": "external-script",
           "name": "bun",
-          "technology": "npm package",
+          "technology": "Bun built-in module",
           "usedIn": [
             "<project>/src/room-manager.ts"
           ],
-          "description": "External dependency: bun"
+          "description": "Runtime module: bun"
         }
       ]
     },

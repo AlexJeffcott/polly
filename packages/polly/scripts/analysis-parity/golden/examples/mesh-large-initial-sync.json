@@ -316,10 +316,11 @@
       },
       "projectConfig": {
         "type": "websocket-app",
-        "entryPoints": {},
+        "entryPoints": {
+          "server": "<project>/main.ts"
+        },
         "contextMapping": {
-          "server": "Server",
-          "client": "Client"
+          "server": "HTTP Server"
         },
         "metadata": {
           "name": "mesh-large-initial-sync-example",
@@ -329,7 +330,25 @@
           }
         }
       },
-      "contexts": {},
+      "contexts": {
+        "server": {
+          "type": "server",
+          "entryPoint": "<project>/main.ts",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@fairfox/polly/mesh",
+            "@automerge/automerge",
+            "@automerge/automerge-repo/slim",
+            "@fairfox/polly/elysia",
+            "@fairfox/polly/mesh",
+            "elysia",
+            "werift"
+          ],
+          "description": "Mesh-large-initial-sync — runnable demonstration for polly issue #104."
+        }
+      },
       "messageFlows": [],
       "integrations": [
         {

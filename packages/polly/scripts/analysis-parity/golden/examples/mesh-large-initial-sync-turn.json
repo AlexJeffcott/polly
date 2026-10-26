@@ -182,10 +182,11 @@
       },
       "projectConfig": {
         "type": "websocket-app",
-        "entryPoints": {},
+        "entryPoints": {
+          "server": "<project>/main.ts"
+        },
         "contextMapping": {
-          "server": "Server",
-          "client": "Client"
+          "server": "HTTP Server"
         },
         "metadata": {
           "name": "mesh-large-initial-sync-turn-example",
@@ -195,7 +196,30 @@
           }
         }
       },
-      "contexts": {},
+      "contexts": {
+        "server": {
+          "type": "server",
+          "entryPoint": "<project>/main.ts",
+          "handlers": [],
+          "chromeAPIs": [],
+          "externalAPIs": [],
+          "dependencies": [
+            "@fairfox/polly/mesh",
+            "node:crypto",
+            "node:fs",
+            "node:fs/promises",
+            "node:path",
+            "@automerge/automerge",
+            "@automerge/automerge-repo/slim",
+            "@fairfox/polly/elysia",
+            "@fairfox/polly/mesh",
+            "bun",
+            "elysia",
+            "werift"
+          ],
+          "description": "Mesh-large-initial-sync-turn — falsification harness for polly#105."
+        }
+      },
       "messageFlows": [],
       "integrations": [
         {
@@ -210,29 +234,29 @@
         {
           "type": "external-script",
           "name": "node:crypto",
-          "technology": "npm package",
+          "technology": "Node.js built-in module",
           "usedIn": [
             "<project>/main.ts"
           ],
-          "description": "External dependency: node:crypto"
+          "description": "Runtime module: node:crypto"
         },
         {
           "type": "external-script",
           "name": "node:fs",
-          "technology": "npm package",
+          "technology": "Node.js built-in module",
           "usedIn": [
             "<project>/main.ts"
           ],
-          "description": "External dependency: node:fs"
+          "description": "Runtime module: node:fs"
         },
         {
           "type": "external-script",
           "name": "node:path",
-          "technology": "npm package",
+          "technology": "Node.js built-in module",
           "usedIn": [
             "<project>/main.ts"
           ],
-          "description": "External dependency: node:path"
+          "description": "Runtime module: node:path"
         },
         {
           "type": "external-script",
@@ -255,11 +279,11 @@
         {
           "type": "external-script",
           "name": "bun",
-          "technology": "npm package",
+          "technology": "Bun built-in module",
           "usedIn": [
             "<project>/main.ts"
           ],
-          "description": "External dependency: bun"
+          "description": "Runtime module: bun"
         },
         {
           "type": "external-script",

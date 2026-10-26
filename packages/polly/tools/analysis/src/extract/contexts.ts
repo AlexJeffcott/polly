@@ -189,21 +189,7 @@ export class ContextAnalyzer {
     const firstStatement = sourceFile.statements[0];
     if (!firstStatement) return undefined;
 
-    const firstComment = leadingComments(firstStatement, sourceFile)[0];
-    if (!firstComment) return undefined;
-
-    const comment = firstComment.text;
-
-    // Extract description from JSDoc
-    const descMatch = comment.match(/@description\s+(.+?)(?:\n|$)/s);
-    if (descMatch?.[1]) {
-      return descMatch[1].trim();
-    }
-
-    // Or just take the first line of the comment's text
-    const lines = commentTextLines(comment).filter((l) => l && !l.startsWith("@"));
-
-    return lines[0] || undefined;
+    return fileDescription(leadingComments(firstStatement, sourceFile).map((c) => c.text));
   }
 
   /**
@@ -415,6 +401,34 @@ export class ContextAnalyzer {
 function classExtends(node: ClassDeclaration): HeritageClauseElement | undefined {
   const clause = node.heritageClauses?.find((c) => c.token === SyntaxKind.ExtendsKeyword);
   return clause?.types[0];
+}
+
+/** A `/// <reference … />` (or other triple-slash) directive: compiler input, not prose. */
+const TRIPLE_SLASH_DIRECTIVE = /^\/\/\/\s*</;
+/**
+ * A line with no description in it: a JSDoc tag (`@module`, `@param x`), or
+ * a title that is only a scoped package name (`@lingua/auth`), which the
+ * container already shows. `@lingua/sync — cross-context …` is text.
+ */
+const NOT_DESCRIPTION = /^@\w+(?:\s|$)|^@[\w.-]+\/[\w.-]+$/;
+
+/**
+ * A file's description from the comments before its first statement: the
+ * first comment that is not a triple-slash directive, read as its
+ * `@description` tag, else its first text line that is not a JSDoc tag or
+ * a bare package name.
+ */
+export function fileDescription(comments: readonly string[]): string | undefined {
+  const comment = comments.find((c) => !TRIPLE_SLASH_DIRECTIVE.test(c));
+  if (comment === undefined) return undefined;
+
+  const descMatch = comment.match(/@description\s+(.+?)(?:\n|$)/s);
+  if (descMatch?.[1]) {
+    return descMatch[1].trim();
+  }
+
+  const lines = commentTextLines(comment).filter((l) => l && !NOT_DESCRIPTION.test(l));
+  return lines[0] || undefined;
 }
 
 /**

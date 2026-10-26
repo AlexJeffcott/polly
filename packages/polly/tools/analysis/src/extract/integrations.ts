@@ -1,5 +1,6 @@
 // External integration detection - find external APIs, services, etc.
 
+import { builtinModules } from "node:module";
 import * as path from "node:path";
 import type { Expression, Node, SourceFile } from "typescript-7/ast";
 import {
@@ -305,6 +306,10 @@ export class IntegrationAnalyzer {
    * Extract package name from module specifier
    */
   private extractPackageName(moduleSpecifier: string): string | undefined {
+    // A runtime module keeps its scheme; a bare Node built-in (`fs`, `fs/promises`)
+    // gets `node:`, so `fs` and `node:fs` are one entry.
+    const runtime = runtimeModuleOf(moduleSpecifier);
+    if (runtime) return runtime.name;
     // Handle scoped packages (@org/package)
     if (moduleSpecifier.startsWith("@")) {
       return moduleSpecifier.split("/").slice(0, 2).join("/");
@@ -320,6 +325,16 @@ export class IntegrationAnalyzer {
     packageName: string,
     sourceFile: SourceFile
   ): ExternalIntegration {
+    const runtime = runtimeModuleOf(packageName);
+    if (runtime) {
+      return {
+        type: "external-script",
+        name: packageName,
+        technology: runtime.technology,
+        usedIn: [sourceFile.fileName],
+        description: `Runtime module: ${packageName}`,
+      };
+    }
     return {
       type: "external-script",
       name: packageName,
@@ -466,4 +481,34 @@ export class IntegrationAnalyzer {
     const comment = jsDocDescription(firstDoc).trim();
     return comment || undefined;
   }
+}
+
+/**
+ * Node's bare built-in names (`fs`, `fs/promises`). Bun's `builtinModules`
+ * (and its `isBuiltin`) also lists `ws` and `undici`, which it implements but
+ * which are npm packages under Node, and its own `bun` modules.
+ */
+const NODE_BUILTINS = new Set(
+  builtinModules.filter((m) => !m.startsWith("bun") && m !== "ws" && m !== "undici")
+);
+
+/**
+ * The runtime's own modules, which no package manager installs: `node:*` and
+ * the bare Node built-ins, `bun` and `bun:*`. Their name is the module, with
+ * `node:` added to a bare built-in; `undefined` for anything else.
+ */
+function runtimeModuleOf(
+  moduleSpecifier: string
+): { name: string; technology: string } | undefined {
+  if (moduleSpecifier === "bun" || moduleSpecifier.startsWith("bun:")) {
+    return {
+      name: moduleSpecifier.split("/")[0] ?? moduleSpecifier,
+      technology: "Bun built-in module",
+    };
+  }
+  let nodeName: string | undefined;
+  if (moduleSpecifier.startsWith("node:")) nodeName = moduleSpecifier;
+  else if (NODE_BUILTINS.has(moduleSpecifier)) nodeName = `node:${moduleSpecifier}`;
+  if (nodeName === undefined) return undefined;
+  return { name: nodeName.split("/")[0] ?? nodeName, technology: "Node.js built-in module" };
 }

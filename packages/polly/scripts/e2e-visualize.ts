@@ -214,7 +214,7 @@ const cases: Case[] = [
     examplePath: "examples/mesh-large-initial-sync",
     cwdSubpath: "",
     expectedWorkspace: "mesh-large-initial-sync-example",
-    expectedContainers: [],
+    expectedContainers: ["server"],
     expectedComponents: [],
     minComponents: 0,
   },
@@ -223,7 +223,7 @@ const cases: Case[] = [
     examplePath: "examples/mesh-large-initial-sync-turn",
     cwdSubpath: "",
     expectedWorkspace: "mesh-large-initial-sync-turn-example",
-    expectedContainers: [],
+    expectedContainers: ["server"],
     expectedComponents: [],
     minComponents: 0,
   },
@@ -241,7 +241,7 @@ const cases: Case[] = [
     examplePath: "examples/showcase",
     cwdSubpath: "",
     expectedWorkspace: "showcase-example",
-    expectedContainers: [],
+    expectedContainers: ["main"],
     expectedComponents: [],
     minComponents: 0,
   },
@@ -453,6 +453,10 @@ function checkDsl(c: Case, dsl: string): string[] {
   if (!/\bmodel\s*\{/.test(dsl)) failures.push("model block not found");
   if (!/\bviews\s*\{/.test(dsl)) failures.push("views block not found");
 
+  // A software system with no containers draws as an empty box: the project
+  // detector found no entry point (showcase and both mesh-large-initial-sync
+  // examples, up to 0.97.1).
+  if (!/=\s*container\b/.test(dsl)) failures.push("no container declared");
   failures.push(...missingDeclarations(dsl, "container", c.expectedContainers, "container"));
   failures.push(...missingDeclarations(dsl, "component", c.expectedComponents, "component"));
   failures.push(
