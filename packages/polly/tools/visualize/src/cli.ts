@@ -225,13 +225,15 @@ function setupWorkspaceRoot(
   if (fs.existsSync(tsConfigPath)) refuseOrReplaceStale(tsConfigPath);
 
   const token = randomUUID();
-  fs.writeFileSync(tsConfigPath, workspaceTsConfig(root, workspace.dirs, token), "utf-8");
   const removeOwn = () => {
     if (readMarker(tsConfigPath)?.token === token) fs.rmSync(tsConfigPath, { force: true });
   };
 
   // A signal kills the process before any `finally` runs, so remove the file
   // here too, then exit as the default action would (128 + signal number).
+  // Registered before the write: a signal that lands once the file exists but
+  // before its handler does would otherwise take the default action and leave
+  // the file behind.
   const handlers = CLEANUP_SIGNALS.map((signal) => {
     const handler = () => {
       removeOwn();
@@ -240,6 +242,12 @@ function setupWorkspaceRoot(
     process.on(signal, handler);
     return { signal, handler };
   });
+  try {
+    fs.writeFileSync(tsConfigPath, workspaceTsConfig(root, workspace.dirs, token), "utf-8");
+  } catch (error) {
+    for (const { signal, handler } of handlers) process.off(signal, handler);
+    throw error;
+  }
 
   const names = workspace.dirs.map((dir) => path.relative(root, dir)).join(", ");
   console.log(color(`   Using: workspace packages ${names}`, COLORS.gray));
