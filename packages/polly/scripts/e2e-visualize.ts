@@ -36,6 +36,7 @@
 //
 // Usage:
 //   bun scripts/e2e-visualize.ts
+//   POLLY_E2E_VIZ_DSL_DIR=<dir> bun scripts/e2e-visualize.ts   # also keep each DSL
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -389,6 +390,13 @@ async function runOne(c: Case): Promise<Result> {
   }
 
   const dsl = fs.readFileSync(dslPath, "utf8");
+  // POLLY_E2E_VIZ_DSL_DIR=<dir> keeps a copy of each case's DSL as
+  // <dir>/<label>.dsl, so two runs (before/after a change) can be diffed.
+  const keepDir = process.env["POLLY_E2E_VIZ_DSL_DIR"];
+  if (keepDir) {
+    fs.mkdirSync(keepDir, { recursive: true });
+    fs.writeFileSync(path.join(keepDir, `${c.label}.dsl`), dsl);
+  }
   const failures = checkDsl(c, dsl);
   failures.push(...checkStructure(dsl));
   failures.push(...checkIntegrations(stdout, workspacePackageNames(exampleCopy)));

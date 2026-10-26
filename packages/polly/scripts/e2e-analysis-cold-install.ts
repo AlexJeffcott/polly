@@ -26,12 +26,10 @@
  *      must exit 0 by itself and leave no TypeScript API server (`tsc --api`,
  *      the native tsgo binary) from this run.
  *
- * Known gap, not this script's subject: `polly visualize` imports
- * `@automerge/automerge-repo/slim` and `tweetnacl` (the polly#127 snapshot
- * overlay, through derive-document-id.ts) at load time, and both are
- * optional peers, so a consumer without them gets "Cannot find module"
- * from `polly visualize`. The app below installs them so the analysis path
- * can be checked.
+ * The app installs neither `tweetnacl` nor `@automerge/automerge-repo`
+ * (optional peers only the `--snapshot` overlay loads), and step 4 asserts
+ * they are absent, so a static import of either from `polly visualize`
+ * fails here. Until 0.97.0 this script installed both and hid exactly that.
  *
  * Run in one command: `bun scripts/e2e-analysis-cold-install.ts`.
  */
@@ -55,8 +53,8 @@ import { TOOL_PACKAGES } from "../tools/tool-deps/src/index.ts";
 
 const REPO_ROOT = join(POLLY_PKG_DIR, "../..");
 const EXAMPLE = join(REPO_ROOT, "examples/todo-list");
-/** Optional peers `polly visualize` needs at load time (see the header). */
-const VISUALIZE_PEERS = { "@automerge/automerge-repo": "2.5.6", tweetnacl: "1.0.3" };
+/** Optional peers only `polly visualize --snapshot` loads; the app must not have them. */
+const SNAPSHOT_ONLY_PEERS = ["tweetnacl", "@automerge/automerge-repo"];
 const IMPORT_ALARM_S = 15;
 const CLI_ALARM_S = 120;
 
@@ -185,7 +183,6 @@ function writeApp(appDir: string, tarball: string): void {
   pkg["dependencies"] = {
     ...record(pkg["dependencies"]),
     "@fairfox/polly": `file:${tarball}`,
-    ...VISUALIZE_PEERS,
   };
   // The tool packages are optional peers: a consumer that runs the analysis
   // commands adds them as devDependencies.
@@ -258,6 +255,10 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     writeApp(app, tarballPath);
     await install(app);
     checkInstall(app, true);
+    const peers = packageDirs(join(app, "node_modules")).filter((p) =>
+      SNAPSHOT_ONLY_PEERS.some((name) => p.endsWith(`/node_modules/${name}`))
+    );
+    assert(peers.length === 0, `snapshot-only peers installed:\n${peers.join("\n")}`);
     const polly = join(app, "node_modules/.bin/polly");
     for (const { argv, expect } of COMMANDS) {
       ctx.log(`[e2e] polly ${argv.join(" ")}`);

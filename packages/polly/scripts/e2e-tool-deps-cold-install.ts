@@ -23,19 +23,27 @@
  *   5. `polly visualize`, `polly verify`, `polly mutate` and `polly bdd` each
  *      exit non-zero with the message naming its packages and the exact
  *      `bun add -d` command.
- *   6. Install the five as devDependencies (the command the message prints):
+ *   6. `polly visualize` with typescript-7 alone, in a separate project that
+ *      has only the tarball and `typescript-7` (no elysia, no
+ *      @automerge/automerge-repo, no tweetnacl; asserted absent):
+ *      `--generate` exits 0 and writes a DSL for examples/minimal and for
+ *      the mesh-app fixture (two `$meshState` documents). With that
+ *      fixture's `--snapshot`, it exits 1 naming tweetnacl and
+ *      @automerge/automerge-repo and the `bun add -d` command; after that
+ *      command, it exits 0 and the DSL carries the overlay. 0.97.0 failed
+ *      the first `--generate` with "Cannot find package 'tweetnacl'".
+ *   7. Install the five as devDependencies (the command the message prints):
  *      `polly visualize --generate` on a copy of examples/minimal exits 0 and
  *      writes the DSL, and `@fairfox/polly/bdd` imports and parses a feature.
  *
- * `polly visualize` also needs the optional peer tweetnacl at load time
- * (see e2e-analysis-cold-install.ts); step 6 adds it.
- *
  * Run in one command: `bun scripts/e2e-tool-deps-cold-install.ts`.
+ * `POLLY_E2E_TARBALL=<path.tgz>` installs that tarball instead of packing
+ * dist/ (to run these checks against a published or older build).
  */
 
 export const capability = "cli.tool-deps-cold-install" as const;
 
-import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { POLLY_PKG_DIR, withTempDir } from "../tools/test/src/e2e-cli";
 import { assert, selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
@@ -44,21 +52,25 @@ import {
   COMMAND_TOOL_PACKAGES,
   installCommand,
   MUTATE_FEATURE,
+  RUNTIME_PEERS,
   TOOL_PACKAGES,
   type ToolPackage,
+  VISUALIZE_SNAPSHOT_FEATURE,
 } from "../tools/tool-deps/src/index.ts";
 import { describe, packageDirs, runAlarmed, staleDist } from "./e2e-analysis-cold-install.ts";
 
 const REPO_ROOT = join(POLLY_PKG_DIR, "../..");
 const MINIMAL = join(REPO_ROOT, "examples/minimal");
+/** Two `$meshState` documents and a captured runtime snapshot (polly#114, polly#127). */
+const MESH_APP = join(POLLY_PKG_DIR, "tools/visualize/src/__tests__/fixtures/mesh-app");
 /**
  * The runtime peers a server app installs: elysia, and @automerge/automerge-repo,
  * which `@fairfox/polly/elysia` imports at load time (an optional peer, but
  * not optional for that entry; pre-existing, not this script's subject).
  */
 const SERVER_PEERS = { elysia: "1.4.30", "@automerge/automerge-repo": "2.5.6" };
-/** `polly visualize` also loads tweetnacl at start-up (see the header). */
-const VISUALIZE_PEERS = { tweetnacl: "1.0.3" };
+/** Packages the typescript-7-only visualize project must not contain (step 6). */
+const NOT_IN_VIZ_PROJECT = ["elysia", ...Object.keys(RUNTIME_PEERS)];
 const IMPORT_ALARM_S = 15;
 const CLI_ALARM_S = 120;
 const TOOLS = Object.keys(TOOL_PACKAGES).filter((k): k is ToolPackage => k in TOOL_PACKAGES);
@@ -97,16 +109,39 @@ function installedTools(dir: string): string[] {
     .map((p) => relative(dir, p));
 }
 
-async function writeProject(dir: string, deps: Record<string, string>): Promise<void> {
-  await Bun.write(
-    join(dir, "package.json"),
-    `${JSON.stringify({ name: "server-app", private: true, type: "module", dependencies: deps }, null, 2)}\n`
-  );
+async function writeProject(
+  dir: string,
+  deps: Record<string, string>,
+  devDeps: Record<string, string> = {}
+): Promise<void> {
+  const pkg = {
+    name: "server-app",
+    private: true,
+    type: "module",
+    dependencies: deps,
+    devDependencies: devDeps,
+  };
+  await Bun.write(join(dir, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
 async function install(dir: string): Promise<void> {
   const r = await runAlarmed(["bun", "install"], dir, CLI_ALARM_S);
   assert(r.exitCode === 0, `bun install in ${dir}: ${describe(r)}`);
+}
+
+/** `bun pm pack` dist/ into `workDir`/pack; returns the tarball path. */
+async function packTarball(ctx: TierContext, workDir: string): Promise<string> {
+  ctx.log("[e2e] bun pm pack");
+  const packDir = join(workDir, "pack");
+  const pack = await runAlarmed(
+    ["bun", "pm", "pack", "--destination", packDir],
+    POLLY_PKG_DIR,
+    CLI_ALARM_S
+  );
+  assert(pack.exitCode === 0, `bun pm pack: ${describe(pack)}`);
+  const tarballName = readdirSync(packDir).find((f) => f.endsWith(".tgz"));
+  assert(tarballName !== undefined, `no tarball in ${packDir}`);
+  return join(packDir, tarballName);
 }
 
 /** The tarball with the five tool packages back in `dependencies`: the 0.96.0 manifest. */
@@ -145,23 +180,93 @@ function writeFixture(appDir: string): void {
   writeFileSync(join(appDir, "tsconfig.json"), `${JSON.stringify(tsconfig, null, 2)}\n`);
 }
 
+/** Copy the mesh-app fixture's sources, tsconfig and snapshot into `dir`. */
+function writeMeshFixture(dir: string): void {
+  for (const entry of ["src", "tsconfig.json", "snapshot.json"]) {
+    cpSync(join(MESH_APP, entry), join(dir, entry), { recursive: true });
+  }
+}
+
+/** Run `polly <args>` in `cwd` and require exit 0 and a fresh docs/architecture.dsl; returns the DSL. */
+async function visualizeOk(polly: string, cwd: string, args: string[]): Promise<string> {
+  const dslPath = join(cwd, "docs/architecture.dsl");
+  rmSync(dslPath, { force: true });
+  const r = await runAlarmed([polly, ...args], cwd, CLI_ALARM_S);
+  assert(r.exitCode === 0, `polly ${args.join(" ")} in ${cwd}: ${describe(r)}`);
+  assert(existsSync(dslPath), `polly ${args.join(" ")} wrote no docs/architecture.dsl`);
+  return readFileSync(dslPath, "utf8");
+}
+
+/**
+ * Step 6: `polly visualize` in a project with the tarball and typescript-7
+ * only. A plain `--generate` needs nothing else, mesh documents included;
+ * `--snapshot` names its two runtime peers until they are installed.
+ */
+async function visualizeWithTypescriptOnly(
+  ctx: TierContext,
+  tarball: string,
+  dir: string
+): Promise<void> {
+  ctx.log("[e2e] separate project: the tarball + typescript-7 only");
+  await writeProject(
+    dir,
+    { "@fairfox/polly": `file:${tarball}` },
+    { "typescript-7": specOf("typescript-7") }
+  );
+  await install(dir);
+  const extra = packageDirs(join(dir, "node_modules"))
+    .filter((p) => NOT_IN_VIZ_PROJECT.some((n) => p.endsWith(`/node_modules/${n}`)))
+    .map((p) => relative(dir, p));
+  assert(extra.length === 0, `the typescript-7-only project has:\n${extra.join("\n")}`);
+  const polly = join(dir, "node_modules/.bin/polly");
+
+  ctx.log("[e2e] polly visualize --generate on examples/minimal (typescript-7 only)");
+  const minimal = join(dir, "minimal");
+  writeFixture(minimal);
+  const minimalDsl = await visualizeOk(polly, minimal, ["visualize", "--generate"]);
+  ctx.log(`[e2e]   ${minimalDsl.split("\n").length}-line DSL`);
+
+  ctx.log("[e2e] polly visualize --generate on the $meshState fixture (typescript-7 only)");
+  const mesh = join(dir, "mesh");
+  writeMeshFixture(mesh);
+  const meshDsl = await visualizeOk(polly, mesh, ["visualize", "--generate"]);
+  assert(meshDsl.includes("mesh_doc_chat_rooms"), "mesh DSL has no mesh_doc_chat_rooms node");
+  assert(!meshDsl.includes("sync:"), "a DSL generated without --snapshot carries overlay edges");
+
+  const snapshotArgs = ["visualize", "generate", "--snapshot", "snapshot.json"];
+  ctx.log("[e2e] polly visualize --snapshot without tweetnacl / @automerge/automerge-repo");
+  rmSync(join(mesh, "docs"), { recursive: true, force: true });
+  const missing = await runAlarmed([polly, ...snapshotArgs], mesh, CLI_ALARM_S);
+  const out = `${missing.stdout}\n${missing.stderr}`;
+  const expected = installCommand(VISUALIZE_SNAPSHOT_FEATURE.packages);
+  assert(missing.exitCode === 1, `--snapshot without its peers: ${describe(missing)}`);
+  assert(
+    out.includes("polly visualize --snapshot needs tweetnacl and @automerge/automerge-repo"),
+    `--snapshot: no message naming both peers: ${describe(missing)}`
+  );
+  assert(out.includes(expected), `--snapshot: no "${expected}" in ${describe(missing)}`);
+  assert(!out.includes("Cannot find package"), `--snapshot: bare resolve error: ${out}`);
+  assert(!existsSync(join(mesh, "docs/architecture.dsl")), "--snapshot failure wrote a DSL");
+  ctx.log(missing.stderr.trim());
+
+  ctx.log(`[e2e] ${expected}`);
+  const add = await runAlarmed(expected.split(" "), dir, CLI_ALARM_S);
+  assert(add.exitCode === 0, `${expected}: ${describe(add)}`);
+  const overlay = await visualizeOk(polly, mesh, snapshotArgs);
+  assert(
+    /-> extension\.mesh_doc_chat_rooms "has"/.test(overlay),
+    "the --snapshot DSL has no overlay edge onto mesh_doc_chat_rooms"
+  );
+}
+
 export async function run(ctx: TierContext): Promise<TierResult> {
   const temp = withTempDir("polly-e2e-tool-deps-");
   try {
     const stale = await staleDist();
     assert(stale === null, `${stale}; run \`bun run build:lib\` in packages/polly first`);
 
-    ctx.log("[e2e] bun pm pack");
-    const packDir = join(temp.dir, "pack");
-    const pack = await runAlarmed(
-      ["bun", "pm", "pack", "--destination", packDir],
-      POLLY_PKG_DIR,
-      CLI_ALARM_S
-    );
-    assert(pack.exitCode === 0, `bun pm pack: ${describe(pack)}`);
-    const tarballName = readdirSync(packDir).find((f) => f.endsWith(".tgz"));
-    assert(tarballName !== undefined, `no tarball in ${packDir}`);
-    const tarball = join(packDir, tarballName);
+    const tarball = process.env["POLLY_E2E_TARBALL"] ?? (await packTarball(ctx, temp.dir));
+    ctx.log(`[e2e] tarball: ${tarball}`);
 
     ctx.log("[e2e] baseline: the five as dependencies (0.96.0 manifest)");
     const before = join(temp.dir, "before");
@@ -230,15 +335,11 @@ export async function run(ctx: TierContext): Promise<TierResult> {
       ctx.log(r.stderr.trim());
     }
 
-    ctx.log(`[e2e] ${installCommand(TOOLS)} (+ visualize's tweetnacl peer)`);
+    await visualizeWithTypescriptOnly(ctx, tarball, join(temp.dir, "viz"));
+
+    ctx.log(`[e2e] ${installCommand(TOOLS)}`);
     const add = await runAlarmed(
-      [
-        "bun",
-        "add",
-        "-d",
-        ...TOOLS.map((t) => TOOL_PACKAGES[t].install),
-        ...Object.entries(VISUALIZE_PEERS).map(([n, v]) => `${n}@${v}`),
-      ],
+      ["bun", "add", "-d", ...TOOLS.map((t) => TOOL_PACKAGES[t].install)],
       app,
       CLI_ALARM_S
     );
