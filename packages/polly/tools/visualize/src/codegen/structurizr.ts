@@ -119,6 +119,8 @@ export class StructurizrDSLGenerator {
   private options: StructurizrDSLOptions;
   /** polly#127: memoised runtime-snapshot overlay plan. */
   private overlayPlanCache: OverlayPlan | undefined;
+  /** View keys handed out so far in this `generate()`; keys must be unique. */
+  private usedViewKeys = new Set<string>();
 
   constructor(analysis: ArchitectureAnalysis, options: StructurizrDSLOptions = {}) {
     this.analysis = analysis;
@@ -160,6 +162,7 @@ export class StructurizrDSLGenerator {
    */
   generate(): string {
     const parts: string[] = [];
+    this.usedViewKeys = new Set();
 
     parts.push(this.generateWorkspaceHeader());
     parts.push(this.generateModel());
@@ -1248,14 +1251,42 @@ export class StructurizrDSLGenerator {
   private generateMessageFlowRelationships(): string[] {
     const parts: string[] = [];
 
-    for (const flow of this.analysis.messageFlows) {
+    for (const flow of this.modelledFlows()) {
       const tech = `Sends ${flow.messageType}`;
       for (const to of flow.to) {
-        parts.push(`      extension.${flow.from} -> extension.${to} "${tech}"`);
+        parts.push(`      extension.${flow.from} -> extension.${to} "${this.escape(tech)}"`);
       }
     }
 
-    return parts;
+    // Two call sites sending one message type between the same contexts are
+    // one relationship; Structurizr rejects the repeat.
+    return [...new Set(parts)];
+  }
+
+  /**
+   * The message flows whose ends are containers in this model. A flow whose
+   * sender or recipient context could not be resolved (`unknown`, or a
+   * context with no container) has nothing to attach to, so its edge is
+   * omitted rather than pointed at an element that does not exist.
+   */
+  private modelledFlows(): MessageFlow[] {
+    const containers = new Set(Object.keys(this.analysis.contexts));
+    const flows: MessageFlow[] = [];
+    for (const flow of this.analysis.messageFlows) {
+      if (!containers.has(flow.from)) continue;
+      const to = flow.to.filter((context) => containers.has(context));
+      if (to.length > 0) flows.push({ ...flow, to });
+    }
+    return flows;
+  }
+
+  /**
+   * A view key Structurizr accepts, unique within this workspace: every run
+   * of characters outside `[A-Za-z0-9_-]` becomes `_`, and a repeat gets a
+   * numeric suffix. The readable name goes in the view's `title`.
+   */
+  private viewKey(name: string): string {
+    return claimViewKey(name, this.usedViewKeys);
   }
 
   /**
@@ -1355,7 +1386,7 @@ export class StructurizrDSLGenerator {
    * Generate system context view
    */
   private generateSystemContextView(): string {
-    return `    systemContext extension "SystemContext" {
+    return `    systemContext extension "${this.viewKey("SystemContext")}" {
       include *
       autoLayout lr
     }`;
@@ -1365,7 +1396,7 @@ export class StructurizrDSLGenerator {
    * Generate container view
    */
   private generateContainerView(): string {
-    return `    container extension "Containers" {
+    return `    container extension "${this.viewKey("Containers")}" {
       include *
       autoLayout lr
     }`;
@@ -1375,7 +1406,7 @@ export class StructurizrDSLGenerator {
    * Generate component view
    */
   private generateComponentView(contextType: string): string {
-    return `    component extension.${contextType} "Components_${this.capitalize(contextType)}" {
+    return `    component extension.${contextType} "${this.viewKey(`Components_${this.capitalize(contextType)}`)}" {
       include *
       autoLayout tb
     }`;
@@ -1401,7 +1432,7 @@ export class StructurizrDSLGenerator {
     }
 
     // Group flows by domain/feature for inter-context flow diagrams
-    const flowsByDomain = this.groupFlowsByDomain(this.analysis.messageFlows);
+    const flowsByDomain = this.groupFlowsByDomain(this.modelledFlows());
 
     // Generate a dynamic view for each domain
     let count = 0;
@@ -1645,7 +1676,8 @@ export class StructurizrDSLGenerator {
     // Use container scope (most common for component flows)
     const scope = handlers[0]?.contextName ? `extension.${handlers[0].contextName}` : "extension";
 
-    parts.push(`    dynamic ${scope} "${title}" "${description}" {`);
+    parts.push(`    dynamic ${scope} "${this.viewKey(title)}" "${this.escape(description)}" {`);
+    parts.push(`      title "${this.escape(title)}"`);
 
     let stepCount = 0;
 
@@ -1712,8 +1744,9 @@ export class StructurizrDSLGenerator {
     const parts: string[] = [];
 
     parts.push(
-      `    dynamic ${diagram.scope || "extension"} "${this.escape(diagram.title)}" "${this.escape(diagram.description || "")}" {`
+      `    dynamic ${diagram.scope || "extension"} "${this.viewKey(diagram.key || diagram.title)}" "${this.escape(diagram.description || "")}" {`
     );
+    parts.push(`      title "${this.escape(diagram.title)}"`);
 
     for (const step of diagram.steps) {
       const from = step.from;
@@ -1737,7 +1770,8 @@ export class StructurizrDSLGenerator {
 
     // Create a user-centric description
     const description = this.getDynamicViewDescription(domain);
-    parts.push(`    dynamic extension "${flowName}" "${description}" {`);
+    parts.push(`    dynamic extension "${this.viewKey(flowName)}" "${this.escape(description)}" {`);
+    parts.push(`      title "${this.escape(flowName)}"`);
 
     // Add user interaction if this is a UI flow
     const uiContexts = ["popup", "options", "devtools"];
@@ -1752,14 +1786,17 @@ export class StructurizrDSLGenerator {
       }
     }
 
-    // Generate message flows
+    // Generate message flows; a step repeated by a second call site of the
+    // same message adds nothing to the sequence.
+    const steps = new Set<string>();
     for (const flow of flows) {
-      const messageDesc = this.getMessageDescription(flow.messageType);
+      const messageDesc = this.escape(this.getMessageDescription(flow.messageType));
 
       for (const to of flow.to) {
-        parts.push(`      extension.${flow.from} -> extension.${to} "${messageDesc}"`);
+        steps.add(`      extension.${flow.from} -> extension.${to} "${messageDesc}"`);
       }
     }
+    parts.push(...steps);
 
     parts.push("      autoLayout lr");
     parts.push("    }");
@@ -1952,7 +1989,10 @@ export class StructurizrDSLGenerator {
     for (const [envName] of nodesByEnvironment) {
       const description = `${envName} environment deployment architecture`;
 
-      parts.push(`    deployment extension "${envName}" "${description}" {`);
+      parts.push(
+        `    deployment extension "${this.viewKey(envName)}" "${this.escape(description)}" {`
+      );
+      parts.push(`      title "${this.escape(envName)}"`);
       parts.push("      include *");
       parts.push("      autoLayout lr");
       parts.push("    }");
@@ -2389,8 +2429,12 @@ export class StructurizrDSLGenerator {
       );
     });
 
+    // A type matching both lists is a query: GET_SETTINGS contains "set".
+    // A component may sit in one group only, or Structurizr sees it declared
+    // twice.
+    const queryIds = new Set(queryHandlers.map((c) => c.id));
     const commandHandlers = componentDefs.filter((comp) => {
-      if (assigned.has(comp.id)) return false;
+      if (assigned.has(comp.id) || queryIds.has(comp.id)) return false;
       const type = comp.messageType.toLowerCase();
       return (
         type.includes("command") ||
@@ -2455,7 +2499,10 @@ export class StructurizrDSLGenerator {
     const assignedComponents = new Set<string>();
 
     for (const group of groups) {
-      const groupComponents = componentDefs.filter((comp) => group.components.includes(comp.id));
+      // First group wins: a component listed by two groups is declared once.
+      const groupComponents = componentDefs.filter(
+        (comp) => group.components.includes(comp.id) && !assignedComponents.has(comp.id)
+      );
 
       if (groupComponents.length === 0) continue;
 
@@ -2483,6 +2530,20 @@ export class StructurizrDSLGenerator {
   private escape(str: string): string {
     return str.replace(/"/g, '\\"');
   }
+}
+
+/**
+ * Claim a Structurizr view key for `name`: runs of characters outside
+ * `[A-Za-z0-9_-]` become `_` (Structurizr rejects `"General Flow"`), and a
+ * key already in `used` gets the first free `_2`, `_3`, ... suffix. Adds the
+ * key to `used`. Deterministic for a given sequence of names.
+ */
+export function claimViewKey(name: string, used: Set<string>): string {
+  const base = name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "View";
+  let key = base;
+  for (let n = 2; used.has(key); n++) key = `${base}_${n}`;
+  used.add(key);
+  return key;
 }
 
 /**

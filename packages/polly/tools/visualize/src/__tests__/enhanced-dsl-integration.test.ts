@@ -1021,7 +1021,8 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
       });
 
       // Verify dynamic diagram exists
-      expect(dsl).toContain('dynamic extension "Message Processing Flow"');
+      expect(dsl).toContain('dynamic extension "message_flow"');
+      expect(dsl).toContain('title "Message Processing Flow"');
       expect(dsl).toContain("How messages are routed and handled");
 
       // Verify steps are in correct order
@@ -1070,8 +1071,8 @@ describe("Enhanced DSL Generation - REAL Integration Tests", () => {
       });
 
       // Verify both diagrams exist
-      expect(dsl).toContain('dynamic extension "Query Flow"');
-      expect(dsl).toContain('dynamic extension "Command Flow"');
+      expect(dsl).toContain('dynamic extension "query_flow"');
+      expect(dsl).toContain('dynamic extension "command_flow"');
     });
   });
 
