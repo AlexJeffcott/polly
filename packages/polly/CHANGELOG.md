@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.97.1] - 2026-10-26
+
 ### Fixed
 
 - **`polly visualize` needs only `typescript-7`, as the 0.97.0 install
