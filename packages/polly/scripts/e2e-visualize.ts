@@ -2,23 +2,30 @@
 //
 // Per CLAUDE.md ("green checks do not prove features work"): unit tests
 // hand-wire the analyzer + DSL generator, which can drift silently from
-// the path real users hit. This script copies three real example
-// projects to a cold tmp dir, runs the polly CLI exactly as a user
-// would (`bun cli/polly.ts visualize`), and asserts the resulting
+// the path real users hit. This script copies every example project
+// to a cold tmp dir, runs the polly CLI exactly as a user would
+// (`bun cli/polly.ts visualize`), and asserts the resulting
 // docs/architecture.dsl contains pinned context and component
 // identifiers.
 //
 // Scope: `generate`, with and without `--snapshot`. `--export` wraps
 // Docker and warrants its own script.
 //
-// Examples covered:
-//   minimal           — single-package extension, runs at example root
-//   elysia-todo-app   — workspace, runs from server/
-//   webrtc-p2p-chat   — workspace, runs from server/
-//   elysia-todo-app-root — workspace root with no tsconfig.json of its own;
-//                       both packages analysed as one program
-//   mesh-overlay      — polly#127: `generate --snapshot` overlays a
-//                       captured MeshClientPeerStateSnapshot
+// Examples covered: every examples/* project with a package.json, run at
+// its root, and each workspace example also from server/. A guard fails
+// the run when an example has no case, so a new example cannot go
+// unvalidated (four invalid DSLs once went unnoticed that way). Plus
+// mesh-overlay (polly#127: `generate --snapshot` overlays a captured
+// MeshClientPeerStateSnapshot).
+//
+// Every generated DSL is validated by Structurizr when Docker is
+// available. Without Docker, cheap static checks still catch the defects
+// Structurizr reported before: an element declared twice in a container,
+// a repeated relationship, an edge from an undeclared container, a view
+// key outside [A-Za-z0-9_-] or used twice. Every case also asserts that no
+// container description is a comment delimiter (`/**`), and that no
+// package of the example's own workspace is listed as an external
+// integration.
 //
 // Then the failure paths: generate with no project, export with no DSL,
 // serve with no site, a bad --snapshot. Each must exit non-zero AND say
@@ -33,6 +40,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
 
 export const capability = "visualize.generate" as const;
@@ -160,6 +168,113 @@ const cases: Case[] = [
     minComponents: 9,
   },
   {
+    label: "webrtc-p2p-chat-root",
+    examplePath: "examples/webrtc-p2p-chat",
+    cwdSubpath: "",
+    expectedWorkspace: "webrtc-p2p-chat-example",
+    expectedContainers: ["client", "server"],
+    expectedComponents: ["offer_handler", "join_room_handler"],
+    minComponents: 9,
+    // client -> server message flows; each (ends, label) once.
+    minRelationships: 5,
+  },
+  {
+    label: "blob-share",
+    examplePath: "examples/blob-share",
+    cwdSubpath: "",
+    expectedWorkspace: "blob-share-example",
+    expectedContainers: ["client", "server"],
+    expectedComponents: [],
+    minComponents: 1,
+  },
+  {
+    label: "blob-share-server",
+    examplePath: "examples/blob-share",
+    cwdSubpath: "server",
+    expectedWorkspace: "blob-share-server",
+    expectedContainers: ["server"],
+    expectedComponents: [],
+    minComponents: 1,
+  },
+  {
+    // GET_SETTINGS once was declared in both the query and command groups;
+    // the popup and options pages live under src/.
+    label: "full-featured",
+    examplePath: "examples/full-featured",
+    cwdSubpath: "",
+    expectedWorkspace: "Full-Featured Example",
+    expectedContainers: ["background", "popup", "options"],
+    expectedComponents: ["get_settings_handler", "settings_update_handler"],
+    minComponents: 10,
+    minRelationships: 5,
+  },
+  {
+    label: "mesh-large-initial-sync",
+    examplePath: "examples/mesh-large-initial-sync",
+    cwdSubpath: "",
+    expectedWorkspace: "mesh-large-initial-sync-example",
+    expectedContainers: [],
+    expectedComponents: [],
+    minComponents: 0,
+  },
+  {
+    label: "mesh-large-initial-sync-turn",
+    examplePath: "examples/mesh-large-initial-sync-turn",
+    cwdSubpath: "",
+    expectedWorkspace: "mesh-large-initial-sync-turn-example",
+    expectedContainers: [],
+    expectedComponents: [],
+    minComponents: 0,
+  },
+  {
+    label: "mesh-recovery-pair",
+    examplePath: "examples/mesh-recovery-pair",
+    cwdSubpath: "",
+    expectedWorkspace: "mesh-recovery-pair-example",
+    expectedContainers: ["server"],
+    expectedComponents: [],
+    minComponents: 0,
+  },
+  {
+    label: "showcase",
+    examplePath: "examples/showcase",
+    cwdSubpath: "",
+    expectedWorkspace: "showcase-example",
+    expectedContainers: [],
+    expectedComponents: [],
+    minComponents: 0,
+  },
+  {
+    label: "team-task-manager",
+    examplePath: "examples/team-task-manager",
+    cwdSubpath: "",
+    expectedWorkspace: "team-task-manager",
+    expectedContainers: ["client", "server"],
+    expectedComponents: [],
+    minComponents: 10,
+  },
+  {
+    label: "team-task-manager-server",
+    examplePath: "examples/team-task-manager",
+    cwdSubpath: "server",
+    expectedWorkspace: "team-task-manager-server",
+    expectedContainers: ["server"],
+    expectedComponents: [],
+    minComponents: 5,
+  },
+  {
+    // Its BDD steps send messages too; those are not flows (they once
+    // produced edges from a nonexistent `extension.unknown`).
+    label: "todo-list",
+    examplePath: "examples/todo-list",
+    cwdSubpath: "",
+    expectedWorkspace: "Todo List Example",
+    expectedContainers: ["background", "popup"],
+    expectedComponents: ["user_login_handler", "todo_add_handler"],
+    minComponents: 6,
+    minRelationships: 6,
+  },
+  {
     // polly#127: the mesh-app fixture declares two $meshState documents;
     // its committed snapshot.json overlays runtime peers and
     // sync-state-coloured edges onto them through the real CLI.
@@ -241,8 +356,12 @@ async function runOne(c: Case): Promise<Result> {
     stderr: "pipe",
     env: { ...process.env },
   });
-  const exitCode = await proc.exited;
-  const stderrTail = (await new Response(proc.stderr).text()).slice(-400);
+  const [exitCode, stdout, stderr] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const stderrTail = stderr.slice(-400);
 
   if (exitCode !== 0) {
     return {
@@ -271,13 +390,17 @@ async function runOne(c: Case): Promise<Result> {
 
   const dsl = fs.readFileSync(dslPath, "utf8");
   const failures = checkDsl(c, dsl);
+  failures.push(...checkStructure(dsl));
+  failures.push(...checkIntegrations(stdout, workspacePackageNames(exampleCopy)));
   // A workspace root is analysed through a tsconfig generate writes and
   // must remove again.
   const leftover = path.join(cwd, WORKSPACE_TSCONFIG);
   if (fs.existsSync(leftover)) failures.push(`generate left ${leftover} behind`);
 
+  // Validate even when a content check failed: Structurizr's own verdict
+  // belongs in the report either way.
   let validate: ValidateStatus = "skipped";
-  if (failures.length === 0 && (await dockerAvailable())) {
+  if (await dockerAvailable()) {
     const result = await structurizrValidate(dslPath);
     if (result.ok) {
       validate = "ok";
@@ -348,6 +471,189 @@ function checkDsl(c: Case, dsl: string): string[] {
   if (c.snapshot) failures.push(...checkOverlay(dsl));
 
   return failures;
+}
+
+const VIEW_KEY = /^[A-Za-z0-9_-]+$/;
+const VIEW_LINE = /^\s+(?:systemContext|container|component|dynamic|deployment)\s+\S+\s+"([^"]*)"/;
+const CONTAINER_LINE = /^ {6}([A-Za-z0-9_-]+) = container "[^"]*" "([^"]*)"/;
+const ELEMENT_LINE = /^\s+([A-Za-z0-9_-]+) = (?:component|container|person|softwareSystem)\b/;
+const RELATIONSHIP_LINE = /^\s+(\S+) -> (\S+) "/;
+
+/**
+ * Checks a Structurizr parse would fail, made without Docker: what
+ * `structurizr validate` reported for the examples before.
+ */
+function checkStructure(dsl: string): string[] {
+  const lines = dsl.split("\n");
+  const viewsAt = lines.findIndex((line) => /^ {2}views \{/.test(line));
+  const model = viewsAt === -1 ? lines : lines.slice(0, viewsAt);
+  const views = viewsAt === -1 ? [] : lines.slice(viewsAt);
+  return [
+    ...checkContainerDescriptions(model),
+    ...checkDuplicateElements(model),
+    ...checkRepeatedRelationships(model),
+    ...checkEdgeEnds(lines, declaredContainers(model)),
+    ...checkViewKeys(views),
+  ];
+}
+
+function declaredContainers(model: string[]): Set<string> {
+  const ids = model.map((line) => CONTAINER_LINE.exec(line)?.[1]);
+  return new Set(ids.filter((id) => id !== undefined));
+}
+
+/** A JSDoc opener or `//` captured instead of the comment's text. */
+function checkContainerDescriptions(model: string[]): string[] {
+  const failures: string[] = [];
+  for (const line of model) {
+    const [, id, description = ""] = CONTAINER_LINE.exec(line) ?? [];
+    if (id && /^\s*(?:\/\*|\*\/|\/\/)/.test(description)) {
+      failures.push(`container ${id} has a comment delimiter as description: "${description}"`);
+    }
+  }
+  return failures;
+}
+
+/**
+ * Identifiers are hierarchical: a duplicate is one declared twice inside one
+ * container (or twice at the top level).
+ */
+function checkDuplicateElements(model: string[]): string[] {
+  const failures: string[] = [];
+  const declared = new Map<string, Set<string>>();
+  let parent = "";
+  for (const line of model) {
+    if (/^ {4}\S/.test(line)) parent = "";
+    const container = CONTAINER_LINE.exec(line)?.[1];
+    const id = ELEMENT_LINE.exec(line)?.[1];
+    if (!id) continue;
+    const scope = container ? "extension" : parent;
+    if (container) parent = container;
+    const ids = declared.get(scope) ?? new Set<string>();
+    if (ids.has(id)) failures.push(`element ${id} declared twice in ${scope || "model"}`);
+    declared.set(scope, ids.add(id));
+  }
+  return failures;
+}
+
+function checkRepeatedRelationships(model: string[]): string[] {
+  const seen = new Set<string>();
+  const failures: string[] = [];
+  for (const line of model) {
+    if (!RELATIONSHIP_LINE.test(line)) continue;
+    const rel = line.trim();
+    if (seen.has(rel)) failures.push(`relationship repeated: ${rel}`);
+    seen.add(rel);
+  }
+  return failures;
+}
+
+/** An `extension.<id>` edge end must be a declared container (not `unknown`). */
+function checkEdgeEnds(lines: string[], containers: Set<string>): string[] {
+  const failures: string[] = [];
+  for (const line of lines) {
+    const [, from, to] = RELATIONSHIP_LINE.exec(line) ?? [];
+    for (const end of [from, to]) {
+      const id = end?.match(/^extension\.([A-Za-z0-9_-]+)$/)?.[1];
+      if (id && !containers.has(id)) {
+        failures.push(`edge to or from undeclared ${end}: ${line.trim()}`);
+      }
+    }
+  }
+  return failures;
+}
+
+function checkViewKeys(views: string[]): string[] {
+  const failures: string[] = [];
+  const keys = new Set<string>();
+  for (const line of views) {
+    const key = VIEW_LINE.exec(line)?.[1];
+    if (key === undefined) continue;
+    if (!VIEW_KEY.test(key))
+      failures.push(`view key "${key}" has characters outside [A-Za-z0-9_-]`);
+    if (keys.has(key)) failures.push(`view key "${key}" used twice`);
+    keys.add(key);
+  }
+  return failures;
+}
+
+/** Names of the example's own packages: the root package.json and each child package. */
+function workspacePackageNames(exampleRoot: string): string[] {
+  const names: string[] = [];
+  const dirs = [
+    exampleRoot,
+    ...fs
+      .readdirSync(exampleRoot, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => path.join(exampleRoot, e.name)),
+  ];
+  for (const dir of dirs) {
+    const pkgPath = path.join(dir, "package.json");
+    if (!fs.existsSync(pkgPath)) continue;
+    const pkg: unknown = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const name = pkg && typeof pkg === "object" && "name" in pkg ? pkg.name : undefined;
+    if (typeof name === "string") names.push(name);
+  }
+  return names;
+}
+
+/**
+ * The integrations generate lists ("• name (type)" under "External
+ * Integrations:") must not include a package of the example's own
+ * workspace: the client importing the server's types is not a dependency.
+ */
+function checkIntegrations(stdout: string, ownPackages: string[]): string[] {
+  const plain = stripVTControlCharacters(stdout);
+  const section =
+    plain.split("External Integrations:")[1]?.split("Generating Structurizr DSL")[0] ?? "";
+  const listed = [...section.matchAll(/•\s+(\S+)\s+\(/g)].map((m) => m[1]);
+  return listed
+    .filter((name) => name !== undefined && ownPackages.includes(name))
+    .map((name) => `workspace package ${name} listed as an external integration`);
+}
+
+/**
+ * Every example must be generated: at its root, and from server/ when it
+ * is a workspace with a server package.
+ */
+function checkCoverage(): string[] {
+  const covered = new Set(cases.map((c) => path.join(c.examplePath, c.cwdSubpath)));
+  const failures: string[] = [];
+  const examplesDir = path.join(REPO_ROOT, "examples");
+  for (const entry of fs.readdirSync(examplesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const rel = path.join("examples", entry.name);
+    if (!fs.existsSync(path.join(examplesDir, entry.name, "package.json"))) continue;
+    if (!covered.has(rel)) failures.push(`${rel} has no case`);
+    const server = path.join(rel, "server");
+    if (fs.existsSync(path.join(REPO_ROOT, server, "package.json")) && !covered.has(server)) {
+      failures.push(`${server} has no case`);
+    }
+  }
+  return failures;
+}
+
+/** Log the every-example-has-a-case guard; return its failures. */
+function reportCoverage(ctx: TierContext): string[] {
+  const failures = checkCoverage();
+  ctx.log(`  ▸ ${pad("every example has a case", 28)} ${failures.length === 0 ? "PASS" : "FAIL"}`);
+  for (const f of failures) ctx.log(`    - ${f}`);
+  return failures;
+}
+
+/** Run `fn` over `items` with at most `limit` in flight; results keep input order. */
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      const item = items[index];
+      if (item !== undefined) results[index] = await fn(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 /**
@@ -556,15 +862,13 @@ export async function run(ctx: TierContext): Promise<TierResult> {
   ctx.log(`  Docker:    ${await describeDockerStatus()}`);
   ctx.log("");
 
-  const results: Result[] = [];
-  for (const c of cases) {
-    process.stdout.write(`  ▸ ${pad(c.label, 20)} ... `);
-    const r = await runOne(c);
-    results.push(r);
+  const coverageFailures = reportCoverage(ctx);
+  const results = await mapPool(cases, 4, runOne);
+  for (const r of results) {
     const tag = r.outcome === "passed" ? "PASS" : "FAIL";
     const validateMark =
       r.validate === "ok" ? " [validated]" : r.validate === "failed" ? " [validate ✗]" : "";
-    ctx.log(`${tag}${validateMark}  (${(r.elapsedMs / 1000).toFixed(1)}s)`);
+    ctx.log(`  ▸ ${pad(r.label, 28)} ${tag}${validateMark}  (${(r.elapsedMs / 1000).toFixed(1)}s)`);
   }
 
   ctx.log("\nDetails:");
@@ -578,8 +882,11 @@ export async function run(ctx: TierContext): Promise<TierResult> {
 
   const failedPaths = (await runFailureCases(ctx)) + (await runCleanupCases(ctx));
 
-  const failed = results.filter((r) => r.outcome !== "passed").length + failedPaths;
-  const total = results.length + failureCases.length + cleanupCases.length;
+  const failed =
+    results.filter((r) => r.outcome !== "passed").length +
+    failedPaths +
+    (coverageFailures.length > 0 ? 1 : 0);
+  const total = results.length + failureCases.length + cleanupCases.length + 1;
   ctx.log("");
   if (failed > 0) {
     ctx.log(`${failed}/${total} failed`);
