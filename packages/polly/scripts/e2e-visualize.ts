@@ -795,6 +795,59 @@ async function runFailureCases(ctx: TierContext): Promise<number> {
   return failed;
 }
 
+type ColorCase = { label: string; noColor: boolean; project: boolean };
+
+// https://no-color.org. Each run is checked both ways, so a CLI that never
+// colours would fail the "colour on" case instead of passing vacuously.
+const colorCases: ColorCase[] = [
+  { label: "generate, colour on", noColor: false, project: true },
+  { label: "generate, NO_COLOR=1", noColor: true, project: true },
+  { label: "failure, NO_COLOR=1", noColor: true, project: false },
+];
+
+async function runColorCase(c: ColorCase): Promise<string[]> {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-viz-color-"));
+  const cwd = path.join(tmpRoot, "app");
+  if (c.project) copyExample(path.join(REPO_ROOT, "examples", "minimal"), cwd);
+  else fs.mkdirSync(cwd);
+  try {
+    const { NO_COLOR: _inherited, ...env } = process.env;
+    const proc = Bun.spawn(["bun", POLLY_CLI, "visualize", "generate"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: c.noColor ? { ...env, NO_COLOR: "1" } : env,
+    });
+    const [exitCode, stdout, stderr] = await Promise.all([
+      proc.exited,
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const failures: string[] = [];
+    if ((exitCode === 0) !== c.project) failures.push(`exit ${exitCode}`);
+    const coloured = `${stdout}${stderr}`.includes("\x1b[");
+    if (coloured === c.noColor) {
+      failures.push(c.noColor ? "output has escape codes" : "output has no escape codes");
+    }
+    return failures;
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/** Run every colour case, log each verdict, and return how many failed. */
+async function runColorCases(ctx: TierContext): Promise<number> {
+  ctx.log("\nColour (NO_COLOR):");
+  let failed = 0;
+  for (const c of colorCases) {
+    const failures = await runColorCase(c);
+    ctx.log(`  ▸ ${pad(c.label, 26)} ${failures.length === 0 ? "PASS" : "FAIL"}`);
+    for (const f of failures) ctx.log(`    - ${f}`);
+    if (failures.length > 0) failed++;
+  }
+  return failed;
+}
+
 type CleanupCase = {
   label: string;
   /** Signal sent once the temp tsconfig exists; none = run to completion. */
@@ -892,13 +945,14 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     }
   }
 
-  const failedPaths = (await runFailureCases(ctx)) + (await runCleanupCases(ctx));
+  const failedPaths =
+    (await runFailureCases(ctx)) + (await runColorCases(ctx)) + (await runCleanupCases(ctx));
 
   const failed =
     results.filter((r) => r.outcome !== "passed").length +
     failedPaths +
     (coverageFailures.length > 0 ? 1 : 0);
-  const total = results.length + failureCases.length + cleanupCases.length + 1;
+  const total = results.length + failureCases.length + colorCases.length + cleanupCases.length + 1;
   ctx.log("");
   if (failed > 0) {
     ctx.log(`${failed}/${total} failed`);

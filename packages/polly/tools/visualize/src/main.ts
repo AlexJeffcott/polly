@@ -28,8 +28,11 @@ const COLORS = {
   gray: "\x1b[90m",
 };
 
+/** https://no-color.org: a non-empty NO_COLOR turns the escape codes off. */
+const NO_COLOR = (process.env["NO_COLOR"] ?? "") !== "";
+
 function color(text: string, colorCode: string): string {
-  return `${colorCode}${text}${COLORS.reset}`;
+  return NO_COLOR ? text : `${colorCode}${text}${COLORS.reset}`;
 }
 
 /** Print a red error to stderr and exit 1. Every failing exit goes through here. */
