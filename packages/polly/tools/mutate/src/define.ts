@@ -25,7 +25,10 @@ import {
 export const MUTATION_CONFIG_FILE = "polly.mutate.ts";
 
 export interface MutationTests {
-  /** Test-file globs. The engine runs only the files whose imports reach a target. */
+  /**
+   * Test-file globs; a `!` entry excludes. The engine runs only the files
+   * whose imports reach a target.
+   */
   include: string[];
   /** Project preloads, passed to `bun test` before the injection preload. */
   preload?: string[];

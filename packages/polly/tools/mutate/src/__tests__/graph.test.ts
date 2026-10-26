@@ -42,4 +42,12 @@ describe("static test selection", () => {
     expect(found.some((f) => f.includes("/node_modules/"))).toBe(false);
     expect(found.length).toBe(3);
   });
+
+  test("a ! entry excludes files the other entries match", async () => {
+    const found = await findTestFiles(project.dir, ["tests/*.test.ts", "!tests/unrelated.test.ts"]);
+    expect(found).toEqual([
+      project.path("tests/direct.test.ts"),
+      project.path("tests/via-alias-barrel.test.ts"),
+    ]);
+  });
 });

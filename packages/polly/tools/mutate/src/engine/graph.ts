@@ -36,12 +36,22 @@ function real(path: string): string {
   }
 }
 
+/** Test files matching `include`; a `!` entry excludes, as in `targets`. */
 export async function findTestFiles(cwd: string, include: string[]): Promise<string[]> {
-  const found = new Set<string>();
-  for (const pattern of include) {
+  const scan = async (pattern: string): Promise<string[]> => {
+    const out: string[] = [];
     for await (const f of new Glob(pattern).scan({ cwd, absolute: true, onlyFiles: true })) {
-      if (!f.includes("/node_modules/")) found.add(real(f));
+      if (!f.includes("/node_modules/")) out.push(real(f));
     }
+    return out;
+  };
+  const excluded = new Set<string>();
+  for (const pattern of include.filter((p) => p.startsWith("!"))) {
+    for (const f of await scan(pattern.slice(1))) excluded.add(f);
+  }
+  const found = new Set<string>();
+  for (const pattern of include.filter((p) => !p.startsWith("!"))) {
+    for (const f of await scan(pattern)) if (!excluded.has(f)) found.add(f);
   }
   return [...found].sort();
 }
