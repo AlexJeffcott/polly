@@ -454,6 +454,9 @@ export function internalPlan(): TierPlan {
               // polly#170: only the parser can catch a ternary translated into
               // unbalanced parentheses; asserting on the text cannot.
               "tools/verify/src/__tests__/codegen/object-literal-alias-ternary.test.ts",
+              // Structurizr's verdict on DSL from generator options the CLI
+              // e2e cannot set (deployment, styles, ADRs).
+              "tools/visualize/src/__tests__/dsl-structurizr-docker.test.ts",
             ],
             cwd: packageRoot,
           },

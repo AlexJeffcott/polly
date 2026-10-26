@@ -54,6 +54,9 @@ export default defineMutation({
     include: [
       "packages/polly/tests/unit/**/*.test.ts",
       "packages/polly/tools/visualize/src/**/*.test.ts",
+      // Starts ten Structurizr containers; per mutant that is minutes, and it
+      // asserts validity, not output a mutant changes. Runs in verify instead.
+      "!packages/polly/tools/visualize/src/__tests__/dsl-structurizr-docker.test.ts",
     ],
     preload: ["./packages/polly/tests/setup.ts"],
   },

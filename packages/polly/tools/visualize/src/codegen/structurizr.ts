@@ -1375,38 +1375,7 @@ export class StructurizrDSLGenerator {
     parts.push(this.generateStyles());
     parts.push("  }");
 
-    // Add documentation section if ADRs exist
-    if (this.analysis.adrs && this.analysis.adrs.adrs.length > 0) {
-      parts.push("");
-      parts.push(this.generateDocumentation());
-    }
-
     return parts.join("\n\n");
-  }
-
-  /**
-   * Generate documentation section for ADRs
-   */
-  private generateDocumentation(): string {
-    if (!this.analysis.adrs || this.analysis.adrs.adrs.length === 0) {
-      return "";
-    }
-
-    const parts: string[] = [];
-    parts.push("  documentation {");
-
-    for (const adr of this.analysis.adrs.adrs) {
-      parts.push(`    decision "${adr.id}" {`);
-      parts.push(`      title "${this.escape(adr.title)}"`);
-      parts.push(`      status "${adr.status}"`);
-      parts.push(`      date "${adr.date}"`);
-      parts.push(`      content "${this.escape(adr.context)}"`);
-      parts.push("    }");
-    }
-
-    parts.push("  }");
-
-    return parts.join("\n");
   }
 
   /**
@@ -1881,28 +1850,36 @@ export class StructurizrDSLGenerator {
   }
 
   /**
-   * Generate deployment environments (for model section)
+   * Deployment nodes grouped by their `environment:<name>` tag (default
+   * Production). The model and the views both read this, so a view always
+   * names an environment the model declares.
    */
-  private generateDeploymentEnvironments(): string {
-    const parts: string[] = [];
-
-    // Group deployment nodes by environment
+  private deploymentNodesByEnvironment(): Map<string, DeploymentNode[]> {
     const nodesByEnvironment = new Map<string, DeploymentNode[]>();
-
     for (const node of this.options.deploymentNodes || []) {
+      const tag = node.tags?.find(isEnvironmentTag);
       const env =
-        node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))?.split(":")[1] ||
+        tag?.slice(tag.toLowerCase().indexOf(ENVIRONMENT_TAG) + ENVIRONMENT_TAG.length).trim() ||
         "Production";
-
       if (!nodesByEnvironment.has(env)) {
         nodesByEnvironment.set(env, []);
       }
       nodesByEnvironment.get(env)?.push(node);
     }
+    return nodesByEnvironment;
+  }
+
+  /**
+   * Generate deployment environments (for model section)
+   */
+  private generateDeploymentEnvironments(): string {
+    const parts: string[] = [];
+
+    const nodesByEnvironment = this.deploymentNodesByEnvironment();
 
     // Generate deployment environment for each environment
     for (const [envName, nodes] of nodesByEnvironment) {
-      parts.push(`    deploymentEnvironment "${envName}" {`);
+      parts.push(`    deploymentEnvironment "${this.escape(envName)}" {`);
 
       for (const node of nodes) {
         parts.push(this.generateDeploymentNode(node, "      "));
@@ -1941,7 +1918,7 @@ export class StructurizrDSLGenerator {
   private addDeploymentNodeTags(node: DeploymentNode, indent: string, parts: string[]): void {
     if (!node.tags || node.tags.length === 0) return;
 
-    const filteredTags = node.tags.filter((tag) => !tag.toLowerCase().includes("environment:"));
+    const filteredTags = node.tags.filter((tag) => !isEnvironmentTag(tag));
     if (filteredTags.length > 0) {
       parts.push(`${indent}  tags "${filteredTags.map((t) => this.escape(t)).join('" "')}"`);
     }
@@ -2002,36 +1979,23 @@ export class StructurizrDSLGenerator {
    * Generate deployment views
    */
   private generateDeploymentViews(): string {
-    const parts: string[] = [];
+    const views: string[] = [];
 
-    // Group deployment nodes by environment
-    const nodesByEnvironment = new Map<string, DeploymentNode[]>();
-
-    for (const node of this.options.deploymentNodes || []) {
-      const env =
-        node.tags?.find((tag) => tag.toLowerCase().includes("environment:"))?.split(":")[1] ||
-        "Production";
-
-      if (!nodesByEnvironment.has(env)) {
-        nodesByEnvironment.set(env, []);
-      }
-      nodesByEnvironment.get(env)?.push(node);
-    }
-
-    // Generate deployment view for each environment
-    for (const [envName] of nodesByEnvironment) {
+    for (const [envName] of this.deploymentNodesByEnvironment()) {
       const description = `${envName} environment deployment architecture`;
-
-      parts.push(
-        `    deployment extension "${this.viewKey(envName)}" "${this.escape(description)}" {`
+      // `deployment <scope> <environment> <key> <description>`
+      views.push(
+        [
+          `    deployment extension "${this.escape(envName)}" "${this.viewKey(envName)}" "${this.escape(description)}" {`,
+          `      title "${this.escape(envName)}"`,
+          "      include *",
+          "      autoLayout lr",
+          "    }",
+        ].join("\n")
       );
-      parts.push(`      title "${this.escape(envName)}"`);
-      parts.push("      include *");
-      parts.push("      autoLayout lr");
-      parts.push("    }");
     }
 
-    return parts.join("\n\n");
+    return views.join("\n\n");
   }
 
   /**
@@ -2075,7 +2039,7 @@ export class StructurizrDSLGenerator {
   private generateElementStyle(tag: string, style: ElementStyle): string {
     const parts: string[] = [];
 
-    parts.push(`      element "${tag}" {`);
+    parts.push(`      element "${this.escape(tag)}" {`);
 
     if (style.shape) {
       parts.push(`        shape ${style.shape}`);
@@ -2122,7 +2086,7 @@ export class StructurizrDSLGenerator {
   private generateRelationshipStyle(tag: string, style: RelationshipStyle): string {
     const parts: string[] = [];
 
-    parts.push(`      relationship "${tag}" {`);
+    parts.push(`      relationship "${this.escape(tag)}" {`);
 
     if (style.thickness) {
       parts.push(`        thickness ${style.thickness}`);
@@ -2586,6 +2550,13 @@ export class StructurizrDSLGenerator {
   private escape(str: string): string {
     return str.replace(/"/g, '\\"');
   }
+}
+
+const ENVIRONMENT_TAG = "environment:";
+
+/** A deployment-node tag that names its environment, not a Structurizr tag. */
+function isEnvironmentTag(tag: string): boolean {
+  return tag.toLowerCase().includes(ENVIRONMENT_TAG);
 }
 
 /**

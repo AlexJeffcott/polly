@@ -92,19 +92,15 @@ const CONTAINERS = `    container extension "Containers" {
     }`;
 const EMPTY_STYLES = "    styles {\n    }";
 
-/**
- * A deployment view as currently emitted. generateDeploymentViews joins its
- * lines with "\n\n", so every line inside the block is followed by a blank
- * line (cosmetic; Structurizr accepts it).
- */
+/** A deployment view: `deployment <scope> <environment> <key> <description>`. */
 function deploymentView(env: string): string {
   return [
-    `    deployment extension "${env.replace(/ /g, "_")}" "${env} environment deployment architecture" {`,
+    `    deployment extension "${env}" "${env.replace(/ /g, "_")}" "${env} environment deployment architecture" {`,
     `      title "${env}"`,
     "      include *",
     "      autoLayout lr",
     "    }",
-  ].join("\n\n");
+  ].join("\n");
 }
 
 /** Everything from the `views {` line to the end of the workspace. */
@@ -252,48 +248,16 @@ describe("generateViews", () => {
 });
 
 describe("generateDocumentation", () => {
-  test("each ADR becomes a decision block after the views section", () => {
+  test("ADRs are imported by !adrs, not emitted as a documentation block", () => {
+    // `documentation { decision … }` is not Structurizr DSL; it failed validation.
     const analysis = analysisWith({
-      adrs: {
-        directory: "docs/adr",
-        adrs: [
-          adr("0001"),
-          adr("0002", {
-            title: 'Use "quotes"',
-            status: "superseded",
-            date: "2026-03-04",
-            context: 'Say "why"',
-          }),
-        ],
-      },
+      adrs: { directory: "docs/adr", adrs: [adr("0001"), adr("0002")] },
     });
     const dsl = generateStructurizrDSL(analysis, QUIET);
+    expect(dsl).toContain("\n  !adrs docs/adr\n");
+    expect(dsl).not.toContain("documentation");
     expect(viewsOf(dsl)).toBe(
-      [
-        "  views {",
-        SYSTEM_CONTEXT,
-        CONTAINERS,
-        EMPTY_STYLES,
-        "  }",
-        "",
-        [
-          "  documentation {",
-          '    decision "0001" {',
-          '      title "Decision 0001"',
-          '      status "accepted"',
-          '      date "2026-01-02"',
-          '      content "Context 0001"',
-          "    }",
-          '    decision "0002" {',
-          '      title "Use \\"quotes\\""',
-          '      status "superseded"',
-          '      date "2026-03-04"',
-          '      content "Say \\"why\\""',
-          "    }",
-          "  }",
-        ].join("\n"),
-        "}",
-      ].join("\n\n")
+      ["  views {", SYSTEM_CONTEXT, CONTAINERS, EMPTY_STYLES, "  }", "}"].join("\n\n")
     );
   });
 
@@ -883,7 +847,7 @@ describe("deployment environments", () => {
       deploymentNodes: [{ name: "N", tags: ["environment:Pre Prod"] }],
     });
     expect(dsl).toContain(
-      '    deployment extension "Pre_Prod" "Pre Prod environment deployment architecture" {\n\n      title "Pre Prod"'
+      '    deployment extension "Pre Prod" "Pre_Prod" "Pre Prod environment deployment architecture" {\n      title "Pre Prod"'
     );
   });
 });
