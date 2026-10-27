@@ -40,6 +40,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `wire-message.ts`): 8 type errors, with exit 0. It now removes them,
   drops three stale import redirects, and exits 1 when the check fails.
   `scripts/e2e-vendor-polly.ts` (`cli.vendor-polly`) runs it.
+- **`polly visualize` emits DSL Structurizr accepts** in cases it rejected:
+  automatic flow views named components without their container path;
+  `Ping`/`PING` and `foo-bar`/`foo_bar` declared one component twice;
+  a `"` in a message type, environment name or style tag was not
+  escaped; every deployment view lacked its environment argument;
+  `environment: X` kept the space; ADRs emitted an invalid
+  `documentation` block (the `!adrs` line imports them).
+
+### Added
+
+- **`!` exclusions in `polly.mutate.ts` `tests.include`**, as `targets`
+  already allowed.
 
 ## [0.97.1] - 2026-10-26
 
