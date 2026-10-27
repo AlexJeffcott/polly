@@ -19,16 +19,27 @@ export default defineVerification({
     sentinelObserved: { type: "boolean" },
   },
 
+  // The chain is one context receiving five messages. Every extra context
+  // multiplies the sources and target sets of each send.
+  contexts: ["background"],
+
   messages: {
-    // maxInFlight: 2 catches APPLY_PAIR_TOKEN's ensures (the polly#103
-    // contract proper) but leaves the trailing handlers in the chain
-    // — OPEN_DATA_CHANNEL through RECEIVE_SENTINEL — vacuously verified
-    // because their messages are never delivered in any reachable
-    // state. Raising maxInFlight to 5 makes the chain reachable but
-    // the state space exceeds the Docker pool budget. The README
-    // documents which ensures are exercised and which are not.
-    maxInFlight: 2,
-    maxTabs: 1,
+    // PEER_CANDIDATE and PEER_DISCONNECTED write no state; they would only
+    // add interleavings.
+    include: [
+      "ROSTER_PEER_JOINED",
+      "APPLY_PAIR_TOKEN",
+      "OPEN_DATA_CHANNEL",
+      "WRITE_SENTINEL",
+      "RECEIVE_SENTINEL",
+    ],
+    // The message log never shrinks, so the five-message chain needs
+    // maxInFlight 5. At 2, OPEN_DATA_CHANNEL through RECEIVE_SENTINEL were
+    // never delivered and their ensures held vacuously.
+    maxInFlight: 5,
+    // One tab (Tabs = 0..maxTabs). No handler reads the tab; at maxTabs 1
+    // each send doubled and the model did not finish.
+    maxTabs: 0,
 
     perMessageBounds: {
       ROSTER_PEER_JOINED: 1,
@@ -64,15 +75,6 @@ export default defineVerification({
         description: "Peer B observes the sentinel only after peer A writes it",
       },
     ],
-
-    // Per CLAUDE.md and the audit on issue #75, maxInFlight=2 with
-    // deliveredTo observable multiplies distinct states by |targets|
-    // per delivered message. Depth 4 fits the documented state-pool
-    // budget; the chain has five steps but the ordering constraints
-    // collapse most of the search.
-    boundedExploration: {
-      maxDepth: 4,
-    },
   },
 
   onBuild: "warn",

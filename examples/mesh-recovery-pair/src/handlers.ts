@@ -108,11 +108,6 @@ bus.on("RECEIVE_SENTINEL", () => {
   sentinelObserved.value = true;
 
   ensures(sentinelObserved.value === true, "Sentinel must be observed after receive");
-  // NOTE: this ensures is not reached at maxInFlight: 2 / maxDepth: 4 —
-  // the five-message chain needs maxInFlight ≥ 5 for RECEIVE_SENTINEL
-  // to actually deliver, and at that bound the state space exceeds the
-  // documented Docker ceiling. See polly#TODO and the README for the
-  // honest accounting of which ensures are checked vs. vacuously true.
   ensures(
     aKeyringHasB.value === true,
     "Convergence: a peer that observes A's write must be in A's keyring"

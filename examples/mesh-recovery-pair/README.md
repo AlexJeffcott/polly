@@ -139,32 +139,29 @@ bun ../../dist/cli/polly.js verify
 
 ## What this verifier model does and does not prove
 
-The model is an **abstract state machine over six booleans**. Under
-the bounded `maxInFlight: 2` / `maxDepth: 4` configuration it
-exercises the front of the chain:
+The model is an **abstract state machine over six booleans**, one
+context, one tab, the five chain messages and `maxInFlight: 5`. TLC
+explores it exhaustively (2,322,383 distinct states, depth 22) and
+every handler in the chain is taken, so every `EnsuresAfter_*` is
+checked:
 
-- `EnsuresAfter_HandleRosterPeerJoined` — checked.
-- `EnsuresAfter_HandleApplyPairToken` — **checked. This is where the
-  polly#103 contract lives.** Comment out the `POLLY_103_FIX` line
-  and TLC produces the counterexample.
+- `EnsuresAfter_HandleRosterPeerJoined`
+- `EnsuresAfter_HandleApplyPairToken` — **this is where the polly#103
+  contract lives.** Comment out the `POLLY_103_FIX` line and TLC
+  produces the counterexample.
+- `EnsuresAfter_HandleOpenDataChannel`
+- `EnsuresAfter_HandleWriteSentinel`
+- `EnsuresAfter_HandleReceiveSentinel`
 
-The remaining three handlers — `OPEN_DATA_CHANNEL`, `WRITE_SENTINEL`,
-`RECEIVE_SENTINEL` — are **never delivered** in any reachable state
-at this bound, because TLC's `MaxMessages` constraint caps cumulative
-message count at `maxInFlight` and the temporal-constraint
-serialisation forces them to wait. Their `EnsuresAfter_*` properties
-are therefore vacuously true. Raising `maxInFlight` to 5 (the chain
-length) makes the trailing properties reachable but pushes the
-explored state space past 30M distinct states in 10+ minutes, beyond
-the documented Docker pool ceiling.
+`polly verify --strict` fails if any of them is never taken.
 
-This is a real limit of the current verifier shape for chain-style
-models, not a quirk of this example: any `EnsuresAfter_*` whose
-handler sits N-deep in a serial chain needs `maxInFlight ≥ N` to be
-exercised, and the state-space cost of that often makes it
-unverifiable in practice. The honest claim this model carries is
-**"the polly#103 contract holds at the pair-token handler"**, not
-"the full sync chain converges."
+The model used to run at `maxInFlight: 2` / `maxDepth: 4`.
+The message log never shrinks, so only two messages were ever sent and
+the last three handlers were never delivered: their ensures held
+vacuously. Raising `maxInFlight` alone did not finish: two tabs and an
+8-valued payload, neither read by any handler, multiplied the states
+past 36M. `maxTabs: 0` (one tab) and polly collapsing an unread
+payload to one record bring it to the figure above.
 
 The model does **not** model:
 

@@ -276,8 +276,8 @@
               "expression": "aKeyringHasB.value === true",
               "message": "Convergence: a peer that observes A's write must be in A's keyring",
               "location": {
-                "line": 116,
-                "column": 4426
+                "line": 111,
+                "column": 4068
               }
             }
           ],
@@ -590,8 +590,8 @@
               "expression": "aKeyringHasB.value === true",
               "message": "Convergence: a peer that observes A's write must be in A's keyring",
               "location": {
-                "line": 116,
-                "column": 4426
+                "line": 111,
+                "column": 4068
               }
             }
           ],
@@ -1299,8 +1299,8 @@
                 "expression": "aKeyringHasB.value === true",
                 "message": "Convergence: a peer that observes A's write must be in A's keyring",
                 "location": {
-                  "line": 116,
-                  "column": 4428
+                  "line": 111,
+                  "column": 4070
                 }
               }
             ],
@@ -1786,8 +1786,8 @@
               "expression": "aKeyringHasB.value === true",
               "message": "Convergence: a peer that observes A's write must be in A's keyring",
               "location": {
-                "line": 116,
-                "column": 4428
+                "line": 111,
+                "column": 4070
               }
             }
           ],
@@ -2288,8 +2288,8 @@
               "expression": "aKeyringHasB.value === true",
               "message": "Convergence: a peer that observes A's write must be in A's keyring",
               "location": {
-                "line": 116,
-                "column": 4428
+                "line": 111,
+                "column": 4070
               }
             }
           ],
@@ -2690,8 +2690,8 @@
               "expression": "aKeyringHasB.value === true",
               "message": "Convergence: a peer that observes A's write must be in A's keyring",
               "location": {
-                "line": 116,
-                "column": 4428
+                "line": 111,
+                "column": 4070
               }
             }
           ],

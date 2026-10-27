@@ -18,11 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `messages.include` / `exclude` leave out are not listed. Under `--strict`
   a handler never taken fails the run (subsystem runs: fails that
   subsystem). No reading is taken when the model was not exhausted.
-  Coverage costs run time: full-featured 31 s → 58 s, minimal 158 s →
-  176 s. `verification: { handlerCoverage: false }` turns it off.
+  Coverage costs run time: full-featured 31 s → 58 s, minimal 18 s →
+  23 s. `verification: { handlerCoverage: false }` turns it off.
   mesh-recovery-pair now reports `HandleOpenDataChannel`,
-  `HandleWriteSentinel` and `HandleReceiveSentinel`. Proof:
-  `scripts/e2e-verify-handler-coverage.ts`.
+  `HandleWriteSentinel` and `HandleReceiveSentinel` until its model fix
+  below. Proof: `scripts/e2e-verify-handler-coverage.ts`.
+- **`messages.maxTabs: 0` is accepted: one tab.** `Tabs` is
+  `0..maxTabs`, so the old floor of 1 was two tabs. No generated
+  expression reads a message's tab; each extra tab multiplies every send.
+- **`PayloadType` narrows to one record when nothing reads `payload`.**
+  The router picks a payload on every delivery; with no guard,
+  assignment, ensures or invariant reading `payload.<field>`, the values
+  differ only where nothing checks. mesh-recovery-pair: 18,579,064 →
+  2,322,340 distinct states; examples/minimal: 16,040,512 → 2,005,064,
+  TLC 158 s → 18 s.
+- **TLC's single-initial-state line is read.** TLC writes `1 distinct
+  state generated` (singular); the parse matched only the plural, so
+  `initialStates` was missing and a one-initial-state model in which
+  nothing fired was not flagged.
 
 ### Changed
 
@@ -35,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`examples/mesh-recovery-pair` checks the whole chain.** At
+  `maxInFlight: 2` only two messages were ever sent, so
+  `OPEN_DATA_CHANNEL`, `WRITE_SENTINEL` and `RECEIVE_SENTINEL` were never
+  delivered and their ensures held vacuously. Now: one context, the five
+  chain messages, `maxInFlight: 5`, `maxTabs: 0`, no depth bound. TLC
+  exhausts 2,322,383 distinct states (depth 22) in about 20 s and takes
+  every handler; `--strict` passes. Breaking `RECEIVE_SENTINEL` now
+  fails `EnsuresAfter_HandleReceiveSentinel`.
 - **`examples/minimal` delivers a PING in its model.** No handler set
   `user.active` to true, so `HandlePing` was never enabled. Every PING took
   the routing `failed` branch and `EnsuresAfter_HandlePing` held vacuously.
