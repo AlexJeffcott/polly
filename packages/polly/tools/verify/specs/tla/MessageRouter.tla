@@ -187,9 +187,14 @@ Spec ==
 
 (* Invariants *)
 
-(* CRITICAL: No infinite routing loops *)
+(* CRITICAL: No routing loops. routingDepth counts RouteMessage steps since the
+   last CompleteRouting. Each step moves one pending message out of "pending",
+   so a run of steps longer than the message log means some message was routed
+   twice. The former bound, routingDepth < 3, was violated by any model with
+   MaxMessages >= 3: three sends, then three routes of three different
+   messages, with no loop anywhere. *)
 NoRoutingLoops ==
-    routingDepth < 3
+    routingDepth <= Len(messages)
 
 (* All delivered messages were actually pending *)
 DeliveredWerePending ==

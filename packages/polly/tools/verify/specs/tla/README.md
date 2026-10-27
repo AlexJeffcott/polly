@@ -46,7 +46,7 @@ TLA+ is a formal specification language for concurrent and distributed systems. 
 
 ### Core Properties
 
-1. **NoRoutingLoops** - Messages never create infinite routing cycles
+1. **NoRoutingLoops** - No message is routed twice: routing steps since the last `CompleteRouting` never outnumber the messages sent
 2. **EventualResolution** - Every message eventually resolves (delivers, fails, or times out)
 3. **ConnectedEventuallyDelivers** - Messages to connected ports eventually deliver
 4. **NoOrphanedRequests** - Pending requests always have corresponding messages
