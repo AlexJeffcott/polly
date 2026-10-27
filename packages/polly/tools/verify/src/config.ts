@@ -7,7 +7,7 @@
 // Configuration Types (inlined to avoid heavy dependencies; state-config.ts
 // imports nothing, so it is shared with the CLI instead)
 
-import type { TLCWorkers } from "./runner/docker.js";
+import type { TLCWorkers } from "./runner/tlc-workers.js";
 import type { MeshConfig, StateConfig } from "./state-config.js";
 
 export type { BooleanPair, FieldConfig, MeshConfig, StateConfig } from "./state-config.js";

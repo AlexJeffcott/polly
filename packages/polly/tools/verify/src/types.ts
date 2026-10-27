@@ -19,7 +19,7 @@ export type {
 export type { CapabilityConfig } from "./config/types";
 
 import type { CapabilityConfig } from "./config/types";
-import type { TLCWorkers } from "./runner/docker";
+import type { TLCWorkers } from "./runner/tlc-workers";
 import type { MeshConfig, StateConfig } from "./state-config";
 
 export {

@@ -2,7 +2,7 @@
 
 import type { RoutingAdapter } from "../adapters/base";
 import type { StateSchema } from "../core/model";
-import type { TLCWorkers } from "../runner/docker";
+import type { TLCWorkers } from "../runner/tlc-workers";
 import type {
   MeshConfig,
   MessageConfig,

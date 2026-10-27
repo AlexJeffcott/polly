@@ -6,8 +6,9 @@ import * as path from "node:path";
 import { CONTAINER_NAME_PREFIX, mintContainerName } from "./container-name";
 import { DEFAULT_TLC_MEMORY, javaToolOptions, parseMemoryBytes } from "./memory";
 
-/** TLC `-workers`: a count, or `"auto"` for one per core the container sees. */
-export type TLCWorkers = number | "auto";
+import type { TLCWorkers } from "./tlc-workers";
+
+export type { TLCWorkers } from "./tlc-workers";
 
 export type DockerRunResult = {
   exitCode: number;
