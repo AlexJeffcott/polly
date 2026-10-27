@@ -526,14 +526,14 @@ export class ConfigValidator {
       }
     }
 
-    if (verification.workers !== undefined) {
-      if (verification.workers < 1) {
+    if (verification.workers !== undefined && verification.workers !== "auto") {
+      if (!Number.isInteger(verification.workers) || verification.workers < 1) {
         this.issues.push({
           type: "invalid_value",
           severity: "error",
           field: "verification.workers",
-          message: "Workers must be at least 1",
-          suggestion: "Use 1 or more workers",
+          message: 'Workers must be "auto" or an integer of at least 1',
+          suggestion: 'Use "auto" (one per core) or 1 or more workers',
         });
       }
       if (verification.workers > 16) {

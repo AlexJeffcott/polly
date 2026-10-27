@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`verification.workers` defaults to `"auto"`, one TLC worker per core.**
+  The default was 1. `examples/minimal` (1,801,024 distinct states, 12
+  cores): `polly verify` 41.4 s → 20.1 s, same state count. The key now
+  takes a count or `"auto"`; a fraction or a value below 1 is an error. To
+  keep the old behaviour, set `verification: { workers: 1 }`.
+
 ### Fixed
 
 - **`polly visualize --export` pins `structurizr/structurizr:2026.10.26`.**

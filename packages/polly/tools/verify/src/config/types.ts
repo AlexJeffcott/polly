@@ -2,6 +2,7 @@
 
 import type { RoutingAdapter } from "../adapters/base";
 import type { StateSchema } from "../core/model";
+import type { TLCWorkers } from "../runner/docker";
 import type {
   MeshConfig,
   MessageConfig,
@@ -46,8 +47,8 @@ export interface CapabilityConfig {
 export interface VerificationEngineOptions {
   /** Timeout in seconds; 0 means no timeout. */
   timeout?: number;
-  /** Number of TLC workers. */
-  workers?: number;
+  /** Number of TLC workers, or `"auto"` for one per core (the default). */
+  workers?: TLCWorkers;
   /**
    * polly#181: docker-style container memory ceiling for the TLC run, e.g.
    * "8g". Unset uses the runner's fixed default, never unbounded.

@@ -7,6 +7,7 @@
 // Configuration Types (inlined to avoid heavy dependencies; state-config.ts
 // imports nothing, so it is shared with the CLI instead)
 
+import type { TLCWorkers } from "./runner/docker.js";
 import type { MeshConfig, StateConfig } from "./state-config.js";
 
 export type { BooleanPair, FieldConfig, MeshConfig, StateConfig } from "./state-config.js";
@@ -127,7 +128,7 @@ interface LegacyVerificationConfig {
   // Verification engine options
   verification?: {
     timeout?: number; // Timeout in seconds (0 = no timeout)
-    workers?: number; // Number of TLC workers
+    workers?: TLCWorkers; // Number of TLC workers; default "auto" (one per core)
     /**
      * polly#181: docker-style container memory ceiling for the TLC run, e.g.
      * "8g". The JVM heap is sized under it, so a model too large for the

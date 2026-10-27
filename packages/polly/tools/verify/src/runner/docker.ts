@@ -6,6 +6,9 @@ import * as path from "node:path";
 import { CONTAINER_NAME_PREFIX, mintContainerName } from "./container-name";
 import { DEFAULT_TLC_MEMORY, javaToolOptions, parseMemoryBytes } from "./memory";
 
+/** TLC `-workers`: a count, or `"auto"` for one per core the container sees. */
+export type TLCWorkers = number | "auto";
+
 export type DockerRunResult = {
   exitCode: number;
   stdout: string;
@@ -157,7 +160,7 @@ export class DockerRunner {
   async runTLC(
     specPath: string,
     options?: {
-      workers?: number;
+      workers?: TLCWorkers;
       timeout?: number;
       maxDepth?: number;
       /** Docker-style container memory ceiling, e.g. "8g" (polly#181). */
@@ -231,7 +234,7 @@ export class DockerRunner {
       this.IMAGE_NAME,
       "tlc",
       "-workers",
-      `${options?.workers || 1}`,
+      `${options?.workers ?? "auto"}`,
       "-cleanup", // Delete state files after model checking to prevent disk space issues
       "-metadir",
       "/tmp/states", // container-internal state pool, off the host bind mount (#152)

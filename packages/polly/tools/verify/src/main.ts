@@ -27,7 +27,7 @@ import {
 } from "./config/types";
 import type { CodebaseAnalysis } from "./core/model";
 import { analyzeCodebase } from "./extract/types";
-import type { DockerRunner, TLCResult, TLCStats } from "./runner/docker";
+import type { DockerRunner, TLCResult, TLCStats, TLCWorkers } from "./runner/docker";
 import { DEFAULT_TLC_MEMORY } from "./runner/memory";
 import { isSeedFixDisabled, meshSeedCfg } from "./runner/mesh-seed";
 
@@ -732,8 +732,8 @@ function getTimeout(config: UnifiedVerificationConfig): number {
 /**
  * Get number of workers from config
  */
-function getWorkers(config: UnifiedVerificationConfig): number {
-  return config.verification?.workers ?? 1;
+function getWorkers(config: UnifiedVerificationConfig): TLCWorkers {
+  return config.verification?.workers ?? "auto";
 }
 
 /**

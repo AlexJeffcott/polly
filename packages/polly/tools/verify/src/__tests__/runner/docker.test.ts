@@ -144,6 +144,34 @@ describe("DockerRunner", () => {
       }
     });
 
+    test("passes -workers auto when no count is given", async () => {
+      const docker = new DockerRunner();
+
+      let capturedArgs: string[] = [];
+
+      const runCommandSpy = spyOn(docker, "runCommand").mockImplementation(
+        async (_cmd: string, args: string[]) => {
+          capturedArgs = args;
+          return { exitCode: 0, stdout: "0 states generated", stderr: "" };
+        }
+      );
+
+      const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
+
+      try {
+        await docker.runTLC("/path/to/spec.tla");
+
+        expect(capturedArgs[capturedArgs.indexOf("-workers") + 1]).toBe("auto");
+      } finally {
+        runCommandSpy.mockRestore();
+        existsSyncSpy.mockRestore();
+        rmSyncSpy.mockRestore();
+      }
+    });
+
     test("writes the state pool to a container-internal -metadir (#152)", async () => {
       const docker = new DockerRunner();
 

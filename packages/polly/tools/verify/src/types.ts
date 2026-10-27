@@ -19,6 +19,7 @@ export type {
 export type { CapabilityConfig } from "./config/types";
 
 import type { CapabilityConfig } from "./config/types";
+import type { TLCWorkers } from "./runner/docker";
 import type { MeshConfig, StateConfig } from "./state-config";
 
 export {
@@ -94,7 +95,7 @@ export type VerificationConfig = {
   onRelease: "warn" | "error" | "off";
   verification?: {
     timeout?: number; // Timeout in seconds (0 = no timeout)
-    workers?: number; // Number of TLC workers
+    workers?: TLCWorkers; // Number of TLC workers; default "auto" (one per core)
     memory?: string; // polly#181: docker-style container memory ceiling, e.g. "8g"
   };
 
