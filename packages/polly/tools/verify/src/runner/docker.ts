@@ -564,7 +564,8 @@ export type TLCResult = {
  */
 const TLC_SUMMARY =
   /^(\d+) states generated, (\d+) distinct states found, (\d+) states left on queue/m;
-const TLC_INITIAL_STATES = /Finished computing initial states: (\d+) distinct states generated/;
+// TLC writes "1 distinct state generated" for a single initial state.
+const TLC_INITIAL_STATES = /Finished computing initial states: (\d+) distinct states? generated/;
 const TLC_SEARCH_DEPTH = /The depth of the complete state graph search is (\d+)/;
 
 /**

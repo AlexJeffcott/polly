@@ -43,11 +43,16 @@ const ROUTER_TLA = resolve(import.meta.dir, "../tools/verify/specs/tla/MessageRo
 const HANDLERS = `
 type Signal<T> = { value: T };
 declare function $sharedState<T>(name: string, initial: T): Signal<T>;
+declare function requires(cond: boolean, msg?: string): void;
 declare const bus: { on: <T>(type: string, fn: (payload: T) => void) => void };
 
 const session = $sharedState("session", { active: false });
 
-bus.on("OPEN_SESSION", () => {
+// The guard reads payload, so PayloadType keeps its values and TLC starts from
+// more than one initial state: the falsification gate below needs the old
+// parse to land on the initial-states line, which it does only for a plural.
+bus.on("OPEN_SESSION", (payload: { reason: string }) => {
+  requires(payload.reason !== "", "a session opens for a reason");
   session.value = { active: true };
 });
 

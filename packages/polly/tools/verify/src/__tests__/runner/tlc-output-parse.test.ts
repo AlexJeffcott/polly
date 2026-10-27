@@ -60,6 +60,18 @@ Model checking completed. No error has been found.
 The depth of the complete state graph search is 1.
 `;
 
+/** TLC 2.19, examples/mesh-recovery-pair: one initial state. */
+const SINGLE_INITIAL_STATE = `Finished computing initial states: 1 distinct state generated at 2026-10-27 15:29:39.
+Model checking completed. No error has been found.
+8335597 states generated, 2322340 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
+`;
+
+const SINGLE_INITIAL_STATE_STUCK = `Finished computing initial states: 1 distinct state generated at 2026-10-27 15:29:39.
+Model checking completed. No error has been found.
+1 states generated, 1 distinct states found, 0 states left on queue.
+`;
+
 describe("parseTLCStats", () => {
   test("reads the distinct-state count from the summary line, not the initial-states line", () => {
     const parsed = parseTLCStats(EXHAUSTIVE_RUN);
@@ -115,5 +127,19 @@ describe("parseTLCStats", () => {
     // `Progress(0) at <time>:` prefix separates them, which is why the pattern
     // is anchored to the start of a line.
     expect(parseTLCStats(KILLED_ON_FIRST_PROGRESS)).toBeUndefined();
+  });
+
+  test("a single initial state is read (TLC writes `1 distinct state`, singular)", () => {
+    // examples/mesh-recovery-pair once its unread payload collapsed to one record.
+    const stats = parseTLCStats(SINGLE_INITIAL_STATE)?.stats;
+
+    expect(stats?.initialStates).toBe(1);
+    expect(stats?.noActionEnabled).toBe(false);
+  });
+
+  test("a single initial state with nothing enabled is flagged", () => {
+    const stats = parseTLCStats(SINGLE_INITIAL_STATE_STUCK)?.stats;
+
+    expect(stats?.noActionEnabled).toBe(true);
   });
 });

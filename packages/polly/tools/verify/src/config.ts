@@ -110,6 +110,7 @@ interface LegacyVerificationConfig {
   messages: {
     // Basic bounds
     maxInFlight?: number;
+    /** Tabs = 0..maxTabs, so 0 is one tab. */
     maxTabs?: number;
     maxClients?: number;
     maxRenderers?: number;

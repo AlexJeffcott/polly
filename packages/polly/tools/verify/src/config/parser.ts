@@ -310,13 +310,15 @@ export class ConfigValidator {
     }
 
     if (messages.maxTabs !== null && messages.maxTabs !== undefined) {
-      if (messages.maxTabs < 1) {
+      // Tabs = 0..maxTabs, so 0 is one tab. No generated expression reads a
+      // message's tab, so each extra tab multiplies states and checks nothing.
+      if (!Number.isInteger(messages.maxTabs) || messages.maxTabs < 0) {
         this.issues.push({
           type: "invalid_value",
           severity: "error",
           field: "messages.maxTabs",
-          message: "maxTabs must be at least 1",
-          suggestion: "Use 2-3 for most cases",
+          message: "maxTabs must be an integer of at least 0 (Tabs = 0..maxTabs)",
+          suggestion: "Use 0 for one tab",
         });
       }
 

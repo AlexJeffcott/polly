@@ -457,7 +457,7 @@ export class TLAGenerator {
     // temporal properties have been emitted.
     this.line("=============================================================================");
 
-    return this.lines.join("\n");
+    return collapseUnreadPayload(this.lines.join("\n"));
   }
 
   private generateConfig(config: VerificationConfig): string {
@@ -4132,6 +4132,27 @@ function applySubsystemBounds(
  * Filters the config's state/messages and analysis's handlers/messageTypes
  * to only those belonging to the subsystem, then delegates to the standard generator.
  */
+/**
+ * Narrow `PayloadType` to one record when no generated expression reads a
+ * payload field.
+ *
+ * The router picks a fresh `payload` from `PayloadType` on every delivery, so
+ * each field of `Value` multiplies the successors of every delivery. When no
+ * handler guard, assignment, ensures or invariant reads `payload.<field>`,
+ * those successors differ only in a value nothing checks. mesh-recovery-pair:
+ * 3 fields x 2 values = 8x the distinct states, 18,579,064 -> 2,322,340.
+ *
+ * Read from the finished text so every emitter is covered. The domain stays
+ * the same type, so `payload \in PayloadType` still type-checks.
+ */
+export function collapseUnreadPayload(spec: string): string {
+  if (/\bpayload'?\./.test(spec)) return spec;
+  return spec.replace(
+    /^PayloadType == (\[.*\])$/m,
+    "PayloadType == {CHOOSE p \\in $1 : TRUE}  \\* no expression reads payload; one record"
+  );
+}
+
 export async function generateSubsystemTLA(
   _subsystemName: string,
   subsystem: SubsystemConfig,
