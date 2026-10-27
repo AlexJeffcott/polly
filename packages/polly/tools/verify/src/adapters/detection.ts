@@ -3,10 +3,20 @@
 // Automatically detects which adapter to use based on project structure,
 // dependencies, and code patterns.
 
-import type { SourceFile } from "typescript-7/ast";
+import type { Node, SourceFile } from "typescript-7/ast";
+import {
+  isCallExpression,
+  isIdentifier,
+  isNewExpression,
+  isNoSubstitutionTemplateLiteral,
+  isPropertyAccessExpression,
+  isStringLiteral,
+  isTemplateExpression,
+} from "typescript-7/ast/is";
 import { readString } from "../../../../src/shared/lib/guards";
 import {
   type AnalysisProgram,
+  forEachDescendant,
   importDeclarations,
   moduleSpecifierValue,
 } from "../../../analysis/src/program";
@@ -59,7 +69,10 @@ export class AdapterDetector {
   }
 
   private detectIn(program: AnalysisProgram): AdapterDetectionResult {
-    const sourceFiles = program.sourceFiles;
+    // The project's own code only. Declaration files are other packages'
+    // types: polly's dist/*.d.ts declares MessageBus and documents chrome.*,
+    // and @types/chrome declares every chrome namespace.
+    const sourceFiles = program.sourceFiles.filter((file) => !file.isDeclarationFile);
     const tsConfigPath = readString(program.compilerOptions.configFilePath) || "tsconfig.json";
 
     // Run all detection heuristics
@@ -130,13 +143,7 @@ export class AdapterDetector {
     }
 
     // Check for chrome API imports
-    let chromeApiCount = 0;
-    for (const file of files) {
-      const text = file.text;
-      if (text.includes("chrome.runtime") || text.includes("chrome.tabs")) {
-        chromeApiCount++;
-      }
-    }
+    const chromeApiCount = filesWith(files, chromeApi("runtime", "tabs"));
     if (chromeApiCount > 0) {
       confidence += Math.min(30, chromeApiCount * 10);
       evidence.push(`Found ${chromeApiCount} file(s) using chrome.* APIs`);
@@ -154,13 +161,10 @@ export class AdapterDetector {
     }
 
     // Check for MessageBus usage
-    let messageBusCount = 0;
-    for (const file of files) {
-      const text = file.text;
-      if (text.includes("MessageBus") || text.includes("getMessageBus")) {
-        messageBusCount++;
-      }
-    }
+    const messageBusCount = filesWith(
+      files,
+      (node) => isIdentifier(node) && (node.text === "MessageBus" || node.text === "getMessageBus")
+    );
     if (messageBusCount > 0) {
       confidence += Math.min(20, messageBusCount * 5);
       evidence.push(`Found ${messageBusCount} file(s) using MessageBus`);
@@ -184,21 +188,21 @@ export class AdapterDetector {
     }
 
     // Check for emitter.on() pattern
-    const emitterOnCount = this.countPatternMatches(files, /\.on\s*\(\s*['"`]/g);
+    const emitterOnCount = countNodes(files, methodCall("on", { stringFirstArg: true }));
     if (emitterOnCount > 0) {
       confidence += Math.min(30, emitterOnCount * 5);
       evidence.push(`Found ${emitterOnCount} .on() call(s)`);
     }
 
     // Check for emitter.emit() pattern
-    const emitterEmitCount = this.countPatternMatches(files, /\.emit\s*\(\s*['"`]/g);
+    const emitterEmitCount = countNodes(files, methodCall("emit", { stringFirstArg: true }));
     if (emitterEmitCount > 0) {
       confidence += Math.min(30, emitterEmitCount * 3);
       evidence.push(`Found ${emitterEmitCount} .emit() call(s)`);
     }
 
     // Penalty if chrome APIs are present (likely not pure event bus)
-    const chromeApiCount = this.countChromeAPIUsage(files);
+    const chromeApiCount = filesWith(files, chromeApi("runtime"));
     if (chromeApiCount > 5) {
       confidence = Math.max(0, confidence - 20);
       evidence.push("Note: Also found Chrome APIs (might be extension)");
@@ -224,34 +228,6 @@ export class AdapterDetector {
   }
 
   /**
-   * Count pattern matches across files
-   */
-  private countPatternMatches(files: readonly SourceFile[], pattern: RegExp): number {
-    let count = 0;
-    for (const file of files) {
-      const text = file.text;
-      const matches = text.match(pattern);
-      if (matches) {
-        count += matches.length;
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Count Chrome API usage across files
-   */
-  private countChromeAPIUsage(files: readonly SourceFile[]): number {
-    let count = 0;
-    for (const file of files) {
-      if (file.text.includes("chrome.runtime")) {
-        count++;
-      }
-    }
-    return count;
-  }
-
-  /**
    * Detect web worker patterns
    */
   private detectWorker(files: readonly SourceFile[]): { confidence: number; evidence: string[] } {
@@ -259,27 +235,20 @@ export class AdapterDetector {
     const evidence: string[] = [];
 
     // Check for Worker usage
-    let workerCount = 0;
-    for (const file of files) {
-      const text = file.text;
-      if (text.includes("new Worker(") || text.includes("new SharedWorker(")) {
-        workerCount++;
-      }
-    }
+    const workerCount = filesWith(
+      files,
+      (node) =>
+        isNewExpression(node) &&
+        isIdentifier(node.expression) &&
+        (node.expression.text === "Worker" || node.expression.text === "SharedWorker")
+    );
     if (workerCount > 0) {
       confidence += Math.min(40, workerCount * 20);
       evidence.push(`Found ${workerCount} Worker instantiation(s)`);
     }
 
     // Check for postMessage usage
-    let postMessageCount = 0;
-    for (const file of files) {
-      const text = file.text;
-      const matches = text.match(/\.postMessage\s*\(/g);
-      if (matches) {
-        postMessageCount += matches.length;
-      }
-    }
+    const postMessageCount = countNodes(files, methodCall("postMessage"));
     if (postMessageCount > 0) {
       confidence += Math.min(30, postMessageCount * 5);
       evidence.push(`Found ${postMessageCount} .postMessage() call(s)`);
@@ -296,6 +265,55 @@ export class AdapterDetector {
 
     return { confidence: Math.min(100, confidence), evidence };
   }
+}
+
+// Syntax-tree matching. The heuristics matched regexes over the file text, so a
+// comment or a string such as `// bus.on("X")` counted as a call. Comments are
+// trivia, not nodes, and a string is one literal node.
+
+type NodeMatch = (node: Node) => boolean;
+
+/** Nodes that match, over every file. */
+function countNodes(files: readonly SourceFile[], match: NodeMatch): number {
+  let count = 0;
+  for (const file of files) {
+    forEachDescendant(file, (node) => {
+      if (match(node)) count++;
+      return undefined;
+    });
+  }
+  return count;
+}
+
+/** Files with at least one node that matches. */
+function filesWith(files: readonly SourceFile[], match: NodeMatch): number {
+  return files.filter((file) => forEachDescendant(file, (node) => match(node) || undefined)).length;
+}
+
+/** `x.method(...)`; with `stringFirstArg`, only when the first argument is a string or template. */
+function methodCall(method: string, opts: { stringFirstArg?: boolean } = {}): NodeMatch {
+  return (node) => {
+    if (!isCallExpression(node)) return false;
+    const callee = node.expression;
+    if (!isPropertyAccessExpression(callee) || callee.name.text !== method) return false;
+    if (!opts.stringFirstArg) return true;
+    const first = node.arguments[0];
+    return (
+      first !== undefined &&
+      (isStringLiteral(first) ||
+        isNoSubstitutionTemplateLiteral(first) ||
+        isTemplateExpression(first))
+    );
+  };
+}
+
+/** `chrome.<namespace>` for any of the namespaces. */
+function chromeApi(...namespaces: string[]): NodeMatch {
+  return (node) =>
+    isPropertyAccessExpression(node) &&
+    isIdentifier(node.expression) &&
+    node.expression.text === "chrome" &&
+    namespaces.includes(node.name.text);
 }
 
 /**

@@ -764,41 +764,15 @@
   },
   "adapters.detectAdapter": {
     "result": {
-      "adapterType": "web-extension",
-      "confidence": 65,
+      "adapterType": "unknown",
+      "confidence": 30,
       "evidence": [
-        "Found 5 file(s) using chrome.* APIs",
-        "Found 1 extension context directories",
-        "Found 6 file(s) using MessageBus"
+        "Found 9 .on() call(s)"
       ],
       "suggestedAdapter": {
-        "class": "WebExtensionAdapter",
-        "name": "web-extension",
-        "config": {
-          "contexts": [
-            "background",
-            "content",
-            "popup",
-            "devtools",
-            "options",
-            "offscreen",
-            "sidepanel"
-          ],
-          "detectTabBased": true,
-          "maxTabs": 2,
-          "maxInFlight": 6,
-          "tsConfigPath": "<project>/tsconfig.json"
-        }
+        "$type": "undefined"
       },
-      "alternatives": [
-        {
-          "adapterType": "event-bus",
-          "confidence": 30,
-          "evidence": [
-            "Found 12 .on() call(s)"
-          ]
-        }
-      ]
+      "alternatives": []
     },
     "logs": []
   },

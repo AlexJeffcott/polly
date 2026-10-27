@@ -427,9 +427,9 @@
       "adapterType": "web-extension",
       "confidence": 80,
       "evidence": [
-        "Found 15 file(s) using chrome.* APIs",
+        "Found 6 file(s) using chrome.* APIs",
         "Found 2 extension context directories",
-        "Found 12 file(s) using MessageBus"
+        "Found 7 file(s) using MessageBus"
       ],
       "suggestedAdapter": {
         "class": "WebExtensionAdapter",
@@ -451,6 +451,13 @@
         }
       },
       "alternatives": [
+        {
+          "adapterType": "event-bus",
+          "confidence": 30,
+          "evidence": [
+            "Found 6 .on() call(s)"
+          ]
+        },
         {
           "adapterType": "worker",
           "confidence": 30,

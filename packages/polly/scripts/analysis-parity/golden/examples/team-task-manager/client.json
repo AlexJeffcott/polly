@@ -850,11 +850,10 @@
   },
   "adapters.detectAdapter": {
     "result": {
-      "adapterType": "web-extension",
-      "confidence": 45,
+      "adapterType": "unknown",
+      "confidence": 5,
       "evidence": [
-        "Found 5 file(s) using chrome.* APIs",
-        "Found 3 file(s) using MessageBus"
+        "Found 1 .postMessage() call(s)"
       ],
       "suggestedAdapter": {
         "$type": "undefined"

@@ -57,6 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Adapter detection counts the project's code only.** `detectAdapter`
+  and `selectAdapter("generic")` matched regexes over the file text of
+  every program file, so `.on("`, `.emit("`, `.postMessage(`,
+  `new Worker(`, `chrome.runtime` / `chrome.tabs` and `MessageBus` in
+  comments, strings and declaration files counted as project code. They now
+  match syntax-tree nodes, and `.d.ts` files are skipped.
+  mesh-recovery-pair: web-extension 65 → unknown 30. Its 5 `chrome.*` files
+  were comments in polly's own `dist/*.d.ts`, and its 5 `MessageBus` files
+  were polly's declarations. `generic` now gives it `EventBusAdapter`.
+  `polly verify` does not use the detector.
+
 - **`examples/mesh-recovery-pair` checks the whole chain.** At
   `maxInFlight: 2` only two messages were ever sent, so
   `OPEN_DATA_CHANNEL`, `WRITE_SENTINEL` and `RECEIVE_SENTINEL` were never
