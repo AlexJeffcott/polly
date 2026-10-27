@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mesh-recovery-pair now reports `HandleOpenDataChannel`,
   `HandleWriteSentinel` and `HandleReceiveSentinel` until its model fix
   below. Proof: `scripts/e2e-verify-handler-coverage.ts`.
+- **`polly verify` names config message names that match no message
+  type.** A name in `messages.include` / `exclude` / `symmetry` /
+  `perMessageBounds`, `subsystems.*.handlers` /
+  `bounds.perMessageBounds`, or `tier2` that matches no type filters,
+  bounds or orders nothing, and the run said nothing about it.
+  full-featured listed `SETTINGS_GET` under `include` for the
+  `GET_SETTINGS` handler, so that handler was out of the model. The
+  names are listed before TLC runs; under `--strict` the run fails
+  there. Proof: `scripts/e2e-verify-unknown-message-names.ts`.
 - **`messages.maxTabs: 0` is accepted: one tab.** `Tabs` is
   `0..maxTabs`, so the old floor of 1 was two tabs. No generated
   expression reads a message's tab; each extra tab multiplies every send.

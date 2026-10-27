@@ -405,6 +405,11 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "coverage"],
           cost: "heavy",
         }),
+        e2e("verify.unknown-message-names", "e2e-verify-unknown-message-names.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "config"],
+          cost: "heavy",
+        }),
         e2e("verify.run-accounting", "e2e-verify-run-accounting.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "memory", "estimate"],

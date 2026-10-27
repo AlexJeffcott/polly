@@ -10,6 +10,7 @@ import {
   feasibilityLabel,
   type StateSpaceEstimate,
 } from "./analysis/state-space-estimator";
+import { unknownMessageNames } from "./analysis/unknown-message-names";
 import { generateConfig } from "./codegen/config";
 import {
   DEFAULT_CONTEXTS,
@@ -931,6 +932,32 @@ function displayContextDiagnostics(
   console.log();
 }
 
+/**
+ * A config name that matches no message type filters, bounds or orders nothing.
+ * Warns; under --strict the run fails before TLC starts.
+ */
+function enforceKnownMessageNames(
+  config: LegacyVerificationConfig,
+  analysis: CodebaseAnalysis
+): void {
+  const unknown = unknownMessageNames(config, analysis.messageTypes);
+  if (unknown.length === 0) return;
+
+  const tone = isStrictMode() ? COLORS.red : COLORS.yellow;
+  console.log(color(`⚠️  ${unknown.length} config name(s) match no message type:`, tone));
+  for (const { where, name } of unknown) {
+    console.log(color(`   • ${where}: ${name}`, tone));
+  }
+  console.log(
+    color(`   Message types found: ${[...analysis.messageTypes].sort().join(", ")}`, COLORS.gray)
+  );
+  console.log();
+  if (isStrictMode()) {
+    console.log(color("❌ Strict mode: config names a message type that does not exist\n", tone));
+    process.exit(1);
+  }
+}
+
 async function runFullVerification(configPath: string) {
   // Load config
   const config = await loadVerificationConfig(configPath);
@@ -973,6 +1000,8 @@ async function runFullVerification(configPath: string) {
   // polly#185: the declared context set against the contexts the handlers are
   // actually in. One call here covers the subsystem and monolithic paths below.
   displayContextDiagnostics(typedConfig, analysis);
+
+  enforceKnownMessageNames(typedConfig, analysis);
 
   // Check for subsystem-scoped verification
   if (typedConfig.subsystems && Object.keys(typedConfig.subsystems).length > 0) {
@@ -2114,7 +2143,8 @@ ${color("Commands:", COLORS.blue)}
   ${color("polly verify --strict", COLORS.green)}
     Fail closed (non-zero exit) on model-coverage gaps: a declared state
     field no handler writes, an unverified $meshState/$peerState predicate,
-    or a handler TLC never took. Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
+    a handler TLC never took, or a config name that matches no message type.
+    Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
 
   ${color("polly verify --witness", COLORS.green)}
     After the invariant pass, check each BDD scenario's Then-outcome for
