@@ -400,6 +400,11 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "liveness"],
           cost: "heavy",
         }),
+        e2e("verify.handler-coverage", "e2e-verify-handler-coverage.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "coverage"],
+          cost: "heavy",
+        }),
         e2e("verify.run-accounting", "e2e-verify-run-accounting.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "memory", "estimate"],

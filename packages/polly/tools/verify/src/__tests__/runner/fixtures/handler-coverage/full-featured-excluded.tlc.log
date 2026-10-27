@@ -1,0 +1,232 @@
+Picked up JAVA_TOOL_OPTIONS: -Xmx3g -XX:+UseParallelGC
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 79 and seed 7714452735909161874 with 12 workers on 12 cores with 2731MB heap and 64MB offheap memory [pid: 1] (Linux 6.12.76-linuxkit aarch64, Eclipse Adoptium 21.0.12 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /work/UserApp.tla
+Parsing file /work/MessageRouter.tla
+Parsing file /tmp/Integers.tla
+Parsing file /tmp/Sequences.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module MessageRouter
+Semantic processing of module UserApp
+Starting... (2026-10-27 12:54:58)
+Computing initial states...
+Computed 2 initial states...
+Computed 4 initial states...
+Finished computing initial states: 8 distinct states generated at 2026-10-27 12:54:59.
+Progress(5) at 2026-10-27 12:55:02: 601,961 states generated (601,961 s/min), 535,414 distinct states found (535,414 ds/min), 528,768 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.0E-6
+  based on the actual fingerprints:  val = 2.2E-8
+The coverage statistics at 2026-10-27 12:55:49
+<UserInit line 67, col 1 to line 67, col 8 of module UserApp>: 8:8
+  line 68, col 6 to line 68, col 9 of module UserApp: 1
+  line 69, col 6 to line 69, col 54 of module UserApp: 1
+  line 70, col 6 to line 70, col 28 of module UserApp: 8
+  |line 70, col 18 to line 70, col 28 of module UserApp: 1
+<UserNext line 170, col 1 to line 170, col 8 of module UserApp (171 26 171 79)>: 969:3031584
+  line 80, col 8 to line 80, col 38 of module MessageRouter: 8569008
+  |line 80, col 8 to line 80, col 21 of module MessageRouter: 5537424
+  line 81, col 8 to line 81, col 55 of module MessageRouter: 3031584
+  line 82, col 8 to line 82, col 77 of module MessageRouter: 3031584
+  line 171, col 38 to line 171, col 38 of module UserApp: 5537424
+  line 171, col 44 to line 171, col 79 of module UserApp: 3031584
+<UserNext line 170, col 1 to line 170, col 8 of module UserApp (172 26 172 82)>: 226032:2505840
+  line 86, col 8 to line 86, col 35 of module MessageRouter: 8043264
+  |line 86, col 8 to line 86, col 21 of module MessageRouter: 5537424
+  line 87, col 8 to line 87, col 58 of module MessageRouter: 2505840
+  line 91, col 11 to line 92, col 51 of module MessageRouter: 2505840
+  |line 91, col 30 to line 92, col 51 of module MessageRouter: 2505840:1898016
+  ||line 91, col 38 to line 91, col 76 of module MessageRouter: 2505840
+  |||line 91, col 38 to line 91, col 59 of module MessageRouter: 2505840
+  |||line 91, col 63 to line 91, col 76 of module MessageRouter: 2505840
+  ||||line 89, col 30 to line 90, col 71 of module MessageRouter: 2505840
+  |||||line 90, col 32 to line 90, col 70 of module MessageRouter: 4429152
+  |||||line 89, col 38 to line 89, col 59 of module MessageRouter: 2505840
+  line 93, col 8 to line 93, col 60 of module MessageRouter: 2505840
+  line 172, col 41 to line 172, col 41 of module UserApp: 5537424
+  line 172, col 47 to line 172, col 82 of module UserApp: 2505840
+<UserNext line 170, col 1 to line 170, col 8 of module UserApp (174 5 174 85)>: 1091327:2817696
+  line 97, col 8 to line 97, col 34 of module MessageRouter: 545485248
+  |line 97, col 8 to line 97, col 20 of module MessageRouter: 542667552
+  line 98, col 8 to line 98, col 34 of module MessageRouter: 2817696
+  |line 98, col 8 to line 98, col 20 of module MessageRouter: 245572320
+  |line 98, col 24 to line 98, col 34 of module MessageRouter: 245572320
+  line 99, col 8 to line 99, col 23 of module MessageRouter: 7225344
+  |line 99, col 8 to line 99, col 19 of module MessageRouter: 4407648
+  line 100, col 8 to line 100, col 21 of module MessageRouter: 5635392
+  |line 100, col 8 to line 100, col 16 of module MessageRouter: 2817696
+  |line 100, col 20 to line 100, col 21 of module MessageRouter: 2817696
+  line 112, col 14 to line 112, col 49 of module MessageRouter: 2817696
+  line 113, col 14 to line 116, col 62 of module MessageRouter: 2817696
+  line 117, col 14 to line 117, col 29 of module MessageRouter: 2817696
+  line 118, col 14 to line 118, col 57 of module MessageRouter: 2817696
+  line 174, col 17 to line 174, col 19 of module UserApp: 542667552
+  line 174, col 22 to line 174, col 30 of module UserApp: 2817696
+  line 174, col 33 to line 174, col 35 of module UserApp: 2817696
+  line 174, col 38 to line 174, col 44 of module UserApp: 2817696
+  line 174, col 50 to line 174, col 85 of module UserApp: 2817696
+<UserNext line 170, col 1 to line 170, col 8 of module UserApp (175 6 175 52)>: 524688:13128000
+  line 144, col 6 to line 144, col 34 of module UserApp: 6786288
+  |line 144, col 6 to line 144, col 13 of module UserApp: 3657456
+  |line 144, col 19 to line 144, col 34 of module UserApp: 3657456
+  line 146, col 12 to line 146, col 33 of module UserApp: 6786288
+  |line 146, col 12 to line 146, col 21 of module UserApp: 3657456
+  line 147, col 12 to line 147, col 43 of module UserApp: 3128832
+  line 148, col 12 to line 148, col 27 of module UserApp: 3128832
+  line 150, col 21 to line 151, col 67 of module UserApp: 5363712
+  |line 150, col 21 to line 150, col 70 of module UserApp: 5363712
+  |line 151, col 24 to line 151, col 67 of module UserApp: 2533824
+  ||line 127, col 6 to line 127, col 27 of module UserApp: 2533824
+  ||line 80, col 6 to line 80, col 110 of module UserApp: 0
+  |||line 80, col 23 to line 80, col 110 of module UserApp: 329280
+  ||line 128, col 11 to line 128, col 33 of module UserApp: 2204544
+  ||line 84, col 6 to line 84, col 50 of module UserApp: 331584
+  ||line 85, col 6 to line 85, col 50 of module UserApp: 3072
+  ||line 86, col 6 to line 86, col 79 of module UserApp: 0
+  |||line 86, col 23 to line 86, col 79 of module UserApp: 3072
+  ||line 129, col 11 to line 129, col 34 of module UserApp: 1872960
+  ||line 90, col 6 to line 90, col 50 of module UserApp: 385344
+  ||line 91, col 6 to line 91, col 50 of module UserApp: 3072
+  ||line 92, col 6 to line 92, col 73 of module UserApp: 0
+  |||line 92, col 23 to line 92, col 73 of module UserApp: 3072
+  ||line 130, col 11 to line 130, col 37 of module UserApp: 1487616
+  ||line 97, col 6 to line 97, col 28 of module UserApp: 385344
+  ||line 131, col 11 to line 131, col 37 of module UserApp: 1102272
+  ||line 102, col 6 to line 102, col 28 of module UserApp: 385344
+  ||line 132, col 11 to line 132, col 30 of module UserApp: 716928
+  ||line 107, col 6 to line 107, col 28 of module UserApp: 0
+  ||line 133, col 11 to line 133, col 37 of module UserApp: 716928
+  ||line 111, col 6 to line 111, col 50 of module UserApp: 331584
+  ||line 112, col 6 to line 112, col 50 of module UserApp: 3072
+  ||line 113, col 6 to line 113, col 28 of module UserApp: 3072
+  ||line 134, col 11 to line 134, col 34 of module UserApp: 385344
+  ||line 118, col 6 to line 118, col 28 of module UserApp: 0
+  ||line 135, col 11 to line 135, col 35 of module UserApp: 385344
+  ||line 123, col 6 to line 123, col 28 of module UserApp: 0
+  ||line 151, col 48 to line 151, col 53 of module UserApp: 1722432
+  ||line 151, col 56 to line 151, col 66 of module UserApp: 11405760
+  line 153, col 26 to line 154, col 86 of module UserApp: 1109184
+  line 155, col 26 to line 155, col 63 of module UserApp: 1109184
+  line 156, col 26 to line 157, col 65 of module UserApp: 1109184
+  line 158, col 26 to line 158, col 41 of module UserApp: 1109184
+  line 159, col 49 to line 159, col 60 of module UserApp: 8873472
+  line 159, col 35 to line 159, col 45 of module UserApp: 1109184
+  line 127, col 6 to line 127, col 27 of module UserApp: 8873472
+  line 127, col 34 to line 127, col 53 of module UserApp: 2634240
+  line 128, col 11 to line 128, col 33 of module UserApp: 6239232
+  line 84, col 6 to line 84, col 50 of module UserApp: 49152
+  |line 84, col 6 to line 84, col 43 of module UserApp: 24576
+  |line 84, col 47 to line 84, col 50 of module UserApp: 24576
+  line 85, col 6 to line 85, col 50 of module UserApp: 49152
+  |line 85, col 6 to line 85, col 43 of module UserApp: 24576
+  |line 85, col 47 to line 85, col 50 of module UserApp: 24576
+  line 86, col 6 to line 86, col 79 of module UserApp: 24576
+  line 129, col 11 to line 129, col 34 of module UserApp: 6214656
+  line 90, col 6 to line 90, col 50 of module UserApp: 49152
+  |line 90, col 6 to line 90, col 43 of module UserApp: 24576
+  |line 90, col 47 to line 90, col 50 of module UserApp: 24576
+  line 91, col 6 to line 91, col 50 of module UserApp: 49152
+  |line 91, col 6 to line 91, col 43 of module UserApp: 24576
+  |line 91, col 47 to line 91, col 50 of module UserApp: 24576
+  line 92, col 6 to line 92, col 73 of module UserApp: 24576
+  line 130, col 11 to line 130, col 37 of module UserApp: 6190080
+  line 97, col 6 to line 97, col 28 of module UserApp: 3082752
+  line 131, col 11 to line 131, col 37 of module UserApp: 3107328
+  line 102, col 6 to line 102, col 28 of module UserApp: 3082752
+  line 132, col 11 to line 132, col 30 of module UserApp: 24576
+  line 107, col 6 to line 107, col 28 of module UserApp: 0
+  line 133, col 11 to line 133, col 37 of module UserApp: 24576
+  line 111, col 6 to line 111, col 50 of module UserApp: 49152
+  |line 111, col 6 to line 111, col 43 of module UserApp: 24576
+  |line 111, col 47 to line 111, col 50 of module UserApp: 24576
+  line 112, col 6 to line 112, col 50 of module UserApp: 49152
+  |line 112, col 6 to line 112, col 43 of module UserApp: 24576
+  |line 112, col 47 to line 112, col 50 of module UserApp: 24576
+  line 113, col 6 to line 113, col 28 of module UserApp: 24576
+  line 118, col 6 to line 118, col 28 of module UserApp: 0
+  line 123, col 6 to line 123, col 28 of module UserApp: 0
+  line 160, col 42 to line 160, col 47 of module UserApp: 2707968
+  line 160, col 50 to line 160, col 60 of module UserApp: 8873472
+  line 162, col 26 to line 162, col 84 of module UserApp: 4254528
+  line 163, col 26 to line 164, col 65 of module UserApp: 4254528
+  line 165, col 26 to line 165, col 41 of module UserApp: 4254528
+  line 166, col 26 to line 166, col 72 of module UserApp: 4254528
+  line 149, col 26 to line 149, col 36 of module UserApp: 3128832
+  line 167, col 12 to line 167, col 26 of module UserApp: 13128000
+  line 175, col 51 to line 175, col 51 of module UserApp: 15063216
+  line 175, col 15 to line 175, col 30 of module UserApp: 1845808
+<UserNext line 170, col 1 to line 170, col 8 of module UserApp (176 6 176 60)>: 2784:525840
+  line 147, col 8 to line 147, col 23 of module MessageRouter: 525840
+  |line 147, col 8 to line 147, col 19 of module MessageRouter: 1845808
+  line 148, col 8 to line 148, col 24 of module MessageRouter: 525840
+  line 149, col 8 to line 149, col 70 of module MessageRouter: 525840
+  line 176, col 25 to line 176, col 60 of module UserApp: 525840
+<UserNext line 170, col 1 to line 170, col 8 of module UserApp (177 6 177 90)>: 0:0
+  line 153, col 8 to line 153, col 36 of module MessageRouter: 3657456
+  line 155, col 14 to line 155, col 35 of module MessageRouter: 3657456
+  line 156, col 14 to line 156, col 48 of module MessageRouter: 3128832
+  line 157, col 14 to line 157, col 73 of module MessageRouter: 0
+  line 158, col 14 to line 159, col 53 of module MessageRouter: 0
+  line 160, col 14 to line 160, col 29 of module MessageRouter: 0
+  line 161, col 14 to line 161, col 57 of module MessageRouter: 0
+  line 177, col 49 to line 177, col 49 of module UserApp: 3657456
+  line 177, col 55 to line 177, col 90 of module UserApp: 0
+  line 177, col 15 to line 177, col 30 of module UserApp: 1845808
+<TypeOK line 219, col 1 to line 219, col 6 of module MessageRouter>
+  line 220, col 5 to line 227, col 16 of module MessageRouter: 20543920
+  |line 220, col 8 to line 220, col 40 of module MessageRouter: 20543920
+  |line 221, col 8 to line 225, col 47 of module MessageRouter: 20543920
+  ||line 222, col 9 to line 225, col 47 of module MessageRouter: 40938192
+  ||line 221, col 17 to line 221, col 32 of module MessageRouter: 20543920
+  |line 226, col 8 to line 226, col 24 of module MessageRouter: 20543920
+  |line 227, col 8 to line 227, col 16 of module MessageRouter: 20543920
+<NoRoutingLoops line 196, col 1 to line 196, col 14 of module MessageRouter>
+  line 197, col 5 to line 197, col 33 of module MessageRouter: 20543920
+<UserStateTypeInvariant line 189, col 1 to line 189, col 22 of module UserApp>
+  line 190, col 3 to line 191, col 32 of module UserApp: 20543920
+  |line 191, col 5 to line 191, col 32 of module UserApp: 61631760
+  |line 190, col 14 to line 190, col 21 of module UserApp: 20543920
+<TemporalConstraint1 line 197, col 1 to line 197, col 19 of module UserApp>
+  line 199, col 3 to line 201, col 98 of module UserApp: 20543920
+  |line 199, col 4 to line 199, col 98 of module UserApp: 20543920
+  ||line 199, col 32 to line 199, col 98 of module UserApp: 40925904
+  |||line 199, col 32 to line 199, col 59 of module UserApp: 40925904
+  |||line 199, col 64 to line 199, col 98 of module UserApp: 9010176
+  ||line 199, col 13 to line 199, col 28 of module UserApp: 20543920
+  |line 201, col 4 to line 201, col 97 of module UserApp: 24576
+  ||line 201, col 32 to line 201, col 97 of module UserApp: 36864
+  ||line 201, col 13 to line 201, col 28 of module UserApp: 24576
+<TemporalConstraint2 line 204, col 1 to line 204, col 19 of module UserApp>
+  line 206, col 3 to line 208, col 98 of module UserApp: 20543920
+  |line 206, col 4 to line 206, col 99 of module UserApp: 20543920
+  ||line 206, col 32 to line 206, col 99 of module UserApp: 40925904
+  |||line 206, col 32 to line 206, col 59 of module UserApp: 40925904
+  |||line 206, col 64 to line 206, col 99 of module UserApp: 9010176
+  ||line 206, col 13 to line 206, col 28 of module UserApp: 20543920
+  |line 208, col 4 to line 208, col 97 of module UserApp: 24576
+  ||line 208, col 32 to line 208, col 97 of module UserApp: 36864
+  ||line 208, col 13 to line 208, col 28 of module UserApp: 24576
+<TemporalConstraint3 line 211, col 1 to line 211, col 19 of module UserApp>
+  line 213, col 3 to line 215, col 98 of module UserApp: 20543920
+  |line 213, col 4 to line 213, col 102 of module UserApp: 20543920
+  ||line 213, col 32 to line 213, col 102 of module UserApp: 40925904
+  |||line 213, col 32 to line 213, col 59 of module UserApp: 40925904
+  |||line 213, col 64 to line 213, col 102 of module UserApp: 9010176
+  ||line 213, col 13 to line 213, col 28 of module UserApp: 20543920
+  |line 215, col 4 to line 215, col 97 of module UserApp: 24576
+  ||line 215, col 32 to line 215, col 97 of module UserApp: 36864
+  ||line 215, col 13 to line 215, col 28 of module UserApp: 24576
+End of statistics.
+22008968 states generated, 1845808 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 5.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 31 and the 95th percentile is 3).
+Finished in 50s at (2026-10-27 12:55:49)

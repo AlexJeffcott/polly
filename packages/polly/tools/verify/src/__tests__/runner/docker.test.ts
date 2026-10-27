@@ -172,6 +172,39 @@ describe("DockerRunner", () => {
       }
     });
 
+    test("passes -coverage only when coverage is asked for", async () => {
+      const docker = new DockerRunner();
+
+      const calls: string[][] = [];
+
+      const runCommandSpy = spyOn(docker, "runCommand").mockImplementation(
+        async (_cmd: string, args: string[]) => {
+          calls.push(args);
+          return { exitCode: 0, stdout: "0 states generated", stderr: "" };
+        }
+      );
+
+      const existsSyncSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+      const rmSyncSpy = spyOn(fs, "rmSync").mockImplementation(() => {
+        /* no-op mock */
+      });
+
+      try {
+        await docker.runTLC("/path/to/spec.tla");
+        await docker.runTLC("/path/to/spec.tla", { coverage: true });
+
+        expect(calls[0]).not.toContain("-coverage");
+        const withCoverage = calls[1] ?? [];
+        expect(withCoverage[withCoverage.indexOf("-coverage") + 1]).toBe("60");
+        // The spec name stays the last argument.
+        expect(withCoverage.at(-1)).toBe("spec.tla");
+      } finally {
+        runCommandSpy.mockRestore();
+        existsSyncSpy.mockRestore();
+        rmSyncSpy.mockRestore();
+      }
+    });
+
     test("writes the state pool to a container-internal -metadir (#152)", async () => {
       const docker = new DockerRunner();
 

@@ -166,6 +166,11 @@ export class DockerRunner {
       maxDepth?: number;
       /** Docker-style container memory ceiling, e.g. "8g" (polly#181). */
       memory?: string;
+      /**
+       * TLC `-coverage`: per-line evaluation counts at the end of the run, read
+       * by runner/handler-coverage.ts. 1.1x to 1.9x the run time.
+       */
+      coverage?: boolean;
     }
   ): Promise<TLCResult> {
     // Ensure spec file exists
@@ -244,6 +249,12 @@ export class DockerRunner {
     // Add depth limit if maxDepth is configured (bounded model checking)
     if (options?.maxDepth !== undefined && options.maxDepth > 0) {
       args.push("-depth", `${options.maxDepth}`);
+    }
+
+    // The interval is in minutes. TLC also reports at the end of the run,
+    // which is the block read; 60 keeps the periodic blocks few.
+    if (options?.coverage) {
+      args.push("-coverage", "60");
     }
 
     args.push(`${specName}.tla`);

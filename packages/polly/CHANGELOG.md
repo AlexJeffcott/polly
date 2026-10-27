@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`polly verify` names the handlers TLC never took.** A handler whose
+  `requires` guards never all hold at a reachable state is never taken, and
+  every `ensures` on it passes unchecked. examples/minimal,
+  examples/full-featured and examples/mesh-recovery-pair all passed this
+  way. TLC now runs with `-coverage`; a handler whose effect conjunct was
+  evaluated 0 times is listed after the result. Handlers that
+  `messages.include` / `exclude` leave out are not listed. Under `--strict`
+  a handler never taken fails the run (subsystem runs: fails that
+  subsystem). No reading is taken when the model was not exhausted.
+  Coverage costs run time: full-featured 31 s → 58 s, minimal 158 s →
+  176 s. `verification: { handlerCoverage: false }` turns it off.
+  mesh-recovery-pair now reports `HandleOpenDataChannel`,
+  `HandleWriteSentinel` and `HandleReceiveSentinel`. Proof:
+  `scripts/e2e-verify-handler-coverage.ts`.
+
 ### Changed
 
 - **`verification.workers` defaults to `"auto"`, one TLC worker per core.**

@@ -136,6 +136,11 @@ interface LegacyVerificationConfig {
      * Unset uses a fixed default (4g), never unbounded.
      */
     memory?: string;
+    /**
+     * Report handlers TLC never took (TLC `-coverage`). Default true; about
+     * 1.1x to 1.9x the run time. Under --strict a handler never taken fails the run.
+     */
+    handlerCoverage?: boolean;
   };
 
   /**

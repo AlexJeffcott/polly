@@ -54,6 +54,11 @@ export interface VerificationEngineOptions {
    * "8g". Unset uses the runner's fixed default, never unbounded.
    */
   memory?: string;
+  /**
+   * Report handlers TLC never took (TLC `-coverage`). Default true; about
+   * 1.1x to 1.9x the run time. Under --strict a handler never taken fails the run.
+   */
+  handlerCoverage?: boolean;
 }
 
 /**
@@ -118,7 +123,7 @@ export interface AdapterVerificationConfig {
   /** polly#160: symmetric write-coupling lint groups (static warning only). */
   coupledFields?: string[][];
 
-  /** TLC engine options (timeout, workers, memory). */
+  /** TLC engine options (timeout, workers, memory, handlerCoverage). */
   verification?: VerificationEngineOptions;
 
   /**
@@ -223,7 +228,7 @@ export interface LegacyVerificationConfig {
    */
   customTLAPaths?: Record<string, CustomTLAPath>;
 
-  /** TLC engine options (timeout, workers, memory). */
+  /** TLC engine options (timeout, workers, memory, handlerCoverage). */
   verification?: VerificationEngineOptions;
 }
 

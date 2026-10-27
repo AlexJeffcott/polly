@@ -97,6 +97,7 @@ export type VerificationConfig = {
     timeout?: number; // Timeout in seconds (0 = no timeout)
     workers?: TLCWorkers; // Number of TLC workers; default "auto" (one per core)
     memory?: string; // polly#181: docker-style container memory ceiling, e.g. "8g"
+    handlerCoverage?: boolean; // report handlers TLC never took; default true
   };
 
   /**

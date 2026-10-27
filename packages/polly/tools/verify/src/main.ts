@@ -28,6 +28,7 @@ import {
 import type { CodebaseAnalysis } from "./core/model";
 import { analyzeCodebase } from "./extract/types";
 import type { DockerRunner, TLCResult, TLCStats, TLCWorkers } from "./runner/docker";
+import { neverTaken, parseHandlerCoverage } from "./runner/handler-coverage";
 import { DEFAULT_TLC_MEMORY } from "./runner/memory";
 import { isSeedFixDisabled, meshSeedCfg } from "./runner/mesh-seed";
 
@@ -744,6 +745,11 @@ function getMemory(config: UnifiedVerificationConfig): string | undefined {
   return config.verification?.memory;
 }
 
+/** Run TLC with `-coverage` and report handlers never taken. Default on. */
+function getHandlerCoverage(config: UnifiedVerificationConfig): boolean {
+  return config.verification?.handlerCoverage ?? true;
+}
+
 /**
  * Get maxDepth from config for bounded model checking (Tier 2)
  */
@@ -1014,6 +1020,7 @@ async function runMonolithicVerification(
   const workers = getWorkers(config);
   const maxDepth = getMaxDepth(config);
   const memory = getMemory(config);
+  const coverage = getHandlerCoverage(config);
 
   // Run TLC
   console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
@@ -1039,6 +1046,7 @@ async function runMonolithicVerification(
     timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
     maxDepth,
     memory,
+    coverage,
   });
 
   // polly#114: when the project declares $meshState documents, also
@@ -1056,6 +1064,59 @@ async function runMonolithicVerification(
 
   // Display results
   displayVerificationResults(result, specDir);
+
+  if (coverage) enforceHandlerCoverage(readHandlerCoverage(specPath, result));
+}
+
+/** Report the reading; under --strict a handler never taken exits 1. */
+function enforceHandlerCoverage(reading: HandlerCoverageReading): void {
+  displayHandlerCoverage(reading);
+  if ("never" in reading && reading.never.length > 0 && isStrictMode()) {
+    console.log(color("--strict: a handler TLC never took fails the run.\n", COLORS.red));
+    process.exit(1);
+  }
+}
+
+/**
+ * The handlers TLC never took, or why there is no reading. A handler at 0 in
+ * a model that was not exhausted may run deeper than TLC got, so only an
+ * exhaustive run gives a reading.
+ */
+type HandlerCoverageReading = { never: string[] } | { skipped: string };
+
+function readHandlerCoverage(specPath: string, result: TLCResult): HandlerCoverageReading {
+  if (!result.success) return { skipped: "the run did not pass" };
+  if (!result.stats?.exhaustive) return { skipped: "the model was not exhausted" };
+  const moduleName = path.basename(specPath, ".tla");
+  const coverage = parseHandlerCoverage(
+    fs.readFileSync(specPath, "utf-8"),
+    moduleName,
+    result.output
+  );
+  if (!coverage) return { skipped: "TLC printed no coverage report" };
+  return { never: neverTaken(coverage) };
+}
+
+function displayHandlerCoverage(reading: HandlerCoverageReading): void {
+  if ("skipped" in reading) {
+    console.log(color(`Handler coverage: not read — ${reading.skipped}\n`, COLORS.yellow));
+    return;
+  }
+  if (reading.never.length === 0) {
+    console.log(color("Handler coverage: every handler in the model was taken\n", COLORS.green));
+    return;
+  }
+  console.log(color(`⚠ ${reading.never.length} handler(s) never taken:`, COLORS.yellow));
+  for (const action of reading.never) {
+    console.log(color(`   ${action}`, COLORS.yellow));
+  }
+  console.log(
+    color(
+      "   Their requires guards never all held at a reachable state, so every\n" +
+        "   ensures on them passed without being checked.\n",
+      COLORS.gray
+    )
+  );
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Subsystem orchestration requires sequential steps with branching
@@ -1166,6 +1227,8 @@ async function runSubsystemVerification(
   const workers = getWorkers(config);
   const maxDepth = getMaxDepth(config);
   const memory = getMemory(config);
+  const coverage = getHandlerCoverage(config);
+  const strict = isStrictMode();
 
   // polly#185: contexts are global to the spec, not per subsystem — every
   // generated subsystem model below gets this same set, so it is reported once.
@@ -1182,6 +1245,7 @@ async function runSubsystemVerification(
     stats?: TLCStats;
     elapsed: number;
     error?: string;
+    handlerCoverage?: HandlerCoverageReading;
   }> = [];
 
   const customTLAPaths = getCustomTLAPaths(config);
@@ -1233,21 +1297,33 @@ async function runSubsystemVerification(
       timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
       maxDepth,
       memory,
+      coverage,
     });
 
     const elapsed = (Date.now() - startTime) / 1000;
 
+    const handlerCoverage = coverage ? readHandlerCoverage(specPath, result) : undefined;
+    const neverTakenCount =
+      handlerCoverage && "never" in handlerCoverage ? handlerCoverage.never.length : 0;
+    // --strict: a handler TLC never took fails its subsystem.
+    const success = result.success && !(strict && neverTakenCount > 0);
+
     results.push({
       name,
-      success: result.success,
+      success,
       handlerCount: sub.handlers.length,
       ensuresCount,
       elapsed,
       ...(result.stats === undefined ? {} : { stats: result.stats }),
+      ...(handlerCoverage === undefined ? {} : { handlerCoverage }),
       error: result.error,
     });
 
-    if (result.success) {
+    if (result.success && !success) {
+      console.log(
+        color(`   ✗ ${name}: ${neverTakenCount} handler(s) never taken (--strict)`, COLORS.red)
+      );
+    } else if (result.success) {
       console.log(color(`   ✓ ${name} passed (${elapsed.toFixed(1)}s)`, COLORS.green));
     } else {
       console.log(color(`   ✗ ${name} failed`, COLORS.red));
@@ -1658,10 +1734,20 @@ function displayTLCStats(stats: TLCStats | undefined): void {
  * row above, so they are named here.
  */
 function displayIncompleteSubsystems(
-  results: Array<{ name: string; success: boolean; stats?: TLCStats }>
+  results: Array<{
+    name: string;
+    success: boolean;
+    stats?: TLCStats;
+    handlerCoverage?: HandlerCoverageReading;
+  }>
 ): void {
   const notes: string[] = [];
   for (const r of results) {
+    if (r.handlerCoverage && "never" in r.handlerCoverage && r.handlerCoverage.never.length > 0) {
+      notes.push(
+        `${r.name}: never taken — ${r.handlerCoverage.never.join(", ")}; every ensures on them passed unchecked`
+      );
+    }
     if (!r.success) continue;
     if (!r.stats) {
       notes.push(`${r.name}: TLC printed no summary line — state count unknown`);
@@ -1692,6 +1778,7 @@ function displayCompositionalReport(
     ensuresCount: number;
     stats?: TLCStats;
     elapsed: number;
+    handlerCoverage?: HandlerCoverageReading;
   }>,
   nonInterferenceValid: boolean
 ): void {
@@ -2026,8 +2113,8 @@ ${color("Commands:", COLORS.blue)}
 
   ${color("polly verify --strict", COLORS.green)}
     Fail closed (non-zero exit) on model-coverage gaps: a declared state
-    field no handler writes, or an unverified $meshState/$peerState predicate.
-    Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
+    field no handler writes, an unverified $meshState/$peerState predicate,
+    or a handler TLC never took. Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
 
   ${color("polly verify --witness", COLORS.green)}
     After the invariant pass, check each BDD scenario's Then-outcome for
