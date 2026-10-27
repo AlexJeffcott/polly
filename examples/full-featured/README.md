@@ -56,7 +56,10 @@ bus.on("BOOKMARK_ADD", async (payload: { url: string; title: string }) => {
 
 ```typescript
 // specs/constraints.ts
-stateConstraint("BookmarksRequireLogin", "state.loggedIn === true || state.bookmarkCount === 0");
+stateConstraint(
+  "BookmarksRequireLogin",
+  () => bookmarkCount.value <= 0 || loginState.value.loggedIn === true,
+);
 ```
 
 This tells TLC to skip states where bookmarks exist but nobody is logged in — impossible at runtime, and pruning them speeds up verification.

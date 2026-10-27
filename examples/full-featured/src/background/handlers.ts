@@ -153,7 +153,11 @@ export function registerHandlers(bus: MessageBus<AllMessages>): void {
 
     const current = bookmarks.value || [];
     bookmarks.value = [...current, bookmark];
-    bookmarkCount.value = bookmarks.value.length;
+    // Same value as bookmarks.value.length, in a form the TLA+ extractor can
+    // translate (`@ + 1`): `bookmarks` is not a verified field, so a write
+    // derived from its length is dropped from the model and this handler's
+    // ensures fails.
+    bookmarkCount.value++;
     // $sharedState automatically persists to storage
 
     ensures(

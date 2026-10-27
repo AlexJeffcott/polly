@@ -4,10 +4,8 @@ import { defineVerification } from "@fairfox/polly/verify";
 
 export default defineVerification({
   state: {
-    // Field used by $constraints("loggedIn", { ... requires: "state.loggedIn === true" })
-    loggedIn: [false, true],
-    // Fields used by handler requires/ensures on loginState.value.loggedIn
-    // (TLA+ generator flattens loginState.value.loggedIn → loginState_loggedIn)
+    // Fields used by handler requires/ensures and by specs/constraints.ts on
+    // loginState.value.loggedIn (TLA+ generator flattens it → loginState_loggedIn)
     loginState_loggedIn: [false, true],
     loginState_username: { values: ['user1', 'user2'], abstract: true },
     // Verified numeric state for bookmark count (exercises { type: "number" })
@@ -28,7 +26,7 @@ export default defineVerification({
       'USER_LOGOUT',
       'BOOKMARK_ADD',
       'BOOKMARK_REMOVE',
-      'SETTINGS_GET',
+      'GET_SETTINGS',
       'SETTINGS_UPDATE',
       'TAB_GET_CURRENT',
     ],

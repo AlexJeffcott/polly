@@ -3,10 +3,49 @@
     "result": {
       "stateType": null,
       "messageTypes": [
+        "ACTIVATE",
         "PING"
       ],
       "fields": [],
       "handlers": [
+        {
+          "messageType": "ACTIVATE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_active",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.active === false",
+              "message": "User must be inactive to activate",
+              "location": {
+                "line": 27,
+                "column": 1079
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active after activate",
+              "location": {
+                "line": 31,
+                "column": 1196
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 26
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event"
+        },
         {
           "messageType": "PING",
           "node": "background",
@@ -16,8 +55,8 @@
               "expression": "user.value.active === true",
               "message": "User must be active to ping",
               "location": {
-                "line": 26,
-                "column": 956
+                "line": 38,
+                "column": 1403
               }
             }
           ],
@@ -26,14 +65,14 @@
               "expression": "user.value.active === true",
               "message": "User should remain active after ping",
               "location": {
-                "line": 28,
-                "column": 1030
+                "line": 40,
+                "column": 1477
               }
             }
           ],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 25
+            "line": 37
           },
           "relationships": {
             "$type": "undefined"
@@ -76,6 +115,47 @@
     "result": {
       "handlers": [
         {
+          "messageType": "ACTIVATE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_active",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.active === false",
+              "message": "User must be inactive to activate",
+              "location": {
+                "line": 27,
+                "column": 1079
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active after activate",
+              "location": {
+                "line": 31,
+                "column": 1196
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 26
+          },
+          "relationships": {
+            "$type": "undefined"
+          },
+          "origin": "event",
+          "parameters": {
+            "$type": "undefined"
+          }
+        },
+        {
           "messageType": "PING",
           "node": "background",
           "assignments": [],
@@ -84,8 +164,8 @@
               "expression": "user.value.active === true",
               "message": "User must be active to ping",
               "location": {
-                "line": 26,
-                "column": 956
+                "line": 38,
+                "column": 1403
               }
             }
           ],
@@ -94,14 +174,14 @@
               "expression": "user.value.active === true",
               "message": "User should remain active after ping",
               "location": {
-                "line": 28,
-                "column": 1030
+                "line": 40,
+                "column": 1477
               }
             }
           ],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 25
+            "line": 37
           },
           "relationships": {
             "$type": "undefined"
@@ -115,6 +195,7 @@
       "messageTypes": {
         "$type": "Set",
         "values": [
+          "ACTIVATE",
           "PING"
         ]
       },
@@ -191,6 +272,47 @@
           "entryPoint": "<project>/src/background/index.ts",
           "handlers": [
             {
+              "messageType": "ACTIVATE",
+              "node": "background",
+              "assignments": [
+                {
+                  "field": "user_active",
+                  "value": true
+                }
+              ],
+              "preconditions": [
+                {
+                  "expression": "user.value.active === false",
+                  "message": "User must be inactive to activate",
+                  "location": {
+                    "line": 27,
+                    "column": 1079
+                  }
+                }
+              ],
+              "postconditions": [
+                {
+                  "expression": "user.value.active === true",
+                  "message": "User must be active after activate",
+                  "location": {
+                    "line": 31,
+                    "column": 1196
+                  }
+                }
+              ],
+              "location": {
+                "file": "<project>/src/background/handlers.ts",
+                "line": 26
+              },
+              "relationships": {
+                "$type": "undefined"
+              },
+              "origin": "event",
+              "parameters": {
+                "$type": "undefined"
+              }
+            },
+            {
               "messageType": "PING",
               "node": "background",
               "assignments": [],
@@ -199,8 +321,8 @@
                   "expression": "user.value.active === true",
                   "message": "User must be active to ping",
                   "location": {
-                    "line": 26,
-                    "column": 956
+                    "line": 38,
+                    "column": 1403
                   }
                 }
               ],
@@ -209,14 +331,14 @@
                   "expression": "user.value.active === true",
                   "message": "User should remain active after ping",
                   "location": {
-                    "line": 28,
-                    "column": 1030
+                    "line": 40,
+                    "column": 1477
                   }
                 }
               ],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 25
+                "line": 37
               },
               "relationships": {
                 "$type": "undefined"
@@ -465,6 +587,22 @@
         ],
         "messageTypes": [
           {
+            "name": "ACTIVATE",
+            "payload": {
+              "name": "unknown",
+              "kind": "unknown",
+              "nullable": false
+            },
+            "routing": {
+              "from": [
+                "*"
+              ],
+              "to": [
+                "*"
+              ]
+            }
+          },
+          {
             "name": "PING",
             "payload": {
               "name": "unknown",
@@ -613,6 +751,7 @@
           {
             "pattern": "request-reply",
             "messageTypes": [
+              "ACTIVATE",
               "PING",
               "LOG",
               "LOGS_GET",
@@ -629,6 +768,40 @@
         "state": {},
         "handlers": [
           {
+            "messageType": "ACTIVATE",
+            "node": "background",
+            "assignments": [
+              {
+                "field": "user_active",
+                "value": true
+              }
+            ],
+            "preconditions": [
+              {
+                "expression": "user.value.active === false",
+                "message": "User must be inactive to activate",
+                "location": {
+                  "line": 27,
+                  "column": 1083
+                }
+              }
+            ],
+            "postconditions": [
+              {
+                "expression": "user.value.active === true",
+                "message": "User must be active after activate",
+                "location": {
+                  "line": 31,
+                  "column": 1200
+                }
+              }
+            ],
+            "location": {
+              "file": "<project>/src/background/handlers.ts",
+              "line": 26
+            }
+          },
+          {
             "messageType": "PING",
             "node": "background",
             "assignments": [],
@@ -637,8 +810,8 @@
                 "expression": "user.value.active === true",
                 "message": "User must be active to ping",
                 "location": {
-                  "line": 26,
-                  "column": 960
+                  "line": 38,
+                  "column": 1407
                 }
               }
             ],
@@ -647,14 +820,14 @@
                 "expression": "user.value.active === true",
                 "message": "User should remain active after ping",
                 "location": {
-                  "line": 28,
-                  "column": 1034
+                  "line": 40,
+                  "column": 1481
                 }
               }
             ],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 25
+              "line": 37
             }
           },
           {
@@ -887,6 +1060,22 @@
       ],
       "messageTypes": [
         {
+          "name": "ACTIVATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
+        {
           "name": "PING",
           "payload": {
             "name": "unknown",
@@ -1035,6 +1224,7 @@
         {
           "pattern": "request-reply",
           "messageTypes": [
+            "ACTIVATE",
             "PING",
             "LOG",
             "LOGS_GET",
@@ -1051,6 +1241,40 @@
       "state": {},
       "handlers": [
         {
+          "messageType": "ACTIVATE",
+          "node": "background",
+          "assignments": [
+            {
+              "field": "user_active",
+              "value": true
+            }
+          ],
+          "preconditions": [
+            {
+              "expression": "user.value.active === false",
+              "message": "User must be inactive to activate",
+              "location": {
+                "line": 27,
+                "column": 1083
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active after activate",
+              "location": {
+                "line": 31,
+                "column": 1200
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 26
+          }
+        },
+        {
           "messageType": "PING",
           "node": "background",
           "assignments": [],
@@ -1059,8 +1283,8 @@
               "expression": "user.value.active === true",
               "message": "User must be active to ping",
               "location": {
-                "line": 26,
-                "column": 960
+                "line": 38,
+                "column": 1407
               }
             }
           ],
@@ -1069,14 +1293,14 @@
               "expression": "user.value.active === true",
               "message": "User should remain active after ping",
               "location": {
-                "line": 28,
-                "column": 1034
+                "line": 40,
+                "column": 1481
               }
             }
           ],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 25
+            "line": 37
           }
         },
         {
@@ -1353,6 +1577,22 @@
       ],
       "messageTypes": [
         {
+          "name": "ACTIVATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "server"
+            ],
+            "to": [
+              "client-*"
+            ]
+          }
+        },
+        {
           "name": "PING",
           "payload": {
             "name": "unknown",
@@ -1437,6 +1677,7 @@
         {
           "pattern": "request-reply",
           "messageTypes": [
+            "ACTIVATE",
             "PING",
             "LOG",
             "LOGS_GET",
@@ -1449,6 +1690,35 @@
       "state": {},
       "handlers": [
         {
+          "messageType": "ACTIVATE",
+          "node": "Server",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === false",
+              "message": "User must be inactive to activate",
+              "location": {
+                "line": 27,
+                "column": 1083
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active after activate",
+              "location": {
+                "line": 31,
+                "column": 1200
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 26
+          }
+        },
+        {
           "messageType": "PING",
           "node": "Server",
           "assignments": [],
@@ -1457,8 +1727,8 @@
               "expression": "user.value.active === true",
               "message": "User must be active to ping",
               "location": {
-                "line": 26,
-                "column": 960
+                "line": 38,
+                "column": 1407
               }
             }
           ],
@@ -1467,14 +1737,14 @@
               "expression": "user.value.active === true",
               "message": "User should remain active after ping",
               "location": {
-                "line": 28,
-                "column": 1034
+                "line": 40,
+                "column": 1481
               }
             }
           ],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 25
+            "line": 37
           }
         },
         {
@@ -1566,6 +1836,22 @@
         }
       ],
       "messageTypes": [
+        {
+          "name": "ACTIVATE",
+          "payload": {
+            "name": "unknown",
+            "kind": "unknown",
+            "nullable": false
+          },
+          "routing": {
+            "from": [
+              "*"
+            ],
+            "to": [
+              "*"
+            ]
+          }
+        },
         {
           "name": "PING",
           "payload": {
@@ -1667,6 +1953,7 @@
         {
           "pattern": "broadcast",
           "messageTypes": [
+            "ACTIVATE",
             "PING",
             "LOG",
             "LOGS_GET",
@@ -1680,6 +1967,35 @@
       "state": {},
       "handlers": [
         {
+          "messageType": "ACTIVATE",
+          "node": "bus",
+          "assignments": [],
+          "preconditions": [
+            {
+              "expression": "user.value.active === false",
+              "message": "User must be inactive to activate",
+              "location": {
+                "line": 27,
+                "column": 1083
+              }
+            }
+          ],
+          "postconditions": [
+            {
+              "expression": "user.value.active === true",
+              "message": "User must be active after activate",
+              "location": {
+                "line": 31,
+                "column": 1200
+              }
+            }
+          ],
+          "location": {
+            "file": "<project>/src/background/handlers.ts",
+            "line": 26
+          }
+        },
+        {
           "messageType": "PING",
           "node": "bus",
           "assignments": [],
@@ -1688,8 +2004,8 @@
               "expression": "user.value.active === true",
               "message": "User must be active to ping",
               "location": {
-                "line": 26,
-                "column": 960
+                "line": 38,
+                "column": 1407
               }
             }
           ],
@@ -1698,14 +2014,14 @@
               "expression": "user.value.active === true",
               "message": "User should remain active after ping",
               "location": {
-                "line": 28,
-                "column": 1034
+                "line": 40,
+                "column": 1481
               }
             }
           ],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 25
+            "line": 37
           }
         },
         {

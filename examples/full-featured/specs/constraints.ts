@@ -39,17 +39,17 @@ stateConstraint(
  *
  * Ensures users must be logged in before performing protected operations.
  */
-export const authConstraints = $constraints("loggedIn", {
+export const authConstraints = $constraints("loginState", {
   USER_LOGOUT: {
-    requires: "state.loggedIn === true",
+    requires: "loginState.value.loggedIn === true",
     message: "Must be logged in to logout",
   },
   BOOKMARK_ADD: {
-    requires: "state.loggedIn === true",
+    requires: "loginState.value.loggedIn === true",
     message: "Must be logged in to add bookmarks",
   },
   SETTINGS_UPDATE: {
-    requires: "state.loggedIn === true",
+    requires: "loginState.value.loggedIn === true",
     message: "Must be logged in to update settings",
   },
 });

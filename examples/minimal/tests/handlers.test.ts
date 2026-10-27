@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { createBackground, MessageRouter } from "@fairfox/polly/background";
 import type { MessageBus } from "@fairfox/polly/message-bus";
 import { createMockAdapters } from "@fairfox/polly/test";
-import { type AllMessages, registerPingHandler, user } from "../src/background/handlers";
+import { type AllMessages, registerHandlers, user } from "../src/background/handlers";
 
 type Response = { success: boolean; data?: unknown; error?: string };
 
@@ -33,7 +33,7 @@ describe("PING handler", () => {
   beforeEach(() => {
     MessageRouter.resetInstance();
     bus = createBackground<AllMessages>(createMockAdapters());
-    registerPingHandler(bus);
+    registerHandlers(bus);
     user.value = { active: true };
   });
 
@@ -48,5 +48,31 @@ describe("PING handler", () => {
     await send(bus, { type: "PING" });
 
     expect(user.value.active).toBe(true);
+  });
+});
+
+describe("ACTIVATE handler", () => {
+  let bus: MessageBus<AllMessages>;
+
+  beforeEach(() => {
+    MessageRouter.resetInstance();
+    bus = createBackground<AllMessages>(createMockAdapters());
+    registerHandlers(bus);
+    user.value = { active: false };
+  });
+
+  test("makes an inactive user active", async () => {
+    const response = await send(bus, { type: "ACTIVATE" });
+
+    expect(response.success).toBe(true);
+    expect(user.value.active).toBe(true);
+  });
+
+  test("opens the PING path from the initial state", async () => {
+    await send(bus, { type: "ACTIVATE" });
+    const response = await send(bus, { type: "PING" });
+
+    expect(response.success).toBe(true);
+    expect(response.data).toEqual({ pong: true });
   });
 });

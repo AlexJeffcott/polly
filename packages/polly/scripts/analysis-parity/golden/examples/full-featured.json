@@ -120,7 +120,12 @@
         {
           "messageType": "BOOKMARK_ADD",
           "node": "background",
-          "assignments": [],
+          "assignments": [
+            {
+              "field": "bookmarkCount",
+              "value": "@ + 1"
+            }
+          ],
           "preconditions": [
             {
               "expression": "loginState.value.loggedIn === true",
@@ -136,8 +141,8 @@
               "expression": "bookmarkCount.value > 0",
               "message": "Bookmark count must be positive after add",
               "location": {
-                "line": 159,
-                "column": 4782
+                "line": 163,
+                "column": 5011
               }
             }
           ],
@@ -158,7 +163,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 167
+            "line": 171
           },
           "relationships": {
             "$type": "undefined"
@@ -173,7 +178,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 179
+            "line": 183
           },
           "relationships": {
             "$type": "undefined"
@@ -188,7 +193,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 195
+            "line": 199
           },
           "relationships": {
             "$type": "undefined"
@@ -204,15 +209,15 @@
               "expression": "loginState.value.loggedIn === true",
               "message": "Must be logged in to update settings",
               "location": {
-                "line": 206,
-                "column": 5865
+                "line": 210,
+                "column": 6094
               }
             }
           ],
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 204
+            "line": 208
           },
           "relationships": {
             "$type": "undefined"
@@ -227,7 +232,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 218
+            "line": 222
           },
           "relationships": {
             "$type": "undefined"
@@ -242,7 +247,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 226
           },
           "relationships": {
             "$type": "undefined"
@@ -252,9 +257,9 @@
       ],
       "stateConstraints": [
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "USER_LOGOUT",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -265,9 +270,9 @@
           }
         },
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "BOOKMARK_ADD",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -278,9 +283,9 @@
           }
         },
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "SETTINGS_UPDATE",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -452,7 +457,12 @@
         {
           "messageType": "BOOKMARK_ADD",
           "node": "background",
-          "assignments": [],
+          "assignments": [
+            {
+              "field": "bookmarkCount",
+              "value": "@ + 1"
+            }
+          ],
           "preconditions": [
             {
               "expression": "loginState.value.loggedIn === true",
@@ -468,8 +478,8 @@
               "expression": "bookmarkCount.value > 0",
               "message": "Bookmark count must be positive after add",
               "location": {
-                "line": 159,
-                "column": 4782
+                "line": 163,
+                "column": 5011
               }
             }
           ],
@@ -493,7 +503,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 167
+            "line": 171
           },
           "relationships": {
             "$type": "undefined"
@@ -511,7 +521,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 179
+            "line": 183
           },
           "relationships": {
             "$type": "undefined"
@@ -529,7 +539,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 195
+            "line": 199
           },
           "relationships": {
             "$type": "undefined"
@@ -548,15 +558,15 @@
               "expression": "loginState.value.loggedIn === true",
               "message": "Must be logged in to update settings",
               "location": {
-                "line": 206,
-                "column": 5865
+                "line": 210,
+                "column": 6094
               }
             }
           ],
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 204
+            "line": 208
           },
           "relationships": {
             "$type": "undefined"
@@ -574,7 +584,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 218
+            "line": 222
           },
           "relationships": {
             "$type": "undefined"
@@ -592,7 +602,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 226
           },
           "relationships": {
             "$type": "undefined"
@@ -619,9 +629,9 @@
       },
       "stateConstraints": [
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "USER_LOGOUT",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -632,9 +642,9 @@
           }
         },
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "BOOKMARK_ADD",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -645,9 +655,9 @@
           }
         },
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "SETTINGS_UPDATE",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -862,7 +872,12 @@
             {
               "messageType": "BOOKMARK_ADD",
               "node": "background",
-              "assignments": [],
+              "assignments": [
+                {
+                  "field": "bookmarkCount",
+                  "value": "@ + 1"
+                }
+              ],
               "preconditions": [
                 {
                   "expression": "loginState.value.loggedIn === true",
@@ -878,8 +893,8 @@
                   "expression": "bookmarkCount.value > 0",
                   "message": "Bookmark count must be positive after add",
                   "location": {
-                    "line": 159,
-                    "column": 4782
+                    "line": 163,
+                    "column": 5011
                   }
                 }
               ],
@@ -903,7 +918,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 167
+                "line": 171
               },
               "relationships": {
                 "$type": "undefined"
@@ -921,7 +936,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 179
+                "line": 183
               },
               "relationships": {
                 "$type": "undefined"
@@ -939,7 +954,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 195
+                "line": 199
               },
               "relationships": {
                 "$type": "undefined"
@@ -958,15 +973,15 @@
                   "expression": "loginState.value.loggedIn === true",
                   "message": "Must be logged in to update settings",
                   "location": {
-                    "line": 206,
-                    "column": 5865
+                    "line": 210,
+                    "column": 6094
                   }
                 }
               ],
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 204
+                "line": 208
               },
               "relationships": {
                 "$type": "undefined"
@@ -984,7 +999,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 218
+                "line": 222
               },
               "relationships": {
                 "$type": "undefined"
@@ -1002,7 +1017,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 222
+                "line": 226
               },
               "relationships": {
                 "$type": "undefined"
@@ -1205,7 +1220,7 @@
               "context": "background",
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 167
+                "line": 171
               }
             }
           ]
@@ -1232,7 +1247,7 @@
               "context": "background",
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 179
+                "line": 183
               }
             }
           ]
@@ -1259,7 +1274,7 @@
               "context": "background",
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 204
+                "line": 208
               }
             }
           ]
@@ -1848,8 +1863,8 @@
                 "expression": "bookmarkCount.value > 0",
                 "message": "Bookmark count must be positive after add",
                 "location": {
-                  "line": 159,
-                  "column": 4786
+                  "line": 163,
+                  "column": 5015
                 }
               }
             ],
@@ -1866,7 +1881,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 167
+              "line": 171
             }
           },
           {
@@ -1877,7 +1892,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 179
+              "line": 183
             }
           },
           {
@@ -1888,7 +1903,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 195
+              "line": 199
             }
           },
           {
@@ -1900,15 +1915,15 @@
                 "expression": "loginState.value.loggedIn === true",
                 "message": "Must be logged in to update settings",
                 "location": {
-                  "line": 206,
-                  "column": 5869
+                  "line": 210,
+                  "column": 6098
                 }
               }
             ],
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 204
+              "line": 208
             }
           },
           {
@@ -1919,7 +1934,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 218
+              "line": 222
             }
           },
           {
@@ -1930,7 +1945,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 222
+              "line": 226
             }
           },
           {
@@ -2035,9 +2050,9 @@
         ],
         "stateConstraints": [
           {
-            "field": "loggedIn",
+            "field": "loginState",
             "messageType": "USER_LOGOUT",
-            "requires": "state.loggedIn === true",
+            "requires": "loginState.value.loggedIn === true",
             "ensures": {
               "$type": "undefined"
             },
@@ -2048,9 +2063,9 @@
             }
           },
           {
-            "field": "loggedIn",
+            "field": "loginState",
             "messageType": "BOOKMARK_ADD",
-            "requires": "state.loggedIn === true",
+            "requires": "loginState.value.loggedIn === true",
             "ensures": {
               "$type": "undefined"
             },
@@ -2061,9 +2076,9 @@
             }
           },
           {
-            "field": "loggedIn",
+            "field": "loginState",
             "messageType": "SETTINGS_UPDATE",
-            "requires": "state.loggedIn === true",
+            "requires": "loginState.value.loggedIn === true",
             "ensures": {
               "$type": "undefined"
             },
@@ -2566,8 +2581,8 @@
               "expression": "bookmarkCount.value > 0",
               "message": "Bookmark count must be positive after add",
               "location": {
-                "line": 159,
-                "column": 4786
+                "line": 163,
+                "column": 5015
               }
             }
           ],
@@ -2584,7 +2599,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 167
+            "line": 171
           }
         },
         {
@@ -2595,7 +2610,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 179
+            "line": 183
           }
         },
         {
@@ -2606,7 +2621,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 195
+            "line": 199
           }
         },
         {
@@ -2618,15 +2633,15 @@
               "expression": "loginState.value.loggedIn === true",
               "message": "Must be logged in to update settings",
               "location": {
-                "line": 206,
-                "column": 5869
+                "line": 210,
+                "column": 6098
               }
             }
           ],
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 204
+            "line": 208
           }
         },
         {
@@ -2637,7 +2652,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 218
+            "line": 222
           }
         },
         {
@@ -2648,7 +2663,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 226
           }
         },
         {
@@ -2753,9 +2768,9 @@
       ],
       "stateConstraints": [
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "USER_LOGOUT",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -2766,9 +2781,9 @@
           }
         },
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "BOOKMARK_ADD",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -2779,9 +2794,9 @@
           }
         },
         {
-          "field": "loggedIn",
+          "field": "loginState",
           "messageType": "SETTINGS_UPDATE",
-          "requires": "state.loggedIn === true",
+          "requires": "loginState.value.loggedIn === true",
           "ensures": {
             "$type": "undefined"
           },
@@ -3250,8 +3265,8 @@
               "expression": "bookmarkCount.value > 0",
               "message": "Bookmark count must be positive after add",
               "location": {
-                "line": 159,
-                "column": 4786
+                "line": 163,
+                "column": 5015
               }
             }
           ],
@@ -3268,7 +3283,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 167
+            "line": 171
           }
         },
         {
@@ -3279,7 +3294,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 179
+            "line": 183
           }
         },
         {
@@ -3290,7 +3305,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 195
+            "line": 199
           }
         },
         {
@@ -3302,15 +3317,15 @@
               "expression": "loginState.value.loggedIn === true",
               "message": "Must be logged in to update settings",
               "location": {
-                "line": 206,
-                "column": 5869
+                "line": 210,
+                "column": 6098
               }
             }
           ],
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 204
+            "line": 208
           }
         },
         {
@@ -3321,7 +3336,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 218
+            "line": 222
           }
         },
         {
@@ -3332,7 +3347,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 226
           }
         },
         {
@@ -3741,8 +3756,8 @@
               "expression": "bookmarkCount.value > 0",
               "message": "Bookmark count must be positive after add",
               "location": {
-                "line": 159,
-                "column": 4786
+                "line": 163,
+                "column": 5015
               }
             }
           ],
@@ -3759,7 +3774,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 167
+            "line": 171
           }
         },
         {
@@ -3770,7 +3785,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 179
+            "line": 183
           }
         },
         {
@@ -3781,7 +3796,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 195
+            "line": 199
           }
         },
         {
@@ -3793,15 +3808,15 @@
               "expression": "loginState.value.loggedIn === true",
               "message": "Must be logged in to update settings",
               "location": {
-                "line": 206,
-                "column": 5869
+                "line": 210,
+                "column": 6098
               }
             }
           ],
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 204
+            "line": 208
           }
         },
         {
@@ -3812,7 +3827,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 218
+            "line": 222
           }
         },
         {
@@ -3823,7 +3838,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 226
           }
         },
         {

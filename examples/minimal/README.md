@@ -50,14 +50,22 @@ function Popup() {
 }
 ```
 
-The background script adds a handler with verification contracts:
+The background script adds two handlers with verification contracts.
+`ACTIVATE` is the only handler that sets `user.active`, so it is what makes
+`PING`'s precondition reachable:
 
 ```typescript
-// src/background/index.ts
+// src/background/handlers.ts
+bus.on("ACTIVATE", () => {
+  requires(user.value.active === false, "User must be inactive to activate");
+  user.value = { active: true };
+  ensures(user.value.active === true, "User must be active after activate");
+});
+
 bus.on("PING", () => {
-  requires(user.value.active === true, "User must be active");
+  requires(user.value.active === true, "User must be active to ping");
   // ...
-  ensures(user.value.active === true, "User must still be active");
+  ensures(user.value.active === true, "User should remain active after ping");
 });
 ```
 
@@ -68,6 +76,7 @@ Run `bun run verify` to model-check all handler contracts with TLC.
 ```
 src/
   background/index.ts     Background service worker
+  background/handlers.ts  ACTIVATE and PING handlers
   popup/index.tsx          Preact UI
   popup/popup.html         HTML template
   shared/state.ts          Shared reactive state

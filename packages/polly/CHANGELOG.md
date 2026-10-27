@@ -10,13 +10,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`verification.workers` defaults to `"auto"`, one TLC worker per core.**
-  The default was 1. `examples/minimal` (1,801,024 distinct states, 12
-  cores): `polly verify` 41.4 s → 20.1 s, same state count. The key now
+  The default was 1. `examples/full-featured` (1,875,184 distinct states,
+  12 cores, load average 6–12): TLC 186.0 s → 31.6 s, same state count.
+  The key now
   takes a count or `"auto"`; a fraction or a value below 1 is an error. To
   keep the old behaviour, set `verification: { workers: 1 }`.
 
 ### Fixed
 
+- **`examples/minimal` delivers a PING in its model.** No handler set
+  `user.active` to true, so `HandlePing` was never enabled. Every PING took
+  the routing `failed` branch and `EnsuresAfter_HandlePing` held vacuously.
+  `polly verify` warned (polly#160: `user.active` written by no modelled
+  handler) and passed. A new `ACTIVATE` handler (requires inactive, sets
+  active, ensures active) makes the PING path reachable. The model grows
+  from 1,801,024 to 16,040,512 distinct states (8,805,896 → 101,415,368
+  generated, depth 12 → 14).
+- **`NoRoutingLoops` no longer fails every model with `maxInFlight` ≥ 3.**
+  The invariant was `routingDepth < 3`, and `routingDepth` counts
+  `RouteMessage` steps since the last `CompleteRouting`. Three sends and
+  then three routes of three different messages broke it, with no loop
+  anywhere. It is now `routingDepth <= Len(messages)`: a run of routing
+  steps longer than the message log means a message was routed twice.
+  Checked with TLC at `MaxMessages = 4`: the old invariant fails, the new
+  one holds (7,146,992 distinct states), and a spec that lets a message
+  route twice fails the new one.
+- **A numeric update of a primitive signal reaches the model.**
+  `count.value++`, `--count.value` and `count.value += n` were dropped: the
+  extractor mapped `state.f` and `s.value.f` but not `s.value`, which a
+  literal write to the same signal already maps to field `s`. The handler's
+  action became `UNCHANGED contextStates`, and an `ensures` on the counter
+  failed in the model alone.
+- **`examples/full-featured` checks its login-guarded handlers.**
+  `$constraints("loggedIn", …)` guarded USER_LOGOUT, BOOKMARK_ADD and
+  SETTINGS_UPDATE on a field `loggedIn` that no handler writes (handlers
+  write `loginState_loggedIn`), so the three never ran in the model. With
+  the guard on `loginState.value.loggedIn`, BOOKMARK_ADD's `ensures`
+  failed, because its count write was derived from an unverified array's
+  length and dropped; it now uses `bookmarkCount.value++`. The
+  `messages.include` entry `SETTINGS_GET` named no message type and is now
+  `GET_SETTINGS`. Model: 1,875,184 distinct states, `polly verify` 29.2 s.
 - **`polly visualize --export` pins `structurizr/structurizr:2026.10.26`.**
   It used `:latest` but pulled only when the image was missing, so each
   machine kept the version it first pulled. The export, the Structurizr
