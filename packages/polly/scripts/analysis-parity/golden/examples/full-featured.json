@@ -232,7 +232,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 223
           },
           "relationships": {
             "$type": "undefined"
@@ -247,7 +247,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 226
+            "line": 227
           },
           "relationships": {
             "$type": "undefined"
@@ -584,7 +584,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 223
           },
           "relationships": {
             "$type": "undefined"
@@ -602,7 +602,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 226
+            "line": 227
           },
           "relationships": {
             "$type": "undefined"
@@ -999,7 +999,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 222
+                "line": 223
               },
               "relationships": {
                 "$type": "undefined"
@@ -1017,7 +1017,7 @@
               "postconditions": [],
               "location": {
                 "file": "<project>/src/background/handlers.ts",
-                "line": 226
+                "line": 227
               },
               "relationships": {
                 "$type": "undefined"
@@ -1941,7 +1941,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 222
+              "line": 223
             }
           },
           {
@@ -1952,7 +1952,7 @@
             "postconditions": [],
             "location": {
               "file": "<project>/src/background/handlers.ts",
-              "line": 226
+              "line": 227
             }
           },
           {
@@ -2659,7 +2659,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 223
           }
         },
         {
@@ -2670,7 +2670,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 226
+            "line": 227
           }
         },
         {
@@ -3343,7 +3343,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 223
           }
         },
         {
@@ -3354,7 +3354,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 226
+            "line": 227
           }
         },
         {
@@ -3834,7 +3834,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 222
+            "line": 223
           }
         },
         {
@@ -3845,7 +3845,7 @@
           "postconditions": [],
           "location": {
             "file": "<project>/src/background/handlers.ts",
-            "line": 226
+            "line": 227
           }
         },
         {

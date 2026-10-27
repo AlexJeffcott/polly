@@ -212,7 +212,8 @@ export function registerHandlers(bus: MessageBus<AllMessages>): void {
       "Must be logged in to update settings",
     );
 
-    const { type, ...updates } = payload;
+    // Strip the message type so it is not stored as a setting.
+    const { type: _type, ...updates } = payload;
     settings.value = { ...settings.value, ...updates };
     // $sharedState automatically persists to storage
 
