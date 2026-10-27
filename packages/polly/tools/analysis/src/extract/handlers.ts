@@ -2154,6 +2154,21 @@ export class HandlerExtractor {
   }
 
   /**
+   * The field a numeric update (`++`, `--`, `+=`, ...) writes. Besides the
+   * object paths, a primitive signal's own `.value` names the signal, as a
+   * literal write to it does (Pattern 8): `count.value++` writes `count`.
+   * Without this, the update was dropped and the action emitted UNCHANGED.
+   */
+  private extractNumericUpdateField(fieldPath: string): string | null {
+    const field = this.extractFieldFromStatePath(fieldPath);
+    if (field) return field;
+    if (fieldPath.endsWith(".value") && !fieldPath.slice(0, -6).includes(".")) {
+      return fieldPath.slice(0, -6);
+    }
+    return null;
+  }
+
+  /**
    * Extract compound assignments (+=, -=, *=, /=, %=)
    */
   private extractCompoundAssignment(node: Node, assignments: StateAssignment[]): void {
@@ -2165,7 +2180,7 @@ export class HandlerExtractor {
 
     if (isPropertyAccessExpression(left)) {
       const fieldPath = this.getPropertyPath(left);
-      const field = this.extractFieldFromStatePath(fieldPath);
+      const field = this.extractNumericUpdateField(fieldPath);
 
       if (field) {
         const rightValue = textOf(right);
@@ -2204,7 +2219,7 @@ export class HandlerExtractor {
     if (!isPropertyAccessExpression(operand)) return;
 
     const fieldPath = this.getPropertyPath(operand);
-    const field = this.extractFieldFromStatePath(fieldPath);
+    const field = this.extractNumericUpdateField(fieldPath);
 
     if (field) {
       // Translate ++ to @ + 1 and -- to @ - 1
