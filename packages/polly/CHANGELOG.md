@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`polly visualize --export` pins `structurizr/structurizr:2026.10.26`.**
+  It used `:latest` but pulled only when the image was missing, so each
+  machine kept the version it first pulled. The export, the Structurizr
+  DSL tests and the visualize e2e scripts share one constant,
+  `STRUCTURIZR_IMAGE`. The first export after upgrading pulls the pinned
+  image.
 - **`@fairfox/polly/elysia` imports without `@automerge/automerge-repo`.**
   `bun build` inlined `sweep-sealed.ts` (reached through a dynamic
   `import()` in `peer-repo-server.ts`) into the entry and hoisted its

@@ -28,7 +28,7 @@
  * The serve subprocess would otherwise `open` a real browser tab; the script
  * neutralises that by shadowing `open`/`xdg-open` with no-ops on PATH.
  *
- * Needs: Docker and the `structurizr/structurizr:latest` image.
+ * Needs: Docker and the pinned `STRUCTURIZR_IMAGE` (tools/visualize/src/runner/export.ts).
  */
 
 export const capability = "visualize.export-serve" as const;

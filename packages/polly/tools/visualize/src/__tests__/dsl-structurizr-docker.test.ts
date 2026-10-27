@@ -12,9 +12,7 @@ import * as path from "node:path";
 import type { ArchitectureAnalysis, ContextInfo } from "../../../analysis/src/types/architecture";
 import type { MessageHandler } from "../../../analysis/src/types/core";
 import { generateStructurizrDSL, type StructurizrDSLOptions } from "../codegen/structurizr";
-
-// The consolidated successor; structurizr/cli's `validate` no-ops on bad input.
-const IMAGE = "structurizr/structurizr:latest";
+import { STRUCTURIZR_IMAGE as IMAGE } from "../runner/export";
 
 function dockerAvailable(): boolean {
   if (process.env["SKIP_DOCKER"] === "1") return false;

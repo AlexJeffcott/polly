@@ -27,13 +27,21 @@ export interface ExportResult {
   error?: string;
 }
 
+// The consolidated `structurizr/structurizr` image, not the deprecated
+// `structurizr/cli`: only the successor implements the `static` export
+// format. `structurizr/cli` accepts `-format static` but silently writes
+// nothing and still exits 0 — the "claims success, produces an empty
+// docs/site" bug this image switch fixes.
+//
+// Pinned to a dated tag, not `latest`: the exporter pulls only when the image
+// is missing, so `latest` froze at whatever a machine first pulled, and users
+// ran a different Structurizr from the one the tests validate against. The
+// DSL tests and e2e scripts import this constant; bump it here and rerun
+// `verify.tools-docker` and `scripts/e2e-visualize.ts`.
+export const STRUCTURIZR_IMAGE = "structurizr/structurizr:2026.10.26";
+
 export class DiagramExporter {
-  // The consolidated `structurizr/structurizr` image, not the deprecated
-  // `structurizr/cli`: only the successor implements the `static` export
-  // format. `structurizr/cli` accepts `-format static` but silently writes
-  // nothing and still exits 0 — the "claims success, produces an empty
-  // docs/site" bug this image switch fixes.
-  private static readonly DOCKER_IMAGE = "structurizr/structurizr:latest";
+  private static readonly DOCKER_IMAGE = STRUCTURIZR_IMAGE;
   private static readonly DEFAULT_TIMEOUT = 120000; // 2 minutes
 
   /**

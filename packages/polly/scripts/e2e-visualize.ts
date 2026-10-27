@@ -43,6 +43,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
+import { STRUCTURIZR_IMAGE } from "../tools/visualize/src/runner/export";
 
 export const capability = "visualize.generate" as const;
 
@@ -56,9 +57,6 @@ const POLLY_CLI = path.join(PACKAGE_DIR, "cli", "polly.ts");
 // relay in cli/polly.ts would.
 const VISUALIZE_CLI = path.join(PACKAGE_DIR, "tools", "visualize", "src", "cli.ts");
 const WORKSPACE_TSCONFIG = "tsconfig.polly-visualize.json";
-// Use structurizr/structurizr (the consolidated successor); structurizr/cli is
-// deprecated and its `validate` command silently no-ops on invalid input.
-const STRUCTURIZR_IMAGE = "structurizr/structurizr:latest";
 const SKIP_DOCKER = process.env["SKIP_DOCKER"] === "1";
 
 type Outcome = "passed" | "spawn-failed" | "missing-dsl" | "missing-content" | "validate-failed";
