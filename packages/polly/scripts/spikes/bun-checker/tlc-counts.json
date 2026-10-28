@@ -1,0 +1,44 @@
+{
+  "examples/minimal/specs/tla/generated": {
+    "generated": 8940937,
+    "distinct": 2005064,
+    "depth": 14,
+    "hash": "9904913f42cff624",
+    "seconds": 48.8
+  },
+  "examples/full-featured/specs/tla/generated": {
+    "generated": 1803067,
+    "distinct": 234398,
+    "depth": 5,
+    "hash": "c06bc996a916023b",
+    "seconds": 8.2
+  },
+  "examples/mesh-recovery-pair/specs/tla/generated": {
+    "generated": 8335640,
+    "distinct": 2322383,
+    "depth": 21,
+    "hash": "1373b9e872e03720",
+    "seconds": 67.4
+  },
+  "examples/todo-list/specs/tla/generated/auth": {
+    "generated": 5433816,
+    "distinct": 289440,
+    "depth": 5,
+    "hash": "3e8f2b34fc4b39e1",
+    "seconds": 10.4
+  },
+  "examples/todo-list/specs/tla/generated/preferences": {
+    "generated": 443544,
+    "distinct": 24816,
+    "depth": 5,
+    "hash": "f280dc461871362f",
+    "seconds": 2.4
+  },
+  "examples/todo-list/specs/tla/generated/todos": {
+    "generated": 6407144,
+    "distinct": 495616,
+    "depth": 5,
+    "hash": "3d4b5fbbebc35eaa",
+    "seconds": 14.3
+  }
+}
