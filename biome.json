@@ -19,6 +19,7 @@
       "!**/.stryker-tmp",
       "!**/.polly",
       "!**/scripts/analysis-parity/golden",
+      "!**/scripts/spikes",
       "!**/scripts/analysis-parity/fixtures/handlers-corpus",
       "!**/tools/analysis/src/program/__tests__/oracle/*.json",
       "!**/vendor",

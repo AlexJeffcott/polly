@@ -132,6 +132,9 @@ async function checkSecurity(verbose: boolean): Promise<boolean> {
     // holds copies of sources scanned in place.
     "--exclude=**/analysis-parity/fixtures/**",
     "--exclude=**/program/__tests__/oracle/**",
+    // Parked spikes: reference code, not shipped or run by any tier
+    // (scripts/spikes/*/README.md).
+    "--exclude=**/scripts/spikes/**",
     "--error",
   ];
   if (!verbose) {
