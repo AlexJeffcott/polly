@@ -70,16 +70,44 @@ packages/polly/scripts/spikes/bun-checker/compare.sh
   (`{CHOOSE p \in [...] : TRUE}`, since 922db6b).
 - `NoRoutingLoops == routingDepth <= Len(messages)` (since 22fa537).
 
+## General checker (step 3a, 2026-10-28)
+
+`tlacheck.ts` with `tla/` (lexer, parser, values, evaluator) reads the
+generated `.tla` and `.cfg` as TLC does. Nothing in it is written for one
+example. A construct it does not support stops the run with exit 3.
+`parity.ts` runs it and TLC (`-workers 1`) on every generated spec set:
+
+| Set | Generated / distinct / depth | TLC w1 | tlacheck | Verdict |
+|---|---|---|---|---|
+| full-featured | 1,803,067 / 234,398 / 5 | 16.7 s | 62.7 s | MATCH |
+| mesh-recovery-pair | 8,335,640 / 2,322,383 / 20 | 58.2 s | 174.0 s | MATCH |
+| minimal | 8,940,937 / 2,005,064 / 14 | 47.2 s | 180.3 s | MATCH |
+| todo-list/auth | 5,433,816 / 289,440 / 5 | 17.7 s | 74.4 s | MATCH |
+| todo-list/preferences | 443,544 / 24,816 / 5 | 2.0 s | 4.0 s | MATCH |
+| todo-list/todos | 6,407,144 / 495,616 / 5 | 32.3 s | 135.6 s | MATCH |
+| elysia-todo-app/server, team-task-manager/client | TLC does not end | — | — | EXCLUDED |
+
+TLC rules found while building it:
+
+| Rule | Evidence |
+|---|---|
+| With `-workers auto`, TLC's reported depth is not deterministic | mesh-recovery-pair: 20 with 1 worker, 21 and 22 on two `auto` runs |
+| `TLCGet("level")` in a constraint reads the level of the state being expanded | todo-list sets: `TLCGet("level") <= 4` gives depth 5 |
+
+Speed: the interpreter is 2–4× slower than TLC with one worker, and minimal
+peaks at 4.94 GiB. Its profile has no single hot spot (value building and
+keys 29 %, tree walk 26 %). Step 3b compiles instead of interpreting.
+
 ## Plan to continue
 
-1. Emit the checker from polly's internal model, not from the `.tla`.
-   MessageRouter is a fixed template; only handler actions (requires, writes,
-   ensures) and the state schema differ between models.
+1. DONE as 3a, by a different route: compile the generated `.tla`, so TLC
+   and the checker read the same file (decided 2026-10-28). 3b: compile to a
+   fixed bit layout for speed. Stop if 3b is not >= 3x TLC `-workers auto`
+   on full-featured.
 2. Encoding: the variable-length bit string in `check.ts` (bounds from the
    config, varint for unbounded naturals, 64-bit fingerprint with exact word
    compare).
-3. Parity gate: run TLC and the generated checker on every example in CI;
-   fail on any difference in generated / distinct / depth.
+3. Parity gate: `parity.ts` (done); not yet in CI.
 4. Add as a `polly verify` option for safety runs. TLC stays the reference and
    runs liveness and temporal properties.
 5. Counterexample traces in a form the existing TLC trace reader accepts.

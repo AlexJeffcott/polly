@@ -20,21 +20,22 @@ import { join, relative, resolve } from "node:path";
 const HERE = import.meta.dir;
 const ROOT = resolve(HERE, "../../../../..");
 const CACHE = join(HERE, "tlc-counts.json");
+// Part of the cache key: counts from another worker count are not reused.
+const TLC_WORKERS = "workers=1";
 
 // Sets left out of the run, with the reason. A reason is required, so a set
 // cannot drop out without a record.
 const EXCLUDED: Record<string, string> = {
   "examples/elysia-todo-app/server/specs/tla/generated":
     "TLC does not end: stopped after 6,246 s at 257M distinct states, depth 9 (2026-10-28)",
+  "examples/team-task-manager/client/specs/tla/generated":
+    "TLC does not end: stopped after 30 min at 99.8M distinct states, depth 10, 54M queued (2026-10-28)",
 };
 
-// Sets the Bun checker accepts. check.ts is written by hand for minimal's
-// actions; the compiler in step 3 of the README replaces this list.
-const BUN_SUPPORTED = new Set(["examples/minimal/specs/tla/generated"]);
 
 type Counts = { generated: number; distinct: number; depth: number };
 type TlcEntry = Counts & { hash: string; seconds: number };
-type Row = { set: string; tlc: string; bun: string; verdict: "MATCH" | "DIFFER" | "TLC ONLY" | "EXCLUDED" | "ERROR" };
+type Row = { set: string; tlc: string; bun: string; verdict: "MATCH" | "DIFFER" | "UNSUPPORTED" | "EXCLUDED" | "ERROR" };
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -86,7 +87,7 @@ function safetyCfg(cfg: string): string {
 function stage(dir: string): { work: string; module: string; hash: string } {
   const module = rootModule(dir);
   const work = mkdtempSync(join(tmpdir(), "polly-parity-"));
-  const hash = createHash("sha256");
+  const hash = createHash("sha256").update(TLC_WORKERS);
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".tla") && !f.startsWith("Witness_")).sort()) {
     const text = readFileSync(join(dir, file), "utf-8");
     hash.update(file).update(text);
@@ -106,7 +107,10 @@ function parseTlc(out: string): Counts | undefined {
 }
 
 // TLC as polly's runner starts it (tools/verify/src/runner/docker.ts), with a
-// wall-clock limit that stops the container.
+// wall-clock limit that stops the container, and with ONE worker: with
+// `-workers auto` the reported depth is not deterministic, because a worker
+// can reach a state first by a longer path. mesh-recovery-pair: 20 with one
+// worker, 21 and 22 on two `auto` runs; generated and distinct do not change.
 async function runTlc(work: string, module: string): Promise<{ counts?: Counts; seconds: number; error?: string }> {
   const name = `polly-parity-${process.pid}-${Date.now()}`;
   const start = performance.now();
@@ -115,7 +119,7 @@ async function runTlc(work: string, module: string): Promise<{ counts?: Counts; 
       "docker", "run", "--rm", "--name", name, "--memory", "4g",
       "-e", "JAVA_TOOL_OPTIONS=-Xmx3072m -XX:+UseParallelGC",
       "-v", `${work}:/work`, "polly-tla:latest",
-      "tlc", "-workers", "auto", "-cleanup", "-metadir", "/tmp/states", `${module}.tla`,
+      "tlc", "-workers", "1", "-cleanup", "-metadir", "/tmp/states", `${module}.tla`,
     ],
     { stdout: "pipe", stderr: "pipe" }
   );
@@ -138,12 +142,16 @@ async function runTlc(work: string, module: string): Promise<{ counts?: Counts; 
   return counts ? { counts, seconds } : { seconds, error: "TLC output has no state counts" };
 }
 
-function runBun(work: string): { counts?: Counts; error?: string } {
-  const proc = Bun.spawnSync(["bun", join(HERE, "check.ts"), "--spec", work], { stdout: "pipe", stderr: "pipe" });
+// tlacheck.ts exits 3 when the spec uses TLA+ it does not support.
+function runBun(work: string): { counts?: Counts; seconds?: number; error?: string; unsupported?: boolean } {
+  const proc = Bun.spawnSync(["bun", join(HERE, "tlacheck.ts"), "--spec", work], { stdout: "pipe", stderr: "pipe" });
   const out = `${proc.stdout.toString()}\n${proc.stderr.toString()}`;
   const m = out.match(/^(\d+) states generated, (\d+) distinct states found, depth (\d+)/m);
-  if (proc.exitCode !== 0 || !m) return { error: `check.ts exit ${proc.exitCode}: ${out.trim().split("\n").pop()}` };
-  return { counts: { generated: Number(m[1]), distinct: Number(m[2]), depth: Number(m[3]) } };
+  const wall = out.match(/^wall ([\d.]+) s/m);
+  const last = out.trim().split("\n").pop();
+  if (proc.exitCode === 3) return { error: last, unsupported: true };
+  if (proc.exitCode !== 0 || !m) return { error: `tlacheck.ts exit ${proc.exitCode}: ${last}` };
+  return { counts: { generated: Number(m[1]), distinct: Number(m[2]), depth: Number(m[3]) }, seconds: Number(wall?.[1]) };
 }
 
 const fmt = (c: Counts) => `${c.generated.toLocaleString("en-GB")} / ${c.distinct.toLocaleString("en-GB")} / ${c.depth}`;
@@ -172,14 +180,13 @@ for (const set of specSets().filter((s) => !only || s.includes(only))) {
       writeFileSync(CACHE, `${JSON.stringify(cache, null, 2)}\n`);
     }
     const tlcText = `${fmt(tlc)} (${tlc.seconds} s)`;
-    if (!BUN_SUPPORTED.has(set)) {
-      rows.push({ set, tlc: tlcText, bun: "unsupported", verdict: "TLC ONLY" });
-      continue;
-    }
     console.error(`[parity] Bun ${set}`);
     const bun = runBun(work);
-    if (!bun.counts) rows.push({ set, tlc: tlcText, bun: bun.error ?? "", verdict: "ERROR" });
-    else rows.push({ set, tlc: tlcText, bun: fmt(bun.counts), verdict: same(tlc, bun.counts) ? "MATCH" : "DIFFER" });
+    if (!bun.counts) rows.push({ set, tlc: tlcText, bun: bun.error ?? "", verdict: bun.unsupported ? "UNSUPPORTED" : "ERROR" });
+    else {
+      const bunText = `${fmt(bun.counts)} (${bun.seconds} s)`;
+      rows.push({ set, tlc: tlcText, bun: bunText, verdict: same(tlc, bun.counts) ? "MATCH" : "DIFFER" });
+    }
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -188,4 +195,4 @@ for (const set of specSets().filter((s) => !only || s.includes(only))) {
 console.log("| Set | TLC generated / distinct / depth | Bun | Verdict |");
 console.log("|---|---|---|---|");
 for (const r of rows) console.log(`| ${r.set.replace("/specs/tla/generated", "")} | ${r.tlc} | ${r.bun} | ${r.verdict} |`);
-process.exit(rows.some((r) => r.verdict === "DIFFER" || r.verdict === "ERROR") ? 1 : 0);
+process.exit(rows.some((r) => r.verdict !== "MATCH" && r.verdict !== "EXCLUDED") ? 1 : 0);

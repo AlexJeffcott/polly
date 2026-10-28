@@ -34,10 +34,21 @@ function stripComments(text: string): string {
   return out.replace(/"[^"\n]*"/g, '""');
 }
 
-function count(text: string): Map<string, number> {
+// Names the spec set defines: `Name ==` or `Name(params) ==`.
+function definedNames(text: string): Set<string> {
+  return new Set([...stripComments(text).matchAll(/^\s*([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*==/gm)].map((m) => m[1] as string));
+}
+
+function count(text: string, defined: Set<string>): Map<string, number> {
   const counts = new Map<string, number>();
   const add = (k: string) => counts.set(k, (counts.get(k) ?? 0) + 1);
   const body = stripComments(text);
+  // Calls to operators the spec does not define: standard-module operators
+  // such as TLCGet. A fixed list would not see a new one.
+  for (const m of body.matchAll(/\b([A-Za-z_]\w*)\(/g)) {
+    const name = m[1] as string;
+    if (!defined.has(name) && !KEYWORDS.includes(name) && !/^[WS]F_/.test(name)) add(`${name}()`);
+  }
   for (const word of body.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g) ?? []) {
     if (KEYWORDS.includes(word)) add(word);
     else if (word.startsWith("WF_")) add("WF_");
@@ -75,8 +86,10 @@ for (const dir of dirs) {
   // Witness_*.tla files are written only by `--witness` and are checked apart.
   const files = readdirSync(dir).filter((f) => f.endsWith(".tla") && !f.startsWith("Witness_"));
   const counts = new Map<string, number>();
-  for (const file of files) {
-    for (const [k, n] of count(readFileSync(join(dir, file), "utf-8"))) counts.set(k, (counts.get(k) ?? 0) + n);
+  const texts = files.map((f) => readFileSync(join(dir, f), "utf-8"));
+  const defined = new Set(texts.flatMap((t) => [...definedNames(t)]));
+  for (const text of texts) {
+    for (const [k, n] of count(text, defined)) counts.set(k, (counts.get(k) ?? 0) + n);
   }
   const name = relative(ROOT, dir);
   for (const k of counts.keys()) total.set(k, (total.get(k) ?? new Set()).add(name));
