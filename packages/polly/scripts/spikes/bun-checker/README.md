@@ -1,7 +1,7 @@
 # Bun safety checker (spike, parked)
 
-**Status:** parked 2026-10-28, with the intention to continue. Not shipped. No
-tier runs it. `scripts/spikes` is excluded from typecheck, biome and semgrep
+**Status:** resumed 2026-10-28 (steps 1–3 done, below). Not shipped. No tier
+runs it. `scripts/spikes` is excluded from typecheck, biome and semgrep
 (`packages/polly/tsconfig.json`, `biome.json`, `scripts/check.ts`), because
 this code is reference only. The generator in the plan below replaces it.
 
@@ -98,12 +98,46 @@ Speed: the interpreter is 2–4× slower than TLC with one worker, and minimal
 peaks at 4.94 GiB. Its profile has no single hot spot (value building and
 keys 29 %, tree walk 26 %). Step 3b compiles instead of interpreting.
 
+## Compiled engine (step 3b, 2026-10-28)
+
+`tlacheck.ts` now compiles the spec to JavaScript (`tla/compile.ts`) over
+interned values (`tla/runtime.ts`); `--engine interp` keeps the 3a
+interpreter. Stop rule, agreed 2026-10-28: at least 3x TLC `-workers auto` on
+full-featured. Result: PASSED, 3.1x worst case, 3.3x median.
+
+`bench-3b.sh`, TLC and Bun runs in turn, 3 rounds (`bench-3b-2026-10-28.log`).
+Wall time is `real` for both; TLC includes about 3 s of container and JVM
+start. Memory: container `memory.peak` for TLC, max RSS for Bun. Counts were
+equal in every run.
+
+| Set | TLC auto | Bun | Ratio | TLC memory | Bun memory |
+|---|---|---|---|---|---|
+| full-featured | 3.74–6.25 s | 1.14–1.20 s | 3.1–3.3x | 1.40 GB | 0.36 GB |
+| minimal | 16.7–18.9 s | 2.42–2.45 s | 6.9–7.8x | 1.74 GB | 0.36 GB |
+| mesh-recovery-pair | 20.6–21.0 s | 4.62–4.74 s | 4.4–4.5x | 1.60 GB | 0.88 GB |
+| todo-list/auth | 4.80–5.15 s | 1.80–1.90 s | 2.5–2.9x | 1.36 GB | 0.37 GB |
+| todo-list/preferences | 1.40–1.45 s | 0.16–0.18 s | 8.2–9.1x | 0.57 GB | 0.12 GB |
+| todo-list/todos | 7.27–7.42 s | 2.82–2.86 s | 2.5–2.6x | 1.55 GB | 0.40 GB |
+
+How the engine gets its speed, in order of effect on full-featured (62.7 s
+interpreted):
+
+| Change | full-featured |
+|---|---|
+| Interned values (one ID per value; a state is an Int32Array; exact visited set) and actions compiled to for/if code, constants folded at compile time | 2.32 s |
+| Loops over `DOMAIN f` and `1..Len(f)` bind `f[x]` once; grouped EXCEPT; lazy assignments inside ENABLED; repeated guards dropped; `[x \in DOMAIN f \ T |-> f[x]]` as one operation; states already checked are not checked again | 1.94 s |
+| Pure guards hoisted out of `\E` loops (`SendMessage` ran 378 combinations before its guards) | 1.56 s |
+| Constraint and invariant conjuncts cached by the value IDs they read | 1.42 s |
+| No typed-array views in the value store | 1.23 s |
+
+Tests that the checker can fail: an invariant that a normal run breaks, and
+one that only out-of-constraint states break, are reported with exit 12
+(TLC reports both). `SYMMETRY` in the cfg gives exit 3.
+
 ## Plan to continue
 
-1. DONE as 3a, by a different route: compile the generated `.tla`, so TLC
-   and the checker read the same file (decided 2026-10-28). 3b: compile to a
-   fixed bit layout for speed. Stop if 3b is not >= 3x TLC `-workers auto`
-   on full-featured.
+1. DONE as 3a and 3b: compile the generated `.tla`, so TLC and the checker
+   read the same file (decided 2026-10-28). 3b passed its stop rule.
 2. Encoding: the variable-length bit string in `check.ts` (bounds from the
    config, varint for unbounded naturals, 64-bit fingerprint with exact word
    compare).

@@ -1,0 +1,617 @@
+// Interned TLA+ values for compiled checking. Each distinct value has one
+// integer ID, so two values are equal exactly when their IDs are equal.
+//
+//   kind  INT    a = the integer
+//   kind  STR    a = index into `names`        (strings)
+//   kind  MODEL  a = index into `names`        (model values)
+//   kind  SET    pool[a .. a+n)   element IDs, ascending
+//   kind  FUN    pool[a .. a+n)   pairs (domain ID, value ID), domain ascending
+//
+// Records, tuples and sequences are FUN, as in TLA+. Integers 0..SMALL-1 are
+// interned first, so their IDs ascend with their values.
+
+import { EvalError, Lazy, ModelValue, TFun, TSet, type Value } from "./values";
+
+export const K_BOOL = 0;
+export const K_INT = 1;
+export const K_STR = 2;
+export const K_MODEL = 3;
+export const K_SET = 4;
+export const K_FUN = 5;
+
+const SMALL = 4096;
+
+// Sets that are never enumerated: membership only.
+export type LazyRT =
+  | { k: "Nat" }
+  | { k: "Int" }
+  | { k: "STRING" }
+  | { k: "Seq"; of: SetRT }
+  | { k: "recSet"; fields: Array<[number, SetRT]> }
+  | { k: "funSet"; dom: number; range: SetRT }
+  | { k: "subset"; of: SetRT };
+export type SetRT = number | LazyRT;
+
+function hashInts(kind: number, buf: Int32Array, off: number, len: number): number {
+  let h = 0x9747b28c ^ (kind * 0x27d4eb2f) ^ len;
+  for (let i = 0; i < len; i++) {
+    let k = Math.imul(buf[off + i] as number, 0xcc9e2d51);
+    k = (k << 15) | (k >>> 17);
+    h ^= Math.imul(k, 0x1b873593);
+    h = (h << 13) | (h >>> 19);
+    h = (Math.imul(h, 5) + 0xe6546b64) | 0;
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  return h ^ (h >>> 16);
+}
+
+export class Runtime {
+  kind = new Uint8Array(1 << 16);
+  a = new Int32Array(1 << 16);
+  n = new Int32Array(1 << 16);
+  hash = new Int32Array(1 << 16);
+  count = 0;
+  pool = new Int32Array(1 << 20);
+  plen = 0;
+  private table = new Int32Array(1 << 16).fill(-1);
+  private mask = (1 << 16) - 1;
+  private composites = 0;
+  private strIds = new Map<string, number>();
+  private modelIds = new Map<string, number>();
+  private bigInts = new Map<number, number>();
+  names: string[] = [];
+  // Scratch space for building a segment before it is interned.
+  private scr = new Int32Array(1 << 12);
+
+  readonly FALSE: number;
+  readonly TRUE: number;
+  private readonly INT0: number;
+  readonly EMPTY_SET: number;
+  readonly EMPTY_FUN: number;
+
+  constructor() {
+    this.FALSE = this.alloc(K_BOOL, 0, 0);
+    this.TRUE = this.alloc(K_BOOL, 1, 0);
+    this.INT0 = this.count;
+    for (let i = 0; i < SMALL; i++) this.alloc(K_INT, i, 0);
+    this.EMPTY_SET = this.intern(K_SET, this.scr, 0, 0);
+    this.EMPTY_FUN = this.intern(K_FUN, this.scr, 0, 0);
+  }
+
+  private alloc(kind: number, a: number, n: number): number {
+    if (this.count === this.kind.length) {
+      const grow = <T extends Uint8Array | Int32Array>(x: T): T => {
+        const y = new (x.constructor as new (n: number) => T)(x.length * 2);
+        y.set(x);
+        return y;
+      };
+      this.kind = grow(this.kind);
+      this.a = grow(this.a);
+      this.n = grow(this.n);
+      this.hash = grow(this.hash);
+    }
+    const id = this.count++;
+    this.kind[id] = kind;
+    this.a[id] = a;
+    this.n[id] = n;
+    return id;
+  }
+
+  private ensureScr(len: number): Int32Array {
+    if (this.scr.length < len) this.scr = new Int32Array(Math.max(len, this.scr.length * 2));
+    return this.scr;
+  }
+
+  // Interns the segment buf[off .. off+len) of the given kind.
+  intern(kind: number, buf: Int32Array, off: number, len: number): number {
+    const h = hashInts(kind, buf, off, len);
+    let i = h & this.mask;
+    for (;;) {
+      const id = this.table[i] as number;
+      if (id < 0) break;
+      if (this.hash[id] === h && this.kind[id] === kind && this.n[id] === len) {
+        const s = this.a[id] as number;
+        let same = true;
+        for (let j = 0; j < len; j++) {
+          if (this.pool[s + j] !== buf[off + j]) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return id;
+      }
+      i = (i + 1) & this.mask;
+    }
+    if (this.plen + len > this.pool.length) {
+      // Old views into the pool stay valid: segments never change.
+      const p = new Int32Array(Math.max(this.pool.length * 2, this.plen + len));
+      p.set(this.pool.subarray(0, this.plen));
+      this.pool = p;
+    }
+    const pool = this.pool;
+    const base = this.plen;
+    for (let j = 0; j < len; j++) pool[base + j] = buf[off + j] as number;
+    const id = this.alloc(kind, this.plen, len);
+    this.hash[id] = h;
+    this.plen += len;
+    this.table[i] = id;
+    if (++this.composites * 2 > this.mask) this.rehash();
+    return id;
+  }
+
+  private rehash() {
+    this.table = new Int32Array(this.table.length * 2).fill(-1);
+    this.mask = this.table.length - 1;
+    for (let id = 0; id < this.count; id++) {
+      const k = this.kind[id] as number;
+      if (k !== K_SET && k !== K_FUN) continue;
+      let i = (this.hash[id] as number) & this.mask;
+      while ((this.table[i] as number) >= 0) i = (i + 1) & this.mask;
+      this.table[i] = id;
+    }
+  }
+
+  // ------------------------------------------------------------ scalars
+  int(v: number): number {
+    if (v >= 0 && v < SMALL && Number.isInteger(v)) return this.INT0 + v;
+    if (!Number.isSafeInteger(v) || v > 0x7fffffff || v < -0x80000000) throw new EvalError(`integer ${v} is out of range`);
+    let id = this.bigInts.get(v);
+    if (id === undefined) {
+      id = this.alloc(K_INT, v, 0);
+      this.bigInts.set(v, id);
+    }
+    return id;
+  }
+  iv(id: number): number {
+    if (this.kind[id] !== K_INT) throw new EvalError(`expected an integer, got ${this.show(id)}`);
+    return this.a[id] as number;
+  }
+  bool(b: boolean): number {
+    return b ? this.TRUE : this.FALSE;
+  }
+  str(s: string): number {
+    let id = this.strIds.get(s);
+    if (id === undefined) {
+      this.names.push(s);
+      id = this.alloc(K_STR, this.names.length - 1, 0);
+      this.strIds.set(s, id);
+    }
+    return id;
+  }
+  model(name: string): number {
+    let id = this.modelIds.get(name);
+    if (id === undefined) {
+      this.names.push(name);
+      id = this.alloc(K_MODEL, this.names.length - 1, 0);
+      this.modelIds.set(name, id);
+    }
+    return id;
+  }
+
+  // ------------------------------------------------------------ sets
+  private checkSet(s: number): void {
+    if (this.kind[s] !== K_SET) throw new EvalError(`expected a set, got ${this.show(s)}`);
+  }
+  // A set from IDs in any order, with repeats.
+  setOf(ids: ArrayLike<number>): number {
+    const len = ids.length;
+    const b = this.ensureScr(len);
+    for (let i = 0; i < len; i++) b[i] = ids[i] as number;
+    // Insertion sort: sets here have few elements.
+    for (let i = 1; i < len; i++) {
+      const x = b[i] as number;
+      let j = i - 1;
+      while (j >= 0 && (b[j] as number) > x) {
+        b[j + 1] = b[j] as number;
+        j--;
+      }
+      b[j + 1] = x;
+    }
+    let m = 0;
+    for (let i = 0; i < len; i++) if (i === 0 || b[i] !== b[m - 1]) b[m++] = b[i] as number;
+    return this.intern(K_SET, b, 0, m);
+  }
+  setLen(s: number): number {
+    this.checkSet(s);
+    return this.n[s] as number;
+  }
+  // The elements of s. The view stays valid when the pool grows.
+  elems(s: number): Int32Array {
+    this.checkSet(s);
+    const a = this.a[s] as number;
+    return this.pool.subarray(a, a + (this.n[s] as number));
+  }
+  setHas(s: number, x: number): boolean {
+    this.checkSet(s);
+    let lo = this.a[s] as number;
+    let hi = lo + (this.n[s] as number) - 1;
+    const p = this.pool;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const v = p[mid] as number;
+      if (v === x) return true;
+      if (v < x) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return false;
+  }
+  union(s: number, t: number): number {
+    this.checkSet(s);
+    this.checkSet(t);
+    const ns = this.n[s] as number;
+    const nt = this.n[t] as number;
+    const b = this.ensureScr(ns + nt);
+    const p = this.pool;
+    let i = this.a[s] as number;
+    let j = this.a[t] as number;
+    const ie = i + ns;
+    const je = j + nt;
+    let m = 0;
+    while (i < ie && j < je) {
+      const x = p[i] as number;
+      const y = p[j] as number;
+      if (x === y) {
+        b[m++] = x;
+        i++;
+        j++;
+      } else if (x < y) {
+        b[m++] = x;
+        i++;
+      } else {
+        b[m++] = y;
+        j++;
+      }
+    }
+    while (i < ie) b[m++] = p[i++] as number;
+    while (j < je) b[m++] = p[j++] as number;
+    return this.intern(K_SET, b, 0, m);
+  }
+  // s \ t (keep = false) or s \cap t (keep = true); t may be lazy.
+  filterBy(s: number, t: SetRT, keep: boolean): number {
+    this.checkSet(s);
+    const ns = this.n[s] as number;
+    const b = this.ensureScr(ns);
+    const a = this.a[s] as number;
+    let m = 0;
+    for (let i = 0; i < ns; i++) {
+      const x = this.pool[a + i] as number;
+      if (this.member(x, t) === keep) b[m++] = x;
+    }
+    return m === ns ? s : this.intern(K_SET, b, 0, m);
+  }
+  range(lo: number, hi: number): number {
+    if (hi < lo) return this.EMPTY_SET;
+    const ids: number[] = [];
+    for (let v = lo; v <= hi; v++) ids.push(this.int(v));
+    return this.setOf(ids);
+  }
+  inRange(x: number, lo: number, hi: number): boolean {
+    if (this.kind[x] !== K_INT) return false;
+    const v = this.a[x] as number;
+    return v >= lo && v <= hi;
+  }
+  subseteq(s: number, t: SetRT): boolean {
+    this.checkSet(s);
+    const a = this.a[s] as number;
+    const n = this.n[s] as number;
+    for (let i = 0; i < n; i++) if (!this.member(this.pool[a + i] as number, t)) return false;
+    return true;
+  }
+  member(x: number, s: SetRT): boolean {
+    if (typeof s === "number") return this.setHas(s, x);
+    const kx = this.kind[x];
+    switch (s.k) {
+      case "Nat":
+        return kx === K_INT && (this.a[x] as number) >= 0;
+      case "Int":
+        return kx === K_INT;
+      case "STRING":
+        return kx === K_STR;
+      case "Seq": {
+        if (kx !== K_FUN) return false;
+        const a = this.a[x] as number;
+        const n = (this.n[x] as number) >> 1;
+        for (let i = 0; i < n; i++) {
+          if (this.pool[a + 2 * i] !== this.int(i + 1)) return false;
+          if (!this.member(this.pool[a + 2 * i + 1] as number, s.of)) return false;
+        }
+        return true;
+      }
+      case "recSet": {
+        if (kx !== K_FUN || this.n[x] !== 2 * s.fields.length) return false;
+        const a = this.a[x] as number;
+        for (let i = 0; i < s.fields.length; i++) {
+          const [f, set] = s.fields[i] as [number, SetRT];
+          if (this.pool[a + 2 * i] !== f) return false;
+          if (!this.member(this.pool[a + 2 * i + 1] as number, set)) return false;
+        }
+        return true;
+      }
+      case "funSet": {
+        if (kx !== K_FUN) return false;
+        const a = this.a[x] as number;
+        const n = (this.n[x] as number) >> 1;
+        const dom = this.elems(s.dom);
+        if (dom.length !== n) return false;
+        for (let i = 0; i < n; i++) {
+          if (this.pool[a + 2 * i] !== dom[i]) return false;
+          if (!this.member(this.pool[a + 2 * i + 1] as number, s.range)) return false;
+        }
+        return true;
+      }
+      case "subset": {
+        if (kx !== K_SET) return false;
+        return this.subseteq(x, s.of);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ functions
+  private checkFun(f: number): void {
+    if (this.kind[f] !== K_FUN) throw new EvalError(`expected a function, got ${this.show(f)}`);
+  }
+  // Index in the pool of the pair whose domain element is x, or -1.
+  private find(f: number, x: number): number {
+    const a = this.a[f] as number;
+    const n = (this.n[f] as number) >> 1;
+    const p = this.pool;
+    // Sequences: domain i sits at pair i-1.
+    const k = x - this.INT0;
+    if (k >= 1 && k <= n && p[a + 2 * (k - 1)] === x) return a + 2 * (k - 1);
+    if (n <= 8) {
+      for (let i = 0; i < n; i++) if (p[a + 2 * i] === x) return a + 2 * i;
+      return -1;
+    }
+    let lo = 0;
+    let hi = n - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const v = p[a + 2 * mid] as number;
+      if (v === x) return a + 2 * mid;
+      if (v < x) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return -1;
+  }
+  // Pool index of the pair for x in f, or -1: for an update that finds its
+  // key once (putIdx).
+  findIdx(f: number, x: number): number {
+    this.checkFun(f);
+    return this.find(f, x);
+  }
+  // f with the value of the pair at pool index i (from findIdx(f, ...)) set to v.
+  putIdx(f: number, i: number, v: number): number {
+    if (this.pool[i + 1] === v) return f;
+    const a = this.a[f] as number;
+    const len = this.n[f] as number;
+    const b = this.ensureScr(len);
+    for (let j = 0; j < len; j++) b[j] = this.pool[a + j] as number;
+    b[i - a + 1] = v;
+    return this.intern(K_FUN, b, 0, len);
+  }
+  // [x \in DOMAIN f \ t |-> f[x]]: f without the keys in t.
+  restrict(f: number, t: SetRT): number {
+    this.checkFun(f);
+    const a = this.a[f] as number;
+    const len = this.n[f] as number;
+    const b = this.ensureScr(len);
+    let m = 0;
+    for (let i = 0; i < len; i += 2) {
+      const d = this.pool[a + i] as number;
+      if (this.member(d, t)) continue;
+      b[m++] = d;
+      b[m++] = this.pool[a + i + 1] as number;
+    }
+    return m === len ? f : this.intern(K_FUN, b, 0, m);
+  }
+  apply(f: number, x: number): number {
+    this.checkFun(f);
+    const i = this.find(f, x);
+    if (i < 0) throw new EvalError(`${this.show(x)} is not in the domain of ${this.show(f)}`);
+    return this.pool[i + 1] as number;
+  }
+  inDomain(f: number, x: number): boolean {
+    this.checkFun(f);
+    return this.find(f, x) >= 0;
+  }
+  // [f EXCEPT ![x] = v]; f when x is not in the domain.
+  put(f: number, x: number, v: number): number {
+    this.checkFun(f);
+    const i = this.find(f, x);
+    if (i < 0) return f;
+    if (this.pool[i + 1] === v) return f;
+    const a = this.a[f] as number;
+    const len = this.n[f] as number;
+    const b = this.ensureScr(len);
+    for (let j = 0; j < len; j++) b[j] = this.pool[a + j] as number;
+    b[i - a + 1] = v;
+    return this.intern(K_FUN, b, 0, len);
+  }
+  // A function from pairs in scratch-independent arrays.
+  funOf(dom: ArrayLike<number>, val: ArrayLike<number>): number {
+    const n = dom.length;
+    const order = Array.from({ length: n }, (_, i) => i);
+    let sorted = true;
+    for (let i = 1; i < n; i++) if ((dom[i] as number) <= (dom[i - 1] as number)) sorted = false;
+    if (!sorted) order.sort((x, y) => (dom[x] as number) - (dom[y] as number));
+    const b = this.ensureScr(2 * n);
+    let m = 0;
+    for (let i = 0; i < n; i++) {
+      const j = order[i] as number;
+      if (m > 0 && b[m - 2] === dom[j]) throw new EvalError("a function with a repeated domain element");
+      b[m++] = dom[j] as number;
+      b[m++] = val[j] as number;
+    }
+    return this.intern(K_FUN, b, 0, m);
+  }
+  // [x \in s |-> fn(x)]
+  funOver(s: number, fn: (x: number) => number): number {
+    const xs = this.elems(s);
+    const vals = new Array<number>(xs.length);
+    for (let i = 0; i < xs.length; i++) vals[i] = fn(xs[i] as number);
+    return this.funOf(xs, vals);
+  }
+  seq(vals: number[]): number {
+    const dom = vals.map((_, i) => this.int(i + 1));
+    return this.funOf(dom, vals);
+  }
+  seqVals(s: number): number[] {
+    this.checkFun(s);
+    const a = this.a[s] as number;
+    const n = (this.n[s] as number) >> 1;
+    const out = new Array<number>(n);
+    for (let i = 0; i < n; i++) {
+      if (this.pool[a + 2 * i] !== this.int(i + 1)) throw new EvalError(`expected a sequence, got ${this.show(s)}`);
+      out[i] = this.pool[a + 2 * i + 1] as number;
+    }
+    return out;
+  }
+  len(s: number): number {
+    if (this.kind[s] === K_STR) return (this.names[this.a[s] as number] as string).length;
+    this.checkFun(s);
+    return (this.n[s] as number) >> 1;
+  }
+  append(s: number, v: number): number {
+    const vals = this.seqVals(s);
+    vals.push(v);
+    return this.seq(vals);
+  }
+  subSeq(s: number, m: number, n: number): number {
+    if (this.kind[s] === K_STR) throw new EvalError("SubSeq on a string is not supported by the compiled engine");
+    const vals = this.seqVals(s);
+    if (m > n) return this.EMPTY_FUN;
+    if (m < 1 || n > vals.length) throw new EvalError(`SubSeq out of range: ${m}..${n} of ${vals.length}`);
+    return this.seq(vals.slice(m - 1, n));
+  }
+  head(s: number): number {
+    const vals = this.seqVals(s);
+    if (vals.length === 0) throw new EvalError("Head of an empty sequence");
+    return vals[0] as number;
+  }
+  tail(s: number): number {
+    const vals = this.seqVals(s);
+    if (vals.length === 0) throw new EvalError("Tail of an empty sequence");
+    return this.seq(vals.slice(1));
+  }
+  domain(f: number): number {
+    this.checkFun(f);
+    const a = this.a[f] as number;
+    const n = (this.n[f] as number) >> 1;
+    const b = this.ensureScr(n);
+    for (let i = 0; i < n; i++) b[i] = this.pool[a + 2 * i] as number;
+    return this.intern(K_SET, b, 0, n);
+  }
+  // Pool offset and pair count of f, for loops over its domain.
+  funStart(f: number): number {
+    this.checkFun(f);
+    return this.a[f] as number;
+  }
+  funSize(f: number): number {
+    this.checkFun(f);
+    return (this.n[f] as number) >> 1;
+  }
+  // f @@ g
+  merge(f: number, g: number): number {
+    this.checkFun(f);
+    this.checkFun(g);
+    const dom: number[] = [];
+    const val: number[] = [];
+    const fa = this.a[f] as number;
+    for (let i = 0; i < (this.n[f] as number) >> 1; i++) {
+      dom.push(this.pool[fa + 2 * i] as number);
+      val.push(this.pool[fa + 2 * i + 1] as number);
+    }
+    const ga = this.a[g] as number;
+    for (let i = 0; i < (this.n[g] as number) >> 1; i++) {
+      const d = this.pool[ga + 2 * i] as number;
+      if (this.find(f, d) >= 0) continue;
+      dom.push(d);
+      val.push(this.pool[ga + 2 * i + 1] as number);
+    }
+    return this.funOf(dom, val);
+  }
+  // A record whose field-name IDs are already ascending.
+  rec(fields: number[], vals: number[]): number {
+    const n = fields.length;
+    const b = this.ensureScr(2 * n);
+    for (let i = 0; i < n; i++) {
+      b[2 * i] = fields[i] as number;
+      b[2 * i + 1] = vals[i] as number;
+    }
+    return this.intern(K_FUN, b, 0, 2 * n);
+  }
+
+  // ------------------------------------------------------------ conversion
+  // An interpreter value as an ID; a lazy set stays lazy unless it is finite
+  // and small enough to list.
+  fromValue(v: Value): SetRT {
+    if (typeof v === "boolean") return this.bool(v);
+    if (typeof v === "number") return this.int(v);
+    if (typeof v === "string") return this.str(v);
+    if (v instanceof ModelValue) return this.model(v.name);
+    if (v instanceof TSet) return this.setOf(v.elems.map((x) => this.idOf(x)));
+    if (v instanceof TFun) return this.funOf(v.dom.map((x) => this.idOf(x)), v.val.map((x) => this.idOf(x)));
+    if (v instanceof Lazy) {
+      const s = v.s;
+      switch (s.lazy) {
+        case "Nat":
+        case "Int":
+        case "STRING":
+          return { k: s.lazy };
+        case "Seq":
+          return { k: "Seq", of: this.fromValue(s.of) };
+        case "recSet": {
+          const fields = s.fields.map(([name, set]) => [this.str(name), this.fromValue(set)] as [number, SetRT]);
+          fields.sort((x, y) => x[0] - y[0]);
+          return { k: "recSet", fields };
+        }
+        case "funSet":
+          return { k: "funSet", dom: this.idOf(s.dom), range: this.fromValue(s.range) };
+        case "subset":
+          return { k: "subset", of: this.fromValue(s.of) };
+      }
+    }
+    throw new EvalError("value cannot be converted");
+  }
+  idOf(v: Value): number {
+    const r = this.fromValue(v);
+    if (typeof r !== "number") throw new EvalError(`an infinite set where a value is needed (${r.k})`);
+    return r;
+  }
+
+  show(id: number): string {
+    switch (this.kind[id]) {
+      case K_BOOL:
+        return id === this.TRUE ? "TRUE" : "FALSE";
+      case K_INT:
+        return `${this.a[id]}`;
+      case K_STR:
+        return JSON.stringify(this.names[this.a[id] as number]);
+      case K_MODEL:
+        return this.names[this.a[id] as number] as string;
+      case K_SET:
+        return `{${[...this.elems(id)].map((x) => this.show(x)).join(", ")}}`;
+    }
+    const a = this.a[id] as number;
+    const n = (this.n[id] as number) >> 1;
+    const parts: string[] = [];
+    let isSeq = true;
+    let isRec = true;
+    for (let i = 0; i < n; i++) {
+      const d = this.pool[a + 2 * i] as number;
+      if (d !== this.int(i + 1)) isSeq = false;
+      if (this.kind[d] !== K_STR) isRec = false;
+    }
+    for (let i = 0; i < n; i++) {
+      const d = this.pool[a + 2 * i] as number;
+      const v = this.show(this.pool[a + 2 * i + 1] as number);
+      parts.push(isSeq ? v : isRec ? `${this.names[this.a[d] as number]} |-> ${v}` : `${this.show(d)} :> ${v}`);
+    }
+    if (isSeq) return `<<${parts.join(", ")}>>`;
+    if (isRec) return `[${parts.join(", ")}]`;
+    return `(${parts.join(" @@ ")})`;
+  }
+}
