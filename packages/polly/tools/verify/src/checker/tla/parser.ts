@@ -3,6 +3,7 @@
 // a bullet list at column c ends at the first later token at column <= c.
 
 import { lex, TlaSyntaxError, type Token } from "./lexer";
+import { at } from "./values";
 
 export type Bound = { vars: string[]; set: Expr };
 export type ExceptClause = { path: Array<{ index: Expr[] } | { field: string }>; value: Expr };
@@ -35,7 +36,16 @@ export type Expr =
   | { k: "choose"; v: string; set: Expr; pred: Expr }
   | { k: "quant"; q: "E" | "A"; bounds: Bound[]; body: Expr }
   | { k: "actBox"; a: Expr; sub: Expr }
-  | { k: "temporal"; op: string; args: Expr[] };
+  | { k: "temporal"; op: string; args: Expr[] }
+  // Not TLA+: a coverage counter the checker puts into a handler action
+  // before compiling it (checker/check.ts). Reaching it adds one to COV[slot].
+  | { k: "cover"; slot: number };
+
+// A parsed expression node: every node the parser builds has a string `k`,
+// and no other object in the tree (Bound, Def, ExceptClause) has one.
+export function isExpr(x: object): x is Expr {
+  return "k" in x && typeof x.k === "string";
+}
 
 export type Module = {
   name: string;
@@ -47,10 +57,36 @@ export type Module = {
 
 // Binary operators: [precedence, associativity]. SANY's table.
 const INFIX: Record<string, number> = {
-  "=>": 1, "<=>": 2, "~>": 2, "-+->": 2, "/\\": 3, "\\/": 3,
-  "=": 5, "#": 5, "<": 5, ">": 5, "<=": 5, ">=": 5, "\\in": 5, "\\notin": 5, "\\subseteq": 5, "\\subset": 5,
-  "@@": 6, ":>": 7, "\\union": 8, "\\intersect": 8, "\\": 8, "..": 9, "+": 10, "-": 10, "%": 11,
-  "*": 13, "\\o": 13, "\\div": 13, "\\X": 10, "^": 14,
+  "=>": 1,
+  "<=>": 2,
+  "~>": 2,
+  "-+->": 2,
+  "/\\": 3,
+  "\\/": 3,
+  "=": 5,
+  "#": 5,
+  "<": 5,
+  ">": 5,
+  "<=": 5,
+  ">=": 5,
+  "\\in": 5,
+  "\\notin": 5,
+  "\\subseteq": 5,
+  "\\subset": 5,
+  "@@": 6,
+  ":>": 7,
+  "\\union": 8,
+  "\\intersect": 8,
+  "\\": 8,
+  "..": 9,
+  "+": 10,
+  "-": 10,
+  "%": 11,
+  "*": 13,
+  "\\o": 13,
+  "\\div": 13,
+  "\\X": 10,
+  "^": 14,
 };
 
 export function parseModule(src: string, file: string): Module {
@@ -68,21 +104,24 @@ class Parser {
   ) {}
 
   private err(msg: string, tok = this.raw()): TlaSyntaxError {
-    return new TlaSyntaxError(`${this.file}:${tok.line}:${tok.col}: ${msg} (at ${JSON.stringify(tok.v || tok.t)})`);
+    return new TlaSyntaxError(
+      `${this.file}:${tok.line}:${tok.col}: ${msg} (at ${JSON.stringify(tok.v || tok.t)})`
+    );
   }
   private raw(o = 0): Token {
-    return this.toks[Math.min(this.pos + o, this.toks.length - 1)] as Token;
+    return at(this.toks, Math.min(this.pos + o, this.toks.length - 1));
   }
   // The next token, or an end-of-input token when it sits at or left of the
   // innermost bullet column.
   private peek(): Token {
     const tok = this.raw();
     const limit = this.limits[this.limits.length - 1];
-    if (limit !== undefined && tok.col <= limit && tok.t !== "eof") return { t: "eof", v: "", line: tok.line, col: tok.col };
+    if (limit !== undefined && tok.col <= limit && tok.t !== "eof")
+      return { t: "eof", v: "", line: tok.line, col: tok.col };
     return tok;
   }
   private next(): Token {
-    return this.toks[this.pos++] as Token;
+    return at(this.toks, this.pos++);
   }
   private isOp(v: string, tok = this.peek()): boolean {
     return tok.t === "op" && tok.v === v;
@@ -201,7 +240,7 @@ class Parser {
       if (tok.v === "/\\" || tok.v === "\\/") {
         const k = tok.v === "/\\" ? "and" : "or";
         const items = left.k === k ? [...left.items, right] : [left, right];
-        left = { k, items } as Expr;
+        left = { k, items };
       } else if (tok.v === "~>" || tok.v === "-+->") {
         left = { k: "temporal", op: tok.v, args: [left, right] };
       } else left = { k: "op", op: tok.v, args: [left, right] };
@@ -231,8 +270,8 @@ class Parser {
         this.limits.pop();
       }
     }
-    if (items.length === 1) return items[0] as Expr;
-    return { k: kind === "/\\" ? "and" : "or", items } as Expr;
+    if (items.length === 1) return at(items, 0);
+    return kind === "/\\" ? { k: "and", items } : { k: "or", items };
   }
 
   private bounds(): Bound[] {

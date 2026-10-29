@@ -1,9 +1,13 @@
-# Bun safety checker (spike, parked)
+# Bun safety checker (spike)
 
-**Status:** resumed 2026-10-28 (steps 1–3 done, below). Not shipped. No tier
-runs it. `scripts/spikes` is excluded from typecheck, biome and semgrep
-(`packages/polly/tsconfig.json`, `biome.json`, `scripts/check.ts`), because
-this code is reference only. The generator in the plan below replaces it.
+**Status:** step 4 done 2026-10-28. The general checker (steps 3a and 3b
+below) moved out of this directory to `tools/verify/src/checker/` and ships
+as `polly verify --engine bun`; its CLI for the scripts here is
+`tools/verify/src/checker/cli.ts`. What stays here is the history: the
+hand-written minimal checker (`check.ts`), `parity.ts`, the bench scripts and
+their logs. `scripts/spikes` is excluded from typecheck, biome and semgrep
+(`packages/polly/tsconfig.json`, `biome.json`, `scripts/check.ts`), not from
+the casts gate.
 
 An explicit-state breadth-first checker for the TLA+ spec that `polly verify`
 generates for `examples/minimal`. It checks safety only (invariants under the
@@ -142,6 +146,12 @@ one that only out-of-constraint states break, are reported with exit 12
    config, varint for unbounded naturals, 64-bit fingerprint with exact word
    compare).
 3. Parity gate: `parity.ts` (done); not yet in CI.
-4. Add as a `polly verify` option for safety runs. TLC stays the reference and
-   runs liveness and temporal properties.
-5. Counterexample traces in a form the existing TLC trace reader accepts.
+4. DONE 2026-10-28: `polly verify --engine bun` (or `verification.engine`).
+   Safety only; PROPERTIES listed as not checked (`--strict` fails on them);
+   a spec it cannot read falls back to TLC (`--strict` fails). Handler
+   coverage from a `cover` node put before each `Handle*` action's last
+   conjunct. Proof: `scripts/e2e-verify-bun-engine.ts`. The interpreter's
+   action enumeration (3a) was removed; the compiler uses the evaluator for
+   constant expressions only.
+5. DONE with step 4: a violation gives a shortest trace (parent index per
+   stored state), `State N:` / `/\ var = value` lines as TLC prints them.

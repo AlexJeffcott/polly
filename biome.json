@@ -150,6 +150,16 @@
       }
     },
     {
+      "includes": ["packages/polly/tools/verify/src/checker/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
       "linter": {
         "rules": {

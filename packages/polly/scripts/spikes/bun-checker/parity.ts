@@ -65,7 +65,7 @@ function specSets(): string[] {
 function rootModule(dir: string): string {
   const cfgs = readdirSync(dir).filter((f) => f.endsWith(".cfg") && !f.startsWith("Witness_"));
   if (cfgs.length !== 1) throw new Error(`${dir}: expected one .cfg, found ${cfgs.length}`);
-  return (cfgs[0] as string).replace(/\.cfg$/, "");
+  return (cfgs[0] ?? "").replace(/\.cfg$/, "");
 }
 
 // Safety only: drop the PROPERTIES block. Neither checker runs liveness here.
@@ -142,15 +142,16 @@ async function runTlc(work: string, module: string): Promise<{ counts?: Counts; 
   return counts ? { counts, seconds } : { seconds, error: "TLC output has no state counts" };
 }
 
-// tlacheck.ts exits 3 when the spec uses TLA+ it does not support.
+// The checker's CLI exits 3 when the spec uses TLA+ it does not support.
+const CHECKER_CLI = join(ROOT, "packages/polly/tools/verify/src/checker/cli.ts");
 function runBun(work: string): { counts?: Counts; seconds?: number; error?: string; unsupported?: boolean } {
-  const proc = Bun.spawnSync(["bun", join(HERE, "tlacheck.ts"), "--spec", work], { stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawnSync(["bun", CHECKER_CLI, "--spec", work], { stdout: "pipe", stderr: "pipe" });
   const out = `${proc.stdout.toString()}\n${proc.stderr.toString()}`;
   const m = out.match(/^(\d+) states generated, (\d+) distinct states found, depth (\d+)/m);
   const wall = out.match(/^wall ([\d.]+) s/m);
   const last = out.trim().split("\n").pop();
   if (proc.exitCode === 3) return { error: last, unsupported: true };
-  if (proc.exitCode !== 0 || !m) return { error: `tlacheck.ts exit ${proc.exitCode}: ${last}` };
+  if (proc.exitCode !== 0 || !m) return { error: `checker exit ${proc.exitCode}: ${last}` };
   return { counts: { generated: Number(m[1]), distinct: Number(m[2]), depth: Number(m[3]) }, seconds: Number(wall?.[1]) };
 }
 

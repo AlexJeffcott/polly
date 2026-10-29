@@ -5,26 +5,121 @@ export type TokenType = "id" | "num" | "str" | "op" | "kw" | "sep" | "end" | "eo
 export type Token = { t: TokenType; v: string; line: number; col: number };
 
 const KEYWORDS = new Set([
-  "MODULE", "EXTENDS", "CONSTANT", "CONSTANTS", "VARIABLE", "VARIABLES", "ASSUME", "LOCAL",
-  "INSTANCE", "RECURSIVE", "LAMBDA", "LET", "IN", "IF", "THEN", "ELSE", "CASE", "OTHER", "CHOOSE",
-  "EXCEPT", "DOMAIN", "SUBSET", "UNION", "UNCHANGED", "ENABLED", "TRUE", "FALSE",
+  "MODULE",
+  "EXTENDS",
+  "CONSTANT",
+  "CONSTANTS",
+  "VARIABLE",
+  "VARIABLES",
+  "ASSUME",
+  "LOCAL",
+  "INSTANCE",
+  "RECURSIVE",
+  "LAMBDA",
+  "LET",
+  "IN",
+  "IF",
+  "THEN",
+  "ELSE",
+  "CASE",
+  "OTHER",
+  "CHOOSE",
+  "EXCEPT",
+  "DOMAIN",
+  "SUBSET",
+  "UNION",
+  "UNCHANGED",
+  "ENABLED",
+  "TRUE",
+  "FALSE",
 ]);
 
 // Operators made of symbols, longest first.
 const SYMBOLS = [
-  "-+->", "<=>", "|->", "=>", "~>", "[]", "<>", "<<", ">>", "->", ":>", "@@", "..", "==", "/=",
-  "<=", ">=", "=<", "]_", "::", "/\\", "\\/", "'", "!", "@", "<", ">", "=", "+", "-", "*", "%",
-  "~", "#", "(", ")", "[", "]", "{", "}", ",", ":", ".", "^", "|", "&",
+  "-+->",
+  "<=>",
+  "|->",
+  "=>",
+  "~>",
+  "[]",
+  "<>",
+  "<<",
+  ">>",
+  "->",
+  ":>",
+  "@@",
+  "..",
+  "==",
+  "/=",
+  "<=",
+  ">=",
+  "=<",
+  "]_",
+  "::",
+  "/\\",
+  "\\/",
+  "'",
+  "!",
+  "@",
+  "<",
+  ">",
+  "=",
+  "+",
+  "-",
+  "*",
+  "%",
+  "~",
+  "#",
+  "(",
+  ")",
+  "[",
+  "]",
+  "{",
+  "}",
+  ",",
+  ":",
+  ".",
+  "^",
+  "|",
+  "&",
 ];
 
 // Operators spelt as a backslash and a word.
 const BACKSLASH_WORDS = new Set([
-  "in", "notin", "subseteq", "subset", "union", "cup", "intersect", "cap", "E", "A", "X", "o",
-  "div", "times", "land", "lor", "lnot", "neg", "equiv", "leq", "geq",
+  "in",
+  "notin",
+  "subseteq",
+  "subset",
+  "union",
+  "cup",
+  "intersect",
+  "cap",
+  "E",
+  "A",
+  "X",
+  "o",
+  "div",
+  "times",
+  "land",
+  "lor",
+  "lnot",
+  "neg",
+  "equiv",
+  "leq",
+  "geq",
 ]);
 const ALIASES: Record<string, string> = {
-  "\\cup": "\\union", "\\cap": "\\intersect", "\\land": "/\\", "\\lor": "\\/", "\\lnot": "~",
-  "\\neg": "~", "\\leq": "<=", "\\geq": ">=", "=<": "<=", "/=": "#", "\\equiv": "<=>",
+  "\\cup": "\\union",
+  "\\cap": "\\intersect",
+  "\\land": "/\\",
+  "\\lor": "\\/",
+  "\\lnot": "~",
+  "\\neg": "~",
+  "\\leq": "<=",
+  "\\geq": ">=",
+  "=<": "<=",
+  "/=": "#",
+  "\\equiv": "<=>",
 };
 
 export class TlaSyntaxError extends Error {}
@@ -35,10 +130,11 @@ export function lex(src: string, file: string): Token[] {
   let line = 1;
   let lineStart = 0;
   const err = (msg: string) => new TlaSyntaxError(`${file}:${line}:${i - lineStart + 1}: ${msg}`);
-  const push = (t: TokenType, v: string, start: number) => out.push({ t, v, line, col: start - lineStart + 1 });
+  const push = (t: TokenType, v: string, start: number) =>
+    out.push({ t, v, line, col: start - lineStart + 1 });
 
   while (i < src.length) {
-    const ch = src[i] as string;
+    const ch = src.charAt(i);
     if (ch === "\n") {
       line++;
       i++;
@@ -92,7 +188,8 @@ export function lex(src: string, file: string): Token[] {
     if (/[0-9]/.test(ch)) {
       const s = i;
       while (/[0-9]/.test(src[i] ?? "")) i++;
-      if (/[A-Za-z_]/.test(src[i] ?? "")) throw err("identifiers that start with a digit are not supported");
+      if (/[A-Za-z_]/.test(src[i] ?? ""))
+        throw err("identifiers that start with a digit are not supported");
       push("num", src.slice(s, i), s);
       continue;
     }
@@ -121,7 +218,7 @@ export function lex(src: string, file: string): Token[] {
     }
     if (ch === "\\") {
       const m = /^\\([A-Za-z]+)/.exec(src.slice(i, i + 16));
-      if (m && BACKSLASH_WORDS.has(m[1] as string)) {
+      if (m?.[1] && BACKSLASH_WORDS.has(m[1])) {
         const op = `\\${m[1]}`;
         push("op", ALIASES[op] ?? op, i);
         i += op.length;

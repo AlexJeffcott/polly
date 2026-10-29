@@ -36,7 +36,7 @@ function stripComments(text: string): string {
 
 // Names the spec set defines: `Name ==` or `Name(params) ==`.
 function definedNames(text: string): Set<string> {
-  return new Set([...stripComments(text).matchAll(/^\s*([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*==/gm)].map((m) => m[1] as string));
+  return new Set([...stripComments(text).matchAll(/^\s*([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*==/gm)].flatMap((m) => (m[1] ? [m[1]] : [])));
 }
 
 function count(text: string, defined: Set<string>): Map<string, number> {
@@ -46,7 +46,7 @@ function count(text: string, defined: Set<string>): Map<string, number> {
   // Calls to operators the spec does not define: standard-module operators
   // such as TLCGet. A fixed list would not see a new one.
   for (const m of body.matchAll(/\b([A-Za-z_]\w*)\(/g)) {
-    const name = m[1] as string;
+    const name = m[1] ?? "";
     if (!defined.has(name) && !KEYWORDS.includes(name) && !/^[WS]F_/.test(name)) add(`${name}()`);
   }
   for (const word of body.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g) ?? []) {

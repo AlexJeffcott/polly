@@ -2,7 +2,15 @@
 // their keys are equal, as TLC's fingerprints treat them. Records, tuples and
 // sequences are all functions, as in TLA+: <<a, b>> = [i \in 1..2 |-> ...].
 
-export class EvalError extends Error {}
+export class TlaEvalError extends Error {}
+
+// The element at i. An index out of range is a defect in this checker, not in
+// the spec, so it throws rather than passing undefined on as a value.
+export function at<T>(arr: ArrayLike<T>, i: number): T {
+  const v = arr[i];
+  if (v === undefined) throw new Error(`internal: index ${i} out of range (${arr.length})`);
+  return v;
+}
 
 export class ModelValue {
   constructor(readonly name: string) {}
@@ -18,13 +26,13 @@ export class TFun {
   get map(): Map<string, number> {
     if (!this._map) {
       this._map = new Map();
-      for (let i = 0; i < this.dom.length; i++) this._map.set(key(this.dom[i] as Value), i);
+      for (let i = 0; i < this.dom.length; i++) this._map.set(key(at(this.dom, i)), i);
     }
     return this._map;
   }
   get key(): string {
     if (this._key === undefined) {
-      const parts = this.dom.map((d, i) => `${key(d)}:${key(this.val[i] as Value)}`);
+      const parts = this.dom.map((d, i) => `${key(d)}:${key(at(this.val, i))}`);
       parts.sort();
       this._key = `[${parts.join(",")}]`;
     }
@@ -78,7 +86,7 @@ export function key(v: Value): string {
   }
   if (v instanceof TFun || v instanceof TSet) return v.key;
   if (v instanceof ModelValue) return `@${v.name}`;
-  throw new EvalError(`a ${describe(v)} has no fingerprint`);
+  throw new TlaEvalError(`a ${describe(v)} has no fingerprint`);
 }
 
 export function equal(a: Value, b: Value): boolean {
@@ -101,8 +109,8 @@ export function mkSet(items: Value[]): TSet {
     const k = key(v);
     if (!seen.has(k)) seen.set(k, v);
   }
-  const ks = [...seen.keys()].sort();
-  return new TSet(ks.map((k) => seen.get(k) as Value));
+  const entries = [...seen].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return new TSet(entries.map(([, v]) => v));
 }
 
 export function mkSeq(items: Value[]): TFun {
@@ -122,31 +130,32 @@ export function mkRecord(fields: Array<[string, Value]>): TFun {
 export function apply(f: Value, arg: Value): Value {
   if (f instanceof TFun) {
     const i = f.map.get(key(arg));
-    if (i === undefined) throw new EvalError(`${show(arg)} is not in the domain of ${show(f)}`);
-    return f.val[i] as Value;
+    if (i === undefined) throw new TlaEvalError(`${show(arg)} is not in the domain of ${show(f)}`);
+    return at(f.val, i);
   }
   if (typeof f === "string" && typeof arg === "number") {
     const c = f[arg - 1];
-    if (c === undefined) throw new EvalError(`index ${arg} out of string range`);
+    if (c === undefined) throw new TlaEvalError(`index ${arg} out of string range`);
     return c;
   }
-  throw new EvalError(`cannot apply a ${describe(f)}`);
+  throw new TlaEvalError(`cannot apply a ${describe(f)}`);
 }
 
 // A sequence is a function with domain 1..n. Strings are sequences too.
 export function seqItems(s: Value): Value[] {
   if (typeof s === "string") return [...s];
-  if (!(s instanceof TFun)) throw new EvalError(`expected a sequence, got a ${describe(s)}`);
+  if (!(s instanceof TFun)) throw new TlaEvalError(`expected a sequence, got a ${describe(s)}`);
   const out: Value[] = new Array(s.dom.length);
   for (let i = 0; i < s.dom.length; i++) {
     const d = s.dom[i];
-    if (typeof d !== "number" || d < 1 || d > s.dom.length) throw new EvalError(`expected a sequence, got ${show(s)}`);
-    out[d - 1] = s.val[i] as Value;
+    if (typeof d !== "number" || d < 1 || d > s.dom.length)
+      throw new TlaEvalError(`expected a sequence, got ${show(s)}`);
+    out[d - 1] = at(s.val, i);
   }
   return out;
 }
 
-export function isFinite(s: SetValue): boolean {
+export function isFiniteSet(s: SetValue): boolean {
   if (s instanceof TSet) return true;
   switch (s.s.lazy) {
     case "Nat":
@@ -155,17 +164,17 @@ export function isFinite(s: SetValue): boolean {
     case "Seq":
       return false;
     case "recSet":
-      return s.s.fields.every(([, f]) => isFinite(f));
+      return s.s.fields.every(([, f]) => isFiniteSet(f));
     case "funSet":
-      return isFinite(s.s.dom) && isFinite(s.s.range);
+      return isFiniteSet(s.s.dom) && isFiniteSet(s.s.range);
     case "subset":
-      return isFinite(s.s.of);
+      return isFiniteSet(s.s.of);
   }
 }
 
 export function member(v: Value, s: Value): boolean {
   if (s instanceof TSet) return s.has(v);
-  if (!(s instanceof Lazy)) throw new EvalError(`\\in needs a set, got a ${describe(s)}`);
+  if (!(s instanceof Lazy)) throw new TlaEvalError(`\\in needs a set, got a ${describe(s)}`);
   const l = s.s;
   switch (l.lazy) {
     case "Nat":
@@ -181,7 +190,7 @@ export function member(v: Value, s: Value): boolean {
       for (let i = 0; i < n; i++) {
         const d = v.dom[i];
         if (typeof d !== "number" || d < 1 || d > n) return false;
-        if (!member(v.val[i] as Value, l.of)) return false;
+        if (!member(at(v.val, i), l.of)) return false;
       }
       return true;
     }
@@ -189,14 +198,14 @@ export function member(v: Value, s: Value): boolean {
       if (!(v instanceof TFun) || v.dom.length !== l.fields.length) return false;
       for (const [name, set] of l.fields) {
         const i = v.map.get(key(name));
-        if (i === undefined || !member(v.val[i] as Value, set)) return false;
+        if (i === undefined || !member(at(v.val, i), set)) return false;
       }
       return true;
     }
     case "funSet": {
       if (!(v instanceof TFun)) return false;
       const dom = mkSet(v.dom);
-      if (!(l.dom instanceof TSet)) throw new EvalError("[S -> T] needs a finite S");
+      if (!(l.dom instanceof TSet)) throw new TlaEvalError("[S -> T] needs a finite S");
       if (dom.key !== l.dom.key) return false;
       return v.val.every((x) => member(x, l.range));
     }
@@ -209,14 +218,15 @@ export function member(v: Value, s: Value): boolean {
 // Enumerate a set. Only finite sets can be enumerated.
 export function elements(s: Value): Value[] {
   if (s instanceof TSet) return s.elems;
-  if (!(s instanceof Lazy)) throw new EvalError(`expected a set, got a ${describe(s)}`);
+  if (!(s instanceof Lazy)) throw new TlaEvalError(`expected a set, got a ${describe(s)}`);
   const l = s.s;
   switch (l.lazy) {
     case "recSet": {
       let acc: Array<Array<[string, Value]>> = [[]];
       for (const [name, set] of l.fields) {
         const next: Array<Array<[string, Value]>> = [];
-        for (const partial of acc) for (const v of elements(set)) next.push([...partial, [name, v]]);
+        for (const partial of acc)
+          for (const v of elements(set)) next.push([...partial, [name, v]]);
         acc = next;
       }
       return mkSet(acc.map(mkRecord)).elems;
@@ -225,7 +235,7 @@ export function elements(s: Value): Value[] {
       const dom = elements(l.dom);
       const range = elements(l.range);
       let acc: Value[][] = [[]];
-      for (let i = 0; i < dom.length; i++) {
+      for (const _ of dom) {
         const next: Value[][] = [];
         for (const partial of acc) for (const v of range) next.push([...partial, v]);
         acc = next;
@@ -234,13 +244,15 @@ export function elements(s: Value): Value[] {
     }
     case "subset": {
       const base = elements(l.of);
-      if (base.length > 20) throw new EvalError(`SUBSET of ${base.length} elements is too large`);
+      if (base.length > 20)
+        throw new TlaEvalError(`SUBSET of ${base.length} elements is too large`);
       const out: Value[] = [];
-      for (let m = 0; m < 1 << base.length; m++) out.push(mkSet(base.filter((_, i) => (m >>> i) & 1)));
+      for (let m = 0; m < 1 << base.length; m++)
+        out.push(mkSet(base.filter((_, i) => (m >>> i) & 1)));
       return mkSet(out).elems;
     }
     default:
-      throw new EvalError(`cannot enumerate the infinite set ${l.lazy}`);
+      throw new TlaEvalError(`cannot enumerate the infinite set ${l.lazy}`);
   }
 }
 
@@ -253,6 +265,7 @@ export function show(v: Value): string {
   if (v instanceof Lazy) return `<${v.s.lazy}>`;
   const isSeq = v.dom.every((d, i) => d === i + 1);
   if (isSeq) return `<<${v.val.map(show).join(", ")}>>`;
-  if (v.dom.every((d) => typeof d === "string")) return `[${v.dom.map((d, i) => `${d} |-> ${show(v.val[i] as Value)}`).join(", ")}]`;
-  return `(${v.dom.map((d, i) => `${show(d)} :> ${show(v.val[i] as Value)}`).join(" @@ ")})`;
+  if (v.dom.every((d) => typeof d === "string"))
+    return `[${v.dom.map((d, i) => `${d} |-> ${show(at(v.val, i))}`).join(", ")}]`;
+  return `(${v.dom.map((d, i) => `${show(d)} :> ${show(at(v.val, i))}`).join(" @@ ")})`;
 }

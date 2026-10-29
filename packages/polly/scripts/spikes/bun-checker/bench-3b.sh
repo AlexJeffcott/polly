@@ -1,5 +1,5 @@
 #!/bin/sh
-# bench-3b.sh : TLC (-workers auto, as polly's runner) against tlacheck.ts
+# bench-3b.sh : TLC (-workers auto, as polly's runner) against the Bun checker
 # (compiled engine) on each generated spec set, safety only. Runs alternate
 # TLC, Bun, TLC, Bun, ... ROUNDS times. Prints wall time (`real`) and peak
 # memory: the container's memory.peak for TLC, max RSS for Bun.
@@ -29,7 +29,7 @@ for set in $SETS; do
     tr=$(echo "$t" | sed -nE 's/^real ([0-9.]+)/\1/p')
     tm=$(echo "$t" | sed -nE 's/^peak ([0-9]+)/\1/p')
     tc=$(echo "$t" | sed -nE 's/^([0-9]+) states generated, ([0-9]+) distinct.*/\1 \2/p')
-    b=$(/usr/bin/time -l bun "$D/tlacheck.ts" --spec "$W" 2>&1)
+    b=$(/usr/bin/time -l bun "$D/../../../tools/verify/src/checker/cli.ts" --spec "$W" 2>&1)
     br=$(echo "$b" | sed -nE 's/^ *([0-9.]+) real.*/\1/p')
     bm=$(echo "$b" | sed -nE 's/^ *([0-9]+) +maximum resident set size/\1/p')
     bc=$(echo "$b" | sed -nE 's/^([0-9]+) states generated, ([0-9]+) distinct.*/\1 \2/p')
