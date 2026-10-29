@@ -152,7 +152,7 @@ export async function runFeatures(options: RunOptions): Promise<RunResult> {
   const worldDef = getWorldDef();
   if (!worldDef) {
     throw new Error(
-      "no world defined. A step module must call defineWorld({ create, reset }) — see tools/bdd/README.md."
+      "no world defined. A step module must call defineWorld({ create, reset }) — see https://github.com/AlexJeffcott/polly/blob/main/packages/polly/tools/bdd/README.md"
     );
   }
   const world = await worldDef.create();

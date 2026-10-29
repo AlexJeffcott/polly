@@ -98,6 +98,25 @@ consumer project too. It auto-discovers your tiers by convention — no config:
 A tier only appears when its inputs exist. An e2e script needs nothing imported —
 just `export async function run() { …; return { pass: true } }`.
 
+## Coverage and mutation testing
+
+Line coverage proves a line ran. It does not prove a test checks it. Polly
+ships two commands that measure the second thing.
+
+| Command | Does | Needs |
+|---|---|---|
+| `polly coverage` | Enforces a per-file coverage floor with owned exemptions (`coverage.config.ts`), and lists orphans: source that no test imports | Nothing extra |
+| `polly mutate init` | Writes a `polly.mutate.ts` for the project | `oxc-parser`, `weapon-regex` |
+| `polly mutate run` | Mutates the target files one edit at a time on Bun, runs the tests that cover each edit, and reports survivors, untested lines, and tests that kill nothing | as above; `typescript-7` filters out mutants that do not typecheck |
+| `polly mutate --files src/a.ts --since main` | Limits a run to some files, or to files changed since a ref | as above |
+| `polly mutate run --mode matrix` | Runs every test against every mutant, so the report can also name redundant tests | as above |
+| `polly mutate decisions` | Records keep / prune / rewrite verdicts on redundant tests | as above |
+
+`requires()` / `ensures()` contracts throw during a mutation run (`--contracts`,
+default `all`), so a contract kills the mutants that break it. The full
+reference — config keys, operators, disable comments, report sections — is
+[tools/mutate/README.md](../tools/mutate/README.md).
+
 ## Table of Contents
 
 1. [Test Architecture](#test-architecture)

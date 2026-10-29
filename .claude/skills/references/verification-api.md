@@ -236,9 +236,14 @@ tier2: {
 
 ```typescript
 verification?: {
-  timeout?: number;   // Seconds before TLC is killed (0 = no limit, max 3600)
-  workers?: number;   // TLC worker threads (1–16, default 1)
+  timeout?: number;          // Seconds before TLC is killed (0 = no limit, max 3600)
+  workers?: TLCWorkers;      // TLC worker threads (default "auto": one per core)
+  memory?: string;           // TLC container memory ceiling, e.g. "8g"
+  handlerCoverage?: boolean; // report handlers TLC never took (default true)
+  engine?: "tlc" | "bun";    // safety-pass checker (default "tlc"); "bun" skips temporal PROPERTIES
 }
+
+liveness?: boolean;          // top level or per subsystem: every sent message resolves
 ```
 
 ## Subsystem Config

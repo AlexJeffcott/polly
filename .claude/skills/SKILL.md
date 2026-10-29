@@ -3,7 +3,7 @@ name: polly
 description: Expert guide for the @fairfox/polly framework covering state management, peer-first/mesh state (CRDTs, WebRTC, encryption), async resources, formal verification (TLA+), model coverage, executable-Gherkin BDD, quality tooling, and best practices. Use when working with Polly state primitives ($sharedState, $syncedState, $state, $serverState, $peerState, $meshState), async data fetching ($resource), verification features (requires/ensures, $constraints, stateConstraint, defineVerification, model coverage / off-surface mutators / polly verify --strict, hand-written-spec witnesses via customTLAPaths), the BDD stratum (polly bdd, defineStep/defineWorld, .feature files, polly verify --witness reachability witnesses including @forbidden negative witnesses), quality checks (no-as-casting), browser test harness, or when auditing code to maximize Polly feature usage. Triggers on any work involving @fairfox/polly imports, peer-first/mesh state setup, Automerge CRDTs, WebRTC data channels, verification setup, TLA+ model checking, model-coverage / off-surface / --strict gates, BDD/three-amigos/Gherkin/.feature scenarios, reachability witnesses, message handler contracts, $resource async patterns, or questions about Polly patterns and examples.
 ---
 
-# Polly Expert (core up to v0.24.0; BDD + verify coverage v0.82–v0.85)
+# Polly Expert (core up to v0.24.0; BDD + verify coverage v0.82–v0.85; mutate, Bun checker, liveness, visualize to v0.98)
 
 Maximize usage of the @fairfox/polly framework's state management, async resources, peer-first/mesh state, blob storage, and formal verification features. The core feature coverage here is current up to v0.24.0; the BDD / executable-Gherkin stratum (`polly bdd`, `polly verify --witness`, including the `@forbidden` negative witness and `customTLAPaths` hand-written-spec binding) and the verify model-coverage layer (off-surface mutator detection, `polly verify --strict`) were added through v0.85.0 and are documented below.
 
@@ -605,21 +605,51 @@ Polly validates `requires()`/`ensures()` expressions before TLA+ codegen, catchi
 
 ## Verification Engine Options
 
-Optional timeout and worker thread config for TLC runs:
-
 ```typescript
 export default defineVerification({
   state: { /* ... */ },
   messages: { maxInFlight: 2, maxTabs: 1 },
+  liveness: false,     // true: also check that every sent message resolves (expensive)
 
   verification: {
-    timeout: 300,    // seconds (0 = no limit, max 3600)
-    workers: 4,      // TLC worker threads (1–16, default 1)
+    timeout: 300,      // seconds (0 = no limit, max 3600)
+    workers: 4,        // TLC worker threads (default "auto": one per core)
+    memory: "8g",      // TLC container memory ceiling
+    engine: "tlc",     // or "bun": polly's own checker for the safety pass
   },
 })
 ```
 
-**When to suggest:** For large state spaces where `--estimate` reports `slow`, recommend adding `timeout` to prevent runaway verification and `workers` to parallelize TLC exploration.
+**`engine: "bun"` / `polly verify --engine bun`** checks invariants and deadlock in process, with no Docker and no JVM. It gives TLC's exact state counts on the example specs at 2.5–9× TLC's speed. It does NOT check temporal properties (the `ensures` postconditions): it lists them, and `--strict` fails on them. A spec it cannot read falls back to TLC. Suggest it for the edit-and-check loop; keep TLC before release.
+
+**`liveness: true`** (top level, or per subsystem) adds the check that nothing sent stays pending for ever. Safety properties hold for a system that has stopped, so a `requires()` that blocks a handler for ever passes a safety-only run. Measured cost: ~110 s → ~512 s on an 11-subsystem model. A state constraint truncates behaviours, so a green liveness run means "no wedge within the bounds".
+
+**When to suggest:** For large state spaces where `--estimate` reports `slow`, recommend `timeout` against runaway runs and `engine: "bun"` for fast iteration.
+
+## Mutation Testing (`polly mutate`, v0.92+)
+
+A Bun-native mutation engine (Stryker is not used). It mutates target files one edit at a time, runs only the tests that cover each edit, and reports surviving mutants, untested code, and tests that kill nothing. Dev dependencies: `oxc-parser@0.137.0 weapon-regex@1.3.6`, plus `typescript-7` for the type filter.
+
+```typescript
+// polly.mutate.ts  (scaffold with `polly mutate init`)
+import { defineMutation } from "@fairfox/polly/mutate";
+
+export default defineMutation({
+  targets: ["src/**/*.ts", "!src/**/*.test.ts"],
+  tests: { include: ["tests/**/*.test.ts"] },
+  thresholds: { break: 60 },
+});
+```
+
+| Command | Use |
+|---|---|
+| `polly mutate run --files src/a.ts` / `--since main` | Scope a run to some files or to a diff |
+| `polly mutate run --mode matrix` | Every test against every mutant — needed for the redundant-test sections |
+| `polly mutate report` | Re-read an existing `reports/mutation/mutation.json` |
+| `polly mutate decisions` | Record keep / prune / rewrite verdicts on redundant tests |
+| `polly mutate migrate` | Convert a `stryker.conf.json` |
+
+`requires()`/`ensures()` throw during a run (`--contracts all`, the default), so contracts kill the mutants that break them. Mutants inside verify primitives are reported `Ignored`. Full reference: `packages/polly/tools/mutate/README.md` in the polly repo.
 
 ## State Space Tuning Guide
 
@@ -714,7 +744,14 @@ stateConstraint("BookmarksRequireLogin", () =>
 
 ## Visualizer (`polly visualize`)
 
-Generates Structurizr DSL from static analysis of the codebase. Produces architecture diagrams (system context, container, component, dynamic views).
+Generates Structurizr DSL from static analysis of the codebase. Produces architecture diagrams (system context, container, component, dynamic views). Needs `typescript-7` as a dev dependency.
+
+| Command | Output |
+|---|---|
+| `polly visualize --generate` | `docs/architecture.dsl` |
+| `polly visualize generate --snapshot <path>` | The same, with a captured `MeshClientPeerStateSnapshot` overlaid: runtime mesh peers and replication edges coloured by sync state (also needs `tweetnacl`, `@automerge/automerge-repo`) |
+| `polly visualize --export` | Static HTML site in `docs/site` (needs Docker) |
+| `polly visualize --serve [--port=3000]` | Serves that site |
 
 ### Supported Project Types
 

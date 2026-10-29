@@ -57,3 +57,6 @@ test-results
 # Stryker sandbox (scripts/mutate-parity.ts runs the reference Stryker)
 .stryker-tmp/
 reports/
+
+# copied from the repo root by build-lib.ts
+packages/polly/README.md

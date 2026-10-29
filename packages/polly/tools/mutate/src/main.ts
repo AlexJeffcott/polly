@@ -21,7 +21,7 @@ fails; a surviving mutant is a line no test pins down — a truer signal than li
 coverage, which only proves a line ran. Read the same kill matrix the other way
 and it also finds dead weight: redundant tests (every kill caught elsewhere) and
 theatre (code a test ran but never actually checked). How the matrix is built:
-tools/mutate/README.md.
+https://github.com/AlexJeffcott/polly/blob/main/packages/polly/tools/mutate/README.md
 
 Usage:
   polly mutate init [--force]        Scaffold a polly.mutate.ts for this project

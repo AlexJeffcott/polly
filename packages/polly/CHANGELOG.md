@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The npm package ships a README.** `files` listed `README.md`, but the
+  only README is at the repo root, so 0.90.0 to 0.98.0 published none and
+  the npm page read "No README data found". `build-lib.ts` now copies the
+  root README into the package (gitignored) with repo-relative links made
+  absolute, because `docs/` and `examples/` do not ship.
+- **Doc links.** The root README linked `docs/*.md`, which is at
+  `packages/polly/docs/`. `polly mutate --help` and the `polly bdd`
+  no-world error named `tools/*/README.md` paths that are not in the
+  tarball; they now give GitHub URLs.
+
+### Changed
+
+- **Docs for mutate, the Bun checker, liveness and visualize.** The README
+  CLI block matches `polly --help`; `docs/TESTING.md` covers `polly coverage`
+  and `polly mutate`; `docs/README.md` indexes verify, bdd and mutate; the
+  Claude skill covers `engine`, `liveness`, `memory`, `polly mutate` and the
+  visualize flags.
+
+### Removed
+
+- **`packages/polly/verification/`.** Its script imported
+  `@fairfox/web-ext-verify`, which does not exist, and nothing referenced
+  the directory. `polly verify` replaces it.
+
 ## [0.98.0] - 2026-10-29
 
 ### Added

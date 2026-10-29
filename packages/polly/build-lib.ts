@@ -365,6 +365,19 @@ try {
   process.exit(1);
 }
 
+// The npm page renders the README.md in the tarball, and the only README is at
+// the repo root, outside this package — 0.90.0 to 0.98.0 shipped none. Copy it
+// in (gitignored), with repo-relative links made absolute: npmjs.com resolves
+// relative links against nothing, and docs/ and examples/ do not ship.
+const REPO_URL = "https://github.com/AlexJeffcott/polly";
+const rootReadme = await Bun.file(join("..", "..", "README.md")).text();
+const packageReadme = rootReadme.replace(
+  /\]\((?!https?:|#|mailto:)([^)\s]+)\)/g,
+  (_, path: string) => `](${REPO_URL}/${/\.[a-z]+(#.*)?$/i.test(path) ? "blob" : "tree"}/main/${path})`
+);
+await Bun.write("README.md", packageReadme);
+console.log("✅ README.md copied from the repo root");
+
 // Written last: the build deletes dist/ first, so a missing stamp means the
 // build failed part-way. `check typecheck-examples` compares it with the source.
 await Bun.write(join(DIST_DIR, ".build-stamp"), `${new Date().toISOString()}\n`);

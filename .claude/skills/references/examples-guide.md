@@ -32,7 +32,7 @@ Docs live at `https://github.com/AlexJeffcott/polly/tree/main/docs`.
 - Flagship example exercising every verification feature
 - `{ type: "number" }` for maxTodos, priority enum, parameter tracing
 - `perMessageBounds`, `temporalConstraints`, `tabSymmetry`
-- Key files: `verification/verify.config.ts`, `src/background/handlers.ts`
+- Key files: `specs/verification.config.ts`, `src/background/handlers.ts`
 
 **"Show me a complete Chrome extension"** → `full-featured/`
 - All constraint styles combined: `requires()`/`ensures()`, `$constraints()`, `stateConstraint()`, `{ verify: true }`

@@ -1,7 +1,7 @@
 # Documentation
 
 Reference docs for `@fairfox/polly`. The entry-point pitch and the
-smallest end-to-end example live in the [root README](../README.md);
+smallest end-to-end example live in the [root README](../../../README.md);
 this directory is the per-feature reference.
 
 ## Core
@@ -23,6 +23,9 @@ this directory is the per-feature reference.
 
 | Doc | Covers |
 |-----|--------|
+| [Root README § Verification](../../../README.md#verification-that-plugs-in) | `polly verify`: contracts, state bounds, liveness, model coverage and `--strict`, and the Docker-free `--engine bun` safety pass. `polly verify --help` lists every flag. |
+| [Root README § Executable specs](../../../README.md#executable-specs-that-link-to-the-model) | `polly bdd` and `polly verify --witness`. Reference: [tools/bdd/README.md](../tools/bdd/README.md). |
+| [tools/mutate/README.md](../tools/mutate/README.md) | `polly mutate`: the Bun mutation engine, `polly.mutate.ts`, operators, disable comments, and the useless-test report. Overview in [TESTING.md](./TESTING.md#coverage-and-mutation-testing). |
 | [TLA_RESOURCES.md](./TLA_RESOURCES.md) | TLA+ tutorials, references, and troubleshooting notes — useful background for `polly verify`. |
 | [RFC-041-peer-first.md](./RFC-041-peer-first.md) | Design of the peer-first state tier (`$peerState`). |
 | [RFC-041-peer-first-webrtc.md](./RFC-041-peer-first-webrtc.md) | The WebRTC transport for the mesh tier (`$meshState`). |
@@ -31,11 +34,11 @@ this directory is the per-feature reference.
 
 ## Generated
 
-- [architecture.dsl](./architecture.dsl) — Structurizr DSL produced by `polly visualize`.
+- [architecture.dsl](./architecture.dsl) — Structurizr DSL produced by `polly visualize`. `polly visualize --help` covers `--snapshot` (mesh peer overlay), `--export` (static site, needs Docker) and `--serve`.
 
 ## Quick links
 
-- New to the project? Start with the [root README](../README.md).
+- New to the project? Start with the [root README](../../../README.md).
 - Picking a state primitive? [STATE.md](./STATE.md) has the decision tree.
 - Writing tests? [TESTING.md](./TESTING.md).
 - Wiring an adapter? [ADAPTERS.md](./ADAPTERS.md).

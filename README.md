@@ -123,7 +123,7 @@ const notes = $meshState("notes", { entries: [] });
 
 First-time key exchange between devices uses a pairing token displayed as a QR code. Compromised devices are revoked via signed revocation records that propagate to every peer.
 
-The three tiers coexist in one application — public settings in `$sharedState`, collaborative documents in `$peerState`, private notes in `$meshState`. See [docs/STATE.md](docs/STATE.md) for the full decision tree and [docs/RFC-041-choosing.md](docs/RFC-041-choosing.md) for the design rationale.
+The three tiers coexist in one application — public settings in `$sharedState`, collaborative documents in `$peerState`, private notes in `$meshState`. See [docs/STATE.md](packages/polly/docs/STATE.md) for the full decision tree and [docs/RFC-041-choosing.md](packages/polly/docs/RFC-041-choosing.md) for the design rationale.
 
 ### Node and Bun are first-class mesh peers
 
@@ -170,7 +170,7 @@ const received = await blobs.get(ref.hash);  // fetches from peers, verifies has
 const url = await blobs.url(ref.hash);        // object URL for <img src>
 ```
 
-SHA-256 content addressing deduplicates across peers and documents. Encryption is optional — when configured, the sender encrypts once (XSalsa20-Poly1305) and chunks the ciphertext; the receiver reassembles, decrypts, and verifies the plaintext hash against the `BlobRef`. See [docs/RFC-042-blob-sync.md](docs/RFC-042-blob-sync.md) for the design.
+SHA-256 content addressing deduplicates across peers and documents. Encryption is optional — when configured, the sender encrypts once (XSalsa20-Poly1305) and chunks the ciphertext; the receiver reassembles, decrypts, and verifies the plaintext hash against the `BlobRef`. See [docs/RFC-042-blob-sync.md](packages/polly/docs/RFC-042-blob-sync.md) for the design.
 
 ## Verification that plugs in
 
@@ -375,16 +375,29 @@ polly typecheck                   Type-check your code
 polly lint [--fix]                Lint (and optionally auto-fix)
 polly format                      Format your code
 polly test [args]                 Run unit tests (bun test)
+polly test --tier=T | --all | --list
+                                  Run the multi-tier suite (unit → integration → browser
+                                  → e2e → verify) with timed reports
 polly test:browser [dir]          Run *.browser.{ts,tsx} in Puppeteer
-polly verify [--witness]          Run formal verification (TLA+/TLC); --witness adds
-                                  per-scenario reachability checks for your BDD outcomes;
-                                  --engine bun runs the safety pass without Docker
+polly coverage                    Per-file coverage policy and orphaned-test detection
+polly verify                      Run formal verification (TLA+/TLC)
+  --setup | --validate | --estimate   Generate, check, or size the verification config
+  --strict                        Fail on model-coverage gaps
+  --engine bun                    Safety pass on polly's own checker, no Docker
+  --witness                       Per-scenario reachability checks for your BDD outcomes
 polly bdd [run|check|new]         Executable Gherkin across the real boundary, linked to the model
-polly mutate [run|report]         Mutation testing — prove the tests have teeth
+polly mutate [init|run|report|verify|decisions|migrate]
+                                  Mutation testing and useless/redundant-test detection
 polly visualize                   Generate architecture diagrams (Structurizr DSL)
+  --snapshot <path>               Overlay a captured mesh peer-state snapshot
+  --export | --serve              Static diagram site (export needs Docker) and a local server
+polly gallery [--build|--open]    Serve or export the polly-ui component gallery
 polly quality [args]              Run conformance checks (no-as-casting, boundaries, secrets,
                                   server-imports, forbidden-deps, banners, marketing, ...)
 ```
+
+Each command takes `--help`. `polly mutate` is documented in
+[tools/mutate/README.md](packages/polly/tools/mutate/README.md).
 
 ## Quality tooling
 
@@ -425,7 +438,7 @@ describe("my component", () => {
 done();
 ```
 
-Run with `bun tools/test/src/browser/run.ts tests/browser`.
+Run with `polly test:browser tests/browser`.
 
 ## Use with Claude Code
 
