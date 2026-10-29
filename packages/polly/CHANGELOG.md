@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.2] - 2026-10-29
+
+### Fixed
+
+- **A top-level capability failed every subsystem that lacked its fields.**
+  `generateSubsystemTLA` copied `capabilities` into each subsystem spec
+  unfiltered, so a capability reading `offlineQueueState.value.syncState`
+  failed 9 of 10 subsystems with "Attempted to select nonexistent field".
+  A capability is now checked only in the subsystems that own every state
+  key it reads; one that reads no recognisable key is kept everywhere, so a
+  typo still fails (#196).
+- **polly source failed a consumer's type-check** under
+  `exactOptionalPropertyTypes` or a `NodeJS.ProcessEnv` with no index
+  signature: 5 errors in `constraints.ts`, `handler-execution-tracker.ts`
+  and the contracts primitives, with the same pattern in the Elysia plugin
+  and client wrapper. Environment reads go through `readEnv()`
+  (`src/shared/lib/env.ts`), and an absent constraint `message` is omitted
+  (#197).
+
 ## [0.98.1] - 2026-10-29
 
 ### Fixed
