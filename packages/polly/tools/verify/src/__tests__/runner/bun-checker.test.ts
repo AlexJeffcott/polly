@@ -25,7 +25,7 @@ function spec(body: string, cfg: string): string {
   dirs.push(dir);
   writeFileSync(
     join(dir, "M.tla"),
-    `---- MODULE M ----\nEXTENDS Integers\nVARIABLE x\n${body}\n====\n`
+    `---- MODULE M ----\nEXTENDS Integers, FiniteSets\nVARIABLE x\n${body}\n====\n`
   );
   writeFileSync(join(dir, "M.cfg"), cfg);
   return dir;
@@ -136,6 +136,36 @@ Spec == Init /\\ [][Next]_x`;
     expect(r.handlerCounts.get("HandleUp")).toBe(4);
     expect(r.handlerCounts.get("HandleReset")).toBe(2);
     expect(r.handlerCounts.get("HandleNever")).toBe(0);
+  });
+
+  // x is a pair of counters 0..2; each step adds 1 to one counter below 2,
+  // and [2, 2] steps to itself. These constructs compile to functions at
+  // module level with their free variables as parameters (compile.ts `lift`).
+  const PAIR = `Init == x = [i \\in 1..2 |-> 0]
+Next == \\/ \\E i \\in 1..2 : x[i] < 2 /\\ x' = [x EXCEPT ![i] = x[i] + 1]
+        \\/ (\\A i \\in 1..2 : x[i] = 2) /\\ x' = x
+Spec == Init /\\ [][Next]_x
+Full == {i \\in 1..2 : x[i] = 2}
+Range == {x[i] : i \\in 1..2} \\subseteq 0..2 /\\ (\\E i \\in 1..2 : x[i] >= 0)
+First == (CHOOSE i \\in 1..2 : TRUE) = 1
+AtMostOneFull == Cardinality(Full) < 2`;
+
+  test("EXCEPT, set builders, CHOOSE and quantifiers give the counts worked out by hand", () => {
+    const dir = spec(PAIR, "SPECIFICATION Spec\nINVARIANT Range\nINVARIANT First\n");
+    const r = checkSpec({ specDir: dir, moduleName: "M" });
+    expect(r.kind).toBe("done");
+    if (r.kind !== "done") return;
+    // 9 states; 1 initial + 12 steps that add 1 (6 per counter) + 1 at [2, 2].
+    expect(r.counts).toMatchObject({ generated: 14, distinct: 9, depth: 5 });
+
+    const broken = spec(PAIR, "SPECIFICATION Spec\nINVARIANT AtMostOneFull\n");
+    const v = checkSpec({ specDir: broken, moduleName: "M" });
+    expect(v.kind).toBe("violation");
+    if (v.kind !== "violation") return;
+    expect(v.name).toBe("AtMostOneFull");
+    // [0,0] .. [2,2] is the shortest path: 5 states.
+    expect(v.trace.filter((l) => l.startsWith("State "))).toHaveLength(5);
+    expect(v.trace.at(-1)).toBe("/\\ x = <<2, 2>>");
   });
 
   test("a run past its timeout reports the states left, not a pass", () => {

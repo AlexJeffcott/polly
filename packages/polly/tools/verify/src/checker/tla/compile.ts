@@ -96,6 +96,7 @@ class Compiler {
   private readonly varIndex: Map<string, number>;
   private readonly lazies: LazyRT[] = [];
   private readonly constArrays: string[] = [];
+  private readonly lifted: string[] = [];
   private readonly constLevel = new Map<string, boolean>();
   private uid = 0;
 
@@ -110,6 +111,42 @@ class Compiler {
 
   private fresh(p: string): string {
     return `${p}${this.uid++}`;
+  }
+
+  /**
+   * A function body that must run as an expression, as a call to a function
+   * at module level. A closure called at once (`(() => { ... })()`) cost one
+   * scope and one function object per call: on webrtc-p2p-chat/client that
+   * was 4.8 GiB of uncollected garbage. The free variables are the
+   * generated names (`s0`, `x10`, ...) and `S` that the body reads and does
+   * not declare; they become parameters. A body that assigns to a variable
+   * it does not declare stays a closure, as a parameter would not carry the
+   * assignment out.
+   */
+  private lift(body: string): string {
+    const code = body.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    // `const a = ..., b = ...` declares b too; generated code has no other `, x =`.
+    const declared = new Set(
+      [
+        ...code.matchAll(/\b(?:const|let)\s+([A-Za-z]+\d+)\b/g),
+        ...code.matchAll(/,\s*([A-Za-z]+\d+)\s*=(?!=)/g),
+      ].map((m) => m[1])
+    );
+    const free = [
+      ...new Set(
+        [...code.matchAll(/(?<![.\w])([A-Za-z]+\d+|S)\b/g)]
+          .map((m) => m[1] ?? "")
+          // C, F and P names are module-level: const sets, lifted functions, predicates.
+          .filter((x) => x !== "" && !declared.has(x) && !/^[CFP]\d+$/.test(x))
+      ),
+    ];
+    const written = new Set(
+      [...code.matchAll(/(?<![.\w])([A-Za-z]+\d+|S)\s*(?:[-+*/]?=(?!=)|\+\+|--)/g)].map((m) => m[1])
+    );
+    if (free.some((x) => written.has(x))) return `(() => { ${body} })()`;
+    const name = this.fresh("F");
+    this.lifted.push(`function ${name}(${free.join(", ")}) { ${body} }`);
+    return `${name}(${free.join(", ")})`;
   }
 
   build(o: Parameters<typeof compileSpec>[0]): Compiled {
@@ -187,6 +224,7 @@ class Compiler {
         return (S) => { const a = k1(S), b = k2(S); const i = slot(a, b); const r = res[i]; if (r !== 0) return r === 1; const v = fn(S); keys[2 * i] = a; keys[2 * i + 1] = b; res[i] = v ? 1 : 2; if (++size * 2 > cap) grow(); return v; };
       }`,
       ...this.constArrays,
+      ...this.lifted,
       `const init = function () { ${initCode} };`,
       `const next = function (S) { ${readState} ${nextCode} };`,
       ...memoDefs,
@@ -656,11 +694,15 @@ class Compiler {
         const v = this.fresh("x");
         const body = (s2: Scope) =>
           `if (${this.bo(e.pred, this.bind(s2, e.v, v))}) out.push(${v});`;
-        return `(() => { const out = []; ${this.iter(e.set, sc, v, body)} return ${R}.setOf(out); })()`;
+        return this.lift(
+          `const out = []; ${this.iter(e.set, sc, v, body)} return ${R}.setOf(out);`
+        );
       }
       case "setMap": {
         const body = (s2: Scope) => `out.push(${this.ex(e.e, s2)});`;
-        return `(() => { const out = []; ${this.iterBounds(e.bounds, sc, body)} return ${R}.setOf(out); })()`;
+        return this.lift(
+          `const out = []; ${this.iterBounds(e.bounds, sc, body)} return ${R}.setOf(out);`
+        );
       }
       case "fun": {
         const [b] = e.bounds;
@@ -698,7 +740,9 @@ class Compiler {
       case "choose": {
         const v = this.fresh("x");
         const body = (s2: Scope) => `if (${this.bo(e.pred, this.bind(s2, e.v, v))}) return ${v};`;
-        return `(() => { ${this.iter(e.set, sc, v, body)} throw new Error("CHOOSE found no element"); })()`;
+        return this.lift(
+          `${this.iter(e.set, sc, v, body)} throw new Error("CHOOSE found no element");`
+        );
       }
     }
     throw new CompileError(`${e.k} is not supported by the compiled engine`);
@@ -738,7 +782,7 @@ class Compiler {
         `{ const ${k} = ${keyCode}; const ${idx} = R.findIdx(${v}, ${k}); if (${idx} >= 0) { ${v} = R.putIdx(${v}, ${idx}, ${this.exceptCode(`R.pool[${idx} + 1]`, group, i + 1, sc)}); } }`
       );
     }
-    return `(() => { let ${v} = ${f}; ${parts.join(" ")} return ${v}; })()`;
+    return this.lift(`let ${v} = ${f}; ${parts.join(" ")} return ${v};`);
   }
 
   private stepKey(step: { index: Expr[] } | { field: string }, sc: Scope): string {
@@ -818,7 +862,7 @@ class Compiler {
           if (s.k === "setFilter") {
             const v = this.fresh("x");
             const body = (s2: Scope) => `if (${this.bo(s.pred, this.bind(s2, s.v, v))}) c++;`;
-            return `(() => { let c = 0; ${this.iter(s.set, sc, v, body)} return c; })()`;
+            return this.lift(`let c = 0; ${this.iter(s.set, sc, v, body)} return c;`);
           }
           return `R.setLen(${this.ex(s, sc)})`;
         }
@@ -881,9 +925,13 @@ class Compiler {
       }
       case "quant": {
         if (e.q === "E") {
-          return `(() => { ${this.iterBounds(e.bounds, sc, (s2) => `if (${this.bo(e.body, s2)}) return true;`)} return false; })()`;
+          return this.lift(
+            `${this.iterBounds(e.bounds, sc, (s2) => `if (${this.bo(e.body, s2)}) return true;`)} return false;`
+          );
         }
-        return `(() => { ${this.iterBounds(e.bounds, sc, (s2) => `if (!${this.bo(e.body, s2)}) return false;`)} return true; })()`;
+        return this.lift(
+          `${this.iterBounds(e.bounds, sc, (s2) => `if (!${this.bo(e.body, s2)}) return false;`)} return true;`
+        );
       }
       case "op": {
         const x = at(e.args, 0);
@@ -920,7 +968,7 @@ class Compiler {
               lazyAssign: true,
               guards: undefined,
             };
-            return `(() => { ${this.act(x, fresh, () => "return true;")} return false; })()`;
+            return this.lift(`${this.act(x, fresh, () => "return true;")} return false;`);
           }
           case "UNCHANGED":
             return `(${this.unchangedVars(x, sc)

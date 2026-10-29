@@ -158,8 +158,8 @@ one that only out-of-constraint states break, are reported with exit 12
 
    | Reading | Before | After |
    |---|---|---|
-   | webrtc-p2p-chat/client (123,836,552 states), peak RSS | 13.0–14.1 GB | 6.95 GB |
-   | same, wall | 222–236 s | 177 s |
+   | webrtc-p2p-chat/client (123,836,552 states), peak RSS | 13.0–14.1 GB | 6.95 GB; 4.65 GB with the closures lifted |
+   | same, wall | 222–236 s | 177 s; 180 s with the closures lifted |
    | minimal, peak RSS / wall | 0.41–0.42 GB / 2.57–2.59 s | 0.28–0.30 GB / 2.53–2.58 s |
    | mesh-recovery-pair | 0.94–0.95 GB / 4.76–4.80 s | 0.77–0.81 GB / 4.76–4.78 s |
    | full-featured | 0.40–0.41 GB / 1.29–1.30 s | 0.41–0.43 GB / 1.32–1.33 s |
@@ -167,9 +167,14 @@ one that only out-of-constraint states break, are reported with exit 12
    Stop rule (set 2026-10-29): webrtc peak at most 60 % of before (53 %),
    small sets at most 10 % slower (+3 % worst). Tried and dropped: rows in
    fixed chunks and a 256-part hash index (5.25 GB peak, 10–15 % slower);
-   a GC after each large array is replaced (11.6 GB, worse). Next for
-   memory: remove the called-at-once closures in `tla/compile.ts` (8 sites)
-   so the actions allocate nothing, then drop the periodic GC.
+   a GC after each large array is replaced (11.6 GB, worse).
+
+   Then (2026-10-29): `tla/compile.ts` `lift` turns each closure called at
+   once (8 sites: set builders, CHOOSE, EXCEPT, Cardinality, quantifiers,
+   ENABLED) into a call to a function at module level, its free variables
+   as parameters. 0 closures left on the 6 parity sets. webrtc peak 6.95 →
+   4.65 GB; the small sets 0–9 % faster. The periodic GC stays: without it
+   webrtc still peaks at 7.18 GB.
 3. DONE 2026-10-29: parity gate `scripts/e2e-verify-bun-parity.ts`, tier
    case `verify.bun-parity` (Docker). Cold copies of the examples, verified
    with `--engine bun`; each generated set compared with TLC `-workers 1`.

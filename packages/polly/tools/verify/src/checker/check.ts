@@ -227,12 +227,12 @@ function instrumentHandlers(defs: Map<string, Def>): string[] {
 const TIMEOUT_POLL = 4096;
 
 /**
- * How often the search runs a full GC, in expanded states. The compiled
- * actions allocate closures as they run, and JSC starts a full collection at
- * a size relative to the heap, which the stores' typed arrays make large: on
- * webrtc-p2p-chat/client the process peaked at 7.81 GiB with 3.05 GiB live,
- * 15,788 live objects and 9.1M dead closure scopes. With few live objects a
- * full collection is cheap.
+ * How often the search runs a full GC, in expanded states. JSC starts a full
+ * collection at a size relative to the heap, and the stores' typed arrays
+ * make that size large, so the short-lived objects the compiled actions make
+ * pile up. On webrtc-p2p-chat/client (123,836,552 states) the run peaks at
+ * 4.65 GB with this collection and at 7.18 GB without it. The heap holds few
+ * live objects (15,788 at the end), so a full collection is cheap.
  */
 const GC_EVERY = 1 << 20;
 
