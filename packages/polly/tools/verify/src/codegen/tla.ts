@@ -4127,6 +4127,38 @@ function applySubsystemBounds(
 }
 
 /**
+ * polly#196: the state keys a capability reads, in config dot notation.
+ * `sig.value.a.b` -> `sig.a.b`, `sig.value` -> `sig`, `state.a` -> `a`.
+ */
+export function capabilityStateRefs(cap: CapabilityConfig): string[] {
+  const refs = new Set<string>();
+  for (const expression of [cap.enabledBy, cap.requires]) {
+    const rest = expression.replace(
+      /\b([a-zA-Z_][a-zA-Z0-9_]*)\.value(?:\.([a-zA-Z_][a-zA-Z0-9_.]*))?/g,
+      (_match, signal: string, path: string | undefined) => {
+        refs.add(path === undefined ? signal : `${signal}.${path}`);
+        return "";
+      }
+    );
+    for (const match of rest.matchAll(/(?<![\w.])state\.([a-zA-Z_][a-zA-Z0-9_.]*)/g)) {
+      if (match[1] !== undefined) refs.add(match[1]);
+    }
+  }
+  return [...refs];
+}
+
+/**
+ * polly#196: true when every state key the capability reads is a subsystem
+ * field, or lies inside one. A capability that reads no recognisable key is
+ * kept, so a typo still fails loudly instead of going unchecked.
+ */
+export function capabilityFitsSubsystem(cap: CapabilityConfig, subsystemState: string[]): boolean {
+  return capabilityStateRefs(cap).every((ref) =>
+    subsystemState.some((field) => ref === field || ref.startsWith(`${field}.`))
+  );
+}
+
+/**
  * Generate a filtered TLA+ spec for a single subsystem.
  *
  * Filters the config's state/messages and analysis's handlers/messageTypes
@@ -4193,6 +4225,11 @@ export async function generateSubsystemTLA(
     // polly#171: a subsystem's own `liveness` wins over the top-level default,
     // so the expensive check can be paid only where progress matters.
     liveness: subsystem.liveness ?? config.liveness,
+    // polly#196: a capability whose fields this subsystem does not own would
+    // select a nonexistent record field, so it is checked only where it fits.
+    capabilities: config.capabilities?.filter((cap) =>
+      capabilityFitsSubsystem(cap, subsystem.state)
+    ),
     subsystems: undefined, // don't recurse
   };
 

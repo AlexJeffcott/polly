@@ -5,7 +5,12 @@
 
 import { describe, expect, test } from "bun:test";
 import type { CodebaseAnalysis, VerificationConfig } from "../../types";
-import { TLAGenerator } from "../tla";
+import {
+  capabilityFitsSubsystem,
+  capabilityStateRefs,
+  generateSubsystemTLA,
+  TLAGenerator,
+} from "../tla";
 
 function baseConfig(): VerificationConfig {
   return {
@@ -67,5 +72,75 @@ describe("capabilities desugar to TLA+ invariants (issue #160)", () => {
     const { spec, cfg } = await new TLAGenerator().generate(baseConfig(), baseAnalysis);
     expect(spec).not.toContain("Capability_");
     expect(cfg).not.toContain("INVARIANT Capability_");
+  });
+});
+
+describe("capabilities are scoped per subsystem (issue #196)", () => {
+  const cap = {
+    name: "SyncStateEquals",
+    enabledBy: "offlineQueueState.value.syncState === 'synced'",
+    requires: "offlineQueueState.value.unsyncedChanges === 0",
+  };
+
+  test("reads signal fields, whole signals and state paths", () => {
+    expect(capabilityStateRefs(cap).sort()).toEqual([
+      "offlineQueueState.syncState",
+      "offlineQueueState.unsyncedChanges",
+    ]);
+    expect(
+      capabilityStateRefs({ name: "c", enabledBy: "todos.value.length > 0", requires: "state.a.b" })
+    ).toEqual(["todos.length", "a.b"]);
+    expect(capabilityStateRefs({ name: "c", enabledBy: "user.value", requires: "true" })).toEqual([
+      "user",
+    ]);
+  });
+
+  test("kept only where the subsystem owns every field it reads", () => {
+    const owner = ["offlineQueueState.syncState", "offlineQueueState.unsyncedChanges"];
+    expect(capabilityFitsSubsystem(cap, owner)).toBe(true);
+    expect(capabilityFitsSubsystem(cap, ["appState.appPhase"])).toBe(false);
+    expect(capabilityFitsSubsystem(cap, ["offlineQueueState.syncState"])).toBe(false);
+    // A whole-signal field covers paths inside it.
+    expect(capabilityFitsSubsystem(cap, ["offlineQueueState"])).toBe(true);
+  });
+
+  test("a capability that reads no recognisable field is kept", () => {
+    expect(capabilityFitsSubsystem({ name: "c", enabledBy: "true", requires: "typo" }, [])).toBe(
+      true
+    );
+  });
+
+  test("generateSubsystemTLA emits the invariant only in the owning subsystem", async () => {
+    const config: VerificationConfig = {
+      state: {
+        "appState.appPhase": { type: "enum", values: ["idle", "busy"] },
+        "offlineQueueState.syncState": { type: "enum", values: ["synced", "pending"] },
+        "offlineQueueState.unsyncedChanges": { type: "number", min: 0, max: 2 },
+      },
+      messages: { maxInFlight: 1, maxTabs: 1 },
+      capabilities: [cap],
+      onBuild: "warn",
+      onRelease: "error",
+    };
+    const app = await generateSubsystemTLA(
+      "app",
+      { state: ["appState.appPhase"], handlers: ["test"] },
+      config,
+      baseAnalysis
+    );
+    expect(app.spec).not.toContain("Capability_SyncStateEquals");
+    expect(app.spec).not.toContain("offlineQueueState_syncState");
+
+    const queue = await generateSubsystemTLA(
+      "offlineQueue",
+      {
+        state: ["offlineQueueState.syncState", "offlineQueueState.unsyncedChanges"],
+        handlers: ["test"],
+      },
+      config,
+      baseAnalysis
+    );
+    expect(queue.spec).toContain("Capability_SyncStateEquals ==");
+    expect(queue.cfg).toContain("Capability_SyncStateEquals");
   });
 });
