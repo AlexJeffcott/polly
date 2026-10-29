@@ -6,7 +6,9 @@
  *     covers both the target's text and the operator rules
  *   - the text of every file in the covering tests' import closure, tests
  *     included
- *   - the project's preloads, tsconfig.json, bunfig.toml and bun.lock
+ *   - the project's preloads, tsconfig.json and bunfig.toml, and the nearest
+ *     bun.lock at or above the config (a workspace root)
+ *   - whether the type filter ran (typescript-7 installed)
  *   - mode, timeout, cwd isolation, Bun's version and CACHE_VERSION
  *   - dynamic coverage: each mutant's selected files and test-name pattern
  * Reach the import graph cannot see (a fixture file, `mock.module`) is not in

@@ -95,3 +95,34 @@ describe("result cache", () => {
     expect(cachedFlags(await runEngine(config({ cacheDir: null })))).toEqual([false, false]);
   }, 120_000);
 });
+
+// fairfox: polly.mutate.ts in packages/server, bun.lock at the root. The key
+// hashed the absent packages/server/bun.lock, so installing typescript-7 (or
+// any dependency change) reused results computed before it.
+describe("result cache in a workspace", () => {
+  const workspace = createFixtureProject("polly-mutate-cache-ws-", {
+    "bun.lock": '{ "lockfileVersion": 1 }\n',
+    "packages/app/src/neg.ts": "export const neg = (n: number) => -n;",
+    "packages/app/tests/neg.test.ts": [
+      'import { expect, test } from "bun:test";',
+      'import { neg } from "../src/neg.ts";',
+      'test("neg", () => expect(neg(2)).toBe(-2));',
+    ].join("\n"),
+  });
+  afterAll(() => workspace.remove());
+  const app = (rel: string) => workspace.path(`packages/app/${rel}`);
+  const wsConfig = (): EngineConfig =>
+    config({
+      cwd: app(""),
+      targets: [{ file: app("src/neg.ts") }],
+      cacheDir: app(".polly/mutate/cache"),
+      reportPath: app("reports/mutation.json"),
+    });
+
+  test("a change to the root bun.lock reruns the target", async () => {
+    expect(cachedFlags(await runEngine(wsConfig()))).toEqual([false]);
+    expect(cachedFlags(await runEngine(wsConfig()))).toEqual([true]);
+    writeFileSync(workspace.path("bun.lock"), '{ "lockfileVersion": 1, "packages": {} }\n');
+    expect(cachedFlags(await runEngine(wsConfig()))).toEqual([false]);
+  }, 120_000);
+});

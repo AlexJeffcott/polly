@@ -80,13 +80,22 @@ interface Modules {
 }
 
 /** The TypeScript 7 API modules, or null when `typescript-7` is not installed. */
-async function loadApi(): Promise<Modules | null> {
-  try {
-    const [api, fs] = await Promise.all([import("typescript-7/async"), import("typescript-7/fs")]);
-    return { api, fs };
-  } catch {
-    return null;
-  }
+let api: Promise<Modules | null> | undefined;
+
+function loadApi(): Promise<Modules | null> {
+  api ??= Promise.all([import("typescript-7/async"), import("typescript-7/fs")]).then(
+    ([a, fs]) => ({ api: a, fs }),
+    () => null
+  );
+  return api;
+}
+
+/**
+ * Whether the type filter can run. The result cache keys on it: a result
+ * cached with the filter off counts mutants the filter rejects as killed.
+ */
+export async function typeFilterAvailable(): Promise<boolean> {
+  return (await loadApi()) !== null;
 }
 
 /** `tsconfig.json` paths from the file's directory upward, nearest first. */

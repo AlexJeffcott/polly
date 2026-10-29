@@ -18,8 +18,8 @@
  *   report    mutation-testing-report-schema JSON (report-writer.ts); a
  *             disable comment that covers no runnable mutant is a warning
  */
-import { realpathSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { type Baseline, measureBaseline } from "./baseline.ts";
 import {
   type CacheEntry,
@@ -59,7 +59,7 @@ import {
 import { toMutationReport, writeReport } from "./report-writer.ts";
 import { pool, preloadPath, runBunTest } from "./runner.ts";
 import { newPaths, snapshotWorktree } from "./stray-writes.ts";
-import { typecheckMutants } from "./typecheck.ts";
+import { typecheckMutants, typeFilterAvailable } from "./typecheck.ts";
 import type {
   ContractSite,
   ContractViolationRecord,
@@ -110,8 +110,17 @@ interface PreparedTarget {
 function projectFiles(cfg: EngineConfig): string[] {
   return [
     ...cfg.testPreload,
-    ...["tsconfig.json", "bunfig.toml", "bun.lock"].map((f) => join(cfg.cwd, f)),
+    ...["tsconfig.json", "bunfig.toml"].map((f) => join(cfg.cwd, f)),
+    nearestLockfile(cfg.cwd),
   ];
+}
+
+/** In a workspace the lockfile is at the root, not beside the config. */
+function nearestLockfile(cwd: string): string {
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    const lock = join(dir, "bun.lock");
+    if (existsSync(lock) || dirname(dir) === dir) return lock;
+  }
 }
 
 export async function runEngine(cfg: EngineConfig, hooks: EngineHooks = {}): Promise<EngineResult> {
@@ -267,7 +276,7 @@ async function withCache(
     scratchCwd: cfg.scratchCwd,
     testPreload: cfg.testPreload,
     coverage: cfg.coverage,
-    typecheck: cfg.typecheck,
+    typecheck: cfg.typecheck && (await typeFilterAvailable()),
     contracts: cfg.contracts,
     selections: selectionKey(g.mutants, selections),
   };

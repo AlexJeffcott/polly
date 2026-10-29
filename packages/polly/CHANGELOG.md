@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`polly mutate` reused results after the type filter changed.** The
+  result cache keyed on the `typecheck` setting, not on whether
+  `typescript-7` loaded, and it hashed `bun.lock` beside the config, which a
+  workspace package does not have. In fairfox (`packages/server`), a run
+  before `typescript-7` was installed was served again after it: 174 killed,
+  where a fresh run gives 98 killed and 76 invalid. The key now carries
+  whether the filter ran and the nearest `bun.lock` at or above the config.
+
 - **The npm package ships a README.** `files` listed `README.md`, but the
   only README is at the repo root, so 0.90.0 to 0.98.0 published none and
   the npm page read "No README data found". `build-lib.ts` now copies the
