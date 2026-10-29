@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.98.0] - 2026-10-29
+
 ### Added
+
+- **`!` exclusions in `polly.mutate.ts` `tests.include`**, as `targets`
+  already allowed.
 
 - **`polly verify --engine bun`: the safety pass without Docker.** polly's
   own explicit-state checker (`tools/verify/src/checker/`) compiles the
@@ -173,11 +178,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   escaped; every deployment view lacked its environment argument;
   `environment: X` kept the space; ADRs emitted an invalid
   `documentation` block (the `!adrs` line imports them).
-
-### Added
-
-- **`!` exclusions in `polly.mutate.ts` `tests.include`**, as `targets`
-  already allowed.
 
 ## [0.97.1] - 2026-10-26
 
