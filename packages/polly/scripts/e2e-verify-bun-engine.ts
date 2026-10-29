@@ -5,7 +5,7 @@
  *
  * The checker (tools/verify/src/checker) compiles the generated `.tla` and
  * gives TLC's generated / distinct / depth counts exactly on every example
- * spec set (scripts/spikes/bun-checker/parity.ts, which needs Docker). This
+ * spec set (scripts/e2e-verify-bun-parity.ts, which needs Docker). This
  * harness is the user's side: the working-tree CLI, on copies of two examples
  * with no generated specs, so the run starts from the state a fresh checkout
  * has.
@@ -52,14 +52,14 @@ const CAPABILITY = `  capabilities: [
 
 `;
 
-/** A copy of an example with no generated specs. */
+/** A copy of an example's tracked files, as a fresh checkout has them. */
 function copyExample(name: string): string {
   const source = join(EXAMPLES_DIR, name);
   const dir = mkdtempSync(join(EXAMPLES_DIR, `.e2e-bun-engine-${name}-`));
-  for (const entry of ["src", "specs", "tsconfig.json", "package.json"]) {
-    cpSync(join(source, entry), join(dir, entry), { recursive: true });
-  }
-  rmSync(join(dir, "specs", "tla", "generated"), { recursive: true, force: true });
+  const tracked = Bun.spawnSync(["git", "ls-files", "-z", "."], { cwd: source, stdout: "pipe" });
+  const files = tracked.stdout.toString().split("\0").filter(Boolean);
+  if (tracked.exitCode !== 0 || files.length === 0) throw new Error(`${name}: no tracked files`);
+  for (const file of files) cpSync(join(source, file), join(dir, file), { recursive: true });
   symlinkSync(join(source, "node_modules"), join(dir, "node_modules"));
   return dir;
 }

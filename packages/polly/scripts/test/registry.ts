@@ -409,6 +409,14 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "bun-engine"],
           cost: "heavy",
         }),
+        // TLC runs only for a spec set whose hash is not in
+        // e2e-verify-bun-parity.counts.json; a full refresh is about 3 min.
+        e2e("verify.bun-parity", "e2e-verify-bun-parity.ts", {
+          needs: ["docker"],
+          tags: ["verify", "tla", "bun-engine", "parity"],
+          cost: "heavy",
+          timeoutMs: 1_800_000,
+        }),
         e2e("verify.unknown-message-names", "e2e-verify-unknown-message-names.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "config"],

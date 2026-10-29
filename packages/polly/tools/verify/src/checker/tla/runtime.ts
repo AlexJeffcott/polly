@@ -14,7 +14,7 @@
 // the tables themselves, so a read out of range is a defect in this file, and
 // it gives ID 0 (FALSE) rather than undefined. A checked helper call here cost
 // 26 % on full-featured (1.54 s against 1.22 s); the parity script
-// (scripts/spikes/bun-checker/parity.ts) is the check for this class of defect.
+// (scripts/e2e-verify-bun-parity.ts) is the check for this class of defect.
 
 import { Lazy, ModelValue, TFun, TlaEvalError, TSet, type Value } from "./values";
 

@@ -1,11 +1,13 @@
 # Bun safety checker (spike)
 
-**Status:** step 4 done 2026-10-28. The general checker (steps 3a and 3b
+**Status:** steps 3–5 done 2026-10-29. The general checker (steps 3a and 3b
 below) moved out of this directory to `tools/verify/src/checker/` and ships
 as `polly verify --engine bun`; its CLI for the scripts here is
-`tools/verify/src/checker/cli.ts`. What stays here is the history: the
-hand-written minimal checker (`check.ts`), `parity.ts`, the bench scripts and
-their logs. `scripts/spikes` is excluded from typecheck, biome and semgrep
+`tools/verify/src/checker/cli.ts`. `parity.ts` became the parity gate
+`scripts/e2e-verify-bun-parity.ts` (tier case `verify.bun-parity`), and
+`tlc-counts.json` became `scripts/e2e-verify-bun-parity.counts.json`. What
+stays here is the history: the hand-written minimal checker (`check.ts`), the
+bench scripts and their logs. `scripts/spikes` is excluded from typecheck, biome and semgrep
 (`packages/polly/tsconfig.json`, `biome.json`, `scripts/check.ts`), not from
 the casts gate.
 
@@ -79,7 +81,8 @@ packages/polly/scripts/spikes/bun-checker/compare.sh
 `tlacheck.ts` with `tla/` (lexer, parser, values, evaluator) reads the
 generated `.tla` and `.cfg` as TLC does. Nothing in it is written for one
 example. A construct it does not support stops the run with exit 3.
-`parity.ts` runs it and TLC (`-workers 1`) on every generated spec set:
+`parity.ts` (now `scripts/e2e-verify-bun-parity.ts`) runs it and TLC
+(`-workers 1`) on every generated spec set:
 
 | Set | Generated / distinct / depth | TLC w1 | tlacheck | Verdict |
 |---|---|---|---|---|
@@ -145,7 +148,11 @@ one that only out-of-constraint states break, are reported with exit 12
 2. Encoding: the variable-length bit string in `check.ts` (bounds from the
    config, varint for unbounded naturals, 64-bit fingerprint with exact word
    compare).
-3. Parity gate: `parity.ts` (done); not yet in CI.
+3. DONE 2026-10-29: parity gate `scripts/e2e-verify-bun-parity.ts`, tier
+   case `verify.bun-parity` (Docker). Cold copies of the examples, verified
+   with `--engine bun`; each generated set compared with TLC `-workers 1`.
+   TLC runs only for a set whose hash is not in the committed count file.
+   The repo has no hosted CI; the verify tier is the gate.
 4. DONE 2026-10-28: `polly verify --engine bun` (or `verification.engine`).
    Safety only; PROPERTIES listed as not checked (`--strict` fails on them);
    a spec it cannot read falls back to TLC (`--strict` fails). Handler

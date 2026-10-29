@@ -4,7 +4,7 @@
  * count as generated; a successor outside the CONSTRAINT counts as generated,
  * is invariant-checked and is not expanded; depth is the number of BFS levels.
  * Parity with TLC on the generated example specs is
- * scripts/spikes/bun-checker/parity.ts (needs Docker).
+ * scripts/e2e-verify-bun-parity.ts (needs Docker).
  */
 
 import { afterEach, describe, expect, test } from "bun:test";

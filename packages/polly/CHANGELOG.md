@@ -14,8 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generated `.tla` to JavaScript and checks the cfg's INVARIANTS under its
   CONSTRAINT, and deadlock, in process. On the six example spec sets it
   gives TLC's generated / distinct / depth counts exactly, at 2.5–9× TLC
-  `-workers auto`, in 1/5 to 1/2 of its memory
-  (`scripts/spikes/bun-checker/parity.ts`). It does not check PROPERTIES
+  `-workers auto`, in 1/5 to 1/2 of its memory. The parity gate
+  `scripts/e2e-verify-bun-parity.ts` (tier case `verify.bun-parity`,
+  Docker) checks those counts on cold copies of the examples; TLC runs
+  only for a spec set whose hash is not in its committed count file. It
+  does not check PROPERTIES
   (the `ensures` temporal formulas): they are listed as not checked, and
   `--strict` fails on them. A violation prints a shortest trace in TLC's
   format. Handler coverage comes from the checker's own counter at the

@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 /**
  * The Bun safety checker on one spec directory, outside `polly verify`: for
- * the parity and bench scripts (scripts/spikes/bun-checker/), which compare
- * its counts and time with TLC's.
+ * the parity gate (scripts/e2e-verify-bun-parity.ts) and the bench scripts
+ * (scripts/spikes/bun-checker/), which compare its counts and time with
+ * TLC's.
  *
  * Usage: bun cli.ts --spec DIR [--module NAME]
  * Prints: "N states generated, M distinct states found, depth D" (TLC's counts)
