@@ -405,6 +405,10 @@ export function internalPlan(): TierPlan {
           tags: ["verify", "tla", "coverage"],
           cost: "heavy",
         }),
+        e2e("verify.bun-engine", "e2e-verify-bun-engine.ts", {
+          tags: ["verify", "tla", "bun-engine"],
+          cost: "heavy",
+        }),
         e2e("verify.unknown-message-names", "e2e-verify-unknown-message-names.ts", {
           needs: ["docker"],
           tags: ["verify", "tla", "config"],

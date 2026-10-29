@@ -550,6 +550,18 @@ export class ConfigValidator {
     }
 
     this.validateMemory(verification.memory);
+
+    // A loaded user file: the declared type is not yet checked at runtime.
+    const engine: unknown = verification.engine;
+    if (engine !== undefined && engine !== "tlc" && engine !== "bun") {
+      this.issues.push({
+        type: "invalid_value",
+        severity: "error",
+        field: "verification.engine",
+        message: `Unknown engine ${JSON.stringify(engine)}`,
+        suggestion: 'Use "tlc" (default) or "bun"',
+      });
+    }
   }
 
   /**

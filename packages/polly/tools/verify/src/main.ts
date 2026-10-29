@@ -28,8 +28,13 @@ import {
 } from "./config/types";
 import type { CodebaseAnalysis } from "./core/model";
 import { analyzeCodebase } from "./extract/types";
+import { runBunChecker, type VerifyEngine } from "./runner/bun-engine";
 import type { DockerRunner, TLCResult, TLCStats, TLCWorkers } from "./runner/docker";
-import { neverTaken, parseHandlerCoverage } from "./runner/handler-coverage";
+import {
+  handlerCoverageFromCounts,
+  neverTaken,
+  parseHandlerCoverage,
+} from "./runner/handler-coverage";
 import { DEFAULT_TLC_MEMORY } from "./runner/memory";
 import { isSeedFixDisabled, meshSeedCfg } from "./runner/mesh-seed";
 
@@ -746,6 +751,143 @@ function getMemory(config: UnifiedVerificationConfig): string | undefined {
   return config.verification?.memory;
 }
 
+/**
+ * The safety-pass checker: `--engine tlc|bun` (or `--engine=...`), else
+ * `verification.engine`, else TLC. An unknown name exits 1.
+ */
+function getEngine(config: UnifiedVerificationConfig): VerifyEngine {
+  const argv = process.argv;
+  const at = argv.indexOf("--engine");
+  const flag =
+    at >= 0 ? argv[at + 1] : argv.find((a) => a.startsWith("--engine="))?.slice("--engine=".length);
+  const chosen = flag ?? config.verification?.engine ?? "tlc";
+  if (chosen === "tlc" || chosen === "bun") return chosen;
+  console.log(
+    color(`❌ Unknown engine "${chosen}". Use --engine tlc or --engine bun.\n`, COLORS.red)
+  );
+  process.exit(1);
+}
+
+/** One Docker setup per run, made only when a TLC run needs it. */
+function lazyDocker(): () => Promise<DockerRunner> {
+  let docker: Promise<DockerRunner> | undefined;
+  return () => {
+    docker ??= setupDocker();
+    return docker;
+  };
+}
+
+type SafetyOptions = {
+  engine: VerifyEngine;
+  docker: () => Promise<DockerRunner>;
+  workers: TLCWorkers;
+  timeoutSeconds: number;
+  maxDepth: number | undefined;
+  memory: string | undefined;
+  coverage: boolean;
+};
+
+type SafetyRun = {
+  result: TLCResult;
+  /** Undefined when coverage is off. */
+  coverage?: HandlerCoverageReading;
+  /** Why the run fails under --strict although the model check passed. */
+  strictFailures: string[];
+};
+
+/**
+ * The safety pass on one spec. With the Bun engine: a spec the checker cannot
+ * read falls back to TLC (a failure under --strict), and PROPERTIES it did not
+ * check are reported (a failure under --strict). Either way the result has
+ * TLC's shape.
+ */
+async function runSafetyPass(specPath: string, o: SafetyOptions): Promise<SafetyRun> {
+  const strictFailures: string[] = [];
+  if (o.engine === "bun") {
+    const bun = runBunSafety(specPath, o);
+    if ("result" in bun) return bun;
+    const tone = isStrictMode() ? COLORS.red : COLORS.yellow;
+    console.log(color(`⚠ Bun engine cannot check this spec: ${bun.unsupported}`, tone));
+    console.log(color("   Falling back to TLC.", tone));
+    strictFailures.push(`the Bun engine cannot check this spec (${bun.unsupported})`);
+  }
+  const docker = await o.docker();
+  const result = await docker.runTLC(specPath, {
+    workers: o.workers,
+    timeout: o.timeoutSeconds > 0 ? o.timeoutSeconds * 1000 : undefined,
+    maxDepth: o.maxDepth,
+    memory: o.memory,
+    coverage: o.coverage,
+  });
+  const coverage = o.coverage ? readHandlerCoverage(specPath, result) : undefined;
+  return { result, ...(coverage === undefined ? {} : { coverage }), strictFailures };
+}
+
+function runBunSafety(specPath: string, o: SafetyOptions): SafetyRun | { unsupported: string } {
+  const timeoutMs = o.timeoutSeconds > 0 ? o.timeoutSeconds * 1000 : undefined;
+  const bun = runBunChecker(specPath, timeoutMs === undefined ? {} : { timeoutMs });
+  if (bun.kind === "unsupported") return { unsupported: bun.reason };
+  const strictFailures: string[] = [];
+  const n = bun.properties.length;
+  if (n > 0) {
+    const tone = isStrictMode() ? COLORS.red : COLORS.yellow;
+    const noun = n === 1 ? "property" : "properties";
+    console.log(
+      color(`⚠ Bun engine: ${n} temporal ${noun} not checked (--engine tlc checks them):`, tone)
+    );
+    console.log(color(`   ${bun.properties.join(", ")}`, tone));
+    strictFailures.push(`${n} PROPERTIES not checked by the Bun engine`);
+  }
+  if (!o.coverage) return { result: bun.result, strictFailures };
+  const spec = fs.readFileSync(specPath, "utf-8");
+  const coverage = coverageReading(
+    bun.result,
+    bun.handlerCounts && handlerCoverageFromCounts(spec, bun.handlerCounts)
+  );
+  return { result: bun.result, coverage, strictFailures };
+}
+
+/** --strict: the reasons a model check that passed still fails the run. */
+function enforceStrictFailures(reasons: string[]): void {
+  if (reasons.length === 0 || !isStrictMode()) return;
+  for (const reason of reasons) console.log(color(`--strict: ${reason}.`, COLORS.red));
+  console.log();
+  process.exit(1);
+}
+
+/** The checker, its limits and the context set, before the run starts. */
+function describeRun(
+  config: LegacyVerificationConfig,
+  engine: VerifyEngine,
+  timeoutSeconds: number,
+  maxDepth: number | undefined,
+  memory: string | undefined
+): void {
+  const title =
+    engine === "bun"
+      ? "⚙️  Running the Bun model checker (safety only)..."
+      : "⚙️  Running TLC model checker...";
+  console.log(color(title, COLORS.blue));
+  if (timeoutSeconds === 0) {
+    console.log(color("   No timeout set - will run until completion", COLORS.gray));
+  } else {
+    const timeoutMinutes = Math.floor(timeoutSeconds / 60);
+    const timeoutLabel =
+      timeoutMinutes > 0
+        ? `${timeoutMinutes} minute${timeoutMinutes > 1 ? "s" : ""}`
+        : `${timeoutSeconds} seconds`;
+    console.log(color(`   Timeout: ${timeoutLabel}`, COLORS.gray));
+  }
+  if (maxDepth !== undefined) {
+    console.log(color(`   Max depth: ${maxDepth}`, COLORS.gray));
+  }
+  if (engine === "tlc") {
+    console.log(color(`   Memory: ${memory ?? DEFAULT_TLC_MEMORY}`, COLORS.gray));
+  }
+  console.log(color(`   Contexts: ${describeContextSet(config)}`, COLORS.gray));
+  console.log();
+}
+
 /** Run TLC with `-coverage` and report handlers never taken. Default on. */
 function getHandlerCoverage(config: UnifiedVerificationConfig): boolean {
   return config.verification?.handlerCoverage ?? true;
@@ -1041,8 +1183,8 @@ async function runMonolithicVerification(
   console.log(color(`   ${specPath}`, COLORS.gray));
   console.log();
 
-  // Setup and run Docker
-  const docker = await setupDocker();
+  const docker = lazyDocker();
+  const engine = getEngine(config);
 
   // Determine timeout, workers, and maxDepth from config
   const timeoutSeconds = getTimeout(config);
@@ -1051,32 +1193,19 @@ async function runMonolithicVerification(
   const memory = getMemory(config);
   const coverage = getHandlerCoverage(config);
 
-  // Run TLC
-  console.log(color("⚙️  Running TLC model checker...", COLORS.blue));
-  if (timeoutSeconds === 0) {
-    console.log(color("   No timeout set - will run until completion", COLORS.gray));
-  } else {
-    const timeoutMinutes = Math.floor(timeoutSeconds / 60);
-    const timeoutLabel =
-      timeoutMinutes > 0
-        ? `${timeoutMinutes} minute${timeoutMinutes > 1 ? "s" : ""}`
-        : `${timeoutSeconds} seconds`;
-    console.log(color(`   Timeout: ${timeoutLabel}`, COLORS.gray));
-  }
-  if (maxDepth !== undefined) {
-    console.log(color(`   Max depth: ${maxDepth}`, COLORS.gray));
-  }
-  console.log(color(`   Memory: ${memory ?? DEFAULT_TLC_MEMORY}`, COLORS.gray));
-  console.log(color(`   Contexts: ${describeContextSet(config)}`, COLORS.gray));
-  console.log();
+  if (engine === "tlc") await docker();
+  describeRun(config, engine, timeoutSeconds, maxDepth, memory);
 
-  const result = await docker.runTLC(specPath, {
+  const run = await runSafetyPass(specPath, {
+    engine,
+    docker,
     workers,
-    timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
+    timeoutSeconds,
     maxDepth,
     memory,
     coverage,
   });
+  const result = run.result;
 
   // polly#114: when the project declares $meshState documents, also
   // model-check the concurrent first-time seed — the polly#113 race that
@@ -1094,7 +1223,8 @@ async function runMonolithicVerification(
   // Display results
   displayVerificationResults(result, specDir);
 
-  if (coverage) enforceHandlerCoverage(readHandlerCoverage(specPath, result));
+  if (run.coverage) enforceHandlerCoverage(run.coverage);
+  enforceStrictFailures(run.strictFailures);
 }
 
 /** Report the reading; under --strict a handler never taken exits 1. */
@@ -1114,14 +1244,22 @@ function enforceHandlerCoverage(reading: HandlerCoverageReading): void {
 type HandlerCoverageReading = { never: string[] } | { skipped: string };
 
 function readHandlerCoverage(specPath: string, result: TLCResult): HandlerCoverageReading {
-  if (!result.success) return { skipped: "the run did not pass" };
-  if (!result.stats?.exhaustive) return { skipped: "the model was not exhausted" };
   const moduleName = path.basename(specPath, ".tla");
   const coverage = parseHandlerCoverage(
     fs.readFileSync(specPath, "utf-8"),
     moduleName,
     result.output
   );
+  return coverageReading(result, coverage);
+}
+
+/** `coverage` undefined: the checker printed no coverage report. */
+function coverageReading(
+  result: TLCResult,
+  coverage: ReturnType<typeof parseHandlerCoverage>
+): HandlerCoverageReading {
+  if (!result.success) return { skipped: "the run did not pass" };
+  if (!result.stats?.exhaustive) return { skipped: "the model was not exhausted" };
   if (!coverage) return { skipped: "TLC printed no coverage report" };
   return { never: neverTaken(coverage) };
 }
@@ -1250,8 +1388,10 @@ async function runSubsystemVerification(
     console.log();
   }
 
-  // Setup Docker once
-  const docker = await setupDocker();
+  // Docker once, and only when a TLC run needs it
+  const docker = lazyDocker();
+  const engine = getEngine(config);
+  if (engine === "tlc") await docker();
   const timeoutSeconds = getTimeout(config);
   const workers = getWorkers(config);
   const maxDepth = getMaxDepth(config);
@@ -1320,22 +1460,29 @@ async function runSubsystemVerification(
     // Copy base spec
     findAndCopyBaseSpec(specDir);
 
-    // Run TLC
-    const result = await docker.runTLC(specPath, {
+    const run = await runSafetyPass(specPath, {
+      engine,
+      docker,
       workers,
-      timeout: timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined,
+      timeoutSeconds,
       maxDepth,
       memory,
       coverage,
     });
+    const result = run.result;
 
     const elapsed = (Date.now() - startTime) / 1000;
 
-    const handlerCoverage = coverage ? readHandlerCoverage(specPath, result) : undefined;
+    const handlerCoverage = run.coverage;
     const neverTakenCount =
       handlerCoverage && "never" in handlerCoverage ? handlerCoverage.never.length : 0;
-    // --strict: a handler TLC never took fails its subsystem.
-    const success = result.success && !(strict && neverTakenCount > 0);
+    // --strict: a handler never taken, PROPERTIES the Bun engine did not
+    // check, or a Bun fallback to TLC fails the subsystem.
+    const strictReasons = [
+      ...(neverTakenCount > 0 ? [`${neverTakenCount} handler(s) never taken`] : []),
+      ...run.strictFailures,
+    ];
+    const success = result.success && !(strict && strictReasons.length > 0);
 
     results.push({
       name,
@@ -1349,15 +1496,17 @@ async function runSubsystemVerification(
     });
 
     if (result.success && !success) {
-      console.log(
-        color(`   ✗ ${name}: ${neverTakenCount} handler(s) never taken (--strict)`, COLORS.red)
-      );
+      console.log(color(`   ✗ ${name}: ${strictReasons.join("; ")} (--strict)`, COLORS.red));
     } else if (result.success) {
       console.log(color(`   ✓ ${name} passed (${elapsed.toFixed(1)}s)`, COLORS.green));
     } else {
       console.log(color(`   ✗ ${name} failed`, COLORS.red));
       if (result.violation) {
-        console.log(color(`     Invariant violated: ${result.violation.name}`, COLORS.red));
+        const what =
+          result.violation.type === "deadlock"
+            ? "Deadlock reached"
+            : `Invariant violated: ${result.violation.name}`;
+        console.log(color(`     ${what}`, COLORS.red));
       } else if (result.error) {
         console.log(color(`     Error: ${result.error}`, COLORS.red));
       }
@@ -1994,7 +2143,7 @@ function findMeshSeedSpecDir(): string | null {
  * Returns undefined (guard skipped) when no mesh documents are declared.
  */
 async function runMeshSeedGuard(
-  docker: DockerRunner,
+  docker: () => Promise<DockerRunner>,
   specDir: string,
   config: unknown,
   memory: string | undefined
@@ -2025,7 +2174,7 @@ async function runMeshSeedGuard(
       COLORS.blue
     )
   );
-  return docker.runTLC(path.join(specDir, "MeshSeed.tla"), { workers: 1, memory });
+  return (await docker()).runTLC(path.join(specDir, "MeshSeed.tla"), { workers: 1, memory });
 }
 
 async function setupDocker(): Promise<DockerRunner> {
@@ -2106,7 +2255,14 @@ function displayVerificationResults(result: TLCResult, specDir: string): void {
   console.log(color("❌ Verification failed!\n", COLORS.red));
 
   if (result.violation) {
-    console.log(color(`Invariant violated: ${result.violation.name}\n`, COLORS.red));
+    console.log(
+      color(
+        result.violation.type === "deadlock"
+          ? "Deadlock reached\n"
+          : `Invariant violated: ${result.violation.name}\n`,
+        COLORS.red
+      )
+    );
     console.log(color("Trace to violation:", COLORS.yellow));
     for (const line of result.violation.trace.slice(0, 20)) {
       console.log(color(`  ${line}`, COLORS.gray));
@@ -2145,6 +2301,12 @@ ${color("Commands:", COLORS.blue)}
     field no handler writes, an unverified $meshState/$peerState predicate,
     a handler TLC never took, or a config name that matches no message type.
     Also via ${color("POLLY_VERIFY_STRICT=1", COLORS.yellow)}.
+
+  ${color("polly verify --engine bun", COLORS.green)}
+    Run the safety pass on polly's own checker instead of TLC: invariants and
+    deadlock, in process, no Docker. Temporal PROPERTIES (ensures) are not
+    checked and are listed; --strict fails on them. A spec the checker cannot
+    read falls back to TLC. Also via ${color("verification.engine", COLORS.blue)}.
 
   ${color("polly verify --witness", COLORS.green)}
     After the invariant pass, check each BDD scenario's Then-outcome for

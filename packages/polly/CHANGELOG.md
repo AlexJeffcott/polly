@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`polly verify --engine bun`: the safety pass without Docker.** polly's
+  own explicit-state checker (`tools/verify/src/checker/`) compiles the
+  generated `.tla` to JavaScript and checks the cfg's INVARIANTS under its
+  CONSTRAINT, and deadlock, in process. On the six example spec sets it
+  gives TLC's generated / distinct / depth counts exactly, at 2.5–9× TLC
+  `-workers auto`, in 1/5 to 1/2 of its memory
+  (`scripts/spikes/bun-checker/parity.ts`). It does not check PROPERTIES
+  (the `ensures` temporal formulas): they are listed as not checked, and
+  `--strict` fails on them. A violation prints a shortest trace in TLC's
+  format. Handler coverage comes from the checker's own counter at the
+  conjunct TLC's `-coverage` reading uses. A spec it cannot read falls
+  back to TLC (`--strict`: fails). `verification.engine: "bun"` sets it
+  per project; TLC stays the default. Proof:
+  `scripts/e2e-verify-bun-engine.ts` (tier case `verify.bun-engine`, no
+  Docker).
 - **`polly verify` names the handlers TLC never took.** A handler whose
   `requires` guards never all hold at a reachable state is never taken, and
   every `ensures` on it passes unchecked. examples/minimal,

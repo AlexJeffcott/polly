@@ -270,6 +270,10 @@ $ polly verify --strict
 ❌ Strict mode: model coverage incomplete
 ```
 
+### A faster safety pass without Docker
+
+`polly verify --engine bun` checks the same generated spec with polly's own model checker, in process: invariants and deadlock, no Docker, no JVM. On the example specs it reports TLC's exact state counts at 2.5–9× the speed of TLC with all cores, in a fifth to a half of the memory. It does not check temporal properties (the `ensures` postconditions): it lists them as not checked, and `--strict` fails on them. Use it for the edit-and-check loop, and TLC (the default) before you ship. A spec the Bun checker cannot read falls back to TLC. Set `verification: { engine: "bun" }` to make it the project default.
+
 ## Executable specs that link to the model
 
 `polly bdd` adds a third verification stratum alongside `verify` (TLA+) and `mutate` (mutation testing): acceptance examples written from the user's perspective, as Gherkin, run across the **real factory boundary** — the same `createBackground` your extension boots, never a hand-wired bus that quietly papers over a gap the real path has.
@@ -373,7 +377,8 @@ polly format                      Format your code
 polly test [args]                 Run unit tests (bun test)
 polly test:browser [dir]          Run *.browser.{ts,tsx} in Puppeteer
 polly verify [--witness]          Run formal verification (TLA+/TLC); --witness adds
-                                  per-scenario reachability checks for your BDD outcomes
+                                  per-scenario reachability checks for your BDD outcomes;
+                                  --engine bun runs the safety pass without Docker
 polly bdd [run|check|new]         Executable Gherkin across the real boundary, linked to the model
 polly mutate [run|report]         Mutation testing — prove the tests have teeth
 polly visualize                   Generate architecture diagrams (Structurizr DSL)

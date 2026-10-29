@@ -142,6 +142,13 @@ interface LegacyVerificationConfig {
      * 1.1x to 1.9x the run time. Under --strict a handler never taken fails the run.
      */
     handlerCoverage?: boolean;
+    /**
+     * Model checker for the safety pass. "tlc" (default) runs TLC in Docker and
+     * checks invariants and PROPERTIES. "bun" runs polly's own checker in
+     * process: invariants and deadlock only, no Docker; PROPERTIES are reported
+     * as not checked (a failure under --strict). `--engine` overrides it.
+     */
+    engine?: "tlc" | "bun";
   };
 
   /**

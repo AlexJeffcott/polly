@@ -98,6 +98,7 @@ export type VerificationConfig = {
     workers?: TLCWorkers; // Number of TLC workers; default "auto" (one per core)
     memory?: string; // polly#181: docker-style container memory ceiling, e.g. "8g"
     handlerCoverage?: boolean; // report handlers TLC never took; default true
+    engine?: "tlc" | "bun"; // safety-pass checker; default "tlc"
   };
 
   /**

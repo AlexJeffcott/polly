@@ -140,6 +140,24 @@ export function parseHandlerCoverage(
   }));
 }
 
+/**
+ * The coverage of every handler action in `spec`, from the Bun checker's
+ * counts (checker/check.ts). It counts at the same conjunct TLC's `-coverage`
+ * line count is read from, so the two readings agree on which handlers ran.
+ */
+export function handlerCoverageFromCounts(
+  spec: string,
+  counts: Map<string, number>
+): HandlerCoverage[] {
+  const reachable = actionsInModel(spec);
+  return [...handlerEffectLines(spec)].map(([action, effectLine]) => ({
+    action,
+    effectLine,
+    count: counts.get(action) ?? 0,
+    inModel: reachable?.has(action) ?? true,
+  }));
+}
+
 /** The handler actions in the model that TLC never took. */
 export function neverTaken(coverage: HandlerCoverage[]): string[] {
   return coverage.filter((c) => c.inModel && c.count === 0).map((c) => c.action);
