@@ -20,6 +20,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PackedStateStore, StateCodec } from "./state-store";
 import { type Compiled, CompileError, compileSpec } from "./tla/compile";
 import { TlaSyntaxError } from "./tla/lexer";
 import { type Def, type Expr, parseModule } from "./tla/parser";
@@ -222,96 +223,18 @@ function instrumentHandlers(defs: Map<string, Def>): string[] {
   return actions;
 }
 
-/**
- * Exact set of state tuples (one Int32 value ID per variable), kept in the
- * order they were added, so states [a, b) are one BFS level. Each state keeps
- * the index of the state it was reached from (-1 for an init state).
- */
-class StateStore {
-  pool: Int32Array;
-  parents: Int32Array;
-  count = 0;
-  private table = new Int32Array(1 << 16).fill(-1);
-  private mask = (1 << 16) - 1;
-  constructor(private readonly width: number) {
-    this.pool = new Int32Array(Math.max(1, width) << 16);
-    this.parents = new Int32Array(1 << 16);
-  }
-  private hash(buf: Int32Array, off: number): number {
-    let h = 0x9747b28c;
-    for (let i = 0; i < this.width; i++) {
-      let k = Math.imul(buf[off + i] ?? 0, 0xcc9e2d51);
-      k = (k << 15) | (k >>> 17);
-      h ^= Math.imul(k, 0x1b873593);
-      h = (h << 13) | (h >>> 19);
-      h = (Math.imul(h, 5) + 0xe6546b64) | 0;
-    }
-    h ^= h >>> 16;
-    h = Math.imul(h, 0x85ebca6b);
-    h ^= h >>> 13;
-    return h;
-  }
-  /** The slot holding s, or the empty slot where it would go (as -slot - 1). */
-  private slot(s: Int32Array): number {
-    const w = this.width;
-    let i = this.hash(s, 0) & this.mask;
-    for (;;) {
-      const k = this.table[i] ?? -1;
-      if (k < 0) return -i - 1;
-      let same = true;
-      for (let j = 0; j < w; j++) {
-        if (this.pool[k * w + j] !== s[j]) {
-          same = false;
-          break;
-        }
-      }
-      if (same) return i;
-      i = (i + 1) & this.mask;
-    }
-  }
-  has(s: Int32Array): boolean {
-    return this.slot(s) >= 0;
-  }
-  /** Adds s, reached from `parent`; false when it is already in the set. */
-  add(s: Int32Array, parent: number): boolean {
-    const found = this.slot(s);
-    if (found >= 0) return false;
-    const w = this.width;
-    if ((this.count + 1) * w > this.pool.length) {
-      const p = new Int32Array(this.pool.length * 2);
-      p.set(this.pool);
-      this.pool = p;
-    }
-    if (this.count + 1 > this.parents.length) {
-      const p = new Int32Array(this.parents.length * 2);
-      p.set(this.parents);
-      this.parents = p;
-    }
-    this.pool.set(s, this.count * w);
-    this.parents[this.count] = parent;
-    this.table[-found - 1] = this.count++;
-    if (this.count * 2 > this.mask) this.grow();
-    return true;
-  }
-  private grow(): void {
-    this.table = new Int32Array(this.table.length * 2).fill(-1);
-    this.mask = this.table.length - 1;
-    for (let k = 0; k < this.count; k++) {
-      let i = this.hash(this.pool, k * this.width) & this.mask;
-      while ((this.table[i] ?? -1) >= 0) i = (i + 1) & this.mask;
-      this.table[i] = k;
-    }
-  }
-  get(k: number): Int32Array {
-    return this.pool.subarray(k * this.width, (k + 1) * this.width);
-  }
-  parent(k: number): number {
-    return this.parents[k] ?? -1;
-  }
-}
-
 /** How often the search loop reads the clock, in expanded states. */
 const TIMEOUT_POLL = 4096;
+
+/**
+ * How often the search runs a full GC, in expanded states. The compiled
+ * actions allocate closures as they run, and JSC starts a full collection at
+ * a size relative to the heap, which the stores' typed arrays make large: on
+ * webrtc-p2p-chat/client the process peaked at 7.81 GiB with 3.05 GiB live,
+ * 15,788 live objects and 9.1M dead closure scopes. With few live objects a
+ * full collection is cheap.
+ */
+const GC_EVERY = 1 << 20;
 
 type Violation = {
   what: "invariant" | "deadlock";
@@ -324,12 +247,14 @@ type Violation = {
 function traceLines(
   prog: Compiled,
   vars: string[],
-  store: StateStore,
+  store: PackedStateStore,
   violation: Violation
 ): string[] {
   const chain: Int32Array[] = [violation.state];
   // A deadlocked state is in the store already; its own entry starts the walk.
-  for (let k = violation.parent; k >= 0; k = store.parent(k)) chain.push(store.get(k));
+  for (let k = violation.parent; k >= 0; k = store.parent(k)) {
+    chain.push(store.get(k, new Int32Array(vars.length)));
+  }
   chain.reverse();
   const lines: string[] = [];
   chain.forEach((state, i) => {
@@ -357,8 +282,11 @@ function search(o: {
   const n = o.vars.length;
   const NX = new Int32Array(n);
   const cov = new Int32Array(o.actions.length);
-  const store = new StateStore(n);
-  const outside = new StateStore(n);
+  // The state being expanded, decoded from the store.
+  const CUR = new Int32Array(n);
+  const codec = new StateCodec(n);
+  const store = new PackedStateStore(codec);
+  const outside = new PackedStateStore(codec);
   let generated = 0;
   let violation: Violation | undefined;
   // The state being expanded: the parent of every successor emit() sees.
@@ -384,19 +312,20 @@ function search(o: {
     generated++;
     const p = prog;
     if (!p) throw new Error("internal: a state was emitted before the spec compiled");
+    const key = codec.encode(NX);
     if (recheck) {
       const inModel = p.constraint(NX);
-      if (inModel && !store.add(NX, expanding)) return;
+      if (inModel && !store.add(key, expanding)) return;
       if (!violation) checkInvariants(p);
       return;
     }
-    if (store.has(NX)) return;
-    if (outside.has(NX)) {
-      if (levelConstraint && p.constraint(NX)) store.add(NX, expanding);
+    if (store.has(key)) return;
+    if (outside.has(key)) {
+      if (levelConstraint && p.constraint(NX)) store.add(key, expanding);
       return;
     }
-    if (p.constraint(NX)) store.add(NX, expanding);
-    else outside.add(NX, expanding);
+    if (p.constraint(NX)) store.add(key, expanding);
+    else outside.add(key, expanding);
     if (!violation) checkInvariants(p);
   };
 
@@ -412,6 +341,7 @@ function search(o: {
   let depth = store.count > 0 ? 1 : 0;
   let expanded = 0;
   let timedOut = false;
+  let sinceGc = 0;
   while (start < store.count && !violation && !timedOut) {
     compiled.setLevel(depth);
     const end = store.count;
@@ -423,12 +353,16 @@ function search(o: {
           break;
         }
       }
+      if (++sinceGc === GC_EVERY) {
+        sinceGc = 0;
+        Bun.gc(true);
+      }
       expanding = k;
       const before = generated;
-      compiled.next(store.get(k));
+      compiled.next(store.get(k, CUR));
       if (generated === before && !violation) {
         // TLC reports the deadlocked state itself as the last trace state.
-        violation = { what: "deadlock", state: store.get(k).slice(), parent: store.parent(k) };
+        violation = { what: "deadlock", state: CUR.slice(), parent: store.parent(k) };
       }
     }
     if (timedOut) break;

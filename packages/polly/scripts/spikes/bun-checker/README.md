@@ -1,6 +1,6 @@
 # Bun safety checker (spike)
 
-**Status:** steps 3–5 done 2026-10-29. The general checker (steps 3a and 3b
+**Status:** steps 2–5 done 2026-10-29. The general checker (steps 3a and 3b
 below) moved out of this directory to `tools/verify/src/checker/` and ships
 as `polly verify --engine bun`; its CLI for the scripts here is
 `tools/verify/src/checker/cli.ts`. `parity.ts` became the parity gate
@@ -145,9 +145,31 @@ one that only out-of-constraint states break, are reported with exit 12
 
 1. DONE as 3a and 3b: compile the generated `.tla`, so TLC and the checker
    read the same file (decided 2026-10-28). 3b passed its stop rule.
-2. Encoding: the variable-length bit string in `check.ts` (bounds from the
-   config, varint for unbounded naturals, 64-bit fingerprint with exact word
-   compare).
+2. DONE 2026-10-29: packed visited set (`tools/verify/src/checker/state-store.ts`).
+   Each variable gets its own dense numbering of the value IDs it takes, and
+   a state is those numbers packed into 32-bit words, each field as wide as
+   its dictionary needs (widened by doubling; stores re-encode). Bounds come
+   from the values seen, not from the config, so no varint is needed; the
+   set stays exact (word compare), so no fingerprint. 2 words per state on
+   every parity set, against 8. A full GC every 2^20 expanded states: the
+   compiled actions' closures were 4.8 GiB of uncollected garbage on
+   webrtc-p2p-chat/client, because JSC's trigger scales with the stores'
+   typed arrays (15,788 live objects, so the collection is cheap).
+
+   | Reading | Before | After |
+   |---|---|---|
+   | webrtc-p2p-chat/client (123,836,552 states), peak RSS | 13.0–14.1 GB | 6.95 GB |
+   | same, wall | 222–236 s | 177 s |
+   | minimal, peak RSS / wall | 0.41–0.42 GB / 2.57–2.59 s | 0.28–0.30 GB / 2.53–2.58 s |
+   | mesh-recovery-pair | 0.94–0.95 GB / 4.76–4.80 s | 0.77–0.81 GB / 4.76–4.78 s |
+   | full-featured | 0.40–0.41 GB / 1.29–1.30 s | 0.41–0.43 GB / 1.32–1.33 s |
+
+   Stop rule (set 2026-10-29): webrtc peak at most 60 % of before (53 %),
+   small sets at most 10 % slower (+3 % worst). Tried and dropped: rows in
+   fixed chunks and a 256-part hash index (5.25 GB peak, 10–15 % slower);
+   a GC after each large array is replaced (11.6 GB, worse). Next for
+   memory: remove the called-at-once closures in `tla/compile.ts` (8 sites)
+   so the actions allocate nothing, then drop the periodic GC.
 3. DONE 2026-10-29: parity gate `scripts/e2e-verify-bun-parity.ts`, tier
    case `verify.bun-parity` (Docker). Cold copies of the examples, verified
    with `--engine bun`; each generated set compared with TLC `-workers 1`.

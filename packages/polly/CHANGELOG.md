@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back to TLC (`--strict`: fails). `verification.engine: "bun"` sets it
   per project; TLC stays the default. Proof:
   `scripts/e2e-verify-bun-engine.ts` (tier case `verify.bun-engine`, no
-  Docker).
+  Docker). States are stored packed, 2 words each on the example specs
+  against 8: on webrtc-p2p-chat/client (123,836,552 states) the run peaks
+  at 6.95 GB, against 13.0–14.1 GB unpacked.
 - **`polly verify` names the handlers TLC never took.** A handler whose
   `requires` guards never all hold at a reachable state is never taken, and
   every `ensures` on it passes unchecked. examples/minimal,
