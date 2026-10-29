@@ -9,6 +9,7 @@ import type {
   PollyResponseMetadata,
   RoutePattern,
 } from "../elysia/types";
+import { readEnv } from "../shared/lib/env";
 import { isRecord } from "../shared/lib/guards";
 
 /** Eden treaty leaf methods that execute a request. */
@@ -143,7 +144,7 @@ export function createPollyClient<T extends AnyElysia>(
   url: string,
   options: PollyClientOptions = {}
 ) {
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = readEnv("NODE_ENV") !== "production";
   const baseClient = treaty<T>(url);
   const clock = createLamportClock("client");
 

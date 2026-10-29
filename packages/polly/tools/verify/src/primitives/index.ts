@@ -22,10 +22,15 @@ export type ContractPrimitive = "requires" | "ensures";
  */
 export const CONTRACT_VIOLATIONS_KEY = "__pollyContractViolations";
 
-/** Read once at load; browser bundles have no `process`, so they stay off. */
+/**
+ * Read once at load; browser bundles have no `process`, so they stay off.
+ * polly#197: the spread copy reads under a consumer's closed `ProcessEnv`
+ * (this module imports nothing, so it does not share `readEnv`).
+ */
 function readContractsMode(): ContractsMode {
-  const v =
-    typeof process !== "undefined" && process.env ? process.env["POLLY_CONTRACTS"] : undefined;
+  const env: { [key: string]: string | undefined } =
+    typeof process !== "undefined" && process.env ? { ...process.env } : {};
+  const v = env["POLLY_CONTRACTS"];
   return v === "all" || v === "ensures" ? v : "off";
 }
 

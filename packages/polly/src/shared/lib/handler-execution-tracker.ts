@@ -1,15 +1,16 @@
 // Runtime handler execution tracking to prevent double-execution bugs
 // Only active in development mode, zero runtime cost in production
 
+import { readEnv } from "./env";
+
 export class HandlerExecutionTracker {
   private executions = new Map<string, Map<string, number>>(); // messageId → handlerType → count
   private readonly isDevelopment: boolean;
 
   constructor() {
     // Check if we're in development mode or test mode
-    this.isDevelopment =
-      typeof process !== "undefined" &&
-      (process.env?.NODE_ENV === "development" || process.env?.NODE_ENV === "test");
+    const nodeEnv = readEnv("NODE_ENV");
+    this.isDevelopment = nodeEnv === "development" || nodeEnv === "test";
   }
 
   /**

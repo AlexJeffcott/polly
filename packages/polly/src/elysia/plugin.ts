@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { createLamportClock } from "../core/clock";
+import { readEnv } from "../shared/lib/env";
 import { isRecord } from "../shared/lib/guards";
 import { findMatchingConfig } from "./route-match";
 import type { PollyConfig, PollyResponseMetadata } from "./types";
@@ -54,7 +55,7 @@ class BroadcastManager {
  * Main Polly Elysia plugin
  */
 export function polly(config: PollyConfig = {}) {
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = readEnv("NODE_ENV") !== "production";
   const clock = createLamportClock("server");
   const broadcaster = new BroadcastManager();
   const clientStateByConnection = new Map<string, Record<string, unknown>>();

@@ -5,6 +5,8 @@
  * Constraints can be checked before handler execution to ensure preconditions are met.
  */
 
+import { readEnv } from "./env";
+
 type ConstraintFunction = (state: unknown) => boolean;
 
 type Constraint = {
@@ -53,9 +55,9 @@ export function registerConstraints(
 ): void {
   for (const [messageType, constraint] of Object.entries(constraints)) {
     // Only register function-based constraints (strings are for TLA+ generation)
-    const runtimeConstraint: Constraint = {
-      message: constraint.message,
-    };
+    // polly#197: under exactOptionalPropertyTypes an absent message must be omitted, not undefined.
+    const runtimeConstraint: Constraint =
+      constraint.message === undefined ? {} : { message: constraint.message };
 
     if (typeof constraint.requires === "function") {
       runtimeConstraint.requires = constraint.requires;
@@ -169,7 +171,7 @@ export function getRegisteredConstraints(): Map<string, Map<string, Constraint>>
 export function isRuntimeConstraintsEnabled(): boolean {
   // Check environment variable
   if (typeof process !== "undefined" && process.env) {
-    return process.env["POLLY_RUNTIME_CONSTRAINTS"] === "true";
+    return readEnv("POLLY_RUNTIME_CONSTRAINTS") === "true";
   }
 
   // Check for Bun
