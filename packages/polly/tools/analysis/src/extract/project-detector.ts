@@ -12,9 +12,28 @@ import {
 import type { ProjectConfig } from "../types/architecture";
 
 /**
- * Detect project type and generate configuration
- * Falls back to tsconfig.json when manifest.json is not available
+ * No project type matched, or a declared type could not be honoured. The
+ * message names every check that ran, so the caller can see why.
  */
+export class ProjectDetectionError extends Error {
+  override name = "ProjectDetectionError";
+}
+
+/** The project types detection checks for, in order, by the marker each one needs. */
+const DETECTED_TYPES = [
+  "chrome-extension: manifest.json",
+  "pwa: public/manifest.json",
+  "monorepo: package.json `workspaces`",
+  "electron: an `electron` dependency in package.json",
+  "websocket-app: a server dependency (ws, socket.io, elysia, express, fastify, hono, koa) or a server entry point",
+] as const;
+
+/** The package.json key a project declares its type under, as in `"polly": { "type": "generic" }`. */
+const DECLARATION_KEY = "polly";
+
+/** The one type a project declares rather than having detected: it has no marker of its own. */
+const DECLARED_TYPE = "generic";
+
 export interface ProjectDetectorOptions {
   /**
    * Treat the immediate child directories that hold a package.json as
@@ -34,10 +53,18 @@ export class ProjectDetector {
   }
 
   /**
-   * Detect project type and return configuration
+   * Detect project type and return configuration. A project whose package.json
+   * declares `"polly": { "type": "generic" }` is generic; any other project is
+   * the first type whose marker it has. A project with no marker throws a
+   * ProjectDetectionError naming each check; it is never assumed generic.
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Project detection requires checking many project types
   detect(): ProjectConfig {
+    const declared = this.declaredType();
+    if (declared === DECLARED_TYPE) {
+      return this.detectGenericProject();
+    }
+
     // Check for Chrome extension manifest
     const manifestPath = path.join(this.projectRoot, "manifest.json");
     if (fs.existsSync(manifestPath)) {
@@ -85,22 +112,44 @@ export class ProjectDetector {
         return this.detectWebSocketApp(packageJson);
       }
 
-      // Also check with content analysis even without explicit dependencies
-      // (Bun has built-in WebSocket support, no dependencies needed)
-      const serverResult = this.detectWebSocketApp(packageJson);
+      // With no server dependency (Bun serves WebSocket and HTTP with none),
+      // a project is a websocket-app only where a candidate file holds a
+      // WebSocket or HTTP server. A file name or an export is no evidence.
+      const serverResult = this.detectWebSocketApp(packageJson, { requireServerEvidence: true });
       if (Object.keys(serverResult.entryPoints).length > 0) {
         return serverResult;
       }
     } else {
-      // No package.json - try WebSocket/server detection anyway
-      const serverResult = this.detectWebSocketApp({});
+      const serverResult = this.detectWebSocketApp({}, { requireServerEvidence: true });
       if (Object.keys(serverResult.entryPoints).length > 0) {
         return serverResult;
       }
     }
 
-    // Fallback: Generic TypeScript project
-    return this.detectGenericProject();
+    throw new ProjectDetectionError(
+      [
+        `No project type matched ${this.projectRoot}. Checked, in order:`,
+        ...DETECTED_TYPES.map((check) => `  - ${check}`),
+        `A project with none of these markers declares its type in package.json: "${DECLARATION_KEY}": { "type": "${DECLARED_TYPE}" }.`,
+      ].join("\n")
+    );
+  }
+
+  /**
+   * The type package.json declares under `polly.type`, or undefined where it
+   * declares none. Only `generic` can be declared; any other value throws.
+   */
+  private declaredType(): typeof DECLARED_TYPE | undefined {
+    const packageJsonPath = path.join(this.projectRoot, "package.json");
+    if (!fs.existsSync(packageJsonPath)) return undefined;
+    const packageJson = readRecord(JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")));
+    const declaration = packageJson?.[DECLARATION_KEY];
+    if (declaration === undefined) return undefined;
+    const type = readRecord(declaration)?.["type"];
+    if (type === DECLARED_TYPE) return DECLARED_TYPE;
+    throw new ProjectDetectionError(
+      `${packageJsonPath} declares "${DECLARATION_KEY}": ${JSON.stringify(declaration)}. The only declared type is { "type": "${DECLARED_TYPE}" }; every other type is detected from its marker.`
+    );
   }
 
   /**
@@ -309,9 +358,18 @@ export class ProjectDetector {
   /**
    * Detect WebSocket/server app with content analysis and confidence scoring
    */
-  private detectWebSocketApp(packageJson: Record<string, unknown>): ProjectConfig {
+  private detectWebSocketApp(
+    packageJson: Record<string, unknown>,
+    options: { requireServerEvidence?: boolean } = {}
+  ): ProjectConfig {
     const entryPoints: Record<string, string> = {};
     const contextMapping: Record<string, string> = {};
+    const evidenced = (
+      scored: ReturnType<typeof this.scoreServerCandidates>
+    ): ReturnType<typeof this.scoreServerCandidates> =>
+      options.requireServerEvidence === true
+        ? scored.filter((candidate) => candidate.hasWebSocket || candidate.hasHTTP)
+        : scored;
 
     // Server entry point with content analysis
     const serverCandidates = [
@@ -332,9 +390,9 @@ export class ProjectDetector {
     // A root main.ts is the entry only when nothing above scores: in
     // mesh-recovery-pair it is the demo runner beside the src/index.ts model.
     // mesh-large-initial-sync has main.ts alone, and drew no container.
-    let scoredServers = this.scoreServerCandidates(serverCandidates);
+    let scoredServers = evidenced(this.scoreServerCandidates(serverCandidates));
     if (scoredServers.length === 0) {
-      scoredServers = this.scoreServerCandidates(["main.ts", "main.js"]);
+      scoredServers = evidenced(this.scoreServerCandidates(["main.ts", "main.js"]));
     }
     if (scoredServers.length > 0) {
       const best = scoredServers[0];
@@ -894,75 +952,70 @@ export class ProjectDetector {
   }
 
   /**
-   * Fallback: Generic TypeScript project
-   * Uses tsconfig.json to find entry points
+   * A project that declares itself generic. Its entry points are the files
+   * tsconfig.json lists under `files`; where it lists none, the first of the
+   * conventional entry files that exists. A project with neither throws, and
+   * so does one whose package.json names no project.
    */
   private detectGenericProject(): ProjectConfig {
     const entryPoints: Record<string, string> = {};
 
-    // Try to find tsconfig.json
     const tsConfigPath = path.join(this.projectRoot, "tsconfig.json");
-    if (fs.existsSync(tsConfigPath)) {
-      try {
-        const tsConfig = JSON.parse(fs.readFileSync(tsConfigPath, "utf-8"));
-
-        // Check for entry points in various locations
-        if (tsConfig.files && Array.isArray(tsConfig.files)) {
-          tsConfig.files.forEach((file: string, idx: number) => {
-            const fullPath = path.join(this.projectRoot, file);
-            if (fs.existsSync(fullPath)) {
-              entryPoints[`module${idx + 1}`] = fullPath;
-            }
-          });
-        }
-      } catch (_error) {
-        // Ignore tsconfig.json parse errors
+    const tsConfig = fs.existsSync(tsConfigPath)
+      ? readRecord(JSON.parse(fs.readFileSync(tsConfigPath, "utf-8")))
+      : undefined;
+    const files = readStringArray(tsConfig?.["files"]) ?? [];
+    files.forEach((file, idx) => {
+      const fullPath = path.join(this.projectRoot, file);
+      if (fs.existsSync(fullPath)) {
+        entryPoints[`module${idx + 1}`] = fullPath;
       }
-    }
+    });
 
-    // If no entry points found, scan src directory
+    const commonEntries = [
+      "src/index.ts",
+      "src/index.tsx",
+      "src/main.ts",
+      "src/main.tsx",
+      "src/app.ts",
+      "src/app.tsx",
+      "index.ts",
+      "main.ts",
+    ];
     if (Object.keys(entryPoints).length === 0) {
-      const commonEntries = [
-        "src/index.ts",
-        "src/index.tsx",
-        "src/main.ts",
-        "src/main.tsx",
-        "src/app.ts",
-        "src/app.tsx",
-        "index.ts",
-        "main.ts",
-      ];
-
-      for (const candidate of commonEntries) {
-        const fullPath = path.join(this.projectRoot, candidate);
-        if (fs.existsSync(fullPath)) {
-          entryPoints["main"] = fullPath;
-          break;
-        }
+      const found = commonEntries.find((candidate) =>
+        fs.existsSync(path.join(this.projectRoot, candidate))
+      );
+      if (found !== undefined) {
+        entryPoints["main"] = path.join(this.projectRoot, found);
       }
     }
 
-    // Get metadata from package.json
+    if (Object.keys(entryPoints).length === 0) {
+      throw new ProjectDetectionError(
+        `${this.projectRoot} declares itself generic but has no entry point: tsconfig.json lists no existing \`files\`, and none of ${commonEntries.join(", ")} exists.`
+      );
+    }
+
     const packageJsonPath = path.join(this.projectRoot, "package.json");
-    let metadata: ProjectConfig["metadata"] = { name: "Unknown Project" };
-
-    if (fs.existsSync(packageJsonPath)) {
-      try {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
-        metadata = {
-          name: packageJson.name,
-          version: packageJson.version,
-          description: packageJson.description,
-        };
-      } catch (_error) {
-        // Ignore package.json parse errors
-      }
+    const packageJson = readRecord(JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")));
+    const name = readString(packageJson?.["name"]);
+    if (name === undefined) {
+      throw new ProjectDetectionError(
+        `${packageJsonPath} declares a generic project but has no \`name\`; the diagram names the system after it.`
+      );
     }
+    const version = readString(packageJson?.["version"]);
+    const description = readString(packageJson?.["description"]);
 
     return {
       type: "generic",
       entryPoints,
-      metadata,
+      metadata: {
+        name,
+        ...(version === undefined ? {} : { version }),
+        ...(description === undefined ? {} : { description }),
+      },
     };
   }
 

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { detectProjectConfig, findWorkspacePackageDirs } from "../project-detector";
+import {
+  detectProjectConfig,
+  findWorkspacePackageDirs,
+  ProjectDetectionError,
+} from "../project-detector";
 
 describe("Project Detector", () => {
   let tempDir: string;
@@ -175,8 +179,8 @@ const wss = new WebSocketServer({ port: 8080 });`
   });
 
   describe("Generic TypeScript Project Detection", () => {
-    test("should detect generic project with only tsconfig.json", () => {
-      // No package.json, just tsconfig.json
+    test("a src/index.ts with no server in it is no websocket-app", () => {
+      // No package.json, just tsconfig.json and an entry file with no server.
       fs.writeFileSync(
         path.join(tempDir, "tsconfig.json"),
         JSON.stringify({
@@ -188,18 +192,21 @@ const wss = new WebSocketServer({ port: 8080 });`
       fs.mkdirSync(path.join(tempDir, "src"));
       fs.writeFileSync(path.join(tempDir, "src", "index.ts"), `export const hello = "world";`);
 
+      expect(() => detectProjectConfig(tempDir)).toThrow(ProjectDetectionError);
+    });
+
+    test("a src/index.ts holding a Bun server is a websocket-app with no dependency", () => {
+      fs.writeFileSync(path.join(tempDir, "package.json"), JSON.stringify({ name: "bun-server" }));
+      fs.mkdirSync(path.join(tempDir, "src"));
+      fs.writeFileSync(
+        path.join(tempDir, "src", "index.ts"),
+        "Bun.serve({ port: 3000, fetch: () => new Response('ok'), websocket: { message() {} } });"
+      );
+
       const config = detectProjectConfig(tempDir);
 
-      // BUG: Currently detects as "websocket-app" even with no WebSocket dependencies
-      // This is because the detector defaults to websocket-app when no manifest.json exists
-      // Expected: "generic", Actual: "websocket-app"
-      expect(config.type).toBe("websocket-app"); // TODO: Should be "generic"
-
-      // When no package.json, metadata object exists but fields are undefined
-      // TODO: Should extract project name from directory or tsconfig
-      expect(config.metadata).toBeDefined();
-      expect(config.metadata?.name).toBeUndefined();
-      expect(config.metadata?.version).toBeUndefined();
+      expect(config.type).toBe("websocket-app");
+      expect(config.entryPoints["server"]).toBe(path.join(tempDir, "src", "index.ts"));
     });
 
     test("should extract metadata from package.json if present", () => {
@@ -209,10 +216,12 @@ const wss = new WebSocketServer({ port: 8080 });`
           name: "my-app",
           version: "2.5.0",
           description: "A cool app",
+          polly: { type: "generic" },
         })
       );
 
       fs.writeFileSync(path.join(tempDir, "tsconfig.json"), JSON.stringify({ include: ["*.ts"] }));
+      fs.writeFileSync(path.join(tempDir, "index.ts"), "export const app = 1;");
 
       const config = detectProjectConfig(tempDir);
 
@@ -564,7 +573,8 @@ const app = new Elysia().listen(3000);`
     test("infers workspace packages from child directories only when asked", () => {
       writeUndeclaredWorkspace();
 
-      expect(detectProjectConfig(tempDir).type).not.toBe("monorepo");
+      // Not asked to infer, the root has no marker of any type.
+      expect(() => detectProjectConfig(tempDir)).toThrow(ProjectDetectionError);
 
       const config = detectProjectConfig(tempDir, { inferWorkspaces: true });
       expect(config.type).toBe("monorepo");
@@ -608,21 +618,82 @@ const app = new Elysia().listen(3000);`
     });
   });
 
-  describe("Edge Cases", () => {
-    test("should handle project with no TypeScript files", () => {
-      fs.writeFileSync(
-        path.join(tempDir, "package.json"),
-        JSON.stringify({ name: "empty-project" })
-      );
+  describe("Generic is declared, never assumed", () => {
+    const writePackage = (contents: Record<string, unknown>): void => {
+      fs.writeFileSync(path.join(tempDir, "package.json"), JSON.stringify(contents));
+    };
+    const writeEntry = (): void => {
+      fs.mkdirSync(path.join(tempDir, "src"));
+      fs.writeFileSync(path.join(tempDir, "src", "main.ts"), "export const main = 1;");
+    };
 
+    test("a project with no marker and no declaration throws, naming every check", () => {
+      writePackage({ name: "plain" });
       fs.writeFileSync(path.join(tempDir, "tsconfig.json"), JSON.stringify({ include: ["*.ts"] }));
+
+      expect(() => detectProjectConfig(tempDir)).toThrow(ProjectDetectionError);
+      expect(() => detectProjectConfig(tempDir)).toThrow(/chrome-extension: manifest\.json/);
+      expect(() => detectProjectConfig(tempDir)).toThrow(/websocket-app: /);
+      expect(() => detectProjectConfig(tempDir)).toThrow(/"polly": \{ "type": "generic" \}/);
+    });
+
+    test("a project with only tsconfig.json throws", () => {
+      fs.writeFileSync(path.join(tempDir, "tsconfig.json"), JSON.stringify({ include: ["*.ts"] }));
+
+      expect(() => detectProjectConfig(tempDir)).toThrow(ProjectDetectionError);
+    });
+
+    test("a declared generic project is generic, named from package.json", () => {
+      writePackage({ name: "declared", version: "2.0.0", polly: { type: "generic" } });
+      writeEntry();
 
       const config = detectProjectConfig(tempDir);
 
       expect(config.type).toBe("generic");
-      expect(config.metadata?.name).toBe("empty-project");
+      expect(config.entryPoints).toEqual({ main: path.join(tempDir, "src", "main.ts") });
+      expect(config.metadata).toEqual({ name: "declared", version: "2.0.0" });
     });
 
+    test("the declaration wins over a marker the project also has", () => {
+      writePackage({
+        name: "declared",
+        polly: { type: "generic" },
+        dependencies: { ws: "^8.0.0" },
+      });
+      writeEntry();
+
+      expect(detectProjectConfig(tempDir).type).toBe("generic");
+    });
+
+    test("a declared generic project with no entry point throws", () => {
+      writePackage({ name: "declared", polly: { type: "generic" } });
+
+      expect(() => detectProjectConfig(tempDir)).toThrow(/has no entry point/);
+    });
+
+    test("a declared generic project with no name throws", () => {
+      writePackage({ polly: { type: "generic" } });
+      writeEntry();
+
+      expect(() => detectProjectConfig(tempDir)).toThrow(/has no `name`/);
+    });
+
+    test("a declared generic project with an unparseable tsconfig.json throws", () => {
+      writePackage({ name: "declared", polly: { type: "generic" } });
+      writeEntry();
+      fs.writeFileSync(path.join(tempDir, "tsconfig.json"), "{ not json");
+
+      expect(() => detectProjectConfig(tempDir)).toThrow(SyntaxError);
+    });
+
+    test("declaring any type other than generic throws", () => {
+      writePackage({ name: "declared", polly: { type: "pwa" } });
+
+      expect(() => detectProjectConfig(tempDir)).toThrow(/The only declared type is/);
+    });
+  });
+
+  describe("Edge Cases", () => {
     test("should handle project with only JavaScript files", () => {
       fs.writeFileSync(
         path.join(tempDir, "package.json"),
@@ -636,16 +707,6 @@ const app = new Elysia().listen(3000);`
 
       // Should still detect as websocket-app based on package.json
       expect(config.type).toBe("websocket-app");
-    });
-
-    test("should handle missing package.json gracefully", () => {
-      // Only tsconfig.json
-      fs.writeFileSync(path.join(tempDir, "tsconfig.json"), JSON.stringify({ include: ["*.ts"] }));
-
-      const config = detectProjectConfig(tempDir);
-
-      expect(config.type).toBe("generic");
-      expect(config.metadata).toBeDefined();
     });
   });
 });

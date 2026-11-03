@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
+  "polly": {
+    "type": "generic"
+  },
   "description": "Visual gallery of every @fairfox/polly UI primitive. Acts as the team's UI testing playground: visual regression baselines + browser unit tests live alongside the components they exercise.",
   "scripts": {
     "dev": "bun scripts/dev.ts",
