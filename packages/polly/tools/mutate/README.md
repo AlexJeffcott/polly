@@ -30,7 +30,6 @@ the pure analysis pieces are importable from `@fairfox/polly/mutate`:
 
 ```sh
 polly mutate init            # write a polly.mutate.ts for this project
-polly mutate migrate         # print the polly.mutate.ts equivalent of stryker.conf.json (--write writes it)
 polly mutate run             # run the Bun-native engine, then print the signals report
 polly mutate report          # print the signals from an existing mutation.json
 polly mutate decisions       # join signals against the committed decisions log
@@ -74,28 +73,12 @@ export default defineMutation({
 
 Paths are relative to the config's directory, which is where the tests run.
 CLI flags (`--mode`, `--concurrency`, `--report`, …) override the file. The CLI
-loads `./polly.mutate.ts`, else `--config <path>`; without either it falls back
-to a discovered `stryker.conf.json`, read through the same mapping `polly mutate
-migrate` writes out, and prints a deprecation notice.
-
-| `stryker.conf.json` | `polly.mutate.ts` |
-|---|---|
-| `mutate` | `targets` |
-| `bun.testFiles` | `tests.include` |
-| `bun.nodeArgs` `--preload` | `tests.preload` |
-| `testRunner: "command"`, `commandRunner.command` | `runner: { kind: "command", argv }` (shell syntax → `sh -c`) |
-| `concurrency` | `concurrency` |
-| `timeoutFactor`, `timeoutMS` | `timeout.factor`, `timeout.extraMs` |
-| `disableBail` | `mode: "matrix"` |
-| `mutator.excludedMutations` | `mutators.exclude` |
-| `thresholds.break` | `thresholds.break` |
-
-Every other key is Stryker machinery; `migrate` lists the ones it drops.
+loads `--config <path>`, else `./polly.mutate.ts`. A `stryker.conf.json` is not
+read; `polly mutate init` writes a starting config.
 
 ### The Bun-native engine (the default)
 
-`polly mutate run` runs mutation testing on Bun alone; Stryker is no longer
-used or supported (see "Comparing with Stryker" below). It writes
+`polly mutate run` runs mutation testing on Bun alone. It writes
 `reports/mutation/mutation.json` in mutation-testing-report-schema, so `report`, `decisions` and `verify` work on
 its output unchanged.
 
@@ -213,16 +196,16 @@ are killed with it.
 
 ### Disable comments
 
-Stryker's comment syntax is read as it is, so a migrated project keeps its
-comments. `polly-mutate` is accepted in place of `Stryker`.
+A `polly-mutate` comment marks mutants `Ignored`. The `// Stryker disable`
+spelling is not read.
 
 ```ts
-// Stryker disable next-line ObjectLiteral: a data table
+// polly-mutate disable next-line ObjectLiteral: a data table
 export const IMAGES = { … };
 
-// Stryker disable ArrowFunction,BlockStatement: no route reads it yet
+// polly-mutate disable ArrowFunction,BlockStatement: no route reads it yet
 …
-// Stryker restore ArrowFunction,BlockStatement
+// polly-mutate restore ArrowFunction,BlockStatement
 
 /* polly-mutate disable next-line all */
 ```
@@ -232,7 +215,7 @@ export const IMAGES = { … };
 | `next-line` | Covers the line after the comment |
 | No `next-line` | Covers every later line until a `restore` names the mutator |
 | Mutator list | Comma-separated, any case; `all` names every mutator |
-| Covered | The mutant's span starts on a covered line (Stryker's node-start rule) |
+| Covered | The mutant's span starts on a covered line (the node-start rule) |
 | Result | `Ignored`; `statusReason` is the text after the colon, else `Disabled by the comment on line N` |
 | Verify callsite | Keeps its polly#143 reason; the comment is not counted as covering it |
 
@@ -245,13 +228,12 @@ export const IMAGES = { … };
 The type filter checks disabled mutants too, so that it can tell the last
 case: a disabled mutant the tsconfig rejects is `CompileError`, not `Ignored`.
 
-Operators are Stryker's 16 mutators, with Stryker's names and the rules of
-`@stryker-mutator/instrumenter` 9.6.1, so a report reads the same from either
-engine: ArithmeticOperator, ArrayDeclaration, ArrowFunction,
+Operators are 16 mutators with the names and rules of Stryker's
+`@stryker-mutator/instrumenter` 9.6.1 (Apache-2.0), where the design comes
+from: ArithmeticOperator, ArrayDeclaration, ArrowFunction,
 AssignmentOperator, BlockStatement, BooleanLiteral, ConditionalExpression,
 EqualityOperator, LogicalOperator, MethodExpression, ObjectLiteral,
-OptionalChaining, Regex (weapon-regex 1.3.6, level 1, the version Stryker
-resolves), StringLiteral, UnaryOperator, UpdateOperator. Like Stryker, it
+OptionalChaining, Regex (weapon-regex 2.0.6, level 1), StringLiteral, UnaryOperator, UpdateOperator. Like Stryker, it
 skips type-only syntax, imports, decorators and `declare` statements.
 
 Intended differences from Stryker:
@@ -298,8 +280,7 @@ Current limits:
   logged, not attributed: no test owns it.
 
 Proof surface: `scripts/e2e-mutate.ts` (cold-start project, source and built CLI,
-`--since`, `init` then `run`, a Stryker-only project before and after `migrate
---write`); the engine's own tests are the `tools.mutate` tier case.
+`--since`, `init` then `run`, a Stryker-only project that has no config); the engine's own tests are the `tools.mutate` tier case.
 
 ### Decisions log
 
@@ -343,21 +324,6 @@ mutant: a mutant whose code no test ran is NoCoverage (a true gap); one that ran
 and was not detected is Survived (theatre). `coveredBy` names the tests that ran
 it. Under `--coverage static` the split is per file: a target no test file
 imports is NoCoverage, and every undetected mutant in a reached file is Survived.
-
-## Comparing with Stryker
-
-Stryker is not a dependency. `scripts/mutate-parity.ts` compares the two on the
-current tree, using a pinned Stryker held outside the workspace
-(`scripts/mutate-parity/stryker/`, installed into `~/.cache/polly` on first use):
-
-```sh
-bun packages/polly/scripts/mutate-parity.ts                    # the four reference targets
-bun packages/polly/scripts/mutate-parity.ts --files a.ts,b.tsx # any targets
-```
-
-It checks mutant match rate, lost kills, score gap and wall time.
-`scripts/mutate-parity.results.md` holds the committed run (2026-10-20: 99.3 %
-matched, 0 lost kills, score gap 0.07, 39.5× faster).
 
 ## Caveats — the matrix nominates, a human convicts
 

@@ -5,7 +5,7 @@
  */
 
 export interface MutateArgs {
-  /** First positional: "run" (default when bare) | "report" | "decisions" | "verify" | "init" | "migrate" | an unknown token to error on. */
+  /** First positional: "run" (default when bare) | "report" | "decisions" | "verify" | "init" | an unknown token to error on. */
   verb: string;
   /** Positionals after the verb (e.g. ["decide", file, verdict, ...rationale] for `decisions decide …`). */
   rest: string[];
@@ -16,10 +16,8 @@ export interface MutateArgs {
   noReport: boolean;
   /** `verify --run` (run the engine in matrix mode before checking the contract). */
   run: boolean;
-  /** `init --force` / `migrate --write --force` (overwrite an existing polly.mutate.ts). */
+  /** `init --force` (overwrite an existing polly.mutate.ts). */
   force: boolean;
-  /** `migrate --write` (write polly.mutate.ts instead of printing it). */
-  write: boolean;
   help: boolean;
   /** `--engine bun` — accepted for old scripts; bun is the only engine. */
   engine?: string;
@@ -43,7 +41,7 @@ export interface MutateArgs {
   contracts?: string;
 }
 
-const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "migrate", "help"]);
+const KNOWN_VERBS = new Set(["run", "report", "decisions", "verify", "init", "help"]);
 const VALUE_FLAGS = new Set([
   "--config",
   "--report",
@@ -91,7 +89,6 @@ export function parseMutateArgs(argv: string[]): MutateArgs {
     noReport: bools.has("--no-report"),
     run: bools.has("--run"),
     force: bools.has("--force"),
-    write: bools.has("--write"),
     inTree: bools.has("--in-tree"),
     noCache: bools.has("--no-cache"),
     noTypecheck: bools.has("--no-typecheck"),

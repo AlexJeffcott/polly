@@ -3,8 +3,8 @@
 /**
  * Polly's front-end over the shipped mutate-target validator
  * (`@fairfox/polly/test/coverage` → validateMutateTargets). Polly's
- * polly.mutate.ts (and the deprecated stryker.conf.json) live at the monorepo
- * root, one level above this package, so we walk up to it and validate from there.
+ * polly.mutate.ts lives at the monorepo root, one level above this package,
+ * so we walk up to it and validate from there.
  *
  * Asserts every target and test glob in every mutation config still
  * resolves to a file — a renamed path silently drops out of the mutation
@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { validateMutateTargets } from "../tools/test/src/coverage-policy/mutate-targets";
 
-const MARKERS = ["polly.mutate.ts", "stryker.conf.json", "stryker"];
+const MARKERS = ["polly.mutate.ts"];
 
 /** Nearest ancestor of cwd (inclusive) holding a mutation config. */
 function configRoot(): string | null {

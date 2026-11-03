@@ -1,5 +1,5 @@
 /**
- * Disable comments: Stryker's `// Stryker disable` syntax and the
+ * Disable comments: Stryker's `// polly-mutate disable` syntax and the
  * `polly-mutate` spelling. The generator marks covered mutants Ignored with
  * the comment's reason; the engine warns about comments that cover no mutant
  * or only CompileError ones (the type filter runs on a real tsgo process).
@@ -20,7 +20,7 @@ function ignored(src: string, lines?: { from: number; to: number }): string[] {
 describe("generate", () => {
   test("next-line covers the named mutator on the next line only", () => {
     const src = [
-      "// Stryker disable next-line ObjectLiteral: a data table",
+      "// polly-mutate disable next-line ObjectLiteral: a data table",
       "export const TABLE = { a: [1] };",
       "export const OTHER = { b: 2 };",
     ].join("\n");
@@ -34,7 +34,7 @@ describe("generate", () => {
 
   test("names ignore case, all covers every mutator, and a list takes commas", () => {
     expect(
-      ignored(["// Stryker disable next-line all", "f(a < b);"].join("\n")).map((s) =>
+      ignored(["// polly-mutate disable next-line all", "f(a < b);"].join("\n")).map((s) =>
         s.slice(0, s.indexOf(" →"))
       )
     ).toEqual([
@@ -45,9 +45,10 @@ describe("generate", () => {
     ]);
     expect(
       ignored(
-        ["// Stryker disable next-line equalityoperator, ConditionalExpression", "f(a < b);"].join(
-          "\n"
-        )
+        [
+          "// polly-mutate disable next-line equalityoperator, ConditionalExpression",
+          "f(a < b);",
+        ].join("\n")
       )
     ).toHaveLength(4);
   });
@@ -55,10 +56,10 @@ describe("generate", () => {
   test("without next-line a comment covers later lines until a restore", () => {
     const src = [
       "f(a && b);",
-      "// Stryker disable LogicalOperator: generated",
+      "// polly-mutate disable LogicalOperator: generated",
       "f(c && d);",
       "f(e && g);",
-      "// Stryker restore LogicalOperator",
+      "// polly-mutate restore LogicalOperator",
       "f(h && i);",
     ].join("\n");
     expect(ignored(src)).toEqual([
@@ -69,9 +70,9 @@ describe("generate", () => {
 
   test("a restore next-line opens a one-line hole in a disable all", () => {
     const src = [
-      "/* Stryker disable all */",
+      "/* polly-mutate disable all */",
       "f(a && b);",
-      "// Stryker restore next-line LogicalOperator",
+      "// polly-mutate restore next-line LogicalOperator",
       "f(c && d);",
     ].join("\n");
     const reason = "Disabled by the comment on line 1";
@@ -84,14 +85,16 @@ describe("generate", () => {
     ]);
   });
 
-  test("the polly-mutate spelling is the same directive", () => {
+  test("a Stryker-spelled comment is not a directive", () => {
     expect(
-      ignored(["// polly-mutate disable next-line LogicalOperator: why", "f(a && b);"].join("\n"))
-    ).toEqual(["2 LogicalOperator → why"]);
+      ignored(["// Stryker disable next-line LogicalOperator: why", "f(a && b);"].join("\n"))
+    ).toEqual([]);
   });
 
   test("a verify callsite keeps its own reason", () => {
-    const src = ["// Stryker disable next-line all: comment", 'requires(a && b, "m");'].join("\n");
+    const src = ["// polly-mutate disable next-line all: comment", 'requires(a && b, "m");'].join(
+      "\n"
+    );
     const [m] = generateMutants("t.ts", src).mutants;
     expect(m?.ignoredReason).toContain("polly#143");
     expect(m?.disabledBy).toBeUndefined();
@@ -99,9 +102,9 @@ describe("generate", () => {
 
   test("comments outside a line range are not returned", () => {
     const src = [
-      "// Stryker disable next-line all",
+      "// polly-mutate disable next-line all",
       "f(a && b);",
-      "// Stryker disable next-line all",
+      "// polly-mutate disable next-line all",
       "f(c && d);",
     ].join("\n");
     const { disableComments } = generateMutants("t.ts", src, { lines: { from: 4, to: 4 } });
@@ -112,7 +115,7 @@ describe("generate", () => {
   test("an unknown name is recorded and matches nothing", () => {
     const { disableComments, mutants } = generateMutants(
       "t.ts",
-      ["// Stryker disable next-line LogicOperator", "f(a && b);"].join("\n")
+      ["// polly-mutate disable next-line LogicOperator", "f(a && b);"].join("\n")
     );
     expect(disableComments[0]?.unknown).toEqual(["LogicOperator"]);
     expect(mutants.every((m) => !m.ignoredReason)).toBe(true);
@@ -133,13 +136,13 @@ const project = createFixtureProject("polly-mutate-disable-", {
   }),
   "src/kind.ts": [
     'export type Kind = "a" | "b";',
-    "// Stryker disable next-line ObjectLiteral: a data table",
+    "// polly-mutate disable next-line ObjectLiteral: a data table",
     "export const TABLE = { a: 1 };",
     "export function pick(x: number): Kind {",
-    "  // Stryker disable next-line StringLiteral: equivalent",
+    "  // polly-mutate disable next-line StringLiteral: equivalent",
     '  return x > 0 ? "a" : "b";',
     "}",
-    "// Stryker disable next-line all: nothing to mutate",
+    "// polly-mutate disable next-line all: nothing to mutate",
     "export const ONE = 1;",
     "// polly-mutate disable next-line Bogus",
     "export const TWO = 2;",

@@ -1,17 +1,15 @@
 /**
- * Disable comments: Stryker's syntax, read so a Stryker project's comments
- * keep working, plus a `polly-mutate` spelling of the same thing.
+ * Disable comments:
  *
- *   // Stryker disable next-line ObjectLiteral: a data table
- *   // Stryker disable all: generated code
- *   // Stryker restore all
+ *   // polly-mutate disable next-line ObjectLiteral: a data table
+ *   // polly-mutate disable all: generated code
+ *   // polly-mutate restore all
  *   // polly-mutate disable next-line ArrowFunction,BlockStatement: reason
  *
  * Line and block comments both count. `next-line` covers the line after the
  * comment; without it the comment covers every later line until a `restore`
  * names the mutator. Mutator names ignore case; `all` names every mutator.
- * A mutant is covered when its span starts on a covered line — the rule
- * Stryker applies to the node's start line.
+ * A mutant is covered when its span starts on a covered line.
  *
  * generate.ts marks a covered mutant Ignored, with the comment's reason (or a
  * default naming the line) as its statusReason, the way polly#143 marks
@@ -46,7 +44,7 @@ interface Comment {
 }
 
 const DIRECTIVE =
-  /^\s*\*?\s*(?:Stryker|polly-mutate)\s+(disable|restore)(\s+next-line)?\s+([A-Za-z]+(?:\s*,\s*[A-Za-z]+)*)\s*(?::([\s\S]*))?$/;
+  /^\s*\*?\s*polly-mutate\s+(disable|restore)(\s+next-line)?\s+([A-Za-z]+(?:\s*,\s*[A-Za-z]+)*)\s*(?::([\s\S]*))?$/;
 
 export function parseDisableComments(
   comments: readonly Comment[],

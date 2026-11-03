@@ -5,13 +5,7 @@ import { resolveMutateConfig } from "../config.ts";
 import { parseMutationConfig } from "../define.ts";
 import { engineConfigFor, expandMutateEntries } from "../engine-config.ts";
 import { initConfig } from "../init.ts";
-import {
-  commandArgv,
-  migrateConfig,
-  preloadArgs,
-  renderMutationConfig,
-  strykerToMutation,
-} from "../migrate.ts";
+import { renderMutationConfig } from "../render.ts";
 import { createFixtureProject } from "./fixture-project.ts";
 
 const DEFINE = join(import.meta.dir, "../define.ts");
@@ -30,30 +24,13 @@ const project = createFixtureProject("polly-mutate-config-", {
     '  report: "out/m.json",',
     "});",
   ].join("\n"),
-  "stryker/stryker.conf.json": JSON.stringify({
-    $schema: "x",
-    testRunner: "bun",
-    plugins: ["stryker-mutator-bun-runner"],
-    bun: { testFiles: ["tests/**/*.test.ts"], nodeArgs: ["--preload", "./tests/setup.ts"] },
-    mutate: ["src/a.ts"],
-    concurrency: 2,
-    timeoutMS: 9000,
-    disableBail: true,
-    thresholds: { high: 90, low: 70, break: 50 },
-  }),
-  "legacy/stryker.conf.json": JSON.stringify({
-    testRunner: "bun",
-    bun: { testFiles: ["tests/**/*.test.ts"] },
-    mutate: ["src/**/*.ts"],
-  }),
-  "legacy/src/x.ts": "export const x = 1;",
-  "command/stryker.conf.json": JSON.stringify({
-    testRunner: "command",
-    commandRunner: { command: "bun run bdd" },
-    mutate: ["h.ts"],
-    disableBail: true,
-  }),
-  "jest/stryker.conf.json": JSON.stringify({ testRunner: "jest", mutate: ["a.ts"] }),
+  "command/polly.mutate.ts": [
+    `import { defineMutation } from "${DEFINE}";`,
+    "export default defineMutation({",
+    '  targets: ["h.ts"],',
+    '  runner: { kind: "command", argv: ["bun", "run", "bdd"] },',
+    "});",
+  ].join("\n"),
   "bad/polly.mutate.ts": 'export default { targets: ["a.ts"], tests: { include: [] } };',
 });
 afterAll(() => project.remove());
@@ -76,25 +53,16 @@ describe("expandMutateEntries", () => {
 });
 
 describe("resolveMutateConfig", () => {
-  test("polly.mutate.ts wins over a Stryker config in the same project", async () => {
+  test("reads polly.mutate.ts from the cwd", async () => {
     const cfg = await load("");
-    expect(cfg.mutation?.format).toBe("polly");
     expect(cfg.mutation?.path).toBe(project.path("polly.mutate.ts"));
     expect(cfg.reportPath).toBe(project.path("out/m.json"));
   });
 
-  test("a Stryker config is the deprecated fallback, read through the migration mapping", async () => {
-    const cfg = await load("legacy");
-    expect(cfg.mutation?.format).toBe("stryker");
-    expect(cfg.mutation?.config.targets).toEqual(["src/**/*.ts"]);
-    expect(cfg.reportPath).toBe(project.path("legacy/reports/mutation/mutation.json"));
-  });
-
-  test("a Stryker config the mapping cannot read is not fatal; the error waits for the engine", async () => {
-    const cfg = await load("jest");
+  test("no polly.mutate.ts: no config, and the engine says how to make one", async () => {
+    const cfg = await load("src");
     expect(cfg.mutation).toBeNull();
-    expect(cfg.mutationError).toContain('testRunner "jest"');
-    await expect(engineConfigFor(cfg, parseMutateArgs([]))).rejects.toThrow('testRunner "jest"');
+    await expect(engineConfigFor(cfg, parseMutateArgs([]))).rejects.toThrow("polly mutate init");
   });
 
   test("an invalid polly.mutate.ts fails with the file and the field", async () => {
@@ -196,59 +164,7 @@ describe("engineConfigFor", () => {
   });
 });
 
-describe("strykerToMutation", () => {
-  test("maps every key the engine has a counterpart for, and names the dropped ones", async () => {
-    const raw = await Bun.file(project.path("stryker/stryker.conf.json")).json();
-    const { config, notes } = strykerToMutation(raw, "s.json");
-    expect(config).toEqual({
-      targets: ["src/a.ts"],
-      tests: { include: ["tests/**/*.test.ts"], preload: ["./tests/setup.ts"] },
-      mode: "matrix",
-      concurrency: 2,
-      timeout: { factor: 1.5, extraMs: 9000 },
-      thresholds: { break: 50 },
-    });
-    expect(notes.join("\n")).toContain("dropped Stryker-only keys: plugins");
-    expect(notes.join("\n")).not.toContain("$schema");
-  });
-
-  test("a command runner keeps fast mode even with disableBail", () => {
-    const { config } = strykerToMutation(
-      { testRunner: "command", commandRunner: { command: "bun run bdd" }, disableBail: true },
-      "c.json"
-    );
-    expect(config.runner).toEqual({ kind: "command", argv: ["bun", "run", "bdd"] });
-    expect(config.mode).toBeUndefined();
-  });
-
-  test("commandArgv sends shell syntax through sh -c", () => {
-    expect(commandArgv("  npm test ")).toEqual(["npm", "test"]);
-    expect(commandArgv("bun test && echo ok")).toEqual(["sh", "-c", "bun test && echo ok"]);
-  });
-
-  test("preloadArgs: both flag spellings, as written; other args ignored", () => {
-    const args = ["--smol", "--preload", "./a.ts", "--preload=b/c.ts", "--preload"];
-    expect(preloadArgs(args)).toEqual(["./a.ts", "b/c.ts"]);
-  });
-});
-
-describe("migrateConfig", () => {
-  test("prints by default, writes with write, and refuses to overwrite without force", async () => {
-    const stryker = project.path("legacy/stryker.conf.json");
-    const dry = await migrateConfig(stryker);
-    expect(dry.written).toBe(false);
-    expect(await Bun.file(project.path("legacy/polly.mutate.ts")).exists()).toBe(false);
-
-    const wrote = await migrateConfig(stryker, { write: true });
-    expect(wrote.written).toBe(true);
-    const migrated = await resolveMutateConfig(project.path("legacy"), parseMutateArgs([]));
-    expect(migrated.mutation?.format).toBe("polly");
-    expect(migrated.mutation?.config.targets).toEqual(["src/**/*.ts"]);
-
-    expect((await migrateConfig(stryker, { write: true })).written).toBe(false);
-    expect((await migrateConfig(stryker, { write: true, force: true })).written).toBe(true);
-  });
-
+describe("renderMutationConfig", () => {
   test("the rendered file is a defineMutation call that loads back to the same config", async () => {
     const config = { targets: ["a.ts"], tests: { include: ["t/**/*.test.ts"] }, concurrency: 2 };
     const source = renderMutationConfig(config, DEFINE);
@@ -300,12 +216,5 @@ describe("parseMutateArgs (engine flags)", () => {
     expect(a.engine).toBe("bun");
     expect(a.since).toBe("main");
     expect(a.mode).toBe("fast");
-  });
-
-  test("migrate --write --force", () => {
-    const a = parseMutateArgs(["migrate", "--write", "--force"]);
-    expect(a.verb).toBe("migrate");
-    expect(a.write).toBe(true);
-    expect(a.force).toBe(true);
   });
 });

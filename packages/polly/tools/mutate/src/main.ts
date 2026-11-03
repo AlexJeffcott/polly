@@ -3,14 +3,11 @@
  * tests (the inverse reading of the kill matrix). Thin dispatcher over the
  * reusable functions in this directory.
  */
-import { resolve } from "node:path";
-import { findStrykerConfigs } from "../../test/src/coverage-policy/mutate-targets.ts";
 import { parseMutateArgs } from "./args.ts";
 import { resolveMutateConfig } from "./config.ts";
 import { decide, status } from "./decisions.ts";
 import { buildDb, loadMutationReport } from "./ingest.ts";
 import { initConfig } from "./init.ts";
-import { migrateConfig } from "./migrate.ts";
 import { reportFromFile, resolveEngine, runBunEngine } from "./run.ts";
 import { verifyMatrix } from "./verify-matrix.ts";
 
@@ -25,8 +22,6 @@ https://github.com/AlexJeffcott/polly/blob/main/packages/polly/tools/mutate/READ
 
 Usage:
   polly mutate init [--force]        Scaffold a polly.mutate.ts for this project
-  polly mutate migrate [--write]     Convert stryker.conf.json to polly.mutate.ts (prints it
-                                     unless --write; --force overwrites an existing one)
   polly mutate [run]                 Run mutation testing, then print the useless-test report
   polly mutate report                Print the report from an existing mutation.json
   polly mutate decisions             Review verdicts: needs-review / stale / settled
@@ -35,8 +30,7 @@ Usage:
   polly mutate help                  Show this help
 
 Flags:
-  --config <path>     polly.mutate.ts, or a stryker.conf.json (default: ./polly.mutate.ts,
-                      else the discovered Stryker config, deprecated)
+  --config <path>     polly.mutate.ts (default: ./polly.mutate.ts)
   --report <path>     mutation report JSON (default: reports/mutation/mutation.json)
   --decisions <path>  verdict log (default: .polly/test-debt/decisions.jsonl)
   --db <path>         intermediate SQLite (default: in-memory)
@@ -93,30 +87,6 @@ async function init(cwd: string, force: boolean): Promise<number> {
   return 0;
 }
 
-async function migrate(cwd: string, args: ReturnType<typeof parseMutateArgs>): Promise<number> {
-  const strykerPath = args.config
-    ? resolve(cwd, args.config)
-    : ((await findStrykerConfigs(cwd))[0] ?? null);
-  if (!strykerPath) {
-    console.log("no stryker.conf.json found — pass --config <path>");
-    return 1;
-  }
-  const result = await migrateConfig(strykerPath, { write: args.write, force: args.force });
-  for (const n of result.notes) console.log(`note: ${n}`);
-  if (!args.write) {
-    console.log(`\n// ${result.path}\n${result.source}`);
-    console.log("Re-run with --write to write it.");
-    return 0;
-  }
-  if (!result.written) {
-    console.log(`${result.path} already exists. Re-run with --force to overwrite.`);
-    return 1;
-  }
-  console.log(`✓ wrote ${result.path}`);
-  console.log(`  ${strykerPath} is no longer read once polly.mutate.ts exists; delete it.`);
-  return 0;
-}
-
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a flat verb dispatcher — the branches are the command surface.
 async function main(): Promise<number> {
   const args = parseMutateArgs(process.argv.slice(2));
@@ -126,9 +96,8 @@ async function main(): Promise<number> {
   }
 
   const cwd = process.cwd();
-  // init and migrate write the config; they must work before one loads.
+  // init writes the config; it must work before one loads.
   if (args.verb === "init") return await init(cwd, args.force);
-  if (args.verb === "migrate") return await migrate(cwd, args);
   const cfg = await resolveMutateConfig(cwd, args);
 
   switch (args.verb) {

@@ -43,6 +43,5 @@ export {
 } from "./engine/index.ts";
 export { buildDb, type MutationReport, type ReportContracts } from "./ingest.ts";
 export { type InitResult, initConfig } from "./init.ts";
-export { type Migration, migrateConfig, strykerToMutation } from "./migrate.ts";
 export { report } from "./report.ts";
 export { isMatrixComplete, type MatrixCheck, verifyMatrix } from "./verify-matrix.ts";

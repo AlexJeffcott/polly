@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Stryker compatibility in `polly mutate` (breaking).** `polly mutate
+  migrate` is gone; a `stryker.conf.json` is no longer read as a fallback
+  config; `// Stryker disable` / `restore` comments are no longer directives
+  (use `// polly-mutate disable`); `findStrykerConfigs` is no longer exported
+  from `@fairfox/polly/test/coverage`. A project without `polly.mutate.ts`
+  now fails with the `polly mutate init` hint.
+- The Stryker parity sandbox and `scripts/mutate-parity.ts`.
+
+### Changed
+
+- `weapon-regex` peer `^2.0.6` (was `^1.3.6`, pinned for Stryker parity);
+  `oxc-parser` peer `^0.157.0` (was `^0.137.0`).
+- Dependencies updated across the workspace; `glob` 14.0.3 and `minimatch`
+  11.0.4 overrides close GHSA-3g3m-2fjr-6pw4 and GHSA-g3hv-75wg-m249.
+
 ## [0.98.2] - 2026-10-29
 
 ### Fixed

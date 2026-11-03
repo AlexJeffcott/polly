@@ -6,7 +6,7 @@
  * executes — and neither are decorators or `declare` statements (Stryker's
  * skip rules). Mutants inside polly verify primitives are kept but marked
  * ignored, the way Stryker's polly-verify ignorer reports them, and so are
- * mutants a `// Stryker disable` comment covers (disable-comments.ts).
+ * mutants a `// polly-mutate disable` comment covers (disable-comments.ts).
  *
  * Parentheses are not nodes (`preserveParens: false`), as in the Babel AST
  * Stryker walks, so operators that look at a parent see the real one.

@@ -1,7 +1,5 @@
 /**
- * Build the bun engine's config from the loaded mutation config
- * (`polly.mutate.ts`, or a Stryker JSON read through the migration mapping)
- * plus CLI flags.
+ * Build the bun engine's config from the loaded `polly.mutate.ts` plus CLI flags.
  */
 import { availableParallelism } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -33,7 +31,7 @@ function parseEntry(entry: string): { pattern: string; lines?: { from: number; t
   return { pattern: range[1], lines: { from: Number(range[2]), to: Number(range[3]) } };
 }
 
-/** Expand Stryker `mutate` entries: globs, `!` exclusions, and `file.ts:10-20` ranges. */
+/** Expand `targets` entries: globs, `!` exclusions, and `file.ts:10-20` ranges. */
 export async function expandMutateEntries(cwd: string, entries: string[]): Promise<MutateTarget[]> {
   const negated = entries.filter((x) => x.startsWith("!"));
   const excluded = new Set(
@@ -124,8 +122,7 @@ function resolveContracts(flag: string | undefined, config: MutationConfig): Con
 export async function engineConfigFor(cfg: MutateConfig, args: MutateArgs): Promise<EngineConfig> {
   if (!cfg.mutation) {
     throw new Error(
-      cfg.mutationError ??
-        `no ${MUTATION_CONFIG_FILE} found — run 'polly mutate init', or pass --config <path>`
+      `no ${MUTATION_CONFIG_FILE} found — run 'polly mutate init', or pass --config <path>`
     );
   }
   const { config, path } = cfg.mutation;

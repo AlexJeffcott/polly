@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MUTATION_CONFIG_FILE, type MutationConfig } from "./define.ts";
-import { defineImportSpecifier, renderMutationConfig } from "./migrate.ts";
+import { defineImportSpecifier, renderMutationConfig } from "./render.ts";
 
 export interface InitResult {
   configPath: string;

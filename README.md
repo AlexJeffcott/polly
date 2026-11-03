@@ -328,12 +328,12 @@ The authoring tools load packages a production install does not need, so they ar
 | `polly verify` | `typescript-7@npm:typescript@7.1.0-beta` |
 | `polly verify --witness` | `typescript-7@npm:typescript@7.1.0-beta @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
 | `polly visualize` | `typescript-7@npm:typescript@7.1.0-beta` |
-| `polly mutate`, `@fairfox/polly/mutate` | `oxc-parser@0.157.0 weapon-regex@1.3.6` (plus `typescript-7` for the type filter) |
+| `polly mutate`, `@fairfox/polly/mutate` | `oxc-parser@0.157.0 weapon-regex@2.0.6` (plus `typescript-7` for the type filter) |
 | `polly bdd`, `@fairfox/polly/bdd` | `@cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1` |
 
 ```bash
 # all of them
-bun add -d typescript-7@npm:typescript@7.1.0-beta oxc-parser@0.157.0 weapon-regex@1.3.6 \
+bun add -d typescript-7@npm:typescript@7.1.0-beta oxc-parser@0.157.0 weapon-regex@2.0.6 \
   @cucumber/gherkin@42.0.1 @cucumber/messages@34.2.1
 ```
 

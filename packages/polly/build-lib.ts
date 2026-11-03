@@ -234,7 +234,7 @@ const toolsResult = await Bun.build({
     "@cucumber/*",
     // Parser for the bun mutation engine — a native-binding optional peer, kept external.
     "oxc-parser",
-    // Regex mutants for the bun mutation engine (the generator Stryker used, so mutants stay comparable) — an optional peer, kept external.
+    // Regex mutants for the bun mutation engine — an optional peer, kept external.
     "weapon-regex",
     // TypeScript 7 (npm alias): the analysis API and the mutation engine's type filter — spawns tsgo; an optional peer, kept external.
     "typescript-7",

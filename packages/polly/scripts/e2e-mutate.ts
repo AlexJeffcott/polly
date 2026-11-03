@@ -42,17 +42,15 @@
  * preload cannot reach. With `pollyMutatePlugin()` from
  * "@fairfox/polly/mutate" in the build every mutant is Killed; without it
  * every mutant Survives — the plugin is what carries the mutant. The same
- * target's `// Stryker disable next-line` comment reports its mutant Ignored
+ * target's `// polly-mutate disable next-line` comment reports its mutant Ignored
  * with the comment's reason, and a comment that covers nothing prints a
  * warning.
  *
  * Then `--since HEAD` in a git checkout: no change → nothing runs; one target
  * edited → only that target runs.
  *
- * Then the two ways a project gets a config: `polly mutate init` in a project
- * with none, and a Stryker-only project — which runs with a deprecation
- * notice, then `polly mutate migrate --write` gives it a polly.mutate.ts that
- * runs without one and yields the same statuses.
+ * Then `polly mutate init` in a project with no config writes one that runs,
+ * and a project with only a stryker.conf.json fails with the init hint.
  *
  * Usage:  bun scripts/e2e-mutate.ts
  * Needs:  `bun run build:lib` first (drives dist/cli/polly.js).
@@ -189,15 +187,15 @@ const CONTRACT_SOURCES: Record<string, string> = {
     "});",
   ].join("\n"),
 };
-/** A page bundled by a command and run under Node; a Stryker comment on a data table. */
+/** A page bundled by a command and run under Node; a disable comment on a data table. */
 const BUNDLE_SOURCES: Record<string, string> = {
   "package.json": SOURCES["package.json"] ?? "",
   "tsconfig.json": SOURCES["tsconfig.json"] ?? "",
   "src/flag.ts": [
-    "// Stryker disable next-line ObjectLiteral: a data table",
+    "// polly-mutate disable next-line ObjectLiteral: a data table",
     "export const TABLE = { a: 1 };",
     "export const positive = (a: number) => a > 0;",
-    "// Stryker disable next-line all: nothing here",
+    "// polly-mutate disable next-line all: nothing here",
     "export const ONE = 1;",
   ].join("\n"),
   "src/page.ts": [
@@ -438,26 +436,18 @@ async function checkInit(ctx: TierContext): Promise<void> {
   }
 }
 
-async function checkMigrate(ctx: TierContext): Promise<void> {
-  const temp = withTempDir("polly-e2e-mutate-migrate-");
+async function checkStrykerIgnored(ctx: TierContext): Promise<void> {
+  const temp = withTempDir("polly-e2e-mutate-stryker-");
   try {
     await writeProject(temp.dir, { ...SOURCES, "stryker.conf.json": STRYKER_CONFIG });
-    ctx.log("[e2e] built: a Stryker-only project runs, with a deprecation notice");
-    const legacy = await mutate(BUILT_CLI, temp.dir, ["run", "--no-report"]);
-    assert(/deprecated: reading stryker\.conf\.json/.test(legacy), `no notice:\n${legacy}`);
-    const before = statusCounts(await readMutants(temp.dir, "src/machine.ts"));
-
-    ctx.log("[e2e] built: polly mutate migrate --write, then run");
-    await mutate(BUILT_CLI, temp.dir, ["migrate", "--write"]);
+    ctx.log("[e2e] built: a Stryker-only project has no config to run");
+    const r = await runBun([BUILT_CLI, "mutate", "run", "--no-report"], { cwd: temp.dir });
+    assert(r.exitCode !== 0, `a stryker.conf.json was read as a config:\n${r.stdout}`);
     assert(
-      existsSync(join(temp.dir, "polly.mutate.ts")),
-      "migrate --write wrote no polly.mutate.ts"
+      /no polly\.mutate\.ts found — run .polly mutate init./.test(r.stdout),
+      `no init hint:\n${r.stdout}\n${r.stderr}`
     );
-    const migrated = await mutate(BUILT_CLI, temp.dir, ["run", "--no-report", "--no-cache"]);
-    assert(!/deprecated/.test(migrated), `the migrated config still reads Stryker:\n${migrated}`);
-    const after = statusCounts(await readMutants(temp.dir, "src/machine.ts"));
-    assert(before === after, `statuses changed across migration: ${before} → ${after}`);
-    ctx.log(`  ✓ migrate keeps the result: ${after}`);
+    ctx.log("  ✓ stryker.conf.json is not read; the error names polly mutate init");
   } finally {
     temp.cleanup();
   }
@@ -545,7 +535,7 @@ async function checkBundle(ctx: TierContext): Promise<void> {
       `no warning for the comment that covers nothing:\n${out}`
     );
     ctx.log(
-      `  ✓ bundle: ${on.length} mutants Survived without the plugin, Killed with it; the Stryker comment → Ignored ("a data table"); the empty comment warned`
+      `  ✓ bundle: ${on.length} mutants Survived without the plugin, Killed with it; the disable comment → Ignored ("a data table"); the empty comment warned`
     );
   } finally {
     temp.cleanup();
@@ -563,7 +553,7 @@ export async function run(ctx: TierContext): Promise<TierResult> {
     await checkBundle(ctx);
     await checkSince(ctx);
     await checkInit(ctx);
-    await checkMigrate(ctx);
+    await checkStrykerIgnored(ctx);
     ctx.log("\n✅ OK mutate e2e\n");
     return { pass: true };
   } catch (err) {

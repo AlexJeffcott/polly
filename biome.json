@@ -16,7 +16,6 @@
       "!**/coverage",
       "!**/reports",
       "!**/test-results",
-      "!**/.stryker-tmp",
       "!**/.polly",
       "!**/scripts/analysis-parity/golden",
       "!**/scripts/spikes",

@@ -14,25 +14,11 @@ import { buildDb, loadMutationReport } from "./ingest.ts";
 import { report } from "./report.ts";
 import { isMatrixComplete } from "./verify-matrix.ts";
 
-/** `--engine` survives for scripts that pass `--engine bun`; Stryker is gone. */
+/** `--engine` survives for scripts that pass `--engine bun`. */
 export function resolveEngine(args: MutateArgs): "bun" {
   const engine = args.engine ?? "bun";
   if (engine === "bun") return engine;
-  if (engine === "stryker") {
-    throw new Error("--engine stryker was removed; the bun engine (the default) replaces it");
-  }
   throw new Error(`unknown --engine "${engine}" (expected bun)`);
-}
-
-/** The notice printed when the bun engine reads a Stryker config; null for polly.mutate.ts. */
-export function deprecationNotice(cfg: MutateConfig): string | null {
-  const m = cfg.mutation;
-  if (m?.format !== "stryker") return null;
-  return [
-    `deprecated: reading ${relative(cfg.cwd, m.path) || m.path} — Stryker is no longer supported; its config is read for migration only.`,
-    "  'polly mutate migrate --write' writes the equivalent polly.mutate.ts.",
-    ...m.notes.map((n) => `  ${n}`),
-  ].join("\n");
 }
 
 /** `thresholds.break` failure line, or null when the score clears it (or none is set). */
@@ -44,8 +30,6 @@ export function thresholdFailure(score: number | null, cfg: MutateConfig): strin
 
 /** Run the Bun-native engine and print a per-target summary. Returns the exit code. */
 export async function runBunEngine(cfg: MutateConfig, args: MutateArgs): Promise<number> {
-  const notice = deprecationNotice(cfg);
-  if (notice) console.log(`${notice}\n`);
   const engineCfg = await engineConfigFor(cfg, args);
   if (engineCfg.targets.length === 0) {
     console.log(

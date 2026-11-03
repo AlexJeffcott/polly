@@ -54,8 +54,7 @@ test-results
 .claude/worktrees/
 .cache/
 
-# Stryker sandbox (scripts/mutate-parity.ts runs the reference Stryker)
-.stryker-tmp/
+# polly mutate reports (reports/mutation/mutation.json)
 reports/
 
 # copied from the repo root by build-lib.ts

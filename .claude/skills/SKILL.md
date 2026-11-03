@@ -628,7 +628,7 @@ export default defineVerification({
 
 ## Mutation Testing (`polly mutate`, v0.92+)
 
-A Bun-native mutation engine (Stryker is not used). It mutates target files one edit at a time, runs only the tests that cover each edit, and reports surviving mutants, untested code, and tests that kill nothing. Dev dependencies: `oxc-parser@0.157.0 weapon-regex@1.3.6`, plus `typescript-7` for the type filter.
+A Bun-native mutation engine. It mutates target files one edit at a time, runs only the tests that cover each edit, and reports surviving mutants, untested code, and tests that kill nothing. Dev dependencies: `oxc-parser@0.157.0 weapon-regex@2.0.6`, plus `typescript-7` for the type filter.
 
 ```typescript
 // polly.mutate.ts  (scaffold with `polly mutate init`)
@@ -647,7 +647,6 @@ export default defineMutation({
 | `polly mutate run --mode matrix` | Every test against every mutant — needed for the redundant-test sections |
 | `polly mutate report` | Re-read an existing `reports/mutation/mutation.json` |
 | `polly mutate decisions` | Record keep / prune / rewrite verdicts on redundant tests |
-| `polly mutate migrate` | Convert a `stryker.conf.json` |
 
 `requires()`/`ensures()` throw during a run (`--contracts all`, the default), so contracts kill the mutants that break them. Mutants inside verify primitives are reported `Ignored`. Full reference: `packages/polly/tools/mutate/README.md` in the polly repo.
 

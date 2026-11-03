@@ -194,7 +194,7 @@
     "puppeteer": "25.16.0",
     "tweetnacl": "1.0.3",
     "typescript-7": "npm:typescript@7.1.0-beta",
-    "weapon-regex": "1.3.6"
+    "weapon-regex": "2.0.6"
   },
   "engines": {
     "bun": ">=1.4.4"
@@ -220,7 +220,7 @@
     "@cucumber/messages": "^34.2.1",
     "oxc-parser": "^0.157.0",
     "typescript-7": "npm:typescript@7.1.0-beta",
-    "weapon-regex": "^1.3.6"
+    "weapon-regex": "^2.0.6"
   },
   "peerDependenciesMeta": {
     "elysia": {

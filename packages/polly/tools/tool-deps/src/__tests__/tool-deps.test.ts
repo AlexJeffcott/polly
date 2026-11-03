@@ -68,7 +68,7 @@ describe("messages", () => {
       "bun add -d typescript-7@npm:typescript@7.1.0-beta"
     );
     expect(installCommand(["oxc-parser", "weapon-regex"], "npm")).toBe(
-      "npm install -D oxc-parser@0.157.0 weapon-regex@1.3.6"
+      "npm install -D oxc-parser@0.157.0 weapon-regex@2.0.6"
     );
   });
 
