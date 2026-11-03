@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.99.0] - 2026-11-03
+
+### Added
+
+- **`polly visualize generate --model <file.ts>`** writes the Structurizr
+  DSL of a declared C4 model: people, systems, containers, components,
+  relationships, deployments, views and styles. Use it for an architecture
+  that spans several packages or external services, which inference from one
+  TypeScript project cannot see. The file default-exports a function that
+  returns the model. `readDeclaredModel` reports every problem in one
+  `DeclaredModelError`. `--model` with `--snapshot` is an error.
+- **`@fairfox/polly/visualize` export:** the `DeclaredModel` types,
+  `readDeclaredModel` and `declaredModelDSL`, for a `--model` file to import.
+
+### Changed
+
+- **Project detection no longer falls back to `generic` (breaking).** A
+  project with no type marker now throws `ProjectDetectionError`, which
+  lists the 5 checks. Before, `polly visualize generate` wrote an empty
+  model with no error. Declare a generic project with
+  `"polly": { "type": "generic" }` in package.json. Generic mode throws on
+  an unparseable tsconfig.json, no entry point, or no package name (was
+  "Unknown Project"). Without a server dependency, a websocket-app needs a
+  WebSocket or HTTP server in the file; a `src/index.ts` file name or a
+  default export alone no longer qualifies.
+- An unknown `polly visualize generate` option is an error (was ignored).
+- **`polly visualize generate` fails instead of writing an empty or partial
+  model (breaking).** Before, it exited 0 in these cases. Now it fails when
+  the working directory has no tsconfig.json (it no longer reads
+  `../tsconfig.json`; the error names `--model`), when a context fails
+  analysis (`ArchitectureAnalysisError` lists each failure; the context was
+  dropped), when there are no entry points, and when there is no project
+  name (was "Unknown Project"). A missing version stays absent (was
+  "0.0.0").
+- `weapon-regex` peer `^2.0.6` (was `^1.3.6`, pinned for Stryker parity);
+  `oxc-parser` peer `^0.157.0` (was `^0.137.0`).
+- Dependencies updated across the workspace; `glob` 14.0.3 and `minimatch`
+  11.0.4 overrides close GHSA-3g3m-2fjr-6pw4 and GHSA-g3hv-75wg-m249.
+
 ### Removed
 
 - **Stryker compatibility in `polly mutate` (breaking).** `polly mutate
@@ -16,13 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from `@fairfox/polly/test/coverage`. A project without `polly.mutate.ts`
   now fails with the `polly mutate init` hint.
 - The Stryker parity sandbox and `scripts/mutate-parity.ts`.
-
-### Changed
-
-- `weapon-regex` peer `^2.0.6` (was `^1.3.6`, pinned for Stryker parity);
-  `oxc-parser` peer `^0.157.0` (was `^0.137.0`).
-- Dependencies updated across the workspace; `glob` 14.0.3 and `minimatch`
-  11.0.4 overrides close GHSA-3g3m-2fjr-6pw4 and GHSA-g3hv-75wg-m249.
 
 ## [0.98.2] - 2026-10-29
 
