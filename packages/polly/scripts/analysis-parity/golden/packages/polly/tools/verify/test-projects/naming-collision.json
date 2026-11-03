@@ -292,32 +292,9 @@
     "logs": []
   },
   "visualize.analyzeArchitecture": {
-    "result": {
-      "projectRoot": "<project>",
-      "system": {
-        "name": "Unknown Project",
-        "version": "0.0.0"
-      },
-      "projectConfig": {
-        "type": "generic",
-        "entryPoints": {},
-        "metadata": {
-          "name": "Unknown Project"
-        }
-      },
-      "contexts": {},
-      "messageFlows": [],
-      "integrations": [
-        {
-          "type": "external-script",
-          "name": "@anthropic/polly",
-          "technology": "npm package",
-          "usedIn": [
-            "<project>/src/handlers.ts"
-          ],
-          "description": "External dependency: @anthropic/polly"
-        }
-      ]
+    "error": {
+      "name": "ProjectDetectionError",
+      "message": "No project type matched <project>. Checked, in order:\n  - chrome-extension: manifest.json\n  - pwa: public/manifest.json\n  - monorepo: package.json `workspaces`\n  - electron: an `electron` dependency in package.json\n  - websocket-app: a server dependency (ws, socket.io, elysia, express, fastify, hono, koa) or a server entry point\nA project with none of these markers declares its type in package.json: \"polly\": { \"type\": \"generic\" }."
     },
     "logs": []
   },
@@ -336,129 +313,9 @@
     "logs": []
   },
   "adapters.selectAdapter": {
-    "result": {
-      "projectType": "generic",
-      "adapter": {
-        "class": "EventBusAdapter",
-        "name": "event-bus",
-        "config": {
-          "emitterLibrary": "events",
-          "emitterPattern": {
-            "$type": "RegExp",
-            "source": "emitter|bus|events|dispatch|publish",
-            "flags": "i"
-          },
-          "maxInFlight": 5,
-          "maxEmitters": 3,
-          "tsConfigPath": "<project>/tsconfig.json"
-        }
-      },
-      "model": {
-        "nodes": [
-          {
-            "id": "central-bus",
-            "type": "event-bus",
-            "canSendTo": [
-              "*"
-            ],
-            "canReceiveFrom": [
-              "*"
-            ],
-            "metadata": {
-              "isMediator": true
-            }
-          },
-          {
-            "id": "messageBus",
-            "type": "emitter",
-            "canSendTo": [
-              "central-bus",
-              "*"
-            ],
-            "canReceiveFrom": [
-              "central-bus",
-              "*"
-            ],
-            "metadata": {
-              "isEmitter": true
-            }
-          }
-        ],
-        "messageTypes": [
-          {
-            "name": "connected",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          },
-          {
-            "name": "disconnected",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          }
-        ],
-        "routingRules": [
-          {
-            "pattern": "broadcast",
-            "messageTypes": [
-              "connected",
-              "disconnected"
-            ],
-            "description": "Event bus broadcast pattern - one-to-many messaging"
-          }
-        ],
-        "state": {},
-        "handlers": [
-          {
-            "messageType": "connected",
-            "node": "messageBus",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<project>/src/handlers.ts",
-              "line": 28
-            }
-          },
-          {
-            "messageType": "disconnected",
-            "node": "messageBus",
-            "assignments": [],
-            "preconditions": [],
-            "postconditions": [],
-            "location": {
-              "file": "<project>/src/handlers.ts",
-              "line": 33
-            }
-          }
-        ],
-        "stateConstraints": [],
-        "bounds": {
-          "maxConcurrentMessages": 5,
-          "maxNodes": 2
-        }
-      }
+    "error": {
+      "name": "ProjectDetectionError",
+      "message": "No project type matched <project>. Checked, in order:\n  - chrome-extension: manifest.json\n  - pwa: public/manifest.json\n  - monorepo: package.json `workspaces`\n  - electron: an `electron` dependency in package.json\n  - websocket-app: a server dependency (ws, socket.io, elysia, express, fastify, hono, koa) or a server entry point\nA project with none of these markers declares its type in package.json: \"polly\": { \"type\": \"generic\" }."
     },
     "logs": []
   },

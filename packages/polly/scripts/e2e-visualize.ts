@@ -283,7 +283,7 @@ const cases: Case[] = [
     label: "cross-file-handlers",
     examplePath: "packages/polly/tools/visualize/src/__tests__/fixtures/cross-file-handlers",
     cwdSubpath: "",
-    expectedWorkspace: "Unknown Project",
+    expectedWorkspace: "test-cross-file-handlers",
     expectedContainers: ["server"],
     expectedComponents: ["message_handler", "query_handler", "command_handler", "user_service"],
     minComponents: 7,
@@ -747,7 +747,8 @@ type FailureCase = {
 };
 
 // Each runs in an empty directory nested in an empty tmp dir, so neither
-// cwd nor its parent holds a tsconfig.json, package.json, DSL or site.
+// cwd nor its parent holds a tsconfig.json, package.json, DSL or site, unless
+// the case writes one (a path under ../ lands in the parent).
 const failureCases: FailureCase[] = [
   {
     label: "generate, no project",
@@ -779,6 +780,40 @@ const failureCases: FailureCase[] = [
       "package.json": JSON.stringify({ name: "plain" }),
       "tsconfig.json": JSON.stringify({ include: ["src"] }),
       "src/index.ts": "export const plain = 1;\n",
+    },
+  },
+  {
+    // The parent's project is a different project: it is never analysed.
+    label: "generate, tsconfig only in the parent",
+    args: ["visualize", "generate"],
+    stderrIncludes: "No TypeScript project found",
+    files: {
+      "../package.json": JSON.stringify({ name: "parent", polly: { type: "generic" } }),
+      "../tsconfig.json": JSON.stringify({ include: ["src"] }),
+      "../src/index.ts": "export const parent = 1;\n",
+    },
+  },
+  {
+    // An entry point the tsconfig leaves out cannot be analysed; it is not skipped.
+    label: "generate, a context that fails analysis",
+    args: ["visualize", "generate"],
+    stderrIncludes: "1 of 1 context(s) could not be analysed",
+    files: {
+      "package.json": JSON.stringify({ name: "partial", polly: { type: "generic" } }),
+      "tsconfig.json": JSON.stringify({ include: ["lib"] }),
+      "lib/other.ts": "export const other = 1;\n",
+      "src/index.ts": "export const partial = 1;\n",
+    },
+  },
+  {
+    // A server with no package.json has no name; none is made up.
+    label: "generate, no project name",
+    args: ["visualize", "generate"],
+    stderrIncludes: "The project has no name",
+    files: {
+      "tsconfig.json": JSON.stringify({ include: ["src"] }),
+      "src/server.ts":
+        "Bun.serve({ port: 3000, fetch: () => new Response('ok'), websocket: { message() {} } });\n",
     },
   },
   {

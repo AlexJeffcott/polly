@@ -246,7 +246,7 @@ export type ArchitectureAnalysis = {
   /** Basic system information */
   system: {
     name: string;
-    version: string;
+    version?: string;
     description?: string;
   };
 

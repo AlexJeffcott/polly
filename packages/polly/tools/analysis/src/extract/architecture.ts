@@ -44,6 +44,14 @@ export interface ArchitectureAnalysisOptions {
   session?: AnalysisSession;
 }
 
+/** The analysis cannot describe the project: a name, an entry point or a context is missing or unreadable. */
+export class ArchitectureAnalysisError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ArchitectureAnalysisError";
+  }
+}
+
 export class ArchitectureAnalyzer {
   private options: ArchitectureAnalysisOptions;
 
@@ -132,7 +140,7 @@ export class ArchitectureAnalyzer {
     manifest?: ManifestInfo;
     projectConfig?: ProjectConfig;
     entryPoints: Record<string, string>;
-    systemInfo: { name: string; version: string; description?: string };
+    systemInfo: { name: string; version?: string; description?: string };
   }> {
     const manifestParser = new ManifestParser(this.options.projectRoot, true);
 
@@ -158,15 +166,23 @@ export class ArchitectureAnalyzer {
       inferWorkspaces: this.options.inferWorkspaces === true,
     });
 
+    const metadata = projectConfig.metadata;
+    if (!metadata?.name) {
+      const packageJsonPath = path.join(this.options.projectRoot, "package.json");
+      throw new ArchitectureAnalysisError(
+        fs.existsSync(packageJsonPath)
+          ? `The project has no name: set "name" in ${packageJsonPath}`
+          : `The project has no name: ${packageJsonPath} does not exist`
+      );
+    }
+
     return {
       projectConfig,
       entryPoints: projectConfig.entryPoints,
       systemInfo: {
-        name: projectConfig.metadata?.name || "Unknown Project",
-        version: projectConfig.metadata?.version || "0.0.0",
-        ...(projectConfig.metadata?.description
-          ? { description: projectConfig.metadata.description }
-          : {}),
+        name: metadata.name,
+        ...(metadata.version ? { version: metadata.version } : {}),
+        ...(metadata.description ? { description: metadata.description } : {}),
       },
     };
   }
@@ -179,24 +195,38 @@ export class ArchitectureAnalyzer {
     entryPoints: Record<string, string>,
     handlers: MessageHandler[]
   ): Promise<Record<string, ContextInfo>> {
+    const entries = Object.entries(entryPoints);
+    if (entries.length === 0) {
+      throw new ArchitectureAnalysisError(
+        `No entry points found in ${this.options.projectRoot}, so there is no context to describe`
+      );
+    }
+
     const contextAnalyzer = new ContextAnalyzer(this.options.tsConfigPath);
     const contexts: Record<string, ContextInfo> = {};
+    const failures: string[] = [];
 
-    for (const [contextType, entryPoint] of Object.entries(entryPoints)) {
+    for (const [contextType, entryPoint] of entries) {
       try {
-        const contextInfo = await contextAnalyzer.analyzeContext(
+        contexts[contextType] = await contextAnalyzer.analyzeContext(
           contextType,
           entryPoint,
           handlers,
           program
         );
-        contexts[contextType] = contextInfo;
       } catch (error) {
-        // Skip contexts that fail to analyze
-        if (process.env["POLLY_DEBUG"]) {
-          console.log(`[DEBUG] Failed to analyze context ${contextType}: ${error}`);
-        }
+        const reason = error instanceof Error ? error.message : String(error);
+        failures.push(`  ${contextType} (${entryPoint}): ${reason}`);
       }
+    }
+
+    if (failures.length > 0) {
+      throw new ArchitectureAnalysisError(
+        [
+          `${failures.length} of ${entries.length} context(s) could not be analysed with ${this.options.tsConfigPath}:`,
+          ...failures,
+        ].join("\n")
+      );
     }
 
     return contexts;

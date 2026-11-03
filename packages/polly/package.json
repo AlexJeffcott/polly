@@ -58,6 +58,10 @@
       "import": "./dist/tools/verify/src/config.js",
       "types": "./dist/tools/verify/src/config.d.ts"
     },
+    "./visualize": {
+      "import": "./dist/tools/visualize/src/model/index.js",
+      "types": "./dist/tools/visualize/src/model/index.d.ts"
+    },
     "./mutate": {
       "import": "./dist/tools/mutate/src/index.js",
       "types": "./dist/tools/mutate/src/index.d.ts"

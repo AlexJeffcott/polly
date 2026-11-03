@@ -175,6 +175,9 @@ const toolsResult = await Bun.build({
     "tools/verify/src/main.ts",
     "tools/visualize/src/cli.ts",
     "tools/visualize/src/main.ts",
+    // The @fairfox/polly/visualize library surface: the declared-model types,
+    // checker and DSL writer a `--model` file builds on.
+    "tools/visualize/src/model/index.ts",
     "tools/test/src/cli.ts",
     "tools/test/src/browser/run.ts",
     // Consumer-facing tiered test runner (`polly test --tier`). The worker is a
@@ -336,6 +339,7 @@ try {
       "tools/mutate/src/**/*",
       "tools/bdd/src/**/*",
       "tools/quality/src/index.ts",
+      "tools/visualize/src/model/**/*",
       "tools/quality/src/no-as-casting.ts",
       "tools/quality/src/logger.ts",
       "tools/quality/src/css/**/*",

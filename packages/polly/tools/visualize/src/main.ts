@@ -235,42 +235,35 @@ function loadAndReportSnapshot(snapshotPath: string): OverlaySnapshot | undefine
 /**
  * Resolve what to analyse, in order: ./tsconfig.json; a workspace root (a
  * package.json whose `workspaces`, or failing that whose child directories,
- * name packages), analysed as one program; ../tsconfig.json.
+ * name packages), analysed as one program. A parent directory is never read:
+ * its project is a different project.
  */
 function findAndDisplayProjectConfig(): ProjectSetup {
   const cwd = process.cwd();
   const ownTsConfig = path.join(cwd, "tsconfig.json");
-  const parentTsConfig = path.join(cwd, "..", "tsconfig.json");
 
   if (fs.existsSync(ownTsConfig)) return setupFromTsConfig(ownTsConfig);
 
   const workspace = findWorkspacePackageDirs(cwd);
   if (workspace.dirs.length > 0) return setupWorkspaceRoot(cwd, workspace);
 
-  if (fs.existsSync(parentTsConfig)) return setupFromTsConfig(parentTsConfig);
-
   fail(
     [
       "No TypeScript project found. Searched for:",
       `    ${ownTsConfig}`,
       `    ${path.join(cwd, "package.json")} with workspace packages`,
-      `    ${parentTsConfig}`,
       "  Run polly visualize from a directory that has a tsconfig.json, or from a",
       "  workspace root (a package.json with package subdirectories or `workspaces`).",
+      "  An architecture no single TypeScript project holds: declare it with --model.",
     ].join("\n")
   );
 }
 
+/** The project is the directory that holds the tsconfig.json. */
 function setupFromTsConfig(tsConfigPath: string): ProjectSetup {
   console.log(color(`   Using: ${tsConfigPath}`, COLORS.gray));
 
-  const projectRoot = findProjectRoot();
-  if (!projectRoot) {
-    const cwd = process.cwd();
-    fail(
-      `No project root found: none of manifest.json, package.json or tsconfig.json in ${cwd} or ${path.join(cwd, "..")}`
-    );
-  }
+  const projectRoot = path.dirname(tsConfigPath);
   console.log(color(`   Project: ${projectRoot}`, COLORS.gray));
 
   displayProjectType(projectRoot);
@@ -687,23 +680,6 @@ ${color("Learn More:", COLORS.blue)}
   Structurizr: https://structurizr.com
   C4 Model: https://c4model.com
 `);
-}
-
-function findProjectRoot(): string | null {
-  const locations = [process.cwd(), path.join(process.cwd(), "..")];
-
-  for (const loc of locations) {
-    // Check for any project marker file
-    if (
-      fs.existsSync(path.join(loc, "manifest.json")) ||
-      fs.existsSync(path.join(loc, "package.json")) ||
-      fs.existsSync(path.join(loc, "tsconfig.json"))
-    ) {
-      return loc;
-    }
-  }
-
-  return null;
 }
 
 main().catch((error) => {

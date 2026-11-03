@@ -145,55 +145,9 @@
     "logs": []
   },
   "visualize.analyzeArchitecture": {
-    "result": {
-      "projectRoot": "<project>",
-      "system": {
-        "name": "test-mesh-seed-guard",
-        "version": "1.0.0",
-        "description": "Verify fixture: a $meshState app that exercises the polly#114 mesh codegen and the polly#113 seed-race guard"
-      },
-      "projectConfig": {
-        "type": "generic",
-        "entryPoints": {},
-        "metadata": {
-          "name": "test-mesh-seed-guard",
-          "version": "1.0.0",
-          "description": "Verify fixture: a $meshState app that exercises the polly#114 mesh codegen and the polly#113 seed-race guard"
-        }
-      },
-      "contexts": {},
-      "messageFlows": [],
-      "integrations": [
-        {
-          "type": "external-script",
-          "name": "@fairfox/polly",
-          "technology": "npm package",
-          "usedIn": [
-            "<project>/src/background/index.ts"
-          ],
-          "description": "External dependency: @fairfox/polly"
-        }
-      ],
-      "meshOrPeerSignals": [
-        {
-          "kind": "mesh",
-          "key": "mesh-todos",
-          "variableName": "todos",
-          "filePath": "<project>/src/background/index.ts",
-          "line": 21,
-          "access": {
-            "read": "() => true",
-            "write": "(identity) => identity !== undefined"
-          }
-        },
-        {
-          "kind": "mesh",
-          "key": "mesh-presence",
-          "variableName": "presence",
-          "filePath": "<project>/src/background/index.ts",
-          "line": 42
-        }
-      ]
+    "error": {
+      "name": "ProjectDetectionError",
+      "message": "No project type matched <project>. Checked, in order:\n  - chrome-extension: manifest.json\n  - pwa: public/manifest.json\n  - monorepo: package.json `workspaces`\n  - electron: an `electron` dependency in package.json\n  - websocket-app: a server dependency (ws, socket.io, elysia, express, fastify, hono, koa) or a server entry point\nA project with none of these markers declares its type in package.json: \"polly\": { \"type\": \"generic\" }."
     },
     "logs": []
   },
@@ -212,119 +166,9 @@
     "logs": []
   },
   "adapters.selectAdapter": {
-    "result": {
-      "projectType": "generic",
-      "adapter": {
-        "class": "EventBusAdapter",
-        "name": "event-bus",
-        "config": {
-          "emitterLibrary": "events",
-          "emitterPattern": {
-            "$type": "RegExp",
-            "source": "emitter|bus|events|dispatch|publish",
-            "flags": "i"
-          },
-          "maxInFlight": 5,
-          "maxEmitters": 3,
-          "tsConfigPath": "<project>/tsconfig.json"
-        }
-      },
-      "model": {
-        "nodes": [
-          {
-            "id": "central-bus",
-            "type": "event-bus",
-            "canSendTo": [
-              "*"
-            ],
-            "canReceiveFrom": [
-              "*"
-            ],
-            "metadata": {
-              "isMediator": true
-            }
-          },
-          {
-            "id": "bus",
-            "type": "emitter",
-            "canSendTo": [
-              "central-bus",
-              "*"
-            ],
-            "canReceiveFrom": [
-              "central-bus",
-              "*"
-            ],
-            "metadata": {
-              "isEmitter": true
-            }
-          }
-        ],
-        "messageTypes": [
-          {
-            "name": "PING",
-            "payload": {
-              "name": "unknown",
-              "kind": "unknown",
-              "nullable": false
-            },
-            "routing": {
-              "from": [
-                "*"
-              ],
-              "to": [
-                "*"
-              ]
-            }
-          }
-        ],
-        "routingRules": [
-          {
-            "pattern": "broadcast",
-            "messageTypes": [
-              "PING"
-            ],
-            "description": "Event bus broadcast pattern - one-to-many messaging"
-          }
-        ],
-        "state": {},
-        "handlers": [
-          {
-            "messageType": "PING",
-            "node": "bus",
-            "assignments": [],
-            "preconditions": [
-              {
-                "expression": "session.value.active === true",
-                "message": "session must be active to ping",
-                "location": {
-                  "line": 51,
-                  "column": 1900
-                }
-              }
-            ],
-            "postconditions": [
-              {
-                "expression": "session.value.active === true",
-                "message": "session stays active after ping",
-                "location": {
-                  "line": 53,
-                  "column": 1978
-                }
-              }
-            ],
-            "location": {
-              "file": "<project>/src/background/index.ts",
-              "line": 50
-            }
-          }
-        ],
-        "stateConstraints": [],
-        "bounds": {
-          "maxConcurrentMessages": 5,
-          "maxNodes": 2
-        }
-      }
+    "error": {
+      "name": "ProjectDetectionError",
+      "message": "No project type matched <project>. Checked, in order:\n  - chrome-extension: manifest.json\n  - pwa: public/manifest.json\n  - monorepo: package.json `workspaces`\n  - electron: an `electron` dependency in package.json\n  - websocket-app: a server dependency (ws, socket.io, elysia, express, fastify, hono, koa) or a server entry point\nA project with none of these markers declares its type in package.json: \"polly\": { \"type\": \"generic\" }."
     },
     "logs": []
   },
