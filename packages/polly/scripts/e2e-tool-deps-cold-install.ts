@@ -185,9 +185,20 @@ function writeFixture(appDir: string): void {
   writeFileSync(join(appDir, "tsconfig.json"), `${JSON.stringify(tsconfig, null, 2)}\n`);
 }
 
-/** Copy the mesh-app fixture's sources, tsconfig and snapshot into `dir`. */
+/**
+ * writeFixture, plus the two files detection reads in a directory of its own:
+ * manifest.json (the chrome-extension marker) and a package.json with a name.
+ */
+function writeStandaloneFixture(appDir: string): void {
+  writeFixture(appDir);
+  cpSync(join(MINIMAL, "manifest.json"), join(appDir, "manifest.json"));
+  const pkg = { name: "minimal-example", private: true, type: "module" };
+  writeFileSync(join(appDir, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
+/** Copy the mesh-app fixture's sources, tsconfig, snapshot and package.json into `dir`. */
 function writeMeshFixture(dir: string): void {
-  for (const entry of ["src", "tsconfig.json", "snapshot.json"]) {
+  for (const entry of ["src", "tsconfig.json", "snapshot.json", "package.json"]) {
     cpSync(join(MESH_APP, entry), join(dir, entry), { recursive: true });
   }
 }
@@ -252,7 +263,7 @@ async function visualizeWithTypescriptOnly(
 
   ctx.log("[e2e] polly visualize --generate on examples/minimal (typescript-7 only)");
   const minimal = join(dir, "minimal");
-  writeFixture(minimal);
+  writeStandaloneFixture(minimal);
   const minimalDsl = await visualizeOk(polly, minimal, ["visualize", "--generate"]);
   ctx.log(`[e2e]   ${minimalDsl.split("\n").length}-line DSL`);
 
@@ -390,6 +401,8 @@ export async function run(ctx: TierContext): Promise<TierResult> {
 
     ctx.log("[e2e] polly visualize --generate on examples/minimal");
     writeFixture(app);
+    // The extension marker: without it, elysia makes `app` a websocket-app with no server entry.
+    cpSync(join(MINIMAL, "manifest.json"), join(app, "manifest.json"));
     const viz = await runAlarmed([polly, "visualize", "--generate"], app, CLI_ALARM_S);
     assert(viz.exitCode === 0, `polly visualize --generate: ${describe(viz)}`);
     assert(
