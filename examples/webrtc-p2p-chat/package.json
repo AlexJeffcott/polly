@@ -16,7 +16,7 @@
     "typecheck": "bun run --filter server typecheck && bun run --filter client typecheck"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
-    "@types/bun": "1.4.3"
+    "@biomejs/biome": "2.6.4",
+    "@types/bun": "1.4.4"
   }
 }

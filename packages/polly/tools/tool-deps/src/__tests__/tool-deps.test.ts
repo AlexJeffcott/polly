@@ -68,7 +68,7 @@ describe("messages", () => {
       "bun add -d typescript-7@npm:typescript@7.1.0-beta"
     );
     expect(installCommand(["oxc-parser", "weapon-regex"], "npm")).toBe(
-      "npm install -D oxc-parser@0.137.0 weapon-regex@1.3.6"
+      "npm install -D oxc-parser@0.157.0 weapon-regex@1.3.6"
     );
   });
 
@@ -160,7 +160,7 @@ describe("loadToolPackage", () => {
     await expect(load).rejects.toThrow(
       "@fairfox/polly/mutate needs oxc-parser, which is not installed."
     );
-    await expect(load).rejects.toThrow("bun add -d oxc-parser@0.137.0\n");
+    await expect(load).rejects.toThrow("bun add -d oxc-parser@0.157.0\n");
   });
 
   test("rethrows any other failure unchanged", async () => {

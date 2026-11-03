@@ -28,7 +28,7 @@ export const TOOL_PACKAGES = {
     install: "typescript-7@npm:typescript@7.1.0-beta",
     probe: "typescript-7/async",
   },
-  "oxc-parser": { install: "oxc-parser@0.137.0", probe: "oxc-parser" },
+  "oxc-parser": { install: "oxc-parser@0.157.0", probe: "oxc-parser" },
   "weapon-regex": { install: "weapon-regex@1.3.6", probe: "weapon-regex" },
   "@cucumber/gherkin": { install: "@cucumber/gherkin@42.0.1", probe: "@cucumber/gherkin" },
   "@cucumber/messages": { install: "@cucumber/messages@34.2.1", probe: "@cucumber/messages" },

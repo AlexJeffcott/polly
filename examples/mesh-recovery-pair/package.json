@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@fairfox/polly": "workspace:*",
-    "@preact/signals": "2.11.3",
+    "@preact/signals": "2.11.4",
     "elysia": "1.4.30",
-    "werift": "0.25.1"
+    "werift": "0.26.0"
   },
   "devDependencies": {
-    "@types/bun": "1.4.3"
+    "@types/bun": "1.4.4"
   }
 }

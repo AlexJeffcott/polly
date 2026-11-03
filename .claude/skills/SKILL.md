@@ -628,7 +628,7 @@ export default defineVerification({
 
 ## Mutation Testing (`polly mutate`, v0.92+)
 
-A Bun-native mutation engine (Stryker is not used). It mutates target files one edit at a time, runs only the tests that cover each edit, and reports surviving mutants, untested code, and tests that kill nothing. Dev dependencies: `oxc-parser@0.137.0 weapon-regex@1.3.6`, plus `typescript-7` for the type filter.
+A Bun-native mutation engine (Stryker is not used). It mutates target files one edit at a time, runs only the tests that cover each edit, and reports surviving mutants, untested code, and tests that kill nothing. Dev dependencies: `oxc-parser@0.157.0 weapon-regex@1.3.6`, plus `typescript-7` for the type filter.
 
 ```typescript
 // polly.mutate.ts  (scaffold with `polly mutate init`)

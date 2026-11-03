@@ -13,12 +13,12 @@
   "dependencies": {
     "@elysiajs/html": "1.4.2",
     "@fairfox/polly": "workspace:*",
-    "@preact/signals": "2.11.3",
+    "@preact/signals": "2.11.4",
     "elysia": "1.4.30",
-    "preact": "11.0.1",
-    "preact-render-to-string": "6.8.1"
+    "preact": "11.1.1",
+    "preact-render-to-string": "6.8.2"
   },
   "devDependencies": {
-    "@types/bun": "1.4.3"
+    "@types/bun": "1.4.4"
   }
 }
