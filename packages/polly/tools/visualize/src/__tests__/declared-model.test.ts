@@ -61,7 +61,7 @@ describe("readDeclaredModel", () => {
       views: [{ kind: "systemContext", system: "parts", key: "bad key", layout: "diagonal" }],
     });
     expect(problems).toEqual([
-      "people[0].colour is not a known field; known: id, name, description, tags",
+      "people[0].colour is not a known field; known: id, name, description, tags, properties",
       'people[0].id "1st" must start with a letter and hold only letters, digits and _',
       "relationships must be an array",
       'views[0].key "bad key" must hold only letters, digits, _ and -',
@@ -229,8 +229,41 @@ describe("declaredModelDSL", () => {
     );
   });
 
-  test("tells the viewer to keep the views in the order the model declares", () => {
-    expect(dsl).toContain('    properties {\n      "structurizr.sort" "created"\n    }');
+  test("tells the viewer to keep the declared view order and to show tooltips", () => {
+    expect(dsl).toContain(
+      '    properties {\n      "structurizr.sort" "created"\n      "structurizr.tooltips" "true"\n    }'
+    );
+  });
+
+  test("writes each element's and relationship's properties in its own block", () => {
+    expect(dsl).toContain(
+      '    reader = person "Reader" "Reads pages." {\n      properties {\n        "Role" "Any reader"\n      }\n    }'
+    );
+    expect(dsl).toContain(
+      '    parts = softwareSystem "Parts" "Loaded at run time." {\n      properties {\n        "Source" "parts/"\n      }\n      loader ='
+    );
+    expect(dsl).toContain(
+      '      shell = container "Shell" "" "TypeScript" {\n        properties {\n          "Files" "shell/src"\n          "Detail" "Holds the \\"bus\\"."\n        }\n        hostHandle ='
+    );
+    expect(dsl).toContain(
+      '        bus = component "Bus" "" "shell/src/store.ts" {\n          properties {\n            "Files" "store.ts"\n          }\n        }'
+    );
+    expect(dsl).toContain(
+      '    loader -> store "Reads the shell pointer" "HTTPS" {\n      properties {\n        "Path" "unit-manifests/<namespace>.shell.json"\n      }\n    }'
+    );
+    expect(dsl).toContain(
+      '      deploymentNode "Web server" {\n        properties {\n          "Host" "<branch>.example"\n        }\n        containerInstance renderer'
+    );
+  });
+
+  test("writes no block for an element with no properties", () => {
+    expect(dsl).toContain('    engineer = person "Engineer" "" "Staff"\n');
+  });
+
+  test("refuses a property value that is not a non-empty string", () => {
+    const model = fullModel();
+    model.people[0] = { id: "reader", name: "Reader", properties: { Role: "" } };
+    expect(problemsOf(model)).toEqual(["people[0].properties.Role must be a non-empty string"]);
   });
 
   test("writes only the styles the model declares", () => {

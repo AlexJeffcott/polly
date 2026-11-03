@@ -8,6 +8,7 @@ import type {
   DeploymentEnvironment,
   DeploymentNode,
   Person,
+  Properties,
   Relationship,
   SoftwareSystem,
   View,
@@ -36,21 +37,41 @@ function tagList(tags: string[] | undefined): string | undefined {
   return tags === undefined || tags.length === 0 ? undefined : tags.join(",");
 }
 
-function personLines(person: Person): string[] {
+/** A properties block at `indent`, or nothing where the element declares none. */
+function propertyLines(properties: Properties | undefined, indent: string): string[] {
+  const entries = Object.entries(properties ?? {});
+  if (entries.length === 0) return [];
   return [
-    `    ${person.id} = person ${args(person.name, person.description, tagList(person.tags))}`,
+    `${indent}properties {`,
+    ...entries.map(([key, value]) => `${indent}  ${quote(key)} ${quote(value)}`),
+    `${indent}}`,
   ];
 }
 
+/** `head`, with a block holding `body` where the body has lines. */
+function withBlock(head: string, body: string[], indent: string): string[] {
+  return body.length === 0 ? [head] : [`${head} {`, ...body, `${indent}}`];
+}
+
+function personLines(person: Person): string[] {
+  return withBlock(
+    `    ${person.id} = person ${args(person.name, person.description, tagList(person.tags))}`,
+    propertyLines(person.properties, "      "),
+    "    "
+  );
+}
+
 function componentLines(component: Component): string[] {
-  return [
+  return withBlock(
     `        ${component.id} = component ${args(
       component.name,
       component.description,
       component.technology,
       tagList(component.tags)
     )}`,
-  ];
+    propertyLines(component.properties, "          "),
+    "        "
+  );
 }
 
 function containerLines(container: Container): string[] {
@@ -60,27 +81,40 @@ function containerLines(container: Container): string[] {
     container.technology,
     tagList(container.tags)
   )}`;
-  const components = container.components ?? [];
-  if (components.length === 0) return [head];
-  return [`${head} {`, ...components.flatMap(componentLines), "      }"];
+  return withBlock(
+    head,
+    [
+      ...propertyLines(container.properties, "        "),
+      ...(container.components ?? []).flatMap(componentLines),
+    ],
+    "      "
+  );
 }
 
 function systemLines(system: SoftwareSystem): string[] {
   const head = `    ${system.id} = softwareSystem ${args(system.name, system.description, tagList(system.tags))}`;
-  const containers = system.containers ?? [];
-  if (containers.length === 0) return [head];
-  return [`${head} {`, ...containers.flatMap(containerLines), "    }"];
+  return withBlock(
+    head,
+    [
+      ...propertyLines(system.properties, "      "),
+      ...(system.containers ?? []).flatMap(containerLines),
+    ],
+    "    "
+  );
 }
 
 function relationshipLines(rel: Relationship): string[] {
-  return [
+  return withBlock(
     `    ${rel.from} -> ${rel.to} ${args(rel.description, rel.technology, tagList(rel.tags))}`,
-  ];
+    propertyLines(rel.properties, "      "),
+    "    "
+  );
 }
 
 function nodeLines(node: DeploymentNode, indent: string): string[] {
   return [
     `${indent}deploymentNode ${args(node.name, node.description, node.technology)} {`,
+    ...propertyLines(node.properties, `${indent}  `),
     ...(node.containers ?? []).map((id) => `${indent}  containerInstance ${id}`),
     ...(node.nodes ?? []).flatMap((child) => nodeLines(child, `${indent}  `)),
     `${indent}}`,
@@ -154,9 +188,11 @@ export function declaredModelDSL(model: DeclaredModel): string {
     "  }",
     "",
     "  views {",
-    // The viewer lists the views, and opens the first, in the order the model declares them.
+    // The viewer lists the views, and opens the first, in the order the model declares them,
+    // and shows each element's description and properties in a tooltip on hover.
     "    properties {",
     '      "structurizr.sort" "created"',
+    '      "structurizr.tooltips" "true"',
     "    }",
     ...model.views.flatMap(viewLines),
     ...(styles.length === 0 ? [] : ["    styles {", ...styles, "    }"]),

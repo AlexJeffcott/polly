@@ -1,7 +1,7 @@
 // A declared model that uses every part of the model: two people, a host
 // system and a system with containers and components, external systems,
 // tagged elements and relationships, a nested deployment, every view kind,
-// and element and relationship styles.
+// element and relationship styles, and tooltip properties on each kind of element.
 
 import type { DeclaredModel } from "../model/types";
 
@@ -10,7 +10,12 @@ export function fullModel(): DeclaredModel {
     name: "Parts",
     description: "Parts that load into a host page at run time.",
     people: [
-      { id: "reader", name: "Reader", description: "Reads pages." },
+      {
+        id: "reader",
+        name: "Reader",
+        description: "Reads pages.",
+        properties: { Role: "Any reader" },
+      },
       { id: "engineer", name: "Engineer", tags: ["Staff"] },
     ],
     systems: [
@@ -27,15 +32,22 @@ export function fullModel(): DeclaredModel {
         id: "parts",
         name: "Parts",
         description: "Loaded at run time.",
+        properties: { Source: "parts/" },
         containers: [
           { id: "loader", name: "Loader", description: "Starts the shell.", tags: ["Browser"] },
           {
             id: "shell",
             name: "Shell",
             technology: "TypeScript",
+            properties: { Files: "shell/src", Detail: 'Holds the "bus".' },
             components: [
               { id: "hostHandle", name: "Host handle", description: "Takes each config." },
-              { id: "bus", name: "Bus", technology: "shell/src/store.ts" },
+              {
+                id: "bus",
+                name: "Bus",
+                technology: "shell/src/store.ts",
+                properties: { Files: "store.ts" },
+              },
               { id: "element", name: "Unit element", description: 'Places a "unit".' },
             ],
           },
@@ -51,7 +63,13 @@ export function fullModel(): DeclaredModel {
       { from: "renderer", to: "page", description: "Serves the page" },
       { from: "page", to: "loader", description: "Imports the loader", technology: "ES module" },
       { from: "page", to: "element", description: "Places a unit element", tags: ["Dom"] },
-      { from: "loader", to: "store", description: "Reads the shell pointer", technology: "HTTPS" },
+      {
+        from: "loader",
+        to: "store",
+        description: "Reads the shell pointer",
+        technology: "HTTPS",
+        properties: { Path: "unit-manifests/<namespace>.shell.json" },
+      },
       { from: "loader", to: "hostHandle", description: "Passes on each config" },
       { from: "hostHandle", to: "bus", description: "Writes host topics" },
       { from: "element", to: "store", description: "Reads the unit pointer" },
@@ -69,7 +87,11 @@ export function fullModel(): DeclaredModel {
             technology: "Chrome",
             containers: ["page", "loader", "shell", "unit"],
           },
-          { name: "Web server", containers: ["renderer"] },
+          {
+            name: "Web server",
+            properties: { Host: "<branch>.example" },
+            containers: ["renderer"],
+          },
           {
             name: "AWS",
             nodes: [{ name: "CDN", nodes: [{ name: "S3", containers: ["store"] }] }],

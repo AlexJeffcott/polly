@@ -115,6 +115,18 @@ class Reader {
     });
   }
 
+  /** Optional tooltip properties: each key and value a non-empty string with no line break. */
+  properties(value: unknown, where: string): Record<string, string> | undefined {
+    if (value === undefined) return undefined;
+    const raw = this.record(value, where);
+    return Object.fromEntries(
+      Object.entries(raw).map(([key, entry]) => [
+        this.text(key, `${where} key`),
+        this.text(entry, `${where}.${key}`),
+      ])
+    );
+  }
+
   list(value: unknown, where: string): unknown[] {
     if (!Array.isArray(value)) {
       this.problem(`${where} must be an array`);
@@ -182,30 +194,36 @@ class Reader {
 
 function readPerson(r: Reader, value: unknown, where: string): Person {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["id", "name", "description", "tags"], where);
+  r.onlyKeys(raw, ["id", "name", "description", "tags", "properties"], where);
   return {
     id: r.id(raw["id"], `${where}.id`),
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),
+    ...opt("properties", r.properties(raw["properties"], `${where}.properties`)),
   };
 }
 
 function readComponent(r: Reader, value: unknown, where: string): Component {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["id", "name", "description", "technology", "tags"], where);
+  r.onlyKeys(raw, ["id", "name", "description", "technology", "tags", "properties"], where);
   return {
     id: r.id(raw["id"], `${where}.id`),
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("technology", r.optionalText(raw["technology"], `${where}.technology`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),
+    ...opt("properties", r.properties(raw["properties"], `${where}.properties`)),
   };
 }
 
 function readContainer(r: Reader, value: unknown, where: string): Container {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["id", "name", "description", "technology", "tags", "components"], where);
+  r.onlyKeys(
+    raw,
+    ["id", "name", "description", "technology", "tags", "components", "properties"],
+    where
+  );
   const components = r
     .optionalList(raw["components"], `${where}.components`)
     ?.map((c, i) => readComponent(r, c, `${where}.components[${i}]`));
@@ -215,13 +233,14 @@ function readContainer(r: Reader, value: unknown, where: string): Container {
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("technology", r.optionalText(raw["technology"], `${where}.technology`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),
+    ...opt("properties", r.properties(raw["properties"], `${where}.properties`)),
     ...opt("components", components),
   };
 }
 
 function readSystem(r: Reader, value: unknown, where: string): SoftwareSystem {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["id", "name", "description", "tags", "containers"], where);
+  r.onlyKeys(raw, ["id", "name", "description", "tags", "containers", "properties"], where);
   const containers = r
     .optionalList(raw["containers"], `${where}.containers`)
     ?.map((c, i) => readContainer(r, c, `${where}.containers[${i}]`));
@@ -230,25 +249,31 @@ function readSystem(r: Reader, value: unknown, where: string): SoftwareSystem {
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),
+    ...opt("properties", r.properties(raw["properties"], `${where}.properties`)),
     ...opt("containers", containers),
   };
 }
 
 function readRelationship(r: Reader, value: unknown, where: string): Relationship {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["from", "to", "description", "technology", "tags"], where);
+  r.onlyKeys(raw, ["from", "to", "description", "technology", "tags", "properties"], where);
   return {
     from: r.id(raw["from"], `${where}.from`),
     to: r.id(raw["to"], `${where}.to`),
     description: r.text(raw["description"], `${where}.description`),
     ...opt("technology", r.optionalText(raw["technology"], `${where}.technology`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),
+    ...opt("properties", r.properties(raw["properties"], `${where}.properties`)),
   };
 }
 
 function readNode(r: Reader, value: unknown, where: string): DeploymentNode {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["name", "description", "technology", "containers", "nodes"], where);
+  r.onlyKeys(
+    raw,
+    ["name", "description", "technology", "containers", "nodes", "properties"],
+    where
+  );
   const containers = r
     .optionalList(raw["containers"], `${where}.containers`)
     ?.map((c, i) => r.id(c, `${where}.containers[${i}]`));
@@ -259,6 +284,7 @@ function readNode(r: Reader, value: unknown, where: string): DeploymentNode {
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("technology", r.optionalText(raw["technology"], `${where}.technology`)),
+    ...opt("properties", r.properties(raw["properties"], `${where}.properties`)),
     ...opt("containers", containers),
     ...opt("nodes", nodes),
   };

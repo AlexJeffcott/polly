@@ -10,11 +10,15 @@ import type { ElementStyle, RelationshipStyle } from "../types/structurizr";
 /** An identifier the DSL can use: a letter, then letters, digits and underscores. */
 export type ElementId = string;
 
+/** Key-value rows the viewer shows in an element's or relationship's tooltip, not on the diagram. */
+export type Properties = Record<string, string>;
+
 export type Person = {
   id: ElementId;
   name: string;
   description?: string;
   tags?: string[];
+  properties?: Properties;
 };
 
 export type Component = {
@@ -23,6 +27,7 @@ export type Component = {
   description?: string;
   technology?: string;
   tags?: string[];
+  properties?: Properties;
 };
 
 export type Container = {
@@ -31,6 +36,7 @@ export type Container = {
   description?: string;
   technology?: string;
   tags?: string[];
+  properties?: Properties;
   components?: Component[];
 };
 
@@ -39,6 +45,7 @@ export type SoftwareSystem = {
   name: string;
   description?: string;
   tags?: string[];
+  properties?: Properties;
   containers?: Container[];
 };
 
@@ -48,12 +55,14 @@ export type Relationship = {
   description: string;
   technology?: string;
   tags?: string[];
+  properties?: Properties;
 };
 
 export type DeploymentNode = {
   name: string;
   description?: string;
   technology?: string;
+  properties?: Properties;
   /** Ids of the containers that run on this node. */
   containers?: ElementId[];
   nodes?: DeploymentNode[];
