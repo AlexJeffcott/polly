@@ -390,6 +390,7 @@ polly mutate [init|run|report|verify|decisions|migrate]
                                   Mutation testing and useless/redundant-test detection
 polly visualize                   Generate architecture diagrams (Structurizr DSL)
   --snapshot <path>               Overlay a captured mesh peer-state snapshot
+  --model <file.ts>               Write a declared C4 model instead of analysing source
   --export | --serve              Static diagram site (export needs Docker) and a local server
 polly gallery [--build|--open]    Serve or export the polly-ui component gallery
 polly quality [args]              Run conformance checks (no-as-casting, boundaries, secrets,

@@ -34,7 +34,7 @@ this directory is the per-feature reference.
 
 ## Generated
 
-- [architecture.dsl](./architecture.dsl) — Structurizr DSL produced by `polly visualize`. `polly visualize --help` covers `--snapshot` (mesh peer overlay), `--export` (static site, needs Docker) and `--serve`.
+- [architecture.dsl](./architecture.dsl) — Structurizr DSL produced by `polly visualize`. `polly visualize --help` covers `--snapshot` (mesh peer overlay), `--model` (a declared C4 model, written with no source analysis), `--export` (static site, needs Docker) and `--serve`. A project with no detected type declares `"polly": { "type": "generic" }` in package.json; one with neither is refused.
 
 ## Quick links
 

@@ -479,6 +479,8 @@ export function internalPlan(): TierPlan {
               // Structurizr's verdict on DSL from generator options the CLI
               // e2e cannot set (deployment, styles, ADRs).
               "tools/visualize/src/__tests__/dsl-structurizr-docker.test.ts",
+              // Structurizr's verdict on the DSL a declared model (--model) writes.
+              "tools/visualize/src/__tests__/declared-model-docker.test.ts",
             ],
             cwd: packageRoot,
           },

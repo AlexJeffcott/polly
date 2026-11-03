@@ -8,8 +8,8 @@
 // docs/architecture.dsl contains pinned context and component
 // identifiers.
 //
-// Scope: `generate`, with and without `--snapshot`. `--export` wraps
-// Docker and warrants its own script.
+// Scope: `generate`, with and without `--snapshot`, and `generate --model`
+// with a declared model. `--export` wraps Docker and warrants its own script.
 //
 // Examples covered: every examples/* project with a package.json, run at
 // its root, and each workspace example also from server/. A guard fails
@@ -43,6 +43,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { selfRun, type TierContext, type TierResult } from "../tools/test/src/e2e-shared";
+import { fullModel } from "../tools/visualize/src/__tests__/declared-model.fixture";
+import { readDeclaredModel } from "../tools/visualize/src/model/check";
+import { declaredModelDSL } from "../tools/visualize/src/model/dsl";
 import { STRUCTURIZR_IMAGE } from "../tools/visualize/src/runner/export";
 
 export const capability = "visualize.generate" as const;
@@ -739,6 +742,8 @@ type FailureCase = {
   args: string[];
   /** Phrase stderr must contain: the specific reason, not just any output. */
   stderrIncludes: string;
+  /** Files written into the run directory first, by path relative to it. */
+  files?: Record<string, string>;
 };
 
 // Each runs in an empty directory nested in an empty tmp dir, so neither
@@ -765,12 +770,46 @@ const failureCases: FailureCase[] = [
     args: ["visualize", "generate", "--snapshot", "absent.json"],
     stderrIncludes: "Snapshot error:",
   },
+  {
+    // A project with no marker of any type is refused, never assumed generic.
+    label: "generate, no type marker",
+    args: ["visualize", "generate"],
+    stderrIncludes: "No project type matched",
+    files: {
+      "package.json": JSON.stringify({ name: "plain" }),
+      "tsconfig.json": JSON.stringify({ include: ["src"] }),
+      "src/index.ts": "export const plain = 1;\n",
+    },
+  },
+  {
+    label: "--model, no path",
+    args: ["visualize", "generate", "--model"],
+    stderrIncludes: "--model requires a file path",
+  },
+  {
+    label: "--model, missing file",
+    args: ["visualize", "generate", "--model", "absent.ts"],
+    stderrIncludes: "absent.ts, which does not exist",
+  },
+  {
+    label: "--model, invalid model",
+    args: ["visualize", "generate", "--model", "model.ts"],
+    stderrIncludes: "views must hold at least one view",
+    files: {
+      "model.ts":
+        "export default () => ({ name: 'Parts', people: [], systems: [{ id: 'parts', name: 'Parts' }], relationships: [], views: [] });\n",
+    },
+  },
 ];
 
 async function runFailureCase(c: FailureCase): Promise<string[]> {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-viz-fail-"));
   const cwd = path.join(tmpRoot, "empty");
   fs.mkdirSync(cwd);
+  for (const [file, contents] of Object.entries(c.files ?? {})) {
+    fs.mkdirSync(path.dirname(path.join(cwd, file)), { recursive: true });
+    fs.writeFileSync(path.join(cwd, file), contents);
+  }
   try {
     const proc = Bun.spawn(["bun", POLLY_CLI, ...c.args], {
       cwd,
@@ -928,6 +967,67 @@ async function runCleanupCases(ctx: TierContext): Promise<number> {
   return failed;
 }
 
+/** What is wrong with a `generate --model` run of the fixture: its exit, and its DSL against the writer's. */
+function declaredModelFailures(exitCode: number, stderr: string, dslPath: string): string[] {
+  const failures: string[] = [];
+  if (exitCode !== 0) failures.push(`exited ${exitCode}: ${stderr.trim().slice(-300)}`);
+  if (!fs.existsSync(dslPath)) {
+    failures.push(`expected ${dslPath}`);
+    return failures;
+  }
+  const expected = declaredModelDSL(readDeclaredModel(fullModel()));
+  if (fs.readFileSync(dslPath, "utf8") !== expected) {
+    failures.push("the DSL differs from the writer's output for the checked model");
+  }
+  return failures;
+}
+
+/**
+ * `polly visualize generate --model`, as a user runs it: a cold directory
+ * holding only a model file, through the top-level CLI. The DSL must be
+ * exactly what the writer makes of the checked model, and Structurizr must
+ * accept it. Returns the failures.
+ */
+async function runDeclaredModelCase(ctx: TierContext): Promise<number> {
+  ctx.log("\nDeclared model (generate --model):");
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-viz-model-"));
+  const fixture = path.join(
+    PACKAGE_DIR,
+    "tools",
+    "visualize",
+    "src",
+    "__tests__",
+    "declared-model.fixture.ts"
+  );
+  fs.writeFileSync(
+    path.join(tmpRoot, "model.ts"),
+    `import { fullModel } from ${JSON.stringify(fixture)};\nexport default async () => fullModel();\n`
+  );
+  const proc = Bun.spawn(["bun", POLLY_CLI, "visualize", "generate", "--model", "model.ts"], {
+    cwd: tmpRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...process.env },
+  });
+  const [exitCode, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
+  const dslPath = path.join(tmpRoot, "docs", "architecture.dsl");
+  const failures = declaredModelFailures(exitCode, stderr, dslPath);
+  let validated = "";
+  if (failures.length === 0 && (await dockerAvailable())) {
+    const verdict = await structurizrValidate(dslPath);
+    validated = verdict.ok ? " [validated]" : " [validate ✗]";
+    if (!verdict.ok) failures.push(`structurizr validate: ${verdict.output}`);
+  }
+  ctx.log(`  ▸ ${pad("full model", 26)} ${failures.length === 0 ? "PASS" : "FAIL"}${validated}`);
+  for (const f of failures) ctx.log(`    - ${f}`);
+  if (failures.length === 0) {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  } else {
+    ctx.log(`    tmp:    ${tmpRoot}`);
+  }
+  return failures.length === 0 ? 0 : 1;
+}
+
 // No try/catch wrapper: an unexpected throw is caught by the engine worker (and
 // by selfRun when standalone), both reporting it as a failure. Keeping the body
 // flat also stays under the cognitive-complexity ceiling.
@@ -957,13 +1057,17 @@ export async function run(ctx: TierContext): Promise<TierResult> {
   }
 
   const failedPaths =
-    (await runFailureCases(ctx)) + (await runColorCases(ctx)) + (await runCleanupCases(ctx));
+    (await runFailureCases(ctx)) +
+    (await runColorCases(ctx)) +
+    (await runCleanupCases(ctx)) +
+    (await runDeclaredModelCase(ctx));
 
   const failed =
     results.filter((r) => r.outcome !== "passed").length +
     failedPaths +
     (coverageFailures.length > 0 ? 1 : 0);
-  const total = results.length + failureCases.length + colorCases.length + cleanupCases.length + 1;
+  // The trailing 2: the coverage guard and the declared-model case.
+  const total = results.length + failureCases.length + colorCases.length + cleanupCases.length + 2;
   ctx.log("");
   if (failed > 0) {
     ctx.log(`${failed}/${total} failed`);

@@ -17,6 +17,8 @@ import {
   MeshSnapshotError,
   type OverlaySnapshot,
 } from "./mesh-snapshot";
+import { declaredModelDSL } from "./model/dsl";
+import { loadDeclaredModel } from "./model/load";
 import { exportDiagrams } from "./runner/export";
 
 const COLORS = {
@@ -103,11 +105,19 @@ async function main() {
 }
 
 async function generateCommand(args: string[]) {
+  const { snapshotPath, modelPath } = parseGenerateArgs(args);
+  if (modelPath !== undefined) {
+    if (snapshotPath !== undefined) {
+      fail("--model and --snapshot cannot be combined: a snapshot overlays an analysed model");
+    }
+    await generateFromDeclaredModel(modelPath);
+    return;
+  }
+
   console.log(color("\n📊 Analyzing architecture...\n", COLORS.blue));
 
   let dslPath: string;
   try {
-    const { snapshotPath } = parseGenerateArgs(args);
     const snapshot = snapshotPath ? loadAndReportSnapshot(snapshotPath) : undefined;
     // Only the snapshot overlay derives mesh document ids, so only it loads
     // the optional peers that derivation needs; before analysis, to fail fast.
@@ -126,21 +136,55 @@ async function generateCommand(args: string[]) {
   displayNextSteps(dslPath);
 }
 
+/**
+ * Write the DSL of the model a `--model` file declares. No source is
+ * analysed: the model is the whole input, and any problem in it stops the
+ * run before a file is written.
+ */
+async function generateFromDeclaredModel(modelPath: string): Promise<void> {
+  console.log(color(`\n📐 Reading the declared model in ${modelPath}...\n`, COLORS.blue));
+  let dslPath: string;
+  try {
+    const model = await loadDeclaredModel(modelPath);
+    console.log(
+      color(
+        `✓ ${model.people.length} person(s), ${model.systems.length} system(s), ${model.relationships.length} relationship(s), ${model.views.length} view(s)`,
+        COLORS.green
+      )
+    );
+    dslPath = writeDSL(declaredModelDSL(model));
+  } catch (error) {
+    fail(`Declared model refused: ${errorMessage(error)}`);
+  }
+  displayNextSteps(dslPath);
+}
+
 /** Parse the options `polly visualize generate` accepts. */
-function parseGenerateArgs(args: string[]): { snapshotPath?: string } {
-  const result: { snapshotPath?: string } = {};
+function parseGenerateArgs(args: string[]): { snapshotPath?: string; modelPath?: string } {
+  const result: { snapshotPath?: string; modelPath?: string } = {};
+  const flagValue = (flag: string, index: number): string => {
+    const next = args[index + 1];
+    if (!next || next.startsWith("--")) {
+      fail(`${flag} requires a file path`);
+    }
+    return next;
+  };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--snapshot") {
-      const next = args[i + 1];
-      if (!next || next.startsWith("--")) {
-        fail("--snapshot requires a file path");
-      }
-      result.snapshotPath = next;
+      result.snapshotPath = flagValue(arg, i);
       i++;
     } else if (arg?.startsWith("--snapshot=")) {
       result.snapshotPath = arg.slice("--snapshot=".length);
+    } else if (arg === "--model") {
+      result.modelPath = flagValue(arg, i);
+      i++;
+    } else if (arg?.startsWith("--model=")) {
+      result.modelPath = arg.slice("--model=".length);
+      if (result.modelPath === "") fail("--model requires a file path");
+    } else {
+      fail(`Unknown option for generate: ${arg}`);
     }
   }
 
@@ -429,14 +473,15 @@ function generateAndWriteDSL(
     resolveDocumentId,
   });
 
-  const outputDir = path.join(process.cwd(), "docs");
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
+  return writeDSL(dsl);
+}
 
+/** Write the DSL to docs/architecture.dsl under the working directory, where export reads it. */
+function writeDSL(dsl: string): string {
+  const outputDir = path.join(process.cwd(), "docs");
+  fs.mkdirSync(outputDir, { recursive: true });
   const dslPath = path.join(outputDir, "architecture.dsl");
   fs.writeFileSync(dslPath, dsl, "utf-8");
-
   return dslPath;
 }
 
@@ -592,7 +637,9 @@ ${color("Supports:", COLORS.blue)}
   • PWAs (public/manifest.json)
   • WebSocket/Server Apps (ws, socket.io, elysia)
   • Electron Apps
-  • Generic TypeScript Projects
+  • Generic TypeScript Projects, declared in package.json as
+    "polly": { "type": "generic" }
+  • Any architecture, declared as a C4 model (--model)
 
 ${color("Commands:", COLORS.blue)}
 
@@ -603,6 +650,13 @@ ${color("Commands:", COLORS.blue)}
   ${color("polly visualize generate --snapshot <path>", COLORS.green)}
     Overlay a captured MeshClientPeerStateSnapshot — runtime mesh peers
     and sync-state-coloured replication edges — onto the diagram
+
+  ${color("polly visualize generate --model <file.ts>", COLORS.green)}
+    Write the C4 model the file declares, with no source analysis. The file
+    default-exports a function that returns a DeclaredModel (people, systems,
+    containers, components, relationships, deployments, views, styles).
+    Every problem in the model is reported and no DSL is written.
+    Cannot be combined with --snapshot.
 
   ${color("polly visualize --export", COLORS.green)}
     Generate static HTML site with interactive diagrams (requires Docker)
