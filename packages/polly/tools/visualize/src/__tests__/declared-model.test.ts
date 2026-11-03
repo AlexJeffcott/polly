@@ -229,6 +229,10 @@ describe("declaredModelDSL", () => {
     );
   });
 
+  test("tells the viewer to keep the views in the order the model declares", () => {
+    expect(dsl).toContain('    properties {\n      "structurizr.sort" "created"\n    }');
+  });
+
   test("writes only the styles the model declares", () => {
     expect(dsl).toContain('      element "External" {');
     expect(dsl).toContain("        border Dashed");

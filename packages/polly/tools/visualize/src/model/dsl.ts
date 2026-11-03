@@ -154,6 +154,10 @@ export function declaredModelDSL(model: DeclaredModel): string {
     "  }",
     "",
     "  views {",
+    // The viewer lists the views, and opens the first, in the order the model declares them.
+    "    properties {",
+    '      "structurizr.sort" "created"',
+    "    }",
     ...model.views.flatMap(viewLines),
     ...(styles.length === 0 ? [] : ["    styles {", ...styles, "    }"]),
     "  }",
