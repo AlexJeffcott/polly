@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`polly visualize generate --model <file.ts> --fragment <dir>`** also
+  writes `<dir>/model.dsl` and `<dir>/views.dsl`: the declared model as a
+  fragment of another workspace that uses hierarchical identifiers. A
+  person, system or container may carry a `ref`, its identifier in that
+  workspace (`ss-next`, `c-webui`). The fragment refers to every element by
+  path (`ss-next.c-webui`, `parts.shell.bus`) and leaves out each element
+  with a ref, each relationship between two of them and each view of one;
+  the run lists what it leaves out. The full workspace declares an element
+  with a ref like any other. A system with a ref needs a ref on each
+  container, a container with a ref holds no components, and a dynamic step
+  between two elements with a ref is refused. `declaredModelFragment` is
+  exported from `@fairfox/polly/visualize`.
+
 - **Element, relationship and deployment-node `properties` in a declared
   model.** Each is a `Record<string, string>` written as a DSL `properties`
   block, which the Structurizr viewer shows only in the tooltip. A box or an
