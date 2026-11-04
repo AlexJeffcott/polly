@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.100.0] - 2026-11-04
+
+### Added
+
+- **Element, relationship and deployment-node `properties` in a declared
+  model.** Each is a `Record<string, string>` written as a DSL `properties`
+  block, which the Structurizr viewer shows only in the tooltip. A box or an
+  arrow can hold a short label and keep its detail one hover away. An empty
+  key or value is an error.
+- **The exported site opens every tooltip in a fixed details column.**
+  `polly visualize export` adds one style to `docs/site/index.html`: a 400 px
+  column at the right holds the tooltip, and the diagram fits to the left of
+  it. Before, the tooltip opened at the pointer and covered the boxes beside
+  it. An exported `index.html` with no `</head>` stops the export.
+
+### Changed
+
+- **The viewer keeps views in the order a declared model lists them.** The
+  DSL sets `structurizr.sort` to `created`, so the first declared view is the
+  page that opens. Before, Structurizr sorted views by type and opened on the
+  system context view. The DSL also sets `structurizr.tooltips` to `true`, so
+  tooltips are on when the page loads.
+
 ## [0.99.0] - 2026-11-03
 
 ### Added
