@@ -13,8 +13,17 @@ export type ElementId = string;
 /** Key-value rows the viewer shows in an element's or relationship's tooltip, not on the diagram. */
 export type Properties = Record<string, string>;
 
+/**
+ * The identifier of an element that another workspace owns, in that workspace:
+ * `ss-next` for a system, `c-webui` for a container of it. A fragment refers to
+ * such an element by its path (`ss-next.c-webui`) and does not declare it. The
+ * full workspace declares it like any other element, so a local site shows it.
+ */
+export type ElementRef = string;
+
 export type Person = {
   id: ElementId;
+  ref?: ElementRef;
   name: string;
   description?: string;
   tags?: string[];
@@ -32,6 +41,7 @@ export type Component = {
 
 export type Container = {
   id: ElementId;
+  ref?: ElementRef;
   name: string;
   description?: string;
   technology?: string;
@@ -42,6 +52,7 @@ export type Container = {
 
 export type SoftwareSystem = {
   id: ElementId;
+  ref?: ElementRef;
   name: string;
   description?: string;
   tags?: string[];

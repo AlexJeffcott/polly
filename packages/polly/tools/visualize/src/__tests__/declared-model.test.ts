@@ -10,9 +10,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { DeclaredModelError, readDeclaredModel } from "../model/check";
-import { declaredModelDSL } from "../model/dsl";
+import { declaredModelDSL, declaredModelFragment } from "../model/dsl";
 import type { DeclaredModel } from "../model/types";
-import { fullModel } from "./declared-model.fixture";
+import { fullModel, hostedModel } from "./declared-model.fixture";
 
 /** The problems readDeclaredModel reports for `value`; none where it accepts it. */
 function problemsOf(value: unknown): string[] {
@@ -61,7 +61,7 @@ describe("readDeclaredModel", () => {
       views: [{ kind: "systemContext", system: "parts", key: "bad key", layout: "diagonal" }],
     });
     expect(problems).toEqual([
-      "people[0].colour is not a known field; known: id, name, description, tags, properties",
+      "people[0].colour is not a known field; known: id, ref, name, description, tags, properties",
       'people[0].id "1st" must start with a letter and hold only letters, digits and _',
       "relationships must be an array",
       'views[0].key "bad key" must hold only letters, digits, _ and -',
@@ -280,6 +280,110 @@ describe("declaredModelDSL", () => {
   });
 });
 
+describe("refs to elements another workspace owns", () => {
+  test("accepts a ref on a person, a system and its containers", () => {
+    expect(readDeclaredModel(hostedModel())).toEqual(hostedModel());
+  });
+
+  test("refuses a malformed ref, and a system and its containers that disagree on having one", () => {
+    const problems = problemsOf(
+      changed((model) => {
+        const [host, parts] = model.systems;
+        if (host === undefined || parts === undefined) throw new Error("fixture changed");
+        host.ref = "ss host";
+        const [loader] = parts.containers ?? [];
+        if (loader !== undefined) loader.ref = "c-loader";
+      })
+    );
+    expect(problems).toEqual([
+      'systems[0].ref "ss host" must start with a letter and hold only letters, digits, _ and -',
+      "systems[0].containers[0] needs a ref, since its system has one",
+      "systems[0].containers[1] needs a ref, since its system has one",
+      "systems[1].containers[0] has a ref, but its system has none",
+    ]);
+  });
+
+  test("refuses a container with a ref that holds components", () => {
+    const problems = problemsOf(
+      changed((model) => {
+        const parts = model.systems[1];
+        if (parts === undefined) throw new Error("fixture changed");
+        parts.ref = "ss-parts";
+        for (const container of parts.containers ?? []) container.ref = `c-${container.id}`;
+      })
+    );
+    expect(problems).toEqual([
+      "systems[1].containers[1] has a ref and components; another workspace owns what is inside it",
+    ]);
+  });
+
+  test("the workspace declares an element with a ref by its id, like any other", () => {
+    const dsl = declaredModelDSL(readDeclaredModel(hostedModel()));
+    expect(dsl).toContain('    host = softwareSystem "Host app" "" "Host" {');
+    expect(dsl).toContain("    renderer -> page");
+    expect(dsl).not.toContain("ss-host");
+  });
+});
+
+describe("declaredModelFragment", () => {
+  const fragment = declaredModelFragment(readDeclaredModel(hostedModel()));
+
+  test("declares only the elements with no ref", () => {
+    expect(fragment.model).not.toContain('= person "Reader"');
+    expect(fragment.model).not.toContain("Host app");
+    expect(fragment.model).toContain('engineer = person "Engineer" "" "Staff"');
+    expect(fragment.model).toContain('parts = softwareSystem "Parts"');
+  });
+
+  test("refers to every element by its path, and to an owned one by its ref", () => {
+    expect(fragment.model).toContain(
+      'ss-host.c-page -> parts.loader "Imports the loader" "ES module"'
+    );
+    expect(fragment.model).toContain(
+      'parts.loader -> parts.shell.hostHandle "Passes on each config"'
+    );
+    expect(fragment.model).toContain("containerInstance ss-host.c-renderer");
+    expect(fragment.model).toContain("containerInstance parts.store");
+  });
+
+  test("leaves out the relationships and views the other workspace owns, and lists them", () => {
+    expect(fragment.model).not.toContain("Serves the page");
+    expect(fragment.views).not.toContain('"Host"');
+    expect(fragment.views).toContain("dynamic parts.shell");
+    expect(fragment.views).toContain("component parts.shell");
+    expect(fragment.omitted).toEqual([
+      "person reader, owned as person-reader",
+      "system host, owned as ss-host",
+      'relationship reader -> page "Reads pages in"',
+      'relationship renderer -> page "Serves the page"',
+      "view Host, of host",
+    ]);
+  });
+
+  test("writes no workspace, identifier mode, viewer properties or styles", () => {
+    for (const text of [fragment.model, fragment.views]) {
+      expect(text).not.toMatch(/^workspace /m);
+      expect(text).not.toMatch(/^!identifiers/m);
+      expect(text).not.toContain("structurizr.sort");
+      expect(text).not.toContain("styles");
+    }
+  });
+
+  test("refuses a dynamic step between two owned elements", () => {
+    const model = readDeclaredModel(
+      changed((m) => {
+        Object.assign(m, hostedModel());
+        const dynamic = m.views.find((view) => view.kind === "dynamic");
+        if (dynamic?.kind !== "dynamic") throw new Error("fixture changed");
+        dynamic.steps.unshift({ from: "renderer", to: "page", description: "Serves the page" });
+      })
+    );
+    expect(() => declaredModelFragment(model)).toThrow(
+      "steps[0] renderer -> page joins two elements with a ref"
+    );
+  });
+});
+
 describe("polly visualize generate --model, through the CLI", () => {
   const CLI = path.resolve(import.meta.dir, "..", "cli.ts");
   const FIXTURE = path.resolve(import.meta.dir, "declared-model.fixture.ts");
@@ -351,6 +455,37 @@ describe("polly visualize generate --model, through the CLI", () => {
     const run = generate(dir, "--model", "model.ts", "--snapshot", "snapshot.json");
     expect(run.status).toBe(1);
     expect(run.stderr).toContain("--model and --snapshot cannot be combined");
+  });
+
+  test("--fragment also writes the fragment's model.dsl and views.dsl", () => {
+    const dir = project(
+      "fragment",
+      `import { hostedModel } from ${JSON.stringify(FIXTURE)};\nexport default () => hostedModel();\n`
+    );
+    const run = generate(dir, "--model", "model.ts", "--fragment", "out/c4");
+    expect(run.stderr).toBe("");
+    expect(run.status).toBe(0);
+    const fragment = declaredModelFragment(readDeclaredModel(hostedModel()));
+    expect(fs.readFileSync(path.join(dir, "out/c4/model.dsl"), "utf8")).toBe(fragment.model);
+    expect(fs.readFileSync(path.join(dir, "out/c4/views.dsl"), "utf8")).toBe(fragment.views);
+    expect(fs.existsSync(dslIn(dir))).toBe(true);
+  });
+
+  test("refuses a fragment it cannot make, and writes neither the DSL nor the fragment", () => {
+    const dir = project(
+      "bad-fragment",
+      `import { fullModel } from ${JSON.stringify(FIXTURE)};\nexport default () => { const m = fullModel(); m.systems[0].ref = "ss-host"; for (const c of m.systems[0].containers) c.ref = "c-" + c.id; return m; };\n`
+    );
+    const run = generate(dir, "--model", "model.ts", "--fragment", "out");
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("renderer -> page joins two elements with a ref");
+    expect(fs.existsSync(dslIn(dir))).toBe(false);
+    expect(fs.existsSync(path.join(dir, "out"))).toBe(false);
+  });
+
+  test("refuses --fragment without --model", () => {
+    const dir = project("fragment-alone", "");
+    expect(generate(dir, "--fragment", "out").stderr).toContain("--fragment needs --model");
   });
 
   test("refuses --model with no path, and an unknown option", () => {

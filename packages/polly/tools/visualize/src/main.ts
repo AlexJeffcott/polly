@@ -17,7 +17,7 @@ import {
   MeshSnapshotError,
   type OverlaySnapshot,
 } from "./mesh-snapshot";
-import { declaredModelDSL } from "./model/dsl";
+import { declaredModelDSL, declaredModelFragment } from "./model/dsl";
 import { loadDeclaredModel } from "./model/load";
 import { exportDiagrams } from "./runner/export";
 
@@ -105,12 +105,15 @@ async function main() {
 }
 
 async function generateCommand(args: string[]) {
-  const { snapshotPath, modelPath } = parseGenerateArgs(args);
+  const { snapshotPath, modelPath, fragmentDir } = parseGenerateArgs(args);
+  if (fragmentDir !== undefined && modelPath === undefined) {
+    fail("--fragment needs --model: only a declared model can name what another workspace owns");
+  }
   if (modelPath !== undefined) {
     if (snapshotPath !== undefined) {
       fail("--model and --snapshot cannot be combined: a snapshot overlays an analysed model");
     }
-    await generateFromDeclaredModel(modelPath);
+    await generateFromDeclaredModel(modelPath, fragmentDir);
     return;
   }
 
@@ -141,7 +144,10 @@ async function generateCommand(args: string[]) {
  * analysed: the model is the whole input, and any problem in it stops the
  * run before a file is written.
  */
-async function generateFromDeclaredModel(modelPath: string): Promise<void> {
+async function generateFromDeclaredModel(
+  modelPath: string,
+  fragmentDir: string | undefined
+): Promise<void> {
   console.log(color(`\n📐 Reading the declared model in ${modelPath}...\n`, COLORS.blue));
   let dslPath: string;
   try {
@@ -152,42 +158,57 @@ async function generateFromDeclaredModel(modelPath: string): Promise<void> {
         COLORS.green
       )
     );
+    // The fragment is made before any file is written, so a refused fragment leaves no DSL.
+    const fragment = fragmentDir === undefined ? undefined : declaredModelFragment(model);
     dslPath = writeDSL(declaredModelDSL(model));
+    if (fragmentDir !== undefined && fragment !== undefined) {
+      fs.mkdirSync(fragmentDir, { recursive: true });
+      fs.writeFileSync(path.join(fragmentDir, "model.dsl"), fragment.model, "utf-8");
+      fs.writeFileSync(path.join(fragmentDir, "views.dsl"), fragment.views, "utf-8");
+      console.log(color(`✓ Fragment: ${fragmentDir}/model.dsl and views.dsl`, COLORS.green));
+      for (const line of fragment.omitted) {
+        console.log(color(`   left to the other workspace: ${line}`, COLORS.gray));
+      }
+    }
   } catch (error) {
     fail(`Declared model refused: ${errorMessage(error)}`);
   }
   displayNextSteps(dslPath);
 }
 
-/** Parse the options `polly visualize generate` accepts. */
-function parseGenerateArgs(args: string[]): { snapshotPath?: string; modelPath?: string } {
-  const result: { snapshotPath?: string; modelPath?: string } = {};
-  const flagValue = (flag: string, index: number): string => {
-    const next = args[index + 1];
-    if (!next || next.startsWith("--")) {
+/** The options `polly visualize generate` accepts, each taking one path. */
+const GENERATE_FLAGS = {
+  "--snapshot": "snapshotPath",
+  "--model": "modelPath",
+  "--fragment": "fragmentDir",
+} as const;
+
+type GenerateArgs = Partial<Record<(typeof GENERATE_FLAGS)[keyof typeof GENERATE_FLAGS], string>>;
+
+function isGenerateFlag(flag: string): flag is keyof typeof GENERATE_FLAGS {
+  return Object.hasOwn(GENERATE_FLAGS, flag);
+}
+
+/** Parse the options `polly visualize generate` accepts: `--flag <path>` or `--flag=<path>`. */
+function parseGenerateArgs(args: string[]): GenerateArgs {
+  const result: GenerateArgs = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    const equals = arg.indexOf("=");
+    const flag = equals === -1 ? arg : arg.slice(0, equals);
+    if (!isGenerateFlag(flag)) fail(`Unknown option for generate: ${arg}`);
+    let value: string | undefined;
+    if (equals === -1) {
+      value = args[i + 1];
+      i++;
+    } else {
+      value = arg.slice(equals + 1);
+    }
+    if (value === undefined || value === "" || value.startsWith("--")) {
       fail(`${flag} requires a file path`);
     }
-    return next;
-  };
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === "--snapshot") {
-      result.snapshotPath = flagValue(arg, i);
-      i++;
-    } else if (arg?.startsWith("--snapshot=")) {
-      result.snapshotPath = arg.slice("--snapshot=".length);
-    } else if (arg === "--model") {
-      result.modelPath = flagValue(arg, i);
-      i++;
-    } else if (arg?.startsWith("--model=")) {
-      result.modelPath = arg.slice("--model=".length);
-      if (result.modelPath === "") fail("--model requires a file path");
-    } else {
-      fail(`Unknown option for generate: ${arg}`);
-    }
+    result[GENERATE_FLAGS[flag]] = value;
   }
-
   return result;
 }
 
@@ -650,6 +671,12 @@ ${color("Commands:", COLORS.blue)}
     containers, components, relationships, deployments, views, styles).
     Every problem in the model is reported and no DSL is written.
     Cannot be combined with --snapshot.
+
+  ${color("polly visualize generate --model <file.ts> --fragment <dir>", COLORS.green)}
+    Also write <dir>/model.dsl and <dir>/views.dsl, for a workspace with
+    hierarchical identifiers that owns each element the model gives a ref.
+    The fragment refers to those elements by path and leaves out their
+    declarations, the relationships between them, and the views of them.
 
   ${color("polly visualize --export", COLORS.green)}
     Generate static HTML site with interactive diagrams (requires Docker)

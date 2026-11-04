@@ -9,9 +9,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { readDeclaredModel } from "../model/check";
-import { declaredModelDSL } from "../model/dsl";
+import { declaredModelDSL, declaredModelFragment } from "../model/dsl";
 import { STRUCTURIZR_IMAGE as IMAGE } from "../runner/export";
-import { fullModel } from "./declared-model.fixture";
+import { fullModel, HOST_WORKSPACE, hostedModel } from "./declared-model.fixture";
 
 function dockerAvailable(): boolean {
   if (process.env["SKIP_DOCKER"] === "1") return false;
@@ -25,29 +25,32 @@ function dockerAvailable(): boolean {
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "polly-declared-docker-"));
 afterAll(() => fs.rmSync(workDir, { recursive: true, force: true }));
 
+/** Structurizr's ERROR lines for the workspace at `file` under workDir; it exits 0 even with errors. */
+function structurizrErrors(file: string): { errors: string[]; status: number | null } {
+  const run = spawnSync(
+    "docker",
+    ["run", "--rm", "-v", `${workDir}:/work`, IMAGE, "validate", "-workspace", `/work/${file}`],
+    { encoding: "utf8", timeout: 120_000 }
+  );
+  const output = `${run.stdout}${run.stderr}`;
+  return { errors: output.split("\n").filter((line) => / ERROR /.test(line)), status: run.status };
+}
+
 describe.skipIf(!dockerAvailable())("Structurizr accepts the DSL of a declared model", () => {
   test("the full model validates with no error", () => {
     fs.writeFileSync(
       path.join(workDir, "declared.dsl"),
       declaredModelDSL(readDeclaredModel(fullModel()))
     );
-    const run = spawnSync(
-      "docker",
-      [
-        "run",
-        "--rm",
-        "-v",
-        `${workDir}:/work`,
-        IMAGE,
-        "validate",
-        "-workspace",
-        "/work/declared.dsl",
-      ],
-      { encoding: "utf8", timeout: 120_000 }
-    );
-    const output = `${run.stdout}${run.stderr}`;
-    // Structurizr exits 0 even when it reports errors, so its ERROR lines are the verdict.
-    expect(output.split("\n").filter((line) => / ERROR /.test(line))).toEqual([]);
-    expect(run.status).toBe(0);
+    expect(structurizrErrors("declared.dsl")).toEqual({ errors: [], status: 0 });
+  }, 180_000);
+
+  test("a workspace that owns the hosted model's refs validates with its fragment included", () => {
+    const fragment = declaredModelFragment(readDeclaredModel(hostedModel()));
+    fs.mkdirSync(path.join(workDir, "fragment"), { recursive: true });
+    fs.writeFileSync(path.join(workDir, "fragment", "model.dsl"), fragment.model);
+    fs.writeFileSync(path.join(workDir, "fragment", "views.dsl"), fragment.views);
+    fs.writeFileSync(path.join(workDir, "host.dsl"), HOST_WORKSPACE);
+    expect(structurizrErrors("host.dsl")).toEqual({ errors: [], status: 0 });
   }, 180_000);
 });

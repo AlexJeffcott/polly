@@ -34,6 +34,8 @@ export class DeclaredModelError extends Error {
 }
 
 const ID = /^[A-Za-z][A-Za-z0-9_]*$/;
+/** An identifier in another workspace, where hierarchical identifiers such as `ss-next` hold hyphens. */
+const REF = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const VIEW_KEY = /^[A-Za-z0-9_-]+$/;
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
 const LAYOUTS: readonly Layout[] = ["lr", "rl", "tb", "bt"];
@@ -99,6 +101,18 @@ class Reader {
       this.problem(`${where} "${id}" must start with a letter and hold only letters, digits and _`);
     }
     return id;
+  }
+
+  /** An optional identifier in another workspace; absent stays absent. */
+  ref(value: unknown, where: string): string | undefined {
+    if (value === undefined) return undefined;
+    const ref = this.text(value, where);
+    if (ref !== "" && !REF.test(ref)) {
+      this.problem(
+        `${where} "${ref}" must start with a letter and hold only letters, digits, _ and -`
+      );
+    }
+    return ref;
   }
 
   /** Optional tags; a tag holds no comma, since the DSL joins tags with commas. */
@@ -194,9 +208,10 @@ class Reader {
 
 function readPerson(r: Reader, value: unknown, where: string): Person {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["id", "name", "description", "tags", "properties"], where);
+  r.onlyKeys(raw, ["id", "ref", "name", "description", "tags", "properties"], where);
   return {
     id: r.id(raw["id"], `${where}.id`),
+    ...opt("ref", r.ref(raw["ref"], `${where}.ref`)),
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),
@@ -221,14 +236,19 @@ function readContainer(r: Reader, value: unknown, where: string): Container {
   const raw = r.record(value, where);
   r.onlyKeys(
     raw,
-    ["id", "name", "description", "technology", "tags", "components", "properties"],
+    ["id", "ref", "name", "description", "technology", "tags", "components", "properties"],
     where
   );
   const components = r
     .optionalList(raw["components"], `${where}.components`)
     ?.map((c, i) => readComponent(r, c, `${where}.components[${i}]`));
+  const ref = r.ref(raw["ref"], `${where}.ref`);
+  if (ref !== undefined && components !== undefined) {
+    r.problem(`${where} has a ref and components; another workspace owns what is inside it`);
+  }
   return {
     id: r.id(raw["id"], `${where}.id`),
+    ...opt("ref", ref),
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("technology", r.optionalText(raw["technology"], `${where}.technology`)),
@@ -240,12 +260,24 @@ function readContainer(r: Reader, value: unknown, where: string): Container {
 
 function readSystem(r: Reader, value: unknown, where: string): SoftwareSystem {
   const raw = r.record(value, where);
-  r.onlyKeys(raw, ["id", "name", "description", "tags", "containers", "properties"], where);
+  r.onlyKeys(raw, ["id", "ref", "name", "description", "tags", "containers", "properties"], where);
   const containers = r
     .optionalList(raw["containers"], `${where}.containers`)
     ?.map((c, i) => readContainer(r, c, `${where}.containers[${i}]`));
+  const ref = r.ref(raw["ref"], `${where}.ref`);
+  // A fragment declares no element inside a system another workspace owns, and
+  // a container of one of our systems has no identifier in another workspace.
+  (containers ?? []).forEach((container, i) => {
+    if (ref !== undefined && container.ref === undefined) {
+      r.problem(`${where}.containers[${i}] needs a ref, since its system has one`);
+    }
+    if (ref === undefined && container.ref !== undefined) {
+      r.problem(`${where}.containers[${i}] has a ref, but its system has none`);
+    }
+  });
   return {
     id: r.id(raw["id"], `${where}.id`),
+    ...opt("ref", ref),
     name: r.text(raw["name"], `${where}.name`),
     ...opt("description", r.optionalText(raw["description"], `${where}.description`)),
     ...opt("tags", r.tags(raw["tags"], `${where}.tags`)),

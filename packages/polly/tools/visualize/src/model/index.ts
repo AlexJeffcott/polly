@@ -2,5 +2,5 @@
 // checker and its DSL writer. A `--model` file imports its types from here.
 
 export { DeclaredModelError, readDeclaredModel } from "./check";
-export { declaredModelDSL } from "./dsl";
+export { type DeclaredModelFragment, declaredModelDSL, declaredModelFragment } from "./dsl";
 export type * from "./types";

@@ -130,3 +130,43 @@ export function fullModel(): DeclaredModel {
     },
   };
 }
+
+/**
+ * The full model where another workspace owns the reader and the host: each
+ * has a ref, and the dynamic view has no step between two of them, so the
+ * model also makes a fragment.
+ */
+export function hostedModel(): DeclaredModel {
+  const model = fullModel();
+  const [reader] = model.people;
+  const [host] = model.systems;
+  if (reader === undefined || host === undefined) throw new Error("the full model has changed");
+  reader.ref = "person-reader";
+  host.ref = "ss-host";
+  for (const container of host.containers ?? []) container.ref = `c-${container.id}`;
+  for (const view of model.views) {
+    if (view.kind === "dynamic") view.steps = view.steps.filter((step) => step.from !== "renderer");
+  }
+  model.views.unshift({ kind: "container", system: "host", key: "Host", layout: "lr" });
+  return model;
+}
+
+/**
+ * A workspace that owns what hostedModel gives a ref, and includes the
+ * fragment of that model, as the workspace the fragment joins would.
+ */
+export const HOST_WORKSPACE = `workspace "Host" {
+  !identifiers hierarchical
+  model {
+    person-reader = person "Reader"
+    ss-host = softwareSystem "Host app" {
+      c-renderer = container "Page renderer"
+      c-page = container "Page"
+    }
+    !include fragment/model.dsl
+  }
+  views {
+    !include fragment/views.dsl
+  }
+}
+`;
