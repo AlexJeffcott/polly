@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { mintContainerName } from "../../../verify/src/runner/container-name";
 import { removeContainer } from "../../../verify/src/runner/docker";
+import { withDetailsPanel } from "./details-panel";
 
 export interface ExportOptions {
   /** DSL file path */
@@ -143,6 +144,9 @@ export class DiagramExporter {
     ];
 
     await this.runDocker(args, timeout, containerName);
+
+    const indexPath = path.join(outputDir, "index.html");
+    fs.writeFileSync(indexPath, withDetailsPanel(fs.readFileSync(indexPath, "utf-8")));
   }
 
   /**
